@@ -10,7 +10,7 @@ from predicators.src.predicate_search_score_functions import \
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LowLevelTrajectory, \
     OptionSpec, PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, \
-    Task, _GroundNSRT, ParameterizedOption
+    Task, _GroundNSRT, ParameterizedOption, Variable
 
 
 class SidePredicateLearner(abc.ABC):
@@ -354,9 +354,22 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
                     obj_to_var = {o: v for v, o in var_to_obj.items()}
                     missing_effects = current_add_effects - \
                         pnad_ground_add_effects
+                    # Unclear if the below is necessary in general, maybe.
+                    # Check if we need to introduce new parameters.
+                    # all_objects = {o for a in missing_effects
+                    #                for o in a.objects}
+                    # unbound_objects = all_objects - set(obj_to_var)
+                    # new_var_idx = 0
+                    # for v in var_to_obj:
+                    #     assert v.name.startswith("?x")
+                    #     new_var_idx = max(new_var_idx, int(v.name[2:])+1)
+                    # for obj in sorted(unbound_objects):
+                    #     new_var = Variable(f"?x{new_var_idx}", obj.type)
+                    #     new_var_idx += 1
+                    #     obj_to_var[obj] = new_var
+                    #     var_to_obj[new_var] = obj
                     new_add_effects = {a.lift(obj_to_var)
                                        for a in missing_effects}
-                    # TODO: when and how should we remove side effects?
                     param_option_to_spec_and_effects[option.parent]["add"] |= \
                         new_add_effects
                     # Update the PNAD based on the new effects.
@@ -368,10 +381,12 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
                                       if p.option_spec[0] == option.parent]
                     assert len(matching_pnads) == 1
                     pnad = matching_pnads[0]
+                    pnad_ground_add_effects = {a.ground(var_to_obj)
+                                               for a in pnad.op.add_effects}
                 # Update the current image based on the PNAD preconditions.
                 pnad_ground_preconditions = {a.ground(var_to_obj)
                                              for a in pnad.op.preconditions}
-                current_image -= current_add_effects
+                current_image -= pnad_ground_add_effects
                 current_image |= pnad_ground_preconditions
         return current_pnads
 
