@@ -2,11 +2,11 @@
 
 ## Repository Description
 
-This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers.
+This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers. 
 
 ### Code Structure
 
-In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core NSRT learning algorithm happens in `src/nsrt_learning/nsrt_learning_main.py`, which has the following steps:
+In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core [NSRT learning algorithm](https://arxiv.org/abs/2105.14074) happens in `src/nsrt_learning/nsrt_learning_main.py`, which has the following steps:
 * Segment data based on changes in predicates.
 * Learn how many NSRTs we need, along with the symbolic operator components of each (parameters, preconditions, and effects).
 * Learn options and annotate data with them.
