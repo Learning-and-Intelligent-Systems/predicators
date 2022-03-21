@@ -4,7 +4,7 @@
 
 This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*. Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.**
 
-Initially, this codebase provided a concrete implementation of Neuro-Symbolic Relational Transition Models (NSRTs), as described in [this paper](https://arxiv.org/abs/2105.14074). Now, the scope extends beyond that paper's. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers.
+Initially, this codebase provided a concrete implementation of Neuro-Symbolic Relational Transition Models (NSRTs), as described in [this paper](https://arxiv.org/abs/2203.09634) and [this paper](https://arxiv.org/abs/2105.14074). Now, the scope extends beyond that paper's. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers.
 
 ### Code Structure
 
