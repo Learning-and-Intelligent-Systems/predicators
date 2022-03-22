@@ -1,12 +1,13 @@
 #!/bin/bash
 
 START_SEED=456
-NUM_SEEDS=1000
+NUM_SEEDS=50
 FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # repeated_nextto
-    python $FILE --experiment_id rnt_no_sidepreds --env repeated_nextto --approach nsrt_learning --side_predicate_learner backchaining --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id rnt_backchain --env repeated_nextto --approach nsrt_learning --side_predicate_learner backchaining --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id rnt_backchain --env repeated_nextto --approach nsrt_learning --side_predicate_learner intersection --seed $SEED --num_train_tasks 50
 
     # python $FILE --experiment_id rnt_oracle --env repeated_nextto --approach oracle --seed $SEED --num_train_tasks 0
     # python $FILE --experiment_id rnt_no_sidepreds --env repeated_nextto --approach nsrt_learning --side_predicate_learner no_learning --seed $SEED --num_train_tasks 50
