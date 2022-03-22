@@ -11,6 +11,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LowLevelTrajectory, \
     OptionSpec, PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, \
     Task, _GroundNSRT, ParameterizedOption, Variable
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 
 
 class SidePredicateLearner(abc.ABC):
@@ -282,7 +283,76 @@ class PreserveSkeletonsHillClimbingSidePredicateLearner(
         return _check_goal(state_seq[-1])
 
 
-class BackchainingSidePredicateLearner(SidePredicateLearner):
+class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
+    def _induce_pnads_from_spec_and_effects(self,
+        option_spec_effects_dict: Dict[ParameterizedOption, Dict[str, Any]]
+        ) -> List[PartialNSRTAndDatastore]:
+        # This is quite hacky and should be refactored.
+        # First, set up PNADs where all of the preconditions are True.
+        pnads = []
+        for param_option, spec_and_effects in option_spec_effects_dict.items():
+            name = f"{param_option.name}LearnedOp"
+            parameter_set = set(spec_and_effects["option_vars"])
+            for atom in spec_and_effects["add"] | spec_and_effects["delete"]:
+                parameter_set.update(atom.variables)
+            parameters = sorted(parameter_set)
+            op = STRIPSOperator(
+                name,
+                parameters,
+                set(),  # preconditions always True
+                spec_and_effects["add"],
+                spec_and_effects["delete"],
+                spec_and_effects["side"])
+            option_spec = (param_option, spec_and_effects["option_vars"])
+            datastore = []  # will get filled in later
+            pnad = PartialNSRTAndDatastore(op, datastore, option_spec)
+            pnads.append(pnad)
+        # Sort the data into the PNADs.
+        self._recompute_datastores_from_segments(pnads)
+        # Update the preconditions based on the sorted data.
+        # Also: remove any side predicates that are no longer needed.
+        # TODO: this is copy and pasted fom strips_learning.py. Refactor.
+        for pnad in pnads:
+            new_side_predicates = set()
+            for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+                objects = set(var_to_obj.values())
+                obj_to_var = {o: v for v, o in var_to_obj.items()}
+                atoms = {
+                    atom
+                    for atom in segment.init_atoms
+                    if all(o in objects for o in atom.objects)
+                }
+                lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
+                if i == 0:
+                    variables = sorted(set(var_to_obj.keys()))
+                else:
+                    assert variables == sorted(set(var_to_obj.keys()))
+                if i == 0:
+                    preconditions = lifted_atoms
+                else:
+                    preconditions &= lifted_atoms
+                assert len(set(var_to_obj.values())) == len(var_to_obj)
+                # Update the side predicates.
+                pnad_ground_add_effects = {a.ground(var_to_obj)
+                                           for a in pnad.op.add_effects}
+                pnad_ground_delete_effects = {a.ground(var_to_obj)
+                                              for a in pnad.op.delete_effects}
+                for atom in segment.add_effects - pnad_ground_add_effects:
+                    new_side_predicates.add(atom.predicate)
+                for atom in segment.delete_effects - pnad_ground_delete_effects:
+                    new_side_predicates.add(atom.predicate)
+            assert new_side_predicates.issubset(pnad.op.side_predicates)
+            pnad.op = STRIPSOperator(
+                pnad.op.name,
+                pnad.op.parameters,
+                preconditions,
+                pnad.op.add_effects,
+                pnad.op.delete_effects,
+                new_side_predicates)
+        return pnads
+
+
+class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
     """Sideline by backchaining, making operators increasingly specific."""
 
     def _sideline(self) -> List[PartialNSRTAndDatastore]:
@@ -391,83 +461,168 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
         return current_pnads
 
 
-    def _induce_pnads_from_spec_and_effects(self,
-        option_spec_effects_dict: Dict[ParameterizedOption, Dict[str, Any]]
-        ) -> List[PartialNSRTAndDatastore]:
-        # This is quite hacky and should be refactored.
-        # First, set up PNADs where all of the preconditions are True.
-        pnads = []
-        for param_option, spec_and_effects in option_spec_effects_dict.items():
-            name = f"{param_option.name}LearnedOp"
-            parameter_set = set(spec_and_effects["option_vars"])
-            for atom in spec_and_effects["add"] | spec_and_effects["delete"]:
-                parameter_set.update(atom.variables)
-            parameters = sorted(parameter_set)
-            op = STRIPSOperator(
-                name,
-                parameters,
-                set(),  # preconditions always True
-                spec_and_effects["add"],
-                spec_and_effects["delete"],
-                spec_and_effects["side"])
-            option_spec = (param_option, spec_and_effects["option_vars"])
-            datastore = []  # will get filled in later
-            pnad = PartialNSRTAndDatastore(op, datastore, option_spec)
-            pnads.append(pnad)
-        # Sort the data into the PNADs.
-        self._recompute_datastores_from_segments(pnads)
-        # Update the preconditions based on the sorted data.
-        # Also: remove any side predicates that are no longer needed.
-        # TODO: this is copy and pasted fom strips_learning.py. Refactor.
-        for pnad in pnads:
-            new_side_predicates = set()
-            for i, (segment, var_to_obj) in enumerate(pnad.datastore):
-                objects = set(var_to_obj.values())
-                obj_to_var = {o: v for v, o in var_to_obj.items()}
-                atoms = {
-                    atom
-                    for atom in segment.init_atoms
-                    if all(o in objects for o in atom.objects)
-                }
-                lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
-                if i == 0:
-                    variables = sorted(set(var_to_obj.keys()))
-                else:
-                    assert variables == sorted(set(var_to_obj.keys()))
-                if i == 0:
-                    preconditions = lifted_atoms
-                else:
-                    preconditions &= lifted_atoms
-                assert len(set(var_to_obj.values())) == len(var_to_obj)
-                # Update the side predicates.
-                pnad_ground_add_effects = {a.ground(var_to_obj)
-                                           for a in pnad.op.add_effects}
-                pnad_ground_delete_effects = {a.ground(var_to_obj)
-                                              for a in pnad.op.delete_effects}
-                for atom in segment.add_effects - pnad_ground_add_effects:
-                    new_side_predicates.add(atom.predicate)
-                for atom in segment.delete_effects - pnad_ground_delete_effects:
-                    new_side_predicates.add(atom.predicate)
-            assert new_side_predicates.issubset(pnad.op.side_predicates)
-            pnad.op = STRIPSOperator(
-                pnad.op.name,
-                pnad.op.parameters,
-                preconditions,
-                pnad.op.add_effects,
-                pnad.op.delete_effects,
-                new_side_predicates)
-        return pnads
-
-
-class IntersectionSidePredicateLearner(SidePredicateLearner):
+class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
     """Sideline by simply (1) clustering all transitions by option and then
     (2) taking the intersection over preconditions and effects."""
     
     def _sideline(self) -> List[PartialNSRTAndDatastore]:
-        # Step 0. Remove all non-goal atoms from the 
-        # final state in every trajectory. This will be leveraged during
-        # Step 2.
-        # Step 1. Cluster all transitions by option
-        # Step 2. Learn effects
-        # Step 3. Learn preconditions
-        pass
+        # Step 0. Remove all non-goal atoms from the final state in every 
+        # segmented trajectory. This will be leveraged during Step 2.
+        # This requires re-assigning self._segmented_trajs (for now)
+        # TODO: Re-assigning self._segmented_trajs is a dirty hack...
+        # Fix to pass in new trajs without the final action or
+        # something like that if/when we actually get serious about this
+        # approach.
+        goal_only_segmented_trajs: List[List[Segment]] = []
+        assert len(self._trajectories) == len(self._segmented_trajs)
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            # TODO: avoid this assumption.
+            assert len(ll_traj.states) == len(atoms_seq)
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            assert traj_goal.issubset(atoms_seq[-1])
+            atoms_seq[-1] = traj_goal
+            seg_traj_only_goal = segment_trajectory((ll_traj, atoms_seq))
+            goal_only_segmented_trajs.append(seg_traj_only_goal)
+        self._segmented_trajs = goal_only_segmented_trajs
+                
+        # Step 1. Cluster all transitions by option. To do this, we 
+        # create operators whose precondition is just 'True' and all
+        # possible effects are sidelined. We can then leverage the
+        # _induce_pnads_from_spec_and_effects method, which will
+        # compute exactly 1 PNAD per option!
+
+        # TODO: This code is literally copied from Tom's Backchaining
+        # implementation above. If/when we actually decide to get
+        # serious about these approaches, be sure to clean this up!
+        param_option_to_spec_and_effects = {}
+        for pnad in self._initial_pnads:
+            param_option, option_vars = pnad.option_spec
+            # Treat all effects in the pnad as side predicates.
+            side_predicates = {a.predicate for a in \
+                               pnad.op.add_effects | pnad.op.delete_effects}
+            # If this is the first pnad with this option spec, init a new one.
+            if param_option not in param_option_to_spec_and_effects:
+                param_option_to_spec_and_effects[param_option] = {
+                    "option_vars": option_vars,
+                    "add": set(),
+                    # TODO: is this the right way to handle delete effects?
+                    # Probably not, because this will never lead to any
+                    # delete effects... Not sure what to do.
+                    "delete": set(),
+                    "side": side_predicates
+                }
+            # Otherwise, update the effects.
+            else:
+                param_option_to_spec_and_effects[param_option]["side"] |= \
+                    side_predicates
+        # Induce the PNADS from the current spec and effects.
+        current_pnads = self._induce_pnads_from_spec_and_effects(
+            param_option_to_spec_and_effects)
+
+        # Step 2. Learn both preconditions and effects via intersection
+        # Learn the preconditions of the operators in the PNADs via intersection.
+        for pnad in current_pnads:
+            new_op_add_effects = set()
+            new_op_delete_effects = set()
+            for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+                objects = set(var_to_obj.values())
+                obj_to_var = {o: v for v, o in var_to_obj.items()}
+                init_atoms = {
+                    atom
+                    for atom in segment.init_atoms
+                    if all(o in objects for o in atom.objects)
+                }
+                lifted_init_atoms = {atom.lift(obj_to_var) for atom in init_atoms}
+                
+                # Code to lift up add effects 
+                curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
+                if len(segment.add_effects) > 0:
+                    missing_add_effects = segment.add_effects - curr_ground_add_effects
+                    all_objects = {o for a in missing_add_effects
+                                for o in a.objects}
+                    unbound_objects = all_objects - set(obj_to_var)
+                    new_var_idx = 0
+                    for v in var_to_obj:
+                        assert v.name.startswith("?x")
+                        new_var_idx = max(new_var_idx, int(v.name[2:])+1)
+                    for obj in sorted(unbound_objects):
+                        new_var = Variable(f"?x{new_var_idx}", obj.type)
+                        new_var_idx += 1
+                        obj_to_var[obj] = new_var
+                        var_to_obj[new_var] = obj
+                    lifted_seg_add_effects = {
+                        atom.lift(obj_to_var)
+                        for atom in segment.add_effects
+                    }
+                else:
+                    # If the add effects are empty, then just set the
+                    # lifted_seg_add_effects to be what the current
+                    # add effects are so our estimate of the current
+                    # add effects doesn't change when we do the intersection.
+                    lifted_seg_add_effects = new_op_add_effects
+
+                # Code to lift up delete effects
+                # TODO: This is the same as the add_effects code above
+                # write a function or otherwise simplify to avoid code duplication!
+                curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
+                if len(segment.delete_effects) > 0:
+                    missing_delete_effects = segment.delete_effects - curr_ground_delete_effects
+                    all_objects = {o for a in missing_delete_effects
+                                for o in a.objects}
+                    unbound_objects = all_objects - set(obj_to_var)
+                    new_var_idx = 0
+                    for v in var_to_obj:
+                        assert v.name.startswith("?x")
+                        new_var_idx = max(new_var_idx, int(v.name[2:])+1)
+                    for obj in sorted(unbound_objects):
+                        new_var = Variable(f"?x{new_var_idx}", obj.type)
+                        new_var_idx += 1
+                        obj_to_var[obj] = new_var
+                        var_to_obj[new_var] = obj
+                    lifted_seg_delete_effects = {
+                        atom.lift(obj_to_var)
+                        for atom in segment.delete_effects
+                    }
+                else:
+                    # If the delete effects are empty, then just set the
+                    # lifted_seg_delete_effects to be what the current
+                    # delete effects are so our estimate of the current
+                    # delete effects doesn't change when we do the
+                    # intersection.
+                    lifted_seg_delete_effects = new_op_delete_effects
+
+                # if i == 0:
+                #     variables = sorted(set(var_to_obj.keys()))
+                # else:
+                #     assert variables == sorted(set(var_to_obj.keys()))
+                
+                if i == 0:
+                    new_op_preconditions = lifted_init_atoms
+                    new_op_add_effects = lifted_seg_add_effects
+                    new_op_delete_effects = lifted_seg_delete_effects
+                else:
+                    new_op_preconditions &= lifted_init_atoms
+                    new_op_add_effects &= lifted_seg_add_effects
+                    new_op_delete_effects &= lifted_seg_delete_effects
+
+                # if len(new_op_add_effects) < 1:
+                #     import ipdb; ipdb.set_trace()
+            
+            # Replace the operator with one that contains the newly learned
+            # preconditions, add effects and delete effects. 
+            # We do this because STRIPSOperator objects are frozen, so 
+            # their fields cannot be modified. We keep all the side predicates
+            # as they were because 
+            # TODO: May need to change parameters depending on what the final
+            # add and delete effects end up being?
+            pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters,
+                                    new_op_preconditions, new_op_add_effects,
+                                    new_op_delete_effects,
+                                    pnad.op.side_predicates)
+        
+        import ipdb; ipdb.set_trace()
+
