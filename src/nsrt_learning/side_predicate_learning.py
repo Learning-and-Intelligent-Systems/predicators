@@ -529,6 +529,8 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             new_op_add_effects = set()
             new_op_delete_effects = set()
             new_op_side_preds: Set[Predicate] = set()
+            curr_ground_add_effects = set()
+            curr_ground_delete_effects = set()
             for i, (segment, var_to_obj) in enumerate(pnad.datastore):
                 objects = set(var_to_obj.values())
                 obj_to_var = {o: v for v, o in var_to_obj.items()}
@@ -540,7 +542,7 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 lifted_init_atoms = {atom.lift(obj_to_var) for atom in init_atoms}
                 
                 # Code to lift up add effects 
-                curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
+                # curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
                 if len(segment.add_effects) > 0:
                     missing_add_effects = segment.add_effects - curr_ground_add_effects
                     all_objects = {o for a in missing_add_effects
@@ -569,7 +571,7 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # Code to lift up delete effects
                 # TODO: This is the same as the add_effects code above
                 # write a function or otherwise simplify to avoid code duplication!
-                curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
+                # curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
                 if len(segment.delete_effects) > 0:
                     missing_delete_effects = segment.delete_effects - curr_ground_delete_effects
                     all_objects = {o for a in missing_delete_effects
@@ -610,8 +612,15 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     eff_diff = add_eff_diff.union(del_eff_diff)
                     for eff in eff_diff:
                         new_op_side_preds.add(eff.predicate)
+
                     new_op_add_effects &= lifted_seg_add_effects
                     new_op_delete_effects &= lifted_seg_delete_effects
+
+                # Update the grounded add and delete effects after having updated the
+                # lifted ones.
+                curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
+                curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
+
             
             # Replace the operator with one that contains the newly learned
             # preconditions, add effects and delete effects. 
