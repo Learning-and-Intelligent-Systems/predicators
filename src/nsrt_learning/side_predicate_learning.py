@@ -457,3 +457,17 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
                 pnad.op.delete_effects,
                 new_side_predicates)
         return pnads
+
+
+class IntersectionSidePredicateLearner(SidePredicateLearner):
+    """Sideline by simply (1) clustering all transitions by option and then
+    (2) taking the intersection over preconditions and effects."""
+    
+    def _sideline(self) -> List[PartialNSRTAndDatastore]:
+        # Step 0. Remove all non-goal atoms from the 
+        # final state in every trajectory. This will be leveraged during
+        # Step 2.
+        # Step 1. Cluster all transitions by option
+        # Step 2. Learn effects
+        # Step 3. Learn preconditions
+        pass
