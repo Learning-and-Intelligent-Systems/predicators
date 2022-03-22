@@ -528,6 +528,7 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         for pnad in current_pnads:
             new_op_add_effects = set()
             new_op_delete_effects = set()
+            new_op_side_preds: Set[Predicate] = set()
             for i, (segment, var_to_obj) in enumerate(pnad.datastore):
                 objects = set(var_to_obj.values())
                 obj_to_var = {o: v for v, o in var_to_obj.items()}
@@ -594,11 +595,6 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # delete effects doesn't change when we do the
                     # intersection.
                     lifted_seg_delete_effects = new_op_delete_effects
-
-                # if i == 0:
-                #     variables = sorted(set(var_to_obj.keys()))
-                # else:
-                #     assert variables == sorted(set(var_to_obj.keys()))
                 
                 if i == 0:
                     new_op_preconditions = lifted_init_atoms
@@ -606,11 +602,16 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     new_op_delete_effects = lifted_seg_delete_effects
                 else:
                     new_op_preconditions &= lifted_init_atoms
+                    # use the difference between the intersection and
+                    # the current add and delete effects to compute the side
+                    # effects
+                    add_eff_diff = lifted_seg_add_effects - new_op_add_effects
+                    del_eff_diff = lifted_seg_delete_effects - new_op_delete_effects
+                    eff_diff = add_eff_diff.union(del_eff_diff)
+                    for eff in eff_diff:
+                        new_op_side_preds.add(eff.predicate)
                     new_op_add_effects &= lifted_seg_add_effects
                     new_op_delete_effects &= lifted_seg_delete_effects
-
-                # if len(new_op_add_effects) < 1:
-                #     import ipdb; ipdb.set_trace()
             
             # Replace the operator with one that contains the newly learned
             # preconditions, add effects and delete effects. 
@@ -622,7 +623,5 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters,
                                     new_op_preconditions, new_op_add_effects,
                                     new_op_delete_effects,
-                                    pnad.op.side_predicates)
-        
-        import ipdb; ipdb.set_trace()
-
+                                    new_op_side_preds)
+        return current_pnads
