@@ -509,9 +509,6 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 param_option_to_spec_and_effects[param_option] = {
                     "option_vars": option_vars,
                     "add": set(),
-                    # TODO: is this the right way to handle delete effects?
-                    # Probably not, because this will never lead to any
-                    # delete effects... Not sure what to do.
                     "delete": set(),
                     "side": side_predicates
                 }
@@ -529,8 +526,6 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             new_op_add_effects = set()
             new_op_delete_effects = set()
             new_op_side_preds: Set[Predicate] = set()
-            curr_ground_add_effects = set()
-            curr_ground_delete_effects = set()
             for i, (segment, var_to_obj) in enumerate(pnad.datastore):
                 objects = set(var_to_obj.values())
                 obj_to_var = {o: v for v, o in var_to_obj.items()}
@@ -615,11 +610,6 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
                     new_op_add_effects &= lifted_seg_add_effects
                     new_op_delete_effects &= lifted_seg_delete_effects
-
-                # Update the grounded add and delete effects after having updated the
-                # lifted ones.
-                # curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
-                # curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
 
             
             # Replace the operator with one that contains the newly learned
