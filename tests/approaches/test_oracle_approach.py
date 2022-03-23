@@ -15,7 +15,8 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverMultistepOptionsFixedTasks
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
+    RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
@@ -120,6 +121,7 @@ def test_check_nsrt_parameters():
         "playroom": PlayroomEnv(),
         "cover_multistep_options": CoverMultistepOptions(),
         "repeated_nextto": RepeatedNextToEnv(),
+        "repeated_nextto_single_option": RepeatedNextToSingleOptionEnv(),
         "repeated_nextto_painting": RepeatedNextToPaintingEnv()
     }
     for name, env in envs.items():

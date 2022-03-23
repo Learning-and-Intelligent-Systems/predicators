@@ -43,6 +43,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_playroom_gt_nsrts()
     elif CFG.env == "repeated_nextto":
         nsrts = _get_repeated_nextto_gt_nsrts()
+    elif CFG.env == "repeated_nextto_single_option":
+        nsrts = _get_repeated_nextto_single_option_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1901,6 +1903,59 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
                       delete_effects, side_predicates, option, option_vars,
                       null_sampler)
+    nsrts.add(grasp_nsrt)
+
+    return nsrts
+
+
+def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for RepeatedNextToSingleOptionEnv."""
+    robot_type, dot_type = _get_types_by_names(CFG.env, ["robot", "dot"])
+
+    NextTo, NextToNothing, Grasped = _get_predicates_by_names(
+        CFG.env, ["NextTo", "NextToNothing", "Grasped"])
+
+    MoveGrasp, = _get_options_by_names(CFG.env, ["MoveGrasp"])
+
+    nsrts = set()
+
+    # Move
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = MoveGrasp
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects: Set[LiftedAtom] = set()
+    # Moving could have us end up NextTo other objects. It could also
+    # include NextToNothing as a delete effect.
+    side_predicates = {NextTo, NextToNothing}
+    move_nsrt = NSRT(
+        "Move", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars,
+        lambda s, g, rng, o: np.array([-1.0, 0.0], dtype=np.float32))
+    nsrts.add(move_nsrt)
+
+    # Grasp
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = MoveGrasp
+    preconditions = {LiftedAtom(NextTo, [robot, targetdot])}
+    add_effects = {LiftedAtom(Grasped, [robot, targetdot])}
+    delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    # After grasping, it's possible that you could end up NextToNothing,
+    # but it's also possible that you remain next to something else.
+    # Note that NextTo isn't a side predicate here because it's not
+    # something we'd be unsure about for any object. For every object we
+    # are NextTo but did not grasp, we will stay NextTo it.
+    side_predicates = {NextToNothing}
+    grasp_nsrt = NSRT(
+        "Grasp", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars,
+        lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
     nsrts.add(grasp_nsrt)
 
     return nsrts
