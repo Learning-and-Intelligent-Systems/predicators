@@ -1121,6 +1121,13 @@ class PartialNSRTAndDatastore:
     option_spec: OptionSpec
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
+    # A private map from segments in the datastore to associated substitutions.
+    _segment_to_sub: Dict[Segment, VarToObjSub] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._segment_to_sub = {}
+        for seg, var_obj_sub in self.datastore:
+            self._segment_to_sub[seg] = var_obj_sub
 
     def add_to_datastore(self,
                          member: Tuple[Segment, VarToObjSub],
@@ -1152,12 +1159,18 @@ class PartialNSRTAndDatastore:
                 assert option.objects == option_args
         # Add to datastore.
         self.datastore.append(member)
+        self._segment_to_sub[seg] = var_obj_sub
 
     def make_nsrt(self) -> NSRT:
         """Make an NSRT from this PNAD."""
         assert self.sampler is not None
         param_option, option_vars = self.option_spec
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
+
+    def get_sub_for_member_segment(self, segment: Segment) -> VarToObjSub:
+        """Return the VarToObjSub associated with the segment in the datastore,
+        or raise a KeyError if this segment is not in the datastore."""
+        return self._segment_to_sub[segment]
 
     def __repr__(self) -> str:
         param_option, option_vars = self.option_spec

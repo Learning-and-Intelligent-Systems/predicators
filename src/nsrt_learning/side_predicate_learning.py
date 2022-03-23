@@ -4,6 +4,8 @@ import abc
 from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
+from predicators.src.nsrt_learning.strips_learning import \
+    induce_pnad_preconditions
 from predicators.src.planning import task_plan_grounding
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
@@ -280,3 +282,95 @@ class PreserveSkeletonsHillClimbingSidePredicateLearner(
             lambda searchnode_state: heuristic(searchnode_state[0]))
 
         return _check_goal(state_seq[-1])
+
+
+class BackchainingSidePredicateLearner(SidePredicateLearner):
+    """Sideline by backchaining, making PNADs increasingly specific."""
+
+    def _sideline(self) -> List[PartialNSRTAndDatastore]:
+        # Initialize the PNADs so that they have the most general possible
+        # effects, where all add effects have been sidelined.
+        current_pnads = []
+        for pnad in self._initial_pnads:
+            option_spec = pnad.option_spec
+            add_effects = set()
+            delete_effects = pnad.op.delete_effects
+            side_predicates = {a.predicate for a in pnad.op.add_effects}
+            new_pnad = self._induce_pnad_from_spec_and_effects(
+                pnad.op.name, option_spec, add_effects, delete_effects,
+                side_predicates)
+            current_pnads.append(new_pnad)
+        # Go through the demonstrations from backward to forward, making the
+        # PNADs more specific whenever needed.
+        assert len(self._trajectories) == len(self._segmented_trajs)
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            options_seq = [seg.get_option() for seg in seg_traj]
+            assert traj_goal.issubset(atoms_seq[-1])
+            # These are the "necessary" ground atoms for the final timestep.
+            # As we backchain, they will always be the necessary ground atoms
+            # for timestep t+1.
+            necessary_image = set(traj_goal)
+            for t in range(len(atoms_seq) - 2, -1, -1):
+                option = options_seq[t]
+                segment = seg_traj[t]
+                # These are the "necessary" ground atoms that should be added
+                # on timestep t+1.
+                necessary_add_effects = necessary_image - atoms_seq[t]
+                # For EACH possible PNAD that may be responsible for covering
+                # this segment, we will declare that the preconditions for
+                # that PNAD are necessary at the previous time step. Further,
+                # we will assume that ALL of these PNAD add effects propagate
+                # forward in time, as if we used them all together, like in a
+                # delete relaxation. TODO: this seems wrong and dangerous?
+                predicted_add_effects = set()
+                matching_pnads = []
+                for pnad in current_pnads:
+                    try:
+                        var_to_obj = pnad.get_sub_for_member_segment(segment)
+                    except KeyError:
+                        # A KeyError is raised when this segment is not in
+                        # this PNAD's datastore, i.e., this PNAD is not
+                        # responsible for covering this segment.
+                        continue
+                    matching_pnads.append(pnad)
+                    # Here is where we are using the assumption that ALL add
+                    # effects propagate forward in time.
+                    pnad_ground_add_effects = {
+                        a.ground(var_to_obj)
+                        for a in pnad.op.add_effects
+                    }
+                    predicted_add_effects |= pnad_ground_add_effects
+                # If the predicted add effects are missing necessary add
+                # effects, then we need to make the PNAD effects more specific.
+                # But which PNAD? Certainly not ALL, that would be really bad.
+                # TODO: I am stuck.
+                if not necessary_add_effects.issubset(predicted_add_effects):
+                    import ipdb
+                    ipdb.set_trace()
+
+    def _induce_pnad_from_spec_and_effects(
+            self, op_name: str, option_spec: OptionSpec,
+            add_effects: Set[GroundAtom], delete_effects: Set[GroundAtom],
+            side_predicates: Set[Predicate]) -> PartialNSRTAndDatastore:
+        # Initialize PNAD with trivial preconditions. The real preconditions
+        # will be recomputed after the datastores are recomputed.
+        parameters = sorted(
+            {v
+             for a in add_effects | delete_effects
+             for v in a.variables} | set(option_spec[1]))
+        op = STRIPSOperator(op_name, parameters, set(), add_effects,
+                            delete_effects, side_predicates)
+        pnad = PartialNSRTAndDatastore(op, [], option_spec)
+        # Recompute datastore.
+        self._recompute_datastores_from_segments([pnad])
+        # Determine the preconditions.
+        preconditions = induce_pnad_preconditions(pnad)
+        # Finalize PNAD.
+        final_op = STRIPSOperator(op_name, parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates)
+        return PartialNSRTAndDatastore(final_op, pnad.datastore, option_spec)
