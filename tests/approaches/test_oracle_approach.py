@@ -730,10 +730,10 @@ def test_oracle_approach_repeated_nextto():
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    for train_task in train_tasks[:3]:
+    for train_task in train_tasks:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
-    for test_task in env.get_test_tasks()[:3]:
+    for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=500)
         assert policy_solves_task(policy, test_task, env.simulate)
 
@@ -750,9 +750,9 @@ def test_oracle_approach_repeated_nextto_single_option():
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    for train_task in train_tasks[:3]:
+    for train_task in train_tasks:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
-    for test_task in env.get_test_tasks()[:3]:
+    for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=500)
         assert policy_solves_task(policy, test_task, env.simulate)
