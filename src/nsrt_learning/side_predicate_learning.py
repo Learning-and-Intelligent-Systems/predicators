@@ -542,9 +542,9 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 lifted_init_atoms = {atom.lift(obj_to_var) for atom in init_atoms}
                 
                 # Code to lift up add effects 
-                # curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
                 if len(segment.add_effects) > 0:
-                    missing_add_effects = segment.add_effects - curr_ground_add_effects
+                    # missing_add_effects = segment.add_effects - curr_ground_add_effects
+                    missing_add_effects = segment.add_effects
                     all_objects = {o for a in missing_add_effects
                                 for o in a.objects}
                     unbound_objects = all_objects - set(obj_to_var)
@@ -571,9 +571,9 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # Code to lift up delete effects
                 # TODO: This is the same as the add_effects code above
                 # write a function or otherwise simplify to avoid code duplication!
-                # curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
                 if len(segment.delete_effects) > 0:
-                    missing_delete_effects = segment.delete_effects - curr_ground_delete_effects
+                    # missing_delete_effects = segment.delete_effects - curr_ground_delete_effects
+                    missing_delete_effects = segment.delete_effects
                     all_objects = {o for a in missing_delete_effects
                                 for o in a.objects}
                     unbound_objects = all_objects - set(obj_to_var)
@@ -618,8 +618,8 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
                 # Update the grounded add and delete effects after having updated the
                 # lifted ones.
-                curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
-                curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
+                # curr_ground_add_effects = {a.ground(var_to_obj) for a in new_op_add_effects}
+                # curr_ground_delete_effects = {a.ground(var_to_obj) for a in new_op_delete_effects}
 
             
             # Replace the operator with one that contains the newly learned
