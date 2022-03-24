@@ -120,6 +120,10 @@ def test_state():
     assert state2[obj1][2] == 991
     state3 = State({obj3: np.array([1, 2])})
     state3.copy()  # try copying with numpy array
+    # Test state copy with a simulator state.
+    state4 = State({obj3: np.array([1, 2])}, simulator_state="dummy")
+    assert state4.simulator_state == "dummy"
+    assert state4.copy().simulator_state == "dummy"
     # Test state vec with no objects
     vec = state.vec([])
     assert vec.shape == (0, )
