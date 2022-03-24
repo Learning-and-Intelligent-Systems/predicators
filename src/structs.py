@@ -1135,11 +1135,11 @@ class PartialNSRTAndDatastore:
         """Add a new member to self.datastore."""
         seg, var_obj_sub = member
         if len(self.datastore) > 0:
-            obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
             # All variables should have a corresponding object.
             assert set(var_obj_sub) == set(self.op.parameters)
             # The effects should match.
             if check_effect_equality:
+                obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
                 lifted_add_effects = {
                     a.lift(obj_var_sub)
                     for a in seg.add_effects

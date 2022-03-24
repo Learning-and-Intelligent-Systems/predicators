@@ -119,10 +119,6 @@ def induce_pnad_preconditions(
         }
         lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
         if i == 0:
-            variables = sorted(set(var_to_obj.keys()))
-        else:
-            assert variables == sorted(set(var_to_obj.keys()))
-        if i == 0:
             preconditions = lifted_atoms
         else:
             preconditions &= lifted_atoms
