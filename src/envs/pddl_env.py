@@ -15,20 +15,17 @@ from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.envs.pddl_procedural_generation import \
+    create_blocks_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, \
-    LiftedAtom, Object, ParameterizedOption, Predicate, State, \
-    STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
+    LiftedAtom, Object, ParameterizedOption, PDDLEnvSimulatorState, \
+    PDDLProblemGenerator, Predicate, State, STRIPSOperator, Task, Type, \
+    Variable, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                    ABCs                                     #
 ###############################################################################
-
-# Given a desired number of problems and an rng, returns a list of that many
-# PDDL problem strs.
-_PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
-# The type of state.simulator_state in these enviroments.
-_PDDLEnvSimulatorState = Set[GroundAtom]
 
 
 class _PDDLEnv(BaseEnv):
@@ -36,7 +33,7 @@ class _PDDLEnv(BaseEnv):
 
     The state space is mostly unused. The continuous vectors are dummies. What
     is actually used is state.simulator_state, which holds the current ground
-    atoms (see _PDDLEnvSimulatorState). Note that we need to use this pattern,
+    atoms (see PDDLEnvSimulatorState). Note that we need to use this pattern,
     as opposed to just maintaining the ground atoms internally in the env,
     because the predicate classifiers need access to the ground atoms.
 
@@ -68,12 +65,12 @@ class _PDDLEnv(BaseEnv):
 
     @property
     @abc.abstractmethod
-    def _pddl_train_problem_generator(self) -> _PDDLProblemGenerator:
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
         raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
-    def _pddl_test_problem_generator(self) -> _PDDLProblemGenerator:
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
         raise NotImplementedError("Override me!")
 
     @property
@@ -104,7 +101,7 @@ class _PDDLEnv(BaseEnv):
                                     self._test_rng)
 
     def _generate_tasks(self, num_tasks: int,
-                        problem_gen: _PDDLProblemGenerator,
+                        problem_gen: PDDLProblemGenerator,
                         rng: np.random.Generator) -> List[Task]:
         tasks = []
         for pddl_problem_str in problem_gen(num_tasks, rng):
@@ -256,13 +253,13 @@ class _FixedTasksPDDLEnv(_PDDLEnv):
         raise NotImplementedError("Override me!")
 
     @property
-    def _pddl_train_problem_generator(self) -> _PDDLProblemGenerator:
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
         assert len(self._train_problem_indices) >= CFG.num_train_tasks
         return _file_problem_generator(self._pddl_problem_asset_dir,
                                        self._train_problem_indices)
 
     @property
-    def _pddl_test_problem_generator(self) -> _PDDLProblemGenerator:
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
         assert len(self._test_problem_indices) >= CFG.num_test_tasks
         return _file_problem_generator(self._pddl_problem_asset_dir,
                                        self._test_problem_indices)
@@ -304,13 +301,43 @@ class FixedTasksBlocksPDDLEnv(_BlocksPDDLEnv, _FixedTasksPDDLEnv):
         return list(range(6, 11))
 
 
+class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
+    """The IPC 4-operator blocks world domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_blocks_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_blocks = CFG.pddl_blocks_train_min_num_blocks
+        max_num_blocks = CFG.pddl_blocks_train_max_num_blocks
+        min_num_blocks_goal = CFG.pddl_blocks_train_min_num_blocks_goal
+        max_num_blocks_goal = CFG.pddl_blocks_train_max_num_blocks_goal
+        new_pile_prob = CFG.pddl_blocks_new_pile_prob
+        return create_blocks_pddl_generator(min_num_blocks, max_num_blocks,
+                                            min_num_blocks_goal,
+                                            max_num_blocks_goal, new_pile_prob)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_blocks = CFG.pddl_blocks_test_min_num_blocks
+        max_num_blocks = CFG.pddl_blocks_test_max_num_blocks
+        min_num_blocks_goal = CFG.pddl_blocks_test_min_num_blocks_goal
+        max_num_blocks_goal = CFG.pddl_blocks_test_max_num_blocks_goal
+        new_pile_prob = CFG.pddl_blocks_new_pile_prob
+        return create_blocks_pddl_generator(min_num_blocks, max_num_blocks,
+                                            min_num_blocks_goal,
+                                            max_num_blocks_goal, new_pile_prob)
+
+
 ###############################################################################
 #                            Utility functions                                #
 ###############################################################################
 
 
 def _state_to_ground_atoms(state: State) -> Set[GroundAtom]:
-    return cast(_PDDLEnvSimulatorState, state.simulator_state)
+    return cast(PDDLEnvSimulatorState, state.simulator_state)
 
 
 def _ground_atoms_to_state(ground_atoms: Set[GroundAtom],
@@ -392,14 +419,14 @@ def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
 
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
-        sim = cast(_PDDLEnvSimulatorState, s.simulator_state)
+        sim = cast(PDDLEnvSimulatorState, s.simulator_state)
         return GroundAtom(pred, objs) in sim
 
     return _classifier
 
 
 def _file_problem_generator(dir_name: str,
-                            indices: Sequence[int]) -> _PDDLProblemGenerator:
+                            indices: Sequence[int]) -> PDDLProblemGenerator:
     # Load all of the PDDL problem strs from files.
     problems = []
     for idx in indices:
