@@ -6,6 +6,8 @@ from typing import Callable, List, Optional, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
+from pyperplan.pddl.parser import parse_domain_def, parse_lisp_iterator, \
+    TraversePDDLDomain
 
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
@@ -144,7 +146,7 @@ class BlocksPDDLEnv(PDDLEnv):
     @property
     def _domain_str(self) -> str:
         path = utils.get_env_asset_path("pddl/blocks/domain.pddl")
-        with open(path, 'r', encoding='utf8') as f:
+        with open(path, encoding="utf-8") as f:
             domain_str = f.read()
         return domain_str
 
@@ -158,4 +160,10 @@ class BlocksPDDLEnv(PDDLEnv):
 
 
 def _parse_pddl_domain(domain_str: str) -> Tuple[Set[Type], Set[Predicate], Set[STRIPSOperator]]:
+    # Let pyperplan do the heavy lifting.
+    split_domain_str = domain_str.split("\n")
+    domain_ast = parse_domain_def(parse_lisp_iterator(split_domain_str))
+    visitor = TraversePDDLDomain()
+    domain_ast.accept(visitor)
+    pyperplan_domain = visitor.domain
     import ipdb; ipdb.set_trace()
