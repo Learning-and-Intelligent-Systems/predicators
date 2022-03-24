@@ -24,7 +24,7 @@ def create_new_env(name: str, do_cache: bool = True) -> BaseEnv:
     later be loaded using get_or_create_env().
     """
     for cls in utils.get_all_subclasses(BaseEnv):
-        if cls is not BaseEnv and cls.get_name() == name:
+        if not cls.__abstractmethods__ and cls.get_name() == name:
             env = cls()
             break
     else:
