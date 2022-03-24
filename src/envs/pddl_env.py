@@ -16,9 +16,9 @@ from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, DefaultState, DefaultTask, \
-    GroundAtom, Image, LiftedAtom, Object, ParameterizedOption, Predicate, \
-    State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
+from predicators.src.structs import Action, Array, GroundAtom, Image, \
+    LiftedAtom, Object, ParameterizedOption, Predicate, State, \
+    STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
 
 # Given a desired number of problems and an rng, returns a list of that many
 # PDDL problem strs.
@@ -79,13 +79,13 @@ class PDDLEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         objs = list(state)
         # Convert the state into a Set[GroundAtom].
-        ground_atoms = self._state_to_ground_atoms(state)
+        ground_atoms = _state_to_ground_atoms(state)
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = self._action_to_ground_strips_op(action, objs)
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
         # Convert back into a State.
-        next_state = self._ground_atoms_to_state(next_ground_atoms, objs)
+        next_state = _ground_atoms_to_state(next_ground_atoms, objs)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -161,14 +161,6 @@ class PDDLEnv(BaseEnv):
                      caption: Optional[str] = None) -> List[Image]:
         raise NotImplementedError("Render not implemented for PDDLEnv.")
 
-    def _state_to_ground_atoms(self, state: State) -> Set[GroundAtom]:
-        return cast(PDDLEnvSimulatorState, state.simulator_state)
-
-    def _ground_atoms_to_state(self, ground_atoms: Set[GroundAtom],
-                               objects: Collection[Object]) -> State:
-        dummy_state_dict = {o: np.zeros(1, dtype=np.float32) for o in objects}
-        return State(dummy_state_dict, simulator_state=ground_atoms)
-
     def _pddl_problem_str_to_task(self, pddl_problem_str: str) -> Task:
         # Let pyperplan do most of the heavy lifting.
         # Pyperplan needs the domain to parse the problem.
@@ -197,7 +189,7 @@ class PDDLEnv(BaseEnv):
                        [object_name_to_obj[n] for n, _ in a.signature])
             for a in pyperplan_problem.initial_state
         }
-        init = self._ground_atoms_to_state(init_ground_atoms, objects)
+        init = _ground_atoms_to_state(init_ground_atoms, objects)
         # Create the goal.
         goal = {
             GroundAtom(predicate_name_to_predicate[a.name],
@@ -227,7 +219,7 @@ class PDDLEnv(BaseEnv):
         def initiable(s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> bool:
             del m, p  # unused
-            ground_atoms = self._state_to_ground_atoms(s)
+            ground_atoms = _state_to_ground_atoms(s)
             ground_op = op.ground(tuple(o))
             return ground_op.preconditions.issubset(ground_atoms)
 
@@ -259,7 +251,7 @@ class FixedTasksBlocksPDDLEnv(BlocksPDDLEnv):
 
     @classmethod
     def get_name(cls) -> str:
-        return f"pddl_blocks_fixed_tasks"
+        return "pddl_blocks_fixed_tasks"
 
     @property
     def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
@@ -272,6 +264,16 @@ class FixedTasksBlocksPDDLEnv(BlocksPDDLEnv):
         assert len(self._test_problem_indices) >= CFG.num_test_tasks
         return _file_problem_generator(self._pddl_problem_asset_dir,
                                        self._test_problem_indices)
+
+
+def _state_to_ground_atoms(state: State) -> Set[GroundAtom]:
+    return cast(PDDLEnvSimulatorState, state.simulator_state)
+
+
+def _ground_atoms_to_state(ground_atoms: Set[GroundAtom],
+                           objects: Collection[Object]) -> State:
+    dummy_state_dict = {o: np.zeros(1, dtype=np.float32) for o in objects}
+    return State(dummy_state_dict, simulator_state=ground_atoms)
 
 
 def _parse_pddl_domain(
