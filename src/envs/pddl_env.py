@@ -5,7 +5,7 @@ environments are similar to PDDLGym.
 """
 
 import abc
-from typing import Callable, List, Optional, Sequence, Set, Tuple, cast
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -15,7 +15,7 @@ from pyperplan.pddl.parser import TraversePDDLDomain, parse_domain_def, \
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, DefaultState, DefaultTask, \
+from predicators.src.structs import Action, Array, DefaultState, DefaultTask, \
     GroundAtom, Image, LiftedAtom, Object, ParameterizedOption, Predicate, \
     State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
 
@@ -38,6 +38,9 @@ class PDDLEnv(BaseEnv):
     next dimensions encode the object used to ground the operator. The
     encoding assumes a fixed ordering over operators and objects in the
     state.
+
+    The parameterized options are 1:1 with the STRIPS operators. They have the
+    same object parameters and no continuous parameters.
     """
 
     def __init__(self) -> None:
@@ -45,8 +48,10 @@ class PDDLEnv(BaseEnv):
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
             _parse_pddl_domain(self._domain_str)
+        # The order is used for constructing actions; see class docstring.
+        self._ordered_strips_operators = sorted(self._strips_operators)
         # TODO: delete
-        for op in sorted(self._strips_operators):
+        for op in self._ordered_strips_operators:
             print(op)
 
     @property
@@ -113,7 +118,11 @@ class PDDLEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        raise NotImplementedError("Override me!")
+        # The parameterized options are 1:1 with the STRIPS operators.
+        return {
+            self._strips_operator_to_parameterized_option(op)
+            for op in self._strips_operators
+        }
 
     @property
     def action_space(self) -> Box:
@@ -149,13 +158,36 @@ class PDDLEnv(BaseEnv):
         import ipdb
         ipdb.set_trace()
 
+    def _strips_operator_to_parameterized_option(
+            self, op: STRIPSOperator) -> ParameterizedOption:
+        name = op.name
+        types = [p.type for p in op.parameters]
+        op_idx = self._ordered_strips_operators.index(op)
+        act_dims = self.action_space.shape[0]
+
+        def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+            del m, p  # unused
+            ordered_objs = list(s)
+            obj_idxs = [ordered_objs.index(obj) for obj in o]
+            act_arr = np.zeros(act_dims, dtype=np.float32)
+            act_arr[0] = op_idx
+            act_arr[1:len(obj_idxs) + 1] = obj_idxs
+            return Action(act_arr)
+
+        def init(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+            del m, p  # unused
+            ground_atoms = self._state_to_ground_atoms(s)
+            ground_op = op.ground(o)
+            return ground_op.preconditions.issubset(ground_atoms)
+
+        return utils.SingletonParameterizedOption(name,
+                                                  policy,
+                                                  types,
+                                                  initiable=init)
+
 
 class BlocksPDDLEnv(PDDLEnv):
     """The IPC 4-operator blocks world domain."""
-
-    @classmethod
-    def get_name(cls) -> str:
-        return f"pddl_blocks"
 
     @property
     def _domain_str(self) -> str:
@@ -164,15 +196,28 @@ class BlocksPDDLEnv(PDDLEnv):
             domain_str = f.read()
         return domain_str
 
+
+class FixedTasksBlocksPDDLEnv(BlocksPDDLEnv):
+    """The IPC 4-operator blocks world domain with a fixed set of tasks.
+
+    The tasks are defined in static PDDL problem files.
+    """
+    _train_problem_indices = list(range(1, 21))
+    _test_problem_indices = list(range(21, 36))
+
+    @classmethod
+    def get_name(cls) -> str:
+        return f"pddl_blocks_fixed_tasks"
+
     @property
     def _train_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb
-        ipdb.set_trace()
+        assert len(self._train_problem_indices) <= CFG.num_train_tasks
+        return _file_problem_generator("blocks", self._train_problem_indices)
 
     @property
     def _test_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb
-        ipdb.set_trace()
+        assert len(self._test_problem_indices) <= CFG.num_test_tasks
+        return _file_problem_generator("blocks", self._test_problem_indices)
 
 
 def _parse_pddl_domain(
@@ -240,3 +285,20 @@ def _parse_pddl_domain(
     types = set(pyperplan_type_to_type.values())
     predicates = set(predicate_name_to_predicate.values())
     return types, predicates, operators
+
+
+def _file_problem_generator(dir_name: str,
+                            indices: Sequence[int]) -> PDDLProblemGenerator:
+    # Load all of the PDDL problem strs from files.
+    problems = []
+    for idx in indices:
+        path = utils.get_env_asset_path(f"pddl/{dir_name}/task{idx}.pddl")
+        with open(path, encoding="utf-8") as f:
+            problem_str = f.read()
+        problems.append(problem_str)
+
+    def _problem_gen(num: int, rng: np.random.Generator) -> List[str]:
+        del rng  # unused
+        return problems[:num]
+
+    return _problem_gen
