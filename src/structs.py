@@ -1319,7 +1319,5 @@ GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
 SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
                          Optional[Set[GroundAtom]]]
 # For PDDLEnv environments, given a desired number of problems and an rng,
-# returns a list of that many PDDL problem strs.
+# returns a list of that many PDDL problem strings.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
-# The type of state.simulator_state in PDDLEnv enviroments.
-PDDLEnvSimulatorState = Set[GroundAtom]

@@ -5,6 +5,7 @@ environments are similar to PDDLGym.
 """
 
 import abc
+import functools
 from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
     Tuple, cast
 
@@ -12,6 +13,7 @@ import numpy as np
 from gym.spaces import Box
 from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
     parse_domain_def, parse_lisp_iterator, parse_problem_def
+from pyperplan.pddl.pddl import Domain as PyperplanDomain
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -19,9 +21,8 @@ from predicators.src.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, \
-    LiftedAtom, Object, ParameterizedOption, PDDLEnvSimulatorState, \
-    PDDLProblemGenerator, Predicate, State, STRIPSOperator, Task, Type, \
-    Variable, _GroundSTRIPSOperator
+    LiftedAtom, Object, ParameterizedOption, PDDLProblemGenerator, Predicate, \
+    State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                    ABCs                                     #
@@ -33,12 +34,12 @@ class _PDDLEnv(BaseEnv):
 
     The state space is mostly unused. The continuous vectors are dummies. What
     is actually used is state.simulator_state, which holds the current ground
-    atoms (see PDDLEnvSimulatorState). Note that we need to use this pattern,
-    as opposed to just maintaining the ground atoms internally in the env,
-    because the predicate classifiers need access to the ground atoms.
+    atoms. Note that we need to use this pattern, as opposed to just
+    maintaining the ground atoms internally in the env, because the predicate
+    classifiers need access to the ground atoms.
 
     The action space is hacked to conform to our convention that actions
-    are fixed dimensional vectors. Users of this class should not need
+    are fixed-dimensional vectors. Users of this class should not need
     to worry about the action space because it would never make sense to
     learn anything using this action space. The dimensionality is 1 +
     max operator arity. The first dimension encodes the operator. The
@@ -57,6 +58,24 @@ class _PDDLEnv(BaseEnv):
             _parse_pddl_domain(self._domain_str)
         # The order is used for constructing actions; see class docstring.
         self._ordered_strips_operators = sorted(self._strips_operators)
+        # Compute the options. Note that they are 1:1 with the operators.
+        self._options = {
+            _strips_operator_to_parameterized_option(
+                op, self._ordered_strips_operators, self.action_space.shape[0])
+            for op in self._strips_operators
+        }
+        # Compute the train and test tasks.
+        self._train_tasks = self._generate_tasks(
+            CFG.num_train_tasks, self._pddl_train_problem_generator,
+            self._train_rng)
+        self._test_tasks = self._generate_tasks(
+            CFG.num_test_tasks, self._pddl_test_problem_generator,
+            self._test_rng)
+        # Determine the goal predicates from the tasks.
+        self._goal_predicates = {
+            a.predicate
+            for t in self._train_tasks + self._test_tasks for a in t.goal
+        }
 
     @property
     @abc.abstractmethod
@@ -79,33 +98,32 @@ class _PDDLEnv(BaseEnv):
         return self._strips_operators
 
     def simulate(self, state: State, action: Action) -> State:
-        objs = list(state)
+        ordered_objs = list(state)
         # Convert the state into a Set[GroundAtom].
         ground_atoms = _state_to_ground_atoms(state)
         # Convert the action into a _GroundSTRIPSOperator.
-        ground_op = self._action_to_ground_strips_op(action, objs)
+        ground_op = _action_to_ground_strips_op(action, ordered_objs,
+                                                self._ordered_strips_operators)
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
         # Convert back into a State.
-        next_state = _ground_atoms_to_state(next_ground_atoms, objs)
+        next_state = _ground_atoms_to_state(next_ground_atoms, ordered_objs)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._generate_tasks(CFG.num_train_tasks,
-                                    self._pddl_train_problem_generator,
-                                    self._train_rng)
+        return self._train_tasks
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._generate_tasks(CFG.num_test_tasks,
-                                    self._pddl_test_problem_generator,
-                                    self._test_rng)
+        return self._test_tasks
 
     def _generate_tasks(self, num_tasks: int,
                         problem_gen: PDDLProblemGenerator,
                         rng: np.random.Generator) -> List[Task]:
         tasks = []
         for pddl_problem_str in problem_gen(num_tasks, rng):
-            task = self._pddl_problem_str_to_task(pddl_problem_str)
+            task = _pddl_problem_str_to_task(pddl_problem_str,
+                                             self._domain_str, self.types,
+                                             self.predicates)
             tasks.append(task)
         return tasks
 
@@ -115,12 +133,7 @@ class _PDDLEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        # For now, we assume that all predicates may be included as part of the
-        # goals. This is not important because these environments are not
-        # currently used for predicate invention. If we do want to use these
-        # for predicate invention in the future, we can revisit this, and
-        # try to automatically detect which predicates appear in problem goals.
-        return self._predicates
+        return self._goal_predicates
 
     @property
     def types(self) -> Set[Type]:
@@ -128,11 +141,7 @@ class _PDDLEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        # The parameterized options are 1:1 with the STRIPS operators.
-        return {
-            self._strips_operator_to_parameterized_option(op)
-            for op in self._strips_operators
-        }
+        return self._options
 
     @property
     def action_space(self) -> Box:
@@ -144,18 +153,6 @@ class _PDDLEnv(BaseEnv):
                       dtype=np.float32)
         return Box(lb, ub, dtype=np.float32)
 
-    def _action_to_ground_strips_op(
-            self, action: Action,
-            ordered_objects: List[Object]) -> _GroundSTRIPSOperator:
-        action_arr = action.arr
-        assert all(float(a).is_integer() for a in action_arr)
-        op_idx = int(action_arr[0])
-        op = self._ordered_strips_operators[op_idx]
-        op_arity = len(op.parameters)
-        obj_idxs = [int(i) for i in action_arr[1:op_arity + 1]]
-        objs = tuple(ordered_objects[i] for i in obj_idxs)
-        return op.ground(objs)
-
     def render_state(self,
                      state: State,
                      task: Task,
@@ -163,76 +160,9 @@ class _PDDLEnv(BaseEnv):
                      caption: Optional[str] = None) -> List[Image]:
         raise NotImplementedError("Render not implemented for PDDLEnv.")
 
-    def _pddl_problem_str_to_task(self, pddl_problem_str: str) -> Task:
-        # Let pyperplan do most of the heavy lifting.
-        # Pyperplan needs the domain to parse the problem.
-        lisp_iterator = parse_lisp_iterator(self._domain_str.split("\n"))
-        domain_ast = parse_domain_def(lisp_iterator)
-        visitor = TraversePDDLDomain()
-        domain_ast.accept(visitor)
-        pyperplan_domain = visitor.domain
-        # Now that we have the domain, parse the problem.
-        lisp_iterator = parse_lisp_iterator(pddl_problem_str.split("\n"))
-        problem_ast = parse_problem_def(lisp_iterator)
-        visitor = TraversePDDLProblem(pyperplan_domain)
-        problem_ast.accept(visitor)
-        pyperplan_problem = visitor.get_problem()
-        # Create the objects.
-        type_name_to_type = {t.name: t for t in self.types}
-        object_name_to_obj = {
-            o: Object(o, type_name_to_type[t.name])
-            for o, t in pyperplan_problem.objects.items()
-        }
-        objects = set(object_name_to_obj.values())
-        # Create the initial state.
-        predicate_name_to_predicate = {p.name: p for p in self.predicates}
-        init_ground_atoms = {
-            GroundAtom(predicate_name_to_predicate[a.name],
-                       [object_name_to_obj[n] for n, _ in a.signature])
-            for a in pyperplan_problem.initial_state
-        }
-        init = _ground_atoms_to_state(init_ground_atoms, objects)
-        # Create the goal.
-        goal = {
-            GroundAtom(predicate_name_to_predicate[a.name],
-                       [object_name_to_obj[n] for n, _ in a.signature])
-            for a in pyperplan_problem.goal
-        }
-        # Finalize the task.
-        task = Task(init, goal)
-        return task
-
-    def _strips_operator_to_parameterized_option(
-            self, op: STRIPSOperator) -> ParameterizedOption:
-        name = op.name
-        types = [p.type for p in op.parameters]
-        op_idx = self._ordered_strips_operators.index(op)
-        act_dims = self.action_space.shape[0]
-
-        def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
-            del m, p  # unused
-            ordered_objs = list(s)
-            obj_idxs = [ordered_objs.index(obj) for obj in o]
-            act_arr = np.zeros(act_dims, dtype=np.float32)
-            act_arr[0] = op_idx
-            act_arr[1:len(obj_idxs) + 1] = obj_idxs
-            return Action(act_arr)
-
-        def initiable(s: State, m: Dict, o: Sequence[Object],
-                      p: Array) -> bool:
-            del m, p  # unused
-            ground_atoms = _state_to_ground_atoms(s)
-            ground_op = op.ground(tuple(o))
-            return ground_op.preconditions.issubset(ground_atoms)
-
-        return utils.SingletonParameterizedOption(name,
-                                                  policy,
-                                                  types,
-                                                  initiable=initiable)
-
 
 class _FixedTasksPDDLEnv(_PDDLEnv):
-    """An env where tasks are induced by static PDDL problem files."""
+    """An environment where tasks are induced by static PDDL problem files."""
 
     @property
     @abc.abstractmethod
@@ -243,13 +173,21 @@ class _FixedTasksPDDLEnv(_PDDLEnv):
     @property
     @abc.abstractmethod
     def _train_problem_indices(self) -> List[int]:
-        """The problem file names should be task{idx}.pddl."""
+        """Return a list of indices corresponding to training problems.
+
+        For each idx in the returned list, it is expected that there
+        will be a problem file named task{idx}.pddl.
+        """
         raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
     def _test_problem_indices(self) -> List[int]:
-        """The problem file names should be task{idx}.pddl."""
+        """Return a list of indices corresponding to test problems.
+
+        For each idx in the returned list, it is expected that there
+        will be a problem file named task{idx}.pddl.
+        """
         raise NotImplementedError("Override me!")
 
     @property
@@ -266,7 +204,7 @@ class _FixedTasksPDDLEnv(_PDDLEnv):
 
 
 ###############################################################################
-#                              Concrete Envs                                  #
+#                              Specific Envs                                  #
 ###############################################################################
 
 
@@ -337,29 +275,80 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
 
 
 def _state_to_ground_atoms(state: State) -> Set[GroundAtom]:
-    return cast(PDDLEnvSimulatorState, state.simulator_state)
+    return cast(Set[GroundAtom], state.simulator_state)
 
 
 def _ground_atoms_to_state(ground_atoms: Set[GroundAtom],
                            objects: Collection[Object]) -> State:
-    dummy_state_dict = {o: np.zeros(1, dtype=np.float32) for o in objects}
+    dummy_state_dict = {o: np.zeros(0, dtype=np.float32) for o in objects}
     return State(dummy_state_dict, simulator_state=ground_atoms)
 
 
-def _parse_pddl_domain(
-        domain_str: str
-) -> Tuple[Set[Type], Set[Predicate], Set[STRIPSOperator]]:
-    # Let pyperplan do most of the heavy lifting.
+def _action_to_ground_strips_op(
+        action: Action, ordered_objects: List[Object],
+        ordered_operators: List[STRIPSOperator]) -> _GroundSTRIPSOperator:
+    action_arr = action.arr
+    assert all(float(a).is_integer() for a in action_arr)
+    op_idx = int(action_arr[0])
+    op = ordered_operators[op_idx]
+    op_arity = len(op.parameters)
+    obj_idxs = [int(i) for i in action_arr[1:(op_arity + 1)]]
+    objs = tuple(ordered_objects[i] for i in obj_idxs)
+    return op.ground(objs)
+
+
+def _strips_operator_to_parameterized_option(
+        op: STRIPSOperator, ordered_operators: List[STRIPSOperator],
+        action_dims: int) -> ParameterizedOption:
+    name = op.name
+    types = [p.type for p in op.parameters]
+    op_idx = ordered_operators.index(op)
+
+    def policy(s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+        del m, p  # unused
+        ordered_objs = list(s)
+        # The first dimension of an action encodes the operator.
+        # The second dimension of an action encodes the first object argument
+        # to the ground operator. The third dimension encodes the second object
+        # and so on. Actions are always padded so that their length is equal
+        # to the max number of arguments for any operator.
+        obj_idxs = [ordered_objs.index(obj) for obj in o]
+        act_arr = np.zeros(action_dims, dtype=np.float32)
+        act_arr[0] = op_idx
+        act_arr[1:(len(obj_idxs) + 1)] = obj_idxs
+        return Action(act_arr)
+
+    def initiable(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+        del m, p  # unused
+        ground_atoms = _state_to_ground_atoms(s)
+        ground_op = op.ground(tuple(o))
+        return ground_op.preconditions.issubset(ground_atoms)
+
+    return utils.SingletonParameterizedOption(name,
+                                              policy,
+                                              types,
+                                              initiable=initiable)
+
+
+@functools.lru_cache(maxsize=None)
+def _domain_str_to_pyperplan_domain(domain_str: str) -> PyperplanDomain:
     domain_ast = parse_domain_def(parse_lisp_iterator(domain_str.split("\n")))
     visitor = TraversePDDLDomain()
     domain_ast.accept(visitor)
-    pyperplan_domain = visitor.domain
+    return visitor.domain
+
+
+def _parse_pddl_domain(
+    pddl_domain_str: str
+) -> Tuple[Set[Type], Set[Predicate], Set[STRIPSOperator]]:
+    # Let pyperplan do most of the heavy lifting.
+    pyperplan_domain = _domain_str_to_pyperplan_domain(pddl_domain_str)
     pyperplan_types = pyperplan_domain.types
     pyperplan_predicates = pyperplan_domain.predicates
     pyperplan_operators = pyperplan_domain.actions
     # Convert the pyperplan domain into our structs.
     pyperplan_type_to_type = {
-        pyperplan_types[t]: Type(t, ["dummy_feat"])
+        pyperplan_types[t]: Type(t, [])
         for t in pyperplan_types
     }
     # Convert the predicates.
@@ -386,20 +375,20 @@ def _parse_pddl_domain(
             Variable(n, pyperplan_type_to_type[t])
             for n, (t, ) in pyper_op.signature
         ]
-        name_to_param = {p.name: p for p in parameters}
+        param_name_to_param = {p.name: p for p in parameters}
         preconditions = {
             LiftedAtom(predicate_name_to_predicate[a.name],
-                       [name_to_param[n] for n, _ in a.signature])
+                       [param_name_to_param[n] for n, _ in a.signature])
             for a in pyper_op.precondition
         }
         add_effects = {
             LiftedAtom(predicate_name_to_predicate[a.name],
-                       [name_to_param[n] for n, _ in a.signature])
+                       [param_name_to_param[n] for n, _ in a.signature])
             for a in pyper_op.effect.addlist
         }
         delete_effects = {
             LiftedAtom(predicate_name_to_predicate[a.name],
-                       [name_to_param[n] for n, _ in a.signature])
+                       [param_name_to_param[n] for n, _ in a.signature])
             for a in pyper_op.effect.dellist
         }
         strips_op = STRIPSOperator(name,
@@ -415,12 +404,50 @@ def _parse_pddl_domain(
     return types, predicates, operators
 
 
+def _pddl_problem_str_to_task(pddl_problem_str: str, pddl_domain_str: str,
+                              types: Set[Type],
+                              predicates: Set[Predicate]) -> Task:
+    # Let pyperplan do most of the heavy lifting.
+    # Pyperplan needs the domain to parse the problem. Note that this is
+    # cached by lru_cache.
+    pyperplan_domain = _domain_str_to_pyperplan_domain(pddl_domain_str)
+    # Now that we have the domain, parse the problem.
+    lisp_iterator = parse_lisp_iterator(pddl_problem_str.split("\n"))
+    problem_ast = parse_problem_def(lisp_iterator)
+    visitor = TraversePDDLProblem(pyperplan_domain)
+    problem_ast.accept(visitor)
+    pyperplan_problem = visitor.get_problem()
+    # Create the objects.
+    type_name_to_type = {t.name: t for t in types}
+    object_name_to_obj = {
+        o: Object(o, type_name_to_type[t.name])
+        for o, t in pyperplan_problem.objects.items()
+    }
+    objects = set(object_name_to_obj.values())
+    # Create the initial state.
+    predicate_name_to_predicate = {p.name: p for p in predicates}
+    init_ground_atoms = {
+        GroundAtom(predicate_name_to_predicate[a.name],
+                   [object_name_to_obj[n] for n, _ in a.signature])
+        for a in pyperplan_problem.initial_state
+    }
+    init = _ground_atoms_to_state(init_ground_atoms, objects)
+    # Create the goal.
+    goal = {
+        GroundAtom(predicate_name_to_predicate[a.name],
+                   [object_name_to_obj[n] for n, _ in a.signature])
+        for a in pyperplan_problem.goal
+    }
+    # Finalize the task.
+    task = Task(init, goal)
+    return task
+
+
 def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
 
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
-        sim = cast(PDDLEnvSimulatorState, s.simulator_state)
-        return GroundAtom(pred, objs) in sim
+        return GroundAtom(pred, objs) in _state_to_ground_atoms(s)
 
     return _classifier
 
@@ -437,6 +464,7 @@ def _file_problem_generator(dir_name: str,
 
     def _problem_gen(num: int, rng: np.random.Generator) -> List[str]:
         del rng  # unused
+        assert len(problems) >= num
         return problems[:num]
 
     return _problem_gen
