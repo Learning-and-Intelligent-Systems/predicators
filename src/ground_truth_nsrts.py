@@ -10,7 +10,7 @@ from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
     navigate_to_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs.painting import PaintingEnv
-from predicators.src.envs.pddl_env import PDDLEnv
+from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
@@ -2114,7 +2114,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
 def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
     env_base = get_or_create_env(name)
-    env = cast(PDDLEnv, env_base)
+    env = cast(_PDDLEnv, env_base)
 
     nsrts = set()
     option_name_to_option = {o.name: o for o in env.options}
