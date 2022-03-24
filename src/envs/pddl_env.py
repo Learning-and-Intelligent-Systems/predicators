@@ -1,37 +1,43 @@
-"""Environments that are derived from PDDL. There are no continuous aspects
-of the state or action space. These environments are similar to PDDLGym."""
+"""Environments that are derived from PDDL.
+
+There are no continuous aspects of the state or action space. These
+environments are similar to PDDLGym.
+"""
 
 import abc
-from typing import Callable, List, Optional, Set, Tuple
+from typing import Callable, List, Optional, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
-from pyperplan.pddl.parser import parse_domain_def, parse_lisp_iterator, \
-    TraversePDDLDomain
+from pyperplan.pddl.parser import TraversePDDLDomain, parse_domain_def, \
+    parse_lisp_iterator
 
+from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, DefaultState, DefaultTask, Image, \
-    ParameterizedOption, Predicate, State, Task, Type, STRIPSOperator, \
-    _GroundSTRIPSOperator, GroundAtom
-from predicators.src import utils
-
+from predicators.src.structs import Action, DefaultState, DefaultTask, \
+    GroundAtom, Image, LiftedAtom, Object, ParameterizedOption, Predicate, \
+    State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
 
 # Given a desired number of problems and an rng, returns a list of that many
 # PDDL problem strs.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
+# A simulator state includes a set of tuples with predicate names and tuples
+# of objects, corresponding to GroundAtom instances.
+PDDLEnvSimulatorState = Set[Tuple[str, Tuple[Object, ...]]]
 
 
 class PDDLEnv(BaseEnv):
     """An environment induced by PDDL.
 
-    The action space is hacked to conform to our convention that actions are
-    fixed dimensional vectors. Users of this class should not need to worry
-    about the action space because it would never make sense to learn anything
-    using this action space. The dimensionality is 1 + max operator arity. The
-    first dimension encodes the operator. The next dimensions encode the object
-    used to ground the operator. The encoding assumes a fixed ordering over
-    operators and objects in the state.
+    The action space is hacked to conform to our convention that actions
+    are fixed dimensional vectors. Users of this class should not need
+    to worry about the action space because it would never make sense to
+    learn anything using this action space. The dimensionality is 1 +
+    max operator arity. The first dimension encodes the operator. The
+    next dimensions encode the object used to ground the operator. The
+    encoding assumes a fixed ordering over operators and objects in the
+    state.
     """
 
     def __init__(self) -> None:
@@ -39,6 +45,9 @@ class PDDLEnv(BaseEnv):
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
             _parse_pddl_domain(self._domain_str)
+        # TODO: delete
+        for op in sorted(self._strips_operators):
+            print(op)
 
     @property
     @abc.abstractmethod
@@ -109,10 +118,11 @@ class PDDLEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # See class docstring for explanation.
-        num_operators = len(self._strips_operators)
+        num_ops = len(self._strips_operators)
         max_arity = max(len(op.parameters) for op in self._strips_operators)
-        lb = [0.0 for _ in range(max_arity + 1)]
-        ub = [num_operators - 1.0] + [np.inf for _ in range(max_arity)]
+        lb = np.array([0.0 for _ in range(max_arity + 1)], dtype=np.float32)
+        ub = np.array([num_ops - 1.0] + [np.inf for _ in range(max_arity)],
+                      dtype=np.float32)
         return Box(lb, ub, dtype=np.float32)
 
     def render_state(self,
@@ -123,17 +133,21 @@ class PDDLEnv(BaseEnv):
         raise NotImplementedError("Render not implemented for PDDLEnv.")
 
     def _state_to_ground_atoms(self, state: State) -> Set[GroundAtom]:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
     def _ground_atoms_to_state(self, ground_atoms: Set[GroundAtom]) -> State:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
-    def _action_to_ground_strips_op(self, action: Action) -> _GroundSTRIPSOperator:
-        import ipdb; ipdb.set_trace()
+    def _action_to_ground_strips_op(self,
+                                    action: Action) -> _GroundSTRIPSOperator:
+        import ipdb
+        ipdb.set_trace()
 
     def _pddl_problem_str_to_task(self, pddl_problem_str: str) -> Task:
-        import ipdb; ipdb.set_trace()
-
+        import ipdb
+        ipdb.set_trace()
 
 
 class BlocksPDDLEnv(PDDLEnv):
@@ -152,18 +166,77 @@ class BlocksPDDLEnv(PDDLEnv):
 
     @property
     def _train_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
     @property
     def _test_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
 
-def _parse_pddl_domain(domain_str: str) -> Tuple[Set[Type], Set[Predicate], Set[STRIPSOperator]]:
-    # Let pyperplan do the heavy lifting.
-    split_domain_str = domain_str.split("\n")
-    domain_ast = parse_domain_def(parse_lisp_iterator(split_domain_str))
+def _parse_pddl_domain(
+        domain_str: str
+) -> Tuple[Set[Type], Set[Predicate], Set[STRIPSOperator]]:
+    # Let pyperplan do most of the heavy lifting.
+    domain_ast = parse_domain_def(parse_lisp_iterator(domain_str.split("\n")))
     visitor = TraversePDDLDomain()
     domain_ast.accept(visitor)
     pyperplan_domain = visitor.domain
-    import ipdb; ipdb.set_trace()
+    pyperplan_types = pyperplan_domain.types
+    pyperplan_predicates = pyperplan_domain.predicates
+    pyperplan_operators = pyperplan_domain.actions
+    # Convert the pyperplan domain into our structs.
+    pyperplan_type_to_type = {
+        pyperplan_types[t]: Type(t, ["dummy_feat"])
+        for t in pyperplan_types
+    }
+    # Convert the predicates.
+    predicate_name_to_predicate = {}
+    for pyper_pred in pyperplan_predicates.values():
+        name = pyper_pred.name
+        pred_types = [
+            pyperplan_type_to_type[t] for _, (t, ) in pyper_pred.signature
+        ]
+
+        def _classifier(s: State, objs: Sequence[Object]) -> bool:
+            sim = cast(PDDLEnvSimulatorState, s.simulator_state)
+            return (name, tuple(objs)) in sim
+
+        pred = Predicate(name, pred_types, _classifier)
+        predicate_name_to_predicate[name] = pred
+    # Convert the operators.
+    operators = set()
+    for pyper_op in pyperplan_operators.values():
+        name = pyper_op.name
+        parameters = [
+            Variable(n, pyperplan_type_to_type[t])
+            for n, (t, ) in pyper_op.signature
+        ]
+        name_to_param = {p.name: p for p in parameters}
+        preconditions = {
+            LiftedAtom(predicate_name_to_predicate[a.name],
+                       [name_to_param[n] for n, _ in a.signature])
+            for a in pyper_op.precondition
+        }
+        add_effects = {
+            LiftedAtom(predicate_name_to_predicate[a.name],
+                       [name_to_param[n] for n, _ in a.signature])
+            for a in pyper_op.effect.addlist
+        }
+        delete_effects = {
+            LiftedAtom(predicate_name_to_predicate[a.name],
+                       [name_to_param[n] for n, _ in a.signature])
+            for a in pyper_op.effect.dellist
+        }
+        strips_op = STRIPSOperator(name,
+                                   parameters,
+                                   preconditions,
+                                   add_effects,
+                                   delete_effects,
+                                   side_predicates=set())
+        operators.add(strips_op)
+    # Collect the final outputs.
+    types = set(pyperplan_type_to_type.values())
+    predicates = set(predicate_name_to_predicate.values())
+    return types, predicates, operators
