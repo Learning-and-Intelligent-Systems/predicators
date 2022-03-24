@@ -399,7 +399,7 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
         # Arbitrarily choose an initial PNAD whose option spec will be used
         # as the option spec of the new PNAD.
         new_option_spec = initial_pnads_for_option[0].option_spec
-        delete_effects: Optional[Set[LiftedAtom]] = None
+        new_delete_effects: Optional[Set[LiftedAtom]] = None
         # For reuse in sidelining.
         all_segment_lifted_delete_effects = set()
         for initial_pnad in initial_pnads_for_option:
@@ -430,30 +430,42 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
                     if set(a.objects).issubset(obj_to_remapped_var)
                 }
                 # Intersect the lifted delete effects over the PNADs.
-                if delete_effects is None:
-                    delete_effects = seg_lifted_del_effs
+                if new_delete_effects is None:
+                    new_delete_effects = seg_lifted_del_effs
                 else:
-                    delete_effects &= seg_lifted_del_effs
+                    new_delete_effects &= seg_lifted_del_effs
                 all_segment_lifted_delete_effects.add(
                     frozenset(seg_lifted_del_effs))
-        assert delete_effects is not None
+        assert new_delete_effects is not None
 
-        # We're ready to compute the side predicates.
-        # First, sideline all predicates of all add effects.
-        side_predicates = set()
+        # We're ready to compute the side predicates. Begin by computing
+        # the predicates contained in all segment add and delete effects.
+        add_effect_predicates = set()
+        delete_effect_predicates = set()
         for initial_pnad in initial_pnads_for_option:
             for (seg, _) in initial_pnad.datastore:
                 for ground_atom in seg.add_effects:
-                    side_predicates.add(ground_atom.predicate)
-        # Now, sideline all predicates of all unpredicted delete effects.
+                    add_effect_predicates.add(ground_atom.predicate)
+                for ground_atom in seg.delete_effects:
+                    delete_effect_predicates.add(ground_atom.predicate)
+        # All add_effect_predicates can be sidelined.
+        new_side_predicates = set(add_effect_predicates)
+        lifted_delete_effect_predicates = set()
+        # All predicates of unpredicted delete effects can be sidelined.
         for lifted_delete_effects in all_segment_lifted_delete_effects:
-            for lifted_atom in lifted_delete_effects - delete_effects:
-                side_predicates.add(lifted_atom.predicate)
+            for lifted_atom in lifted_delete_effects:
+                lifted_delete_effect_predicates.add(lifted_atom.predicate)
+                if lifted_atom not in new_delete_effects:
+                    new_side_predicates.add(lifted_atom.predicate)
+        # All delete_effect_predicates not appearing in any segment's
+        # lifted delete effects can be sidelined.
+        for pred in delete_effect_predicates - lifted_delete_effect_predicates:
+            new_side_predicates.add(pred)
 
         # Construct and return the PNAD. This PNAD has trivial add effects.
         return self._construct_pnad_and_recompute(parameterized_option.name,
-                                                  set(), delete_effects,
-                                                  side_predicates,
+                                                  set(), new_delete_effects,
+                                                  new_side_predicates,
                                                   new_option_spec)
 
     def _update_pnad_add_effects(
