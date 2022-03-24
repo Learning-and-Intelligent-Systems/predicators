@@ -86,23 +86,7 @@ def learn_strips_operators(
 
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
-        for i, (segment, var_to_obj) in enumerate(pnad.datastore):
-            objects = set(var_to_obj.values())
-            obj_to_var = {o: v for v, o in var_to_obj.items()}
-            atoms = {
-                atom
-                for atom in segment.init_atoms
-                if all(o in objects for o in atom.objects)
-            }
-            lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
-            if i == 0:
-                variables = sorted(set(var_to_obj.keys()))
-            else:
-                assert variables == sorted(set(var_to_obj.keys()))
-            if i == 0:
-                preconditions = lifted_atoms
-            else:
-                preconditions &= lifted_atoms
+        preconditions = induce_pnad_preconditions(pnad)
         # Replace the operator with one that contains the newly learned
         # preconditions. We do this because STRIPSOperator objects are
         # frozen, so their fields cannot be modified.
@@ -118,3 +102,24 @@ def learn_strips_operators(
         for pnad in pnads:
             logging.info(pnad)
     return pnads
+
+
+def induce_pnad_preconditions(
+        pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
+    """Given a PNAD with a nonempty datastore, compute the preconditions for
+    the PNAD operator by intersecting all lifted preimages in the datastore."""
+    assert len(pnad.datastore) > 0
+    for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+        objects = set(var_to_obj.values())
+        obj_to_var = {o: v for v, o in var_to_obj.items()}
+        atoms = {
+            atom
+            for atom in segment.init_atoms
+            if all(o in objects for o in atom.objects)
+        }
+        lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
+        if i == 0:
+            preconditions = lifted_atoms
+        else:
+            preconditions &= lifted_atoms
+    return preconditions

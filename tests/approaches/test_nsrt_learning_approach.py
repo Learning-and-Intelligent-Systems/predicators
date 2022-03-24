@@ -92,16 +92,16 @@ def test_nsrt_learning_approach():
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    try_solving=False)
-    _test_approach(env_name="repeated_nextto",
-                   approach_name="nsrt_learning",
-                   try_solving=False,
-                   sampler_learner="random",
-                   side_predicate_learner="prediction_error_hill_climbing")
-    _test_approach(env_name="repeated_nextto",
-                   approach_name="nsrt_learning",
-                   try_solving=False,
-                   sampler_learner="random",
-                   side_predicate_learner="preserve_skeletons_hill_climbing")
+    for side_predicate_learner in [
+            "prediction_error_hill_climbing",
+            "preserve_skeletons_hill_climbing",
+            "backchaining",
+    ]:
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       side_predicate_learner=side_predicate_learner)
 
 
 def test_unknown_side_predicate_learner():
