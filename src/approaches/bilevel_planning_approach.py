@@ -41,10 +41,6 @@ class BilevelPlanningApproach(BaseApproach):
         self._num_calls = 0
         self._last_plan: List[_Option] = []
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "bilevel_planning"
-
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         # ensure random over successive calls
