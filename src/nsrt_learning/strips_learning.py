@@ -105,7 +105,7 @@ def learn_strips_operators(
 
 
 def induce_pnad_preconditions(
-        pnad: PartialNSRTAndDatastore) -> Set[GroundAtom]:
+        pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
     """Given a PNAD with a nonempty datastore, compute the preconditions for
     the PNAD operator by intersecting all lifted preimages in the datastore."""
     assert len(pnad.datastore) > 0
