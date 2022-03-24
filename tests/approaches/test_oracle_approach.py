@@ -15,7 +15,8 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverMultistepOptionsFixedTasks
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
+    RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
@@ -120,6 +121,7 @@ def test_check_nsrt_parameters():
         "playroom": PlayroomEnv(),
         "cover_multistep_options": CoverMultistepOptions(),
         "repeated_nextto": RepeatedNextToEnv(),
+        "repeated_nextto_single_option": RepeatedNextToSingleOptionEnv(),
         "repeated_nextto_painting": RepeatedNextToPaintingEnv()
     }
     for name, env in envs.items():
@@ -728,9 +730,29 @@ def test_oracle_approach_repeated_nextto():
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    for train_task in train_tasks[:3]:
+    for train_task in train_tasks:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
-    for test_task in env.get_test_tasks()[:3]:
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_repeated_nextto_single_option():
+    """Tests for OracleApproach class with RepeatedNextToSingleOptionEnv."""
+    utils.reset_config({
+        "env": "repeated_nextto_single_option",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = RepeatedNextToSingleOptionEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=500)
         assert policy_solves_task(policy, test_task, env.simulate)

@@ -42,7 +42,9 @@ def get_gt_nsrts(predicates: Set[Predicate],
     elif CFG.env == "playroom":
         nsrts = _get_playroom_gt_nsrts()
     elif CFG.env == "repeated_nextto":
-        nsrts = _get_repeated_nextto_gt_nsrts()
+        nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
+    elif CFG.env == "repeated_nextto_single_option":
+        nsrts = _get_repeated_nextto_single_option_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1855,14 +1857,14 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
+def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for RepeatedNextToEnv."""
-    robot_type, dot_type = _get_types_by_names(CFG.env, ["robot", "dot"])
+    robot_type, dot_type = _get_types_by_names(env_name, ["robot", "dot"])
 
     NextTo, NextToNothing, Grasped = _get_predicates_by_names(
-        CFG.env, ["NextTo", "NextToNothing", "Grasped"])
+        env_name, ["NextTo", "NextToNothing", "Grasped"])
 
-    Move, Grasp = _get_options_by_names(CFG.env, ["Move", "Grasp"])
+    Move, Grasp = _get_options_by_names(env_name, ["Move", "Grasp"])
 
     nsrts = set()
 
@@ -1901,6 +1903,38 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
                       delete_effects, side_predicates, option, option_vars,
                       null_sampler)
+    nsrts.add(grasp_nsrt)
+
+    return nsrts
+
+
+def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for RepeatedNextToSingleOptionEnv."""
+    rn_grasp_nsrt, rn_move_nsrt = sorted(
+        _get_repeated_nextto_gt_nsrts("repeated_nextto"),
+        key=lambda nsrt: nsrt.name)
+    assert rn_grasp_nsrt.name == "Grasp"
+    assert rn_move_nsrt.name == "Move"
+
+    MoveGrasp, = _get_options_by_names(CFG.env, ["MoveGrasp"])
+
+    nsrts = set()
+
+    # Move
+    move_nsrt = NSRT(
+        rn_move_nsrt.name, rn_move_nsrt.parameters, rn_move_nsrt.preconditions,
+        rn_move_nsrt.add_effects, rn_move_nsrt.delete_effects,
+        rn_move_nsrt.side_predicates, MoveGrasp, rn_move_nsrt.option_vars,
+        lambda s, g, rng, o: np.array([-1.0, 0.0], dtype=np.float32))
+    nsrts.add(move_nsrt)
+
+    # Grasp
+    grasp_nsrt = NSRT(
+        rn_grasp_nsrt.name, rn_grasp_nsrt.parameters,
+        rn_grasp_nsrt.preconditions, rn_grasp_nsrt.add_effects,
+        rn_grasp_nsrt.delete_effects, rn_grasp_nsrt.side_predicates, MoveGrasp,
+        rn_grasp_nsrt.option_vars,
+        lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
     nsrts.add(grasp_nsrt)
 
     return nsrts
