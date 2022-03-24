@@ -146,11 +146,14 @@ class State:
         return np.hstack(feats)
 
     def copy(self) -> State:
-        """Return a copy of this state."""
+        """Return a copy of this state.
+
+        The simulator state is assumed to be immutable.
+        """
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data)
+        return State(new_data, simulator_state=self.simulator_state)
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
