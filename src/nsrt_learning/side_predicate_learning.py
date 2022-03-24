@@ -372,8 +372,8 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
         ]
         assert len(initial_pnads_for_option) > 0
 
-        # The PNAD creates side predicates by unioning all add effects, or
-        # unpredicted delete effects, in the initial PNADs for this option.
+        # The PNAD's side predicates are computed by unioning all add effects
+        # or unpredicted delete effects in the initial PNADs for this option.
         # Example for unpredicted delete effects: NextToNothing sometimes, but
         # not always, appears as a delete effect of Move in RepeatedNextToEnv.
         # We need to include this as a side predicate because otherwise, if
@@ -381,7 +381,7 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
         # it would expect that NextToNothing still holds in the next state,
         # unless we include NextToNothing as a delete effect or side predicate.
 
-        # For initial delete effects, it's complicated. For now, we intersect,
+        # The PNAD's delete effects are complicated. For now, we intersect,
         # representing all delete effects that always follow the execution of
         # the parameterized option. But we need to do this in a lifted way. That
         # in turn is complicated because to perform the lifted intersection,
