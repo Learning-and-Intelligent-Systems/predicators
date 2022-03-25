@@ -393,6 +393,9 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
