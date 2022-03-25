@@ -124,6 +124,11 @@ def test_state():
     state4 = State({obj3: np.array([1, 2])}, simulator_state="dummy")
     assert state4.simulator_state == "dummy"
     assert state4.copy().simulator_state == "dummy"
+    # Cannot use allclose with non-None simulator states.
+    with pytest.raises(NotImplementedError):
+        state4.allclose(state3)
+    with pytest.raises(NotImplementedError):
+        state3.allclose(state4)
     # Test state vec with no objects
     vec = state.vec([])
     assert vec.shape == (0, )
