@@ -1006,8 +1006,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         m["absolute_params"] = s.vec(o) + p
         return self._Pick_initiable(s, m, o, p)
 
-    def _Pick_policy(
-            self, s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
+                     p: Array) -> Action:
         del m  # unused
         # The object is the one we want to pick.
         assert len(o) == 1
