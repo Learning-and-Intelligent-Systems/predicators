@@ -94,9 +94,7 @@ def test_nsrt_learning_approach():
                    try_solving=False)
     for side_predicate_learner in [
             "prediction_error_hill_climbing",
-            "preserve_skeletons_hill_climbing",
-            "backchaining",
-            "intersection"
+            "preserve_skeletons_hill_climbing", "backchaining", "intersection"
     ]:
         _test_approach(env_name="repeated_nextto",
                        approach_name="nsrt_learning",

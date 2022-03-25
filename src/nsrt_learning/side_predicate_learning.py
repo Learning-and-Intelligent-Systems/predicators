@@ -543,6 +543,7 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             new_op_add_effects: Set[LiftedAtom] = set()
             new_op_delete_effects: Set[LiftedAtom] = set()
             new_op_side_preds: Set[Predicate] = set()
+            new_op_params: Set[Variable] = set()
             # Loop through all transitions associated with this PNAD and
             # continuously update add and delete effects by taking
             # intersections.Since intersections can only reduce the number
@@ -587,6 +588,7 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     new_op_preconditions = lifted_init_atoms
                     new_op_add_effects = lifted_seg_add_effects
                     new_op_delete_effects = lifted_seg_delete_effects
+                    new_op_params = set(pnad.op.parameters)
                 else:
                     new_op_preconditions &= lifted_init_atoms
                     add_eff_diff = lifted_seg_add_effects - new_op_add_effects
@@ -597,12 +599,18 @@ class IntersectionSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         new_op_side_preds.add(eff.predicate)
                     new_op_add_effects &= lifted_seg_add_effects
                     new_op_delete_effects &= lifted_seg_delete_effects
+                    all_params = {
+                        v
+                        for a in new_op_add_effects | new_op_delete_effects
+                        for v in a.variables
+                    }
+                    new_op_params |= set(all_params)
 
             # Replace the operator with one that contains the newly learned
             # preconditions, add effects and delete effects.
             # We do this because STRIPSOperator objects are frozen, so
             # their fields cannot be modified.
-            pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters,
+            pnad.op = STRIPSOperator(pnad.op.name, sorted(new_op_params),
                                      new_op_preconditions, new_op_add_effects,
                                      new_op_delete_effects, new_op_side_preds)
         return current_pnads
