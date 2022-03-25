@@ -40,6 +40,7 @@ class _PDDLEnvState(State):
     @classmethod
     def from_ground_atoms(cls, ground_atoms: Set[GroundAtom],
                           objects: Collection[Object]) -> _PDDLEnvState:
+        """Create a state from ground atoms and objects."""
         # Keep a dummy state dict so we know what objects are in the state.
         dummy_state_dict = {o: np.zeros(0, dtype=np.float32) for o in objects}
         return _PDDLEnvState(dummy_state_dict, simulator_state=ground_atoms)
@@ -50,8 +51,10 @@ class _PDDLEnvState(State):
 
     def copy(self) -> State:
         # The important part is that copy needs to return a _PDDLEnvState.
-        return _PDDLEnvState(self.data.copy(),
-                             simulator_state=self.simulator_state.copy())
+        # For extra peace of mind, we also copy the ground atom set.
+        ground_atoms = self.get_ground_atoms()
+        objects = set(self)
+        return self.from_ground_atoms(ground_atoms.copy(), objects)
 
 
 class _PDDLEnv(BaseEnv):
@@ -123,6 +126,7 @@ class _PDDLEnv(BaseEnv):
         return self._strips_operators
 
     def simulate(self, state: State, action: Action) -> State:
+        assert isinstance(state, _PDDLEnvState)
         ordered_objs = list(state)
         # Convert the state into a Set[GroundAtom].
         ground_atoms = state.get_ground_atoms()
@@ -339,6 +343,7 @@ def _strips_operator_to_parameterized_option(
 
     def initiable(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
         del m, p  # unused
+        assert isinstance(s, _PDDLEnvState)
         ground_atoms = s.get_ground_atoms()
         ground_op = op.ground(tuple(o))
         return ground_op.preconditions.issubset(ground_atoms)
@@ -466,6 +471,7 @@ def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
 
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
+        assert isinstance(s, _PDDLEnvState)
         return GroundAtom(pred, objs) in s.get_ground_atoms()
 
     return _classifier

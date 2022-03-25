@@ -1,17 +1,18 @@
 """Tests for PDDLEnv."""
 
+import os
+import shutil
+
 import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs.pddl_env import _PDDLEnv
+from predicators.src.envs.pddl_env import _FixedTasksPDDLEnv, _PDDLEnv
 
 
-def test_pddlenv():
-    """Tests for PDDLEnv()."""
-    utils.reset_config({"num_train_tasks": 1, "num_test_tasks": 1})
-
-    domain_str = """; This is a comment
+@pytest.fixture(scope="module", name="domain_str")
+def _create_domain_str():
+    return """; This is a comment
     (define (domain dummy)
         (:requirements :strips :typing)
         (:types fish banana)
@@ -27,6 +28,9 @@ def test_pddlenv():
         )
     )"""
 
+
+@pytest.fixture(scope="module", name="problem_strs")
+def _create_problem_strs():
     problem_str1 = """; This is a comment
     (define (problem dummy-problem1)
         (:domain dummy)
@@ -54,6 +58,14 @@ def test_pddlenv():
         )
         (:goal (and (ate fish1 ban2)))
     )"""
+
+    return [problem_str1, problem_str2]
+
+
+def test_pddlenv(domain_str, problem_strs):
+    """Tests for PDDLEnv()."""
+    utils.reset_config({"num_train_tasks": 1, "num_test_tasks": 1})
+    problem_str1, problem_str2 = problem_strs
 
     class _DummyPDDLEnv(_PDDLEnv):
 
@@ -169,3 +181,58 @@ def test_pddlenv():
     assert next_state.simulator_state == {
         isMonkfish([fish1]), ate([fish1, ban2])
     }
+
+
+def test_fixed_tasks_pddlenv(domain_str, problem_strs):
+    """Tests for _FixedTasksPDDLEnv()."""
+    utils.reset_config({"num_train_tasks": 1, "num_test_tasks": 1})
+    problem_str1, problem_str2 = problem_strs
+
+    # Set up fake assets.
+    asset_path = utils.get_env_asset_path("pddl/dummy_fixed_tasks",
+                                          assert_exists=False)
+    os.makedirs(asset_path, exist_ok=True)
+    task0_path = os.path.join(asset_path, "task0.pddl")
+    task42_path = os.path.join(asset_path, "task42.pddl")
+    with open(task0_path, "w", encoding="utf-8") as f:
+        f.write(problem_str1)
+    with open(task42_path, "w", encoding="utf-8") as f:
+        f.write(problem_str2)
+
+    class _DummyFixedTasksPDDLEnv(_FixedTasksPDDLEnv):
+
+        @classmethod
+        def get_name(cls):
+            return "dummy_fixed_tasks"
+
+        @property
+        def _domain_str(self):
+            return domain_str
+
+        @property
+        def _pddl_problem_asset_dir(self):
+            return "dummy_fixed_tasks"
+
+        @property
+        def _train_problem_indices(self):
+            return [0]
+
+        @property
+        def _test_problem_indices(self):
+            return [42]
+
+    env = _DummyFixedTasksPDDLEnv()
+
+    # Just check that the correspondence is correct. Detailed testing is
+    # covered by test_pddlenv.
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 1
+    train_task = train_tasks[0]
+    assert len(set(train_task.init)) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 1
+    test_task = test_tasks[0]
+    assert len(set(test_task.init)) == 4
+
+    # Remove fake assets.
+    shutil.rmtree(asset_path)
