@@ -13,7 +13,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
     LowLevelTrajectory, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Task, \
-    _GroundNSRT
+    _GroundNSRT, Variable
 
 
 class SidePredicateLearner(abc.ABC):
@@ -292,6 +292,7 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
     def _initialize_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
     ) -> PartialNSRTAndDatastore:
+        """Construct initial PNAD's."""
 
         # There could be multiple PNADs in self._initial_pnads corresponding
         # to this option. The goal of this function will be to merge them into
@@ -302,125 +303,26 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
         ]
         assert len(initial_pnads_for_option) > 0
 
-        # The PNAD's side predicates are computed by unioning all add effects
-        # or unpredicted delete effects in the initial PNADs for this option.
-        # Example for unpredicted delete effects: NextToNothing sometimes, but
-        # not always, appears as a delete effect of Move in RepeatedNextToEnv.
-        # We need to include this as a side predicate because otherwise, if
-        # the agent starts in a state where NextToNothing holds and then moves,
-        # it would expect that NextToNothing still holds in the next state,
-        # unless we include NextToNothing as a delete effect or side predicate.
-
-        # The PNAD's delete effects are complicated. For now, we intersect,
-        # representing all delete effects that always follow the execution of
-        # the parameterized option. But we need to do this in a lifted way. That
-        # in turn is complicated because to perform the lifted intersection,
-        # we would need to consistently lift all atoms in the same way so that
-        # they have the same variables. Unlike in normal NSRT learning, this
-        # consistency would need to work across multiple PNADs. (Normally, we
-        # just need to lift consistently within a single PNAD.) To make this
-        # simple for now, we will only consider delete effects where all its
-        # object are option objects, for the sake of computing this lifted
-        # delete effect intersection. It should be possible to do better.
-
-        # First we determine the delete effects, as described above, to figure
-        # out which of the remaining delete effects are unpredicted (and thus
-        # need to be sidelined, as described in the first paragraph above).
-        # Arbitrarily choose an initial PNAD whose option spec will be used
-        # as the option spec of the new PNAD.
-        new_option_spec = initial_pnads_for_option[0].option_spec
-        new_delete_effects: Optional[Set[LiftedAtom]] = None
-        # For reuse in sidelining.
-        all_segment_lifted_delete_effects = set()
-        for initial_pnad in initial_pnads_for_option:
-            assert initial_pnad.option_spec[0] == new_option_spec[0]
-            # Map this PNAD's option spec variables to the variables
-            # of the new PNAD's option spec. This ensures the
-            # variables are consistent across all PNADs.
-            var_to_remapped_var = dict(
-                zip(initial_pnad.option_spec[1], new_option_spec[1]))
-            for (seg, sub) in initial_pnad.datastore:
-                # Remap the variables in this PNAD to be consistent
-                # with the variables in the new PNAD.
-                remapped_var_to_obj = {
-                    var_to_remapped_var[v]: o
-                    for v, o in sub.items() if v in var_to_remapped_var
-                }
-                # Determine the delete effects.
-                obj_to_remapped_var = {
-                    o: v
-                    for v, o in remapped_var_to_obj.items()
-                }
-                assert len(obj_to_remapped_var) == len(remapped_var_to_obj)
-                seg_lifted_del_effs = {
-                    a.lift(obj_to_remapped_var)
-                    for a in seg.delete_effects
-                    # Ignore delete effects that have objects not
-                    # contained in the option objects.
-                    if set(a.objects).issubset(obj_to_remapped_var)
-                }
-                # Intersect the lifted delete effects over the PNADs.
-                if new_delete_effects is None:
-                    new_delete_effects = seg_lifted_del_effs
-                else:
-                    new_delete_effects &= seg_lifted_del_effs
-                all_segment_lifted_delete_effects.add(
-                    frozenset(seg_lifted_del_effs))
-        assert new_delete_effects is not None
-
         # We're ready to compute the side predicates. Begin by computing
         # the predicates contained in all segment add and delete effects.
-        add_effect_predicates = set()
-        delete_effect_predicates = set()
+        side_predicates = set()
         for initial_pnad in initial_pnads_for_option:
-            for (seg, _) in initial_pnad.datastore:
-                for ground_atom in seg.add_effects:
-                    add_effect_predicates.add(ground_atom.predicate)
-                for ground_atom in seg.delete_effects:
-                    delete_effect_predicates.add(ground_atom.predicate)
-        # All add_effect_predicates can be sidelined.
-        new_side_predicates = set(add_effect_predicates)
-        lifted_delete_effect_predicates = set()
-        # All predicates of unpredicted delete effects can be sidelined.
-        for lifted_delete_effects in all_segment_lifted_delete_effects:
-            for lifted_atom in lifted_delete_effects:
-                lifted_delete_effect_predicates.add(lifted_atom.predicate)
-                if lifted_atom not in new_delete_effects:
-                    new_side_predicates.add(lifted_atom.predicate)
-        # All delete_effect_predicates not appearing in any segment's
-        # lifted delete effects can be sidelined.
-        for pred in delete_effect_predicates - lifted_delete_effect_predicates:
-            new_side_predicates.add(pred)
+            for effect in initial_pnad.op.add_effects:
+                side_predicates.add(effect.predicate)
+            for effect in initial_pnad.op.delete_effects:
+                side_predicates.add(effect.predicate)
 
-        # Construct and return the PNAD. This PNAD has trivial add effects.
-        return self._construct_pnad_and_recompute(parameterized_option.name,
-                                                  set(), new_delete_effects,
-                                                  new_side_predicates,
-                                                  new_option_spec)
-
-    def _construct_pnad_and_recompute(
-            self, name: str, add_effects: Set[LiftedAtom],
-            delete_effects: Set[LiftedAtom], side_predicates: Set[Predicate],
-            option_spec: OptionSpec) -> PartialNSRTAndDatastore:
-        """Construct a PNAD with trivial datastore and preconditions, then
-        recompute both."""
-        parameter_set = {
-            v
-            for a in add_effects | delete_effects for v in a.variables
-        }
-        parameter_set |= set(option_spec[1])
-        parameters = sorted(parameter_set)
-        op = STRIPSOperator(name, parameters, set(), add_effects,
-                            delete_effects, side_predicates)
+        # NOTE: we use an arbitrarily-chosen option to set the option spec
+        # and parameters for the pnad
+        option_spec = initial_pnads_for_option[0].option_spec
+        parameters = option_spec[1]
+        op = STRIPSOperator(parameterized_option.name, parameters, set(),
+                            set(), set(), side_predicates)
         pnad = PartialNSRTAndDatastore(op, [], option_spec)
         # Recompute datastore.
         self._recompute_datastores_from_segments([pnad])
-        # Determine the preconditions.
-        preconditions = induce_pnad_preconditions(pnad)
-        # Finalize and return PNAD.
-        new_op = STRIPSOperator(name, parameters, preconditions, add_effects,
-                                delete_effects, side_predicates)
-        return PartialNSRTAndDatastore(new_op, pnad.datastore, option_spec)
+
+        return pnad
 
 
 class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
@@ -435,6 +337,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             pnad = self._initialize_general_pnad_for_option(param_opt)
             param_opt_to_pnad[param_opt] = pnad
         del self._initial_pnads  # no longer used
+
         # Go through each demonstration from the end back to the start,
         # making the PNADs more specific whenever needed.
         assert len(self._trajectories) == len(self._segmented_trajs)
@@ -455,40 +358,49 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 option = segment.get_option()
                 # Find the PNAD associated with this option.
                 pnad = param_opt_to_pnad[option.parent]
-                var_to_obj = pnad.get_sub_for_member_segment(segment)
                 # Compute the ground atoms that must be added on this timestep.
                 necessary_add_effects = necessary_image - atoms_seq[t]
-                # Compute the add effects that this PNAD currently predicts.
+
+                unifies, var_to_obj = utils.find_substitution(
+                    pnad.op.add_effects, necessary_add_effects)
+
+                # If the predicted add effects are missing necessary add
+                # effects, then we need to make the add effects more specific.
+                if not unifies:
+                    del var_to_obj
+                    
+                    # TODO: Some comment about what this is important
+                    ground_op = _find_ground_operator_substitution(necessary_add_effects, pnad, segment.init_atoms, option.objects)
+                    missing_effects = necessary_add_effects - ground_op.add_effects
+
+                    obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
+
+                    max_var_num = int(max(obj_to_var.values(), key=lambda var: int(var.name[2:])).name[2:])
+                    for effect in missing_effects:
+                        for obj in effect.objects:
+                            if obj not in obj_to_var:
+                                new_var = Variable("?x"+str(max_var_num), obj.type)
+                                obj_to_var[obj] = new_var
+                                max_var_num += 1
+
+                    updated_add_effects = pnad.op.add_effects | {
+                        a.lift(obj_to_var)
+                        for a in missing_effects
+                    }
+                    pnad = self._update_pnad_add_effects(
+                        pnad, sorted(obj_to_var.values()), updated_add_effects)
+                    param_opt_to_pnad[option.parent] = pnad
+                    unifies, var_to_obj = utils.find_substitution(
+                    pnad.op.add_effects, necessary_add_effects)
+                    assert unifies
+
+                # Update necessary_image for this timestep. It no longer
+                # needs to include the add effects of this PNAD, but
+                # must now include its preconditions.
                 predicted_add_effects = {
                     a.ground(var_to_obj)
                     for a in pnad.op.add_effects
                 }
-                # If the predicted add effects are missing necessary add
-                # effects, then we need to make the add effects more specific.
-                if not necessary_add_effects.issubset(predicted_add_effects):
-                    obj_to_var = {o: v for v, o in var_to_obj.items()}
-                    assert len(obj_to_var) == len(var_to_obj)
-                    updated_add_effects = pnad.op.add_effects | {
-                        a.lift(obj_to_var)
-                        for a in necessary_add_effects
-                    }
-                    pnad = self._update_pnad_add_effects(
-                        pnad, updated_add_effects)
-                    param_opt_to_pnad[option.parent] = pnad
-                    # Note that the parameters for the PNAD may have changed.
-                    # So we need to re-obtain var_to_obj.
-                    var_to_obj = pnad.get_sub_for_member_segment(segment)
-                    predicted_add_effects = {
-                        a.ground(var_to_obj)
-                        for a in pnad.op.add_effects
-                    }
-                    # After we just made the add effects more specific, the
-                    # predicted add effects should cover the necessary ones.
-                    assert necessary_add_effects.issubset(
-                        predicted_add_effects)
-                # Update necessary_image for this timestep. It no longer
-                # needs to include the add effects of this PNAD, but
-                # must now include its preconditions.
                 necessary_image -= predicted_add_effects
                 necessary_image |= {
                     a.ground(var_to_obj)
@@ -498,27 +410,39 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         return list(param_opt_to_pnad.values())
 
     def _update_pnad_add_effects(
-            self, pnad: PartialNSRTAndDatastore,
+            self, pnad: PartialNSRTAndDatastore, parameters: List[Variable],
             add_effects: Set[LiftedAtom]) -> PartialNSRTAndDatastore:
         """Return a new PNAD resulting from changing the add effects in the
         given PNAD to the given add_effects."""
-        # Recompute the side predicates by collecting all unpredicted effects
-        # of the segments in the datastore.
-        side_predicates = set()
-        for seg, sub in pnad.datastore:
-            predicted_add_effects = {a.ground(sub) for a in add_effects}
-            for atom in seg.add_effects - predicted_add_effects:
-                side_predicates.add(atom.predicate)
-            predicted_delete_effects = {
-                a.ground(sub)
-                for a in pnad.op.delete_effects
-            }
-            for atom in seg.delete_effects - predicted_delete_effects:
-                side_predicates.add(atom.predicate)
-        # Note that in general, we may need to recompute the datastore and
-        # preconditions, even though the segments don't change, because the
-        # parameters may change, so the VarToObjSub may also change.
-        return self._construct_pnad_and_recompute(pnad.op.name, add_effects,
-                                                  pnad.op.delete_effects,
-                                                  side_predicates,
-                                                  pnad.option_spec)
+        updated_op = STRIPSOperator(pnad.op.name, parameters, set(),
+                                    add_effects, pnad.op.delete_effects,
+                                    pnad.op.side_predicates)
+        updated_pnad = PartialNSRTAndDatastore(updated_op, [],
+                                               pnad.option_spec)
+        # Determine the preconditions.
+        preconditions = induce_pnad_preconditions(updated_pnad)
+        # Finalize and return PNAD.
+        final_op = STRIPSOperator(updated_pnad.op.name,
+                                  updated_pnad.op.parameters, preconditions,
+                                  updated_pnad.op.add_effects,
+                                  updated_pnad.op.delete_effects,
+                                  updated_pnad.op.side_predicates)
+        return PartialNSRTAndDatastore(final_op, updated_pnad.datastore,
+                                       updated_pnad.option_spec)
+
+def _find_ground_operator_substitution(necessary_add_effects, pnad, init_atoms, option_objects):
+    objects = {obj for a in necessary_add_effects for obj in a.objects}
+    isub = dict(zip(pnad.option_spec[1], option_objects))
+    # Consider adding this segment to each datastore.
+    for ground_op in utils.all_ground_operators_given_partial(
+            pnad.op, objects, isub):
+        # Check if preconditions hold.
+        if not ground_op.preconditions.issubset(
+                init_atoms):
+            continue
+        # Check if effects match. Note that we're using the side
+        # predicates semantics here!
+        atoms = utils.apply_operator(ground_op,
+                                        init_atoms)
+        if atoms.issubset(necessary_add_effects):
+            return ground_op
