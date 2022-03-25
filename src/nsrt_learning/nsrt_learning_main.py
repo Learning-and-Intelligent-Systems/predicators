@@ -10,7 +10,7 @@ from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.side_predicate_learning import \
-    BackchainingSidePredicateLearner, \
+    BackchainingSidePredicateLearner, IntersectionSidePredicateLearner, \
     PredictionErrorHillClimbingSidePredicateLearner, \
     PreserveSkeletonsHillClimbingSidePredicateLearner, SidePredicateLearner
 from predicators.src.nsrt_learning.strips_learning import \
@@ -91,6 +91,9 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                     segmented_trajs)
         elif CFG.side_predicate_learner == "backchaining":
             side_pred_learner = BackchainingSidePredicateLearner(
+                pnads, trajectories, train_tasks, predicates, segmented_trajs)
+        elif CFG.side_predicate_learner == "intersection":
+            side_pred_learner = IntersectionSidePredicateLearner(
                 pnads, trajectories, train_tasks, predicates, segmented_trajs)
         else:
             raise ValueError(
