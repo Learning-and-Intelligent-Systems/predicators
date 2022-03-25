@@ -166,6 +166,10 @@ class State:
     def allclose(self, other: State) -> bool:
         """Return whether this state is close enough to another one, i.e., its
         objects are the same, and the features are close."""
+        if self.simulator_state is not None or \
+           other.simulator_state is not None:
+            raise NotImplementedError("Cannot use allclose when "
+                                      "simulator_state is not None.")
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
