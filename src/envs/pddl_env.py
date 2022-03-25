@@ -3,6 +3,7 @@
 There are no continuous aspects of the state or action space. These
 environments are similar to PDDLGym.
 """
+from __future__ import annotations
 
 import abc
 import functools
@@ -25,8 +26,32 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, \
     State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
 
 ###############################################################################
-#                                    ABCs                                     #
+#                                Base Classes                                 #
 ###############################################################################
+
+
+class _PDDLEnvState(State):
+    """No continuous object features, and ground atoms in simulator_state."""
+
+    def get_ground_atoms(self) -> Set[GroundAtom]:
+        """Expose the ground atoms in the simulator_state."""
+        return cast(Set[GroundAtom], self.simulator_state)
+
+    @classmethod
+    def from_ground_atoms(cls, ground_atoms: Set[GroundAtom],
+                          objects: Collection[Object]) -> _PDDLEnvState:
+        # Keep a dummy state dict so we know what objects are in the state.
+        dummy_state_dict = {o: np.zeros(0, dtype=np.float32) for o in objects}
+        return _PDDLEnvState(dummy_state_dict, simulator_state=ground_atoms)
+
+    def allclose(self, other: State) -> bool:
+        assert isinstance(other, _PDDLEnvState)
+        return self.simulator_state == other.simulator_state
+
+    def copy(self) -> State:
+        # The important part is that copy needs to return a _PDDLEnvState.
+        return _PDDLEnvState(self.data.copy(),
+                             simulator_state=self.simulator_state.copy())
 
 
 class _PDDLEnv(BaseEnv):
@@ -100,7 +125,7 @@ class _PDDLEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         ordered_objs = list(state)
         # Convert the state into a Set[GroundAtom].
-        ground_atoms = _state_to_ground_atoms(state)
+        ground_atoms = state.get_ground_atoms()
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
@@ -110,7 +135,8 @@ class _PDDLEnv(BaseEnv):
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
         # Convert back into a State.
-        next_state = _ground_atoms_to_state(next_ground_atoms, ordered_objs)
+        next_state = _PDDLEnvState.from_ground_atoms(next_ground_atoms,
+                                                     ordered_objs)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -277,16 +303,6 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
 ###############################################################################
 
 
-def _state_to_ground_atoms(state: State) -> Set[GroundAtom]:
-    return cast(Set[GroundAtom], state.simulator_state)
-
-
-def _ground_atoms_to_state(ground_atoms: Set[GroundAtom],
-                           objects: Collection[Object]) -> State:
-    dummy_state_dict = {o: np.zeros(0, dtype=np.float32) for o in objects}
-    return State(dummy_state_dict, simulator_state=ground_atoms)
-
-
 def _action_to_ground_strips_op(
         action: Action, ordered_objects: List[Object],
         ordered_operators: List[STRIPSOperator]) -> _GroundSTRIPSOperator:
@@ -323,7 +339,7 @@ def _strips_operator_to_parameterized_option(
 
     def initiable(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
         del m, p  # unused
-        ground_atoms = _state_to_ground_atoms(s)
+        ground_atoms = s.get_ground_atoms()
         ground_op = op.ground(tuple(o))
         return ground_op.preconditions.issubset(ground_atoms)
 
@@ -434,7 +450,7 @@ def _pddl_problem_str_to_task(pddl_problem_str: str, pddl_domain_str: str,
                    [object_name_to_obj[n] for n, _ in a.signature])
         for a in pyperplan_problem.initial_state
     }
-    init = _ground_atoms_to_state(init_ground_atoms, objects)
+    init = _PDDLEnvState.from_ground_atoms(init_ground_atoms, objects)
     # Create the goal.
     goal = {
         GroundAtom(predicate_name_to_predicate[a.name],
@@ -450,7 +466,7 @@ def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
 
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
-        return GroundAtom(pred, objs) in _state_to_ground_atoms(s)
+        return GroundAtom(pred, objs) in s.get_ground_atoms()
 
     return _classifier
 
