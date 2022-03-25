@@ -1,4 +1,4 @@
-"""Procedurally generates PDDL problem strs."""
+"""Procedurally generates PDDL problem strings."""
 
 from functools import partial
 from typing import Collection, List, Optional, Set

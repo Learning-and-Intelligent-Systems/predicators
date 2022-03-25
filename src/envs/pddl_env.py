@@ -232,11 +232,11 @@ class FixedTasksBlocksPDDLEnv(_BlocksPDDLEnv, _FixedTasksPDDLEnv):
 
     @property
     def _train_problem_indices(self) -> List[int]:
-        return list(range(1, 6))
+        return CFG.pddl_blocks_fixed_train_indices
 
     @property
     def _test_problem_indices(self) -> List[int]:
-        return list(range(6, 11))
+        return CFG.pddl_blocks_fixed_test_indices
 
 
 class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
@@ -248,25 +248,25 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
 
     @property
     def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
-        min_num_blocks = CFG.pddl_blocks_train_min_num_blocks
-        max_num_blocks = CFG.pddl_blocks_train_max_num_blocks
-        min_num_blocks_goal = CFG.pddl_blocks_train_min_num_blocks_goal
-        max_num_blocks_goal = CFG.pddl_blocks_train_max_num_blocks_goal
-        new_pile_prob = CFG.pddl_blocks_new_pile_prob
-        return create_blocks_pddl_generator(min_num_blocks, max_num_blocks,
-                                            min_num_blocks_goal,
-                                            max_num_blocks_goal, new_pile_prob)
+        min_blocks = CFG.pddl_blocks_procedural_train_min_num_blocks
+        max_blocks = CFG.pddl_blocks_procedural_train_max_num_blocks
+        min_blocks_goal = CFG.pddl_blocks_procedural_train_min_num_blocks_goal
+        max_blocks_goal = CFG.pddl_blocks_procedural_train_max_num_blocks_goal
+        new_pile_prob = CFG.pddl_blocks_procedural_new_pile_prob
+        return create_blocks_pddl_generator(min_blocks, max_blocks,
+                                            min_blocks_goal, max_blocks_goal,
+                                            new_pile_prob)
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
-        min_num_blocks = CFG.pddl_blocks_test_min_num_blocks
-        max_num_blocks = CFG.pddl_blocks_test_max_num_blocks
-        min_num_blocks_goal = CFG.pddl_blocks_test_min_num_blocks_goal
-        max_num_blocks_goal = CFG.pddl_blocks_test_max_num_blocks_goal
-        new_pile_prob = CFG.pddl_blocks_new_pile_prob
-        return create_blocks_pddl_generator(min_num_blocks, max_num_blocks,
-                                            min_num_blocks_goal,
-                                            max_num_blocks_goal, new_pile_prob)
+        min_blocks = CFG.pddl_blocks_procedural_test_min_num_blocks
+        max_blocks = CFG.pddl_blocks_procedural_test_max_num_blocks
+        min_blocks_goal = CFG.pddl_blocks_procedural_test_min_num_blocks_goal
+        max_blocks_goal = CFG.pddl_blocks_procedural_test_max_num_blocks_goal
+        new_pile_prob = CFG.pddl_blocks_procedural_new_pile_prob
+        return create_blocks_pddl_generator(min_blocks, max_blocks,
+                                            min_blocks_goal, max_blocks_goal,
+                                            new_pile_prob)
 
 
 ###############################################################################
@@ -454,7 +454,7 @@ def _create_predicate_classifier(
 
 def _file_problem_generator(dir_name: str,
                             indices: Sequence[int]) -> PDDLProblemGenerator:
-    # Load all of the PDDL problem strs from files.
+    # Load all of the PDDL problem strings from files.
     problems = []
     for idx in indices:
         path = utils.get_env_asset_path(f"pddl/{dir_name}/task{idx}.pddl")
