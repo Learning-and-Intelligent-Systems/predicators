@@ -92,17 +92,15 @@ class _PDDLEnv(BaseEnv):
             for op in self._strips_operators
         }
         # Compute the train and test tasks.
-        self._train_tasks = self._generate_tasks(
+        self._pregenerated_train_tasks = self._generate_tasks(
             CFG.num_train_tasks, self._pddl_train_problem_generator,
             self._train_rng)
-        self._test_tasks = self._generate_tasks(
+        self._pregenerated_test_tasks = self._generate_tasks(
             CFG.num_test_tasks, self._pddl_test_problem_generator,
             self._test_rng)
         # Determine the goal predicates from the tasks.
-        self._goal_predicates = {
-            a.predicate
-            for t in self._train_tasks + self._test_tasks for a in t.goal
-        }
+        tasks = self._pregenerated_train_tasks + self._pregenerated_test_tasks
+        self._goal_predicates = {a.predicate for t in tasks for a in t.goal}
 
     @property
     @abc.abstractmethod
@@ -143,10 +141,10 @@ class _PDDLEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._train_tasks
+        return self._pregenerated_train_tasks
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._test_tasks
+        return self._pregenerated_test_tasks
 
     def _generate_tasks(self, num_tasks: int,
                         problem_gen: PDDLProblemGenerator,

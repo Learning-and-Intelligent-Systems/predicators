@@ -86,6 +86,7 @@ def test_pddlenv(domain_str, problem_strs):
             return lambda num, rng: [problem_str2]
 
     env = _DummyPDDLEnv()
+    assert env.get_name() == "dummy"
 
     # Domain creation checks.
     assert np.allclose(env.action_space.low,
@@ -222,6 +223,7 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
             return [42]
 
     env = _DummyFixedTasksPDDLEnv()
+    assert env.get_name() == "dummy_fixed_tasks"
 
     # Just check that the correspondence is correct. Detailed testing is
     # covered by test_pddlenv.

@@ -8,11 +8,13 @@ import numpy as np
 from predicators.src.structs import PDDLProblemGenerator
 
 
-def create_blocks_pddl_generator(min_num_blocks: int, max_num_blocks: int,
-                                 min_num_blocks_goal: int,
-                                 max_num_blocks_goal: int,
-                                 new_pile_prob: float,
-                                 force_goal_not_achieved: bool = True) -> PDDLProblemGenerator:
+def create_blocks_pddl_generator(
+        min_num_blocks: int,
+        max_num_blocks: int,
+        min_num_blocks_goal: int,
+        max_num_blocks_goal: int,
+        new_pile_prob: float,
+        force_goal_not_achieved: bool = True) -> PDDLProblemGenerator:
     """Create a generator for blocks problems."""
     if force_goal_not_achieved:
         assert new_pile_prob < 1.0, ("Impossible to create an unsolved problem"
@@ -25,8 +27,7 @@ def create_blocks_pddl_generator(min_num_blocks: int, max_num_blocks: int,
 def _generate_blocks_problems(min_num_blocks: int, max_num_blocks: int,
                               min_num_blocks_goal: int,
                               max_num_blocks_goal: int, new_pile_prob: float,
-                              force_goal_not_achieved: bool,
-                              num_problems: int,
+                              force_goal_not_achieved: bool, num_problems: int,
                               rng: np.random.Generator) -> List[str]:
     assert max_num_blocks_goal <= min_num_blocks
     problems = []
@@ -35,8 +36,8 @@ def _generate_blocks_problems(min_num_blocks: int, max_num_blocks: int,
         num_goal_blocks = rng.integers(min_num_blocks_goal,
                                        max_num_blocks_goal + 1)
         problem = _generate_blocks_problem(num_blocks, num_goal_blocks,
-                                           new_pile_prob, force_goal_not_achieved,
-                                           rng)
+                                           new_pile_prob,
+                                           force_goal_not_achieved, rng)
         problems.append(problem)
     return problems
 
