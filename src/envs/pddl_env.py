@@ -104,6 +104,9 @@ class _PDDLEnv(BaseEnv):
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
+        # If the operator is not applicable in this state, noop.
+        if not ground_op.preconditions.issubset(ground_atoms):
+            return state.copy()
         # Apply the operator.
         next_ground_atoms = utils.apply_operator(ground_op, ground_atoms)
         # Convert back into a State.
