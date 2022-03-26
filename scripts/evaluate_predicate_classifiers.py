@@ -71,17 +71,19 @@ def _run_pipeline(env: BaseEnv,
             env, teacher, interaction_requests, i)
         total_num_transitions += sum(
             len(result.actions) for result in interaction_results)
-        _evaluate_preds(
-            approach._get_current_predicates(),  # pylint: disable=protected-access
-            env)
         approach.load(online_learning_cycle=i)
+    # Only evaluate the last cycle
+    _evaluate_preds(
+        approach._get_current_predicates(),  # pylint: disable=protected-access
+        env)
 
 
 def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
     if CFG.env == "cover":
+        assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(preds, env)
     raise NotImplementedError(
-        f"Held out test set not yet implemented for {CFG.env}")
+        f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
 def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
@@ -109,10 +111,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     for target, pose in zip(targets, target_poses):
         # [is_block, is_target, width, pose]
         state.set(target, "pose", pose)
-    # [hand]
     state.set(robot, "hand", 0.0)
     # Test 1: no blocks overlap any targets, none are held
-    print(f"Test case 1 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
@@ -123,7 +123,6 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     action = Action(np.array([0.375], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 2: block0 covers target0
-    print(f"Test case 2 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
@@ -134,7 +133,6 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     action = Action(np.array([0.815], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 3: block1 does not completely cover target1
-    print(f"Test case 3 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
