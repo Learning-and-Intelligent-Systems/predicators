@@ -109,6 +109,19 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
 
+    # pddl blocks env parameters
+    pddl_blocks_procedural_train_min_num_blocks = 3
+    pddl_blocks_procedural_train_max_num_blocks = 4
+    pddl_blocks_procedural_train_min_num_blocks_goal = 2
+    pddl_blocks_procedural_train_max_num_blocks_goal = 3
+    pddl_blocks_procedural_test_min_num_blocks = 5
+    pddl_blocks_procedural_test_max_num_blocks = 6
+    pddl_blocks_procedural_test_min_num_blocks_goal = 2
+    pddl_blocks_procedural_test_max_num_blocks_goal = 5
+    pddl_blocks_procedural_new_pile_prob = 0.5
+    pddl_blocks_fixed_train_indices = list(range(1, 6))
+    pddl_blocks_fixed_test_indices = list(range(6, 11))
+
     # parameters for random options approach
     random_options_max_tries = 100
 

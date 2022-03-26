@@ -10,6 +10,7 @@ from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
     navigate_to_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
@@ -45,6 +46,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
     elif CFG.env == "repeated_nextto_single_option":
         nsrts = _get_repeated_nextto_single_option_gt_nsrts()
+    elif CFG.env.startswith("pddl_"):
+        nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2105,5 +2108,24 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         else:
             raise ValueError(
                 f"Unexpected base option name: {base_option_name}")
+
+    return nsrts
+
+
+def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
+    env_base = get_or_create_env(name)
+    env = cast(_PDDLEnv, env_base)
+
+    nsrts = set()
+    option_name_to_option = {o.name: o for o in env.options}
+
+    for strips_op in env.strips_operators:
+        option = option_name_to_option[strips_op.name]
+        nsrt = strips_op.make_nsrt(
+            option=option,
+            option_vars=strips_op.parameters,
+            sampler=null_sampler,
+        )
+        nsrts.add(nsrt)
 
     return nsrts
