@@ -111,57 +111,34 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
         state.set(target, "pose", pose)
     # [hand]
     state.set(robot, "hand", 0.0)
-    # Test 1: block does not overlap target, not held
+    # Test 1: no blocks overlap any targets, none are held
     print(f"Test case 1 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
           f"False negatives: {atoms_gt - atoms}")
-    # if Holding.holds(state, [block0]) != HoldingGT.holds(state, [block0]):
-    #     print(
-    #         "Incorrectly evaluated Holding in state where block0 is not held")
-    # if Holding.holds(state, [block1]) != HoldingGT.holds(state, [block1]):
-    #     print(
-    #         "Incorrectly evaluated Holding in state where block1 is not held")
-    # if Covers.holds(state, [block0, target0]) != CoversGT.holds(state, [block0, target0]):
-    #     print(
-    #         "Incorrectly evaluated Covers in state where block0 does not cover"
-    #         " target0")
-    # Pick up block0 and cover target0
+    # Pick up block0 and place it over target0
     action = Action(np.array([0.15], dtype=np.float32))
     state = env.simulate(state, action)
     action = Action(np.array([0.375], dtype=np.float32))
     state = env.simulate(state, action)
-    # Test 2: block0 covers target0, is not held
+    # Test 2: block0 covers target0
     print(f"Test case 2 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
           f"False negatives: {atoms_gt - atoms}")
-    # if Holding.holds(state, [block0]):
-    #     print(
-    #         "Incorrectly evaluated Holding in state where block0 is not held")
-    # if not Covers.holds(state, [block0, target0]):
-    #     print(
-    #         "Incorrectly evaluated Covers in state where block0 covers target0"
-    #     )
-    # Pick and place block1 so it partially overlaps but does not cover target1
-    action = Action(np.array([0.6], dtype=np.float32))
+    # Pick and place block1 so it partially overlaps target1
+    action = Action(np.array([0.62], dtype=np.float32))
     state = env.simulate(state, action)
-    action = Action(np.array([0.78], dtype=np.float32))
+    action = Action(np.array([0.8], dtype=np.float32))
     state = env.simulate(state, action)
-    # Test 3: block1 partially overlaps target1
+    # Test 3: block1 does not completely cover target1
     print(f"Test case 3 state:\n{state}")
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"
           f"False negatives: {atoms_gt - atoms}")
-    # if not Holding.holds(state, [block1]):
-    #     print("Incorrectly evaluated Holding in state where block1 is held")
-    # if Covers.holds(state, [block1, target1]):
-    #     print(
-    #         "Incorrectly evaluated Covers in state where block1 does not cover"
-    #         " target1")
 
 
 if __name__ == "__main__":
