@@ -360,29 +360,37 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad = param_opt_to_pnad[option.parent]
                 # Compute the ground atoms that must be added on this timestep.
                 necessary_add_effects = necessary_image - atoms_seq[t]
+                # If there are no such ground atoms, just skip this timestep.
+                if len(necessary_add_effects) == 0:
+                    continue
 
-                unifies, var_to_obj = utils.find_substitution(
+                unifies, obj_to_var = utils.find_substitution(
                     pnad.op.add_effects, necessary_add_effects)
+
+                if pnad.op.parameters != sorted(obj_to_var.values()) and unifies:
+                    import ipdb; ipdb.set_trace()
 
                 # If the predicted add effects are missing necessary add
                 # effects, then we need to make the add effects more specific.
                 if not unifies:
-                    del var_to_obj
-                    
+                    del obj_to_var
                     # TODO: Some comment about what this is important
-                    ground_op = _find_ground_operator_substitution(necessary_add_effects, pnad, segment.init_atoms, option.objects)
+                    ground_op = _find_ground_operator_substitution(
+                        necessary_add_effects, pnad, segment.init_atoms,
+                        option.objects)
                     missing_effects = necessary_add_effects - ground_op.add_effects
-
-                    obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
-
-                    max_var_num = int(max(obj_to_var.values(), key=lambda var: int(var.name[2:])).name[2:])
+                    obj_to_var = dict(
+                        zip(ground_op.objects, pnad.op.parameters))
+                    max_var_num = int(
+                        max(obj_to_var.values(),
+                            key=lambda var: int(var.name[2:])).name[2:])
                     for effect in missing_effects:
                         for obj in effect.objects:
                             if obj not in obj_to_var:
-                                new_var = Variable("?x"+str(max_var_num), obj.type)
-                                obj_to_var[obj] = new_var
                                 max_var_num += 1
-
+                                new_var = Variable("?x" + str(max_var_num),
+                                                   obj.type)
+                                obj_to_var[obj] = new_var
                     updated_add_effects = pnad.op.add_effects | {
                         a.lift(obj_to_var)
                         for a in missing_effects
@@ -390,17 +398,19 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     pnad = self._update_pnad_add_effects(
                         pnad, sorted(obj_to_var.values()), updated_add_effects)
                     param_opt_to_pnad[option.parent] = pnad
-                    unifies, var_to_obj = utils.find_substitution(
-                    pnad.op.add_effects, necessary_add_effects)
+                    unifies, obj_to_var = utils.find_substitution(
+                        pnad.op.add_effects, necessary_add_effects)
                     assert unifies
 
-                # Update necessary_image for this timestep. It no longer
-                # needs to include the add effects of this PNAD, but
-                # must now include its preconditions.
+                var_to_obj = {v:k for (k,v) in obj_to_var.items()}
                 predicted_add_effects = {
                     a.ground(var_to_obj)
                     for a in pnad.op.add_effects
                 }
+
+                # Update necessary_image for this timestep. It no longer
+                # needs to include the add effects of this PNAD, but
+                # must now include its preconditions.
                 necessary_image -= predicted_add_effects
                 necessary_image |= {
                     a.ground(var_to_obj)
@@ -417,7 +427,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         updated_op = STRIPSOperator(pnad.op.name, parameters, set(),
                                     add_effects, pnad.op.delete_effects,
                                     pnad.op.side_predicates)
-        updated_pnad = PartialNSRTAndDatastore(updated_op, [],
+        updated_pnad = PartialNSRTAndDatastore(updated_op, pnad.datastore,
                                                pnad.option_spec)
         # Determine the preconditions.
         preconditions = induce_pnad_preconditions(updated_pnad)
@@ -430,19 +440,19 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         return PartialNSRTAndDatastore(final_op, updated_pnad.datastore,
                                        updated_pnad.option_spec)
 
-def _find_ground_operator_substitution(necessary_add_effects, pnad, init_atoms, option_objects):
+
+def _find_ground_operator_substitution(necessary_add_effects, pnad, init_atoms,
+                                       option_objects):
     objects = {obj for a in necessary_add_effects for obj in a.objects}
     isub = dict(zip(pnad.option_spec[1], option_objects))
     # Consider adding this segment to each datastore.
     for ground_op in utils.all_ground_operators_given_partial(
             pnad.op, objects, isub):
         # Check if preconditions hold.
-        if not ground_op.preconditions.issubset(
-                init_atoms):
+        if not ground_op.preconditions.issubset(init_atoms):
             continue
         # Check if effects match. Note that we're using the side
         # predicates semantics here!
-        atoms = utils.apply_operator(ground_op,
-                                        init_atoms)
+        atoms = utils.apply_operator(ground_op, init_atoms)
         if atoms.issubset(necessary_add_effects):
             return ground_op
