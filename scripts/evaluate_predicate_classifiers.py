@@ -1,21 +1,20 @@
-"""
-TODO
-"""
+"""TODO."""
 
 import os
+from typing import List, Optional, Set
 
 import numpy as np
-from typing import List, Optional, Set
 
 from predicators.src import utils
 from predicators.src.approaches import create_approach
-from predicators.src.approaches.bilevel_planning_approach import BilevelPlanningApproach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import _generate_or_load_offline_dataset, \
-    _generate_interaction_results
+from predicators.src.main import _generate_interaction_results, \
+    _generate_or_load_offline_dataset
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, Predicate, Task, Action
+from predicators.src.structs import Action, Dataset, Predicate, Task
 from predicators.src.teacher import Teacher
 
 
@@ -80,7 +79,8 @@ def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
     if CFG.env == "cover":
         assert type(env) == CoverEnv
         return _evaluate_preds_cover(preds, env)
-    raise NotImplementedError(f"Held out test set not yet implemented for {CFG.env}")
+    raise NotImplementedError(
+        f"Held out test set not yet implemented for {CFG.env}")
 
 
 def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
@@ -110,11 +110,15 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     # Test 1: block does not overlap target, not held
     print(f"Test case 1 state:\n{state}")
     if Holding.holds(state, [block0]):
-        print("Incorrectly evaluated Holding in state where block0 is not held")
+        print(
+            "Incorrectly evaluated Holding in state where block0 is not held")
     if Holding.holds(state, [block1]):
-        print("Incorrectly evaluated Holding in state where block1 is not held")
+        print(
+            "Incorrectly evaluated Holding in state where block1 is not held")
     if Covers.holds(state, [block0, target0]):
-        print("Incorrectly evaluated Covers in state where block0 does not cover target0")
+        print(
+            "Incorrectly evaluated Covers in state where block0 does not cover target0"
+        )
     # TODO: other combos? should i be testing all the groundings in all these test cases?
     # Pick up block0 and cover target0
     action = Action(np.array([0.15], dtype=np.float32))
@@ -124,9 +128,12 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     # Test 2: block0 covers target0, is not held
     print(f"Test case 2 state:\n{state}")
     if Holding.holds(state, [block0]):
-        print("Incorrectly evaluated Holding in state where block0 is not held")
+        print(
+            "Incorrectly evaluated Holding in state where block0 is not held")
     if not Covers.holds(state, [block0, target0]):
-        print("Incorrectly evaluated Covers in state where block0 covers target0")
+        print(
+            "Incorrectly evaluated Covers in state where block0 covers target0"
+        )
     # Pick up block1 and attempt to place over target0, but block0 is already there
     action = Action(np.array([0.6], dtype=np.float32))
     state = env.simulate(state, action)
@@ -137,7 +144,9 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     if not Holding.holds(state, [block1]):
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target0]):
-        print("Incorrectly evaluated Covers in state where block1 does not cover target0")
+        print(
+            "Incorrectly evaluated Covers in state where block1 does not cover target0"
+        )
     # Place block1 so it partially overlaps but does not cover target1
     action = Action(np.array([0.78], dtype=np.float32))
     state = env.simulate(state, action)
@@ -146,7 +155,9 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     if not Holding.holds(state, [block1]):
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target1]):
-        print("Incorrectly evaluated Covers in state where block1 does not cover target1")
+        print(
+            "Incorrectly evaluated Covers in state where block1 does not cover target1"
+        )
 
 
 if __name__ == "__main__":
