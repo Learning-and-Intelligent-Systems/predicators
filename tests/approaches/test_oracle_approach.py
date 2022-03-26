@@ -14,6 +14,8 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions, \
     CoverMultistepOptionsFixedTasks
 from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
+    ProceduralTasksBlocksPDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
@@ -122,7 +124,8 @@ def test_check_nsrt_parameters():
         "cover_multistep_options": CoverMultistepOptions(),
         "repeated_nextto": RepeatedNextToEnv(),
         "repeated_nextto_single_option": RepeatedNextToSingleOptionEnv(),
-        "repeated_nextto_painting": RepeatedNextToPaintingEnv()
+        "repeated_nextto_painting": RepeatedNextToPaintingEnv(),
+        "pddl_blocks_procedural_tasks": ProceduralTasksBlocksPDDLEnv(),
     }
     for name, env in envs.items():
         utils.reset_config({"env": name})
@@ -746,6 +749,46 @@ def test_oracle_approach_repeated_nextto_single_option():
         "num_test_tasks": 2
     })
     env = RepeatedNextToSingleOptionEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_pddl_blocks_fixed_tasks():
+    """Tests for OracleApproach class with FixedTasksBlocksPDDLEnv."""
+    utils.reset_config({
+        "env": "pddl_blocks_fixed_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = FixedTasksBlocksPDDLEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_pddl_blocks_procedural_tasks():
+    """Tests for OracleApproach class with FixedTasksProceduralPDDLEnv."""
+    utils.reset_config({
+        "env": "pddl_blocks_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = FixedTasksBlocksPDDLEnv()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
