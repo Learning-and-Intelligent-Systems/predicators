@@ -79,7 +79,6 @@ def _run_pipeline(env: BaseEnv,
 
 def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
     if CFG.env == "cover":
-        assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(preds, env)
     raise NotImplementedError(
         f"Held out test set not yet implemented for {CFG.env}")
