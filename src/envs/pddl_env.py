@@ -308,11 +308,13 @@ def _action_to_ground_strips_op(
         action: Action, ordered_objects: List[Object],
         ordered_operators: List[STRIPSOperator]) -> _GroundSTRIPSOperator:
     action_arr = action.arr
-    assert all(float(a).is_integer() for a in action_arr)
     op_idx = int(action_arr[0])
     op = ordered_operators[op_idx]
     op_arity = len(op.parameters)
-    obj_idxs = [int(i) for i in action_arr[1:(op_arity + 1)]]
+    num_objs = len(ordered_objects)
+    obj_idxs = [
+        min(int(i), num_objs - 1) for i in action_arr[1:(op_arity + 1)]
+    ]
     objs = tuple(ordered_objects[i] for i in obj_idxs)
     return op.ground(objs)
 
