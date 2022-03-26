@@ -1,4 +1,4 @@
-"""TODO."""
+"""Script to evaluate learned predicate classifiers on held-out test cases."""
 
 import os
 from typing import List, Optional, Set
@@ -71,13 +71,15 @@ def _run_pipeline(env: BaseEnv,
             env, teacher, interaction_requests, i)
         total_num_transitions += sum(
             len(result.actions) for result in interaction_results)
-        _evaluate_preds(approach._get_current_predicates(), env)
+        _evaluate_preds(
+            approach._get_current_predicates(),  # pylint: disable=protected-access
+            env)
         approach.load(online_learning_cycle=i)
 
 
 def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
     if CFG.env == "cover":
-        assert type(env) == CoverEnv
+        assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(preds, env)
     raise NotImplementedError(
         f"Held out test set not yet implemented for {CFG.env}")
@@ -86,7 +88,6 @@ def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
 def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     Holding = [p for p in preds if p.name == "Holding"][0]
     Covers = [p for p in preds if p.name == "Covers"][0]
-    # TODO: track true/false positives/negatives
     # Create initial state
     task = env.get_test_tasks()[0]
     state = task.init
@@ -117,9 +118,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
             "Incorrectly evaluated Holding in state where block1 is not held")
     if Covers.holds(state, [block0, target0]):
         print(
-            "Incorrectly evaluated Covers in state where block0 does not cover target0"
-        )
-    # TODO: other combos? should i be testing all the groundings in all these test cases?
+            "Incorrectly evaluated Covers in state where block0 does not cover"
+            " target0")
     # Pick up block0 and cover target0
     action = Action(np.array([0.15], dtype=np.float32))
     state = env.simulate(state, action)
@@ -134,7 +134,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
         print(
             "Incorrectly evaluated Covers in state where block0 covers target0"
         )
-    # Pick up block1 and attempt to place over target0, but block0 is already there
+    # Pick up block1 and attempt to place over target0, but block0 is there
     action = Action(np.array([0.6], dtype=np.float32))
     state = env.simulate(state, action)
     action = Action(np.array([0.37], dtype=np.float32))
@@ -145,8 +145,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target0]):
         print(
-            "Incorrectly evaluated Covers in state where block1 does not cover target0"
-        )
+            "Incorrectly evaluated Covers in state where block1 does not cover"
+            " target0")
     # Place block1 so it partially overlaps but does not cover target1
     action = Action(np.array([0.78], dtype=np.float32))
     state = env.simulate(state, action)
@@ -156,8 +156,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target1]):
         print(
-            "Incorrectly evaluated Covers in state where block1 does not cover target1"
-        )
+            "Incorrectly evaluated Covers in state where block1 does not cover"
+            " target1")
 
 
 if __name__ == "__main__":
