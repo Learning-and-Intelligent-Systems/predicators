@@ -50,8 +50,8 @@ def test_create_blocks_pddl_generator():
         assert "b4" not in obj_str
         assert " - block" in obj_str
         # One ontable in init and one in goal.
-        assert init_str.count("ontable") == 1
-        assert goal_str.count("ontable") == 1
+        assert init_str.count("ontable ") == 1
+        assert goal_str.count("ontable ") == 1
         # The goal should have exactly two objects, so one on.
         assert goal_str.count("on ") == 1
 
@@ -67,7 +67,7 @@ def test_create_blocks_pddl_generator():
     problem_strs = gen(10, rng)
     for problem_str in problem_strs:
         _, init_str, goal_str = _split_pddl_problem_str(problem_str)
-        assert init_str.count("ontable") == 3
-        assert goal_str.count("ontable") == 2
+        assert init_str.count("ontable ") == 3
+        assert goal_str.count("ontable ") == 2
         assert init_str.count("on ") == 0
         assert goal_str.count("on ") == 0
