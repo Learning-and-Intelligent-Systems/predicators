@@ -102,6 +102,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     for block, pose in zip(blocks, block_poses):
         # [is_block, is_target, width, pose, grasp]
         state.set(block, "pose", pose)
+        # Make sure blocks are not held
+        state.set(block, "grasp", -1)
     for target, pose in zip(targets, target_poses):
         # [is_block, is_target, width, pose]
         state.set(target, "pose", pose)
