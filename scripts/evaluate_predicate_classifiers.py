@@ -62,6 +62,7 @@ def _run_pipeline(env: BaseEnv,
     approach.load(online_learning_cycle=None)
     teacher = Teacher(train_tasks)
     for i in range(CFG.num_online_learning_cycles):
+        print(f"\n\nONLINE LEARNING CYCLE {i}\n")
         if total_num_transitions > CFG.online_learning_max_transitions:
             break
         interaction_requests = approach.get_interaction_requests()
@@ -107,19 +108,21 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     # [hand]
     state.set(robot, "hand", 0.0)
     # Test 1: block does not overlap target, not held
+    print(f"Test case 1 state:\n{state}")
     if Holding.holds(state, [block0]):
         print("Incorrectly evaluated Holding in state where block0 is not held")
     if Holding.holds(state, [block1]):
         print("Incorrectly evaluated Holding in state where block1 is not held")
     if Covers.holds(state, [block0, target0]):
         print("Incorrectly evaluated Covers in state where block0 does not cover target0")
-    # TODO: other combos?
+    # TODO: other combos? should i be testing all the groundings in all these test cases?
     # Pick up block0 and cover target0
     action = Action(np.array([0.15], dtype=np.float32))
     state = env.simulate(state, action)
     action = Action(np.array([0.375], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 2: block0 covers target0, is not held
+    print(f"Test case 2 state:\n{state}")
     if Holding.holds(state, [block0]):
         print("Incorrectly evaluated Holding in state where block0 is not held")
     if not Covers.holds(state, [block0, target0]):
@@ -130,6 +133,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     action = Action(np.array([0.37], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 3: block1 is held above target0
+    print(f"Test case 3 state:\n{state}")
     if not Holding.holds(state, [block1]):
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target0]):
@@ -138,6 +142,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     action = Action(np.array([0.78], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 4: block1 partially overlaps target1
+    print(f"Test case 4 state:\n{state}")
     if not Holding.holds(state, [block1]):
         print("Incorrectly evaluated Holding in state where block1 is held")
     if Covers.holds(state, [block1, target1]):
