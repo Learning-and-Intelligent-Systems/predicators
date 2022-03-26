@@ -129,9 +129,9 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     print(f"False positives: {atoms - atoms_gt}\n"
           f"False negatives: {atoms_gt - atoms}")
     # Pick and place block1 so it partially overlaps target1
-    action = Action(np.array([0.62], dtype=np.float32))
+    action = Action(np.array([0.63], dtype=np.float32))
     state = env.simulate(state, action)
-    action = Action(np.array([0.8], dtype=np.float32))
+    action = Action(np.array([0.815], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 3: block1 does not completely cover target1
     print(f"Test case 3 state:\n{state}")
