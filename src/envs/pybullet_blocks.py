@@ -9,8 +9,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
-    _SingleArmPyBulletRobot
+from predicators.src.envs.pybullet_robots import \
+    create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Pose3D, State, Task, Type
@@ -169,7 +169,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                    physicsClientId=self._physics_client_id)
 
         # Load and reset robot.
-        self._pybullet_robot = self._create_robot()
+        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        self._pybullet_robot = create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, self.open_fingers,
+            self.closed_fingers, self._finger_action_tol,
+            self._physics_client_id)
 
         # Load table.
         self._table_id = p.loadURDF(
@@ -298,16 +302,6 @@ class PyBulletBlocksEnv(BlocksEnv):
             logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
 
-    def _create_robot(self) -> _SingleArmPyBulletRobot:
-        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        if CFG.pybullet_robot == "fetch":
-            return FetchPyBulletRobot(ee_home, self.open_fingers,
-                                      self.closed_fingers,
-                                      self._finger_action_tol,
-                                      self._physics_client_id)
-        raise NotImplementedError("Unrecognized pybullet_robot: "
-                                  f"{CFG.pybullet_robot}")
-
     def _create_block(self, block_num: int) -> int:
         """Returns the body ID."""
         color = self._block_colors[block_num % len(self._block_colors)]
@@ -396,7 +390,8 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        ee_delta, f_delta = action.arr[:3], action.arr[3]
+        ee_delta = (action.arr[0], action.arr[1], action.arr[2])
+        f_delta = action.arr[3]
         self._pybullet_robot.set_motors(ee_delta, f_delta)
 
         # Step the simulation here before adding or removing constraints

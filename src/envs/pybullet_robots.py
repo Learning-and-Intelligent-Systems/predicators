@@ -235,3 +235,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     controlMode=p.POSITION_CONTROL,
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
+
+
+def create_single_arm_pybullet_robot(
+        robot_name: str, ee_home_pose: Pose3D, open_fingers: float,
+        closed_fingers: float, finger_action_tol: float,
+        physics_client_id: int) -> _SingleArmPyBulletRobot:
+    """Create a single-arm PyBullet robot."""
+    if robot_name == "fetch":
+        return FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
+                                  finger_action_tol, physics_client_id)
+    raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
