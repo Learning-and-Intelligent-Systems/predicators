@@ -397,7 +397,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     def step(self, action: Action) -> State:
         # Send the action to the robot.
         ee_delta, f_delta = action.arr[:3], action.arr[3]
-        self._pybullet_robot.step(ee_delta, f_delta)
+        self._pybullet_robot.set_motors(ee_delta, f_delta)
 
         # Step the simulation here before adding or removing constraints
         # because detect_held_block() should use the updated state.
