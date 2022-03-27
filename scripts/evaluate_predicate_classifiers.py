@@ -72,10 +72,9 @@ def _run_pipeline(env: BaseEnv,
         total_num_transitions += sum(
             len(result.actions) for result in interaction_results)
         approach.load(online_learning_cycle=i)
-    # Only evaluate the last cycle
-    _evaluate_preds(
-        approach._get_current_predicates(),  # pylint: disable=protected-access
-        env)
+        _evaluate_preds(
+            approach._get_current_predicates(),  # pylint: disable=protected-access
+            env)
 
 
 def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
