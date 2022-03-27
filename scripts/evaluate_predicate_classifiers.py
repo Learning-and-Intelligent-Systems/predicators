@@ -10,7 +10,6 @@ from predicators.src.approaches import create_approach
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.envs import BaseEnv, create_new_env
-from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _generate_interaction_results, \
     _generate_or_load_offline_dataset
 from predicators.src.settings import CFG
@@ -79,13 +78,12 @@ def _run_pipeline(env: BaseEnv,
 
 def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
     if CFG.env == "cover":
-        # assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(preds, env)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
-def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
+def _evaluate_preds_cover(preds: Set[Predicate], env: BaseEnv) -> None:
     Holding = [p for p in preds if p.name == "Holding"][0]
     Covers = [p for p in preds if p.name == "Covers"][0]
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
