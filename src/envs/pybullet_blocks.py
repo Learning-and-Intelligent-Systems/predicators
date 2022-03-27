@@ -1,5 +1,6 @@
 """A PyBullet version of Blocks."""
 
+import abc
 import logging
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -15,22 +16,245 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Pose3D, State, Task, Type
 
+# TODO: probably move the robots into a separate file
+
+
+class _SingleArmPyBulletRobot:
+    """A single-arm fixed-base PyBullet robot with a two-finger gripper.
+
+    The action space for the robot is 4D. The first three dimensions are
+    a change in the (x, y, z) of the end effector. The last dimension is
+    a change in the finger joint(s), which are constrained to be
+    symmetric.
+    """
+
+    def __init__(self, ee_home_pose: Pose3D, open_fingers: float,
+                 closed_fingers: float, finger_action_tol: float,
+                 physics_client_id: int) -> None:
+        # Initial position for the end effector.
+        self._ee_home_pose = ee_home_pose
+        # The value at which the finger joints should be open.
+        self._open_fingers = open_fingers
+        # The value at which the finger joints should be open.
+        self._closed_fingers = closed_fingers
+        # If an f_delta is less than this magnitude, it's considered a noop.
+        self._finger_action_tol = finger_action_tol
+        self._physics_client_id = physics_client_id
+        self._initialize()
+
+    @abc.abstractmethod
+    def _initialize(self) -> None:
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def robot_id(self) -> int:
+        """The PyBullet ID for the robot."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def end_effector_id(self) -> int:
+        """The PyBullet ID for the end effector."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def left_finger_id(self) -> int:
+        """The PyBullet ID for the left finger."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def right_finger_id(self) -> int:
+        """The PyBullet ID for the right finger."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def reset_state(self, robot_state: Array) -> None:
+        """Reset the robot state to match the input state.
+
+        The robot_state corresponds to the State vector for the robot
+        object.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def get_state(self) -> Array:
+        """Get the robot state vector based on the current PyBullet state.
+
+        The robot_state corresponds to the State vector for the robot
+        object.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def step(self, ee_delta: Pose3D, f_delta: float) -> None:
+        """Execute the given action in PyBullet given a delta on the end
+        effector and finger joint(s)."""
+        raise NotImplementedError("Override me!")
+
+
+class _FetchPyBulletRobot(_SingleArmPyBulletRobot):
+    """A Fetch robot with a fixed base and only one arm in use."""
+
+    # Parameters that aren't important enough to need to clog up settings.py
+    _base_pose: Pose3D = (0.75, 0.7441, 0.0)
+    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
+    _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
+    _finger_action_nudge_magnitude: float = 0.001
+
+    def _initialize(self) -> None:
+        self._fetch_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/robots/fetch.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            self._fetch_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id)
+
+        # Extract IDs for individual robot links and joints.
+        joint_names = [
+            p.getJointInfo(
+                self._fetch_id, i,
+                physicsClientId=self._physics_client_id)[1].decode("utf-8")
+            for i in range(
+                p.getNumJoints(self._fetch_id,
+                               physicsClientId=self._physics_client_id))
+        ]
+        self._ee_id = joint_names.index('gripper_axis')
+        self._arm_joints = get_kinematic_chain(
+            self._fetch_id,
+            self._ee_id,
+            physics_client_id=self._physics_client_id)
+        self._left_finger_id = joint_names.index("l_gripper_finger_joint")
+        self._right_finger_id = joint_names.index("r_gripper_finger_joint")
+        self._arm_joints.append(self._left_finger_id)
+        self._arm_joints.append(self._right_finger_id)
+
+        self._initial_joint_values = inverse_kinematics(
+            self._fetch_id,
+            self._ee_id,
+            self._ee_home_pose,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id)
+
+    @property
+    def robot_id(self) -> int:
+        return self._fetch_id
+
+    @property
+    def end_effector_id(self) -> int:
+        return self._ee_id
+
+    @property
+    def left_finger_id(self) -> int:
+        return self._left_finger_id
+
+    @property
+    def right_finger_id(self) -> int:
+        return self._right_finger_id
+
+    def reset_state(self, robot_state: Array) -> None:
+        rx, ry, rz, rf = robot_state
+        p.resetBasePositionAndOrientation(
+            self._fetch_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id)
+        assert np.allclose((rx, ry, rz), self._ee_home_pose)
+        joint_values = self._initial_joint_values
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            p.resetJointState(self._fetch_id,
+                              finger_id,
+                              rf,
+                              physicsClientId=self._physics_client_id)
+
+    def get_state(self) -> Array:
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       physicsClientId=self._physics_client_id)
+        rx, ry, rz = ee_link_state[4]
+        rf = p.getJointState(self._fetch_id,
+                             self._left_finger_id,
+                             physicsClientId=self._physics_client_id)[0]
+        # pose_x, pose_y, pose_z, fingers
+        return np.array([rx, ry, rz, rf], dtype=np.float32)
+
+    def step(self, ee_delta: Pose3D, f_delta: float) -> None:
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       physicsClientId=self._physics_client_id)
+        current_position = ee_link_state[4]
+        target_position = np.add(current_position, ee_delta).tolist()
+
+        # We assume that the robot is already close enough to the target
+        # position that IK will succeed with one call, so validate is False.
+        # Furthermore, updating the state of the robot during simulation, which
+        # validate=True would do, is risky and discouraged by PyBullet.
+        joint_values = inverse_kinematics(
+            self._fetch_id,
+            self._ee_id,
+            target_position,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id,
+            validate=False)
+
+        # Set arm joint motors.
+        for joint_idx, joint_val in zip(self._arm_joints, joint_values):
+            p.setJointMotorControl2(bodyIndex=self._fetch_id,
+                                    jointIndex=joint_idx,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=joint_val,
+                                    physicsClientId=self._physics_client_id)
+
+        # Set finger joint motors.
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            current_val = p.getJointState(
+                self._fetch_id,
+                finger_id,
+                physicsClientId=self._physics_client_id)[0]
+            # Fingers drift if left alone. If the finger action is near zero,
+            # nudge the fingers toward being open or closed, based on which end
+            # of the spectrum they are currently closer to.
+            if abs(f_delta) < self._finger_action_tol:
+                assert self._open_fingers > self._closed_fingers
+                if abs(current_val -
+                       self._open_fingers) < abs(current_val -
+                                                 self._closed_fingers):
+                    nudge = self._finger_action_nudge_magnitude
+                else:
+                    nudge = -self._finger_action_nudge_magnitude
+                target_val = current_val + nudge
+            else:
+                target_val = current_val + f_delta
+            p.setJointMotorControl2(bodyIndex=self._fetch_id,
+                                    jointIndex=finger_id,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=target_val,
+                                    physicsClientId=self._physics_client_id)
+
 
 class PyBulletBlocksEnv(BlocksEnv):
     """PyBullet Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
 
-    # Fetch robot parameters.
-    _base_pose: Pose3D = (0.75, 0.7441, 0.0)
-    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
-    _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
+    # General robot parameters.
     _move_gain: float = 1.0
     _max_vel_norm: float = 0.05
     _grasp_offset_z: float = 0.01
     _place_offset_z: float = 0.01
     _grasp_tol: float = 0.05
     _move_to_pose_tol: float = 0.0001
-    _finger_action_nudge_magnitude: float = 0.001
     _finger_action_tol = 0.0001
 
     # Table parameters.
@@ -172,35 +396,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                    useFixedBase=True,
                    physicsClientId=self._physics_client_id)
 
-        # Load Fetch robot.
-        self._fetch_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id)
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id)
-
-        # Extract IDs for individual robot links and joints.
-        joint_names = [
-            p.getJointInfo(
-                self._fetch_id, i,
-                physicsClientId=self._physics_client_id)[1].decode("utf-8")
-            for i in range(
-                p.getNumJoints(self._fetch_id,
-                               physicsClientId=self._physics_client_id))
-        ]
-        self._ee_id = joint_names.index('gripper_axis')
-        self._arm_joints = get_kinematic_chain(
-            self._fetch_id,
-            self._ee_id,
-            physics_client_id=self._physics_client_id)
-        self._left_finger_id = joint_names.index("l_gripper_finger_joint")
-        self._right_finger_id = joint_names.index("r_gripper_finger_joint")
-        self._arm_joints.append(self._left_finger_id)
-        self._arm_joints.append(self._right_finger_id)
+        # Load and reset robot.
+        self._pybullet_robot = self._create_robot()
 
         # Load table.
         self._table_id = p.loadURDF(
@@ -248,17 +445,6 @@ class PyBulletBlocksEnv(BlocksEnv):
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
-        # Determine the initial joint values.
-        self._ee_home_pose = (self.robot_init_x, self.robot_init_y,
-                              self.robot_init_z)
-        self._initial_joint_values = inverse_kinematics(
-            self._fetch_id,
-            self._ee_id,
-            self._ee_home_pose,
-            self._ee_orientation,
-            self._arm_joints,
-            physics_client_id=self._physics_client_id)
-
         # Create blocks. Note that we create the maximum number once, and then
         # remove blocks from the workspace (teleporting them far away) based on
         # the number involved in the state.
@@ -304,24 +490,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         self._held_block_id = None
 
         # Reset robot.
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id)
-        rx, ry, rz, rf = state[self._robot]
-        assert np.allclose((rx, ry, rz), self._ee_home_pose)
-        joint_values = self._initial_joint_values
-        for joint_id, joint_val in zip(self._arm_joints, joint_values):
-            p.resetJointState(self._fetch_id,
-                              joint_id,
-                              joint_val,
-                              physicsClientId=self._physics_client_id)
-        for finger_id in [self._left_finger_id, self._right_finger_id]:
-            p.resetJointState(self._fetch_id,
-                              finger_id,
-                              rf,
-                              physicsClientId=self._physics_client_id)
+        self._pybullet_robot.reset_state(state[self._robot])
 
         # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
@@ -356,6 +525,16 @@ class PyBulletBlocksEnv(BlocksEnv):
             logging.debug("Reconstructed state:")
             logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
+
+    def _create_robot(self) -> _SingleArmPyBulletRobot:
+        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        if CFG.pybullet_robot == "fetch":
+            return _FetchPyBulletRobot(ee_home, self.open_fingers,
+                                       self.closed_fingers,
+                                       self._finger_action_tol,
+                                       self._physics_client_id)
+        raise NotImplementedError("Unrecognized pybullet_robot: "
+                                  f"{CFG.pybullet_robot}")
 
     def _create_block(self, block_num: int) -> int:
         """Returns the body ID."""
@@ -444,60 +623,9 @@ class PyBulletBlocksEnv(BlocksEnv):
         return [rgb_array]
 
     def step(self, action: Action) -> State:
-        ee_delta, finger_action = action.arr[:3], action.arr[3]
-
-        ee_link_state = p.getLinkState(self._fetch_id,
-                                       self._ee_id,
-                                       physicsClientId=self._physics_client_id)
-        current_position = ee_link_state[4]
-        target_position = np.add(current_position, ee_delta).tolist()
-
-        # We assume that the robot is already close enough to the target
-        # position that IK will succeed with one call, so validate is False.
-        # Furthermore, updating the state of the robot during simulation, which
-        # validate=True would do, is risky and discouraged by PyBullet.
-        joint_values = inverse_kinematics(
-            self._fetch_id,
-            self._ee_id,
-            target_position,
-            self._ee_orientation,
-            self._arm_joints,
-            physics_client_id=self._physics_client_id,
-            validate=False)
-
-        # Set arm joint motors.
-        for joint_idx, joint_val in zip(self._arm_joints, joint_values):
-            p.setJointMotorControl2(bodyIndex=self._fetch_id,
-                                    jointIndex=joint_idx,
-                                    controlMode=p.POSITION_CONTROL,
-                                    targetPosition=joint_val,
-                                    physicsClientId=self._physics_client_id)
-
-        # Set finger joint motors.
-        for finger_id in [self._left_finger_id, self._right_finger_id]:
-            current_val = p.getJointState(
-                self._fetch_id,
-                finger_id,
-                physicsClientId=self._physics_client_id)[0]
-            # Fingers drift if left alone. If the finger action is near zero,
-            # nudge the fingers toward being open or closed, based on which end
-            # of the spectrum they are currently closer to.
-            if abs(finger_action) < self._finger_action_tol:
-                assert self.open_fingers > self.closed_fingers
-                if abs(current_val -
-                       self.open_fingers) < abs(current_val -
-                                                self.closed_fingers):
-                    nudge = self._finger_action_nudge_magnitude
-                else:
-                    nudge = -self._finger_action_nudge_magnitude
-                target_val = current_val + nudge
-            else:
-                target_val = current_val + finger_action
-            p.setJointMotorControl2(bodyIndex=self._fetch_id,
-                                    jointIndex=finger_id,
-                                    controlMode=p.POSITION_CONTROL,
-                                    targetPosition=target_val,
-                                    physicsClientId=self._physics_client_id)
+        # Send the action to the robot.
+        ee_delta, f_delta = action.arr[:3], action.arr[3]
+        self._pybullet_robot.step(ee_delta, f_delta)
 
         # Step the simulation here before adding or removing constraints
         # because detect_held_block() should use the updated state.
@@ -507,14 +635,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and \
-            finger_action < -self._finger_action_tol:
+            f_delta < -self._finger_action_tol:
             # Detect whether an object is held.
             self._held_block_id = self._detect_held_block()
             if self._held_block_id is not None:
                 # Create a grasp constraint.
                 base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._fetch_id,
-                    self._ee_id,
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
                     physicsClientId=self._physics_client_id)[:2])]
                 world_to_obj = np.r_[p.getBasePositionAndOrientation(
                     self._held_block_id,
@@ -523,8 +651,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                     base_link_to_world[:3], base_link_to_world[3:],
                     world_to_obj[:3], world_to_obj[3:]))
                 self._held_constraint_id = p.createConstraint(
-                    parentBodyUniqueId=self._fetch_id,
-                    parentLinkIndex=self._ee_id,
+                    parentBodyUniqueId=self._pybullet_robot.robot_id,
+                    parentLinkIndex=self._pybullet_robot.end_effector_id,
                     childBodyUniqueId=self._held_block_id,
                     childLinkIndex=-1,  # -1 for the base
                     jointType=p.JOINT_FIXED,
@@ -537,7 +665,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
-            finger_action > self._finger_action_tol:
+            f_delta > self._finger_action_tol:
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
@@ -557,15 +685,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         state_dict = {}
 
         # Get robot state.
-        ee_link_state = p.getLinkState(self._fetch_id,
-                                       self._ee_id,
-                                       physicsClientId=self._physics_client_id)
-        rx, ry, rz = ee_link_state[4]
-        rf = p.getJointState(self._fetch_id,
-                             self._left_finger_id,
-                             physicsClientId=self._physics_client_id)[0]
-        # pose_x, pose_y, pose_z, fingers
-        state_dict[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
+        state_dict[self._robot] = self._pybullet_robot.get_state()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -589,8 +709,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         one that is closest.
         """
         expected_finger_normals = {
-            self._left_finger_id: np.array([0., 1., 0.]),
-            self._right_finger_id: np.array([0., -1., 0.]),
+            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
+            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
         }
         closest_held_block = None
         closest_held_block_dist = float("inf")
@@ -602,7 +722,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # held even if there is a tiny distance between the fingers and
                 # the block.
                 closest_points = p.getClosestPoints(
-                    bodyA=self._fetch_id,
+                    bodyA=self._pybullet_robot.robot_id,
                     bodyB=block_id,
                     distance=self._grasp_tol,
                     linkIndexA=finger_id,
@@ -728,11 +848,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                     params: Array) -> Action:
             del memory, objects, params  # unused
             current_val = state.get(self._robot, "fingers")
-            finger_action = target_val - current_val
-            finger_action = np.clip(finger_action, self.action_space.low[3],
-                                    self.action_space.high[3])
-            return Action(
-                np.array([0., 0., 0., finger_action], dtype=np.float32))
+            f_delta = target_val - current_val
+            f_delta = np.clip(f_delta, self.action_space.low[3],
+                              self.action_space.high[3])
+            return Action(np.array([0., 0., 0., f_delta], dtype=np.float32))
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
