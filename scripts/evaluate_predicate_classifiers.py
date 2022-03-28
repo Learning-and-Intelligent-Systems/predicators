@@ -13,7 +13,9 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Predicate, Task
 
 
-def main(evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach], None]) -> None:
+def main(
+    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
+                          None]) -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -30,7 +32,10 @@ def main(evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach], None]) ->
     _run_pipeline(env, approach, evaluate_fn)
 
 
-def _run_pipeline(env: BaseEnv, approach: InteractiveLearningApproach, evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach], None]) -> None:
+def _run_pipeline(
+    env: BaseEnv, approach: InteractiveLearningApproach,
+    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
+                          None]) -> None:
     approach.load(online_learning_cycle=None)
     evaluate_fn(env, approach)
     for i in range(CFG.num_online_learning_cycles):
@@ -42,7 +47,8 @@ def _run_pipeline(env: BaseEnv, approach: InteractiveLearningApproach, evaluate_
             break
 
 
-def _evaluate_preds(env: BaseEnv, approach: InteractiveLearningApproach) -> None:
+def _evaluate_preds(env: BaseEnv,
+                    approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access

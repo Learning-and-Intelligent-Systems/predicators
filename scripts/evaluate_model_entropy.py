@@ -10,17 +10,19 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import State, Object
+from predicators.src.structs import Object, State
 
 
-def _evaluate_pred_ensemble(env: BaseEnv, approach: InteractiveLearningApproach) -> None:
+def _evaluate_pred_ensemble(env: BaseEnv,
+                            approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
         return _evaluate_pred_ensemble_cover(env, approach)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
-def _evaluate_pred_ensemble_cover(env: BaseEnv, approach: InteractiveLearningApproach) -> None:
+def _evaluate_pred_ensemble_cover(
+        env: BaseEnv, approach: InteractiveLearningApproach) -> None:
     preds = approach._get_current_predicates()  # pylint: disable=protected-access
     Covers = [p for p in preds if p.name == "Covers"][0]
     # Create initial state
@@ -62,7 +64,8 @@ def _evaluate_pred_ensemble_cover(env: BaseEnv, approach: InteractiveLearningApp
     calculate(approach, state, Covers.name, [block0, target0])
 
 
-def calculate(approach: InteractiveLearningApproach, state: State, pred_name: str, objects: Sequence[Object]) -> None:
+def calculate(approach: InteractiveLearningApproach, state: State,
+              pred_name: str, objects: Sequence[Object]) -> None:
     x = state.vec(objects)
     ps = approach._pred_to_ensemble[pred_name].predict_member_probas(x)
     entropy = utils.entropy(np.mean(ps))
