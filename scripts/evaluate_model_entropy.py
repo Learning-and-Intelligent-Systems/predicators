@@ -13,8 +13,9 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Object, State
 
 
-def _evaluate_pred_ensemble(env: BaseEnv,
-                            approach: InteractiveLearningApproach) -> None:
+def evaluate_pred_ensemble(env: BaseEnv,
+                           approach: InteractiveLearningApproach) -> None:
+    """Prints entropy and BALD scores of predicate classifier ensembles."""
     if CFG.env == "cover":
         return _evaluate_pred_ensemble_cover(env, approach)
     raise NotImplementedError(
@@ -47,31 +48,31 @@ def _evaluate_pred_ensemble_cover(
         state.set(target, "pose", pose)
     state.set(robot, "hand", 0.0)
     # Test 1: block and target far apart
-    calculate(approach, state, Covers.name, [block0, target1])
+    _calculate(approach, state, Covers.name, [block0, target1])
     # Test 2: block and target closer together but no overlap
-    calculate(approach, state, Covers.name, [block0, target0])
+    _calculate(approach, state, Covers.name, [block0, target0])
     # Test 3: block and target overlap a bit
     state.set(block0, "pose", 0.31)
-    calculate(approach, state, Covers.name, [block0, target0])
+    _calculate(approach, state, Covers.name, [block0, target0])
     # Test 4: block and target overlap more
     state.set(block0, "pose", 0.33)
-    calculate(approach, state, Covers.name, [block0, target0])
+    _calculate(approach, state, Covers.name, [block0, target0])
     # Test 5: block covers target and right edges align
     state.set(block0, "pose", 0.35)
-    calculate(approach, state, Covers.name, [block0, target0])
+    _calculate(approach, state, Covers.name, [block0, target0])
     # Test 6: block covers target, centered
     state.set(block0, "pose", target_poses[0])
-    calculate(approach, state, Covers.name, [block0, target0])
+    _calculate(approach, state, Covers.name, [block0, target0])
 
 
-def calculate(approach: InteractiveLearningApproach, state: State,
-              pred_name: str, objects: Sequence[Object]) -> None:
+def _calculate(approach: InteractiveLearningApproach, state: State,
+               pred_name: str, objects: Sequence[Object]) -> None:
     x = state.vec(objects)
-    ps = approach._pred_to_ensemble[pred_name].predict_member_probas(x)
+    ps = approach._pred_to_ensemble[pred_name].predict_member_probas(x)  # pylint: disable=protected-access
     entropy = utils.entropy(np.mean(ps))
     bald_score = entropy - np.mean([utils.entropy(p) for p in ps])
     print(f"Entropy: {entropy}, BALD score: {bald_score}")
 
 
 if __name__ == "__main__":
-    main(_evaluate_pred_ensemble)
+    main(evaluate_pred_ensemble)

@@ -16,6 +16,8 @@ from predicators.src.structs import Action, Predicate, Task
 def main(
     evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
                           None]) -> None:
+    """Loads an approach and evaluates the predicates using the given
+    function."""
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
