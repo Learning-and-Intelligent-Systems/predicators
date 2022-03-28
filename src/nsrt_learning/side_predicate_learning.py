@@ -324,6 +324,96 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
 
         return pnad
 
+    def _check_harmlessness(
+            self, state: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
+        """Function to check whether the given state in the search preserves
+        harmlessness over demonstrations on the training tasks.
+
+        Preserving harmlessness roughly means that the set of operators
+        and predicates supports the agent's ability to plan to achieve
+        all of the training tasks in the same way as was demonstrated
+        (i.e., the predicates and operators don't render any
+        demonstrated trajectory impossible).
+        """
+        strips_ops = [pnad.op for pnad in state]
+        option_specs = [pnad.option_spec for pnad in state]
+        assert len(self._trajectories) == len(self._segmented_trajs)
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            demo_preserved = self._check_single_demo_preservation(
+                ll_traj, atoms_seq, traj_goal, strips_ops, option_specs)
+            if not demo_preserved:
+                return False
+        return True
+
+    def _check_single_demo_preservation(
+            self, ll_traj: LowLevelTrajectory,
+            atoms_seq: List[Set[GroundAtom]], traj_goal: Set[GroundAtom],
+            strips_ops: List[STRIPSOperator],
+            option_specs: List[OptionSpec]) -> bool:
+        """Function to check whether a given set of operators and predicates
+        preserves a single training trajectory."""
+        init_atoms = utils.abstract(ll_traj.states[0], self._predicates)
+        objects = set(ll_traj.states[0])
+        ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
+                                              option_specs)
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
+            ground_nsrts, self._predicates, objects)
+
+        def _check_goal(state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+            return traj_goal.issubset(state[0])
+
+        def _get_successor_with_correct_option(
+            searchnode_state: Tuple[FrozenSet[GroundAtom], int]
+        ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
+                            float]]:
+            state = searchnode_state[0]
+            idx_into_traj = searchnode_state[1]
+
+            if idx_into_traj > len(ll_traj.actions) - 1:
+                return
+
+            gt_option = ll_traj.actions[idx_into_traj].get_option()
+            expected_next_hl_state = atoms_seq[idx_into_traj + 1]
+
+            for applicable_nsrt in utils.get_applicable_operators(
+                    ground_nsrts, state):
+                # NOTE: we check that the ParameterizedOptions are equal before
+                # attempting to ground because otherwise, we might
+                # get a parameter mismatch and trigger an AssertionError
+                # during grounding.
+                if applicable_nsrt.option != gt_option.parent:
+                    continue
+                if applicable_nsrt.option_objs != gt_option.objects:
+                    continue
+                next_hl_state = utils.apply_operator(applicable_nsrt,
+                                                     set(state))
+                if next_hl_state.issubset(expected_next_hl_state):
+                    # The returned cost is uniform because we don't
+                    # actually care about finding the shortest path;
+                    # just one that matches!
+                    yield (applicable_nsrt, (frozenset(next_hl_state),
+                                             idx_into_traj + 1), 1.0)
+
+        init_atoms_frozen = frozenset(init_atoms)
+        init_searchnode_state = (init_atoms_frozen, 0)
+        # NOTE: each state in the below GBFS is a tuple of
+        # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
+        # we need to check whether the atoms that are true at this particular
+        # index into the trajectory is what we would expect given the demo
+        # trajectory.
+        state_seq, actions = utils.run_gbfs(
+            init_searchnode_state, _check_goal,
+            _get_successor_with_correct_option,
+            lambda searchnode_state: heuristic(searchnode_state[0]))
+
+        return _check_goal(state_seq[-1])
+
 
 class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
     """Sideline by backchaining, making PNADs increasingly specific."""
@@ -335,7 +425,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
-            self._recompute_datastores_from_segments([pnad])
             param_opt_to_pnad[param_opt] = pnad
         del self._initial_pnads  # no longer used
 
@@ -364,7 +453,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad = param_opt_to_pnad[option.parent]
                 # Compute the ground atoms that must be added on this timestep.
                 necessary_add_effects = necessary_image - atoms_seq[t]
-                
+
+                assert necessary_add_effects.issubset(segment.add_effects)
                 opt_pred = Predicate("OPT-ARGS", [a.type for a in pnad.option_spec[1]],
                               _classifier=lambda s, o: False)  # dummy
                 opt_vars = frozenset({LiftedAtom(opt_pred, pnad.option_spec[1])})
@@ -381,6 +471,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     ground_op = _find_ground_operator_substitution(
                         necessary_add_effects, pnad, segment,
                         option.objects)
+
                     assert ground_op is not None
                     missing_effects = necessary_add_effects - ground_op.add_effects
                     obj_to_var = dict(
@@ -422,7 +513,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 }
 
                 # Check that the datastore lens never changed!
-                assert datastore_lens == [len(param_opt_to_pnad[param_opt].datastore) for param_opt in sorted(param_opt_to_pnad)]
+                # assert datastore_lens == [len(param_opt_to_pnad[param_opt].datastore) for param_opt in sorted(param_opt_to_pnad)]
 
         # At this point, all PNADS have correct add effects and preconditions
         # and parameters!
@@ -433,6 +524,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             new_side_preds = _induce_pnad_side_predicates(pnad)
             pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters, pnad.op.preconditions, pnad.op.add_effects, pnad.op.delete_effects, new_side_preds)
 
+        assert self._check_harmlessness(tuple(param_opt_to_pnad.values()))
         return list(param_opt_to_pnad.values())
 
     def _update_pnad_add_effects(
@@ -445,7 +537,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                                     pnad.op.side_predicates)
         updated_pnad = PartialNSRTAndDatastore(updated_op, pnad.datastore,
                                                pnad.option_spec)
-        self._recompute_datastores_from_segments([updated_pnad])
+        self._recompute_datastores_from_segments_add_eff_semantics([updated_pnad])
         # Determine the preconditions.
         preconditions = induce_pnad_preconditions(updated_pnad)
         # Finalize and return PNAD.
@@ -457,6 +549,43 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         return PartialNSRTAndDatastore(final_op, updated_pnad.datastore,
                                        updated_pnad.option_spec)
 
+    def _recompute_datastores_from_segments_add_eff_semantics(
+            self, sidelined_pnads: List[PartialNSRTAndDatastore]) -> None:
+        for pnad in sidelined_pnads:
+            pnad.datastore = []  # reset all PNAD datastores
+        for seg_traj in self._segmented_trajs:
+            objects = set(seg_traj[0].states[0])
+            for segment in seg_traj:
+                assert segment.has_option()
+                segment_option = segment.get_option()
+                segment_param_option = segment_option.parent
+                segment_option_objs = tuple(segment_option.objects)
+                # Get ground operators given these objects and option objs.
+                for pnad in sidelined_pnads:
+                    param_opt, opt_vars = pnad.option_spec
+                    if param_opt != segment_param_option:
+                        continue
+                    isub = dict(zip(opt_vars, segment_option_objs))
+                    # Consider adding this segment to each datastore.
+                    for ground_op in utils.all_ground_operators_given_partial(
+                            pnad.op, objects, isub):
+                        # Check if preconditions hold.
+                        if not ground_op.preconditions.issubset(
+                                segment.init_atoms):
+                            continue
+                        # Check if effects match. Note that we're using the side
+                        # predicates semantics here!
+                        if not ground_op.add_effects.issubset(segment.add_effects):
+                            continue
+                        # Skip over segments that have multiple possible
+                        # bindings.
+                        if (len(set(ground_op.objects)) != len(
+                                ground_op.objects)):
+                            continue
+                        # This segment belongs in this datastore, so add it.
+                        sub = dict(zip(pnad.op.parameters, ground_op.objects))
+                        pnad.add_to_datastore((segment, sub),
+                                              check_effect_equality=False)
 
 def _find_ground_operator_substitution(necessary_add_effects, pnad, segment,
                                        option_objects):
@@ -497,12 +626,14 @@ def _induce_pnad_delete_effects(
 
 def _induce_pnad_side_predicates(pnad: PartialNSRTAndDatastore) -> Set[Predicate]:
     assert len(pnad.datastore) > 0
+    pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters, pnad.op.preconditions, pnad.op.add_effects, pnad.op.delete_effects, set())    
     side_predicates = set()
-    pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters, pnad.op.preconditions, pnad.op.add_effects, pnad.op.delete_effects, side_predicates)    
     for (segment, var_to_obj) in pnad.datastore:
         ground_op = pnad.op.ground(tuple(var_to_obj[param] for param in pnad.op.parameters))
         next_ground_state = utils.apply_operator(ground_op, segment.init_atoms)
-        assert next_ground_state.issubset(segment.final_atoms)
         for atom in (segment.final_atoms - next_ground_state):
             side_predicates.add(atom.predicate)
+        for atom in (next_ground_state - segment.final_atoms):
+            side_predicates.add(atom.predicate)
+
     return side_predicates
