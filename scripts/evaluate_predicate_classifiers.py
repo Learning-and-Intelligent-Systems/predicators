@@ -87,7 +87,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: BaseEnv) -> None:
     # Pick up block0 and place it over target0
     action = Action(np.array([block_poses[0]], dtype=np.float32))
     state = env.simulate(state, action)
-    action = Action(np.array([target_poses[1]], dtype=np.float32))
+    action = Action(np.array([target_poses[0]], dtype=np.float32))
     state = env.simulate(state, action)
     # Test 2: block0 covers target0
     atoms = utils.abstract(state, (Holding, Covers))
