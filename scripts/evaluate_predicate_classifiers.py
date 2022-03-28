@@ -1,19 +1,19 @@
 """Script to evaluate learned predicate classifiers on held-out test cases."""
 
-from typing import List, Set
+from typing import Callable, List, Set
 
 import numpy as np
 
 from predicators.src import utils
 from predicators.src.approaches import create_approach
-from predicators.src.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Predicate, Task
 
 
-def _main() -> None:
+def main(evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach], None]) -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -26,29 +26,27 @@ def _main() -> None:
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
     assert approach.is_learning_based
-    assert isinstance(approach, BilevelPlanningApproach)
-    _run_pipeline(env, approach)
+    assert isinstance(approach, InteractiveLearningApproach)
+    _run_pipeline(env, approach, evaluate_fn)
 
 
-def _run_pipeline(env: BaseEnv, approach: BilevelPlanningApproach) -> None:
+def _run_pipeline(env: BaseEnv, approach: InteractiveLearningApproach, evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach], None]) -> None:
     approach.load(online_learning_cycle=None)
-    _evaluate_preds(
-        approach._get_current_predicates(),  # pylint: disable=protected-access
-        env)
+    evaluate_fn(env, approach)
     for i in range(CFG.num_online_learning_cycles):
         print(f"\n\nONLINE LEARNING CYCLE {i}\n")
         try:
             approach.load(online_learning_cycle=i)
-            _evaluate_preds(
-                approach._get_current_predicates(),  # pylint: disable=protected-access
-                env)
+            evaluate_fn(env, approach)
         except FileNotFoundError:
             break
 
 
-def _evaluate_preds(preds: Set[Predicate], env: BaseEnv) -> None:
+def _evaluate_preds(env: BaseEnv, approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
-        return _evaluate_preds_cover(preds, env)
+        return _evaluate_preds_cover(
+            approach._get_current_predicates(),  # pylint: disable=protected-access
+            env)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
@@ -107,4 +105,4 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: BaseEnv) -> None:
 
 
 if __name__ == "__main__":
-    _main()
+    main(_evaluate_preds)
