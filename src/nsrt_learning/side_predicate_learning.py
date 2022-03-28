@@ -315,7 +315,7 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
         # NOTE: we use an arbitrarily-chosen option to set the option spec
         # and parameters for the pnad
         option_spec = initial_pnads_for_option[0].option_spec
-        parameters = option_spec[1]
+        parameters = sorted(option_spec[1])
         op = STRIPSOperator(parameterized_option.name, parameters, set(),
                             set(), set(), side_predicates)
         pnad = PartialNSRTAndDatastore(op, [], option_spec)
@@ -360,15 +360,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad = param_opt_to_pnad[option.parent]
                 # Compute the ground atoms that must be added on this timestep.
                 necessary_add_effects = necessary_image - atoms_seq[t]
-                # If there are no such ground atoms, just skip this timestep.
-                if len(necessary_add_effects) == 0:
-                    continue
-
                 unifies, obj_to_var = utils.find_substitution(
                     pnad.op.add_effects, necessary_add_effects)
-
-                if pnad.op.parameters != sorted(obj_to_var.values()) and unifies:
-                    import ipdb; ipdb.set_trace()
 
                 # If the predicted add effects are missing necessary add
                 # effects, then we need to make the add effects more specific.
@@ -376,7 +369,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     del obj_to_var
                     # TODO: Some comment about what this is important
                     ground_op = _find_ground_operator_substitution(
-                        necessary_add_effects, pnad, segment.init_atoms,
+                        necessary_add_effects, pnad, segment,
                         option.objects)
                     missing_effects = necessary_add_effects - ground_op.add_effects
                     obj_to_var = dict(
@@ -398,7 +391,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     pnad = self._update_pnad_add_effects(
                         pnad, sorted(obj_to_var.values()), updated_add_effects)
                     param_opt_to_pnad[option.parent] = pnad
-                    unifies, obj_to_var = utils.find_substitution(
+                    unifies, _ = utils.find_substitution(
                         pnad.op.add_effects, necessary_add_effects)
                     assert unifies
 
@@ -429,6 +422,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                                     pnad.op.side_predicates)
         updated_pnad = PartialNSRTAndDatastore(updated_op, pnad.datastore,
                                                pnad.option_spec)
+        self._recompute_datastores_from_segments([updated_pnad])
         # Determine the preconditions.
         preconditions = induce_pnad_preconditions(updated_pnad)
         # Finalize and return PNAD.
@@ -441,18 +435,17 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                                        updated_pnad.option_spec)
 
 
-def _find_ground_operator_substitution(necessary_add_effects, pnad, init_atoms,
+def _find_ground_operator_substitution(necessary_add_effects, pnad, segment,
                                        option_objects):
-    objects = {obj for a in necessary_add_effects for obj in a.objects}
+    objects = list(segment.states[0])
     isub = dict(zip(pnad.option_spec[1], option_objects))
     # Consider adding this segment to each datastore.
     for ground_op in utils.all_ground_operators_given_partial(
             pnad.op, objects, isub):
         # Check if preconditions hold.
-        if not ground_op.preconditions.issubset(init_atoms):
+        if not ground_op.preconditions.issubset(segment.init_atoms):
             continue
         # Check if effects match. Note that we're using the side
         # predicates semantics here!
-        atoms = utils.apply_operator(ground_op, init_atoms)
-        if atoms.issubset(necessary_add_effects):
+        if ground_op.add_effects.issubset(necessary_add_effects):
             return ground_op
