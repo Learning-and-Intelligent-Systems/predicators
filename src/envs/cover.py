@@ -382,10 +382,10 @@ class CoverEnvTypedOptions(CoverEnv):
     def options(self) -> Set[ParameterizedOption]:
         return {self._Pick, self._Place}
 
-    @staticmethod
-    def _Pick_policy(s: State, m: Dict, o: Sequence[Object],
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
                      p: Array) -> Action:
         del m  # unused
+        _ = self  # unused
         # The pick parameter is a RELATIVE position, so we need to
         # add the pose of the object.
         pick_pose = s.get(o[0], "pose") + p[0]
@@ -1006,8 +1006,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         m["absolute_params"] = s.vec(o) + p
         return self._Pick_initiable(s, m, o, p)
 
-    def _Pick_policy(  # type: ignore
-            self, s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
+                     p: Array) -> Action:
         del m  # unused
         # The object is the one we want to pick.
         assert len(o) == 1

@@ -199,3 +199,36 @@ class RepeatedNextToEnv(BaseEnv):
     def _Grasped_holds(self, state: State, objects: Sequence[Object]) -> bool:
         _, dot = objects
         return state.get(dot, "grasped") > self.grasped_thresh
+
+
+class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
+    """A variation on RepeatedNextToEnv with a single parameterized option."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Options
+        del self._Move
+        del self._Grasp
+
+        # The first parameter dimension modulates whether the action will be a
+        # move (negative value) or a grasp (nonnegative value). The second
+        # dimension is the same as that for self._Move in the parent class.
+        self._MoveGrasp = utils.SingletonParameterizedOption(
+            "MoveGrasp",
+            policy=self._MoveGrasp_policy,
+            types=[self._robot_type, self._dot_type],
+            params_space=Box(-1, 1, (2, )))
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto_single_option"
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._MoveGrasp}
+
+    def _MoveGrasp_policy(self, state: State, memory: Dict,
+                          objects: Sequence[Object], params: Array) -> Action:
+        if params[0] < 0:
+            return self._Move_policy(state, memory, objects, params[1:])
+        return self._Grasp_policy(state, memory, objects, params[1:])

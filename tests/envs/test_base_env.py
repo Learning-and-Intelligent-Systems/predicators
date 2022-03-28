@@ -8,7 +8,7 @@ from predicators.src.envs import BaseEnv, create_new_env, get_or_create_env
 
 def test_env_creation():
     """Tests for create_new_env() and get_or_create_env()."""
-    utils.reset_config()
+    utils.reset_config({"num_train_tasks": 5, "num_test_tasks": 5})
     for name in [
             "cover",
             "cover_typed_options",
@@ -20,10 +20,13 @@ def test_env_creation():
             "painting",
             "tools",
             "repeated_nextto",
+            "repeated_nextto_single_option",
             "repeated_nextto_painting",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
             "pybullet_blocks",
+            "pddl_blocks_fixed_tasks",
+            "pddl_blocks_procedural_tasks",
     ]:
         env = create_new_env(name, do_cache=True)
         assert isinstance(env, BaseEnv)

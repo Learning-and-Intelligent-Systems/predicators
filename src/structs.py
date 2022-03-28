@@ -146,11 +146,14 @@ class State:
         return np.hstack(feats)
 
     def copy(self) -> State:
-        """Return a copy of this state."""
+        """Return a copy of this state.
+
+        The simulator state is assumed to be immutable.
+        """
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data)
+        return State(new_data, simulator_state=self.simulator_state)
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
@@ -163,6 +166,10 @@ class State:
     def allclose(self, other: State) -> bool:
         """Return whether this state is close enough to another one, i.e., its
         objects are the same, and the features are close."""
+        if self.simulator_state is not None or \
+           other.simulator_state is not None:
+            raise NotImplementedError("Cannot use allclose when "
+                                      "simulator_state is not None.")
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
@@ -1121,6 +1128,13 @@ class PartialNSRTAndDatastore:
     option_spec: OptionSpec
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
+    # A private map from segments in the datastore to associated substitutions.
+    _segment_to_sub: Dict[Segment, VarToObjSub] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._segment_to_sub = {}
+        for seg, var_obj_sub in self.datastore:
+            self._segment_to_sub[seg] = var_obj_sub
 
     def add_to_datastore(self,
                          member: Tuple[Segment, VarToObjSub],
@@ -1128,11 +1142,11 @@ class PartialNSRTAndDatastore:
         """Add a new member to self.datastore."""
         seg, var_obj_sub = member
         if len(self.datastore) > 0:
-            obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
             # All variables should have a corresponding object.
             assert set(var_obj_sub) == set(self.op.parameters)
             # The effects should match.
             if check_effect_equality:
+                obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
                 lifted_add_effects = {
                     a.lift(obj_var_sub)
                     for a in seg.add_effects
@@ -1152,12 +1166,18 @@ class PartialNSRTAndDatastore:
                 assert option.objects == option_args
         # Add to datastore.
         self.datastore.append(member)
+        self._segment_to_sub[seg] = var_obj_sub
 
     def make_nsrt(self) -> NSRT:
         """Make an NSRT from this PNAD."""
         assert self.sampler is not None
         param_option, option_vars = self.option_spec
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
+
+    def get_sub_for_member_segment(self, segment: Segment) -> VarToObjSub:
+        """Return the VarToObjSub associated with the segment in the datastore,
+        or raise a KeyError if this segment is not in the datastore."""
+        return self._segment_to_sub[segment]
 
     def __repr__(self) -> str:
         param_option, option_vars = self.option_spec
@@ -1302,3 +1322,6 @@ GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
 SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
                          Optional[Set[GroundAtom]]]
+# For PDDLEnv environments, given a desired number of problems and an rng,
+# returns a list of that many PDDL problem strings.
+PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
