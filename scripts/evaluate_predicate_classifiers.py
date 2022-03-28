@@ -1,6 +1,6 @@
 """Script to evaluate learned predicate classifiers on held-out test cases."""
 
-from typing import Set, List
+from typing import List, Set
 
 import numpy as np
 
@@ -30,8 +30,7 @@ def _main() -> None:
     _run_pipeline(env, approach)
 
 
-def _run_pipeline(env: BaseEnv,
-                  approach: BilevelPlanningApproach) -> None:
+def _run_pipeline(env: BaseEnv, approach: BilevelPlanningApproach) -> None:
     approach.load(online_learning_cycle=None)
     _evaluate_preds(
         approach._get_current_predicates(),  # pylint: disable=protected-access
