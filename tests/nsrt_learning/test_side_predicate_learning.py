@@ -17,16 +17,15 @@ from predicators.src.utils import SingletonParameterizedOption
 
 
 class MockBackchainingSPL(BackchainingSidePredicateLearner):
-    """Mock class that exposes private methods for testing.
-    """
+    """Mock class that exposes private methods for testing."""
+
     @staticmethod
-    def get_partially_satisfying_grounding(
-            necessary_add_effects, pnad, segment):
-        """Exposed for testing.
-        """
+    def get_partially_satisfying_grounding(necessary_add_effects, pnad,
+                                           segment):
+        """Exposed for testing."""
         return (BackchainingSidePredicateLearner.
-                _get_partially_satisfying_grounding(
-                    necessary_add_effects, pnad, segment))
+                _get_partially_satisfying_grounding(necessary_add_effects,
+                                                    pnad, segment))
 
 
 def test_backchaining():
@@ -65,12 +64,12 @@ def test_backchaining():
     task2 = Task(state_awake, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
     # Create and run the sidelining approach.
-    spl = MockBackchainingSPL(initial_pnads, [traj1, traj2],
-                              [task1, task2], {Asleep},
-                              [[segment1], [segment2]])
+    spl = MockBackchainingSPL(initial_pnads, [traj1, traj2], [task1, task2],
+                              {Asleep}, [[segment1], [segment2]])
     pnads = spl.sideline()
     # Verify the results are as expected.
-    expected_strs = ["""STRIPS-Cry:
+    expected_strs = [
+        """STRIPS-Cry:
     Parameters: [?x0:human_type]
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type)]
@@ -82,7 +81,8 @@ def test_backchaining():
     Add Effects: []
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Eat()"""]
+    Option Spec: Eat()"""
+    ]
     for pnad, exp_str in zip(sorted(pnads, key=lambda pnad: pnad.op.name),
                              expected_strs):
         assert str(pnad) == repr(pnad) == exp_str

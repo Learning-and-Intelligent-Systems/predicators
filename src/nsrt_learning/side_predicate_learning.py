@@ -359,8 +359,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             total_datastore_len += len(pnad.datastore)
         del self._initial_pnads  # no longer used
         # Assert that all data is in some PNAD's datastore.
-        assert total_datastore_len == sum(len(seg_traj) for seg_traj
-                                          in self._segmented_trajs)
+        assert total_datastore_len == sum(
+            len(seg_traj) for seg_traj in self._segmented_trajs)
 
         # Go through each demonstration from the end back to the start,
         # making the PNADs more specific whenever needed.
