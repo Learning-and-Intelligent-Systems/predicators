@@ -10,7 +10,6 @@ def test_blocks():
     """Tests for BlocksEnv class."""
     utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
-    env.seed(123)
     clear = env._block_is_clear  # pylint: disable=protected-access
     for task in env.get_train_tasks():
         for obj in task.init:
@@ -54,7 +53,6 @@ def test_blocks_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
     utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
-    env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]
     Stack = [o for o in env.options if o.name == "Stack"][0]
     PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]

@@ -1,5 +1,5 @@
 """Handle creation of approaches."""
-
+import importlib
 import pkgutil
 from typing import TYPE_CHECKING, List, Set
 
@@ -14,9 +14,11 @@ __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 
 if not TYPE_CHECKING:
     # Load all modules so that utils.get_all_subclasses() works.
-    for loader, module_name, _ in pkgutil.walk_packages(__path__):
+    for _, module_name, _ in pkgutil.walk_packages(__path__):
         if "__init__" not in module_name:
-            loader.find_module(module_name).load_module(module_name)
+            # Important! We use an absolute import here to avoid issues
+            # with isinstance checking when using relative imports.
+            importlib.import_module(f"{__name__}.{module_name}")
 
 
 def create_approach(name: str, initial_predicates: Set[Predicate],
@@ -25,7 +27,7 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
                     train_tasks: List[Task]) -> BaseApproach:
     """Create an approach given its name."""
     for cls in utils.get_all_subclasses(BaseApproach):
-        if cls is not BaseApproach and cls.get_name() == name:
+        if not cls.__abstractmethods__ and cls.get_name() == name:
             approach = cls(initial_predicates, initial_options, types,
                            action_space, train_tasks)
             break

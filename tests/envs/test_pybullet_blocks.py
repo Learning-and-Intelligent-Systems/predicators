@@ -82,7 +82,6 @@ def _get_predicates_by_names(env, names):
 
 def test_pybullet_blocks_reset(env):
     """Tests for PyBulletBlocksEnv.reset()."""
-    env.seed(123)
     for idx, task in enumerate(env.get_train_tasks()):
         state = env.reset("train", idx)
         assert state.allclose(task.init)
@@ -108,7 +107,6 @@ def test_pybullet_blocks_reset(env):
 
 def test_pybullet_blocks_picking(env):
     """Tests cases for picking blocks in PyBulletBlocksEnv."""
-    env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -158,7 +156,6 @@ def test_pybullet_blocks_picking(env):
 @longrun
 def test_pybullet_blocks_picking_corners(env):
     """Test that the block can be picked at the extremes of the workspace."""
-    env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -198,7 +195,6 @@ def test_pybullet_blocks_picking_corners(env):
 
 def test_pybullet_blocks_stacking(env):
     """Tests cases for stacking blocks in PyBulletBlocksEnv."""
-    env.seed(123)
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
     robot = env.robot
@@ -235,7 +231,6 @@ def test_pybullet_blocks_stacking_corners(env):
     """Test stacking a block on the tallest possible tower at each of the
     possible corners."""
     On, = _get_predicates_by_names(env, ["On"])
-    env.seed(123)
     corners = [
         (env.x_lb, env.y_lb),
         (env.x_ub, env.y_lb),
@@ -280,7 +275,6 @@ def test_pybullet_blocks_stacking_corners(env):
 def test_pybullet_blocks_putontable(env):
     """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
-    env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -316,7 +310,6 @@ def test_pybullet_blocks_putontable(env):
 def test_pybullet_blocks_putontable_corners(env):
     """Test that the block can be placed at the extremes of the workspace."""
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
-    env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -366,7 +359,6 @@ def test_pybullet_blocks_close_pick_place(env):
     Make sure that the pile is not disturbed.
     """
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
-    env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -421,7 +413,6 @@ def test_pybullet_blocks_abstract_states(env):
     """Tests abstract states during option execution in PyBulletBlocksEnv."""
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
         env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
-    env.seed(123)
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
     robot = env.robot

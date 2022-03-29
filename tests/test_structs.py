@@ -120,6 +120,15 @@ def test_state():
     assert state2[obj1][2] == 991
     state3 = State({obj3: np.array([1, 2])})
     state3.copy()  # try copying with numpy array
+    # Test state copy with a simulator state.
+    state4 = State({obj3: np.array([1, 2])}, simulator_state="dummy")
+    assert state4.simulator_state == "dummy"
+    assert state4.copy().simulator_state == "dummy"
+    # Cannot use allclose with non-None simulator states.
+    with pytest.raises(NotImplementedError):
+        state4.allclose(state3)
+    with pytest.raises(NotImplementedError):
+        state3.allclose(state4)
     # Test state vec with no objects
     vec = state.vec([])
     assert vec.shape == (0, )
@@ -526,6 +535,22 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: []
     Side Predicates: [NotOn, On]"""
+    # Test copy_with().
+    strips_operator4 = strips_operator.copy_with(preconditions=set())
+    assert str(strips_operator4) == repr(strips_operator4) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: []
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
+    assert str(strips_operator) == repr(strips_operator) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
@@ -804,8 +829,11 @@ def test_pnad():
     assert len(pnad.datastore) == 1
     pnad.add_to_datastore((segment2, var_to_obj))
     assert len(pnad.datastore) == 2
+    var_to_obj2 = {cup_var: plate, plate_var: cup}
     with pytest.raises(AssertionError):  # doesn't fit add effects
-        pnad.add_to_datastore((segment3, var_to_obj))
+        pnad.add_to_datastore((segment3, var_to_obj2))
+    pnad.add_to_datastore((segment3, var_to_obj2), check_effect_equality=False)
+    assert len(pnad.datastore) == 3
     assert repr(pnad) == str(pnad) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]

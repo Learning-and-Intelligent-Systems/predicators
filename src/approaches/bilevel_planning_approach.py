@@ -10,9 +10,11 @@ from typing import Callable, List, Set
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, BaseApproach
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach
 from predicators.src.option_model import create_option_model
-from predicators.src.planning import sesame_plan
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    sesame_plan
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, Task, Type, _Option
@@ -41,25 +43,26 @@ class BilevelPlanningApproach(BaseApproach):
         self._num_calls = 0
         self._last_plan: List[_Option] = []
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "bilevel_planning"
-
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         # ensure random over successive calls
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        plan, metrics = sesame_plan(task,
-                                    self._option_model,
-                                    nsrts,
-                                    preds,
-                                    timeout,
-                                    seed,
-                                    self._task_planning_heuristic,
-                                    self._max_skeletons_optimized,
-                                    allow_noops=CFG.sesame_allow_noops)
+        try:
+            plan, metrics = sesame_plan(task,
+                                        self._option_model,
+                                        nsrts,
+                                        preds,
+                                        timeout,
+                                        seed,
+                                        self._task_planning_heuristic,
+                                        self._max_skeletons_optimized,
+                                        allow_noops=CFG.sesame_allow_noops)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
+        except PlanningTimeout as e:
+            raise ApproachTimeout(e.args[0], e.info)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
                 "num_nodes_expanded", "num_nodes_created", "plan_length"
@@ -79,17 +82,15 @@ class BilevelPlanningApproach(BaseApproach):
         def _policy(s: State) -> Action:
             try:
                 return option_policy(s)
-            except utils.OptionPlanExhausted:
-                raise ApproachFailure("Option plan exhausted.")
+            except utils.OptionExecutionFailure as e:
+                raise ApproachFailure(e.args[0], e.info)
 
         return _policy
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
-        # Initialize min to self._max_skeletons_optimized (max gets initialized
-        # to 0 by default)
-        self._metrics[
-            "min_num_skeletons_optimized"] = self._max_skeletons_optimized
+        # Initialize min to inf (max gets initialized to 0 by default).
+        self._metrics["min_num_skeletons_optimized"] = float("inf")
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:

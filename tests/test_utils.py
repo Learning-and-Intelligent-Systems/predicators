@@ -445,7 +445,7 @@ def test_option_plan_to_policy():
         assert np.allclose(action.arr, traj.actions[t].arr)
         state = _simulator(state, action)
     assert option.terminal(state)
-    with pytest.raises(utils.OptionPlanExhausted):
+    with pytest.raises(utils.OptionExecutionFailure):
         # Ran out of options
         policy(state)
 
@@ -500,7 +500,6 @@ def test_strip_predicate():
 def test_strip_task():
     """Test for strip_task()."""
     env = CoverEnv()
-    env.seed(123)
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
     task = env.get_train_tasks()[0]
     block0, _, _, target0, _ = sorted(task.init)
@@ -1702,7 +1701,6 @@ def test_create_pddl():
     # All predicates and options
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
-    env.seed(123)
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     objects = list(state)

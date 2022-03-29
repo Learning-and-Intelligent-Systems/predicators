@@ -74,6 +74,12 @@ class GlobalSettings:
     painting_lid_open_prob = 0.3
     painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
+    painting_max_objs_in_goal = float("inf")
+
+    # repeated_nextto_painting (rnt_painting) env parameters
+    rnt_painting_num_objs_train = [8, 9, 10]
+    rnt_painting_num_objs_test = [11, 12, 13]
+    rnt_painting_max_objs_in_goal = 2
 
     # tools env parameters
     tools_num_items_train = [2]
@@ -102,6 +108,20 @@ class GlobalSettings:
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
+    pybullet_robot = "fetch"
+
+    # pddl blocks env parameters
+    pddl_blocks_procedural_train_min_num_blocks = 3
+    pddl_blocks_procedural_train_max_num_blocks = 4
+    pddl_blocks_procedural_train_min_num_blocks_goal = 2
+    pddl_blocks_procedural_train_max_num_blocks_goal = 3
+    pddl_blocks_procedural_test_min_num_blocks = 5
+    pddl_blocks_procedural_test_max_num_blocks = 6
+    pddl_blocks_procedural_test_min_num_blocks_goal = 2
+    pddl_blocks_procedural_test_max_num_blocks_goal = 5
+    pddl_blocks_procedural_new_pile_prob = 0.5
+    pddl_blocks_fixed_train_indices = list(range(1, 6))
+    pddl_blocks_fixed_test_indices = list(range(6, 11))
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -145,8 +165,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    # "no_learning" or "prediction_error_hill_climbing" or
-    # "preserve_skeletons_hill_climbing"
+    # Side predicate learning strategy. See nsrt_learning_main.py for options.
     side_predicate_learner = "no_learning"
 
     # torch model parameters

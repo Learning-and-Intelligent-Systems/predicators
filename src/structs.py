@@ -146,11 +146,14 @@ class State:
         return np.hstack(feats)
 
     def copy(self) -> State:
-        """Return a copy of this state."""
+        """Return a copy of this state.
+
+        The simulator state is assumed to be immutable.
+        """
         new_data = {}
         for obj in self:
             new_data[obj] = self._copy_state_value(self.data[obj])
-        return State(new_data)
+        return State(new_data, simulator_state=self.simulator_state)
 
     def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
@@ -163,6 +166,10 @@ class State:
     def allclose(self, other: State) -> bool:
         """Return whether this state is close enough to another one, i.e., its
         objects are the same, and the features are close."""
+        if self.simulator_state is not None or \
+           other.simulator_state is not None:
+            raise NotImplementedError("Cannot use allclose when "
+                                      "simulator_state is not None.")
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
@@ -610,6 +617,21 @@ class STRIPSOperator:
         assert isinstance(other, STRIPSOperator)
         return str(self) > str(other)
 
+    def copy_with(self, **kwargs: Any) -> STRIPSOperator:
+        """Create a copy of the operator, optionally while replacing any of the
+        arguments."""
+        default_kwargs = dict(name=self.name,
+                              parameters=self.parameters,
+                              preconditions=self.preconditions,
+                              add_effects=self.add_effects,
+                              delete_effects=self.delete_effects,
+                              side_predicates=self.side_predicates)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        return STRIPSOperator(**default_kwargs)  # type: ignore
+
     def effect_to_side_predicate(self, effect: LiftedAtom,
                                  option_vars: Sequence[Variable],
                                  add_or_delete: str) -> STRIPSOperator:
@@ -905,7 +927,6 @@ class _GroundNSRT:
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:
         # https://github.com/python/mypy/issues/5382
-        # This still seems like the least bad option.
         return _GroundNSRT(**default_kwargs)  # type: ignore
 
 
@@ -1128,11 +1149,11 @@ class PartialNSRTAndDatastore:
         """Add a new member to self.datastore."""
         seg, var_obj_sub = member
         if len(self.datastore) > 0:
-            obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
             # All variables should have a corresponding object.
             assert set(var_obj_sub) == set(self.op.parameters)
             # The effects should match.
             if check_effect_equality:
+                obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
                 lifted_add_effects = {
                     a.lift(obj_var_sub)
                     for a in seg.add_effects
@@ -1296,9 +1317,13 @@ Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
-LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
+                             _Atom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
 SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
                          Optional[Set[GroundAtom]]]
+# For PDDLEnv environments, given a desired number of problems and an rng,
+# returns a list of that many PDDL problem strings.
+PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]

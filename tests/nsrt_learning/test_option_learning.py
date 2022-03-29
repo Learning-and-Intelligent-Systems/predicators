@@ -188,7 +188,6 @@ def test_learned_neural_parameterized_option():
     assert param_option.types == [p.type for p in pick_operator.parameters]
     assert param_option.params_space.shape == (param_dim, )
     # Get an initial state where picking should be possible.
-    env.seed(123)
     task = env.get_test_tasks()[0]
 
     state = task.init.copy()
@@ -210,9 +209,10 @@ def test_learned_neural_parameterized_option():
     state.set(block1, "grasp", 1.0)
     assert option.terminal(state)
     # Cover case where regressor returns nan.
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(utils.OptionExecutionFailure) as e:
         state.set(block0, "x", np.nan)
         action = option.policy(state)
+    assert "Option policy returned nan" in str(e)
     # Test that the option terminates early if it encounters the same state
     # two times in a row.
     state = task.init

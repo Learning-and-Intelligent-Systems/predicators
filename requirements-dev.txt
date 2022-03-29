@@ -5,4 +5,4 @@ yapf
 docformatter
 isort
 # Note: if https://github.com/python/mypy/issues/5485 gets resolved, we can install mypy from head again.
-mypy@git+git://github.com/python/mypy.git@9bd651758e8ea2494837814092af70f8d9e6f7a1
+mypy@git+https://github.com/python/mypy.git@9bd651758e8ea2494837814092af70f8d9e6f7a1

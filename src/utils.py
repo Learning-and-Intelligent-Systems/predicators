@@ -555,8 +555,8 @@ class ExceptionWithInfo(Exception):
         self.info = info
 
 
-class OptionPlanExhausted(Exception):
-    """An exception for an option plan running out of options."""
+class OptionExecutionFailure(ExceptionWithInfo):
+    """An exception raised by an option policy in the course of execution."""
 
 
 class EnvironmentFailure(ExceptionWithInfo):
@@ -583,7 +583,7 @@ def option_plan_to_policy(
         nonlocal cur_option
         if cur_option.terminal(state):
             if not queue:
-                raise OptionPlanExhausted("Option plan exhausted!")
+                raise OptionExecutionFailure("Option plan exhausted!")
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
@@ -690,11 +690,11 @@ def find_substitution(
     sub_atoms: Collection[LiftedOrGroundAtom],
     allow_redundant: bool = False,
 ) -> Tuple[bool, EntToEntSub]:
-    """Find a substitution from the objects in super_atoms to the variables in
+    """Find a substitution from the entities in super_atoms to the entities in
     sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
-    If allow_redundant is True, then multiple variables in sub_atoms can
-    refer to the same single object in super_atoms.
+    If allow_redundant is True, then multiple entities in sub_atoms can
+    refer to the same single entity in super_atoms.
 
     If no substitution exists, return (False, {}).
     """
@@ -1529,7 +1529,7 @@ def create_video_from_partial_refinements(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
-            except OptionPlanExhausted:
+            except OptionExecutionFailure:
                 video.extend(env.render())
                 break
             video.extend(env.render(act))
@@ -1563,12 +1563,13 @@ def save_video(outfile: str, video: Video) -> None:
     logging.info(f"Wrote out to {outpath}")
 
 
-def get_env_asset_path(asset_name: str) -> str:
+def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     """Return the absolute path to env asset."""
     dir_path = os.path.dirname(os.path.realpath(__file__))
     asset_dir_path = os.path.join(dir_path, "envs", "assets")
     path = os.path.join(asset_dir_path, asset_name)
-    assert os.path.exists(path), f"Env asset not found: {asset_name}."
+    if assert_exists:
+        assert os.path.exists(path), f"Env asset not found: {asset_name}."
     return path
 
 
@@ -1735,6 +1736,7 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     return np.array([], dtype=np.float32)  # no continuous parameters
 
 
+@functools.lru_cache(maxsize=None)
 def get_git_commit_hash() -> str:
     """Return the hash of the current git commit."""
     out = subprocess.check_output(["git", "rev-parse", "HEAD"])

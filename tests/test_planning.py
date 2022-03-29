@@ -7,11 +7,12 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.cover import CoverEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.option_model import _OracleOptionModel, \
     create_option_model
-from predicators.src.planning import sesame_plan, task_plan, \
-    task_plan_grounding
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    sesame_plan, task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
@@ -81,7 +82,7 @@ def test_task_plan():
     assert total_num_skeletons == 3
     assert initial_metrics["num_skeletons_optimized"] == 1
     # Test timeout.
-    with pytest.raises(ApproachTimeout):
+    with pytest.raises(PlanningTimeout):
         next(
             task_plan(init_atoms,
                       task.goal,
@@ -94,16 +95,14 @@ def test_task_plan():
 
 
 def test_sesame_plan_failures():
-    """Tests for failures in the planner using the OracleApproach on
-    CoverEnv."""
+    """Tests for failures in the planner using the OracleApproach on CoverEnv
+    and PaintingEnv."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     option_model = create_option_model(CFG.option_model_name)
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
-    approach.seed(123)
     task = train_tasks[0]
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
@@ -143,7 +142,7 @@ def test_sesame_plan_failures():
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
     nsrts = get_gt_nsrts(env.predicates, env.options)
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, should fail fast.
         sesame_plan(
             task,
@@ -154,7 +153,7 @@ def test_sesame_plan_failures():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized)
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
         sesame_plan(
@@ -167,6 +166,15 @@ def test_sesame_plan_failures():
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
             check_dr_reachable=False)
+    utils.reset_config({"env": "painting", "painting_num_objs_train": [10]})
+    env = PaintingEnv()
+    train_tasks = env.get_train_tasks()
+    task = train_tasks[0]
+    option_model = create_option_model(CFG.option_model_name)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    with pytest.raises(ApproachTimeout):
+        approach.solve(task, timeout=0.1)
 
 
 def test_sesame_plan_uninitiable_option():
@@ -175,7 +183,6 @@ def test_sesame_plan_uninitiable_option():
     # pylint: disable=protected-access
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    env.seed(123)
     option_model = create_option_model(CFG.option_model_name)
     initiable = lambda s, m, o, p: False
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -192,7 +199,7 @@ def test_sesame_plan_uninitiable_option():
                  nsrt.side_predicates, new_option, nsrt.option_vars,
                  nsrt._sampler))
     task = env.get_train_tasks()[0]
-    with pytest.raises(ApproachFailure) as e:
+    with pytest.raises(PlanningFailure) as e:
         # Planning should reach sesame_max_skeletons_optimized
         sesame_plan(
             task,

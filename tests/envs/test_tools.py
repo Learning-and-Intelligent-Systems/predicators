@@ -20,7 +20,6 @@ def test_tools():
     """Tests for ToolsEnv class properties."""
     utils.reset_config({"env": "tools"})
     env = ToolsEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -43,7 +42,6 @@ def test_tools_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
     utils.reset_config({"env": "tools", "tools_num_items_train": [25]})
     env = DummyToolsEnv()
-    env.seed(123)
     HandEmpty = [o for o in env.predicates if o.name == "HandEmpty"][0]
     task = env.get_train_tasks()[0]
     state = task.init

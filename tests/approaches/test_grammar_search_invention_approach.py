@@ -17,7 +17,7 @@ from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Box, Dataset, LowLevelTrajectory, \
-    Predicate, State, STRIPSOperator, Type
+    Object, Predicate, State, STRIPSOperator, Type
 
 
 def test_predicate_grammar():
@@ -48,6 +48,16 @@ def test_predicate_grammar():
     feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     forall_grammar = _create_grammar(dataset, env.predicates)
+    # Test edge case where there are no low-level features in the dataset.
+    dummy_type = Type("dummy", [])
+    dummy_obj = Object("dummy", dummy_type)
+    dummy_state = State({dummy_obj: []})
+    dummy_dataset = Dataset([
+        LowLevelTrajectory([dummy_state, dummy_state],
+                           [np.zeros(1, dtype=np.float32)])
+    ])
+    dummy_grammar = _SingleFeatureInequalitiesPredicateGrammar(dummy_dataset)
+    assert len(dummy_grammar.generate(max_num=1)) == 0
     # There are only so many unique predicates possible under the grammar.
     # Non-unique predicates are pruned. Note that with a larger dataset,
     # more predicates would appear unique.
