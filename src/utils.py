@@ -555,8 +555,8 @@ class ExceptionWithInfo(Exception):
         self.info = info
 
 
-class OptionPlanExhausted(Exception):
-    """An exception for an option plan running out of options."""
+class OptionExecutionFailure(ExceptionWithInfo):
+    """An exception raised by an option policy in the course of execution."""
 
 
 class EnvironmentFailure(ExceptionWithInfo):
@@ -583,7 +583,7 @@ def option_plan_to_policy(
         nonlocal cur_option
         if cur_option.terminal(state):
             if not queue:
-                raise OptionPlanExhausted("Option plan exhausted!")
+                raise OptionExecutionFailure("Option plan exhausted!")
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
@@ -1529,7 +1529,7 @@ def create_video_from_partial_refinements(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
-            except OptionPlanExhausted:
+            except OptionExecutionFailure:
                 video.extend(env.render())
                 break
             video.extend(env.render(act))
