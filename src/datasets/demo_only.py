@@ -33,7 +33,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # is actually a plan under the hood, and we can retrieve it with
             # get_last_plan(). We do this because we want to run the full plan.
             plan = oracle_approach.get_last_plan()
-            # Stop run_policy() when OptionPlanExhausted() is hit.
+            # Stop run_policy() when OptionExecutionFailure() is hit, which
+            # should only happen when the goal has been reached, as verified
+            # by the assertion below.
             traj, _ = utils.run_policy(
                 utils.option_plan_to_policy(plan),
                 env,
@@ -41,7 +43,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 idx,
                 termination_function=lambda s: False,
                 max_num_steps=CFG.horizon,
-                exceptions_to_break_on={utils.OptionPlanExhausted})
+                exceptions_to_break_on={utils.OptionExecutionFailure})
             # Even though we're running the full plan, we should still check
             # that the goal holds at the end.
             assert task.goal_holds(traj.states[-1]), \
