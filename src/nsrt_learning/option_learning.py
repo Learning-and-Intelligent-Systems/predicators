@@ -15,7 +15,7 @@ from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
 from predicators.src.torch_models import MLPRegressor
-from predicators.src.utils import ExceptionWithInfo
+from predicators.src.utils import OptionExecutionFailure
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -27,10 +27,6 @@ def create_option_learner() -> _OptionLearnerBase:
     if CFG.option_learner == "neural":
         return _NeuralOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
-
-
-class OptionExecutionFailure(ExceptionWithInfo):
-    """Raised when something goes wrong during option execution."""
 
 
 class _OptionLearnerBase(abc.ABC):

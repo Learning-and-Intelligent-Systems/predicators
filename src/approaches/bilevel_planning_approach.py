@@ -63,8 +63,6 @@ class BilevelPlanningApproach(BaseApproach):
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
-        except OptionExhaustedFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
                 "num_nodes_expanded", "num_nodes_created", "plan_length"
@@ -84,8 +82,8 @@ class BilevelPlanningApproach(BaseApproach):
         def _policy(s: State) -> Action:
             try:
                 return option_policy(s)
-            except utils.OptionPlanExhausted:
-                raise ApproachFailure("Option plan exhausted.")
+            except utils.OptionExecutionFailure as e:
+                raise ApproachFailure(e.args[0], e.info)
 
         return _policy
 
