@@ -1945,6 +1945,9 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
 
 def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv."""
+    # Without this cast, mypy complains:
+    #   "BaseEnv" has no attribute "object_to_ig_object"
+    # and using isinstance(env, BehaviorEnv) instead does not work.
     env_base = get_or_create_env("behavior")
     env = cast(BehaviorEnv, env_base)
 
@@ -2113,8 +2116,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
 
 def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
-    env_base = get_or_create_env(name)
-    env = cast(_PDDLEnv, env_base)
+    env = get_or_create_env(name)
+    assert isinstance(env, _PDDLEnv)
 
     nsrts = set()
     option_name_to_option = {o.name: o for o in env.options}
