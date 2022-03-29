@@ -535,6 +535,22 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: []
     Side Predicates: [NotOn, On]"""
+    # Test copy_with().
+    strips_operator4 = strips_operator.copy_with(preconditions=set())
+    assert str(strips_operator4) == repr(strips_operator4) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: []
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
+    assert str(strips_operator) == repr(strips_operator) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")

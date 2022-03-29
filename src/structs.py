@@ -617,6 +617,21 @@ class STRIPSOperator:
         assert isinstance(other, STRIPSOperator)
         return str(self) > str(other)
 
+    def copy_with(self, **kwargs: Any) -> STRIPSOperator:
+        """Create a copy of the operator, optionally while replacing any of the
+        arguments."""
+        default_kwargs = dict(name=self.name,
+                              parameters=self.parameters,
+                              preconditions=self.preconditions,
+                              add_effects=self.add_effects,
+                              delete_effects=self.delete_effects,
+                              side_predicates=self.side_predicates)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        return STRIPSOperator(**default_kwargs)  # type: ignore
+
     def effect_to_side_predicate(self, effect: LiftedAtom,
                                  option_vars: Sequence[Variable],
                                  add_or_delete: str) -> STRIPSOperator:
@@ -912,7 +927,6 @@ class _GroundNSRT:
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:
         # https://github.com/python/mypy/issues/5382
-        # This still seems like the least bad option.
         return _GroundNSRT(**default_kwargs)  # type: ignore
 
 
@@ -1303,7 +1317,8 @@ Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
-LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
+                             _Atom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
