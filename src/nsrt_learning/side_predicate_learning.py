@@ -352,10 +352,15 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # As a result, we will have one very general PNAD per option.
         param_opt_to_pnad = {}
         parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
+        total_datastore_len = 0
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
             param_opt_to_pnad[param_opt] = pnad
+            total_datastore_len += len(pnad.datastore)
         del self._initial_pnads  # no longer used
+        # Assert that all data is in some PNAD's datastore.
+        assert total_datastore_len == sum(len(seg_traj) for seg_traj
+                                          in self._segmented_trajs)
 
         # Go through each demonstration from the end back to the start,
         # making the PNADs more specific whenever needed.
