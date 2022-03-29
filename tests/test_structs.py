@@ -535,6 +535,22 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: []
     Side Predicates: [NotOn, On]"""
+    # Test copy_with().
+    strips_operator4 = strips_operator.copy_with(preconditions=set())
+    assert str(strips_operator4) == repr(strips_operator4) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: []
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
+    assert str(strips_operator) == repr(strips_operator) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
@@ -818,12 +834,6 @@ def test_pnad():
         pnad.add_to_datastore((segment3, var_to_obj2))
     pnad.add_to_datastore((segment3, var_to_obj2), check_effect_equality=False)
     assert len(pnad.datastore) == 3
-    assert pnad.get_sub_for_member_segment(segment1) is var_to_obj
-    assert pnad.get_sub_for_member_segment(segment2) is var_to_obj
-    assert pnad.get_sub_for_member_segment(segment3) is var_to_obj2
-    segment4 = Segment(traj, init_atoms, set(), option)
-    with pytest.raises(KeyError):  # segment4 not in datastore
-        pnad.get_sub_for_member_segment(segment4)
     assert repr(pnad) == str(pnad) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
