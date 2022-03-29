@@ -3,11 +3,11 @@
 from typing import Callable, List, Set, Tuple
 
 from predicators.src import utils
-from predicators.src.approaches import create_approach
+from predicators.src.approaches import BaseApproach, create_approach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import BaseEnv, create_new_env
-from predicators.src.envs.cover_env import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Object, Predicate, State, Task
 
@@ -27,7 +27,7 @@ def evaluate_approach(
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
-    assert approach.is_learning_based
+    assert isinstance(approach, InteractiveLearningApproach)
     _run_pipeline(env, approach, evaluate_fn)
 
 
@@ -62,9 +62,9 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     Covers = [p for p in preds if p.name == "Covers"][0]
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
     CoversGT = [p for p in env.predicates if p.name == "Covers"][0]
-    states = create_states_cover(env)
+    states, _, _ = create_states_cover(env)
     # Test 1: no blocks overlap any targets, none are held
-    states, _, _ = states[0]
+    state = states[0]
     atoms = utils.abstract(state, (Holding, Covers))
     atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
     print(f"False positives: {atoms - atoms_gt}\n"

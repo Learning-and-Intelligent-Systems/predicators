@@ -4,11 +4,12 @@ from typing import Sequence
 
 import numpy as np
 
-from predicators.scripts.evaluate_predicate_classifiers import evaluate_approach, create_states
+from predicators.scripts.evaluate_interactive_approach_classifiers import evaluate_approach, create_states_cover
 from predicators.src import utils
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import BaseEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Object, State
 
@@ -17,16 +18,17 @@ def evaluate_pred_ensemble(env: BaseEnv,
                            approach: InteractiveLearningApproach) -> None:
     """Prints entropy and BALD scores of predicate classifier ensembles."""
     if CFG.env == "cover":
+        assert isinstance(env, CoverEnv)
         return _evaluate_pred_ensemble_cover(env, approach)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
 def _evaluate_pred_ensemble_cover(
-        env: BaseEnv, approach: InteractiveLearningApproach) -> None:
+        env: CoverEnv, approach: InteractiveLearningApproach) -> None:
     preds = approach._get_current_predicates()  # pylint: disable=protected-access
     Covers = [p for p in preds if p.name == "Covers"][0]
-    states, blocks, targets = create_states(env)
+    states, blocks, targets = create_states_cover(env)
     assert len(blocks) == 2
     assert len(targets) == 2
     block0, _ = blocks
