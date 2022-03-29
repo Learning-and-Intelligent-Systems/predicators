@@ -11,8 +11,8 @@ from predicators.src.envs.painting import PaintingEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.option_model import _OracleOptionModel, \
     create_option_model
-from predicators.src.planning import sesame_plan, task_plan, \
-    task_plan_grounding
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    sesame_plan, task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
@@ -82,7 +82,7 @@ def test_task_plan():
     assert total_num_skeletons == 3
     assert initial_metrics["num_skeletons_optimized"] == 1
     # Test timeout.
-    with pytest.raises(ApproachTimeout):
+    with pytest.raises(PlanningTimeout):
         next(
             task_plan(init_atoms,
                       task.goal,
@@ -142,7 +142,7 @@ def test_sesame_plan_failures():
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
     nsrts = get_gt_nsrts(env.predicates, env.options)
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, should fail fast.
         sesame_plan(
             task,
@@ -153,7 +153,7 @@ def test_sesame_plan_failures():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized)
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
         sesame_plan(
@@ -199,7 +199,7 @@ def test_sesame_plan_uninitiable_option():
                  nsrt.side_predicates, new_option, nsrt.option_vars,
                  nsrt._sampler))
     task = env.get_train_tasks()[0]
-    with pytest.raises(ApproachFailure) as e:
+    with pytest.raises(PlanningFailure) as e:
         # Planning should reach sesame_max_skeletons_optimized
         sesame_plan(
             task,
