@@ -19,7 +19,7 @@ from predicators.src.structs import Object, Predicate, State, Task
 
 def evaluate_approach(evaluate_fn: Callable[
     [BaseEnv, InteractiveLearningApproach, Optional[int], List], None],
-                      data: List = []) -> None:
+                      data: List) -> None:
     """Loads an approach and evaluates it using the given function."""
     # Parse & validate args
     args = utils.parse_args()
@@ -56,6 +56,7 @@ def _run_pipeline(
 
 def _evaluate_preds(env: BaseEnv, approach: InteractiveLearningApproach,
                     cycle_num: Optional[int], data: List) -> None:
+    del cycle_num  # unused
     if CFG.env == "cover":
         assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(
@@ -68,6 +69,7 @@ def _evaluate_preds(env: BaseEnv, approach: InteractiveLearningApproach,
 
 def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv,
                           data: List) -> None:
+    del data  # unused
     Holding = [p for p in preds if p.name == "Holding"][0]
     Covers = [p for p in preds if p.name == "Covers"][0]
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
@@ -173,4 +175,4 @@ def _plot(all_data: List) -> None:
 
 
 if __name__ == "__main__":
-    evaluate_approach(_evaluate_preds)
+    evaluate_approach(_evaluate_preds, [])

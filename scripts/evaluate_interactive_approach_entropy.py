@@ -79,4 +79,4 @@ def _calculate(approach: InteractiveLearningApproach, states: List[State],
 
 
 if __name__ == "__main__":
-    evaluate_approach(evaluate_pred_ensemble)
+    evaluate_approach(evaluate_pred_ensemble, [])
