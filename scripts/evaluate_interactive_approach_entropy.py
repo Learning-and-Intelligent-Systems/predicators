@@ -16,10 +16,8 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Object, State
 
 
-def evaluate_pred_ensemble(env: BaseEnv,
-                           approach: InteractiveLearningApproach,
-                           cycle_num: Optional[int],
-                           data: List) -> None:
+def evaluate_pred_ensemble(env: BaseEnv, approach: InteractiveLearningApproach,
+                           cycle_num: Optional[int], data: List) -> None:
     """Prints entropy and BALD scores of predicate classifier ensembles."""
     if CFG.env == "cover":
         assert isinstance(env, CoverEnv)
@@ -28,9 +26,10 @@ def evaluate_pred_ensemble(env: BaseEnv,
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
-def _evaluate_pred_ensemble_cover(
-        env: CoverEnv, approach: InteractiveLearningApproach,
-        cycle_num: Optional[int], data: List) -> None:
+def _evaluate_pred_ensemble_cover(env: CoverEnv,
+                                  approach: InteractiveLearningApproach,
+                                  cycle_num: Optional[int],
+                                  data: List) -> None:
     preds = approach._get_current_predicates()  # pylint: disable=protected-access
     Covers = [p for p in preds if p.name == "Covers"][0]
     states, blocks, targets = create_states_cover(env)
@@ -44,7 +43,9 @@ def _evaluate_pred_ensemble_cover(
     # Test 3: block and target overlap more
     # Test 4: block covers target and right edges align
     # Test 5: block covers target, centered
-    test_states = [states[0], states[0], states[1], states[2], states[3], states[4]]
+    test_states = [
+        states[0], states[0], states[1], states[2], states[3], states[4]
+    ]
     test_objs = [[block0, target1]]
     test_objs.extend([[block0, target0] for _ in range(5)])
     _calculate(approach, test_states, Covers.name, test_objs, cycle_num, data)
@@ -61,9 +62,19 @@ def _calculate(approach: InteractiveLearningApproach, states: List[State],
         entropy = utils.entropy(np.mean(ps))
         bald_score = entropy - np.mean([utils.entropy(p) for p in ps])
         print(f"Entropy: {entropy}, BALD score: {bald_score}")
-        info = {"SCORE_TYPE": "entropy", "TEST_ID": i, "CYCLE": cycle_num, "SCORE": entropy}
+        info = {
+            "SCORE_TYPE": "entropy",
+            "TEST_ID": i,
+            "CYCLE": cycle_num,
+            "SCORE": entropy
+        }
         data.append(info)
-        info = {"SCORE_TYPE": "BALD", "TEST_ID": i, "CYCLE": cycle_num, "SCORE": bald_score}
+        info = {
+            "SCORE_TYPE": "BALD",
+            "TEST_ID": i,
+            "CYCLE": cycle_num,
+            "SCORE": bald_score
+        }
         data.append(info)
 
 

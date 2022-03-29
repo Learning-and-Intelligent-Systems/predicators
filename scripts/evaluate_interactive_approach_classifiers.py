@@ -17,10 +17,9 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Object, Predicate, State, Task
 
 
-def evaluate_approach(
-    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach, Optional[int], List],
-                          None],
-    data: List=[]) -> None:
+def evaluate_approach(evaluate_fn: Callable[
+    [BaseEnv, InteractiveLearningApproach, Optional[int], List], None],
+                      data: List = []) -> None:
     """Loads an approach and evaluates it using the given function."""
     # Parse & validate args
     args = utils.parse_args()
@@ -40,9 +39,10 @@ def evaluate_approach(
 
 
 def _run_pipeline(
-    env: BaseEnv, approach: InteractiveLearningApproach,
-    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach, Optional[int], List],
-                          None], data: List) -> None:
+        env: BaseEnv, approach: InteractiveLearningApproach,
+        evaluate_fn: Callable[
+            [BaseEnv, InteractiveLearningApproach, Optional[int], List],
+            None], data: List) -> None:
     approach.load(online_learning_cycle=None)
     evaluate_fn(env, approach, None, data)
     for i in range(CFG.num_online_learning_cycles):
@@ -54,15 +54,14 @@ def _run_pipeline(
             break
 
 
-def _evaluate_preds(env: BaseEnv,
-                    approach: InteractiveLearningApproach,
-                    cycle_num: Optional[int],
-                    data: List) -> None:
+def _evaluate_preds(env: BaseEnv, approach: InteractiveLearningApproach,
+                    cycle_num: Optional[int], data: List) -> None:
     if CFG.env == "cover":
         assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access
-            env, data)
+            env,
+            data)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
@@ -141,11 +140,9 @@ def create_states_cover(
     return states, blocks, targets
 
 
-COLUMN_NAMES_AND_KEYS = [("SCORE_TYPE", "score_type"),
-                         ("TEST_ID", "test_id"),
-                         ("CYCLE", "cycle"),
-                         ("SCORE", "score")]
-                            
+COLUMN_NAMES_AND_KEYS = [("SCORE_TYPE", "score_type"), ("TEST_ID", "test_id"),
+                         ("CYCLE", "cycle"), ("SCORE", "score")]
+
 PLOT_GROUPS = [
     ("Far", lambda df: df["TEST_ID"].apply(lambda v: v == 0)),
     ("Closer", lambda df: df["TEST_ID"].apply(lambda v: v == 1)),
