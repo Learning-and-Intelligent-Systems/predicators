@@ -818,12 +818,6 @@ def test_pnad():
         pnad.add_to_datastore((segment3, var_to_obj2))
     pnad.add_to_datastore((segment3, var_to_obj2), check_effect_equality=False)
     assert len(pnad.datastore) == 3
-    assert pnad.get_sub_for_member_segment(segment1) is var_to_obj
-    assert pnad.get_sub_for_member_segment(segment2) is var_to_obj
-    assert pnad.get_sub_for_member_segment(segment3) is var_to_obj2
-    segment4 = Segment(traj, init_atoms, set(), option)
-    with pytest.raises(KeyError):  # segment4 not in datastore
-        pnad.get_sub_for_member_segment(segment4)
     assert repr(pnad) == str(pnad) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
