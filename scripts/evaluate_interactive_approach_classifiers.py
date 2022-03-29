@@ -1,8 +1,12 @@
 """Script to evaluate interactively learned predicate classifiers on held-out
 test cases."""
 
-from typing import Callable, List, Set, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
+import matplotlib.pyplot as plt
+import pandas as pd
+
+from predicators.scripts.analyze_results_directory import get_df_for_entry
 from predicators.src import utils
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.interactive_learning_approach import \
@@ -14,8 +18,9 @@ from predicators.src.structs import Object, Predicate, State, Task
 
 
 def evaluate_approach(
-    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
-                          None]) -> None:
+    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach, Optional[int], List],
+                          None],
+    data: List=[]) -> None:
     """Loads an approach and evaluates it using the given function."""
     # Parse & validate args
     args = utils.parse_args()
@@ -29,36 +34,41 @@ def evaluate_approach(
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
     assert isinstance(approach, InteractiveLearningApproach)
-    _run_pipeline(env, approach, evaluate_fn)
+    _run_pipeline(env, approach, evaluate_fn, data)
+    if not data:
+        _plot(data)
 
 
 def _run_pipeline(
     env: BaseEnv, approach: InteractiveLearningApproach,
-    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
-                          None]) -> None:
+    evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach, Optional[int], List],
+                          None], data: List) -> None:
     approach.load(online_learning_cycle=None)
-    evaluate_fn(env, approach)
+    evaluate_fn(env, approach, None, data)
     for i in range(CFG.num_online_learning_cycles):
         print(f"\n\nONLINE LEARNING CYCLE {i}\n")
         try:
             approach.load(online_learning_cycle=i)
-            evaluate_fn(env, approach)
+            evaluate_fn(env, approach, i, data)
         except FileNotFoundError:
             break
 
 
 def _evaluate_preds(env: BaseEnv,
-                    approach: InteractiveLearningApproach) -> None:
+                    approach: InteractiveLearningApproach,
+                    cycle_num: Optional[int],
+                    data: List) -> None:
     if CFG.env == "cover":
         assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access
-            env)
+            env, data)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
-def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
+def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv,
+                          data: List) -> None:
     Holding = [p for p in preds if p.name == "Holding"][0]
     Covers = [p for p in preds if p.name == "Covers"][0]
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
@@ -129,6 +139,40 @@ def create_states_cover(
     next_state.set(block0, "pose", target_poses[0])
     states.append(next_state)
     return states, blocks, targets
+
+
+COLUMN_NAMES_AND_KEYS = [("SCORE_TYPE", "score_type"),
+                         ("TEST_ID", "test_id"),
+                         ("CYCLE", "cycle"),
+                         ("SCORE", "score")]
+                            
+PLOT_GROUPS = [
+    ("Far", lambda df: df["TEST_ID"].apply(lambda v: v == 0)),
+    ("Closer", lambda df: df["TEST_ID"].apply(lambda v: v == 1)),
+    ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: v == 2)),
+    ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: v == 3)),
+    ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: v == 4)),
+    ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: v == 5)),
+]
+
+
+def _plot(all_data: List) -> None:
+    column_names = [c for (c, _) in COLUMN_NAMES_AND_KEYS]
+    df = pd.DataFrame(all_data)
+    df.columns = column_names
+    print(df)
+    _, ax = plt.subplots()
+    for label, selector in PLOT_GROUPS:
+        d = get_df_for_entry("CYCLE", df, selector)
+        xs = d["CYCLE"].tolist()
+        ys = d["SCORE"].tolist()
+        ax.plot(xs, ys, label=label)
+    ax.set_title("Model Scores During Interactive Learning")
+    ax.set_xlabel("Cycle")
+    ax.set_ylabel("Model Score")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
