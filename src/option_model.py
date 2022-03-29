@@ -7,7 +7,7 @@ option in the environment.
 from __future__ import annotations
 
 import abc
-from typing import Tuple, cast
+from typing import Tuple
 
 import numpy as np
 
@@ -107,8 +107,8 @@ class _BehaviorOptionModel(_OptionModelBase):
     def get_next_state_and_num_actions(
             self, state: State,
             option: _Option) -> Tuple[State, int]:  # pragma: no cover
-        env_base = get_or_create_env("behavior")
-        env = cast(BehaviorEnv, env_base)
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
         assert option.memory.get("model_controller") is not None
         assert option.memory.get("planner_result") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
