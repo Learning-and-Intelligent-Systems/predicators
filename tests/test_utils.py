@@ -445,7 +445,7 @@ def test_option_plan_to_policy():
         assert np.allclose(action.arr, traj.actions[t].arr)
         state = _simulator(state, action)
     assert option.terminal(state)
-    with pytest.raises(utils.OptionPlanExhausted):
+    with pytest.raises(utils.OptionExecutionFailure):
         # Ran out of options
         policy(state)
 

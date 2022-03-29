@@ -617,6 +617,21 @@ class STRIPSOperator:
         assert isinstance(other, STRIPSOperator)
         return str(self) > str(other)
 
+    def copy_with(self, **kwargs: Any) -> STRIPSOperator:
+        """Create a copy of the operator, optionally while replacing any of the
+        arguments."""
+        default_kwargs = dict(name=self.name,
+                              parameters=self.parameters,
+                              preconditions=self.preconditions,
+                              add_effects=self.add_effects,
+                              delete_effects=self.delete_effects,
+                              side_predicates=self.side_predicates)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        return STRIPSOperator(**default_kwargs)  # type: ignore
+
     def effect_to_side_predicate(self, effect: LiftedAtom,
                                  option_vars: Sequence[Variable],
                                  add_or_delete: str) -> STRIPSOperator:
@@ -912,7 +927,6 @@ class _GroundNSRT:
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:
         # https://github.com/python/mypy/issues/5382
-        # This still seems like the least bad option.
         return _GroundNSRT(**default_kwargs)  # type: ignore
 
 
@@ -1128,13 +1142,6 @@ class PartialNSRTAndDatastore:
     option_spec: OptionSpec
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
-    # A private map from segments in the datastore to associated substitutions.
-    _segment_to_sub: Dict[Segment, VarToObjSub] = field(init=False)
-
-    def __post_init__(self) -> None:
-        self._segment_to_sub = {}
-        for seg, var_obj_sub in self.datastore:
-            self._segment_to_sub[seg] = var_obj_sub
 
     def add_to_datastore(self,
                          member: Tuple[Segment, VarToObjSub],
@@ -1166,18 +1173,12 @@ class PartialNSRTAndDatastore:
                 assert option.objects == option_args
         # Add to datastore.
         self.datastore.append(member)
-        self._segment_to_sub[seg] = var_obj_sub
 
     def make_nsrt(self) -> NSRT:
         """Make an NSRT from this PNAD."""
         assert self.sampler is not None
         param_option, option_vars = self.option_spec
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
-
-    def get_sub_for_member_segment(self, segment: Segment) -> VarToObjSub:
-        """Return the VarToObjSub associated with the segment in the datastore,
-        or raise a KeyError if this segment is not in the datastore."""
-        return self._segment_to_sub[segment]
 
     def __repr__(self) -> str:
         param_option, option_vars = self.option_spec
@@ -1316,7 +1317,8 @@ Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
-LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
+                             _Atom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
