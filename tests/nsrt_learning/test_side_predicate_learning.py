@@ -5,9 +5,6 @@ test_nsrt_learning_approach.py, which runs end-to-end tests of the
 algorithms on an actual domain.
 """
 
-# This unused import prevents circular import issues when running this
-# test as a standalone file.
-from predicators.src import approaches  # pylint:disable=unused-import
 from predicators.src.nsrt_learning.side_predicate_learning import \
     BackchainingSidePredicateLearner
 from predicators.src.structs import Action, LowLevelTrajectory, \
