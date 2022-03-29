@@ -26,13 +26,17 @@ class PaintingEnv(BaseEnv):
     table_lb = -10.1
     table_ub = -1.0
     table_height = 0.2
+    table_x = 1.65
     shelf_l = 2.0  # shelf length
     shelf_lb = 1.
     shelf_ub = shelf_lb + shelf_l - 0.05
+    shelf_x = 1.65
+    shelf_y = (shelf_lb + shelf_ub) / 2.0
     box_s = 0.8  # side length
     box_y = 0.5  # y coordinate
     box_lb = box_y - box_s / 10
     box_ub = box_y + box_s / 10
+    box_x = 1.65
     env_lb = min(table_lb, shelf_lb, box_lb)
     env_ub = max(table_ub, shelf_ub, box_ub)
     obj_height = 0.13
@@ -46,6 +50,8 @@ class PaintingEnv(BaseEnv):
     open_fingers = 0.8
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
+    robot_x = table_x - 0.5
+    nextto_thresh = 1.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -54,10 +60,10 @@ class PaintingEnv(BaseEnv):
             "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
             "grasp", "held"
         ])
-        self._box_type = Type("box", ["color"])
+        self._box_type = Type("box", ["pose_x", "pose_y", "color"])
         self._lid_type = Type("lid", ["is_open"])
-        self._shelf_type = Type("shelf", ["color"])
-        self._robot_type = Type("robot", ["fingers"])
+        self._shelf_type = Type("shelf", ["pose_x", "pose_y", "color"])
+        self._robot_type = Type("robot", ["pose_x", "pose_y", "fingers"])
         # Predicates
         self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
                                 self._InBox_holds)
@@ -284,13 +290,19 @@ class PaintingEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
+        num_objs_lst = (CFG.rnt_painting_num_objs_train
+                        if CFG.env == "repeated_nextto_painting" else
+                        CFG.painting_num_objs_train)
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.painting_num_objs_train,
+                               num_objs_lst=num_objs_lst,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
+        num_objs_lst = (CFG.rnt_painting_num_objs_test
+                        if CFG.env == "repeated_nextto_painting" else
+                        CFG.painting_num_objs_test)
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=CFG.painting_num_objs_test,
+                               num_objs_lst=num_objs_lst,
                                rng=self._test_rng)
 
     @property
@@ -328,11 +340,12 @@ class PaintingEnv(BaseEnv):
         # [x, y, z, grasp, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while grasp, water level, heat level, and color are in [0, 1].
-        lowers = np.array([
-            self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2, 0.0, -1.0, 0.0,
-            0.0, 0.0
-        ],
-                          dtype=np.float32)
+        # We set the lower bound for z to 0.0, rather than self.obj_z - 1e-2,
+        # because in RepeatedNextToPainting, we use this dimension to check
+        # affinity of the move action
+        lowers = np.array(
+            [self.obj_x - 1e-2, self.env_lb, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+            dtype=np.float32)
         uppers = np.array([
             self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2, 1.0, 1.0, 1.0,
             1.0, 1.0
@@ -441,8 +454,10 @@ class PaintingEnv(BaseEnv):
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
-            # Initialize robot with open fingers
-            data[self._robot] = np.array([1.0], dtype=np.float32)
+            # Initialize robot pos with open fingers
+            robot_init_y = rng.uniform(self.table_lb, self.table_ub)
+            data[self._robot] = np.array([self.robot_x, robot_init_y, 1.0],
+                                         dtype=np.float32)
             # Sample distinct colors for shelf and box
             color1 = rng.uniform(0.2, 0.4)
             color2 = rng.uniform(0.6, 1.0)
@@ -452,9 +467,11 @@ class PaintingEnv(BaseEnv):
                 shelf_color, box_color = color1, color2
             # Create box, lid, and shelf objects
             lid_is_open = int(rng.uniform() < CFG.painting_lid_open_prob)
-            data[self._box] = np.array([box_color], dtype=np.float32)
+            data[self._box] = np.array([self.box_x, self.box_y, box_color],
+                                       dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
-            data[self._shelf] = np.array([shelf_color], dtype=np.float32)
+            data[self._shelf] = np.array(
+                [self.shelf_x, self.shelf_y, shelf_color], dtype=np.float32)
             # Create moveable objects
             objs = []
             obj_poses: List[Tuple[float, float, float]] = []
@@ -483,14 +500,20 @@ class PaintingEnv(BaseEnv):
                     grasp, held
                 ],
                                      dtype=np.float32)
-                # Last object should go in box
+                max_objs_in_goal = (CFG.rnt_painting_max_objs_in_goal
+                                    if CFG.env == "repeated_nextto_painting"
+                                    else CFG.painting_max_objs_in_goal)
                 if j == num_objs - 1:
+                    # Last object must go in the box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
-                else:
+                elif j < max_objs_in_goal - 1:
+                    # The last object is destined for the box, so the remaining
+                    # (max_objs_in_goal - 1) objects must go in the shelf
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
+            assert len(goal) <= 2 * max_objs_in_goal
             state = State(data)
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
@@ -500,7 +523,11 @@ class PaintingEnv(BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                assert self._OnTable_holds(state, [target_obj])
+                if CFG.env == "repeated_nextto_painting":
+                    state.set(target_obj, "pose_y",
+                              state.get(self._robot, "pose_y"))
+                    state.set(target_obj, "pose_z",
+                              state.get(target_obj, "pose_z") + 1.0)
             tasks.append(Task(state, goal))
         return tasks
 

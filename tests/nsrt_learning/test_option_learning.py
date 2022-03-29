@@ -188,7 +188,6 @@ def test_learned_neural_parameterized_option():
     assert param_option.types == [p.type for p in pick_operator.parameters]
     assert param_option.params_space.shape == (param_dim, )
     # Get an initial state where picking should be possible.
-    env.seed(123)
     task = env.get_test_tasks()[0]
 
     state = task.init.copy()

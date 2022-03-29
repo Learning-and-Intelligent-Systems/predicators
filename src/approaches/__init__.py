@@ -27,7 +27,7 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
                     train_tasks: List[Task]) -> BaseApproach:
     """Create an approach given its name."""
     for cls in utils.get_all_subclasses(BaseApproach):
-        if cls is not BaseApproach and cls.get_name() == name:
+        if not cls.__abstractmethods__ and cls.get_name() == name:
             approach = cls(initial_predicates, initial_options, types,
                            action_space, train_tasks)
             break

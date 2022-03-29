@@ -41,10 +41,6 @@ class BilevelPlanningApproach(BaseApproach):
         self._num_calls = 0
         self._last_plan: List[_Option] = []
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "bilevel_planning"
-
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         # ensure random over successive calls
@@ -86,10 +82,8 @@ class BilevelPlanningApproach(BaseApproach):
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
-        # Initialize min to self._max_skeletons_optimized (max gets initialized
-        # to 0 by default)
-        self._metrics[
-            "min_num_skeletons_optimized"] = self._max_skeletons_optimized
+        # Initialize min to inf (max gets initialized to 0 by default).
+        self._metrics["min_num_skeletons_optimized"] = float("inf")
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:

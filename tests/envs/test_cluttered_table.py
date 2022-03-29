@@ -17,7 +17,6 @@ def test_cluttered_table(place_version=False):
     else:
         utils.reset_config({"env": "cluttered_table_place"})
         env = ClutteredTablePlaceEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])

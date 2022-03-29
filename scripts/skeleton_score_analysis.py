@@ -55,7 +55,6 @@ def _setup_data_for_env(env_name: str,
         "offline_data_planning_timeout": 10
     })
     env = create_new_env(env_name)
-    env.seed(seed)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert all(traj.is_demo for traj in dataset.trajectories)
