@@ -383,7 +383,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # Find the PNAD associated with this option.
                 pnad = param_opt_to_pnad[option.parent]
                 # Compute the ground atoms that must be added on this timestep.
-                # Note that they must be a subset of the add effects.
+                # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
 
@@ -391,6 +391,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # and option to the objects in necessary_add_effects and the
                 # segment's option. If one exists, we don't need to modify this
                 # PNAD. Otherwise, we must make its add effects more specific.
+                # Note that we are assuming all variables in the parameters
+                # of the PNAD will appear in either the option arguments or
+                # the add effects. This is in contrast to strips_learning.py,
+                # where delete effect variables also contribute to parameters.
                 opt_pred = Predicate("OPT-ARGS",
                                      [a.type for a in pnad.option_spec[1]],
                                      _classifier=lambda s, o: False)  # dummy
