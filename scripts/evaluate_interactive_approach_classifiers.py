@@ -1,10 +1,10 @@
 """Script to evaluate interactively learned predicate classifiers on held-out
 test cases."""
 
-from typing import Callable, List, Set, Tuple
+from typing import Callable, List, Set, Tuple, cast
 
 from predicators.src import utils
-from predicators.src.approaches import BaseApproach, create_approach
+from predicators.src.approaches import create_approach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import BaseEnv, create_new_env
@@ -28,8 +28,8 @@ def evaluate_approach(
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
-    assert isinstance(approach, InteractiveLearningApproach)
-    _run_pipeline(env, approach, evaluate_fn)
+    interactive_approach = cast(InteractiveLearningApproach, approach)
+    _run_pipeline(env, interactive_approach, evaluate_fn)
 
 
 def _run_pipeline(
@@ -50,10 +50,10 @@ def _run_pipeline(
 def _evaluate_preds(env: BaseEnv,
                     approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
-        assert isinstance(env, CoverEnv)
+        cover_env = cast(CoverEnv, env)
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access
-            env)
+            cover_env)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
@@ -86,6 +86,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
 
 def create_states_cover(
         env: CoverEnv) -> Tuple[List[State], List[Object], List[Object]]:
+    """Create a sequence of CoverEnv states to be used during evaluation."""
     states = []
     block_poses = [0.15, 0.605]
     target_poses = [0.375, 0.815]

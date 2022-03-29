@@ -1,7 +1,7 @@
 """Script to calculate entropies and BALD scores of interactively learned
 predicate classifier ensembles in certain states."""
 
-from typing import Sequence
+from typing import Sequence, cast
 
 import numpy as np
 
@@ -20,8 +20,8 @@ def evaluate_pred_ensemble(env: BaseEnv,
                            approach: InteractiveLearningApproach) -> None:
     """Prints entropy and BALD scores of predicate classifier ensembles."""
     if CFG.env == "cover":
-        assert isinstance(env, CoverEnv)
-        return _evaluate_pred_ensemble_cover(env, approach)
+        cover_env = cast(CoverEnv, env)
+        return _evaluate_pred_ensemble_cover(cover_env, approach)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
