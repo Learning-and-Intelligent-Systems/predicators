@@ -407,7 +407,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # making them more specific, it is guaranteed that such a
                     # grounding exists, otherwise our 1:1 option:operator
                     # assumption is violated.
-                    ground_op = self._get_arbitrary_ground_operator(
+                    ground_op = self._get_partially_satisfying_grounding(
                         necessary_add_effects, pnad, segment)
                     assert ground_op is not None
                     # To figure out the effects we need to add to this PNAD,
@@ -421,9 +421,12 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # entries to obj_to_var to account for the situation where
                     # missing_effects contains objects that were not in
                     # the ground operator's parameters.
-                    max_var_num = int(
-                        max(obj_to_var.values(),
-                            key=lambda var: int(var.name[2:])).name[2:])
+                    var_names = [var.name for var in obj_to_var.values()]
+                    assert all(name.startswith("?x") for name in var_names)
+                    max_var_name = max(var_names,
+                                       key=lambda name: int(name[2:]),
+                                       default="?x-1")
+                    max_var_num = int(max_var_name[2:])
                     for effect in missing_effects:
                         for obj in effect.objects:
                             if obj not in obj_to_var:
@@ -473,14 +476,17 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         return list(param_opt_to_pnad.values())
 
     @staticmethod
-    def _get_arbitrary_ground_operator(
+    def _get_partially_satisfying_grounding(
             necessary_add_effects: Set[GroundAtom],
             pnad: PartialNSRTAndDatastore,
             segment: Segment) -> Optional[_GroundSTRIPSOperator]:
+        """Get an arbitrary grounding of the PNAD's operator whose
+        preconditions hold in segment.init_atoms and whose add effects are a
+        subset of necessary_add_effects."""
         objects = list(segment.states[0])
         option_objs = segment.get_option().objects
         isub = dict(zip(pnad.option_spec[1], option_objs))
-        # Consider adding this segment to each datastore.
+        # Loop over all groundings.
         for ground_op in utils.all_ground_operators_given_partial(
                 pnad.op, objects, isub):
             # Check if preconditions hold.
@@ -521,20 +527,24 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         """Update the given PNAD to change the delete effects to ones obtained
         by unioning all lifted images in the datastore.
 
-        IMPORTANT NOTE: We do not allow creating new variables when we
-        do this. Instead, we filter out such delete effects from the
-        union. Therefore, even though it may seem on the surface like
-        this procedure will cause all delete effects in the data to be
-        modeled accurately, this is not actually true.
+        IMPORTANT NOTE: We want to do a union here because the most
+        general delete effects are the ones that capture _any possible_
+        deletion that occurred in a training transition. (This is
+        contrast to preconditions, where we want to take an intersection
+        over our training transitions.) However, we do not allow
+        creating new variables when we create these delete effects.
+        Instead, we filter out delete effects that include new
+        variables. Therefore, even though it may seem on the surface
+        like this procedure will cause all delete effects in the data to
+        be modeled accurately, this is not actually true.
         """
         delete_effects = set()
         for segment, var_to_obj in pnad.datastore:
-            objects = set(var_to_obj.values())
             obj_to_var = {o: v for v, o in var_to_obj.items()}
             atoms = {
                 atom
                 for atom in segment.delete_effects
-                if all(o in objects for o in atom.objects)
+                if all(o in obj_to_var for o in atom.objects)
             }
             lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
             delete_effects |= lifted_atoms
