@@ -10,7 +10,6 @@ from predicators.src.envs.base_env import BaseEnv
 __all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
 
-
 if not TYPE_CHECKING:
     # Load all modules so that utils.get_all_subclasses() works.
     for _, module_name, _ in pkgutil.walk_packages(__path__):
