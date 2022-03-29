@@ -1,4 +1,5 @@
-"""Script to evaluate interactively learned predicate classifiers on held-out test cases."""
+"""Script to evaluate interactively learned predicate classifiers on held-out
+test cases."""
 
 from typing import Callable, List, Set, Tuple
 
@@ -83,7 +84,8 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
           f"False negatives: {atoms_gt - atoms}")
 
 
-def create_states_cover(env: CoverEnv) -> Tuple[List[State], List[Object], List[Object]]:
+def create_states_cover(
+        env: CoverEnv) -> Tuple[List[State], List[Object], List[Object]]:
     states = []
     block_poses = [0.15, 0.605]
     target_poses = [0.375, 0.815]

@@ -1,10 +1,12 @@
-"""Script to calculate entropies and BALD scores of interactively learned predicate classifier ensembles in certain states."""
+"""Script to calculate entropies and BALD scores of interactively learned
+predicate classifier ensembles in certain states."""
 
 from typing import Sequence
 
 import numpy as np
 
-from predicators.scripts.evaluate_interactive_approach_classifiers import evaluate_approach, create_states_cover
+from predicators.scripts.evaluate_interactive_approach_classifiers import \
+    create_states_cover, evaluate_approach
 from predicators.src import utils
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
