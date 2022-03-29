@@ -1,23 +1,21 @@
-"""Script to evaluate learned predicate classifiers on held-out test cases."""
+"""Script to evaluate interactively learned predicate classifiers on held-out test cases."""
 
-from typing import Callable, List, Set
-
-import numpy as np
+from typing import Callable, List, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import BaseEnv, create_new_env
+from predicators.src.envs.cover_env import CoverEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Predicate, Task
+from predicators.src.structs import Object, Predicate, State, Task
 
 
-def main(
+def evaluate_approach(
     evaluate_fn: Callable[[BaseEnv, InteractiveLearningApproach],
                           None]) -> None:
-    """Loads an approach and evaluates the predicates using the given
-    function."""
+    """Loads an approach and evaluates it using the given function."""
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -30,7 +28,6 @@ def main(
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
     assert approach.is_learning_based
-    assert isinstance(approach, InteractiveLearningApproach)
     _run_pipeline(env, approach, evaluate_fn)
 
 
@@ -52,6 +49,7 @@ def _run_pipeline(
 def _evaluate_preds(env: BaseEnv,
                     approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
+        assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access
             env)
@@ -59,12 +57,37 @@ def _evaluate_preds(env: BaseEnv,
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
 
-def _evaluate_preds_cover(preds: Set[Predicate], env: BaseEnv) -> None:
+def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv) -> None:
     Holding = [p for p in preds if p.name == "Holding"][0]
     Covers = [p for p in preds if p.name == "Covers"][0]
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
     CoversGT = [p for p in env.predicates if p.name == "Covers"][0]
-    # Create initial state
+    states = create_states_cover(env)
+    # Test 1: no blocks overlap any targets, none are held
+    states, _, _ = states[0]
+    atoms = utils.abstract(state, (Holding, Covers))
+    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
+    print(f"False positives: {atoms - atoms_gt}\n"
+          f"False negatives: {atoms_gt - atoms}")
+    # Test 2: block0 does not completely cover target0
+    state = states[2]
+    atoms = utils.abstract(state, (Holding, Covers))
+    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
+    print(f"False positives: {atoms - atoms_gt}\n"
+          f"False negatives: {atoms_gt - atoms}")
+    # Test 3: block0 covers target0
+    state = states[4]
+    atoms = utils.abstract(state, (Holding, Covers))
+    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
+    print(f"False positives: {atoms - atoms_gt}\n"
+          f"False negatives: {atoms_gt - atoms}")
+
+
+def create_states_cover(env: CoverEnv) -> Tuple[List[State], List[Object], List[Object]]:
+    states = []
+    block_poses = [0.15, 0.605]
+    target_poses = [0.375, 0.815]
+    # State 0: no blocks overlap any targets
     task = env.get_test_tasks()[0]
     state = task.init
     block0 = [b for b in state if b.name == "block0"][0]
@@ -74,43 +97,36 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: BaseEnv) -> None:
     robot = [b for b in state if b.name == "robby"][0]
     blocks = [block0, block1]
     targets = [target0, target1]
-    block_poses = [0.15, 0.605]
-    target_poses = [0.375, 0.815]
+    assert len(blocks) == len(block_poses)
     for block, pose in zip(blocks, block_poses):
         # [is_block, is_target, width, pose, grasp]
         state.set(block, "pose", pose)
         # Make sure blocks are not held
         state.set(block, "grasp", -1)
+    assert len(targets) == len(target_poses)
     for target, pose in zip(targets, target_poses):
         # [is_block, is_target, width, pose]
         state.set(target, "pose", pose)
     state.set(robot, "hand", 0.0)
-    # Test 1: no blocks overlap any targets, none are held
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
-    # Pick up block0 and place it over target0
-    action = Action(np.array([block_poses[0]], dtype=np.float32))
-    state = env.simulate(state, action)
-    action = Action(np.array([target_poses[0]], dtype=np.float32))
-    state = env.simulate(state, action)
-    # Test 2: block0 covers target0
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
-    # Pick and place block1 so it partially overlaps target1
-    action = Action(np.array([0.63], dtype=np.float32))
-    state = env.simulate(state, action)
-    action = Action(np.array([target_poses[1]], dtype=np.float32))
-    state = env.simulate(state, action)
-    # Test 3: block1 does not completely cover target1
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
+    states.append(state)
+    # State 1: block0 and target0 overlap a bit
+    next_state = state.copy()
+    next_state.set(block0, "pose", 0.31)
+    states.append(next_state)
+    # State 2: block and target overlap more
+    next_state = state.copy()
+    next_state.set(block0, "pose", 0.33)
+    states.append(next_state)
+    # State 3: block covers target, right edges align
+    next_state = state.copy()
+    next_state.set(block0, "pose", 0.35)
+    states.append(next_state)
+    # State 4: block0 covers target0, centered
+    next_state = state.copy()
+    next_state.set(block0, "pose", target_poses[0])
+    states.append(next_state)
+    return states, blocks, targets
 
 
 if __name__ == "__main__":
-    main(_evaluate_preds)
+    evaluate_approach(_evaluate_preds)
