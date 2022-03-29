@@ -8,7 +8,6 @@ from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 
-from predicators.src.approaches import ApproachFailure
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.settings import CFG
@@ -16,6 +15,7 @@ from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
 from predicators.src.torch_models import MLPRegressor
+from predicators.src.utils import ExceptionWithInfo
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -27,6 +27,10 @@ def create_option_learner() -> _OptionLearnerBase:
     if CFG.option_learner == "neural":
         return _NeuralOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
+
+
+class OptionExecutionFailure(ExceptionWithInfo):
+    """Raised when something goes wrong during option execution."""
 
 
 class _OptionLearnerBase(abc.ABC):
@@ -312,7 +316,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
         action_arr = self._regressor.predict(x)
         if np.isnan(action_arr).any():
-            raise ApproachFailure("Option policy returned nan.")
+            raise OptionExecutionFailure("Option policy returned nan.")
         return Action(np.array(action_arr, dtype=np.float32))
 
     def _effect_based_terminal(self, state: State, memory: Dict,

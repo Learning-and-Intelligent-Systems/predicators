@@ -63,6 +63,8 @@ class BilevelPlanningApproach(BaseApproach):
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
+        except OptionExhaustedFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
                 "num_nodes_expanded", "num_nodes_created", "plan_length"
