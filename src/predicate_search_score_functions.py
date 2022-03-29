@@ -13,11 +13,11 @@ from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
-from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
@@ -261,7 +261,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
-            except (ApproachFailure, ApproachTimeout):
+            except (PlanningFailure, PlanningTimeout):
                 score += node_expansion_upper_bound
         return score
 
@@ -355,7 +355,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                         expected_planning_time += p * w
                     # Update the probability that no skeleton yet is refinable.
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
-            except (ApproachTimeout, ApproachFailure):
+            except (PlanningTimeout, PlanningFailure):
                 # Note if we failed to find any skeleton, the next lines add
                 # the upper bound with refinable_skeleton_not_found_prob = 1.0,
                 # so no special action is required.
@@ -703,7 +703,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                               CFG.seed,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
-            except (ApproachFailure, ApproachTimeout):
+            except (PlanningFailure, PlanningTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
             for i, actual_atoms in enumerate(atoms_sequence):
