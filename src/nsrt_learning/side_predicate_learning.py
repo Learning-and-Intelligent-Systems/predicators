@@ -402,9 +402,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     del obj_to_var  # undefined; delete it for safety
                     # Get an arbitrary grounding of the PNAD's operator whose
                     # preconditions hold in segment.init_atoms and whose add
-                    # effects are a subset of necessary_add_effects. It is
-                    # guaranteed that one exists, otherwise our 1:1
-                    # option:operator assumption is violated.
+                    # effects are a subset of necessary_add_effects. Since we
+                    # have started with the most general operators, and we are
+                    # making them more specific, it is guaranteed that such a
+                    # grounding exists, otherwise our 1:1 option:operator
+                    # assumption is violated.
                     ground_op = self._get_arbitrary_ground_operator(
                         necessary_add_effects, pnad, segment)
                     assert ground_op is not None
@@ -496,10 +498,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         """Update the given PNAD to change the parameters and add effects to
         the given ones; also, update the preconditions.
 
-        Note that in general, changing the parameters means that we need to
-        recompute all datastores, otherwise the precondition learning will
-        not work correctly (since it relies on the substitution dictionaries
-        in the datastores being correct).
+        Note that in general, changing the parameters means that we need
+        to recompute all datastores, otherwise the precondition learning
+        will not work correctly (since it relies on the substitution
+        dictionaries in the datastores being correct).
         """
         # Update the parameters and add effects of the operator. Set
         # the preconditions to be trivial. They will be recomputed next.
@@ -516,7 +518,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
     @staticmethod
     def _finalize_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
-        """Update the given PNAD to change the delete effects to one obtained
+        """Update the given PNAD to change the delete effects to ones obtained
         by unioning all lifted images in the datastore.
 
         IMPORTANT NOTE: We do not allow creating new variables when we
