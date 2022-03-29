@@ -123,7 +123,7 @@ class _PDDLEnv(BaseEnv):
         return self._strips_operators
 
     def simulate(self, state: State, action: Action) -> State:
-        state = cast(_PDDLEnvState, state)
+        assert isinstance(state, _PDDLEnvState)
         ordered_objs = list(state)
         # Convert the state into a Set[GroundAtom].
         ground_atoms = state.get_ground_atoms()
@@ -342,7 +342,7 @@ def _strips_operator_to_parameterized_option(
 
     def initiable(s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
         del m, p  # unused
-        s = cast(_PDDLEnvState, s)
+        assert isinstance(s, _PDDLEnvState)
         ground_atoms = s.get_ground_atoms()
         ground_op = op.ground(tuple(o))
         return ground_op.preconditions.issubset(ground_atoms)
@@ -470,7 +470,7 @@ def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
 
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
-        s = cast(_PDDLEnvState, s)
+        assert isinstance(s, _PDDLEnvState)
         return GroundAtom(pred, objs) in s.get_ground_atoms()
 
     return _classifier
