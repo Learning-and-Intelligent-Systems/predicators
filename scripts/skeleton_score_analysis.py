@@ -16,13 +16,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
-from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, Predicate, Task
 
@@ -174,7 +174,7 @@ def _skeleton_based_score_function(
                 result = skeleton_score_fn(plan_skeleton, plan_atoms_sequence,
                                            metrics, idx, demo_len)
                 task_results.append(result)
-        except (ApproachTimeout, ApproachFailure):
+        except (PlanningTimeout, PlanningFailure):
             # Use an upper bound on the error.
             for idx in range(len(task_results), max_skeletons):
                 task_results.append(get_default_result(idx))

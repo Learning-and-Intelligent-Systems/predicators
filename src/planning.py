@@ -16,7 +16,6 @@ from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, DefaultState, DummyOption, \
@@ -66,7 +65,7 @@ def sesame_plan(
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
             if time.time() - start_time > timeout:
-                raise ApproachTimeout("Planning timed out in grounding!")
+                raise PlanningTimeout("Planning timed out in grounding!")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
@@ -84,7 +83,7 @@ def sesame_plan(
         all_reachable_atoms = utils.get_reachable_atoms(
             nonempty_ground_nsrts, init_atoms)
         if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
-            raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
+            raise PlanningFailure(f"Goal {task.goal} not dr-reachable")
         reachable_nsrts = [
             nsrt for nsrt in nonempty_ground_nsrts
             if nsrt.preconditions.issubset(all_reachable_atoms)
@@ -113,7 +112,7 @@ def sesame_plan(
                     return plan, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.time() - start_time > timeout:
-                    raise ApproachTimeout(
+                    raise PlanningTimeout(
                         "Planning timed out in backtracking!",
                         info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
@@ -185,13 +184,13 @@ def task_plan(
     in tests/test_planning for usage examples.
     """
     if not goal.issubset(reachable_atoms):
-        raise ApproachFailure(f"Goal {goal} not dr-reachable")
+        raise PlanningFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics,
                                     max_skeletons_optimized)
-    # Note that we use this pattern to avoid having to catch an ApproachFailure
+    # Note that we use this pattern to avoid having to catch an exception
     # when _skeleton_generator runs out of skeletons to optimize.
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
         yield skeleton, atoms_sequence, metrics.copy()
@@ -428,11 +427,19 @@ class _DiscoveredFailureException(ExceptionWithInfo):
         self.discovered_failure = discovered_failure
 
 
-class _MaxSkeletonsFailure(ApproachFailure):
+class PlanningFailure(utils.ExceptionWithInfo):
+    """Raised when the planner fails."""
+
+
+class PlanningTimeout(utils.ExceptionWithInfo):
+    """Raised when the planner times out."""
+
+
+class _MaxSkeletonsFailure(PlanningFailure):
     """Raised when the maximum number of skeletons has been reached."""
 
 
-class _SkeletonSearchTimeout(ApproachTimeout):
+class _SkeletonSearchTimeout(PlanningTimeout):
     """Raised when timeout occurs in _run_low_level_search()."""
 
     def __init__(self) -> None:
