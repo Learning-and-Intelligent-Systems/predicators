@@ -690,11 +690,11 @@ def find_substitution(
     sub_atoms: Collection[LiftedOrGroundAtom],
     allow_redundant: bool = False,
 ) -> Tuple[bool, EntToEntSub]:
-    """Find a substitution from the objects in super_atoms to the variables in
+    """Find a substitution from the entities in super_atoms to the entities in
     sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
-    If allow_redundant is True, then multiple variables in sub_atoms can
-    refer to the same single object in super_atoms.
+    If allow_redundant is True, then multiple entities in sub_atoms can
+    refer to the same single entity in super_atoms.
 
     If no substitution exists, return (False, {}).
     """
