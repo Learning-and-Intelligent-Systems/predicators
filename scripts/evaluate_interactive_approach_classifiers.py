@@ -1,7 +1,7 @@
 """Script to evaluate interactively learned predicate classifiers on held-out
 test cases."""
 
-from typing import Callable, List, Set, Tuple, cast
+from typing import Callable, List, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.approaches import create_approach
@@ -28,8 +28,8 @@ def evaluate_approach(
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
-    interactive_approach = cast(InteractiveLearningApproach, approach)
-    _run_pipeline(env, interactive_approach, evaluate_fn)
+    assert isinstance(approach, InteractiveLearningApproach)
+    _run_pipeline(env, approach, evaluate_fn)
 
 
 def _run_pipeline(
@@ -50,10 +50,10 @@ def _run_pipeline(
 def _evaluate_preds(env: BaseEnv,
                     approach: InteractiveLearningApproach) -> None:
     if CFG.env == "cover":
-        cover_env = cast(CoverEnv, env)
+        assert isinstance(env, CoverEnv)
         return _evaluate_preds_cover(
             approach._get_current_predicates(),  # pylint: disable=protected-access
-            cover_env)
+            env)
     raise NotImplementedError(
         f"Held out predicate test set not yet implemented for {CFG.env}")
 
