@@ -184,13 +184,13 @@ def _plot(all_data: List) -> None:
                           "results")
     os.makedirs(outdir, exist_ok=True)
     column_names = [c for (c, _) in COLUMN_NAMES_AND_KEYS]
-    df = pd.DataFrame(all_data)
-    df.columns = column_names
-    print(df)
+    df_all = pd.DataFrame(all_data)
+    df_all.columns = column_names
+    print(df_all)
     for plot_title, d in PLOT_GROUPS.items():
         _, ax = plt.subplots()
         for label, selector in d:
-            df = get_df_for_entry(X_KEY, df, selector)
+            df = get_df_for_entry(X_KEY, df_all, selector)
             xs = df[X_KEY].tolist()
             ys = df[Y_KEY].tolist()
             ax.scatter(xs, ys, label=label)
@@ -200,7 +200,7 @@ def _plot(all_data: List) -> None:
         ax.set_ylim(Y_LIM)
         plt.legend()
         plt.tight_layout()
-        filename = f"{plot_title}_{X_KEY}_{Y_KEY}.png"
+        filename = f"{plot_title}_{X_KEY}_{Y_KEY}_{CFG.experiment_id}.png"
         filename = filename.replace(" ", "_").lower()
         outfile = os.path.join(outdir, filename)
         plt.savefig(outfile, dpi=DPI)
