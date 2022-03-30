@@ -148,25 +148,33 @@ Y_LIM = (-0.05, 1.05)
 X_KEY, X_LABEL = "CYCLE", "Cycle"
 Y_KEY, Y_LABEL = "SCORE", "Model Score"
 
-COLUMN_NAMES_AND_KEYS = [("TEST_ID", "test_id"),
-                         ("CYCLE", "cycle"), ("SCORE", "score")]
+COLUMN_NAMES_AND_KEYS = [("TEST_ID", "test_id"), ("CYCLE", "cycle"),
+                         ("SCORE", "score")]
 
 PLOT_GROUPS = {
     "Entropy Scores During Interactive Learning": [
         ("Far", lambda df: df["TEST_ID"].apply(lambda v: "entropy_0" in v)),
         ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "entropy_1" in v)),
-        ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: "entropy_2" in v)),
-        ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: "entropy_3" in v)),
-        ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: "entropy_4" in v)),
-        ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: "entropy_5" in v)),
+        ("Overlap a little",
+         lambda df: df["TEST_ID"].apply(lambda v: "entropy_2" in v)),
+        ("Overlap more",
+         lambda df: df["TEST_ID"].apply(lambda v: "entropy_3" in v)),
+        ("Overlap edges align",
+         lambda df: df["TEST_ID"].apply(lambda v: "entropy_4" in v)),
+        ("Overlap centered",
+         lambda df: df["TEST_ID"].apply(lambda v: "entropy_5" in v)),
     ],
     "BALD Scores During Interactive Learning": [
         ("Far", lambda df: df["TEST_ID"].apply(lambda v: "BALD_0" in v)),
         ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "BALD_1" in v)),
-        ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: "BALD_2" in v)),
-        ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: "BALD_3" in v)),
-        ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: "BALD_4" in v)),
-        ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: "BALD_5" in v)),
+        ("Overlap a little",
+         lambda df: df["TEST_ID"].apply(lambda v: "BALD_2" in v)),
+        ("Overlap more",
+         lambda df: df["TEST_ID"].apply(lambda v: "BALD_3" in v)),
+        ("Overlap edges align",
+         lambda df: df["TEST_ID"].apply(lambda v: "BALD_4" in v)),
+        ("Overlap centered",
+         lambda df: df["TEST_ID"].apply(lambda v: "BALD_5" in v)),
     ],
 }
 
