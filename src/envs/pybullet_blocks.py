@@ -9,8 +9,9 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.pybullet_robots import \
-    create_single_arm_pybullet_robot
+from predicators.src.pybullet_utils.robots import create_single_arm_pybullet_robot
+from predicators.src.pybullet_utils.robots.panda import wait_for_user
+
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Pose3D, State, Task, Type
@@ -175,6 +176,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             self.closed_fingers, self._finger_action_tol,
             self._physics_client_id)
 
+
         # Load table.
         self._table_id = p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
@@ -227,6 +229,9 @@ class PyBulletBlocksEnv(BlocksEnv):
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
+
+        wait_for_user("pybullet_blocks wait", self._physics_client_id)
+
 
     @property
     def action_space(self) -> Box:
@@ -300,7 +305,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             logging.debug(state.pretty_str())
             logging.debug("Reconstructed state:")
             logging.debug(reconstructed_state.pretty_str())
-            raise ValueError("Could not reconstruct state.")
+            # raise ValueError("Could not reconstruct state.")
 
     def _create_block(self, block_num: int) -> int:
         """Returns the body ID."""

@@ -4,8 +4,8 @@ import numpy as np
 import pybullet as p
 import pytest
 
-from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
-    create_single_arm_pybullet_robot
+from predicators.src.pybullet_utils.robots import create_single_arm_pybullet_robot
+from predicators.src.pybullet_utils.robots.fetch import FetchPyBulletRobot
 from predicators.src.settings import CFG
 
 

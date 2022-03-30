@@ -5,8 +5,7 @@ import pybullet as p
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
-    inverse_kinematics
+from predicators.src.envs.utils import get_kinematic_chain, inverse_kinematics
 from predicators.src.settings import CFG
 
 

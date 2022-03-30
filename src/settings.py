@@ -15,8 +15,8 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # global parameters
-    num_train_tasks = 50
-    num_test_tasks = 50
+    num_train_tasks = 10
+    num_test_tasks = 10
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
@@ -101,14 +101,15 @@ class GlobalSettings:
     behavior_randomize_init_state = False
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
+    pybullet_use_gui = True  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
-    pybullet_robot = "fetch"
+    pybullet_robot = "panda"
+    # pybullet_robot = "fetch"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
