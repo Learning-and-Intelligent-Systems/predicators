@@ -1,7 +1,7 @@
 """A PyBullet version of Blocks."""
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pybullet as p
@@ -21,23 +21,23 @@ class PyBulletBlocksEnv(BlocksEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _move_gain: float = 1.0
-    _max_vel_norm: float = 0.05
-    _grasp_offset_z: float = 0.01
-    _place_offset_z: float = 0.01
-    _grasp_tol: float = 0.05
-    _move_to_pose_tol: float = 0.0001
-    _finger_action_tol = 0.0001
+    _move_gain: ClassVar[float] = 1.0
+    _max_vel_norm: ClassVar[float] = 0.05
+    _grasp_offset_z: ClassVar[float] = 0.01
+    _place_offset_z: ClassVar[float] = 0.01
+    _grasp_tol: ClassVar[float] = 0.05
+    _move_to_pose_tol: ClassVar[float] = 0.0001
+    _finger_action_tol: ClassVar[float] = 0.0001
 
     # Table parameters.
-    _table_pose: Pose3D = (1.35, 0.75, 0.0)
-    _table_orientation: Sequence[float] = [0., 0., 0., 1.]
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     # Block parameters.
-    _block_orientation: Sequence[float] = [0., 0., 0., 1.]
-    _block_mass = 0.5
-    _block_friction = 1.2
-    _block_colors: Sequence[Tuple[float, float, float, float]] = [
+    _block_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _block_mass: ClassVar[float] = 0.5
+    _block_friction: ClassVar[float] = 1.2
+    _block_colors: ClassVar[Sequence[Tuple[float, float, float, float]]] = [
         (0.95, 0.05, 0.1, 1.),
         (0.05, 0.95, 0.1, 1.),
         (0.1, 0.05, 0.95, 1.),
@@ -48,14 +48,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         (0.95, 0.05, 0.95, 1.),
         (0.05, 0.95, 0.95, 1.),
     ]
-    _out_of_view_xy: Sequence[float] = [10.0, 10.0]
+    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
 
     # Camera parameters.
-    _camera_distance: float = 0.8
-    _camera_yaw: float = 90.0
-    _camera_pitch: float = -24
-    _camera_target: Pose3D = (1.65, 0.75, 0.42)
-    _debug_text_position: Pose3D = (1.65, 0.25, 0.75)
+    _camera_distance: ClassVar[float] = 0.8
+    _camera_yaw: ClassVar[float] = 90.0
+    _camera_pitch: ClassVar[float] = -24
+    _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
+    _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
 
     def __init__(self) -> None:
         super().__init__()

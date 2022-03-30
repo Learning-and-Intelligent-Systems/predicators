@@ -13,8 +13,9 @@ import subprocess
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Collection, Dict, FrozenSet, \
-    Generic, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
+    FrozenSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
@@ -128,6 +129,23 @@ def entropy(p: float) -> float:
     if p in {0.0, 1.0}:
         return 0.0
     return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+
+
+def create_state_from_dict(data: Dict[Object, Dict[str, float]],
+                           simulator_state: Optional[Any] = None) -> State:
+    """Small utility to generate a state from a dictionary `data` of individual
+    feature values for each object.
+
+    A simulator_state for the outputted State may optionally be
+    provided.
+    """
+    state_dict = {}
+    for obj, obj_data in data.items():
+        obj_vec = []
+        for feat in obj.type.feature_names:
+            obj_vec.append(obj_data[feat])
+        state_dict[obj] = np.array(obj_vec)
+    return State(state_dict, simulator_state)
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
@@ -1286,7 +1304,7 @@ class _TaskPlanningHeuristic:
 
 class GoalCountHeuristic(_TaskPlanningHeuristic):
     """The number of goal atoms that are not in the current state."""
-    HEURISTIC_NAME: str = "goal_count"
+    HEURISTIC_NAME: ClassVar[str] = "goal_count"
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         return len(self.goal.difference(atoms))
