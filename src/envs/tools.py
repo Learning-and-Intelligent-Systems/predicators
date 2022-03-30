@@ -11,7 +11,7 @@ predicate. Hammer sizes work the same way as screwdriver sizes. Wrench
 sizes don't matter.
 """
 
-from typing import Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -26,21 +26,21 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class ToolsEnv(BaseEnv):
     """Tools domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_lx = -10.0
-    table_ly = -10.0
-    table_ux = 10.0
-    table_uy = 10.0
-    contraption_size = 2.0
-    close_thresh = 0.1
+    table_lx: ClassVar[float] = -10.0
+    table_ly: ClassVar[float] = -10.0
+    table_ux: ClassVar[float] = 10.0
+    table_uy: ClassVar[float] = 10.0
+    contraption_size: ClassVar[float] = 2.0
+    close_thresh: ClassVar[float] = 0.1
     # For a screw of a particular shape, if the shape of every graspable
     # screwdriver differs by at least this amount, then this screw is required
     # to be fastened by hand. Otherwise, it is required to be fastened by the
     # graspable screwdriver that has the smallest difference in shape.
-    screw_shape_hand_thresh = 0.25
+    screw_shape_hand_thresh: ClassVar[float] = 0.25
     # Number of each type of tool is fixed
-    num_screwdrivers = 3
-    num_hammers = 2
-    num_wrenches = 1
+    num_screwdrivers: ClassVar[int] = 3
+    num_hammers: ClassVar[int] = 2
+    num_wrenches: ClassVar[int] = 1
 
     def __init__(self) -> None:
         super().__init__()
