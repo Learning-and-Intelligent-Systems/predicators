@@ -13,8 +13,9 @@ import subprocess
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Collection, Dict, FrozenSet, \
-    Generic, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
+    FrozenSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
@@ -1286,7 +1287,7 @@ class _TaskPlanningHeuristic:
 
 class GoalCountHeuristic(_TaskPlanningHeuristic):
     """The number of goal atoms that are not in the current state."""
-    HEURISTIC_NAME: str = "goal_count"
+    HEURISTIC_NAME: ClassVar[str] = "goal_count"
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         return len(self.goal.difference(atoms))
