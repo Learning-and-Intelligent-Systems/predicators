@@ -63,15 +63,13 @@ def _calculate(approach: InteractiveLearningApproach, states: List[State],
         bald_score = entropy - np.mean([utils.entropy(p) for p in ps])
         print(f"Entropy: {entropy}, BALD score: {bald_score}")
         info = {
-            "SCORE_TYPE": "entropy",
-            "TEST_ID": i,
+            "TEST_ID": f"entropy_{i}",
             "CYCLE": cycle_num,
             "SCORE": entropy
         }
         data.append(info)
         info = {
-            "SCORE_TYPE": "BALD",
-            "TEST_ID": i,
+            "TEST_ID": f"BALD_{i}",
             "CYCLE": cycle_num,
             "SCORE": bald_score
         }

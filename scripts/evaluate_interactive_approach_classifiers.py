@@ -144,20 +144,31 @@ def create_states_cover(
 
 
 DPI = 500
+Y_LIM = (-0.05, 1.05)
+X_KEY, X_LABEL = "CYCLE", "Cycle"
+Y_KEY, Y_LABEL = "SCORE", "Model Score"
 
-COLUMN_NAMES_AND_KEYS = [("SCORE_TYPE", "score_type"), ("TEST_ID", "test_id"),
+COLUMN_NAMES_AND_KEYS = [("TEST_ID", "test_id"),
                          ("CYCLE", "cycle"), ("SCORE", "score")]
 
-PLOT_GROUPS = [
-    ("Far", lambda df: df["TEST_ID"].apply(lambda v: v == 0)),
-    ("Closer", lambda df: df["TEST_ID"].apply(lambda v: v == 1)),
-    ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: v == 2)),
-    ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: v == 3)),
-    ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: v == 4)),
-    ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: v == 5)),
-]
-
-PLOT_TITLE = "Model Scores During Interactive Learning"
+PLOT_GROUPS = {
+    "Entropy Scores During Interactive Learning": [
+        ("Far", lambda df: df["TEST_ID"].apply(lambda v: "entropy_0" in v)),
+        ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "entropy_1" in v)),
+        ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: "entropy_2" in v)),
+        ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: "entropy_3" in v)),
+        ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: "entropy_4" in v)),
+        ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: "entropy_5" in v)),
+    ],
+    "BALD Scores During Interactive Learning": [
+        ("Far", lambda df: df["TEST_ID"].apply(lambda v: "BALD_0" in v)),
+        ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "BALD_1" in v)),
+        ("Overlap a little", lambda df: df["TEST_ID"].apply(lambda v: "BALD_2" in v)),
+        ("Overlap more", lambda df: df["TEST_ID"].apply(lambda v: "BALD_3" in v)),
+        ("Overlap edges align", lambda df: df["TEST_ID"].apply(lambda v: "BALD_4" in v)),
+        ("Overlap centered", lambda df: df["TEST_ID"].apply(lambda v: "BALD_5" in v)),
+    ],
+}
 
 
 def _plot(all_data: List) -> None:
@@ -168,24 +179,24 @@ def _plot(all_data: List) -> None:
     df = pd.DataFrame(all_data)
     df.columns = column_names
     print(df)
-    _, ax = plt.subplots()
-    x_key = "CYCLE"
-    y_key = "SCORE"
-    for label, selector in PLOT_GROUPS:
-        d = get_df_for_entry("CYCLE", df, selector)
-        xs = d[x_key].tolist()
-        ys = d[y_key].tolist()
-        ax.plot(xs, ys, label=label)
-    ax.set_title(PLOT_TITLE)
-    ax.set_xlabel("Cycle")
-    ax.set_ylabel("Model Score")
-    plt.legend()
-    plt.tight_layout()
-    filename = f"{PLOT_TITLE}_{x_key}_{y_key}.png"
-    filename = filename.replace(" ", "_").lower()
-    outfile = os.path.join(outdir, filename)
-    plt.savefig(outfile, dpi=DPI)
-    print(f"Wrote out to {outfile}")
+    for plot_title, d in PLOT_GROUPS.items():
+        _, ax = plt.subplots()
+        for label, selector in PLOT_GROUPS:
+            d = get_df_for_entry(X_KEY, df, selector)
+            xs = d[X_KEY].tolist()
+            ys = d[Y_KEY].tolist()
+            ax.scatter(xs, ys, label=label)
+        ax.set_title(plot_title)
+        ax.set_xlabel(X_LABEL)
+        ax.set_ylabel(Y_LABEL)
+        ax.set_ylim(Y_LIM)
+        plt.legend()
+        plt.tight_layout()
+        filename = f"{plot_title}_{X_KEY}_{Y_KEY}.png"
+        filename = filename.replace(" ", "_").lower()
+        outfile = os.path.join(outdir, filename)
+        plt.savefig(outfile, dpi=DPI)
+        print(f"Wrote out to {outfile}")
 
 
 if __name__ == "__main__":
