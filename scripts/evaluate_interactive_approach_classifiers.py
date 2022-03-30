@@ -193,7 +193,7 @@ def _plot(all_data: List) -> None:
             df = get_df_for_entry(X_KEY, df_all, selector)
             xs = df[X_KEY].tolist()
             ys = df[Y_KEY].tolist()
-            ax.scatter(xs, ys, label=label)
+            ax.plot(xs, ys, label=label)
         ax.set_title(plot_title)
         ax.set_xlabel(X_LABEL)
         ax.set_ylabel(Y_LABEL)
