@@ -432,7 +432,7 @@ class CoverEnvRegrasp(CoverEnv):
     hand regions. We implement it so that there is a relatively small hand
     region centered at each target, but then everywhere else is allowed.
     """
-    _allow_free_space_placing: ClassVar[bool] = False
+    _allow_free_space_placing: ClassVar[bool] = True
     _initial_pick_offsets: ClassVar[List[float]] = [-0.95, 0.0, 0.95]
 
     def __init__(self) -> None:
