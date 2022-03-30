@@ -1,8 +1,9 @@
 """Script to evaluate interactively learned predicate classifiers on held-out
 test cases."""
 
-from typing import Callable, List, Optional, Set, Tuple
 import os
+from typing import Callable, List, Optional, Set, Tuple
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
