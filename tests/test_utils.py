@@ -137,6 +137,37 @@ def test_entropy():
     assert np.allclose(utils.entropy(0.5), 0.693, atol=0.001)
 
 
+def test_create_state_from_dict():
+    """Tests for create_state_from_dict()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    data = {cup: {"feat1": 0.3}, plate: {"feat1": 0.6}}
+    with pytest.raises(KeyError):  # missing feat2
+        utils.create_state_from_dict(data)
+    data1 = {cup: {"feat1": 0.3}, plate: {"feat1": 0.6, "feat2": 1.3}}
+    state1 = utils.create_state_from_dict(data1)
+    assert np.allclose(state1[cup], np.array([0.3]))
+    assert np.allclose(state1[plate], np.array([0.6, 1.3]))
+    data2 = {
+        cup: {
+            "feat1": 0.3,
+            "dummy": 1.3
+        },
+        plate: {
+            "feat1": 0.6,
+            "feat2": 1.3
+        }
+    }
+    state2 = utils.create_state_from_dict(data2)
+    assert state1.allclose(state2)
+    state3 = utils.create_state_from_dict(data2, "dummy_sim_state")
+    assert state3.simulator_state == "dummy_sim_state"
+    with pytest.raises(NotImplementedError):  # allclose not allowed
+        state2.allclose(state3)
+
+
 def test_intersects():
     """Tests for intersects()."""
     p1, p2 = (2, 5), (7, 6)
