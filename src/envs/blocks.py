@@ -7,7 +7,7 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -24,32 +24,32 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_height = 0.2
-    block_size = 0.045
+    table_height: ClassVar[float] = 0.2
+    block_size: ClassVar[float] = 0.045
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a
     # block's origin is its center, so the block itself may extend beyond
     # the boundaries while the origin remains in bounds.
-    x_lb = 1.35 - block_size / 2
-    x_ub = 1.35 + block_size / 2
+    x_lb: ClassVar[float] = 1.35 - block_size / 2
+    x_ub: ClassVar[float] = 1.35 + block_size / 2
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
-    y_lb = 0.4
-    y_ub = 1.1
-    pick_z = 0.75
-    robot_init_x = (x_lb + x_ub) / 2
-    robot_init_y = (y_lb + y_ub) / 2
-    robot_init_z = pick_z
-    held_tol = 0.5
-    open_fingers = 0.04
-    closed_fingers = 0.01
-    finger_tol = 0.00001
-    pick_tol = 0.0001
-    on_tol = 0.01
-    collision_padding = 2.0
+    y_lb: ClassVar[float] = 0.4
+    y_ub: ClassVar[float] = 1.1
+    pick_z: ClassVar[float] = 0.75
+    robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
+    robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
+    robot_init_z: ClassVar[float] = pick_z
+    held_tol: ClassVar[float] = 0.5
+    open_fingers: ClassVar[float] = 0.04
+    closed_fingers: ClassVar[float] = 0.01
+    finger_tol: ClassVar[float] = 0.00001
+    pick_tol: ClassVar[float] = 0.0001
+    on_tol: ClassVar[float] = 0.01
+    collision_padding: ClassVar[float] = 2.0
     assert pick_tol < block_size
-    num_blocks_train = CFG.blocks_num_blocks_train
-    num_blocks_test = CFG.blocks_num_blocks_test
+    num_blocks_train: ClassVar[List[int]] = CFG.blocks_num_blocks_train
+    num_blocks_test: ClassVar[List[int]] = CFG.blocks_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
