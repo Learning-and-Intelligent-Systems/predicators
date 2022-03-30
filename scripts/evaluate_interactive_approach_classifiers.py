@@ -181,10 +181,10 @@ def _plot(all_data: List) -> None:
     print(df)
     for plot_title, d in PLOT_GROUPS.items():
         _, ax = plt.subplots()
-        for label, selector in PLOT_GROUPS:
-            d = get_df_for_entry(X_KEY, df, selector)
-            xs = d[X_KEY].tolist()
-            ys = d[Y_KEY].tolist()
+        for label, selector in d:
+            df = get_df_for_entry(X_KEY, df, selector)
+            xs = df[X_KEY].tolist()
+            ys = df[Y_KEY].tolist()
             ax.scatter(xs, ys, label=label)
         ax.set_title(plot_title)
         ax.set_xlabel(X_LABEL)
