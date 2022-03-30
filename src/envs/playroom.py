@@ -1,6 +1,6 @@
 """Boring room vs playroom domain."""
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -17,32 +17,32 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class PlayroomEnv(BlocksEnv):
     """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    block_size = 0.5
-    x_lb = 0.0
-    y_lb = 0.0
-    x_ub = 140.0
-    y_ub = 30.0
-    open_fingers = 0.8
-    table_tol = 1.0
-    table_x_lb = 10.0
-    table_y_lb = 10.0
-    table_x_ub = 20.0
-    table_y_ub = 20.0
-    door_open_thresh = 0.5
-    door_r = 5.0  # half of width
-    door_button_z = 3.0
-    door_tol = 0.5
-    dial_on_thresh = 0.5
-    dial_r = 3.0
-    dial_button_z = 1.0
-    dial_tol = 0.5
-    dial_button_tol = 0.4
-    pick_tol = 0.4
-    on_tol = pick_tol
+    block_size: ClassVar[float] = 0.5
+    x_lb: ClassVar[float] = 0.0
+    y_lb: ClassVar[float] = 0.0
+    x_ub: ClassVar[float] = 140.0
+    y_ub: ClassVar[float] = 30.0
+    open_fingers: ClassVar[float] = 0.8
+    table_tol: ClassVar[float] = 1.0
+    table_x_lb: ClassVar[float] = 10.0
+    table_y_lb: ClassVar[float] = 10.0
+    table_x_ub: ClassVar[float] = 20.0
+    table_y_ub: ClassVar[float] = 20.0
+    door_open_thresh: ClassVar[float] = 0.5
+    door_r: ClassVar[float] = 5.0  # half of width
+    door_button_z: ClassVar[float] = 3.0
+    door_tol: ClassVar[float] = 0.5
+    dial_on_thresh: ClassVar[float] = 0.5
+    dial_r: ClassVar[float] = 3.0
+    dial_button_z: ClassVar[float] = 1.0
+    dial_tol: ClassVar[float] = 0.5
+    dial_button_tol: ClassVar[float] = 0.4
+    pick_tol: ClassVar[float] = 0.4
+    on_tol: ClassVar[float] = pick_tol
     assert pick_tol < block_size
-    pick_z = 1.5
-    num_blocks_train = CFG.playroom_num_blocks_train
-    num_blocks_test = CFG.playroom_num_blocks_test
+    pick_z: ClassVar[float] = 1.5
+    num_blocks_train: ClassVar[List[int]] = CFG.playroom_num_blocks_train
+    num_blocks_test: ClassVar[List[int]] = CFG.playroom_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()

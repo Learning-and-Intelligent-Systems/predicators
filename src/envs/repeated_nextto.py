@@ -4,7 +4,7 @@ a predicate being in the effects of options.
 Here, the move option can turn on any number of NextTo predicates.
 """
 
-from typing import Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,10 +22,10 @@ class RepeatedNextToEnv(BaseEnv):
 
     Simple 1D problem.
     """
-    env_lb = 0.0
-    env_ub = 100.0
-    grasped_thresh = 0.5
-    nextto_thresh = 0.5
+    env_lb: ClassVar[float] = 0.0
+    env_ub: ClassVar[float] = 100.0
+    grasped_thresh: ClassVar[float] = 0.5
+    nextto_thresh: ClassVar[float] = 0.5
 
     def __init__(self) -> None:
         super().__init__()

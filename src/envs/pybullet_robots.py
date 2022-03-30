@@ -1,7 +1,7 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-from typing import Sequence
+from typing import ClassVar, Sequence
 
 import numpy as np
 import pybullet as p
@@ -92,10 +92,10 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
 
     # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: Pose3D = (0.75, 0.7441, 0.0)
-    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
-    _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
-    _finger_action_nudge_magnitude: float = 0.001
+    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
+    _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _ee_orientation: ClassVar[Sequence[float]] = [1., 0., -1., 0.]
+    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(

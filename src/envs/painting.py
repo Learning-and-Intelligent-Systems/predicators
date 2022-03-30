@@ -6,7 +6,8 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, \
+    Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,35 +24,35 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class PaintingEnv(BaseEnv):
     """Painting domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_lb = -10.1
-    table_ub = -1.0
-    table_height = 0.2
-    table_x = 1.65
-    shelf_l = 2.0  # shelf length
-    shelf_lb = 1.
-    shelf_ub = shelf_lb + shelf_l - 0.05
-    shelf_x = 1.65
-    shelf_y = (shelf_lb + shelf_ub) / 2.0
-    box_s = 0.8  # side length
-    box_y = 0.5  # y coordinate
-    box_lb = box_y - box_s / 10
-    box_ub = box_y + box_s / 10
-    box_x = 1.65
-    env_lb = min(table_lb, shelf_lb, box_lb)
-    env_ub = max(table_ub, shelf_ub, box_ub)
-    obj_height = 0.13
-    obj_radius = 0.03
-    obj_x = 1.65
-    obj_z = table_height + obj_height / 2
-    pick_tol = 1e-2
-    color_tol = 1e-2
-    wetness_tol = 0.5
-    dirtiness_tol = 0.5
-    open_fingers = 0.8
-    top_grasp_thresh = 0.5 + 1e-2
-    side_grasp_thresh = 0.5 - 1e-2
-    robot_x = table_x - 0.5
-    nextto_thresh = 1.0
+    table_lb: ClassVar[float] = -10.1
+    table_ub: ClassVar[float] = -1.0
+    table_height: ClassVar[float] = 0.2
+    table_x: ClassVar[float] = 1.65
+    shelf_l: ClassVar[float] = 2.0  # shelf length
+    shelf_lb: ClassVar[float] = 1.
+    shelf_ub: ClassVar[float] = shelf_lb + shelf_l - 0.05
+    shelf_x: ClassVar[float] = 1.65
+    shelf_y: ClassVar[float] = (shelf_lb + shelf_ub) / 2.0
+    box_s: ClassVar[float] = 0.8  # side length
+    box_y: ClassVar[float] = 0.5  # y coordinate
+    box_lb: ClassVar[float] = box_y - box_s / 10
+    box_ub: ClassVar[float] = box_y + box_s / 10
+    box_x: ClassVar[float] = 1.65
+    env_lb: ClassVar[float] = min(table_lb, shelf_lb, box_lb)
+    env_ub: ClassVar[float] = max(table_ub, shelf_ub, box_ub)
+    obj_height: ClassVar[float] = 0.13
+    obj_radius: ClassVar[float] = 0.03
+    obj_x: ClassVar[float] = 1.65
+    obj_z: ClassVar[float] = table_height + obj_height / 2
+    pick_tol: ClassVar[float] = 1e-2
+    color_tol: ClassVar[float] = 1e-2
+    wetness_tol: ClassVar[float] = 0.5
+    dirtiness_tol: ClassVar[float] = 0.5
+    open_fingers: ClassVar[float] = 0.8
+    top_grasp_thresh: ClassVar[float] = 0.5 + 1e-2
+    side_grasp_thresh: ClassVar[float] = 0.5 - 1e-2
+    robot_x: ClassVar[float] = table_x - 0.5
+    nextto_thresh: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         super().__init__()

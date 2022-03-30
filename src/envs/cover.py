@@ -4,7 +4,7 @@ This environment IS downward refinable (low-level search won't ever
 fail), but it still requires backtracking.
 """
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,8 +20,8 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class CoverEnv(BaseEnv):
     """Toy cover domain."""
 
-    _allow_free_space_placing = False
-    _initial_pick_offsets: List[float] = []  # see CoverEnvRegrasp
+    _allow_free_space_placing: ClassVar[bool] = False
+    _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     def __init__(self) -> None:
         super().__init__()
@@ -432,8 +432,8 @@ class CoverEnvRegrasp(CoverEnv):
     hand regions. We implement it so that there is a relatively small hand
     region centered at each target, but then everywhere else is allowed.
     """
-    _allow_free_space_placing = True
-    _initial_pick_offsets = [-0.95, 0.0, 0.95]
+    _allow_free_space_placing: ClassVar[bool] = True
+    _initial_pick_offsets: ClassVar[List[float]] = [-0.95, 0.0, 0.95]
 
     def __init__(self) -> None:
         super().__init__()
@@ -490,14 +490,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     when the robot is sufficiently close to the block in the y-direction.
     Placing is allowed anywhere. Collisions are handled in simulate().
     """
-    grasp_height_tol = 1e-2
-    grasp_thresh = 0.0
-    initial_block_y = 0.1
-    block_height = 0.1
-    target_height = 0.1  # Only for rendering purposes.
-    placing_height = 0.1  # A block's base must be below this to be placed.
-    initial_robot_y = 0.4
-    collision_threshold = 1e-5
+    grasp_height_tol: ClassVar[float] = 1e-2
+    grasp_thresh: ClassVar[float] = 0.0
+    initial_block_y: ClassVar[float] = 0.1
+    block_height: ClassVar[float] = 0.1
+    target_height: ClassVar[float] = 0.1  # Only for rendering purposes.
+    placing_height: ClassVar[
+        float] = 0.1  # A block's base must be below this to be placed.
+    initial_robot_y: ClassVar[float] = 0.4
+    collision_threshold: ClassVar[float] = 1e-5
 
     def __init__(self) -> None:
         super().__init__()
