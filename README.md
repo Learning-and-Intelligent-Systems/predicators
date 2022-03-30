@@ -35,7 +35,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 ### Running Experiments on Supercloud
 See [these instructions](supercloud.md).
 
-### Running Experiments on BEHAVIOR
+### Running BEHAVIOR Experiments
 See [these instructions](behavior.md).
 
 ## Instructions For Contributing

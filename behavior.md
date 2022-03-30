@@ -1,7 +1,7 @@
 # Running BEHAVIOR Experiments
 
 ## Installation
-This repository and some of the functionality it enables are integrated with the [BEHAVIOR benchmark of tasks](https://behavior.stanford.edu/benchmark-guide) simulated with the [iGibson simulator](https://github.com/StanfordVL/iGibson). To install iGibson with BEHAVIOR, follow [**Option 1** from these instructions](https://stanfordvl.github.io/behavior/installation.html). Importantly, note that you need to use our forks of the [iGibson](https://github.com/Learning-and-Intelligent-Systems/iGibson) and [bddl](https://github.com/Learning-and-Intelligent-Systems/bddl) repositories. Thus, instead of steps 2a. and 2b. of Option 1 in the linked instructions, run:
+This repository and some of the functionality it enables are integrated with the [BEHAVIOR benchmark of tasks](https://behavior.stanford.edu/benchmark-guide) simulated with the [iGibson simulator](https://github.com/StanfordVL/iGibson). To install iGibson with BEHAVIOR, follow [**Option 1** from these instructions](https://stanfordvl.github.io/behavior/installation.html). However, note that you need to use our forks of the [iGibson](https://github.com/Learning-and-Intelligent-Systems/iGibson) and [bddl](https://github.com/Learning-and-Intelligent-Systems/bddl) repositories. Thus, instead of steps 2a. and 2b. of Option 1 in the linked instructions, run:
 ```
 git clone https://github.com/Learning-and-Intelligent-Systems/iGibson.git --recursive
 git clone https://github.com/Learning-and-Intelligent-Systems/bddl.git
