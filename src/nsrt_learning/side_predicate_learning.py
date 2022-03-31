@@ -11,7 +11,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, \
+    LowLevelTrajectory, Object, ObjToVarSub, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
@@ -405,7 +405,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 unifies, obj_to_var_ent = utils.find_substitution(
                     pnad.op.add_effects | opt_vars_atom,
                     necessary_add_effects | opt_objs_atom)
-                obj_to_var = cast(Dict[Object, Variable], obj_to_var_ent)
+                obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
 
                 if not unifies:  # we need to make add effects more specific
                     del obj_to_var  # undefined; delete it for safety
@@ -414,8 +414,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # and we are making them more specific, it is guaranteed
                     # that such a grounding exists, otherwise our 1:1
                     # option:operator assumption is violated.
-                    new_pnad = self._try_specifizing_pnad(necessary_add_effects,
-                                                          pnad, segment)
+                    new_pnad = self._try_specifizing_pnad(
+                        necessary_add_effects, pnad, segment)
                     assert new_pnad is not None, "1:1 assumption violated"
                     assert new_pnad.option_spec == pnad.option_spec
                     pnad = new_pnad
@@ -426,7 +426,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     unifies, obj_to_var_ent = utils.find_substitution(
                         pnad.op.add_effects | opt_vars_atom,
                         necessary_add_effects | opt_objs_atom)
-                    obj_to_var = cast(Dict[Object, Variable], obj_to_var_ent)
+                    obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
                     assert unifies
 
                 # Update necessary_image for this timestep. It no longer
@@ -481,7 +481,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # To figure out the effects we need to add to this PNAD,
         # we first look at the ground effects that are missing
         # from this arbitrary ground operator.
-        missing_effects = (necessary_add_effects - ground_op.add_effects)
+        missing_effects = necessary_add_effects - ground_op.add_effects
         obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
         # Before we can lift missing_effects, we need to add new
         # entries to obj_to_var to account for the situation where
@@ -491,7 +491,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert all(name.startswith("?x") for name in var_names)
         max_var_name = max(var_names,
                            key=lambda name: int(name[2:]),
-                           default="?x-1")
+                           default="?x-1")  # want default max_var_num to be -1
         max_var_num = int(max_var_name[2:])
         for effect in missing_effects:
             for obj in effect.objects:
@@ -550,6 +550,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                                         preconditions=set(),
                                         add_effects=add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        del pnad  # unused from here
         # Recompute datastore using the add_effects semantics.
         self._recompute_datastores_from_segments([new_pnad],
                                                  semantics="add_effects")
