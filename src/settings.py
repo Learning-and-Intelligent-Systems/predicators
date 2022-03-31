@@ -75,6 +75,7 @@ class GlobalSettings:
     painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
+    painting_goal_receptacles = "box_and_shelf"  # box_and_shelf, box, shelf
 
     # repeated_nextto_painting (rnt_painting) env parameters
     rnt_painting_num_objs_train = [8, 9, 10]

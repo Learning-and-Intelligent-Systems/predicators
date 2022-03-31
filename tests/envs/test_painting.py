@@ -60,6 +60,32 @@ def test_painting():
             env.render_state(state, task, caption="caption")
 
 
+def test_painting_goals():
+    """Tests for various settings of CFG.painting_goal_receptacles and
+    CFG.painting_max_objs_in_goal."""
+    for max_objs_in_goal, goal_receptacles, expected_num_goal_atoms in [
+        (float("inf"), "box_and_shelf", 10),
+            # When "painting_goal_receptacles" is "box", the goal is always to
+            # paint a single object and put it into the box, since only one
+            # object can fit inside the box. So len(goal) == 2.
+        (float("inf"), "box", 2),
+        (float("inf"), "shelf", 10),
+        (3, "box_and_shelf", 6),
+        (3, "box", 2),
+        (3, "shelf", 6),
+    ]:
+        utils.reset_config({
+            "env": "painting",
+            "num_test_tasks": 5,
+            "painting_num_objs_test": [5],
+            "painting_max_objs_in_goal": max_objs_in_goal,
+            "painting_goal_receptacles": goal_receptacles,
+        })
+        env = PaintingEnv()
+        for task in env.get_test_tasks():
+            assert len(task.goal) == expected_num_goal_atoms
+
+
 def test_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op or
     EnvironmentFailure."""
