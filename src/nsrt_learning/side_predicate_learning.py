@@ -109,8 +109,8 @@ class SidePredicateLearner(abc.ABC):
                         pnad.add_to_datastore((segment, sub),
                                               check_effect_equality=False)
 
-    def _check_harmlessness(
-            self, pnads: List[PartialNSRTAndDatastore]) -> bool:
+    def _check_harmlessness(self,
+                            pnads: List[PartialNSRTAndDatastore]) -> bool:
         """Function to check whether the given PNADs holistically preserve
         harmlessness over demonstrations on the training tasks.
 
@@ -150,8 +150,8 @@ class SidePredicateLearner(abc.ABC):
             CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
             ground_nsrts, self._predicates, objects)
 
-        def _check_goal(searchnode_state: Tuple[FrozenSet[GroundAtom], int]
-                        ) -> bool:
+        def _check_goal(
+                searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
             return traj_goal.issubset(searchnode_state[0])
 
         def _get_successor_with_correct_option(
