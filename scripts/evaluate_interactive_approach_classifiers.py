@@ -152,7 +152,7 @@ COLUMN_NAMES_AND_KEYS = [("TEST_ID", "test_id"), ("CYCLE", "cycle"),
                          ("SCORE", "score")]
 
 PLOT_GROUPS = {
-    "Entropy Scores During Interactive Learning": [
+    "Entropies": [
         ("Far", lambda df: df["TEST_ID"].apply(lambda v: "entropy_0" in v)),
         ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "entropy_1" in v)),
         ("Overlap a little",
@@ -164,7 +164,7 @@ PLOT_GROUPS = {
         ("Overlap centered",
          lambda df: df["TEST_ID"].apply(lambda v: "entropy_5" in v)),
     ],
-    "BALD Scores During Interactive Learning": [
+    "BALD Scores": [
         ("Far", lambda df: df["TEST_ID"].apply(lambda v: "BALD_0" in v)),
         ("Closer", lambda df: df["TEST_ID"].apply(lambda v: "BALD_1" in v)),
         ("Overlap a little",
@@ -200,7 +200,7 @@ def _plot(all_data: List) -> None:
         ax.set_ylim(Y_LIM)
         plt.legend()
         plt.tight_layout()
-        filename = f"{plot_title}_{X_KEY}_{Y_KEY}_{CFG.experiment_id}.png"
+        filename = f"{plot_title}_{utils.get_config_path_str()}.png"
         filename = filename.replace(" ", "_").lower()
         outfile = os.path.join(outdir, filename)
         plt.savefig(outfile, dpi=DPI)
