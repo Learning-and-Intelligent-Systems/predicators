@@ -56,7 +56,7 @@ def learn_strips_operators(
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
             objects_lst = sorted(objects)
-            params = utils.create_new_vars([o.type for o in objects_lst])
+            params = utils.create_new_variables([o.type for o in objects_lst])
             preconds: Set[LiftedAtom] = set()  # will be learned later
             obj_to_var = dict(zip(objects_lst, params))
             var_to_obj = dict(zip(params, objects_lst))

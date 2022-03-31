@@ -487,11 +487,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # entries to obj_to_var to account for the situation where
         # missing_effects contains objects that were not in
         # the ground operator's parameters.
-        all_objs = {o for e in missing_effects for o in e.objects}
+        all_objs = {o for eff in missing_effects for o in eff.objects}
         missing_objs = sorted(all_objs - set(obj_to_var))
         new_var_types = [o.type for o in missing_objs]
-        new_vars = utils.create_new_vars(new_var_types,
-                                         existing_vars=pnad.op.parameters)
+        new_vars = utils.create_new_variables(new_var_types,
+                                              existing_vars=pnad.op.parameters)
         obj_to_var.update(dict(zip(missing_objs, new_vars)))
         # Finally, we can lift missing_effects.
         updated_params = sorted(obj_to_var.values())

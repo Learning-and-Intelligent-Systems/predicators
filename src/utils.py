@@ -789,7 +789,7 @@ def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
                        len(seq) + 1))
 
 
-def create_new_vars(
+def create_new_variables(
     types: Sequence[Type],
     existing_vars: Optional[Collection[Variable]] = None,
     var_prefix: str = "?x",
