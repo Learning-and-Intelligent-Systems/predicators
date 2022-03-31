@@ -504,13 +504,22 @@ class PaintingEnv(BaseEnv):
                 max_objs_in_goal = (CFG.rnt_painting_max_objs_in_goal
                                     if CFG.env == "repeated_nextto_painting"
                                     else CFG.painting_max_objs_in_goal)
-                if j == num_objs - 1:
-                    # Last object must go in the box
-                    goal.add(GroundAtom(self._InBox, [obj, self._box]))
-                    goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
-                elif j < max_objs_in_goal - 1:
+                assert CFG.painting_goal_receptacles in ("box_and_shelf",
+                                                         "box", "shelf")
+                if CFG.painting_goal_receptacles == "shelf":
+                    # No box; all max_objs_in_goal objects must go in the shelf
+                    shelf_j_upper = max_objs_in_goal
+                else:
                     # The last object is destined for the box, so the remaining
                     # (max_objs_in_goal - 1) objects must go in the shelf
+                    shelf_j_upper = max_objs_in_goal - 1
+                if CFG.painting_goal_receptacles in (
+                        "box_and_shelf", "box") and j == num_objs - 1:
+                    # If we're using the box, the last object must go in it
+                    goal.add(GroundAtom(self._InBox, [obj, self._box]))
+                    goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
+                elif CFG.painting_goal_receptacles in (
+                        "box_and_shelf", "shelf") and j < shelf_j_upper:
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
