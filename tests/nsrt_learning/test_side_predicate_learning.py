@@ -24,6 +24,12 @@ class MockBackchainingSPL(BackchainingSidePredicateLearner):
                 _get_partially_satisfying_grounding(necessary_add_effects,
                                                     pnad, segment))
 
+    @staticmethod
+    def try_refining_pnad(necessary_add_effects, pnad, segment):
+        """Exposed for testing."""
+        return (BackchainingSidePredicateLearner._try_refining_pnad(
+            necessary_add_effects, pnad, segment))
+
 
 def test_backchaining():
     """Test the BackchainingSidePredicateLearner."""
@@ -85,9 +91,9 @@ def test_backchaining():
         assert str(pnad) == repr(pnad) == exp_str
 
 
-def test_backchaining_get_partially_satisfying_grounding():
-    """Test the _get_partially_satisfying_grounding() method in the
-    BackchainingSidePredicateLearner."""
+def test_get_partially_satisfying_grounding_and_try_refining_pnad():
+    """Test the _get_partially_satisfying_grounding() and try_refining_pnad()
+    methods in the BackchainingSidePredicateLearner."""
 
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -125,6 +131,9 @@ def test_backchaining_get_partially_satisfying_grounding():
     ground_op = MockBackchainingSPL.get_partially_satisfying_grounding(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
+    pnad_refinable, _, _ = MockBackchainingSPL.try_refining_pnad(
+        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
+    assert not pnad_refinable
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     ground_op = MockBackchainingSPL.get_partially_satisfying_grounding(
