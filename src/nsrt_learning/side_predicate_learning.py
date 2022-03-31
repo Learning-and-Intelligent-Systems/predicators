@@ -12,7 +12,7 @@ from predicators.src.predicate_search_score_functions import \
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
     LowLevelTrajectory, ObjToVarSub, OptionSpec, ParameterizedOption, \
-    PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Task, \
+    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
 
@@ -130,22 +130,27 @@ class SidePredicateLearner(abc.ABC):
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             demo_preserved = self._check_single_demo_preservation(
-                ll_traj, atoms_seq, traj_goal, strips_ops, option_specs)
+                seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
+                option_specs)
             if not demo_preserved:
                 return False
         return True
 
     def _check_single_demo_preservation(
-            self, ll_traj: LowLevelTrajectory,
+            self, seg_traj: List[Segment], init_state: State,
             atoms_seq: List[Set[GroundAtom]], traj_goal: Set[GroundAtom],
             strips_ops: List[STRIPSOperator],
             option_specs: List[OptionSpec]) -> bool:
         """Function to check whether a given set of operators and predicates
         preserves a single training trajectory."""
-        init_atoms = utils.abstract(ll_traj.states[0], self._predicates)
-        objects = set(ll_traj.states[0])
-        ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
-                                              option_specs)
+        init_atoms = utils.abstract(init_state, self._predicates)
+        objects = set(init_state)
+        options = [seg.get_option() for seg in seg_traj]
+        ground_nsrts, _ = task_plan_grounding(init_atoms,
+                                              objects,
+                                              strips_ops,
+                                              option_specs,
+                                              allow_noops=True)
         heuristic = utils.create_task_planning_heuristic(
             CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
             ground_nsrts, self._predicates, objects)
@@ -161,10 +166,10 @@ class SidePredicateLearner(abc.ABC):
             atoms = searchnode_state[0]
             idx_into_traj = searchnode_state[1]
 
-            if idx_into_traj > len(ll_traj.actions) - 1:
+            if idx_into_traj > len(options) - 1:
                 return
 
-            gt_option = ll_traj.actions[idx_into_traj].get_option()
+            gt_option = options[idx_into_traj]
             expected_next_atoms = atoms_seq[idx_into_traj + 1]
 
             for applicable_nsrt in utils.get_applicable_operators(
@@ -333,13 +338,21 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
         option_spec = initial_pnads_for_option[0].option_spec
         parameters = sorted(option_spec[1])
 
-        # Finally, there are no preconditions, add effects, or delete effects.
+        # There are no add effects or delete effects. The preconditions
+        # are initialized to be trivial. They will be recomputed next.
         op = STRIPSOperator(parameterized_option.name, parameters, set(),
                             set(), set(), side_predicates)
         pnad = PartialNSRTAndDatastore(op, [], option_spec)
 
-        # Recompute datastore.
+        # Recompute datastore. This simply clusters by option, since the
+        # side predicates contain all predicates, and effects are trivial.
         self._recompute_datastores_from_segments([pnad])
+
+        # Determine the initial preconditions. These are just a lifted
+        # intersection of atoms that are true in every state from which
+        # this PNAD's option was executed.
+        preconditions = induce_pnad_preconditions(pnad)
+        pnad.op = pnad.op.copy_with(preconditions=preconditions)
 
         return pnad
 
