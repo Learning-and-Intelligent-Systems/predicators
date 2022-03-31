@@ -488,18 +488,12 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # entries to obj_to_var to account for the situation where
         # missing_effects contains objects that were not in
         # the ground operator's parameters.
-        var_names = [var.name for var in obj_to_var.values()]
-        assert all(name.startswith("?x") for name in var_names)
-        max_var_name = max(var_names,
-                           key=lambda name: int(name[2:]),
-                           default="?x-1")  # want default max_var_num to be -1
-        max_var_num = int(max_var_name[2:])
-        for effect in missing_effects:
-            for obj in effect.objects:
-                if obj not in obj_to_var:
-                    max_var_num += 1
-                    new_var = Variable("?x" + str(max_var_num), obj.type)
-                    obj_to_var[obj] = new_var
+        all_objs = {o for eff in missing_effects for o in eff.objects}
+        missing_objs = sorted(all_objs - set(obj_to_var))
+        new_var_types = [o.type for o in missing_objs]
+        new_vars = utils.create_new_variables(new_var_types,
+                                              existing_vars=pnad.op.parameters)
+        obj_to_var.update(dict(zip(missing_objs, new_vars)))
         # Finally, we can lift missing_effects.
         updated_params = sorted(obj_to_var.values())
         updated_add_effects = pnad.op.add_effects | {
