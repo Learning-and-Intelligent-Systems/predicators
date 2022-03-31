@@ -109,9 +109,9 @@ class SidePredicateLearner(abc.ABC):
                         pnad.add_to_datastore((segment, sub),
                                               check_effect_equality=False)
 
-    def _check_harmlessness(
-            self, state: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
-        """Function to check whether the given state in the search preserves
+    def _check_harmlessness(self,
+                            pnads: List[PartialNSRTAndDatastore]) -> bool:
+        """Function to check whether the given PNADs holistically preserve
         harmlessness over demonstrations on the training tasks.
 
         Preserving harmlessness roughly means that the set of operators
@@ -120,8 +120,8 @@ class SidePredicateLearner(abc.ABC):
         (i.e., the predicates and operators don't render any
         demonstrated trajectory impossible).
         """
-        strips_ops = [pnad.op for pnad in state]
-        option_specs = [pnad.option_spec for pnad in state]
+        strips_ops = [pnad.op for pnad in pnads]
+        option_specs = [pnad.option_spec for pnad in pnads]
         assert len(self._trajectories) == len(self._segmented_trajs)
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
@@ -150,24 +150,25 @@ class SidePredicateLearner(abc.ABC):
             CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
             ground_nsrts, self._predicates, objects)
 
-        def _check_goal(state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
-            return traj_goal.issubset(state[0])
+        def _check_goal(
+                searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+            return traj_goal.issubset(searchnode_state[0])
 
         def _get_successor_with_correct_option(
             searchnode_state: Tuple[FrozenSet[GroundAtom], int]
         ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
                             float]]:
-            state = searchnode_state[0]
+            atoms = searchnode_state[0]
             idx_into_traj = searchnode_state[1]
 
             if idx_into_traj > len(ll_traj.actions) - 1:
                 return
 
             gt_option = ll_traj.actions[idx_into_traj].get_option()
-            expected_next_hl_state = atoms_seq[idx_into_traj + 1]
+            expected_next_atoms = atoms_seq[idx_into_traj + 1]
 
             for applicable_nsrt in utils.get_applicable_operators(
-                    ground_nsrts, state):
+                    ground_nsrts, atoms):
                 # NOTE: we check that the ParameterizedOptions are equal before
                 # attempting to ground because otherwise, we might
                 # get a parameter mismatch and trigger an AssertionError
@@ -176,13 +177,12 @@ class SidePredicateLearner(abc.ABC):
                     continue
                 if applicable_nsrt.option_objs != gt_option.objects:
                     continue
-                next_hl_state = utils.apply_operator(applicable_nsrt,
-                                                     set(state))
-                if next_hl_state.issubset(expected_next_hl_state):
+                next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
+                if next_atoms.issubset(expected_next_atoms):
                     # The returned cost is uniform because we don't
                     # actually care about finding the shortest path;
                     # just one that matches!
-                    yield (applicable_nsrt, (frozenset(next_hl_state),
+                    yield (applicable_nsrt, (frozenset(next_atoms),
                                              idx_into_traj + 1), 1.0)
 
         init_atoms_frozen = frozenset(init_atoms)
@@ -217,7 +217,7 @@ class HillClimbingSidePredicateLearner(SidePredicateLearner):
         return list(path[-1])
 
     @abc.abstractmethod
-    def _evaluate(self, state: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+    def _evaluate(self, s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
         """Abstract evaluation/score function for search.
 
         Lower is better.
@@ -270,9 +270,9 @@ class PredictionErrorHillClimbingSidePredicateLearner(
         self._score_func = _PredictionErrorScoreFunction(
             self._predicates, [], {}, self._train_tasks)
 
-    def _evaluate(self, state: Tuple[PartialNSRTAndDatastore, ...]) -> float:
-        strips_ops = [pnad.op for pnad in state]
-        option_specs = [pnad.option_spec for pnad in state]
+    def _evaluate(self, s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+        strips_ops = [pnad.op for pnad in s]
+        option_specs = [pnad.option_spec for pnad in s]
         score = self._score_func.evaluate_with_operators(
             frozenset(), self._trajectories, self._segmented_trajs, strips_ops,
             option_specs)
@@ -284,14 +284,14 @@ class PreserveSkeletonsHillClimbingSidePredicateLearner(
     """A side predicate learning strategy that does hill climbing with a
     skeleton preservation (harmlessness) score function."""
 
-    def _evaluate(self, state: Tuple[PartialNSRTAndDatastore, ...]) -> float:
-        preserves_harmlessness = self._check_harmlessness(state)
+    def _evaluate(self, s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+        preserves_harmlessness = self._check_harmlessness(list(s))
         if preserves_harmlessness:
             # If harmlessness is preserved, the score is the number of
-            # operators in the state, minus the number of side predicates.
+            # operators that we have, minus the number of side predicates.
             # This means we prefer fewer operators and more side predicates.
-            score = 2 * len(state)
-            for pnad in state:
+            score = 2 * len(s)
+            for pnad in s:
                 score -= len(pnad.op.side_predicates)
         else:
             # If harmlessness is not preserved, the score is an arbitrary
@@ -452,8 +452,9 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             self._finalize_pnad_side_predicates(pnad)
 
         # Before returning, sanity check that harmlessness holds.
-        assert self._check_harmlessness(tuple(param_opt_to_pnad.values()))
-        return list(param_opt_to_pnad.values())
+        final_pnads = list(param_opt_to_pnad.values())
+        assert self._check_harmlessness(final_pnads)
+        return final_pnads
 
     def _try_specifizing_pnad(
         self,
