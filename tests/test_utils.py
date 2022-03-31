@@ -16,7 +16,7 @@ from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type
+    State, STRIPSOperator, Type, Variable
 from predicators.src.utils import GoalCountHeuristic, \
     _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
 
@@ -637,6 +637,29 @@ def test_powerset():
         assert set(s).issubset(set(lst))
     assert not list(utils.powerset([], exclude_empty=True))
     assert list(utils.powerset([], exclude_empty=False)) == [tuple()]
+
+
+def test_create_new_vars():
+    """Tests for create_new_vars()."""
+    cup_type = Type("cup", ["feat1"])
+    plate_type = Type("plate", ["feat1"])
+    vs = utils.create_new_vars([cup_type, cup_type, plate_type])
+    assert vs == [
+        Variable("?x0", cup_type),
+        Variable("?x1", cup_type),
+        Variable("?x2", plate_type)
+    ]
+    existing_vars = {Variable("?x0", cup_type), Variable("?x5", cup_type)}
+    vs = utils.create_new_vars([plate_type], existing_vars=existing_vars)
+    assert vs == [Variable("?x6", plate_type)]
+    existing_vars = {Variable("?x", cup_type), Variable("?xerox", cup_type)}
+    vs = utils.create_new_vars([plate_type], existing_vars=existing_vars)
+    assert vs == [Variable("?x0", plate_type)]
+    existing_vars = {Variable("?x5", cup_type)}
+    vs = utils.create_new_vars([plate_type],
+                               existing_vars=existing_vars,
+                               var_prefix="?llama")
+    assert vs == [Variable("?llama0", plate_type)]
 
 
 def test_unify_lifted_to_ground():

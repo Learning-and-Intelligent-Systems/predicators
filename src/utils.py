@@ -35,8 +35,8 @@ from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
     LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, Object, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    Type, Variable, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, \
+    _Option, _TypedEntity
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -787,6 +787,35 @@ def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
         itertools.combinations(list(seq), r)
         for r in range(start,
                        len(seq) + 1))
+
+
+def create_new_vars(
+    types: Sequence[Type],
+    existing_vars: Optional[Collection[Variable]] = None,
+    var_prefix: str = "?x",
+) -> List[Variable]:
+    """Create new variables of the given types, avoiding name collisions with
+    existing variables.
+
+    By convention, all new variables are of the form
+    <var_prefix><number>.
+    """
+    pre_len = len(var_prefix)
+    existing_var_nums = set()
+    if existing_vars:
+        for v in existing_vars:
+            if v.name.startswith(var_prefix) and v.name[pre_len:].isdigit():
+                existing_var_nums.add(int(v.name[pre_len:]))
+    if existing_var_nums:
+        counter = itertools.count(max(existing_var_nums) + 1)
+    else:
+        counter = itertools.count(0)
+    new_vars = []
+    for t in types:
+        new_var_name = f"{var_prefix}{next(counter)}"
+        new_var = Variable(new_var_name, t)
+        new_vars.append(new_var)
+    return new_vars
 
 
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search
