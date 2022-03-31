@@ -166,4 +166,4 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         types_to_check = {self._obj_type, self._box_type, self._shelf_type}
         return not any(
             self._NextTo_holds(state, [robot, obj]) for obj in state
-            if obj is not held_obj and obj.type in types_to_check)
+            if obj.type in types_to_check)
