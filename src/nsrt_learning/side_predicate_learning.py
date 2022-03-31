@@ -1,7 +1,7 @@
 """Methods for learning to sideline predicates in NSRTs."""
 
 import abc
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple, cast
+from typing import FrozenSet, Iterator, List, Optional, Set, Tuple, cast
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
@@ -11,7 +11,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, ObjToVarSub, OptionSpec, ParameterizedOption, \
+    LowLevelTrajectory, ObjToVarSub, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
