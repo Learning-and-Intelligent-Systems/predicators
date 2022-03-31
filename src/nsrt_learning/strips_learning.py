@@ -6,8 +6,7 @@ from typing import List, Sequence, Set, cast
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, LiftedAtom, \
-    PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Variable, \
-    VarToObjSub
+    PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, VarToObjSub
 
 
 def learn_strips_operators(
@@ -57,9 +56,7 @@ def learn_strips_operators(
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
             objects_lst = sorted(objects)
-            params = [
-                Variable(f"?x{i}", o.type) for i, o in enumerate(objects_lst)
-            ]
+            params = utils.create_new_variables([o.type for o in objects_lst])
             preconds: Set[LiftedAtom] = set()  # will be learned later
             obj_to_var = dict(zip(objects_lst, params))
             var_to_obj = dict(zip(params, objects_lst))
