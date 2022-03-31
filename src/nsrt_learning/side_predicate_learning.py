@@ -1,7 +1,7 @@
 """Methods for learning to sideline predicates in NSRTs."""
 
 import abc
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple, cast
+from typing import FrozenSet, Iterator, List, Optional, Set, Tuple, cast
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
@@ -11,7 +11,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, \
+    LowLevelTrajectory, ObjToVarSub, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
@@ -405,57 +405,28 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 unifies, obj_to_var_ent = utils.find_substitution(
                     pnad.op.add_effects | opt_vars_atom,
                     necessary_add_effects | opt_objs_atom)
-                obj_to_var = cast(Dict[Object, Variable], obj_to_var_ent)
+                obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
 
                 if not unifies:  # we need to make add effects more specific
                     del obj_to_var  # undefined; delete it for safety
-                    # Get an arbitrary grounding of the PNAD's operator whose
-                    # preconditions hold in segment.init_atoms and whose add
-                    # effects are a subset of necessary_add_effects. Since we
-                    # have started with the most general operators, and we are
-                    # making them more specific, it is guaranteed that such a
-                    # grounding exists, otherwise our 1:1 option:operator
-                    # assumption is violated.
-                    ground_op = self._get_partially_satisfying_grounding(
+                    # We now try to make the PNAD's add effects more specific.
+                    # Since we have started with the most general operators,
+                    # and we are making them more specific, it is guaranteed
+                    # that such a grounding exists, otherwise our 1:1
+                    # option:operator assumption is violated.
+                    new_pnad = self._try_specifizing_pnad(
                         necessary_add_effects, pnad, segment)
-                    assert ground_op is not None
-                    # To figure out the effects we need to add to this PNAD,
-                    # we first look at the ground effects that are missing
-                    # from this arbitrary ground operator.
-                    missing_effects = (necessary_add_effects -
-                                       ground_op.add_effects)
-                    obj_to_var = dict(
-                        zip(ground_op.objects, pnad.op.parameters))
-                    # Before we can lift missing_effects, we need to add new
-                    # entries to obj_to_var to account for the situation where
-                    # missing_effects contains objects that were not in
-                    # the ground operator's parameters.
-                    var_names = [var.name for var in obj_to_var.values()]
-                    assert all(name.startswith("?x") for name in var_names)
-                    max_var_name = max(var_names,
-                                       key=lambda name: int(name[2:]),
-                                       default="?x-1")
-                    max_var_num = int(max_var_name[2:])
-                    for effect in missing_effects:
-                        for obj in effect.objects:
-                            if obj not in obj_to_var:
-                                max_var_num += 1
-                                new_var = Variable("?x" + str(max_var_num),
-                                                   obj.type)
-                                obj_to_var[obj] = new_var
-                    # Finally, we can lift missing_effects and update the PNAD.
-                    updated_params = sorted(obj_to_var.values())
-                    updated_add_effects = pnad.op.add_effects | {
-                        a.lift(obj_to_var)
-                        for a in missing_effects
-                    }
-                    self._update_pnad_with_params_and_add_effects(
-                        pnad, updated_params, updated_add_effects)
+                    assert new_pnad is not None, "1:1 assumption violated"
+                    assert new_pnad.option_spec == pnad.option_spec
+                    pnad = new_pnad
+                    del new_pnad  # unused from here
+                    param_opt_to_pnad[option.parent] = pnad
                     # After all this, the unification call that failed earlier
-                    # (leading us to enter this if statement) should now work.
-                    unifies, _ = utils.find_substitution(
+                    # (leading us into the current if statement) should work.
+                    unifies, obj_to_var_ent = utils.find_substitution(
                         pnad.op.add_effects | opt_vars_atom,
                         necessary_add_effects | opt_objs_atom)
+                    obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
                     assert unifies
 
                 # Update necessary_image for this timestep. It no longer
@@ -484,6 +455,61 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert self._check_harmlessness(tuple(param_opt_to_pnad.values()))
         return list(param_opt_to_pnad.values())
 
+    def _try_specifizing_pnad(
+        self,
+        necessary_add_effects: Set[GroundAtom],
+        pnad: PartialNSRTAndDatastore,
+        segment: Segment,
+    ) -> Optional[PartialNSRTAndDatastore]:
+        """Given a PNAD and some necessary add effects that the PNAD must
+        achieve, try to make the PNAD's add effects more specific ("specifize")
+        so that they cover these necessary add effects.
+
+        Returns the new constructed PNAD, without modifying the
+        original. If the PNAD does not have a grounding that can even
+        partially satisfy the necessary add effects, returns None.
+        """
+
+        # Get an arbitrary grounding of the PNAD's operator whose
+        # preconditions hold in segment.init_atoms and whose add
+        # effects are a subset of necessary_add_effects.
+        ground_op = self._get_partially_satisfying_grounding(
+            necessary_add_effects, pnad, segment)
+        # If no such grounding exists, specifizing is not possible.
+        if ground_op is None:
+            return None
+        # To figure out the effects we need to add to this PNAD,
+        # we first look at the ground effects that are missing
+        # from this arbitrary ground operator.
+        missing_effects = necessary_add_effects - ground_op.add_effects
+        obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
+        # Before we can lift missing_effects, we need to add new
+        # entries to obj_to_var to account for the situation where
+        # missing_effects contains objects that were not in
+        # the ground operator's parameters.
+        var_names = [var.name for var in obj_to_var.values()]
+        assert all(name.startswith("?x") for name in var_names)
+        max_var_name = max(var_names,
+                           key=lambda name: int(name[2:]),
+                           default="?x-1")  # want default max_var_num to be -1
+        max_var_num = int(max_var_name[2:])
+        for effect in missing_effects:
+            for obj in effect.objects:
+                if obj not in obj_to_var:
+                    max_var_num += 1
+                    new_var = Variable("?x" + str(max_var_num), obj.type)
+                    obj_to_var[obj] = new_var
+        # Finally, we can lift missing_effects.
+        updated_params = sorted(obj_to_var.values())
+        updated_add_effects = pnad.op.add_effects | {
+            a.lift(obj_to_var)
+            for a in missing_effects
+        }
+        # Create a new PNAD with the updated parameters and add effects.
+        new_pnad = self._create_new_pnad_with_params_and_add_effects(
+            pnad, updated_params, updated_add_effects)
+        return new_pnad
+
     @staticmethod
     def _get_partially_satisfying_grounding(
             necessary_add_effects: Set[GroundAtom],
@@ -507,29 +533,32 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             return ground_op
         return None
 
-    def _update_pnad_with_params_and_add_effects(
+    def _create_new_pnad_with_params_and_add_effects(
             self, pnad: PartialNSRTAndDatastore, parameters: List[Variable],
-            add_effects: Set[LiftedAtom]) -> None:
-        """Update the given PNAD to change the parameters and add effects to
-        the given ones; also, update the preconditions.
+            add_effects: Set[LiftedAtom]) -> PartialNSRTAndDatastore:
+        """Create a new PNAD that is the given PNAD with parameters and add
+        effects changed to the given ones, and preconditions recomputed.
 
         Note that in general, changing the parameters means that we need
         to recompute all datastores, otherwise the precondition learning
         will not work correctly (since it relies on the substitution
         dictionaries in the datastores being correct).
         """
-        # Update the parameters and add effects of the operator. Set
+        # Create a new PNAD with the given parameters and add effects. Set
         # the preconditions to be trivial. They will be recomputed next.
-        pnad.op = pnad.op.copy_with(parameters=parameters,
-                                    preconditions=set(),
-                                    add_effects=add_effects)
-        # Recompute datastore.
-        self._recompute_datastores_from_segments([pnad],
+        new_pnad_op = pnad.op.copy_with(parameters=parameters,
+                                        preconditions=set(),
+                                        add_effects=add_effects)
+        new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        del pnad  # unused from here
+        # Recompute datastore using the add_effects semantics.
+        self._recompute_datastores_from_segments([new_pnad],
                                                  semantics="add_effects")
         # Determine the preconditions.
-        preconditions = induce_pnad_preconditions(pnad)
-        # Update the preconditions of the operator.
-        pnad.op = pnad.op.copy_with(preconditions=preconditions)
+        preconditions = induce_pnad_preconditions(new_pnad)
+        # Update the preconditions of the new PNAD's operator.
+        new_pnad.op = new_pnad.op.copy_with(preconditions=preconditions)
+        return new_pnad
 
     @staticmethod
     def _finalize_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
