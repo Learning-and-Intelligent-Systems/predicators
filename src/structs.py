@@ -1322,7 +1322,7 @@ LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
-SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
+SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
