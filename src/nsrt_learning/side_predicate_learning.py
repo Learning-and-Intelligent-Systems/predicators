@@ -427,7 +427,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # and we are making them more specific, it is guaranteed
                     # that such a grounding exists, otherwise our 1:1
                     # option:operator assumption is violated.
-                    new_pnad = self._try_specifizing_pnad(
+                    new_pnad = self._try_specializing_pnad(
                         necessary_add_effects, pnad, segment)
                     assert new_pnad is not None, "1:1 assumption violated"
                     assert new_pnad.option_spec == pnad.option_spec
@@ -469,15 +469,15 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert self._check_harmlessness(final_pnads)
         return final_pnads
 
-    def _try_specifizing_pnad(
+    def _try_specializing_pnad(
         self,
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
     ) -> Optional[PartialNSRTAndDatastore]:
         """Given a PNAD and some necessary add effects that the PNAD must
-        achieve, try to make the PNAD's add effects more specific ("specifize")
-        so that they cover these necessary add effects.
+        achieve, try to make the PNAD's add effects more specific
+        ("specialize") so that they cover these necessary add effects.
 
         Returns the new constructed PNAD, without modifying the
         original. If the PNAD does not have a grounding that can even
@@ -489,7 +489,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # effects are a subset of necessary_add_effects.
         ground_op = self._get_partially_satisfying_grounding(
             necessary_add_effects, pnad, segment)
-        # If no such grounding exists, specifizing is not possible.
+        # If no such grounding exists, specializing is not possible.
         if ground_op is None:
             return None
         # To figure out the effects we need to add to this PNAD,

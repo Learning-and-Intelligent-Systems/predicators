@@ -16,9 +16,10 @@ from predicators.src.utils import SingletonParameterizedOption
 class MockBackchainingSPL(BackchainingSidePredicateLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specifizing_pnad(self, necessary_add_effects, pnad, segment):
+    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
         """Exposed for testing."""
-        return self._try_specifizing_pnad(necessary_add_effects, pnad, segment)
+        return self._try_specializing_pnad(necessary_add_effects, pnad,
+                                           segment)
 
     @staticmethod
     def get_partially_satisfying_grounding(necessary_add_effects, pnad,
@@ -134,7 +135,7 @@ def test_get_partially_satisfying_grounding_and_try_refining_pnad():
     ground_op = spl.get_partially_satisfying_grounding(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    new_pnad = spl.try_specifizing_pnad(
+    new_pnad = spl.try_specializing_pnad(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert new_pnad is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
@@ -148,9 +149,9 @@ def test_get_partially_satisfying_grounding_and_try_refining_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = spl.try_specifizing_pnad({Asleep([bob])}, pnad,
-                                        Segment(traj, {Happy([bob])}, set(),
-                                                Move))
+    new_pnad = spl.try_specializing_pnad({Asleep([bob])}, pnad,
+                                         Segment(traj, {Happy([bob])}, set(),
+                                                 Move))
     assert str(new_pnad) == repr(new_pnad) == """STRIPS-MoveOp:
     Parameters: [?x0:human_type]
     Preconditions: [Happy(?x0:human_type)]
