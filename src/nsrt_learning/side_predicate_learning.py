@@ -401,6 +401,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     ]
                 else:
                     pnads_for_option = param_opt_to_nec_pnad[option.parent]
+
                 # Compute the ground atoms that must be added on this timestep.
                 # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
@@ -413,6 +414,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     unifies, obj_to_var = self._find_unification(
                         necessary_add_effects, pnad, segment)
                     if unifies:
+                        if param_opt_to_nec_pnad.get(option.parent) is None:
+                            param_opt_to_nec_pnad[option.parent] = [pnad]
                         substitution_exists = True
                         break
 
