@@ -506,9 +506,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # and add effects. We now finalize the delete effects and side
         # predicates. Note that we have to do delete effects first, and
         # then side predicates, because the latter rely on the former.
+        print()
         for pnad in all_pnads:
             self._finalize_pnad_delete_effects(pnad)
             self._finalize_pnad_side_predicates(pnad)
+            print(pnad)
 
         # Before returning, sanity check that harmlessness holds.
         assert self._check_harmlessness(all_pnads)
