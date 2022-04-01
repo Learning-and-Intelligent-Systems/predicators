@@ -21,6 +21,6 @@ if __name__ == "__main__":
         raise NotImplementedError(f"No implementation yet for {CFG.env}")
     for i, s in enumerate(states):
         img = env.render_state(s, task)  # task is unused
-        outfile = f"{CFG.env}__test_state_{i+1}.png"
+        outfile = f"{CFG.env}__test_state_{i+1}.mp4"
         utils.save_video(outfile, img)
         print(f"Wrote image out to {outfile}")
