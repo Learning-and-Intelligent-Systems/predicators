@@ -515,6 +515,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert self._check_harmlessness(all_pnads)
         return all_pnads
 
+    # TODO: unify this function with get_partially_satisfying_grounding
     def _find_unification(self, necessary_add_effects: Set[GroundAtom],
                           pnad: PartialNSRTAndDatastore, segment: Segment):
         # Find a mapping from the variables in the PNAD add effects
@@ -525,27 +526,20 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # of the PNAD will appear in either the option arguments or
         # the add effects. This is in contrast to strips_learning.py,
         # where delete effect variables also contribute to parameters.
-        opt_pred = Predicate("OPT-ARGS", [a.type for a in pnad.option_spec[1]],
-                             _classifier=lambda s, o: False)  # dummy
-        opt_vars_atom = frozenset({LiftedAtom(opt_pred, pnad.option_spec[1])})
-        opt_objs_atom = frozenset(
-            {GroundAtom(opt_pred,
-                        segment.get_option().objects)})
-
-        for unifies, obj_to_var_ent in utils.find_substitution_yield(
-                pnad.op.add_effects | opt_vars_atom,
-                necessary_add_effects | opt_objs_atom):
-
-            obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
-            var_to_obj = {v: k for k, v in obj_to_var.items()}
-            ground_params = tuple(var_to_obj[param]
-                                  for param in pnad.op.parameters)
-            ground_op = pnad.op.ground(ground_params)
+        objects = list(segment.states[0])
+        option_objs = segment.get_option().objects
+        isub = dict(zip(pnad.option_spec[1], option_objs))
+        # Loop over all groundings.
+        for ground_op in utils.all_ground_operators_given_partial(
+                pnad.op, objects, isub):
+            if not necessary_add_effects.issubset(ground_op.add_effects):
+                continue
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
             if not ground_op.add_effects.issubset(segment.final_atoms):
                 continue
-            return unifies, obj_to_var
+            obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
+            return True, obj_to_var
         return False, {}
 
     def _try_specifizing_pnad(
@@ -622,6 +616,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad.op, objects, isub):
             # Check if preconditions hold.
             if not ground_op.preconditions.issubset(segment.init_atoms):
+                continue
+            if not ground_op.add_effects.issubset(segment.final_atoms):
                 continue
             # Check if effects match.
             if not ground_op.add_effects.issubset(necessary_add_effects):
