@@ -2,6 +2,10 @@
 predicate classifiers."""
 
 
+import os
+
+import imageio
+
 from predicators.scripts.evaluate_interactive_approach_classifiers import \
     create_states_cover
 from predicators.src import utils
@@ -19,8 +23,11 @@ if __name__ == "__main__":
         states, _, _ = create_states_cover(env)
     else:
         raise NotImplementedError(f"No implementation yet for {CFG.env}")
+    outdir = CFG.video_dir
+    os.makedirs(outdir, exist_ok=True)
     for i, s in enumerate(states):
-        img = env.render_state(s, task)  # task is unused
-        outfile = f"{CFG.env}__test_state_{i+1}.mp4"
-        utils.save_video(outfile, img)
-        print(f"Wrote image out to {outfile}")
+        img = env.render_state(s, task)[0]  # task is unused
+        outfile = f"{CFG.env}__test_state_{i+1}.png"
+        outpath = os.path.join(outdir, outfile)
+        imageio.imwrite(outpath, img)
+        print(f"Wrote image out to {outpath}")
