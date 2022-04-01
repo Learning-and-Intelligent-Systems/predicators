@@ -499,7 +499,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         all_pnads = []
         for pnad_list in param_opt_to_nec_pnad.values():
             for pnad in pnad_list:
-                self._recompute_datastores_from_segments([pnad])
+                # self._recompute_datastores_from_segments([pnad])
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
@@ -593,9 +593,9 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # If the new PNAD's datastore has the same length as the old PNAD's
         # datastore, then this PNAD can indeed be edited to achieve the new
         # necessary_add_effects, so return the new PNAD!
-        if check_datastore_preservation and len(pnad.datastore) != len(
-                new_pnad.datastore):
-            return None
+        # if check_datastore_preservation and len(pnad.datastore) != len(
+        #         new_pnad.datastore):
+        #     return None
 
         return new_pnad
 
