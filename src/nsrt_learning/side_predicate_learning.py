@@ -480,10 +480,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 var_to_obj = {v: k for k, v in obj_to_var.items()}
                 assert len(var_to_obj) == len(obj_to_var)
 
-                # if len(atoms_seq) > 2:
-                #     if str(atoms_seq[2]) == "{NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot8:dot)}":
-                #         import ipdb; ipdb.set_trace()
-
                 necessary_image -= {
                     a.ground(var_to_obj)
                     for a in pnad.op.add_effects
