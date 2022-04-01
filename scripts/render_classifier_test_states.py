@@ -1,7 +1,6 @@
 """Script to render images of the states used in testing interactively learned
 predicate classifiers."""
 
-
 import os
 
 import imageio
