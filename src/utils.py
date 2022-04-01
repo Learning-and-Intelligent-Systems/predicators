@@ -729,6 +729,32 @@ def find_substitution(
                                      allow_redundant)
 
 
+def find_substitution_yield(
+    super_atoms: Collection[LiftedOrGroundAtom],
+    sub_atoms: Collection[LiftedOrGroundAtom],
+    allow_redundant: bool = False,
+) -> Tuple[bool, EntToEntSub]:
+    """Find a substitution from the entities in super_atoms to the entities in
+    sub_atoms s.t. sub_atoms is a subset of super_atoms.
+
+    If allow_redundant is True, then multiple entities in sub_atoms can
+    refer to the same single entity in super_atoms.
+
+    If no substitution exists, return (False, {}).
+    """
+    super_entities_by_type: Dict[Type, List[_TypedEntity]] = defaultdict(list)
+    super_pred_to_tuples = defaultdict(set)
+    for atom in super_atoms:
+        for obj in atom.entities:
+            if obj not in super_entities_by_type[obj.type]:
+                super_entities_by_type[obj.type].append(obj)
+        super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
+    sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
+    return _find_substitution_yield_helper(sub_atoms, super_entities_by_type,
+                                     sub_variables, super_pred_to_tuples, {},
+                                     allow_redundant)
+
+
 def _find_substitution_helper(
         sub_atoms: Collection[LiftedOrGroundAtom],
         super_entities_by_type: Dict[Type, List[_TypedEntity]],
@@ -764,6 +790,43 @@ def _find_substitution_helper(
             return solved, final_sub
     # Failure
     return False, {}
+
+
+def _find_substitution_yield_helper(
+        sub_atoms: Collection[LiftedOrGroundAtom],
+        super_entities_by_type: Dict[Type, List[_TypedEntity]],
+        remaining_sub_variables: List[_TypedEntity],
+        super_pred_to_tuples: Dict[Predicate,
+                                   Set[Tuple[_TypedEntity,
+                                             ...]]], partial_sub: EntToEntSub,
+        allow_redundant: bool) -> Tuple[bool, EntToEntSub]:
+    """Helper for find_substitution."""
+    # Base case: check if all assigned
+    if not remaining_sub_variables:
+        yield True, partial_sub
+    # Find next variable to assign
+    remaining_sub_variables = remaining_sub_variables.copy()
+    next_sub_var = remaining_sub_variables.pop(0)
+    # Consider possible assignments
+    for super_obj in super_entities_by_type[next_sub_var.type]:
+        if not allow_redundant and super_obj in partial_sub.values():
+            continue
+        new_sub = partial_sub.copy()
+        new_sub[next_sub_var] = super_obj
+        # Check if consistent
+        if not _substitution_consistent(new_sub, super_pred_to_tuples,
+                                        sub_atoms):
+            continue
+        # Backtracking search
+        solved, final_sub = _find_substitution_helper(sub_atoms,
+                                                      super_entities_by_type,
+                                                      remaining_sub_variables,
+                                                      super_pred_to_tuples,
+                                                      new_sub, allow_redundant)
+        if solved:
+            yield solved, final_sub
+    # Failure
+    return
 
 
 def _substitution_consistent(
