@@ -396,7 +396,9 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 option = segment.get_option()
                 # Find the PNAD associated with this option.
                 if param_opt_to_nec_pnad.get(option.parent) is None:
-                    pnads_for_option = [param_opt_to_general_pnad[option.parent]]
+                    pnads_for_option = [
+                        param_opt_to_general_pnad[option.parent]
+                    ]
                 else:
                     pnads_for_option = param_opt_to_nec_pnad[option.parent]
                 # Compute the ground atoms that must be added on this timestep.
@@ -408,7 +410,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:
-                    unifies, obj_to_var = self._find_unification(necessary_add_effects, pnad, segment)
+                    unifies, obj_to_var = self._find_unification(
+                        necessary_add_effects, pnad, segment)
                     if unifies:
                         substitution_exists = True
                         break
@@ -429,8 +432,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                             necessary_add_effects, pnad, segment)
                         if new_pnad is not None:
                             assert new_pnad.option_spec == pnad.option_spec
-                            if param_opt_to_nec_pnad.get(option.parent) is not None:
-                                param_opt_to_nec_pnad[option.parent].remove(pnad)
+                            if param_opt_to_nec_pnad.get(
+                                    option.parent) is not None:
+                                param_opt_to_nec_pnad[option.parent].remove(
+                                    pnad)
                             del pnad
                             should_split_off_new_pnad = False
                             break
@@ -440,8 +445,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # to cover these necessary add effects.
                     if should_split_off_new_pnad:
                         new_pnad = self._try_specifizing_pnad(
-                            necessary_add_effects, param_opt_to_general_pnad[option.parent],
-                            segment, check_datastore_preservation=False)
+                            necessary_add_effects,
+                            param_opt_to_general_pnad[option.parent],
+                            segment,
+                            check_datastore_preservation=False)
                         assert new_pnad is not None
                         if param_opt_to_nec_pnad.get(option.parent) is None:
                             op_num = 0
@@ -460,7 +467,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         param_opt_to_nec_pnad[option.parent].append(pnad)
                     # After all this, the unification call that failed earlier
                     # (leading us into the current if statement) should work.
-                    unifies, obj_to_var = self._find_unification(necessary_add_effects, pnad, segment)
+                    unifies, obj_to_var = self._find_unification(
+                        necessary_add_effects, pnad, segment)
                     assert unifies
 
                 # Update necessary_image for this timestep. It no longer
@@ -468,11 +476,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # must now include its ground preconditions.
                 var_to_obj = {v: k for k, v in obj_to_var.items()}
                 assert len(var_to_obj) == len(obj_to_var)
-                
+
                 # if len(atoms_seq) > 2:
                 #     if str(atoms_seq[2]) == "{NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot8:dot)}":
                 #         import ipdb; ipdb.set_trace()
-                
+
                 necessary_image -= {
                     a.ground(var_to_obj)
                     for a in pnad.op.add_effects
@@ -485,7 +493,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Now that the add effects and preconditions are correct,
         # recompute all datastores under the "apply_operator"
         # semantics and make a list of all final PNADs. Note
-        # that these final PNADs only come from the 
+        # that these final PNADs only come from the
         # param_opt_to_nec_pnad dict, since we can be assured
         # that our backchaining process ensured that the
         # PNADs in this dict cover all of the data!
@@ -508,8 +516,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         return all_pnads
 
     def _find_unification(self, necessary_add_effects: Set[GroundAtom],
-        pnad: PartialNSRTAndDatastore,
-        segment: Segment):
+                          pnad: PartialNSRTAndDatastore, segment: Segment):
         # Find a mapping from the variables in the PNAD add effects
         # and option to the objects in necessary_add_effects and the
         # segment's option. If one exists, we don't need to modify this
@@ -518,21 +525,21 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # of the PNAD will appear in either the option arguments or
         # the add effects. This is in contrast to strips_learning.py,
         # where delete effect variables also contribute to parameters.
-        opt_pred = Predicate(
-            "OPT-ARGS", [a.type for a in pnad.option_spec[1]],
-            _classifier=lambda s, o: False)  # dummy
-        opt_vars_atom = frozenset(
-            {LiftedAtom(opt_pred, pnad.option_spec[1])})
+        opt_pred = Predicate("OPT-ARGS", [a.type for a in pnad.option_spec[1]],
+                             _classifier=lambda s, o: False)  # dummy
+        opt_vars_atom = frozenset({LiftedAtom(opt_pred, pnad.option_spec[1])})
         opt_objs_atom = frozenset(
-            {GroundAtom(opt_pred, segment.get_option().objects)})
-        
+            {GroundAtom(opt_pred,
+                        segment.get_option().objects)})
+
         for unifies, obj_to_var_ent in utils.find_substitution_yield(
-            pnad.op.add_effects | opt_vars_atom,
-            necessary_add_effects | opt_objs_atom):
+                pnad.op.add_effects | opt_vars_atom,
+                necessary_add_effects | opt_objs_atom):
 
             obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
             var_to_obj = {v: k for k, v in obj_to_var.items()}
-            ground_params = tuple(var_to_obj[param] for param in pnad.op.parameters)
+            ground_params = tuple(var_to_obj[param]
+                                  for param in pnad.op.parameters)
             ground_op = pnad.op.ground(ground_params)
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
@@ -540,7 +547,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 continue
             return unifies, obj_to_var
         return False, {}
-
 
     def _try_specifizing_pnad(
         self,

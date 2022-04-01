@@ -751,8 +751,8 @@ def find_substitution_yield(
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
     return _find_substitution_yield_helper(sub_atoms, super_entities_by_type,
-                                     sub_variables, super_pred_to_tuples, {},
-                                     allow_redundant)
+                                           sub_variables, super_pred_to_tuples,
+                                           {}, allow_redundant)
 
 
 def _find_substitution_helper(
