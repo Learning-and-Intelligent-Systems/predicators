@@ -1,7 +1,7 @@
 """Script to analyze the results of experiments in the results/ directory."""
 
 import glob
-from typing import Callable, Dict, Sequence, Tuple
+from typing import Callable, Collection, Dict, Optional, Sequence, Tuple
 
 import dill as pkl
 import numpy as np
@@ -83,8 +83,11 @@ def get_df_for_entry(
 
 
 def create_dataframes(
-    column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str],
-    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]]
+    column_names_and_keys: Sequence[Tuple[str, str]],
+    groups: Sequence[str],
+    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+    interpolate_columns: Optional[Collection[str]] = None,
+    num_interp_values: int = 100,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes.
 
@@ -132,6 +135,10 @@ def create_dataframes(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
+    # Interpolate certain columns.
+    if interpolate_columns:
+        for column in interpolate_columns:
+            df[column] = _interpolate_column(df[column], num_interp_values)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
@@ -143,6 +150,15 @@ def create_dataframes(
     stds = grouped.std(ddof=0)
     sizes = grouped.size()
     return means, stds, sizes
+
+
+def _interpolate_column(column: pd.Series, num_interps: int) -> pd.Series:
+    min_val = column.min()
+    max_val = column.max()
+    ticks = np.linspace(min_val, max_val, num_interps)
+    get_nearest = lambda x: min(ticks, key=lambda t: abs(x - t))
+    new_column = column.map(get_nearest)
+    return new_column
 
 
 def _main() -> None:

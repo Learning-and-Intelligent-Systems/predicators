@@ -44,6 +44,10 @@ X_KEY_AND_LABEL = [
     ("NUM_TRANSITIONS", "Number of Transitions"),
 ]
 
+# Interpolate the x values to create smoother plots.
+INTERPOLATE_COLUMNS = ["NUM_TRANSITIONS"]
+NUM_INTERP_VALUES = 25
+
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
@@ -68,7 +72,7 @@ PLOT_GROUPS = {
 }
 
 # If True, add (0, 0) to every plot
-ADD_ZERO_POINT = False
+ADD_ZERO_POINT = True
 
 #################### Should not need to change below here #####################
 
@@ -78,8 +82,12 @@ def _main() -> None:
                           "results")
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': FONT_SIZE})
-    grouped_means, grouped_stds, _ = create_dataframes(COLUMN_NAMES_AND_KEYS,
-                                                       GROUPS, DERIVED_KEYS)
+    grouped_means, grouped_stds, _ = create_dataframes(
+        COLUMN_NAMES_AND_KEYS,
+        GROUPS,
+        DERIVED_KEYS,
+        interpolate_columns=INTERPOLATE_COLUMNS,
+        num_interp_values=NUM_INTERP_VALUES)
     means = grouped_means.reset_index()
     stds = grouped_stds.reset_index()
     for x_key, x_label in X_KEY_AND_LABEL:
