@@ -126,14 +126,17 @@ def _run_pipeline(env: BaseEnv,
             approach.learn_from_offline_dataset(offline_dataset)
             learning_time = time.time() - learning_start
         # Run evaluation once before online learning starts.
-        results = _run_testing(env, approach)
-        results["num_transitions"] = total_num_transitions
-        results["query_cost"] = total_query_cost
-        results["learning_time"] = learning_time
-        _save_test_results(results, online_learning_cycle=None)
+        if CFG.skip_until_cycle < 0:
+            results = _run_testing(env, approach)
+            results["num_transitions"] = total_num_transitions
+            results["query_cost"] = total_query_cost
+            results["learning_time"] = learning_time
+            _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
+            if i < CFG.skip_until_cycle:
+                continue
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
             logging.info("Getting interaction requests...")
             if total_num_transitions > CFG.online_learning_max_transitions:
