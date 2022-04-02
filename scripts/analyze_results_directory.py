@@ -1,7 +1,7 @@
 """Script to analyze the results of experiments in the results/ directory."""
 
 import glob
-from typing import Callable, Collection, Dict, Optional, Sequence, Tuple
+from typing import Callable, Dict, Sequence, Tuple
 
 import dill as pkl
 import numpy as np
@@ -82,23 +82,14 @@ def get_df_for_entry(
     return df
 
 
-def create_dataframes(
+def create_raw_dataframe(
     column_names_and_keys: Sequence[Tuple[str, str]],
-    groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
-    interpolate_columns: Optional[Collection[str]] = None,
-    num_interp_values: int = 100,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Returns means, standard deviations, and sizes.
-
-    When included, config_keys_to_include is a dict from column display
-    name to config name (in CFG).
-    """
+) -> pd.DataFrame:
+    """Returns one dataframe with all data, not grouped."""
     all_data = []
     git_commit_hashes = set()
     column_names = [c for (c, _) in column_names_and_keys]
-    for group in groups:
-        assert group in column_names, f"Missing column {group}"
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             outdata = pkl.load(f)
@@ -135,30 +126,27 @@ def create_dataframes(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
-    # Interpolate certain columns.
-    if interpolate_columns:
-        for column in interpolate_columns:
-            df[column] = _interpolate_column(df[column], num_interp_values)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
     # Uncomment the next line to print out ALL the raw data.
     # print(df)
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    return df
+
+
+def create_dataframes(
+    column_names_and_keys: Sequence[Tuple[str, str]],
+    groups: Sequence[str],
+    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Returns means, standard deviations, and sizes."""
+    df = create_raw_dataframe(column_names_and_keys, derived_keys)
     grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std(ddof=0)
     sizes = grouped.size()
     return means, stds, sizes
-
-
-def _interpolate_column(column: pd.Series, num_interps: int) -> pd.Series:
-    min_val = column.min()
-    max_val = column.max()
-    ticks = np.linspace(min_val, max_val, num_interps)
-    get_nearest = lambda x: min(ticks, key=lambda t: abs(x - t))
-    new_column = column.map(get_nearest)
-    return new_column
 
 
 def _main() -> None:
