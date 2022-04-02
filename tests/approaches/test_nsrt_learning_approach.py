@@ -104,10 +104,10 @@ def test_nsrt_learning_approach():
                        side_predicate_learner=side_predicate_learner)
         if side_predicate_learner == "backchaining":
             _test_approach(env_name="repeated_nextto_single_option",
-                       approach_name="nsrt_learning",
-                       try_solving=False,
-                       sampler_learner="random",
-                       side_predicate_learner=side_predicate_learner)
+                           approach_name="nsrt_learning",
+                           try_solving=False,
+                           sampler_learner="random",
+                           side_predicate_learner=side_predicate_learner)
 
 
 def test_unknown_side_predicate_learner():
