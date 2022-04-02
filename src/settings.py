@@ -245,6 +245,9 @@ class GlobalSettings:
                     # lower level, so tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_blocks": 1000,
+                    # For the very simple TouchPoint environment, restrict
+                    # the horizon to be shorter.
+                    "touch_point": 15,
                 })[args.get("env", "")],
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
