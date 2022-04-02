@@ -145,9 +145,8 @@ class TouchPointEnv(BaseEnv):
                 },
             })
             # Make sure goal is not satisfied.
-            if goal_atom.holds(state):
-                continue
-            tasks.append(Task(state, goal))
+            if not goal_atom.holds(state):
+                tasks.append(Task(state, goal))
         return tasks
 
     @staticmethod
