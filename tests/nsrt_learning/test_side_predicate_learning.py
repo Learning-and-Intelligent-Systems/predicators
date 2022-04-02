@@ -22,12 +22,10 @@ class MockBackchainingSPL(BackchainingSidePredicateLearner):
                                            segment)
 
     @staticmethod
-    def find_unification(necessary_add_effects, pnad,
-                                           segment):
+    def find_unification(necessary_add_effects, pnad, segment):
         """Exposed for testing."""
-        return (BackchainingSidePredicateLearner.
-                _find_unification(necessary_add_effects,
-                                    pnad, segment, True))
+        return (BackchainingSidePredicateLearner._find_unification(
+            necessary_add_effects, pnad, segment, True))
 
 
 def test_backchaining():
@@ -91,8 +89,8 @@ def test_backchaining():
 
 
 def test_find_unification_and_try_refining_pnad():
-    """Test the _find_unification() and try_refining_pnad()
-    methods in the BackchainingSidePredicateLearner."""
+    """Test the _find_unification() and try_refining_pnad() methods in the
+    BackchainingSidePredicateLearner."""
 
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -125,8 +123,8 @@ def test_find_unification_and_try_refining_pnad():
     Side Predicates: []"""
     # The necessary_add_effects is empty, but the PNAD has an add effect,
     # so no grounding is possible.
-    ground_op = spl.find_unification(
-        set(), pnad, Segment(traj, set(), set(), Move))
+    ground_op = spl.find_unification(set(), pnad,
+                                     Segment(traj, set(), set(), Move))
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
@@ -140,8 +138,9 @@ def test_find_unification_and_try_refining_pnad():
     assert new_pnad is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
-    ground_op = spl.find_unification(
-        {Asleep([bob])}, pnad, Segment(traj, {Happy([bob])}, set(), Move))
+    ground_op = spl.find_unification({Asleep([bob])}, pnad,
+                                     Segment(traj, {Happy([bob])}, set(),
+                                             Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]

@@ -1,7 +1,7 @@
 """Methods for learning to sideline predicates in NSRTs."""
 
 import abc
-from typing import FrozenSet, Iterator, List, Optional, Set, Tuple
+from typing import FrozenSet, Iterator, List, Optional, Set, Tuple, Dict
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
@@ -368,7 +368,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.
         param_opt_to_general_pnad = {}
-        param_opt_to_nec_pnad = {}
+        param_opt_to_nec_pnad: Dict[ParameterizedOption,
+                                    List[PartialNSRTAndDatastore]] = {}
         parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
         total_datastore_len = 0
         for param_opt in parameterized_options:
@@ -466,6 +467,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
                     # Add the new PNAD to the dictionary mapping options to
                     # PNADs.
+                    assert isinstance(new_pnad, PartialNSRTAndDatastore)
                     pnad = new_pnad
                     if param_opt_to_nec_pnad.get(option.parent) is None:
                         param_opt_to_nec_pnad[option.parent] = [pnad]
@@ -542,8 +544,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad.op, objects, isub):
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
-            if not ground_op.add_effects.issubset(segment.final_atoms):
-                continue
             # If find_partial_grounding is True, we want to find a grounding
             # that achieves some subset of the necessary add effects. Else,
             # we want to find a grounding that is some superset of the
@@ -552,6 +552,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 if not ground_op.add_effects.issubset(necessary_add_effects):
                     continue
             else:
+                if not ground_op.add_effects.issubset(segment.final_atoms):
+                    continue
                 if not necessary_add_effects.issubset(ground_op.add_effects):
                     continue
             return ground_op
