@@ -1,7 +1,7 @@
 """Methods for learning to sideline predicates in NSRTs."""
 
 import abc
-from typing import FrozenSet, Iterator, List, Optional, Set, Tuple, cast
+from typing import FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
@@ -11,7 +11,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, ObjToVarSub, OptionSpec, ParameterizedOption, \
+    LowLevelTrajectory, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
@@ -430,10 +430,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 if not substitution_exists:
                     should_split_off_new_pnad = True
                     for pnad in pnads_for_option:
-                        # We now try to make the PNAD's add effects more specific.
-                        # Since we have started with the most general operators,
-                        # and we are making them more specific, it is guaranteed
-                        # that such a grounding exists, otherwise our 1:1
+                        # We now try to make the PNAD's add effects more
+                        # specific. Since we have started with the most
+                        # general operators, and we are making them more
+                        # specific, it is guaranteed that such a
+                        # grounding exists, otherwise our 1:1
                         # option:operator assumption is violated.
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects, pnad, segment)
@@ -518,8 +519,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert self._check_harmlessness(all_pnads)
         return all_pnads
 
+    @staticmethod
     def _find_unification(
-        self,
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
@@ -626,7 +627,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         del pnad  # unused from here
         # Recompute datastore using the add_effects semantics.
         self._recompute_datastores_from_segments([new_pnad],
-                                                semantics="add_effects")
+                                                 semantics="add_effects")
         # Determine the preconditions.
         preconditions = induce_pnad_preconditions(new_pnad)
         # Update the preconditions of the new PNAD's operator.

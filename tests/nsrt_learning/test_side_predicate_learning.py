@@ -22,12 +22,12 @@ class MockBackchainingSPL(BackchainingSidePredicateLearner):
                                            segment)
 
     @staticmethod
-    def get_partially_satisfying_grounding(necessary_add_effects, pnad,
+    def find_unification(necessary_add_effects, pnad,
                                            segment):
         """Exposed for testing."""
         return (BackchainingSidePredicateLearner.
-                _get_partially_satisfying_grounding(necessary_add_effects,
-                                                    pnad, segment))
+                _find_unification(necessary_add_effects,
+                                    pnad, segment, True))
 
 
 def test_backchaining():
@@ -90,8 +90,8 @@ def test_backchaining():
         assert str(pnad) == repr(pnad) == exp_str
 
 
-def test_get_partially_satisfying_grounding_and_try_refining_pnad():
-    """Test the _get_partially_satisfying_grounding() and try_refining_pnad()
+def test_find_unification_and_try_refining_pnad():
+    """Test the _find_unification() and try_refining_pnad()
     methods in the BackchainingSidePredicateLearner."""
 
     human_type = Type("human_type", ["feat"])
@@ -114,7 +114,7 @@ def test_get_partially_satisfying_grounding_and_try_refining_pnad():
                               [[segment]])
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
-    ground_op = spl.get_partially_satisfying_grounding(
+    ground_op = spl.find_unification(
         {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
@@ -125,14 +125,14 @@ def test_get_partially_satisfying_grounding_and_try_refining_pnad():
     Side Predicates: []"""
     # The necessary_add_effects is empty, but the PNAD has an add effect,
     # so no grounding is possible.
-    ground_op = spl.get_partially_satisfying_grounding(
+    ground_op = spl.find_unification(
         set(), pnad, Segment(traj, set(), set(), Move))
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
     # The new preconditions are not satisfiable in the segment's init_atoms,
     # so no grounding is possible.
-    ground_op = spl.get_partially_satisfying_grounding(
+    ground_op = spl.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
     new_pnad = spl.try_specializing_pnad(
@@ -140,7 +140,7 @@ def test_get_partially_satisfying_grounding_and_try_refining_pnad():
     assert new_pnad is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
-    ground_op = spl.get_partially_satisfying_grounding(
+    ground_op = spl.find_unification(
         {Asleep([bob])}, pnad, Segment(traj, {Happy([bob])}, set(), Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
