@@ -126,7 +126,7 @@ class TouchPointEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
-        # There is only one goal in this enviornment.
+        # There is only one goal in this environment.
         goal_atom = GroundAtom(self._Touched, [self._robot, self._target])
         goal = {goal_atom}
         # The initial positions of the robot and dot vary. The only constraint
