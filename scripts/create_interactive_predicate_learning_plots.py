@@ -18,12 +18,6 @@ pd.options.mode.chained_assignment = None  # default='warn'
 DPI = 500
 FONT_SIZE = 12
 
-# Groups over which to take mean/std.
-GROUPS = [
-    "EXPERIMENT_ID",
-    "NUM_TRANSITIONS",
-]
-
 # All column names and keys to load into the pandas tables before plotting.
 COLUMN_NAMES_AND_KEYS = [
     ("EXPERIMENT_ID", "experiment_id"),
