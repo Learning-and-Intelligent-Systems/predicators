@@ -250,13 +250,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
                     CFG.horizon)
-                outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
+                outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
         num_found_policy += 1
+        log_message = None
+        make_video = False
         try:
-            if CFG.make_test_videos:
+            if CFG.make_test_videos or CFG.make_failure_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
@@ -271,23 +273,23 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             solved = task.goal_holds(traj.states[-1])
             solve_time += execution_metrics["policy_call_time"]
         except utils.EnvironmentFailure as e:
-            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                         f"Environment failed with error: {e}")
-            continue
+            log_message = f"Environment failed with error: {e}"
         except (ApproachTimeout, ApproachFailure) as e:
-            logging.info(
-                f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                f"Approach failed at policy execution time with error: {e}")
+            log_message = ("Approach failed at policy execution time with "
+                           f"error: {e}")
             total_num_execution_failures += 1
-            continue
         if solved:
-            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
+            log_message = "SOLVED"
             num_solved += 1
             total_suc_time += solve_time
+            make_video = CFG.make_test_videos
         else:
-            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy "
-                         f"failed to reach goal")
-        if CFG.make_test_videos:
+            if log_message is None:
+                log_message = "Policy failed to reach goal"
+            make_video = CFG.make_failure_videos
+        logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
+                     f"{log_message}")
+        if make_video:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
