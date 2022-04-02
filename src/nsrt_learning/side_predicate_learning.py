@@ -450,8 +450,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         new_pnad = self._try_specifizing_pnad(
                             necessary_add_effects,
                             param_opt_to_general_pnad[option.parent],
-                            segment,
-                            check_datastore_preservation=False)
+                            segment)
                         assert new_pnad is not None
                         if param_opt_to_nec_pnad.get(option.parent) is None:
                             op_num = 0
@@ -490,8 +489,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 }
 
         # Now that the add effects and preconditions are correct,
-        # recompute all datastores under the "apply_operator"
-        # semantics and make a list of all final PNADs. Note
+        # make a list of all final PNADs. Note
         # that these final PNADs only come from the
         # param_opt_to_nec_pnad dict, since we can be assured
         # that our backchaining process ensured that the
@@ -499,7 +497,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         all_pnads = []
         for pnad_list in param_opt_to_nec_pnad.values():
             for pnad in pnad_list:
-                # self._recompute_datastores_from_segments([pnad])
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
@@ -548,7 +545,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
-        check_datastore_preservation: bool = True
     ) -> Optional[PartialNSRTAndDatastore]:
         """Given a PNAD and some necessary add effects that the PNAD must
         achieve, try to make the PNAD's add effects more specific ("specifize")
@@ -591,13 +587,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Create a new PNAD with the updated parameters and add effects.
         new_pnad = self._create_new_pnad_with_params_and_add_effects(
             pnad, updated_params, updated_add_effects)
-
-        # If the new PNAD's datastore has the same length as the old PNAD's
-        # datastore, then this PNAD can indeed be edited to achieve the new
-        # necessary_add_effects, so return the new PNAD!
-        # if check_datastore_preservation and len(pnad.datastore) != len(
-        #         new_pnad.datastore):
-        #     return None
 
         return new_pnad
 
