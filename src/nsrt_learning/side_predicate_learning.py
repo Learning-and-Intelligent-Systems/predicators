@@ -354,6 +354,10 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
         preconditions = induce_pnad_preconditions(pnad)
         pnad.op = pnad.op.copy_with(preconditions=preconditions)
 
+        # Finally, remove the side predicates from these operators.
+        # These will be filled in later.
+        pnad.op = pnad.op.copy_with(side_predicates=set())
+
         return pnad
 
 
@@ -411,9 +415,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:
-                    unifies, obj_to_var = self._find_unification(
-                        necessary_add_effects, pnad, segment)
-                    if unifies:
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                       pnad, segment)
+                    if ground_op is not None:
+                        obj_to_var = dict(
+                            zip(ground_op.objects, pnad.op.parameters))
                         if param_opt_to_nec_pnad.get(option.parent) is None:
                             param_opt_to_nec_pnad[option.parent] = [pnad]
                         substitution_exists = True
@@ -422,8 +428,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 # If we weren't able to find a substitution, we need to try
                 # specifize each of our PNADs.
                 if not substitution_exists:
-                    del obj_to_var  # undefined; delete it for safety
-
                     should_split_off_new_pnad = True
                     for pnad in pnads_for_option:
                         # We now try to make the PNAD's add effects more specific.
@@ -449,8 +453,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     if should_split_off_new_pnad:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent],
-                            segment)
+                            param_opt_to_general_pnad[option.parent], segment)
                         assert new_pnad is not None
                         if param_opt_to_nec_pnad.get(option.parent) is None:
                             op_num = 0
@@ -469,9 +472,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         param_opt_to_nec_pnad[option.parent].append(pnad)
                     # After all this, the unification call that failed earlier
                     # (leading us into the current if statement) should work.
-                    unifies, obj_to_var = self._find_unification(
-                        necessary_add_effects, pnad, segment)
-                    assert unifies
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                       pnad, segment)
+                    assert ground_op is not None
+                    obj_to_var = dict(
+                        zip(ground_op.objects, pnad.op.parameters))
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -513,9 +518,13 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assert self._check_harmlessness(all_pnads)
         return all_pnads
 
-    # TODO: unify this function with get_partially_satisfying_grounding
-    def _find_unification(self, necessary_add_effects: Set[GroundAtom],
-                          pnad: PartialNSRTAndDatastore, segment: Segment):
+    def _find_unification(
+        self,
+        necessary_add_effects: Set[GroundAtom],
+        pnad: PartialNSRTAndDatastore,
+        segment: Segment,
+        find_partial_grounding: bool = False
+    ) -> Optional[_GroundSTRIPSOperator]:
         # Find a mapping from the variables in the PNAD add effects
         # and option to the objects in necessary_add_effects and the
         # segment's option. If one exists, we don't need to modify this
@@ -530,15 +539,22 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Loop over all groundings.
         for ground_op in utils.all_ground_operators_given_partial(
                 pnad.op, objects, isub):
-            if not necessary_add_effects.issubset(ground_op.add_effects):
-                continue
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
             if not ground_op.add_effects.issubset(segment.final_atoms):
                 continue
-            obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
-            return True, obj_to_var
-        return False, {}
+            # If find_partial_grounding is True, we want to find a grounding
+            # that achieves some subset of the necessary add effects. Else,
+            # we want to find a grounding that is some superset of the
+            # necessary_add_effects
+            if find_partial_grounding:
+                if not ground_op.add_effects.issubset(necessary_add_effects):
+                    continue
+            else:
+                if not necessary_add_effects.issubset(ground_op.add_effects):
+                    continue
+            return ground_op
+        return None
 
     def _try_specializing_pnad(
         self,
@@ -558,8 +574,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms and whose add
         # effects are a subset of necessary_add_effects.
-        ground_op = self._get_partially_satisfying_grounding(
-            necessary_add_effects, pnad, segment)
+        ground_op = self._find_unification(necessary_add_effects, pnad,
+                                           segment, True)
         # If no such grounding exists, specializing is not possible.
         if ground_op is None:
             return None
@@ -590,31 +606,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
         return new_pnad
 
-    @staticmethod
-    def _get_partially_satisfying_grounding(
-            necessary_add_effects: Set[GroundAtom],
-            pnad: PartialNSRTAndDatastore,
-            segment: Segment) -> Optional[_GroundSTRIPSOperator]:
-        """Get an arbitrary grounding of the PNAD's operator whose
-        preconditions hold in segment.init_atoms and whose add effects are a
-        subset of necessary_add_effects."""
-        objects = list(segment.states[0])
-        option_objs = segment.get_option().objects
-        isub = dict(zip(pnad.option_spec[1], option_objs))
-        # Loop over all groundings.
-        for ground_op in utils.all_ground_operators_given_partial(
-                pnad.op, objects, isub):
-            # Check if preconditions hold.
-            if not ground_op.preconditions.issubset(segment.init_atoms):
-                continue
-            if not ground_op.add_effects.issubset(segment.final_atoms):
-                continue
-            # Check if effects match.
-            if not ground_op.add_effects.issubset(necessary_add_effects):
-                continue
-            return ground_op
-        return None
-
     def _create_new_pnad_with_params_and_add_effects(
             self, pnad: PartialNSRTAndDatastore, parameters: List[Variable],
             add_effects: Set[LiftedAtom]) -> PartialNSRTAndDatastore:
@@ -635,7 +626,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         del pnad  # unused from here
         # Recompute datastore using the add_effects semantics.
         self._recompute_datastores_from_segments([new_pnad],
-                                                 semantics="add_effects")
+                                                semantics="add_effects")
         # Determine the preconditions.
         preconditions = induce_pnad_preconditions(new_pnad)
         # Update the preconditions of the new PNAD's operator.
