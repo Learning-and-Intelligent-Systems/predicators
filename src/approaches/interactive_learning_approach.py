@@ -305,13 +305,15 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         for result in results:
-            for state, response in zip(result.states, result.responses):
+            state_annotations: List[List[Set[GroundAtom]]] = []
+            for response in result.responses:
                 assert isinstance(response, GroundAtomsHoldResponse)
                 state_annotation: List[Set[GroundAtom]] = [set(), set()]
                 for query_atom, atom_holds in response.holds.items():
                     state_annotation[atom_holds].add(query_atom)
-                traj = LowLevelTrajectory([state], [])
-                self._dataset.append(traj, [state_annotation])
+                state_annotations.append(state_annotation)
+            traj = LowLevelTrajectory(result.states, result.actions)
+            self._dataset.append(traj, state_annotations)
         self._relearn_predicates_and_nsrts(
             online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
