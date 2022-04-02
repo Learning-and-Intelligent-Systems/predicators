@@ -257,6 +257,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         num_found_policy += 1
         log_message = None
         make_video = False
+        solved = False
         try:
             if CFG.make_test_videos or CFG.make_failure_videos:
                 monitor = utils.VideoMonitor(env.render)
