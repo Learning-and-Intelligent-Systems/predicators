@@ -94,8 +94,8 @@ class TouchPointEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # An angle in radians. Wraps around to avoid boundary issues.
-        return Box(-2 * np.pi, 2 * np.pi, (1, ))
+        # An angle in radians.
+        return Box(-np.pi, np.pi, (1, ))
 
     def render_state(self,
                      state: State,
