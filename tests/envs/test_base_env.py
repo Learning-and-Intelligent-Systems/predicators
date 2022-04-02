@@ -27,6 +27,7 @@ def test_env_creation():
             "pybullet_blocks",
             "pddl_blocks_fixed_tasks",
             "pddl_blocks_procedural_tasks",
+            "touch_point",
     ]:
         env = create_new_env(name, do_cache=True)
         assert isinstance(env, BaseEnv)
