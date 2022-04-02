@@ -466,8 +466,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     else:
                         op_num = len(param_opt_to_nec_pnad[option.parent])
                     new_pnad_op_name = new_pnad.op.name + str(op_num)
-                    new_pnad.op = new_pnad.op.copy_with(
-                        name=new_pnad_op_name)
+                    new_pnad.op = new_pnad.op.copy_with(name=new_pnad_op_name)
                     pnad = new_pnad
                     if param_opt_to_nec_pnad.get(option.parent) is None:
                         param_opt_to_nec_pnad[option.parent] = [pnad]
