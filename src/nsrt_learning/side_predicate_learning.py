@@ -431,7 +431,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         # and we are making them more specific, it is guaranteed
                         # that such a grounding exists, otherwise our 1:1
                         # option:operator assumption is violated.
-                        new_pnad = self._try_specifizing_pnad(
+                        new_pnad = self._try_specializing_pnad(
                             necessary_add_effects, pnad, segment)
                         if new_pnad is not None:
                             assert new_pnad.option_spec == pnad.option_spec
@@ -447,7 +447,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # to split from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
                     if should_split_off_new_pnad:
-                        new_pnad = self._try_specifizing_pnad(
+                        new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
                             param_opt_to_general_pnad[option.parent],
                             segment)
