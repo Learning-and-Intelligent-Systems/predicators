@@ -640,7 +640,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     if CFG.env == "repeated_nextto_painting":
         (NextTo, NextToBox, NextToShelf, NextToTable, NextToNothing) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable", "NextToNothing"])
+             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable",
+                       "NextToNothing"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
             CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
@@ -669,8 +670,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([1.0], dtype=np.float32)
 
     pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
-                            add_effects, delete_effects, set(),
-                            option, option_vars, pickfromtop_sampler)
+                            add_effects, delete_effects, set(), option,
+                            option_vars, pickfromtop_sampler)
     nsrts.add(pickfromtop_nsrt)
 
     # PickFromSide
@@ -695,8 +696,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([0.0], dtype=np.float32)
 
     pickfromside_nsrt = NSRT("PickFromSide", parameters, preconditions,
-                             add_effects, delete_effects, set(),
-                             option, option_vars, pickfromside_sampler)
+                             add_effects, delete_effects, set(), option,
+                             option_vars, pickfromside_sampler)
     nsrts.add(pickfromside_nsrt)
 
     # Wash
@@ -725,8 +726,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [obj, robot]
     option_vars = [robot]
     option = Dry
-    preconditions = {LiftedAtom(Holding, [obj]), LiftedAtom(IsWet, [obj]),
-                     LiftedAtom(IsClean, [obj])}
+    preconditions = {
+        LiftedAtom(Holding, [obj]),
+        LiftedAtom(IsWet, [obj]),
+        LiftedAtom(IsClean, [obj])
+    }
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(IsDry, [obj])}
@@ -761,8 +765,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([box_color], dtype=np.float32)
 
     painttobox_nsrt = NSRT("PaintToBox", parameters, preconditions,
-                           add_effects, delete_effects, set(),
-                           option, option_vars, painttobox_sampler)
+                           add_effects, delete_effects, set(), option,
+                           option_vars, painttobox_sampler)
     nsrts.add(painttobox_nsrt)
 
     # PaintToShelf
@@ -790,8 +794,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([shelf_color], dtype=np.float32)
 
     painttoshelf_nsrt = NSRT("PaintToShelf", parameters, preconditions,
-                             add_effects, delete_effects, set(),
-                             option, option_vars, painttoshelf_sampler)
+                             add_effects, delete_effects, set(), option,
+                             option_vars, painttoshelf_sampler)
     nsrts.add(painttoshelf_nsrt)
 
     # PlaceInBox
@@ -838,8 +842,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([x, y, z], dtype=np.float32)
 
     placeinbox_nsrt = NSRT("PlaceInBox", parameters, preconditions,
-                           add_effects, delete_effects, set(),
-                           option, option_vars, placeinbox_sampler)
+                           add_effects, delete_effects, set(), option,
+                           option_vars, placeinbox_sampler)
     nsrts.add(placeinbox_nsrt)
 
     # PlaceInShelf
@@ -885,8 +889,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([x, y, z], dtype=np.float32)
 
     placeinshelf_nsrt = NSRT("PlaceInShelf", parameters, preconditions,
-                             add_effects, delete_effects, set(),
-                             option, option_vars, placeinshelf_sampler)
+                             add_effects, delete_effects, set(), option,
+                             option_vars, placeinshelf_sampler)
     nsrts.add(placeinshelf_nsrt)
 
     # OpenLid
@@ -934,8 +938,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(HoldingSide, [obj]),
     }
 
-    # TODO: spurious Place operator
-
     def placeontable_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
@@ -950,16 +952,18 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             # Release the object at a randomly-chosen position on the table
             # such that it is NextTo the robot.
             robot_y = state.get(objs[1], "pose_y")
-            assert RepeatedNextToPaintingEnv.table_lb < robot_y < RepeatedNextToPaintingEnv.table_ub
-            y_sample_lb = robot_y - RepeatedNextToPaintingEnv.nextto_thresh
-            y_sample_ub = robot_y + RepeatedNextToPaintingEnv.nextto_thresh
+            table_lb = RepeatedNextToPaintingEnv.table_lb
+            table_ub = RepeatedNextToPaintingEnv.table_ub
+            assert table_lb < robot_y < table_ub
+            nextto_thresh = RepeatedNextToPaintingEnv.nextto_thresh
+            y_sample_lb = max(table_lb, robot_y - nextto_thresh)
+            y_sample_ub = min(table_ub, robot_y + nextto_thresh)
             y = rng.uniform(y_sample_lb, y_sample_ub)
             z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
-    placeontable_nsrt = NSRT("PlaceOnTable",
-                             parameters, preconditions, add_effects,
-                             delete_effects, set(), option,
+    placeontable_nsrt = NSRT("PlaceOnTable", parameters, preconditions,
+                             add_effects, delete_effects, set(), option,
                              option_vars, placeontable_sampler)
     nsrts.add(placeontable_nsrt)
 
@@ -978,9 +982,14 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         parameters = [robot, targetobj]
         option_vars = [robot, targetobj]
         option = MoveToObj
-        preconditions = set()
-        add_effects = {LiftedAtom(NextTo, [robot, targetobj]),
-                       LiftedAtom(NextToTable, [robot])}
+        preconditions = {
+            LiftedAtom(GripperOpen, [robot]),
+            LiftedAtom(OnTable, [targetobj])
+        }
+        add_effects = {
+            LiftedAtom(NextTo, [robot, targetobj]),
+            LiftedAtom(NextToTable, [robot])
+        }
         delete_effects = set()
         # Moving could have us end up NextTo other objects. It could also
         # include NextToNothing as a delete effect.
@@ -998,14 +1007,22 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         parameters = [robot, targetbox, obj]
         option_vars = [robot, targetbox]
         option = MoveToBox
-        preconditions = {LiftedAtom(NextTo, [robot, obj])}
-        add_effects = {LiftedAtom(NextToBox, [robot, targetbox]),
-                       LiftedAtom(NextTo, [robot, obj])}
-        delete_effects = {LiftedAtom(NextToTable, [robot])}
+        preconditions = {
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(OnTable, [obj]),
+        }
+        add_effects = {
+            LiftedAtom(NextToBox, [robot, targetbox]),
+            LiftedAtom(NextTo, [robot, obj])
+        }
+        delete_effects = {
+            LiftedAtom(NextToTable, [robot]),
+            LiftedAtom(OnTable, [obj])
+        }
         # Moving could have us end up NextTo other objects. It could also
         # include NextToNothing as a delete effect.
-        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing,
-                           OnTable}
+        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
         movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
                               add_effects, delete_effects, side_predicates,
                               option, option_vars, moveto_sampler)
@@ -1018,20 +1035,26 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         parameters = [robot, targetshelf, obj]
         option_vars = [robot, targetshelf]
         option = MoveToShelf
-        preconditions = {LiftedAtom(NextTo, [robot, obj])}
-        add_effects = {LiftedAtom(NextToShelf, [robot, targetshelf]),
-                       LiftedAtom(NextTo, [robot, obj])}
-        delete_effects = {LiftedAtom(NextToTable, [robot])}
+        preconditions = {
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(OnTable, [obj]),
+        }
+        add_effects = {
+            LiftedAtom(NextToShelf, [robot, targetshelf]),
+            LiftedAtom(NextTo, [robot, obj])
+        }
+        delete_effects = {
+            LiftedAtom(NextToTable, [robot]),
+            LiftedAtom(OnTable, [obj])
+        }
         # Moving could have us end up NextTo other objects. It could also
         # include NextToNothing as a delete effect.
-        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing,
-                           OnTable}
+        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
         movetoshelf_nsrt = NSRT("MoveToShelf", parameters, preconditions,
                                 add_effects, delete_effects, side_predicates,
                                 option, option_vars, moveto_sampler)
         nsrts.add(movetoshelf_nsrt)
-    for nsrt in sorted(nsrts):
-        print(nsrt)
 
     return nsrts
 
