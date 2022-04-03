@@ -497,6 +497,8 @@ def run_policy(
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
+                if monitor is not None:
+                    monitor.observe(state, None)
                 raise e
             if monitor is not None:
                 monitor.observe(state, act)
@@ -547,6 +549,8 @@ def run_policy_with_simulator(
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
+                if monitor is not None:
+                    monitor.observe(state, None)
                 raise e
             if monitor is not None:
                 monitor.observe(state, act)
