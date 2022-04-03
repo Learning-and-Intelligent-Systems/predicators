@@ -368,13 +368,14 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.
         param_opt_to_general_pnad = {}
-        param_opt_to_nec_pnad: Dict[ParameterizedOption,
-                                    List[PartialNSRTAndDatastore]] = {}
+        param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                     List[PartialNSRTAndDatastore]] = {}
         parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
         total_datastore_len = 0
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
             param_opt_to_general_pnad[param_opt] = pnad
+            param_opt_to_nec_pnads[param_opt] = []
             total_datastore_len += len(pnad.datastore)
         del self._initial_pnads  # no longer used
         # Assert that all data is in some PNAD's datastore.
@@ -400,19 +401,18 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 segment = seg_traj[t]
                 option = segment.get_option()
                 # Find the PNAD associated with this option.
-                if param_opt_to_nec_pnad.get(option.parent) is None:
+                if len(param_opt_to_nec_pnads[option.parent]) == 0:
                     pnads_for_option = [
                         param_opt_to_general_pnad[option.parent]
                     ]
                 else:
-                    pnads_for_option = param_opt_to_nec_pnad[option.parent]
+                    pnads_for_option = param_opt_to_nec_pnads[option.parent]
 
                 # Compute the ground atoms that must be added on this timestep.
                 # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
 
-                substitution_exists = False
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:
@@ -421,38 +421,31 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     if ground_op is not None:
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
-                        if param_opt_to_nec_pnad.get(option.parent) is None:
-                            param_opt_to_nec_pnad[option.parent] = [pnad]
-                        substitution_exists = True
+                        if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                            pnad_op_name = pnad.op.name + "0"
+                            pnad.op = pnad.op.copy_with(name=pnad_op_name)
+                            param_opt_to_nec_pnads[option.parent].append(pnad)
                         break
 
-                # If we weren't able to find a substitution, we need to try
-                # specifize each of our PNADs.
-                if not substitution_exists:
-                    should_split_off_new_pnad = True
+                # If we weren't able to find a substitution (i.e, the above)
+                # for loop did not break), we need to try
+                # specialize each of our PNADs.
+                else:
                     for pnad in pnads_for_option:
-                        # We now try to make the PNAD's add effects more
-                        # specific. Since we have started with the most
-                        # general operators, and we are making them more
-                        # specific, it is guaranteed that such a
-                        # grounding exists, otherwise our 1:1
-                        # option:operator assumption is violated.
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects, pnad, segment)
                         if new_pnad is not None:
                             assert new_pnad.option_spec == pnad.option_spec
-                            if param_opt_to_nec_pnad.get(
-                                    option.parent) is not None:
-                                param_opt_to_nec_pnad[option.parent].remove(
+                            if len(param_opt_to_nec_pnads[option.parent]) > 0:
+                                param_opt_to_nec_pnads[option.parent].remove(
                                     pnad)
                             del pnad
-                            should_split_off_new_pnad = False
                             break
 
-                    # If we were unable to specifize any of the PNADs, we need
+                    # If we were unable to specialize any of the PNADs, we need
                     # to split from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
-                    if should_split_off_new_pnad:
+                    else:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
                             param_opt_to_general_pnad[option.parent], segment)
@@ -461,17 +454,13 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # Add the new PNAD to the dictionary mapping options to
                     # PNADs.
                     assert isinstance(new_pnad, PartialNSRTAndDatastore)
-                    if param_opt_to_nec_pnad.get(option.parent) is None:
-                        op_num = 0
-                    else:
-                        op_num = len(param_opt_to_nec_pnad[option.parent])
-                    new_pnad_op_name = new_pnad.op.name + str(op_num)
-                    new_pnad.op = new_pnad.op.copy_with(name=new_pnad_op_name)
+                    if not new_pnad.op.name[-1].isdigit():
+                        op_num = len(param_opt_to_nec_pnads[option.parent])
+                        new_pnad_op_name = new_pnad.op.name + str(op_num)
+                        new_pnad.op = new_pnad.op.copy_with(
+                            name=new_pnad_op_name)
                     pnad = new_pnad
-                    if param_opt_to_nec_pnad.get(option.parent) is None:
-                        param_opt_to_nec_pnad[option.parent] = [pnad]
-                    else:
-                        param_opt_to_nec_pnad[option.parent].append(pnad)
+                    param_opt_to_nec_pnads[option.parent].append(pnad)
                     # After all this, the unification call that failed earlier
                     # (leading us into the current if statement) should work.
                     ground_op = self._find_unification(necessary_add_effects,
@@ -498,11 +487,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Now that the add effects and preconditions are correct,
         # make a list of all final PNADs. Note
         # that these final PNADs only come from the
-        # param_opt_to_nec_pnad dict, since we can be assured
+        # param_opt_to_nec_pnads dict, since we can be assured
         # that our backchaining process ensured that the
         # PNADs in this dict cover all of the data!
         all_pnads = []
-        for pnad_list in param_opt_to_nec_pnad.values():
+        for pnad_list in param_opt_to_nec_pnads.values():
             for pnad in pnad_list:
                 all_pnads.append(pnad)
 
@@ -576,8 +565,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms and whose add
         # effects are a subset of necessary_add_effects.
-        ground_op = self._find_unification(necessary_add_effects, pnad,
-                                           segment, True)
+        ground_op = self._find_unification(necessary_add_effects,
+                                           pnad,
+                                           segment,
+                                           find_partial_grounding=True)
         # If no such grounding exists, specializing is not possible.
         if ground_op is None:
             return None
