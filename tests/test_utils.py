@@ -2,7 +2,7 @@
 
 import os
 import time
-from typing import Iterator, Optional, Tuple
+from typing import Iterator, Tuple
 from typing import Type as TypingType
 
 import numpy as np
@@ -343,6 +343,31 @@ def test_run_policy():
                                      max_num_steps=3)
     assert metrics["policy_call_time"] >= 3 * 0.1
 
+    # Test with monitor in case where an uncaught exception is raised.
+    class _CountingMonitor(utils.Monitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, state, action):
+            self.num_observations += 1
+
+    def _policy(_):
+        raise ValueError("mock error")
+
+    monitor = _CountingMonitor()
+    try:
+        utils.run_policy(_policy,
+                         env,
+                         "test",
+                         0,
+                         task.goal_holds,
+                         max_num_steps=3,
+                         monitor=monitor)
+    except ValueError:
+        pass
+    assert monitor.num_observations == 1
+
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
@@ -391,7 +416,7 @@ def test_run_policy_with_simulator():
     # Test with monitor.
     class _NullMonitor(utils.Monitor):
 
-        def observe(self, state: State, action: Optional[Action]) -> None:
+        def observe(self, state, action):
             pass
 
     monitor = _NullMonitor()
@@ -403,6 +428,30 @@ def test_run_policy_with_simulator():
                                            monitor=monitor)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
+
+    # Test with monitor in case where an uncaught exception is raised.
+    class _CountingMonitor(utils.Monitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, state, action):
+            self.num_observations += 1
+
+    def _simulator(s, a):
+        raise utils.EnvironmentFailure("mock error")
+
+    monitor = _CountingMonitor()
+    try:
+        utils.run_policy_with_simulator(_policy,
+                                        _simulator,
+                                        state,
+                                        _terminal,
+                                        max_num_steps=5,
+                                        monitor=monitor)
+    except utils.EnvironmentFailure:
+        pass
+    assert monitor.num_observations == 1
 
     # Test exceptions_to_break_on.
     def _policy(_):
