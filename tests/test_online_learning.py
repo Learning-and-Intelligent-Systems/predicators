@@ -115,3 +115,23 @@ def test_interaction():
         "load_approach": True
     })
     _run_pipeline(env, approach, train_tasks, dataset)
+    # Should crash with a load failure.
+    utils.update_config({"num_online_learning_cycles": 10})
+    with pytest.raises(IndexError):
+        _run_pipeline(env, approach, train_tasks, dataset)
+    # Should succeed because all cycles are skipped. Note that we must
+    # reset_config instead of update_config because of known issues with
+    # update_config and default args.
+    utils.reset_config({
+        "num_online_learning_cycles": 10,
+        "skip_until_cycle": 11,
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 2,
+        "num_test_tasks": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
+    })
+    _run_pipeline(env, approach, train_tasks, dataset)
