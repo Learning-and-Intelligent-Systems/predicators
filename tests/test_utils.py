@@ -438,8 +438,8 @@ def test_run_policy_with_simulator():
         def observe(self, state, action):
             self.num_observations += 1
 
-    def _simulator(s, a):
-        raise utils.EnvironmentFailure("mock error")
+    def _policy(_):
+        raise ValueError("mock error")
 
     monitor = _CountingMonitor()
     try:
@@ -449,7 +449,7 @@ def test_run_policy_with_simulator():
                                         _terminal,
                                         max_num_steps=5,
                                         monitor=monitor)
-    except utils.EnvironmentFailure:
+    except ValueError:
         pass
     assert monitor.num_observations == 1
 
