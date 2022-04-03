@@ -82,20 +82,14 @@ def get_df_for_entry(
     return df
 
 
-def create_dataframes(
-    column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str],
-    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]]
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Returns means, standard deviations, and sizes.
-
-    When included, config_keys_to_include is a dict from column display
-    name to config name (in CFG).
-    """
+def create_raw_dataframe(
+    column_names_and_keys: Sequence[Tuple[str, str]],
+    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+) -> pd.DataFrame:
+    """Returns one dataframe with all data, not grouped."""
     all_data = []
     git_commit_hashes = set()
     column_names = [c for (c, _) in column_names_and_keys]
-    for group in groups:
-        assert group in column_names, f"Missing column {group}"
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             outdata = pkl.load(f)
@@ -138,6 +132,16 @@ def create_dataframes(
     # Uncomment the next line to print out ALL the raw data.
     # print(df)
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    return df
+
+
+def create_dataframes(
+    column_names_and_keys: Sequence[Tuple[str, str]],
+    groups: Sequence[str],
+    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Returns means, standard deviations, and sizes."""
+    df = create_raw_dataframe(column_names_and_keys, derived_keys)
     grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std(ddof=0)

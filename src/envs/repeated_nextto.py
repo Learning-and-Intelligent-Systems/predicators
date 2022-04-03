@@ -147,10 +147,14 @@ class RepeatedNextToEnv(BaseEnv):
         for i in range(CFG.repeated_nextto_num_dots):
             dots.append(Object(f"dot{i}", self._dot_type))
         goal1 = {GroundAtom(self._Grasped, [self._robot, dots[0]])}
-        goal2 = {GroundAtom(self._Grasped, [self._robot, dots[1]])}
+        goal2 = {
+            GroundAtom(self._Grasped, [self._robot, dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, dots[1]]),
+        }
         goal3 = {
             GroundAtom(self._Grasped, [self._robot, dots[0]]),
-            GroundAtom(self._Grasped, [self._robot, dots[1]])
+            GroundAtom(self._Grasped, [self._robot, dots[1]]),
+            GroundAtom(self._Grasped, [self._robot, dots[2]]),
         }
         goals = [goal1, goal2, goal3]
         for i in range(num):

@@ -48,6 +48,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_repeated_nextto_single_option_gt_nsrts()
     elif CFG.env.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
+    elif CFG.env == "touch_point":
+        nsrts = _get_touch_point_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1898,6 +1900,32 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
         rn_grasp_nsrt.option_vars,
         lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
     nsrts.add(grasp_nsrt)
+
+    return nsrts
+
+
+def _get_touch_point_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for TouchPointEnv."""
+    robot_type, target_type = _get_types_by_names(CFG.env, ["robot", "target"])
+    Touched, = _get_predicates_by_names(CFG.env, ["Touched"])
+    MoveTo, = _get_options_by_names(CFG.env, ["MoveTo"])
+
+    nsrts = set()
+
+    # MoveTo
+    robot = Variable("?robot", robot_type)
+    target = Variable("?target", target_type)
+    parameters = [robot, target]
+    option_vars = [robot, target]
+    option = MoveTo
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(Touched, [robot, target])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates: Set[Predicate] = set()
+    move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
+                     delete_effects, side_predicates, option, option_vars,
+                     null_sampler)
+    nsrts.add(move_nsrt)
 
     return nsrts
 
