@@ -984,7 +984,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         option = MoveToObj
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
-            LiftedAtom(OnTable, [targetobj])
         }
         add_effects = {
             LiftedAtom(NextTo, [robot, targetobj]),
@@ -1010,7 +1009,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         preconditions = {
             LiftedAtom(NextTo, [robot, obj]),
             LiftedAtom(Holding, [obj]),
-            LiftedAtom(OnTable, [obj]),
         }
         add_effects = {
             LiftedAtom(NextToBox, [robot, targetbox]),
@@ -1038,7 +1036,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         preconditions = {
             LiftedAtom(NextTo, [robot, obj]),
             LiftedAtom(Holding, [obj]),
-            LiftedAtom(OnTable, [obj]),
         }
         add_effects = {
             LiftedAtom(NextToShelf, [robot, targetshelf]),
