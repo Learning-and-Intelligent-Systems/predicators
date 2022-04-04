@@ -614,7 +614,7 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     # Test PlaceOnTable
     nsrts = get_gt_nsrts(env.predicates, env.options)
     ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
-    assert len(ptables) == 2
+    assert len(ptables) == 1
     ptable = ptables[0]
     opt = ptable.ground([obj0, robby]).sample_option(init, set(), rng)
     assert opt.objects == [robby]

@@ -31,8 +31,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         self._NextToShelf = Predicate("NextToShelf",
                                       [self._robot_type, self._shelf_type],
                                       self._NextTo_holds)
-        self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
-                                        self._NextToNothing_holds)
+        self._NextToTable = Predicate("NextToTable", [self._robot_type],
+                                      self._NextToTable_holds)
         # Additional Options
         self._MoveToObj = utils.SingletonParameterizedOption(
             "MoveToObj",
@@ -106,8 +106,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return super().predicates | {
-            self._NextTo, self._NextToBox, self._NextToShelf,
-            self._NextToNothing
+            self._NextTo, self._NextToBox, self._NextToShelf, self._NextToTable
         }
 
     @property
@@ -159,10 +158,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         return abs(state.get(robot, "pose_y") -
                    state.get(obj, "pose_y")) < self.nextto_thresh
 
-    def _NextToNothing_holds(self, state: State,
-                             objects: Sequence[Object]) -> bool:
+    def _NextToTable_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
-        types_to_check = {self._obj_type, self._box_type, self._shelf_type}
-        return not any(
-            self._NextTo_holds(state, [robot, obj])
-            for obj in state if obj.type in types_to_check)
+        return self.table_lb < state.get(robot, "pose_y") < self.table_ub

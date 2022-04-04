@@ -119,14 +119,14 @@ def test_painting_failure_cases():
     # In the first initial state, we are holding an object, because
     # painting_initial_holding_prob = 1.0
     assert Holding([obj0]) in atoms
-    # Placing it on another object causes a collision
-    with pytest.raises(utils.EnvironmentFailure):
-        x = state.get(obj1, "pose_x")
-        y = state.get(obj1, "pose_y")
-        z = state.get(obj1, "pose_z")
-        act = Place.ground([robot], np.array([x, y, z],
-                                             dtype=np.float32)).policy(state)
-        env.simulate(state, act)
+    # Placing it on another object causes a collision (noop)
+    x = state.get(obj1, "pose_x")
+    y = state.get(obj1, "pose_y")
+    z = state.get(obj1, "pose_z")
+    act = Place.ground([robot], np.array([x, y, z],
+                                         dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
     # Advance to a state where we are not holding anything
     x = state.get(obj0, "pose_x")
     y = state.get(obj0, "pose_y")
