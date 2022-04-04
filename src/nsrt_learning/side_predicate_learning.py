@@ -397,7 +397,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 segment = seg_traj[t]
                 option = segment.get_option()
                 # Find the necessary PNADs associated with this option.
-                # If there are none, then use the general PNAD ass
+                # If there are none, then use the general PNAD
                 # associated with this option.
                 if len(param_opt_to_nec_pnads[option.parent]) == 0:
                     pnads_for_option = [
