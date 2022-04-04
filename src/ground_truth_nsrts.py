@@ -638,10 +638,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
 
     if CFG.env == "repeated_nextto_painting":
-        (NextTo, NextToBox, NextToShelf, NextToTable, NextToNothing) = \
+        (NextTo, NextToBox, NextToShelf, NextToTable) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable",
-                       "NextToNothing"])
+             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
             CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
@@ -729,7 +728,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(Holding, [obj]),
         LiftedAtom(IsWet, [obj]),
-        LiftedAtom(IsClean, [obj])
     }
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
@@ -990,9 +988,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(NextToTable, [robot])
         }
         delete_effects = set()
-        # Moving could have us end up NextTo other objects. It could also
-        # include NextToNothing as a delete effect.
-        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
+        # Moving could have us end up NextTo other objects.
+        side_predicates = {NextTo, NextToBox, NextToShelf}
 
         movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions,
                               add_effects, delete_effects, side_predicates,
@@ -1018,9 +1015,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
-        # Moving could have us end up NextTo other objects. It could also
-        # include NextToNothing as a delete effect.
-        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
+        # Moving could have us end up NextTo other objects.
+        side_predicates = {NextTo, NextToBox, NextToShelf}
         movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
                               add_effects, delete_effects, side_predicates,
                               option, option_vars, moveto_sampler)
@@ -1045,9 +1041,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
-        # Moving could have us end up NextTo other objects. It could also
-        # include NextToNothing as a delete effect.
-        side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
+        # Moving could have us end up NextTo other objects.
+        side_predicates = {NextTo, NextToBox, NextToShelf}
         movetoshelf_nsrt = NSRT("MoveToShelf", parameters, preconditions,
                                 add_effects, delete_effects, side_predicates,
                                 option, option_vars, moveto_sampler)
