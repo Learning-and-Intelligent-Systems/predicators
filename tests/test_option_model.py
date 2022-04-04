@@ -115,6 +115,21 @@ def test_default_option_model():
     assert num_act == 4
     assert remembered_next_state.allclose(next_state)
 
+    # Test case where an option execution failure occurs. Expected behavior is
+    # that the transition should function as a noop.
+    def failing_policy(s, m, o, p):
+        del s, m, o, p  # unused
+        raise utils.OptionExecutionFailure("mock error")
+
+    failing_param_opt = ParameterizedOption("FailingLearnedOption", [],
+                                            params_space, failing_policy,
+                                            initiable, terminal)
+    failing_option = failing_param_opt.ground([], params2)
+    next_state, num_act = model.get_next_state_and_num_actions(
+        state, failing_option)
+    assert num_act == 0
+    assert state.allclose(next_state)
+
 
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors."""
