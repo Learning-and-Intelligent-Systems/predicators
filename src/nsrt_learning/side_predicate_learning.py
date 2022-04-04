@@ -427,9 +427,9 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                             param_opt_to_nec_pnads[option.parent].append(pnad)
                         break
 
-                # If we weren't able to find a substitution (i.e, the above)
+                # If we weren't able to find a substitution (i.e, the above
                 # for loop did not break), we need to try
-                # specialize each of our PNADs.
+                # specializing each of our PNADs.
                 else:
                     for pnad in pnads_for_option:
                         new_pnad = self._try_specializing_pnad(
