@@ -477,8 +477,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # that our backchaining process ensured that the
         # PNADs in this dict cover all of the data!
         all_pnads = []
-        for pnad_list in sorted(param_opt_to_nec_pnads.values(),
-                                key=str):
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
                 pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
                 all_pnads.append(pnad)
