@@ -108,9 +108,9 @@ def test_backchaining():
     task3 = Task(state_awake_and_sad, goal3)
     segment3 = Segment(traj3, set([Sad([bob])]), goal3, Cry)
     segment4 = Segment(traj4, set(), goal3, Cry)
-    for pnad in initial_pnads:
-        if pnad.op.name == "CryOp":
-            cry_pnad = pnad
+    cry_pnads = [pnad for pnad in initial_pnads if pnad.op.name == "CryOp"]
+    assert len(cry_pnads) == 1
+    cry_pnad = cry_pnads[0]
     # Create and run the sidelining approach.
     spl = MockBackchainingSPL(set([cry_pnad]), [traj3, traj4], [task3],
                               {Asleep, Sad}, [[segment3], [segment4]])
@@ -126,8 +126,8 @@ def test_backchaining():
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
-def test_find_unification_and_try_refining_pnad():
-    """Test the _find_unification() and try_refining_pnad() methods in the
+def test_find_unification_and_try_specializing_pnad():
+    """Test the find_unification() and try_specializing_pnad() methods in the
     BackchainingSidePredicateLearner."""
 
     human_type = Type("human_type", ["feat"])
