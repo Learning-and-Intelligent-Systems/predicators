@@ -8,7 +8,7 @@ import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
 from predicators.scripts.analyze_results_directory import \
-    create_raw_dataframe, get_df_for_entry
+    create_dataframes, get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -17,6 +17,12 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # Details about the plt figure.
 DPI = 500
 FONT_SIZE = 12
+
+# Groups over which to take mean/std.
+GROUPS = [
+    "EXPERIMENT_ID",
+    "NUM_TRANSITIONS",
+]
 
 # All column names and keys to load into the pandas tables before plotting.
 COLUMN_NAMES_AND_KEYS = [
@@ -43,6 +49,9 @@ Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     ("QUERY_COST", "Cumulative Query Cost"),
 ]
+
+# Interpolate to create smoother plots.
+NUM_INTERP_VALUES = 25
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
@@ -75,29 +84,44 @@ def _main() -> None:
                           "results")
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': FONT_SIZE})
-    df = create_raw_dataframe(COLUMN_NAMES_AND_KEYS, DERIVED_KEYS)
+    y_keys = [tup[0] for tup in Y_KEY_AND_LABEL]
     for x_key, x_label in X_KEY_AND_LABEL:
+        grouped_means, grouped_stds, _ = create_dataframes(
+            COLUMN_NAMES_AND_KEYS,
+            GROUPS,
+            DERIVED_KEYS,
+            interpolate_x=x_key,
+            interpolate_ys=y_keys,
+            num_interp_values=NUM_INTERP_VALUES)
+        means = grouped_means.reset_index()
+        stds = grouped_stds.reset_index()
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for label, color, selector in d:
-                    entry_df = get_df_for_entry(x_key, df, selector)
-                    # Draw one line per seed.
-                    for seed in entry_df["SEED"].unique():
-                        seed_df = entry_df[entry_df["SEED"] == seed]
-                        xs = seed_df[x_key]
-                        ys = seed_df[y_key]
-                        if ADD_ZERO_POINT:
-                            xs = [0] + xs
-                            ys = [0] + ys
-                        ax.plot(xs, ys, color=color, label=label, alpha=ALPHA)
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                for label, marker, selector in d:
+                    exp_means = get_df_for_entry(x_key, means, selector)
+                    exp_stds = get_df_for_entry(x_key, stds, selector)
+                    xs = exp_means[x_key].tolist()
+                    ys = exp_means[y_key].tolist()
+                    y_stds = exp_stds[y_key].tolist()
+                    if ADD_ZERO_POINT:
+                        xs = [0] + xs
+                        ys = [0] + ys
+                        y_stds = [0] + y_stds
+                    ax.errorbar(xs,
+                                ys,
+                                yerr=y_stds,
+                                label=label,
+                                marker=marker)
+                # Automatically make x ticks integers for certain X KEYS.
+                if x_key in ("CYCLE", "NUM_TRANSITIONS"):
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                elif x_key == "NUM_TRAIN_TASKS":
+                    ax.set_xticks(xs)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
-                handles, labels = plt.gca().get_legend_handles_labels()
-                by_label = dict(zip(labels, handles))
-                plt.legend(by_label.values(), by_label.keys())
+                plt.legend()
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()

@@ -1,11 +1,12 @@
 """Script to analyze the results of experiments in the results/ directory."""
 
 import glob
-from typing import Callable, Dict, Sequence, Tuple
+from typing import Callable, Collection, Dict, Optional, Sequence, Tuple
 
 import dill as pkl
 import numpy as np
 import pandas as pd
+from scipy import interpolate
 
 from predicators.src.settings import CFG
 
@@ -85,6 +86,9 @@ def get_df_for_entry(
 def create_raw_dataframe(
     column_names_and_keys: Sequence[Tuple[str, str]],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+    interpolate_x: Optional[str] = None,
+    interpolate_ys: Optional[Collection[str]] = None,
+    num_interp_values: int = 100,
 ) -> pd.DataFrame:
     """Returns one dataframe with all data, not grouped."""
     all_data = []
@@ -126,6 +130,9 @@ def create_raw_dataframe(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
+    if interpolate_ys:
+        for column in interpolate_ys:
+            df[column] = _interpolate_column(df[interpolate_x], df[column], num_interp_values)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
@@ -139,14 +146,23 @@ def create_dataframes(
     column_names_and_keys: Sequence[Tuple[str, str]],
     groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
+    interpolate_x: Optional[str] = None,
+    interpolate_ys: Optional[Collection[str]] = None,
+    num_interp_values: int = 100,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
-    df = create_raw_dataframe(column_names_and_keys, derived_keys)
+    df = create_raw_dataframe(column_names_and_keys, derived_keys, interpolate_x, interpolate_ys, num_interp_values)
     grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std(ddof=0)
     sizes = grouped.size()
     return means, stds, sizes
+
+
+def _interpolate_column(x: pd.Series, y: pd.Series, num_interps: int) -> pd.Series:
+    f = interpolate.interp1d(x, y)
+    xnew = np.linspace(x.min(), x.max(), num_interps)
+    return pd.Series(data=f(xnew))
 
 
 def _main() -> None:
