@@ -44,7 +44,7 @@ def test_known_options_option_learner():
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4
-    option_learner = create_option_learner()
+    option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 1
@@ -83,7 +83,7 @@ def test_oracle_option_learner_cover():
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 3
-    option_learner = create_option_learner()
+    option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 3
     assert len(env.options) == 1
@@ -127,7 +127,7 @@ def test_oracle_option_learner_blocks():
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4
-    option_learner = create_option_learner()
+    option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 3
@@ -183,7 +183,8 @@ def test_learned_neural_parameterized_option():
     regressor.fit(X_arr_regressor, Y_arr_regressor)
     param_option = _LearnedNeuralParameterizedOption("LearnedOption1",
                                                      pick_operator, regressor,
-                                                     changing_parameters)
+                                                     changing_parameters,
+                                                     env.action_space)
     assert param_option.name == "LearnedOption1"
     assert param_option.types == [p.type for p in pick_operator.parameters]
     assert param_option.params_space.shape == (param_dim, )
@@ -231,8 +232,9 @@ def test_create_option_learner():
         "num_train_tasks": 3,
         "option_learner": "not a real option learner"
     })
+    env = create_new_env("blocks")
     with pytest.raises(NotImplementedError):
-        create_option_learner()
+        create_option_learner(env.action_space)
 
 
 @longrun

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import List, Set
 
+from gym.spaces import Box
+
 from predicators.src import utils
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
@@ -22,6 +24,7 @@ from predicators.src.structs import NSRT, LowLevelTrajectory, \
 
 def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                           train_tasks: List[Task], predicates: Set[Predicate],
+                          action_space: Box,
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
@@ -99,7 +102,7 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
         pnads = side_pred_learner.sideline()
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads)  # in-place update
+    _learn_pnad_options(pnads, action_space)  # in-place update
 
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
@@ -113,9 +116,10 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     return set(nsrts)
 
 
-def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
+def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
+                        action_space: Box) -> None:
     logging.info("\nDoing option learning...")
-    option_learner = create_option_learner()
+    option_learner = create_option_learner(action_space)
     strips_ops = []
     datastores = []
     for pnad in pnads:
