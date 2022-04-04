@@ -130,8 +130,8 @@ def create_raw_dataframe(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
-    if x_key and y_keys:
-        _interpolate_columns(df, x_key, y_keys, num_interp_values)
+    # if x_key and y_keys:
+    #     _interpolate_columns(df, x_key, y_keys, num_interp_values)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
