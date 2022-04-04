@@ -420,13 +420,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
                         if len(param_opt_to_nec_pnads[option.parent]) == 0:
-
-                            # new_pnad_op_name = pnad.op.name + "0"
-                            # new_pnad_op = pnad.op.copy_with(
-                            #     name=new_pnad_op_name)
-                            # new_pnad = PartialNSRTAndDatastore(
-                            #     new_pnad_op, pnad.datastore, pnad.option_spec)
-
                             param_opt_to_nec_pnads[option.parent].append(pnad)
                         break
                 # If we weren't able to find a substitution (i.e, the above
@@ -451,17 +444,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                             necessary_add_effects,
                             param_opt_to_general_pnad[option.parent], segment)
                         assert new_pnad is not None
-
-                    # Add the new PNAD to the dictionary mapping options to
-                    # PNADs. Note that even if there are more than 10
-                    # PNADs associated with an option, the below check will
-                    # still work.
-
-                    # if not new_pnad.op.name[-1].isdigit():
-                    #     op_num = len(param_opt_to_nec_pnads[option.parent])
-                    #     new_pnad_op_name = new_pnad.op.name + str(op_num)
-                    #     new_pnad.op = new_pnad.op.copy_with(
-                    #         name=new_pnad_op_name)
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
