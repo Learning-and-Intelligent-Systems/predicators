@@ -9,7 +9,7 @@ def test_get_allowed_query_type_names():
     utils.reset_config()
     assert get_allowed_query_type_names() == set()
     utils.reset_config({
-        "option_learner": "neural",
+        "option_learner": "direct_bc",
     })
     assert get_allowed_query_type_names() == {"PathToStateQuery"}
     utils.reset_config({

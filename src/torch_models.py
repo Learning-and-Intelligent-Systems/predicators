@@ -18,7 +18,27 @@ from predicators.src.structs import Array, Object, State
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
-class MLPRegressor(nn.Module):
+class Regressor(abc.ABC):
+    """ABC for regressor classes."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, Y: Array) -> None:
+        """Train regressor on the given data.
+
+        X and Y are both multi-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+    @abc.abstractmethod
+    def predict(self, arr: Array) -> Array:
+        """Return a prediction for the given datapoint.
+
+        arr is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+
+class MLPRegressor(Regressor, nn.Module):
     """A basic multilayer perceptron regressor."""
 
     def __init__(self) -> None:  # pylint: disable=useless-super-delegation
@@ -47,9 +67,9 @@ class MLPRegressor(nn.Module):
         x = self._linears[-1](x)
         return x
 
-    def predict(self, inputs: Array) -> Array:
+    def predict(self, arr: Array) -> Array:
         """Normalize, predict, un-normalize, and convert to array."""
-        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        x = torch.from_numpy(np.array(arr, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
         x = (x - self._input_shift) / self._input_scale

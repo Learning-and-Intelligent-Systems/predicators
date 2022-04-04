@@ -156,7 +156,7 @@ def test_learned_neural_parameterized_option():
     # Create a _LearnedNeuralParameterizedOption() for the cover Pick operator.
     utils.reset_config({
         "env": "cover_multistep_options",
-        "option_learner": "neural",
+        "option_learner": "direct_bc",
         "mlp_regressor_max_itr": 10,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
@@ -243,7 +243,7 @@ def test_option_learning_approach_multistep_cover():
     utils.reset_config({
         "env": "cover_multistep_options",
         "approach": "nsrt_learning",
-        "option_learner": "neural",
+        "option_learner": "direct_bc",
         "sampler_learner": "oracle",
         "num_train_tasks": 10,
         "num_test_tasks": 10,
