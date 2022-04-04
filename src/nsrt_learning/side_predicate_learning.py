@@ -354,10 +354,6 @@ class GeneralToSpecificSidePredicateLearner(SidePredicateLearner):
         preconditions = induce_pnad_preconditions(pnad)
         pnad.op = pnad.op.copy_with(preconditions=preconditions)
 
-        # Finally, remove the side predicates from these operators.
-        # These will be filled in later.
-        pnad.op = pnad.op.copy_with(side_predicates=set())
-
         return pnad
 
 
