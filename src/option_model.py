@@ -87,12 +87,17 @@ class _OracleOptionModel(_OptionModelBase):
             option_copy = env_param_opt.ground(option.objects, option.params)
         del option  # unused after this
         assert option_copy.initiable(state)
-        traj = utils.run_policy_with_simulator(
-            option_copy.policy,
-            self._simulator,
-            state,
-            option_copy.terminal,
-            max_num_steps=CFG.max_num_steps_option_rollout)
+        try:
+            traj = utils.run_policy_with_simulator(
+                option_copy.policy,
+                self._simulator,
+                state,
+                option_copy.terminal,
+                max_num_steps=CFG.max_num_steps_option_rollout)
+        except utils.OptionExecutionFailure:
+            # If there is a failure during the execution of the option, treat
+            # this as a noop.
+            return state, 0
         # Note that in the case of using a PyBullet environment, the
         # second return value (num_actions) will be an underestimate
         # since we are not actually rolling out the option in the full
