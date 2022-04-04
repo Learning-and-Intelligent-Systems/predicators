@@ -121,7 +121,7 @@ def test_neural_option_learning():
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   option_learner="neural",
+                   option_learner="bc",
                    check_solution=False,
                    additional_settings={
                        "cover_multistep_thr_percent": 0.99,

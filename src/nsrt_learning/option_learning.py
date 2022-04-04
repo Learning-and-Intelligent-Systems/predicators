@@ -24,8 +24,10 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
-    if CFG.option_learner == "neural":
-        return _NeuralOptionLearner()
+    if CFG.option_learner == "bc":
+        return _BehaviorCloningOptionLearner()
+    if CFG.option_learner == "implicit_bc":
+        return _ImplicitBehaviorCloningOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -449,3 +451,11 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         assert all(o.type == v.type for o, v in zip(objects, opt_vars))
         option = param_opt.ground(objects, params)
         segment.set_option(option)
+
+
+class _BehaviorCloningOptionLearner(_NeuralOptionLearner):
+    """TODO."""
+
+
+class _ImplicitBehaviorCloningOptionLearner(_NeuralOptionLearner):
+    """TODO."""
