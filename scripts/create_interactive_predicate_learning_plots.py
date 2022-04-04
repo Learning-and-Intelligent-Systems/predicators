@@ -85,20 +85,29 @@ def _main() -> None:
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': FONT_SIZE})
     y_keys = [tup[0] for tup in Y_KEY_AND_LABEL]
+    grouped_means, grouped_stds, _ = create_dataframes(
+        COLUMN_NAMES_AND_KEYS,
+        GROUPS,
+        DERIVED_KEYS,
+        x_key="NUM_TRANSITIONS",
+        y_keys=y_keys,
+        num_interp_values=NUM_INTERP_VALUES)
+    means = grouped_means.reset_index()
+    stds = grouped_stds.reset_index()
     for x_key, x_label in X_KEY_AND_LABEL:
-        grouped_means, grouped_stds, _ = create_dataframes(
-            COLUMN_NAMES_AND_KEYS,
-            GROUPS,
-            DERIVED_KEYS,
-            interpolate_x=x_key,
-            interpolate_ys=y_keys,
-            num_interp_values=NUM_INTERP_VALUES)
-        means = grouped_means.reset_index()
-        stds = grouped_stds.reset_index()
+        # grouped_means, grouped_stds, _ = create_dataframes(
+        #     COLUMN_NAMES_AND_KEYS,
+        #     GROUPS,
+        #     DERIVED_KEYS,
+        #     x_key=x_key,
+        #     y_keys=y_keys,
+        #     num_interp_values=NUM_INTERP_VALUES)
+        # means = grouped_means.reset_index()
+        # stds = grouped_stds.reset_index()
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for label, marker, selector in d:
+                for label, color, selector in d:
                     exp_means = get_df_for_entry(x_key, means, selector)
                     exp_stds = get_df_for_entry(x_key, stds, selector)
                     xs = exp_means[x_key].tolist()
@@ -112,7 +121,7 @@ def _main() -> None:
                                 ys,
                                 yerr=y_stds,
                                 label=label,
-                                marker=marker)
+                                color=color)
                 # Automatically make x ticks integers for certain X KEYS.
                 if x_key in ("CYCLE", "NUM_TRANSITIONS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))

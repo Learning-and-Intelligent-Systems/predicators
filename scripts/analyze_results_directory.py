@@ -86,8 +86,8 @@ def get_df_for_entry(
 def create_raw_dataframe(
     column_names_and_keys: Sequence[Tuple[str, str]],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
-    interpolate_x: Optional[str] = None,
-    interpolate_ys: Optional[Collection[str]] = None,
+    x_key: Optional[str] = None,
+    y_keys: Optional[Collection[str]] = None,
     num_interp_values: int = 100,
 ) -> pd.DataFrame:
     """Returns one dataframe with all data, not grouped."""
@@ -130,14 +130,13 @@ def create_raw_dataframe(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
-    if interpolate_ys:
-        for column in interpolate_ys:
-            df[column] = _interpolate_column(df[interpolate_x], df[column], num_interp_values)
+    if x_key and y_keys:
+        _interpolate_columns(df, x_key, y_keys, num_interp_values)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
     # Uncomment the next line to print out ALL the raw data.
-    # print(df)
+    print(df)
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     return df
 
@@ -146,12 +145,12 @@ def create_dataframes(
     column_names_and_keys: Sequence[Tuple[str, str]],
     groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]],
-    interpolate_x: Optional[str] = None,
-    interpolate_ys: Optional[Collection[str]] = None,
+    x_key: Optional[str] = None,
+    y_keys: Optional[Collection[str]] = None,
     num_interp_values: int = 100,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
-    df = create_raw_dataframe(column_names_and_keys, derived_keys, interpolate_x, interpolate_ys, num_interp_values)
+    df = create_raw_dataframe(column_names_and_keys, derived_keys, x_key, y_keys, num_interp_values)
     grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std(ddof=0)
@@ -159,10 +158,15 @@ def create_dataframes(
     return means, stds, sizes
 
 
-def _interpolate_column(x: pd.Series, y: pd.Series, num_interps: int) -> pd.Series:
-    f = interpolate.interp1d(x, y)
-    xnew = np.linspace(x.min(), x.max(), num_interps)
-    return pd.Series(data=f(xnew))
+def _interpolate_columns(df: pd.DataFrame, x_key: str, y_keys: Collection[str], num_interps: int) -> None:
+    x = df[x_key]
+    x_new = np.linspace(x.min(), x.max(), num_interps)
+    for y_key in y_keys:
+        f = interpolate.interp1d(x, df[y_key])
+        data = f(x_new)
+        print(data)
+        df[y_key] = pd.Series(data=f(x_new))
+    df[x_key] = pd.Series(data=x_new)
 
 
 def _main() -> None:
