@@ -453,7 +453,6 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
 
                     # Add the new PNAD to the dictionary mapping options to
                     # PNADs.
-                    assert isinstance(new_pnad, PartialNSRTAndDatastore)
                     if not new_pnad.op.name[-1].isdigit():
                         op_num = len(param_opt_to_nec_pnads[option.parent])
                         new_pnad_op_name = new_pnad.op.name + str(op_num)
