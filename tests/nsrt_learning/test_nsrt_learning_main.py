@@ -30,6 +30,7 @@ def test_nsrt_learning_specific_nsrts():
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
+    action_space = Box(0, 1, (1, ))
     param_option1 = utils.SingletonParameterizedOption(
         "Dummy", lambda s, m, o, p: Action(p), params_space=Box(0.1, 1, (1, )))
     option1 = param_option1.ground([], np.array([0.2]))
@@ -38,7 +39,10 @@ def test_nsrt_learning_specific_nsrts():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="neural")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -75,7 +79,10 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="random")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="random")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -117,7 +124,10 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="random")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -159,7 +169,10 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="random")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -183,7 +196,10 @@ def test_nsrt_learning_specific_nsrts():
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_nsrt": 3})
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="random")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="random")
     assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
     utils.update_config({
@@ -192,7 +208,10 @@ def test_nsrt_learning_specific_nsrts():
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
     })
-    nsrts = learn_nsrts_from_data(dataset, [], preds, sampler_learner="neural")
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):

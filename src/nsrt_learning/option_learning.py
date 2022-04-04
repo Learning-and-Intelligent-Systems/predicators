@@ -18,14 +18,14 @@ from predicators.src.torch_models import MLPRegressor
 from predicators.src.utils import OptionExecutionFailure
 
 
-def create_option_learner() -> _OptionLearnerBase:
+def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
     if CFG.option_learner == "neural":
-        return _NeuralOptionLearner()
+        return _NeuralOptionLearner(action_space)
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -267,7 +267,8 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
     def __init__(self, name: str, operator: STRIPSOperator,
                  regressor: MLPRegressor,
-                 changing_parameters: Sequence[Variable]) -> None:
+                 changing_parameters: Sequence[Variable],
+                 action_space: Box) -> None:
         assert set(changing_parameters).issubset(set(operator.parameters))
         changing_parameter_idxs = [
             i for i, v in enumerate(operator.parameters)
@@ -282,6 +283,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         self._operator = operator
         self._regressor = regressor
         self._changing_parameter_idxs = changing_parameter_idxs
+        self._action_space = action_space
         super().__init__(name,
                          types,
                          params_space,
@@ -313,6 +315,8 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         action_arr = self._regressor.predict(x)
         if np.isnan(action_arr).any():
             raise OptionExecutionFailure("Option policy returned nan.")
+        action_arr = np.clip(action_arr, self._action_space.low,
+                             self._action_space.high)
         return Action(np.array(action_arr, dtype=np.float32))
 
     def _effect_based_terminal(self, state: State, memory: Dict,
@@ -345,8 +349,10 @@ class _NeuralOptionLearner(_OptionLearnerBase):
     via supervised learning) in learn_option_specs().
     """
 
-    def __init__(self) -> None:
+    def __init__(self, action_space: Box) -> None:
         super().__init__()
+        # Actions are clipped to stay within the action space.
+        self._action_space = action_space
         # While learning the policy, we record the map from each segment to
         # the option parameterization, so we don't need to recompute it in
         # update_segment_from_option_spec.
@@ -426,7 +432,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
             # Construct the ParameterizedOption for this operator.
             name = f"{op.name}LearnedOption"
             parameterized_option = _LearnedNeuralParameterizedOption(
-                name, op, regressor, changing_parameters)
+                name, op, regressor, changing_parameters, self._action_space)
             option_specs.append((parameterized_option, list(op.parameters)))
 
         return option_specs
