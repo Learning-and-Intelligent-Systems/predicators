@@ -53,6 +53,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             trajectories,
             self._train_tasks,
             self._get_current_predicates(),
+            self._action_space,
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
