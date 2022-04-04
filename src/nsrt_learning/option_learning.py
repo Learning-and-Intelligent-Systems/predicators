@@ -317,53 +317,53 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             raise OptionExecutionFailure("Option policy returned nan.")
 
         # TODO: TEMPORARY!!! REMOVE!!!
-        from predicators.src.envs import get_or_create_env
-        from predicators.src.structs import DefaultTask
-        from predicators.src import utils
-        import matplotlib as mpl
-        import matplotlib.pyplot as plt
-        import imageio
-        import glob
-        import os
-        assert CFG.env == "touch_point"
-        env = get_or_create_env(CFG.env)
-        env_imgs = env.render_state(state, DefaultTask)
-        assert len(env_imgs) == 1
-        env_img = env_imgs[0]
-        assert env.action_space.shape == (1, )
-        low, high = env.action_space.low, env.action_space.high
-        # Reference: https://stackoverflow.com/questions/31940285/
-        yval = np.linspace(low, high, 250).squeeze()
-        norm_ys = (yval - self._regressor._output_shift) / self._regressor._output_scale
-        norm_x = (x - self._regressor._input_shift) / self._regressor._input_scale
-        concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys])
-        colorvals = self._regressor.forward(concat_inputs).detach().numpy()
-        colormap = plt.get_cmap('Greens')
-        norm = mpl.colors.Normalize(0, 1)
-        dpi = 300
-        fig_height = env_img.shape[0] / dpi
-        fig_width = fig_height
-        ax = plt.subplot(1, 1, 1, polar=True)
-        fig = plt.gcf()
-        fig.set_size_inches((fig_height, fig_width))
-        ax.scatter(yval, np.ones_like(yval), c=colorvals, s=100,
-                   cmap=colormap, norm=norm, linewidths=0, alpha=0.5)
-        ax.axis('off')
-        plt.tight_layout()
-        energy_img = utils.fig2data(fig, dpi=dpi)
-        plt.close()
-        img = np.hstack([env_img, energy_img])
-        outdir = "/tmp"
-        existing_filenames = [os.path.split(f)[-1]
-            for f in glob.glob(os.path.join(outdir, "option_img*.png"))]
-        existing_nums = {int(f.split(".")[0][len("option_img"):])
-            for f in existing_filenames}
-        if not existing_nums:
-            num = 0
-        else:
-            num = max(existing_nums) + 1
-        outfile = os.path.join(outdir, f"option_img{num}.png")
-        imageio.imsave(outfile, img)
+        # from predicators.src.envs import get_or_create_env
+        # from predicators.src.structs import DefaultTask
+        # from predicators.src import utils
+        # import matplotlib as mpl
+        # import matplotlib.pyplot as plt
+        # import imageio
+        # import glob
+        # import os
+        # assert CFG.env == "touch_point"
+        # env = get_or_create_env(CFG.env)
+        # env_imgs = env.render_state(state, DefaultTask)
+        # assert len(env_imgs) == 1
+        # env_img = env_imgs[0]
+        # assert env.action_space.shape == (1, )
+        # low, high = env.action_space.low, env.action_space.high
+        # # Reference: https://stackoverflow.com/questions/31940285/
+        # yval = np.linspace(low, high, 250).squeeze()
+        # norm_ys = (yval - self._regressor._output_shift) / self._regressor._output_scale
+        # norm_x = (x - self._regressor._input_shift) / self._regressor._input_scale
+        # concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys])
+        # colorvals = self._regressor.forward(concat_inputs).detach().numpy()
+        # colormap = plt.get_cmap('Greens')
+        # norm = mpl.colors.Normalize(0, 1)
+        # dpi = 300
+        # fig_height = env_img.shape[0] / dpi
+        # fig_width = fig_height
+        # ax = plt.subplot(1, 1, 1, polar=True)
+        # fig = plt.gcf()
+        # fig.set_size_inches((fig_height, fig_width))
+        # ax.scatter(yval, np.ones_like(yval), c=colorvals, s=100,
+        #            cmap=colormap, norm=norm, linewidths=0, alpha=0.5)
+        # ax.axis('off')
+        # plt.tight_layout()
+        # energy_img = utils.fig2data(fig, dpi=dpi)
+        # plt.close()
+        # img = np.hstack([env_img, energy_img])
+        # outdir = "/tmp"
+        # existing_filenames = [os.path.split(f)[-1]
+        #     for f in glob.glob(os.path.join(outdir, "option_img*.png"))]
+        # existing_nums = {int(f.split(".")[0][len("option_img"):])
+        #     for f in existing_filenames}
+        # if not existing_nums:
+        #     num = 0
+        # else:
+        #     num = max(existing_nums) + 1
+        # outfile = os.path.join(outdir, f"option_img{num}.png")
+        # imageio.imsave(outfile, img)
 
         return Action(np.array(action_arr, dtype=np.float32))
 
