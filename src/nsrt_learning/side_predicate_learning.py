@@ -396,7 +396,9 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
                 option = segment.get_option()
-                # Find the PNAD associated with this option.
+                # Find the necessary PNADs associated with this option.
+                # If there are none, then use the general PNAD ass
+                # associated with this option.
                 if len(param_opt_to_nec_pnads[option.parent]) == 0:
                     pnads_for_option = [
                         param_opt_to_general_pnad[option.parent]
@@ -418,8 +420,13 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
                         if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                            pnad_op_name = pnad.op.name + "0"
-                            pnad.op = pnad.op.copy_with(name=pnad_op_name)
+
+                            # new_pnad_op_name = pnad.op.name + "0"
+                            # new_pnad_op = pnad.op.copy_with(
+                            #     name=new_pnad_op_name)
+                            # new_pnad = PartialNSRTAndDatastore(
+                            #     new_pnad_op, pnad.datastore, pnad.option_spec)
+
                             param_opt_to_nec_pnads[option.parent].append(pnad)
                         break
                 # If we weren't able to find a substitution (i.e, the above
@@ -437,7 +444,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                             del pnad
                             break
                     # If we were unable to specialize any of the PNADs, we need
-                    # to split from the most general PNAD and make a new PNAD
+                    # to spawn from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
                     else:
                         new_pnad = self._try_specializing_pnad(
@@ -449,11 +456,13 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     # PNADs. Note that even if there are more than 10
                     # PNADs associated with an option, the below check will
                     # still work.
-                    if not new_pnad.op.name[-1].isdigit():
-                        op_num = len(param_opt_to_nec_pnads[option.parent])
-                        new_pnad_op_name = new_pnad.op.name + str(op_num)
-                        new_pnad.op = new_pnad.op.copy_with(
-                            name=new_pnad_op_name)
+
+                    # if not new_pnad.op.name[-1].isdigit():
+                    #     op_num = len(param_opt_to_nec_pnads[option.parent])
+                    #     new_pnad_op_name = new_pnad.op.name + str(op_num)
+                    #     new_pnad.op = new_pnad.op.copy_with(
+                    #         name=new_pnad_op_name)
+
                     pnad = new_pnad
                     del new_pnad  # unused from here
                     param_opt_to_nec_pnads[option.parent].append(pnad)
@@ -486,8 +495,10 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # that our backchaining process ensured that the
         # PNADs in this dict cover all of the data!
         all_pnads = []
-        for pnad_list in param_opt_to_nec_pnads.values():
-            for pnad in pnad_list:
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(),
+                                key=lambda pnad: str(pnad)):
+            for i, pnad in enumerate(pnad_list):
+                pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
@@ -507,7 +518,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
-        find_partial_grounding: bool = False
+        ground_eff_subset_necessary_eff: bool = False
     ) -> Optional[_GroundSTRIPSOperator]:
         """Find a mapping from the variables in the PNAD add effects and option
         to the objects in necessary_add_effects and the segment's option.
@@ -517,10 +528,13 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         assuming all variables in the parameters of the PNAD will appear
         in either the option arguments or the add effects. This is in
         contrast to strips_learning.py, where delete effect variables
-        also contribute to parameters. If find_partial_grounding is
-        True, we want to find a grounding that achieves some subset of
-        the necessary_add_effects. Else, we want to find a grounding
-        that is some superset of the necessary_add_effects.
+        also contribute to parameters. If
+        ground_eff_subset_necessary_eff is True, we want to find a
+        grounding that achieves some subset of the
+        necessary_add_effects. Else, we want to find a grounding that is
+        some superset of the necessary_add_effects and also such that
+        the ground operator's add effects are always true in the
+        segment's final atoms.
         """
         objects = list(segment.states[0])
         option_objs = segment.get_option().objects
@@ -530,7 +544,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                 pnad.op, objects, isub):
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
-            if find_partial_grounding:
+            if ground_eff_subset_necessary_eff:
                 if not ground_op.add_effects.issubset(necessary_add_effects):
                     continue
             else:
@@ -559,10 +573,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms and whose add
         # effects are a subset of necessary_add_effects.
-        ground_op = self._find_unification(necessary_add_effects,
-                                           pnad,
-                                           segment,
-                                           find_partial_grounding=True)
+        ground_op = self._find_unification(
+            necessary_add_effects,
+            pnad,
+            segment,
+            ground_eff_subset_necessary_eff=True)
         # If no such grounding exists, specializing is not possible.
         if ground_op is None:
             return None
