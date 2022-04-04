@@ -7,7 +7,6 @@ import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
-from gym.spaces import Box
 
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
