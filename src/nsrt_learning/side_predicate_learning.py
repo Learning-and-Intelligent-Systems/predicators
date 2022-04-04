@@ -1,7 +1,7 @@
 """Methods for learning to sideline predicates in NSRTs."""
 
 import abc
-from typing import FrozenSet, Iterator, List, Optional, Set, Tuple, cast
+from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
@@ -11,7 +11,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, ObjToVarSub, OptionSpec, ParameterizedOption, \
+    LowLevelTrajectory, OptionSpec, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Variable, _GroundNSRT, _GroundSTRIPSOperator
 
@@ -363,12 +363,15 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
     def _sideline(self) -> List[PartialNSRTAndDatastore]:
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.
-        param_opt_to_pnad = {}
+        param_opt_to_general_pnad = {}
+        param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                     List[PartialNSRTAndDatastore]] = {}
         parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
         total_datastore_len = 0
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
-            param_opt_to_pnad[param_opt] = pnad
+            param_opt_to_general_pnad[param_opt] = pnad
+            param_opt_to_nec_pnads[param_opt] = []
             total_datastore_len += len(pnad.datastore)
         del self._initial_pnads  # no longer used
         # Assert that all data is in some PNAD's datastore.
@@ -393,54 +396,65 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
                 option = segment.get_option()
-                # Find the PNAD associated with this option.
-                pnad = param_opt_to_pnad[option.parent]
+                # Find the necessary PNADs associated with this option.
+                # If there are none, then use the general PNAD
+                # associated with this option.
+                if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                    pnads_for_option = [
+                        param_opt_to_general_pnad[option.parent]
+                    ]
+                else:
+                    pnads_for_option = param_opt_to_nec_pnads[option.parent]
+
                 # Compute the ground atoms that must be added on this timestep.
                 # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
 
-                # Find a mapping from the variables in the PNAD add effects
-                # and option to the objects in necessary_add_effects and the
-                # segment's option. If one exists, we don't need to modify this
-                # PNAD. Otherwise, we must make its add effects more specific.
-                # Note that we are assuming all variables in the parameters
-                # of the PNAD will appear in either the option arguments or
-                # the add effects. This is in contrast to strips_learning.py,
-                # where delete effect variables also contribute to parameters.
-                opt_pred = Predicate("OPT-ARGS",
-                                     [a.type for a in pnad.option_spec[1]],
-                                     _classifier=lambda s, o: False)  # dummy
-                opt_vars_atom = frozenset(
-                    {LiftedAtom(opt_pred, pnad.option_spec[1])})
-                opt_objs_atom = frozenset(
-                    {GroundAtom(opt_pred, option.objects)})
-                unifies, obj_to_var_ent = utils.find_substitution(
-                    pnad.op.add_effects | opt_vars_atom,
-                    necessary_add_effects | opt_objs_atom)
-                obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
+                # We start by checking if any of the PNADs associated with the
+                # demonstrated option are able to match this transition.
+                for pnad in pnads_for_option:
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                       pnad, segment)
+                    if ground_op is not None:
+                        obj_to_var = dict(
+                            zip(ground_op.objects, pnad.op.parameters))
+                        if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                            param_opt_to_nec_pnads[option.parent].append(pnad)
+                        break
+                # If we weren't able to find a substitution (i.e, the above
+                # for loop did not break), we need to try
+                # specializing each of our PNADs.
+                else:
+                    for pnad in pnads_for_option:
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects, pnad, segment)
+                        if new_pnad is not None:
+                            assert new_pnad.option_spec == pnad.option_spec
+                            if len(param_opt_to_nec_pnads[option.parent]) > 0:
+                                param_opt_to_nec_pnads[option.parent].remove(
+                                    pnad)
+                            del pnad
+                            break
+                    # If we were unable to specialize any of the PNADs, we need
+                    # to spawn from the most general PNAD and make a new PNAD
+                    # to cover these necessary add effects.
+                    else:
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects,
+                            param_opt_to_general_pnad[option.parent], segment)
+                        assert new_pnad is not None
 
-                if not unifies:  # we need to make add effects more specific
-                    del obj_to_var  # undefined; delete it for safety
-                    # We now try to make the PNAD's add effects more specific.
-                    # Since we have started with the most general operators,
-                    # and we are making them more specific, it is guaranteed
-                    # that such a grounding exists, otherwise our 1:1
-                    # option:operator assumption is violated.
-                    new_pnad = self._try_specializing_pnad(
-                        necessary_add_effects, pnad, segment)
-                    assert new_pnad is not None, "1:1 assumption violated"
-                    assert new_pnad.option_spec == pnad.option_spec
                     pnad = new_pnad
                     del new_pnad  # unused from here
-                    param_opt_to_pnad[option.parent] = pnad
+                    param_opt_to_nec_pnads[option.parent].append(pnad)
                     # After all this, the unification call that failed earlier
                     # (leading us into the current if statement) should work.
-                    unifies, obj_to_var_ent = utils.find_substitution(
-                        pnad.op.add_effects | opt_vars_atom,
-                        necessary_add_effects | opt_objs_atom)
-                    obj_to_var = cast(ObjToVarSub, obj_to_var_ent)
-                    assert unifies
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                       pnad, segment)
+                    assert ground_op is not None
+                    obj_to_var = dict(
+                        zip(ground_op.objects, pnad.op.parameters))
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -456,18 +470,71 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
                     for a in pnad.op.preconditions
                 }
 
+        # Now that the add effects and preconditions are correct,
+        # make a list of all final PNADs. Note
+        # that these final PNADs only come from the
+        # param_opt_to_nec_pnads dict, since we can be assured
+        # that our backchaining process ensured that the
+        # PNADs in this dict cover all of the data!
+        all_pnads = []
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
+            for i, pnad in enumerate(pnad_list):
+                pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
+                all_pnads.append(pnad)
+
         # At this point, all PNADs have correct parameters, preconditions,
         # and add effects. We now finalize the delete effects and side
         # predicates. Note that we have to do delete effects first, and
         # then side predicates, because the latter rely on the former.
-        for pnad in param_opt_to_pnad.values():
+        for pnad in all_pnads:
             self._finalize_pnad_delete_effects(pnad)
             self._finalize_pnad_side_predicates(pnad)
 
         # Before returning, sanity check that harmlessness holds.
-        final_pnads = list(param_opt_to_pnad.values())
-        assert self._check_harmlessness(final_pnads)
-        return final_pnads
+        assert self._check_harmlessness(all_pnads)
+        return all_pnads
+
+    @staticmethod
+    def _find_unification(
+        necessary_add_effects: Set[GroundAtom],
+        pnad: PartialNSRTAndDatastore,
+        segment: Segment,
+        ground_eff_subset_necessary_eff: bool = False
+    ) -> Optional[_GroundSTRIPSOperator]:
+        """Find a mapping from the variables in the PNAD add effects and option
+        to the objects in necessary_add_effects and the segment's option.
+
+        If one exists, we don't need to modify this PNAD. Otherwise, we
+        must make its add effects more specific. Note that we are
+        assuming all variables in the parameters of the PNAD will appear
+        in either the option arguments or the add effects. This is in
+        contrast to strips_learning.py, where delete effect variables
+        also contribute to parameters. If
+        ground_eff_subset_necessary_eff is True, we want to find a
+        grounding that achieves some subset of the
+        necessary_add_effects. Else, we want to find a grounding that is
+        some superset of the necessary_add_effects and also such that
+        the ground operator's add effects are always true in the
+        segment's final atoms.
+        """
+        objects = list(segment.states[0])
+        option_objs = segment.get_option().objects
+        isub = dict(zip(pnad.option_spec[1], option_objs))
+        # Loop over all groundings.
+        for ground_op in utils.all_ground_operators_given_partial(
+                pnad.op, objects, isub):
+            if not ground_op.preconditions.issubset(segment.init_atoms):
+                continue
+            if ground_eff_subset_necessary_eff:
+                if not ground_op.add_effects.issubset(necessary_add_effects):
+                    continue
+            else:
+                if not ground_op.add_effects.issubset(segment.final_atoms):
+                    continue
+                if not necessary_add_effects.issubset(ground_op.add_effects):
+                    continue
+            return ground_op
+        return None
 
     def _try_specializing_pnad(
         self,
@@ -487,8 +554,11 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms and whose add
         # effects are a subset of necessary_add_effects.
-        ground_op = self._get_partially_satisfying_grounding(
-            necessary_add_effects, pnad, segment)
+        ground_op = self._find_unification(
+            necessary_add_effects,
+            pnad,
+            segment,
+            ground_eff_subset_necessary_eff=True)
         # If no such grounding exists, specializing is not possible.
         if ground_op is None:
             return None
@@ -516,30 +586,8 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         # Create a new PNAD with the updated parameters and add effects.
         new_pnad = self._create_new_pnad_with_params_and_add_effects(
             pnad, updated_params, updated_add_effects)
-        return new_pnad
 
-    @staticmethod
-    def _get_partially_satisfying_grounding(
-            necessary_add_effects: Set[GroundAtom],
-            pnad: PartialNSRTAndDatastore,
-            segment: Segment) -> Optional[_GroundSTRIPSOperator]:
-        """Get an arbitrary grounding of the PNAD's operator whose
-        preconditions hold in segment.init_atoms and whose add effects are a
-        subset of necessary_add_effects."""
-        objects = list(segment.states[0])
-        option_objs = segment.get_option().objects
-        isub = dict(zip(pnad.option_spec[1], option_objs))
-        # Loop over all groundings.
-        for ground_op in utils.all_ground_operators_given_partial(
-                pnad.op, objects, isub):
-            # Check if preconditions hold.
-            if not ground_op.preconditions.issubset(segment.init_atoms):
-                continue
-            # Check if effects match.
-            if not ground_op.add_effects.issubset(necessary_add_effects):
-                continue
-            return ground_op
-        return None
+        return new_pnad
 
     def _create_new_pnad_with_params_and_add_effects(
             self, pnad: PartialNSRTAndDatastore, parameters: List[Variable],
