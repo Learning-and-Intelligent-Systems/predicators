@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
+import scipy.optimize
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn, optim
@@ -146,25 +147,41 @@ class ImplicitMLPRegressor(MLPRegressor):
         """Sample, classify, return the sample with the highest probability."""
         # Normalize the inputs.
         inputs = (inputs - self._input_shift) / self._input_scale
-        # Draw many samples.
-        # TODO: consider SGD here instead.
-        # TODO: hyperparameter.
-        num_samples = 100
-        assert self._y_dim is not None
-        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
-        # Concatenate the x and ys.
         x = np.array(inputs, dtype=np.float32)
-        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
-                             dtype=np.float32)
-        assert concat_xy.shape == (num_samples, len(x) + self._y_dim)
-        concat_inputs = torch.from_numpy(concat_xy)
-        # Pass through network.
-        scores = self(concat_inputs)
-        # Find the highest probability sample.
-        sample_idx = torch.argmax(scores)
-        selected_y = sample_ys[sample_idx]
+        # TODO: hyperparameters.
+        num_samples = 100
+        inference_method = "zero_order_optimize"
+        if inference_method == "zero_order_optimize":
+            y0 = self._rng.uniform(size=self._y_dim).astype(np.float32)
+
+            def objective(y: Array) -> float:
+                concat_xy = np.hstack([x, y])
+                concat_inputs = torch.from_numpy(concat_xy)
+                score = self(concat_inputs.unsqueeze(dim=0)).squeeze(dim=0)
+                return -score.item()
+
+            result = scipy.optimize.basinhopping(objective,
+                                                 y0,
+                                                 niter=num_samples)
+            unnorm_y = result.x[0]
+        elif inference_method == "sample_once":
+            assert self._y_dim is not None
+            sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
+            # Concatenate the x and ys.
+            concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
+                                 dtype=np.float32)
+            assert concat_xy.shape == (num_samples, len(x) + self._y_dim)
+            concat_inputs = torch.from_numpy(concat_xy)
+            # Pass through network.
+            scores = self(concat_inputs)
+            # Find the highest probability sample.
+            sample_idx = torch.argmax(scores)
+            unnorm_y = sample_ys[sample_idx]
+        else:
+            raise ValueError("Unrecognized inference method: "
+                             f"{inference_method}.")
         # Denormalize the sample.
-        denorm_y = (selected_y * self._output_scale) + self._output_shift
+        denorm_y = (unnorm_y * self._output_scale) + self._output_shift
         return denorm_y
 
     def _fit(self, inputs: Array, outputs: Array) -> None:
