@@ -14,7 +14,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
-from predicators.src.torch_models import MLPRegressor
+from predicators.src.torch_models import ImplicitMLPRegressor, MLPRegressor
 from predicators.src.utils import OptionExecutionFailure
 
 
@@ -355,6 +355,10 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object],
                                                         Array]] = {}
 
+    @abc.abstractmethod
+    def _create_regressor(self) -> MLPRegressor:
+        raise NotImplementedError("Override me!")
+
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         option_specs: List[Tuple[ParameterizedOption, List[Variable]]] = []
@@ -419,7 +423,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
-            regressor = MLPRegressor()
+            regressor = self._create_regressor()
             logging.info("Fitting regressor with X shape: "
                          f"{X_arr_regressor.shape}, Y shape: "
                          f"{Y_arr_regressor.shape}.")
@@ -454,8 +458,14 @@ class _NeuralOptionLearner(_OptionLearnerBase):
 
 
 class _BehaviorCloningOptionLearner(_NeuralOptionLearner):
-    """TODO."""
+    """Uses direct behavior cloning."""
+
+    def _create_regressor(self) -> MLPRegressor:
+        return MLPRegressor()
 
 
 class _ImplicitBehaviorCloningOptionLearner(_NeuralOptionLearner):
-    """TODO."""
+    """Uses implicit behavior cloning."""
+
+    def _create_regressor(self) -> MLPRegressor:
+        return ImplicitMLPRegressor()

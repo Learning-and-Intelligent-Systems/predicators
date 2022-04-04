@@ -126,6 +126,142 @@ class MLPRegressor(nn.Module):
         logging.info(f"Loaded best model with loss: {loss:.5f}")
 
 
+class ImplicitMLPRegressor(MLPRegressor):
+    """Learns an energy function."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._max_itr = CFG.mlp_regressor_max_itr
+        self._y_dim: Optional[int] = None  # set in fit
+        self._rng = np.random.default_rng(CFG.seed)
+        torch.manual_seed(CFG.seed)
+
+    def forward(self, concat_inputs: Array) -> Tensor:
+        """Pytorch forward method."""
+        x = super().forward(concat_inputs)
+        # This is fundamentally a binary classifier.
+        return torch.sigmoid(x.squeeze(dim=-1))
+
+    def predict(self, inputs: Array) -> Array:
+        """Sample, classify, return the sample with the highest probability."""
+        # Normalize the inputs.
+        inputs = (inputs - self._input_shift) / self._input_scale
+        # Draw many samples.
+        # TODO: consider SGD here instead.
+        # TODO: hyperparameter.
+        num_samples = 100
+        assert self._y_dim is not None
+        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
+        # Concatenate the x and ys.
+        x = np.array(inputs, dtype=np.float32)
+        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, len(x) + self._y_dim)
+        concat_inputs = torch.from_numpy(concat_xy)
+        # Pass through network.
+        scores = self(concat_inputs)
+        # Find the highest probability sample.
+        sample_idx = torch.argmax(scores)
+        selected_y = sample_ys[sample_idx]
+        # Denormalize the sample.
+        denorm_y = (selected_y * self._output_scale) + self._output_shift
+        return denorm_y
+
+    def _fit(self, inputs: Array, outputs: Array) -> None:
+        # Record the dimensions.
+        _, x_dim = inputs.shape
+        _, self._y_dim = outputs.shape
+        # Initialize the network.
+        input_size = x_dim + self._y_dim
+        hid_sizes = CFG.mlp_regressor_hid_sizes
+        output_size = 1
+        self._initialize_net(input_size, hid_sizes, output_size)
+        # Normalize data.
+        inputs, self._input_shift, self._input_scale = \
+            self._normalize_data_np(inputs)
+        outputs, self._output_shift, self._output_scale = \
+            self._normalize_data_np(outputs)
+        # Concatenate the positive inputs and outputs.
+        positive_concat_inputs = np.hstack([inputs, outputs])
+        # Create negative data.
+        neg_inputs, neg_outputs = self._create_negative_data(inputs, outputs)
+        negative_concat_inputs = np.hstack([neg_inputs, neg_outputs])
+        # Create one set of inputs and binary classification outputs.
+        concat_inputs = np.vstack(
+            [positive_concat_inputs,
+             negative_concat_inputs]).astype(np.float32)
+        labels = np.array([1 for _ in positive_concat_inputs] +
+                          [0 for _ in negative_concat_inputs],
+                          dtype=np.float32)
+        # Convert data to torch
+        X = torch.from_numpy(concat_inputs)
+        y = torch.from_numpy(labels)
+        # Train
+        logging.info(f"Training {self.__class__.__name__} on {X.shape[0]} "
+                     "datapoints")
+        self.train()  # switch to train mode
+        itr = 0
+        best_loss = float("inf")
+        best_itr = 0
+        n_iter_no_change = CFG.mlp_classifier_n_iter_no_change
+        model_name = tempfile.NamedTemporaryFile(delete=False).name
+        loss_fn = nn.BCELoss()
+        optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
+        while True:
+            yhat = self(X)
+            loss = loss_fn(yhat, y)
+            if loss.item() < best_loss:
+                best_loss = loss.item()
+                best_itr = itr
+                # Save this best model
+                torch.save(self.state_dict(), model_name)
+            if itr % 1000 == 0:
+                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}")
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if itr == self._max_itr:
+                break
+            if itr - best_itr > n_iter_no_change:
+                logging.info(f"Loss did not improve after {n_iter_no_change} "
+                             f"itrs, terminating at itr {itr}.")
+                break
+            itr += 1
+        # Load best model
+        self.load_state_dict(torch.load(model_name))  # type: ignore
+        os.remove(model_name)
+        self.eval()  # switch to eval mode
+        yhat = self(X)
+        loss = loss_fn(yhat, y)
+        logging.info(f"Loaded best model with loss: {loss:.5f}")
+
+    def _create_negative_data(self, pos_inputs: Array,
+                              pos_outputs: Array) -> Tuple[Array, Array]:
+        del pos_outputs  # unused for now
+        # TODO consider other ways to do this
+        # TODO hyperparameter
+        num_neg_samples_per_input = 5
+        neg_input_lst = []
+        neg_output_lst = []
+        for pos_input in pos_inputs:
+            assert self._y_dim is not None
+            neg_outputs = self._rng.uniform(size=(num_neg_samples_per_input,
+                                                  self._y_dim))
+            for neg_output in neg_outputs:
+                neg_input_lst.append(pos_input)
+                neg_output_lst.append(neg_output)
+        neg_inputs = np.array(neg_input_lst, dtype=np.float32)
+        neg_outputs = np.array(neg_output_lst, dtype=np.float32)
+        return neg_inputs, neg_outputs  # type: ignore
+
+    @staticmethod
+    def _normalize_data_np(data: Array) -> Tuple[Array, Array, Array]:
+        shift = np.min(data, axis=0)  # type: ignore
+        scale = np.max(data - shift, axis=0)  # type: ignore
+        scale = np.clip(scale, CFG.normalization_scale_clip, None)
+        return (data - shift) / scale, shift, scale
+
+
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition."""
 
