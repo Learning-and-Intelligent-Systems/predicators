@@ -146,6 +146,99 @@ class MLPRegressor(Regressor, nn.Module):
         logging.info(f"Loaded best model with loss: {loss:.5f}")
 
 
+class ImplicitMLPRegressor(Regressor):
+    """A regressor implemented via an energy function (binary classifier).
+
+    Negative examples are generated within the class.
+
+    Inference is currently performed by sampling a fixed number of possible
+    inputs and returning the sample that has the highest probability of
+    classifying to 1, under the learned classifier. Other inference methods are
+    coming soon.
+    """
+    def __init__(self) -> None:
+        self._rng = np.random.default_rng(CFG.seed)
+        # Set in fit().
+        self._x_dim = 0
+        self._y_dim = 0
+        self._input_shift = np.zeros(0, dtype=np.float32)
+        self._input_scale = np.zeros(0, dtype=np.float32)
+        self._output_shift = np.zeros(0, dtype=np.float32)
+        self._output_scale = np.zeros(0, dtype=np.float32)
+        self._classifier = MLPClassifier(0, 0)
+
+    def fit(self, X: Array, Y: Array) -> None:
+        # Normalize everything right off the bat for simplicity.
+        X, self._input_shift, self._input_scale = self._normalize_data(X)
+        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
+        # Initialize the classifier.
+        num_data, self._x_dim = X.shape
+        assert Y.shape[0] == num_data
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+        self._y_dim = Y.shape[1]
+        self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
+                                         max_itr=CFG.mlp_regressor_max_itr)
+        # Create the negative data.
+        neg_X, neg_Y = self._create_negative_data(X, Y)
+        # Set up the data for the classifier.
+        pos_concat_inputs = np.hstack([X, Y])
+        neg_concat_inputs = np.hstack([neg_X, neg_Y])
+        concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
+        targets = np.array([1 for _ in pos_concat_inputs] +
+                           [0 for _ in neg_concat_inputs],
+                           dtype=np.float32)
+        # Train the classifier.
+        self._classifier.fit(concat_inputs, targets)
+
+    def _create_negative_data(self, X: Array, Y: Array) -> Tuple[Array, Array]:
+        """This makes the assumption that negative data are far, far more
+        common than positive data. Under this assumption, the negative data are
+        simply randomly sampled. There may be false negatives in general, but
+        they should be rare, under the assumption."""
+        # Note that the data has already been normalized.
+        del Y  # unused for now, but may be used in the future.
+        num_samples = CFG.implicit_mlp_regressor_num_negative_data_per_input
+        neg_input_lst = []
+        neg_output_lst = []
+        for pos_input in X:
+            samples = self._rng.uniform(size=(num_samples, self._y_dim))
+            for neg_output in samples:
+                neg_input_lst.append(pos_input)
+                neg_output_lst.append(neg_output)
+        neg_inputs = np.array(neg_input_lst, dtype=np.float32)
+        neg_outputs = np.array(neg_output_lst, dtype=np.float32)
+        return neg_inputs, neg_outputs
+
+    def predict(self, arr: Array) -> Array:
+        # This sampling-based inference method is okay in 1 dimension, but
+        # won't work well with higher dimensions.
+        assert arr.shape == (self._x_dim, )
+        num_samples = CFG.implicit_mlp_regressor_num_samples_per_inference
+        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
+        # Concatenate the x and ys.
+        concat_xy = np.array([np.hstack([arr, y]) for y in sample_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        # Pass through network.
+        scores = self._classifier.predict_proba(concat_xy)
+        # Find the highest probability sample.
+        sample_idx = np.argmax(scores)
+        unnorm_y = sample_ys[sample_idx]
+        # Denormalize.
+        denorm_y = (unnorm_y * self._output_scale) + self._output_shift
+        return denorm_y
+
+    @staticmethod
+    def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
+        shift = np.min(data, axis=0)  # type: ignore
+        scale = np.max(data - shift, axis=0)  # type: ignore
+        scale = np.clip(scale, CFG.normalization_scale_clip, None)
+        return (data - shift) / scale, shift, scale
+
+
+
+
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition."""
 
@@ -400,6 +493,10 @@ class MLPClassifier(Classifier, nn.Module):
     def normalize(self, x: Array) -> Array:
         """Apply shift and scale to the input."""
         return (x - self._input_shift) / self._input_scale
+
+    def predict_proba(self, X: Array) -> Array:
+        """Get the predicted probability that the input classifies to 1."""
+        return self(X).detach().numpy()
 
     def _classify(self, x: Array) -> bool:
         return self(x).item() > 0.5

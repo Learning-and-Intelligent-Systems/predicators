@@ -6,7 +6,7 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, MLPRegressor, \
-    NeuralGaussianRegressor
+    NeuralGaussianRegressor, ImplicitMLPRegressor
 
 
 def test_basic_mlp_regressor():
@@ -35,6 +35,31 @@ def test_basic_mlp_regressor():
     expected_y = 75 * np.ones(output_size)
     assert predicted_y.shape == expected_y.shape
     assert np.allclose(predicted_y, expected_y, atol=1e-2)
+
+
+def test_implicit_mlp_regressor():
+    """Tests for ImplicitMLPRegressor."""
+    utils.reset_config({"mlp_regressor_max_itr": 100})
+    input_size = 3
+    output_size = 1
+    num_samples = 5
+    model = ImplicitMLPRegressor()
+    X = np.ones((num_samples, input_size))
+    Y = np.zeros((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = np.zeros(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-1)
+    # Test with nonzero outputs.
+    Y = 75 * np.ones((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    predicted_y = model.predict(x)
+    expected_y = 75 * np.ones(output_size)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-1)
 
 
 def test_neural_gaussian_regressor():
