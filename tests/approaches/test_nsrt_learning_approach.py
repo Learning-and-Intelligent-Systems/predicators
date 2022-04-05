@@ -133,6 +133,17 @@ def test_neural_option_learning():
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,
                    })
+    _test_approach(env_name="touch_point",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   option_learner="implicit_bc",
+                   check_solution=False,
+                   additional_settings={
+                       "implicit_mlp_regressor_max_itr": 10,
+                       "implicit_mlp_regressor_num_negative_data_per_input": 1,
+                       "implicit_mlp_regressor_num_samples_per_inference": 1,
+                   })
 
 
 def test_oracle_samplers():
