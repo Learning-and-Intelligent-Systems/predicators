@@ -5,8 +5,8 @@ import time
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.torch_models import MLPClassifier, MLPRegressor, \
-    NeuralGaussianRegressor, ImplicitMLPRegressor
+from predicators.src.torch_models import ImplicitMLPRegressor, MLPClassifier, \
+    MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -39,7 +39,7 @@ def test_basic_mlp_regressor():
 
 def test_implicit_mlp_regressor():
     """Tests for ImplicitMLPRegressor."""
-    utils.reset_config({"mlp_regressor_max_itr": 100})
+    utils.reset_config({"implicit_mlp_regressor_max_itr": 100})
     input_size = 3
     output_size = 1
     num_samples = 5

@@ -156,16 +156,17 @@ class ImplicitMLPRegressor(Regressor):
     classifying to 1, under the learned classifier. Other inference methods are
     coming soon.
     """
+
     def __init__(self) -> None:
         self._rng = np.random.default_rng(CFG.seed)
         # Set in fit().
         self._x_dim = 0
         self._y_dim = 0
-        self._input_shift = np.zeros(0, dtype=np.float32)
-        self._input_scale = np.zeros(0, dtype=np.float32)
-        self._output_shift = np.zeros(0, dtype=np.float32)
-        self._output_scale = np.zeros(0, dtype=np.float32)
-        self._classifier = MLPClassifier(0, 0)
+        self._input_shift = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.zeros(1, dtype=np.float32)
+        self._output_shift = np.zeros(1, dtype=np.float32)
+        self._output_scale = np.zeros(1, dtype=np.float32)
+        self._classifier = MLPClassifier(1, 1)
 
     def fit(self, X: Array, Y: Array) -> None:
         # Normalize everything right off the bat for simplicity.
@@ -177,8 +178,9 @@ class ImplicitMLPRegressor(Regressor):
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
         self._y_dim = Y.shape[1]
+        max_itr = CFG.implicit_mlp_regressor_max_itr
         self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
-                                         max_itr=CFG.mlp_regressor_max_itr)
+                                         max_itr=max_itr)
         # Create the negative data.
         neg_X, neg_Y = self._create_negative_data(X, Y)
         # Set up the data for the classifier.
@@ -193,9 +195,12 @@ class ImplicitMLPRegressor(Regressor):
 
     def _create_negative_data(self, X: Array, Y: Array) -> Tuple[Array, Array]:
         """This makes the assumption that negative data are far, far more
-        common than positive data. Under this assumption, the negative data are
-        simply randomly sampled. There may be false negatives in general, but
-        they should be rare, under the assumption."""
+        common than positive data.
+
+        Under this assumption, the negative data are simply randomly
+        sampled. There may be false negatives in general, but they
+        should be rare, under the assumption.
+        """
         # Note that the data has already been normalized.
         del Y  # unused for now, but may be used in the future.
         num_samples = CFG.implicit_mlp_regressor_num_negative_data_per_input
@@ -214,10 +219,12 @@ class ImplicitMLPRegressor(Regressor):
         # This sampling-based inference method is okay in 1 dimension, but
         # won't work well with higher dimensions.
         assert arr.shape == (self._x_dim, )
+        # Normalize.
+        x = (arr - self._input_shift) / self._input_scale
         num_samples = CFG.implicit_mlp_regressor_num_samples_per_inference
         sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
         # Concatenate the x and ys.
-        concat_xy = np.array([np.hstack([arr, y]) for y in sample_ys],
+        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
                              dtype=np.float32)
         assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
         # Pass through network.
@@ -235,8 +242,6 @@ class ImplicitMLPRegressor(Regressor):
         scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
-
-
 
 
 class NeuralGaussianRegressor(nn.Module):

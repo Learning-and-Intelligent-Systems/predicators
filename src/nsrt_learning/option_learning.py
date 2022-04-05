@@ -14,7 +14,8 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
-from predicators.src.torch_models import MLPRegressor, Regressor
+from predicators.src.torch_models import ImplicitMLPRegressor, MLPRegressor, \
+    Regressor
 from predicators.src.utils import OptionExecutionFailure
 
 
@@ -26,6 +27,8 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
         return _OracleOptionLearner()
     if CFG.option_learner == "direct_bc":
         return _DirectBehaviorCloningOptionLearner(action_space)
+    if CFG.option_learner == "implicit_bc":
+        return _ImplicitBehaviorCloningOptionLearner(action_space)
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -465,3 +468,10 @@ class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
 
     def _create_regressor(self) -> Regressor:
         return MLPRegressor()
+
+
+class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
+    """Use an ImplicitMLPRegressor for regression."""
+
+    def _create_regressor(self) -> Regressor:
+        return ImplicitMLPRegressor()
