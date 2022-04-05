@@ -73,6 +73,9 @@ PLOT_TYPE = "single_lines"  # single_lines or seed_lines
 # Line transparency for seed line plots.
 SEED_LINE_ALPHA = 0.5
 
+# Fill between transparency for single line plots.
+FILL_BETWEEN_ALPHA = 0.25
+
 # Number of interpolation x ticks for the single line plots.
 NUM_INTERP_POINTS = 10
 
@@ -131,8 +134,13 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         mean_ys = np.mean(all_interp_ys, axis=0)
         std_ys = np.std(all_interp_ys, axis=0)
         assert len(mean_ys) == len(std_ys) == len(new_xs)
-        # Create an error bar.
-        ax.errorbar(new_xs, mean_ys, yerr=std_ys, label=label, color=color)
+        # Create the line.
+        ax.plot(new_xs, mean_ys, label=label, color=color)
+        ax.fill_between(new_xs,
+                        mean_ys - std_ys,
+                        mean_ys + std_ys,
+                        color=color,
+                        alpha=FILL_BETWEEN_ALPHA)
     # Add a legend.
     plt.legend()
 
