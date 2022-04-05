@@ -65,7 +65,7 @@ PLOT_GROUPS = {
 }
 
 # If True, add (0, 0) to every plot.
-ADD_ZERO_POINT = True
+ADD_ZERO_POINT = False
 
 # Plot type.
 PLOT_TYPE = "single_lines"  # single_lines or seed_lines
@@ -90,8 +90,8 @@ def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
         # Draw one line per seed.
         for seed in entry_df["SEED"].unique():
             seed_df = entry_df[entry_df["SEED"] == seed]
-            xs = seed_df[x_key]
-            ys = seed_df[y_key]
+            xs = seed_df[x_key].tolist()
+            ys = seed_df[y_key].tolist()
             if ADD_ZERO_POINT:
                 xs = [0] + xs
                 ys = [0] + ys
@@ -111,8 +111,8 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         all_xs, all_ys = [], []
         for seed in entry_df["SEED"].unique():
             seed_df = entry_df[entry_df["SEED"] == seed]
-            xs = seed_df[x_key]
-            ys = seed_df[y_key]
+            xs = seed_df[x_key].tolist()
+            ys = seed_df[y_key].tolist()
             if ADD_ZERO_POINT:
                 xs = [0] + xs
                 ys = [0] + ys
@@ -161,7 +161,6 @@ def _main() -> None:
                     _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
