@@ -1,11 +1,13 @@
 """Create plots for interactive predicate learning."""
 
 import os
+from typing import Callable, Sequence, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
+from scipy import interpolate
 
 from predicators.scripts.analyze_results_directory import \
     create_raw_dataframe, get_df_for_entry
@@ -61,13 +63,85 @@ PLOT_GROUPS = {
     ],
 }
 
-# If True, add (0, 0) to every plot
-ADD_ZERO_POINT = True
+# If True, add (0, 0) to every plot.
+ADD_ZERO_POINT = False
 
-# Line transparency.
-ALPHA = 0.5
+# Plot type.
+PLOT_TYPE = "single_lines"  # single_lines or seed_lines
+
+# Line transparency for seed line plots.
+SEED_LINE_ALPHA = 0.5
+
+# Fill between transparency for single line plots.
+FILL_BETWEEN_ALPHA = 0.25
+
+# Number of interpolation x ticks for the single line plots.
+NUM_INTERP_POINTS = 10
 
 #################### Should not need to change below here #####################
+
+
+def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
+                           plot_group: Sequence[Tuple[str, str, Callable]],
+                           x_key: str, y_key: str) -> None:
+    for label, color, selector in plot_group:
+        entry_df = get_df_for_entry(x_key, df, selector)
+        # Draw one line per seed.
+        for seed in entry_df["SEED"].unique():
+            seed_df = entry_df[entry_df["SEED"] == seed]
+            xs = seed_df[x_key].tolist()
+            ys = seed_df[y_key].tolist()
+            if ADD_ZERO_POINT:
+                xs = [0] + xs
+                ys = [0] + ys
+            ax.plot(xs, ys, color=color, label=label, alpha=SEED_LINE_ALPHA)
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
+
+def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
+                             plot_group: Sequence[Tuple[str, str, Callable]],
+                             x_key: str, y_key: str) -> None:
+    for label, color, selector in plot_group:
+        entry_df = get_df_for_entry(x_key, df, selector)
+        # Draw one line total. To make sure the x ticks are aligned, we will
+        # interpolate.
+        all_xs, all_ys = [], []
+        for seed in entry_df["SEED"].unique():
+            seed_df = entry_df[entry_df["SEED"] == seed]
+            xs = seed_df[x_key].tolist()
+            ys = seed_df[y_key].tolist()
+            if ADD_ZERO_POINT:
+                xs = [0] + xs
+                ys = [0] + ys
+            all_xs.append(xs)
+            all_ys.append(ys)
+        # The max/min pattern here is so that we never have to extrapolate,
+        # we only ever interpolate.
+        min_x = max(min(seed_x) for seed_x in all_xs)
+        max_x = min(max(seed_x) for seed_x in all_xs)
+        # Create one consistent set of x ticks.
+        new_xs = np.linspace(min_x, max_x, NUM_INTERP_POINTS)
+        # Create the interpolated y data.
+        all_interp_ys = []
+        for xs, ys in zip(all_xs, all_ys):
+            f = interpolate.interp1d(xs, ys)
+            interp_ys = f(new_xs)
+            all_interp_ys.append(interp_ys)
+        # Get means and stds.
+        mean_ys = np.mean(all_interp_ys, axis=0)
+        std_ys = np.std(all_interp_ys, axis=0)
+        assert len(mean_ys) == len(std_ys) == len(new_xs)
+        # Create the line.
+        ax.plot(new_xs, mean_ys, label=label, color=color)
+        ax.fill_between(new_xs,
+                        mean_ys - std_ys,
+                        mean_ys + std_ys,
+                        color=color,
+                        alpha=FILL_BETWEEN_ALPHA)
+    # Add a legend.
+    plt.legend()
 
 
 def _main() -> None:
@@ -80,24 +154,15 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for label, color, selector in d:
-                    entry_df = get_df_for_entry(x_key, df, selector)
-                    # Draw one line per seed.
-                    for seed in entry_df["SEED"].unique():
-                        seed_df = entry_df[entry_df["SEED"] == seed]
-                        xs = seed_df[x_key]
-                        ys = seed_df[y_key]
-                        if ADD_ZERO_POINT:
-                            xs = [0] + xs
-                            ys = [0] + ys
-                        ax.plot(xs, ys, color=color, label=label, alpha=ALPHA)
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                if PLOT_TYPE == "seed_lines":
+                    _create_seed_line_plot(ax, df, d, x_key, y_key)
+                elif PLOT_TYPE == "single_lines":
+                    _create_single_line_plot(ax, df, d, x_key, y_key)
+                else:
+                    raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
-                handles, labels = plt.gca().get_legend_handles_labels()
-                by_label = dict(zip(labels, handles))
-                plt.legend(by_label.values(), by_label.keys())
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
