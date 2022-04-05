@@ -284,7 +284,8 @@ class PaintingEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 1.0)
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
-        next_state.set(held_obj, "pose_z", z)
+        if self._update_z_poses:
+            next_state.set(held_obj, "pose_z", z)
         next_state.set(held_obj, "grasp", 0.5)
         next_state.set(held_obj, "held", 0.0)
         return next_state
