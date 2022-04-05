@@ -14,7 +14,8 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
-from predicators.src.torch_models import MLPRegressor
+from predicators.src.torch_models import ImplicitMLPRegressor, MLPRegressor, \
+    Regressor
 from predicators.src.utils import OptionExecutionFailure
 
 
@@ -24,8 +25,10 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
-    if CFG.option_learner == "neural":
-        return _NeuralOptionLearner(action_space)
+    if CFG.option_learner == "direct_bc":
+        return _DirectBehaviorCloningOptionLearner(action_space)
+    if CFG.option_learner == "implicit_bc":
+        return _ImplicitBehaviorCloningOptionLearner(action_space)
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -266,8 +269,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     """
 
     def __init__(self, name: str, operator: STRIPSOperator,
-                 regressor: MLPRegressor,
-                 changing_parameters: Sequence[Variable],
+                 regressor: Regressor, changing_parameters: Sequence[Variable],
                  action_space: Box) -> None:
         assert set(changing_parameters).issubset(set(operator.parameters))
         changing_parameter_idxs = [
@@ -337,7 +339,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         return False
 
 
-class _NeuralOptionLearner(_OptionLearnerBase):
+class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
 
     See the docstring for _LearnedNeuralParameterizedOption for a description
@@ -358,6 +360,10 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         # update_segment_from_option_spec.
         self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object],
                                                         Array]] = {}
+
+    @abc.abstractmethod
+    def _create_regressor(self) -> Regressor:
+        raise NotImplementedError("Override me!")
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
@@ -413,7 +419,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
                 assert len(segment.states) == len(segment.actions) + 1
                 for state, action in zip(segment.states, segment.actions):
                     state_features = state.vec(all_objects_in_operator)
-                    # Compute the relative goal vector this segment.
+                    # Compute the relative goal vector for this segment.
                     relative_goal_vec = absolute_params - state.vec(
                         changing_objects)
                     # Add a bias term for regression.
@@ -423,7 +429,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
-            regressor = MLPRegressor()
+            regressor = self._create_regressor()
             logging.info("Fitting regressor with X shape: "
                          f"{X_arr_regressor.shape}, Y shape: "
                          f"{Y_arr_regressor.shape}.")
@@ -455,3 +461,17 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         assert all(o.type == v.type for o, v in zip(objects, opt_vars))
         option = param_opt.ground(objects, params)
         segment.set_option(option)
+
+
+class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
+    """Use an MLPRegressor for regression."""
+
+    def _create_regressor(self) -> Regressor:
+        return MLPRegressor()
+
+
+class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
+    """Use an ImplicitMLPRegressor for regression."""
+
+    def _create_regressor(self) -> Regressor:
+        return ImplicitMLPRegressor()

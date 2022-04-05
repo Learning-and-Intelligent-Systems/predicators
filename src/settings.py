@@ -181,6 +181,9 @@ class GlobalSettings:
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
     mlp_classifier_n_iter_no_change = 5000
+    implicit_mlp_regressor_max_itr = 10000
+    implicit_mlp_regressor_num_negative_data_per_input = 5
+    implicit_mlp_regressor_num_samples_per_inference = 100
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -332,7 +335,7 @@ class GlobalSettings:
 def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
-    if CFG.option_learner == "neural":
+    if CFG.option_learner == "direct_bc":
         return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}

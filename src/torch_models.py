@@ -18,7 +18,27 @@ from predicators.src.structs import Array, Object, State
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
-class MLPRegressor(nn.Module):
+class Regressor(abc.ABC):
+    """ABC for regressor classes."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, Y: Array) -> None:
+        """Train regressor on the given data.
+
+        X and Y are both two-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+    @abc.abstractmethod
+    def predict(self, arr: Array) -> Array:
+        """Return a prediction for the given datapoint.
+
+        arr is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+
+class MLPRegressor(Regressor, nn.Module):
     """A basic multilayer perceptron regressor."""
 
     def __init__(self) -> None:  # pylint: disable=useless-super-delegation
@@ -33,7 +53,7 @@ class MLPRegressor(nn.Module):
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
 
-        Both X and Y are multi-dimensional.
+        Both X and Y are two-dimensional.
         """
         assert X.ndim == 2
         assert Y.ndim == 2
@@ -47,9 +67,9 @@ class MLPRegressor(nn.Module):
         x = self._linears[-1](x)
         return x
 
-    def predict(self, inputs: Array) -> Array:
+    def predict(self, arr: Array) -> Array:
         """Normalize, predict, un-normalize, and convert to array."""
-        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        x = torch.from_numpy(np.array(arr, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
         x = (x - self._input_shift) / self._input_scale
@@ -93,7 +113,8 @@ class MLPRegressor(nn.Module):
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
         # Train
-        logging.info(f"Training MLPRegressor on {num_data} datapoints")
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
         self.train()  # switch to train mode
         itr = 0
         max_itrs = CFG.mlp_regressor_max_itr
@@ -126,6 +147,111 @@ class MLPRegressor(nn.Module):
         logging.info(f"Loaded best model with loss: {loss:.5f}")
 
 
+class ImplicitMLPRegressor(Regressor):
+    """A regressor implemented via an "energy function".
+
+    Currently the energy function is treated as a binary classifier, which is
+    not consistent with how energy functions are usually treated/trained.
+    This will change soon.
+
+    Negative examples are generated within the class.
+
+    Inference is currently performed by sampling a fixed number of possible
+    inputs and returning the sample that has the highest probability of
+    classifying to 1, under the learned classifier. Other inference methods are
+    coming soon.
+    """
+
+    def __init__(self) -> None:
+        self._rng = np.random.default_rng(CFG.seed)
+        # Set in fit().
+        self._x_dim = 0
+        self._y_dim = 0
+        self._input_shift = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.zeros(1, dtype=np.float32)
+        self._output_shift = np.zeros(1, dtype=np.float32)
+        self._output_scale = np.zeros(1, dtype=np.float32)
+        self._classifier = MLPClassifier(1, 1)
+
+    def fit(self, X: Array, Y: Array) -> None:
+        # Normalize everything right off the bat for simplicity.
+        X, self._input_shift, self._input_scale = self._normalize_data(X)
+        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
+        # Initialize the classifier.
+        num_data, self._x_dim = X.shape
+        assert Y.shape[0] == num_data
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+        self._y_dim = Y.shape[1]
+        max_itr = CFG.implicit_mlp_regressor_max_itr
+        self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
+                                         max_itr=max_itr,
+                                         balance_data=False)
+        # Create the negative data.
+        neg_X, neg_Y = self._create_negative_data(X, Y)
+        # Set up the data for the classifier.
+        pos_concat_inputs = np.hstack([X, Y])
+        neg_concat_inputs = np.hstack([neg_X, neg_Y])
+        concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
+        targets = np.array([1 for _ in pos_concat_inputs] +
+                           [0 for _ in neg_concat_inputs],
+                           dtype=np.float32)
+        # Train the classifier.
+        self._classifier.fit(concat_inputs, targets)
+
+    def _create_negative_data(self, X: Array, Y: Array) -> Tuple[Array, Array]:
+        """This makes the assumption that negative data are far, far more
+        common than positive data.
+
+        Under this assumption, the negative y data are simply randomly
+        sampled from a uniform distribution bounded by the min/max seen
+        in the data. There may be false negatives in general, but they
+        should be rare, under the assumption. The x values are taken
+        directly from the X array, not sampled.
+        """
+        # Note that the data has already been normalized.
+        del Y  # unused for now, but may be used in the future
+        num_samples = CFG.implicit_mlp_regressor_num_negative_data_per_input
+        neg_input_lst = []
+        neg_output_lst = []
+        for pos_input in X:
+            samples = self._rng.uniform(size=(num_samples, self._y_dim))
+            for neg_output in samples:
+                neg_input_lst.append(pos_input)
+                neg_output_lst.append(neg_output)
+        neg_inputs = np.array(neg_input_lst, dtype=np.float32)
+        neg_outputs = np.array(neg_output_lst, dtype=np.float32)
+        return neg_inputs, neg_outputs
+
+    def predict(self, arr: Array) -> Array:
+        # This sampling-based inference method is okay in 1 dimension, but
+        # won't work well with higher dimensions.
+        assert arr.shape == (self._x_dim, )
+        # Normalize.
+        x = (arr - self._input_shift) / self._input_scale
+        num_samples = CFG.implicit_mlp_regressor_num_samples_per_inference
+        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
+        # Concatenate the x and ys.
+        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        # Pass through network.
+        scores = self._classifier.predict_proba(concat_xy)
+        # Find the highest probability sample.
+        sample_idx = np.argmax(scores)
+        norm_y = sample_ys[sample_idx]
+        # Denormalize.
+        denorm_y = (norm_y * self._output_scale) + self._output_shift
+        return denorm_y
+
+    @staticmethod
+    def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
+        shift = np.min(data, axis=0)  # type: ignore
+        scale = np.max(data - shift, axis=0)  # type: ignore
+        scale = np.clip(scale, CFG.normalization_scale_clip, None)
+        return (data - shift) / scale, shift, scale
+
+
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition."""
 
@@ -141,7 +267,7 @@ class NeuralGaussianRegressor(nn.Module):
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
 
-        Both X and Y are multi-dimensional.
+        Both X and Y are two-dimensional.
         """
         assert X.ndim == 2
         assert Y.ndim == 2
@@ -277,7 +403,7 @@ class Classifier(abc.ABC):
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
 
-        X is multi-dimensional, y is single-dimensional.
+        X is two-dimensional, y is single-dimensional.
         """
         raise NotImplementedError("Override me")
 
@@ -296,7 +422,8 @@ class MLPClassifier(Classifier, nn.Module):
     def __init__(self,
                  in_size: int,
                  max_itr: int,
-                 seed: Optional[int] = None) -> None:
+                 seed: Optional[int] = None,
+                 balance_data: bool = CFG.mlp_classifier_balance_data) -> None:
         super().__init__()  # type: ignore
         if seed is None:
             self._rng = np.random.default_rng(CFG.seed)
@@ -315,6 +442,7 @@ class MLPClassifier(Classifier, nn.Module):
         self._max_itr = max_itr
         self._do_single_class_prediction = False
         self._predicted_single_class = False
+        self._balance_data = balance_data
 
     def fit(self, X: Array, y: Array) -> None:
         assert X.ndim == 2
@@ -332,7 +460,7 @@ class MLPClassifier(Classifier, nn.Module):
             return
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
+        if self._balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
@@ -380,6 +508,10 @@ class MLPClassifier(Classifier, nn.Module):
     def normalize(self, x: Array) -> Array:
         """Apply shift and scale to the input."""
         return (x - self._input_shift) / self._input_scale
+
+    def predict_proba(self, X: Array) -> Array:
+        """Get the predicted probability that the input classifies to 1."""
+        return self(X).detach().numpy()
 
     def _classify(self, x: Array) -> bool:
         return self(x).item() > 0.5
