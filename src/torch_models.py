@@ -25,7 +25,7 @@ class Regressor(abc.ABC):
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
 
-        X and Y are both multi-dimensional.
+        X and Y are both two-dimensional.
         """
         raise NotImplementedError("Override me")
 
@@ -53,7 +53,7 @@ class MLPRegressor(Regressor, nn.Module):
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
 
-        Both X and Y are multi-dimensional.
+        Both X and Y are two-dimensional.
         """
         assert X.ndim == 2
         assert Y.ndim == 2
@@ -161,7 +161,7 @@ class NeuralGaussianRegressor(nn.Module):
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
 
-        Both X and Y are multi-dimensional.
+        Both X and Y are two-dimensional.
         """
         assert X.ndim == 2
         assert Y.ndim == 2
@@ -297,7 +297,7 @@ class Classifier(abc.ABC):
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
 
-        X is multi-dimensional, y is single-dimensional.
+        X is two-dimensional, y is single-dimensional.
         """
         raise NotImplementedError("Override me")
 
