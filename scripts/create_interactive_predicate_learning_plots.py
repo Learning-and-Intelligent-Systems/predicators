@@ -7,7 +7,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 from scipy import interpolate
 
 from predicators.scripts.analyze_results_directory import \
