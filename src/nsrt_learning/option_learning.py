@@ -419,7 +419,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                 assert len(segment.states) == len(segment.actions) + 1
                 for state, action in zip(segment.states, segment.actions):
                     state_features = state.vec(all_objects_in_operator)
-                    # Compute the relative goal vector this segment.
+                    # Compute the relative goal vector for this segment.
                     relative_goal_vec = absolute_params - state.vec(
                         changing_objects)
                     # Add a bias term for regression.

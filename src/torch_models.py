@@ -113,7 +113,8 @@ class MLPRegressor(Regressor, nn.Module):
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
         # Train
-        logging.info(f"Training MLPRegressor on {num_data} datapoints")
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
         self.train()  # switch to train mode
         itr = 0
         max_itrs = CFG.mlp_regressor_max_itr
@@ -198,12 +199,14 @@ class ImplicitMLPRegressor(Regressor):
         """This makes the assumption that negative data are far, far more
         common than positive data.
 
-        Under this assumption, the negative data are simply randomly
-        sampled. There may be false negatives in general, but they
-        should be rare, under the assumption.
+        Under this assumption, the negative y data are simply randomly
+        sampled from a uniform distribution bounded by the min/max seen
+        in the data. There may be false negatives in general, but they
+        should be rare, under the assumption. The x values are taken
+        directly from the X array, not sampled.
         """
         # Note that the data has already been normalized.
-        del Y  # unused for now, but may be used in the future.
+        del Y  # unused for now, but may be used in the future
         num_samples = CFG.implicit_mlp_regressor_num_negative_data_per_input
         neg_input_lst = []
         neg_output_lst = []
@@ -232,9 +235,9 @@ class ImplicitMLPRegressor(Regressor):
         scores = self._classifier.predict_proba(concat_xy)
         # Find the highest probability sample.
         sample_idx = np.argmax(scores)
-        unnorm_y = sample_ys[sample_idx]
+        norm_y = sample_ys[sample_idx]
         # Denormalize.
-        denorm_y = (unnorm_y * self._output_scale) + self._output_shift
+        denorm_y = (norm_y * self._output_scale) + self._output_shift
         return denorm_y
 
     @staticmethod
