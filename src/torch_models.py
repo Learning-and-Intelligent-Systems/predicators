@@ -180,7 +180,8 @@ class ImplicitMLPRegressor(Regressor):
         self._y_dim = Y.shape[1]
         max_itr = CFG.implicit_mlp_regressor_max_itr
         self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
-                                         max_itr=max_itr, balance_data=False)
+                                         max_itr=max_itr,
+                                         balance_data=False)
         # Create the negative data.
         neg_X, neg_Y = self._create_negative_data(X, Y)
         # Set up the data for the classifier.
