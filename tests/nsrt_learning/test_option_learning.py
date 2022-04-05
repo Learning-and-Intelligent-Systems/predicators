@@ -11,8 +11,7 @@ from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.nsrt_learning.option_learning import \
-    _ImplicitBehaviorCloningOptionLearner, _LearnedNeuralParameterizedOption, \
-    create_option_learner
+    _LearnedNeuralParameterizedOption, create_option_learner
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
@@ -231,17 +230,9 @@ def test_create_option_learner():
         "env": "blocks",
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
-        "option_learner": "implicit_bc"
-    })
-    env = create_new_env("blocks")
-    option_learner = create_option_learner(env.action_space)
-    assert isinstance(option_learner, _ImplicitBehaviorCloningOptionLearner)
-    utils.reset_config({
-        "env": "blocks",
-        "approach": "nsrt_learning",
-        "num_train_tasks": 3,
         "option_learner": "not a real option learner"
     })
+    env = create_new_env("blocks")
     with pytest.raises(NotImplementedError):
         create_option_learner(env.action_space)
 
