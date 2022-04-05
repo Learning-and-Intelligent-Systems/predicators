@@ -1,6 +1,7 @@
 """Create plots for interactive predicate learning."""
 
 import os
+from typing import Callable, Sequence, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -61,13 +62,35 @@ PLOT_GROUPS = {
     ],
 }
 
-# If True, add (0, 0) to every plot
+# If True, add (0, 0) to every plot.
 ADD_ZERO_POINT = True
 
-# Line transparency.
-ALPHA = 0.5
+# Plot type.
+PLOT_TYPE = "single_lines"  # single_lines or seed_lines
+
+# Line transparency for seed line plots.
+SEED_LINE_ALPHA = 0.5
 
 #################### Should not need to change below here #####################
+
+
+def _create_seed_line_plot(ax: plt.Axes, df: pd.DataFrame,
+                           plot_group: Sequence[Tuple[str, str, Callable]],
+                           x_key: str, y_key: str) -> None:
+    for label, color, selector in plot_group:
+        entry_df = get_df_for_entry(x_key, df, selector)
+        # Draw one line per seed.
+        for seed in entry_df["SEED"].unique():
+            seed_df = entry_df[entry_df["SEED"] == seed]
+            xs = seed_df[x_key]
+            ys = seed_df[y_key]
+            if ADD_ZERO_POINT:
+                xs = [0] + xs
+                ys = [0] + ys
+            ax.plot(xs, ys, color=color, label=label, alpha=SEED_LINE_ALPHA)
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
 
 
 def _main() -> None:
@@ -80,24 +103,16 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for label, color, selector in d:
-                    entry_df = get_df_for_entry(x_key, df, selector)
-                    # Draw one line per seed.
-                    for seed in entry_df["SEED"].unique():
-                        seed_df = entry_df[entry_df["SEED"] == seed]
-                        xs = seed_df[x_key]
-                        ys = seed_df[y_key]
-                        if ADD_ZERO_POINT:
-                            xs = [0] + xs
-                            ys = [0] + ys
-                        ax.plot(xs, ys, color=color, label=label, alpha=ALPHA)
+                if PLOT_TYPE == "seed_lines":
+                    _create_seed_line_plot(ax, df, d, x_key, y_key)
+                elif PLOT_TYPE == "single_lines":
+                    import ipdb; ipdb.set_trace()
+                else:
+                    raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
                 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
-                handles, labels = plt.gca().get_legend_handles_labels()
-                by_label = dict(zip(labels, handles))
-                plt.legend(by_label.values(), by_label.keys())
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
