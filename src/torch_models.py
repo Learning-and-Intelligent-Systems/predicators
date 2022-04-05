@@ -180,7 +180,7 @@ class ImplicitMLPRegressor(Regressor):
         self._y_dim = Y.shape[1]
         max_itr = CFG.implicit_mlp_regressor_max_itr
         self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
-                                         max_itr=max_itr)
+                                         max_itr=max_itr, balance_data=False)
         # Create the negative data.
         neg_X, neg_Y = self._create_negative_data(X, Y)
         # Set up the data for the classifier.
@@ -414,7 +414,8 @@ class MLPClassifier(Classifier, nn.Module):
     def __init__(self,
                  in_size: int,
                  max_itr: int,
-                 seed: Optional[int] = None) -> None:
+                 seed: Optional[int] = None,
+                 balance_data: bool = CFG.mlp_classifier_balance_data) -> None:
         super().__init__()  # type: ignore
         if seed is None:
             self._rng = np.random.default_rng(CFG.seed)
@@ -433,6 +434,7 @@ class MLPClassifier(Classifier, nn.Module):
         self._max_itr = max_itr
         self._do_single_class_prediction = False
         self._predicted_single_class = False
+        self._balance_data = balance_data
 
     def fit(self, X: Array, y: Array) -> None:
         assert X.ndim == 2
@@ -450,7 +452,7 @@ class MLPClassifier(Classifier, nn.Module):
             return
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
+        if self._balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
