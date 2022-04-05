@@ -148,7 +148,11 @@ class MLPRegressor(Regressor, nn.Module):
 
 
 class ImplicitMLPRegressor(Regressor):
-    """A regressor implemented via an energy function (binary classifier).
+    """A regressor implemented via an "energy function".
+
+    Currently the energy function is treated as a binary classifier, which is
+    not consistent with how energy functions are usually treated/trained.
+    This will change soon.
 
     Negative examples are generated within the class.
 
