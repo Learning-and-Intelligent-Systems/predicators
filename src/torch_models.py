@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, List, Sequence, Tuple
+from typing import Callable, Iterator, List, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -122,12 +122,12 @@ class PyTorchRegressor(Regressor, nn.Module):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,
-                             tensor_X,
-                             tensor_Y,
+                             batch_generator,
                              max_iters=self._max_train_iters,
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
@@ -260,12 +260,12 @@ class PyTorchBinaryClassifier(BinaryClassifier, nn.Module):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
+        batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,
-                             tensor_X,
-                             tensor_y,
+                             batch_generator,
                              max_iters=self._max_train_iters,
                              n_iter_no_change=self._n_iter_no_change)
 
@@ -366,6 +366,25 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCEWithLogitsLoss()
 
+    def _create_batch_generator(self, X: Array,
+                                Y: Array) -> Iterator[Tuple[Tensor, Tensor]]:
+        # Resample negative examples on each iteration.
+        pos_concat_inputs = np.hstack([X, Y])
+        num_pos_inputs = len(pos_concat_inputs)
+        num_neg_inputs = num_pos_inputs * self._num_negative_data_per_input
+        targets = np.array([1] * num_pos_inputs + [0] * num_neg_inputs,
+                           dtype=np.float32)
+        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        while True:
+            neg_X, neg_Y = self._create_negative_data(X, Y)
+            # Set up the data for the classifier.
+            neg_concat_inputs = np.hstack([neg_X, neg_Y])
+            concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
+            # Convert data to tensors.
+            tensor_X = torch.from_numpy(
+                np.array(concat_inputs, dtype=np.float32))
+            yield (tensor_X, tensor_Y)
+
     def _fit(self, X: Array, Y: Array) -> None:
         # Note: we need to override _fit() because we are not just training
         # a network that maps X to Y, but rather, training a network that
@@ -376,24 +395,13 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
-        # Create the negative data.
-        neg_X, neg_Y = self._create_negative_data(X, Y)
-        # Set up the data for the classifier.
-        pos_concat_inputs = np.hstack([X, Y])
-        neg_concat_inputs = np.hstack([neg_X, neg_Y])
-        concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
-        targets = np.array([1 for _ in pos_concat_inputs] +
-                           [0 for _ in neg_concat_inputs],
-                           dtype=np.float32)
-        # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(concat_inputs, dtype=np.float32))
-        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        # Create the batch generator, which creates negative data.
+        batch_generator = self._create_batch_generator(X, Y)
         # Run training.
         _train_pytorch_model(self,
                              loss_fn,
                              optimizer,
-                             tensor_X,
-                             tensor_Y,
+                             batch_generator,
                              max_iters=self._max_train_iters,
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
@@ -641,11 +649,17 @@ def _balance_binary_classification_data(
     return (X, y)
 
 
+def _single_batch_generator(
+        tensor_X: Tensor, tensor_Y: Tensor) -> Iterator[Tuple[Tensor, Tensor]]:
+    """Infinitely generate all of the data in one batch."""
+    while True:
+        yield (tensor_X, tensor_Y)
+
+
 def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
-                         tensor_X: Tensor,
-                         tensor_Y: Tensor,
+                         batch_generator: Iterator[Tuple[Tensor, Tensor]],
                          max_iters: int,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
@@ -661,7 +675,7 @@ def _train_pytorch_model(model: nn.Module,
     best_loss = float("inf")
     best_itr = 0
     model_name = tempfile.NamedTemporaryFile(delete=False).name
-    while True:
+    for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
         if loss.item() < best_loss:
@@ -687,6 +701,4 @@ def _train_pytorch_model(model: nn.Module,
     model.load_state_dict(torch.load(model_name))  # type: ignore
     os.remove(model_name)
     model.eval()
-    Y_hat = model(tensor_X)
-    loss = loss_fn(Y_hat, tensor_Y)
-    logging.info(f"Loaded best model with loss: {loss:.5f}")
+    logging.info(f"Loaded best model with loss: {best_loss:.5f}")
