@@ -467,11 +467,26 @@ class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
     """Use an MLPRegressor for regression."""
 
     def _create_regressor(self) -> Regressor:
-        return MLPRegressor()
+        return MLPRegressor(seed=CFG.seed,
+                            hid_sizes=CFG.mlp_regressor_hid_sizes,
+                            max_train_iters=CFG.mlp_regressor_max_itr,
+                            clip_gradients=CFG.mlp_regressor_clip_gradients,
+                            clip_value=CFG.mlp_regressor_gradient_clip_value,
+                            learning_rate=CFG.learning_rate)
 
 
 class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
     """Use an ImplicitMLPRegressor for regression."""
 
     def _create_regressor(self) -> Regressor:
-        return ImplicitMLPRegressor()
+        num_neg = CFG.implicit_mlp_regressor_num_negative_data_per_input
+        num_sam = CFG.implicit_mlp_regressor_num_samples_per_inference
+        return ImplicitMLPRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.implicit_mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate,
+            num_negative_data_per_input=num_neg,
+            num_samples_per_inference=num_sam)
