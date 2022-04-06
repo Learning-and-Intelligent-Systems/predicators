@@ -334,12 +334,13 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
                  clip_gradients: bool, clip_value: float, learning_rate: float,
                  num_samples_per_inference: int,
-                 num_negative_data_per_input: int) -> None:
+                 num_negative_data_per_input: int, temperature: float) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
+        self._temperature = temperature
         # Set in fit().
         self._linears = nn.ModuleList()
 
@@ -365,7 +366,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
         def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
             pred = Y_hat.reshape(Y.shape)  # (num data, num classes)
-            log_probs = F.log_softmax(pred, dim=-1)
+            log_probs = F.log_softmax(pred / self._temperature, dim=-1)
             loss = F.kl_div(log_probs, Y, reduction='batchmean')
             return loss
 

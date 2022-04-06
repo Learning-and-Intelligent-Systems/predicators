@@ -54,7 +54,8 @@ def test_implicit_mlp_regressor():
                                  clip_value=5,
                                  learning_rate=1e-3,
                                  num_samples_per_inference=100,
-                                 num_negative_data_per_input=5)
+                                 num_negative_data_per_input=5,
+                                 temperature=1.0)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)
