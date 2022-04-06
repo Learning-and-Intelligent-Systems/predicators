@@ -13,6 +13,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.painting import PaintingEnv
+from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Predicate, State, Task
 
@@ -115,6 +116,22 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             self._MoveToObj, self._MoveToBox, self._MoveToShelf
         }
 
+    @property
+    def _num_objects_train(self) -> List[int]:
+        return CFG.rnt_painting_num_objs_train
+
+    @property
+    def _num_objects_test(self) -> List[int]:
+        return CFG.rnt_painting_num_objs_test
+
+    @property
+    def _max_objs_in_goal(self) -> int:
+        return CFG.rnt_painting_max_objs_in_goal
+
+    @property
+    def _update_z_poses(self) -> bool:
+        return True
+
     def render_state(self,
                      state: State,
                      task: Task,
@@ -134,13 +151,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         # objects we are NextTo as a caption
         return super().render_state(state, task, caption="NextTo: " + \
             str(nextto_objs))
-
-    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        obj_y = state.get(obj, "pose_y")
-        return self.table_lb < obj_y < self.table_ub and \
-            np.allclose(state.get(obj, "pose_z"), self.table_height \
-                + self.obj_height / 2)
 
     @staticmethod
     def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
