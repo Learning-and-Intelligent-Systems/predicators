@@ -10,7 +10,8 @@ from predicators.src.nsrt_learning.sampler_learning import \
     _create_sampler_data, _LearnedSampler, learn_samplers
 from predicators.src.structs import Action, LiftedAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, State, Type
-from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.torch_models import MLPBinaryClassifier, \
+    NeuralGaussianRegressor
 
 
 def test_create_sampler_data():
@@ -122,7 +123,6 @@ def test_learned_sampler_with_goal():
         "env": "cluttered_table_place",
         "sampler_learning_use_goals": True,
         "num_train_tasks": 15,
-        "neural_gaus_regressor_max_itr": 3
     })
     env = ClutteredTablePlaceEnv()
     task = env.get_test_tasks()[0]
@@ -134,13 +134,22 @@ def test_learned_sampler_with_goal():
     goal_obj = next(iter(goal)).objects[0]
     objects = [goal_obj]
 
-    input_size = 11
-    classifier = MLPClassifier(input_size, 10)
+    classifier = MLPBinaryClassifier(seed=123,
+                                     balance_data=True,
+                                     max_train_iters=10,
+                                     learning_rate=1e-3,
+                                     n_iter_no_change=1000000,
+                                     hid_sizes=[32, 32])
 
     input_size = 11
     output_size = 2
     num_samples = 5
-    regressor = NeuralGaussianRegressor()
+    regressor = NeuralGaussianRegressor(seed=123,
+                                        hid_sizes=[32, 32],
+                                        max_train_iters=3,
+                                        clip_gradients=False,
+                                        clip_value=5,
+                                        learning_rate=1e-3)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     regressor.fit(X, Y)

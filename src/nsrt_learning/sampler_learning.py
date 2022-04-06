@@ -13,8 +13,8 @@ from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
-from predicators.src.torch_models import Classifier, MLPClassifier, \
-    NeuralGaussianRegressor
+from predicators.src.torch_models import BinaryClassifier, \
+    MLPBinaryClassifier, NeuralGaussianRegressor
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -154,8 +154,13 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
                                 [0 for _ in negative_data])
-    classifier = MLPClassifier(X_arr_classifier.shape[1],
-                               CFG.sampler_mlp_classifier_max_itr)
+    classifier = MLPBinaryClassifier(
+        seed=CFG.seed,
+        balance_data=CFG.mlp_classifier_balance_data,
+        max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+        learning_rate=CFG.learning_rate,
+        n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+        hid_sizes=CFG.mlp_classifier_hid_sizes)
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
@@ -181,7 +186,13 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
-    regressor = NeuralGaussianRegressor()
+    regressor = NeuralGaussianRegressor(
+        seed=CFG.seed,
+        hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+        max_train_iters=CFG.neural_gaus_regressor_max_itr,
+        clip_gradients=CFG.mlp_regressor_clip_gradients,
+        clip_value=CFG.mlp_regressor_gradient_clip_value,
+        learning_rate=CFG.learning_rate)
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
@@ -257,7 +268,7 @@ def _create_sampler_data(
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
-    _classifier: Classifier
+    _classifier: BinaryClassifier
     _regressor: NeuralGaussianRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
