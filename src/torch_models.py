@@ -152,7 +152,7 @@ class BinaryClassifier(abc.ABC):
         self._rng = np.random.default_rng(seed)
         self._balance_data = balance_data
         # Set in fit().
-        self._x_dim = 0
+        self._x_dim = -1
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._do_single_class_prediction = False
