@@ -32,8 +32,8 @@ class Regressor(abc.ABC):
         self._seed = seed
         self._rng = np.random.default_rng(self._seed)
         # Set in fit().
-        self._x_dim = 0
-        self._y_dim = 0
+        self._x_dim = -1
+        self._y_dim = -1
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._output_shift = np.zeros(1, dtype=np.float32)
@@ -58,6 +58,7 @@ class Regressor(abc.ABC):
 
         x is single-dimensional.
         """
+        assert self._x_dim > -1, "Fit must be called before predict."
         assert x.shape == (self._x_dim, )
         # Normalize.
         x = (x - self._input_shift) / self._input_scale
@@ -94,7 +95,7 @@ class PyTorchRegressor(Regressor, nn.Module):
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
-        """Pytorch forward method."""
+        """PyTorch forward method."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -122,14 +123,14 @@ class PyTorchRegressor(Regressor, nn.Module):
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
         # Run training.
-        _train_predictive_pytorch_model(self,
-                                        loss_fn,
-                                        optimizer,
-                                        tensor_X,
-                                        tensor_Y,
-                                        max_iters=self._max_train_iters,
-                                        clip_gradients=self._clip_gradients,
-                                        clip_value=self._clip_value)
+        _train_pytorch_model(self,
+                             loss_fn,
+                             optimizer,
+                             tensor_X,
+                             tensor_Y,
+                             max_iters=self._max_train_iters,
+                             clip_gradients=self._clip_gradients,
+                             clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
@@ -168,7 +169,7 @@ class BinaryClassifier(abc.ABC):
                      "datapoints")
         # If there is only one class in the data, then there's no point in
         # learning, since any predictions other than that one class could
-        # only be strange generalization issues.
+        # only be generalization issues.
         if np.all(y == 0):
             self._do_single_class_prediction = True
             self._predicted_single_class = False
@@ -190,6 +191,7 @@ class BinaryClassifier(abc.ABC):
 
         x is single-dimensional.
         """
+        assert self._x_dim > -1, "Fit must be called before classify."
         assert x.shape == (self._x_dim, )
         if self._do_single_class_prediction:
             return self._predicted_single_class
@@ -200,7 +202,7 @@ class BinaryClassifier(abc.ABC):
 
     @abc.abstractmethod
     def _fit(self, X: Array, y: Array) -> None:
-        """Train the regressor on normalized data."""
+        """Train the classifier on normalized data."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -209,7 +211,7 @@ class BinaryClassifier(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class PyTorchClassifier(BinaryClassifier, nn.Module):
+class PyTorchBinaryClassifier(BinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
@@ -223,8 +225,16 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
-        """Pytorch forward method."""
+        """PyTorch forward method."""
         raise NotImplementedError("Override me!")
+
+    def predict_proba(self, denorm_x: Array) -> float:
+        """Get the predicted probability that the input classifies to 1.
+
+        The input is NOT normalized.
+        """
+        x = (denorm_x - self._input_shift) / self._input_scale
+        return self._forward_single_input_np(x)
 
     @abc.abstractmethod
     def _initialize_net(self) -> None:
@@ -251,14 +261,13 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
         # Run training.
-        _train_predictive_pytorch_model(
-            self,
-            loss_fn,
-            optimizer,
-            tensor_X,
-            tensor_y,
-            max_iters=self._max_train_iters,
-            n_iter_no_change=self._n_iter_no_change)
+        _train_pytorch_model(self,
+                             loss_fn,
+                             optimizer,
+                             tensor_X,
+                             tensor_y,
+                             max_iters=self._max_train_iters,
+                             n_iter_no_change=self._n_iter_no_change)
 
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
@@ -274,14 +283,6 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
 
     def _classify(self, x: Array) -> bool:
         return self._forward_single_input_np(x) > 0.5
-
-    def predict_proba(self, denorm_x: Array) -> float:
-        """Get the predicted probability that the input classifies to 1.
-
-        The input is unnormalized.
-        """
-        x = (denorm_x - self._input_shift) / self._input_scale
-        return self._forward_single_input_np(x)
 
 
 ################################# Regressors ##################################
@@ -320,8 +321,8 @@ class MLPRegressor(PyTorchRegressor):
 class ImplicitMLPRegressor(PyTorchRegressor):
     """A regressor implemented via an "energy function".
 
-    Currently the energy function is treated as a binary classifier, which is
-    not consistent with how energy functions are usually treated/trained.
+    Currently the energy function is implemented as a binary classifier, which
+    is not consistent with how energy functions are usually treated/trained.
     This will change soon.
 
     Negative examples are generated within the class.
@@ -366,6 +367,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         return nn.BCEWithLogitsLoss()
 
     def _fit(self, X: Array, Y: Array) -> None:
+        # Note: we need to override _fit() because we are not just training
+        # a network that maps X to Y, but rather, training a network that
+        # maps concatenated X and Y vectors to floats (energies).
         # Initialize the network.
         self._initialize_net()
         # Create the loss function.
@@ -385,14 +389,14 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         tensor_X = torch.from_numpy(np.array(concat_inputs, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
         # Run training.
-        _train_predictive_pytorch_model(self,
-                                        loss_fn,
-                                        optimizer,
-                                        tensor_X,
-                                        tensor_Y,
-                                        max_iters=self._max_train_iters,
-                                        clip_gradients=self._clip_gradients,
-                                        clip_value=self._clip_value)
+        _train_pytorch_model(self,
+                             loss_fn,
+                             optimizer,
+                             tensor_X,
+                             tensor_Y,
+                             max_iters=self._max_train_iters,
+                             clip_gradients=self._clip_gradients,
+                             clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
         # This sampling-based inference method is okay in 1 dimension, but
@@ -448,7 +452,6 @@ class NeuralGaussianRegressor(PyTorchRegressor):
         self._linears = nn.ModuleList()
 
     def forward(self, tensor_X: Tensor) -> Tensor:
-        """Pytorch forward method."""
         for _, linear in enumerate(self._linears[:-1]):
             tensor_X = F.relu(linear(tensor_X))
         tensor_X = self._linears[-1](tensor_X)
@@ -526,8 +529,8 @@ class NeuralGaussianRegressor(PyTorchRegressor):
 ################################ Classifiers ##################################
 
 
-class MLPClassifier(PyTorchClassifier):
-    """MLPClassifier definition."""
+class MLPBinaryClassifier(PyTorchBinaryClassifier):
+    """MLPBinaryClassifier definition."""
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
@@ -556,16 +559,16 @@ class MLPClassifier(PyTorchClassifier):
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
 
-class MLPClassifierEnsemble(BinaryClassifier):
-    """MLPClassifierEnsemble definition."""
+class MLPBinaryClassifierEnsemble(BinaryClassifier):
+    """MLPBinaryClassifierEnsemble definition."""
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
                  hid_sizes: List[int], ensemble_size: int) -> None:
         super().__init__(seed, balance_data)
         self._members = [
-            MLPClassifier(seed + i, balance_data, max_train_iters,
-                          learning_rate, n_iter_no_change, hid_sizes)
+            MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
+                                learning_rate, n_iter_no_change, hid_sizes)
             for i in range(ensemble_size)
         ]
 
@@ -583,10 +586,10 @@ class MLPClassifierEnsemble(BinaryClassifier):
         return classification
 
     def _fit(self, X: Array, y: Array) -> None:
-        raise NotImplementedError("Not used.")
+        raise Exception("Not used.")
 
     def _classify(self, x: Array) -> bool:
-        raise NotImplementedError("Not used.")
+        raise Exception("Not used.")
 
     def predict_member_probas(self, x: Array) -> Array:
         """Return class probabilities predicted by each member."""
@@ -638,17 +641,16 @@ def _balance_binary_classification_data(
     return (X, y)
 
 
-def _train_predictive_pytorch_model(model: nn.Module,
-                                    loss_fn: Callable[[Tensor, Tensor],
-                                                      Tensor],
-                                    optimizer: optim.Optimizer,
-                                    tensor_X: Tensor,
-                                    tensor_Y: Tensor,
-                                    max_iters: int,
-                                    print_every: int = 1000,
-                                    clip_gradients: bool = False,
-                                    clip_value: float = 5,
-                                    n_iter_no_change: int = 10000000) -> None:
+def _train_pytorch_model(model: nn.Module,
+                         loss_fn: Callable[[Tensor, Tensor], Tensor],
+                         optimizer: optim.Optimizer,
+                         tensor_X: Tensor,
+                         tensor_Y: Tensor,
+                         max_iters: int,
+                         print_every: int = 1000,
+                         clip_gradients: bool = False,
+                         clip_value: float = 5,
+                         n_iter_no_change: int = 10000000) -> None:
     """Note that this currently does not use minibatches.
 
     In the future, with very large datasets, we would want to switch to
