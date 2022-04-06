@@ -319,13 +319,11 @@ class MLPRegressor(PyTorchRegressor):
 
 
 class ImplicitMLPRegressor(PyTorchRegressor):
-    """A regressor implemented via an "energy function".
+    """A regressor implemented via an energy function.
 
-    Currently the energy function is implemented as a binary classifier, which
-    is not consistent with how energy functions are usually treated/trained.
-    This will change soon.
-
-    Negative examples are generated within the class.
+    For each positive (x, y) pair, a number of "negative" (x, y') pairs are
+    generated. The model is then trained to distinguish positive from negative
+    conditioned on x using a classification-esque (constrastive) loss.
 
     Inference is currently performed by sampling a fixed number of possible
     inputs and returning the sample that has the highest probability of
@@ -341,7 +339,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                          learning_rate)
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
-        self._num_negative_data_per_input = num_negative_data_per_input
+        self._num_negatives_per_input = num_negative_data_per_input
         # Set in fit().
         self._linears = nn.ModuleList()
 
@@ -364,26 +362,42 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
-        return nn.BCEWithLogitsLoss()
+
+        def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
+            pred = Y_hat.reshape(Y.shape)  # (num data, num classes)
+            log_probs = F.log_softmax(pred, dim=-1)
+            loss = F.kl_div(log_probs, Y, reduction='batchmean')
+            return loss
+
+        return _loss_fn
 
     def _create_batch_generator(self, X: Array,
                                 Y: Array) -> Iterator[Tuple[Tensor, Tensor]]:
-        # Resample negative examples on each iteration.
-        pos_concat_inputs = np.hstack([X, Y])
-        num_pos_inputs = len(pos_concat_inputs)
-        num_neg_inputs = num_pos_inputs * self._num_negative_data_per_input
-        targets = np.array([1] * num_pos_inputs + [0] * num_neg_inputs,
-                           dtype=np.float32)
-        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        num_samples = X.shape[0]
+        num_negatives = self._num_negatives_per_input
+        # Cast to torch first.
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        # For each of the negative outputs, we need a corresponding input.
+        tiled_X = tensor_X.unsqueeze(1).repeat(1, num_negatives + 1, 1)
+        extended_X = tiled_X.reshape([-1, tensor_X.shape[-1]])
         while True:
-            neg_X, neg_Y = self._create_negative_data(X, Y)
-            # Set up the data for the classifier.
-            neg_concat_inputs = np.hstack([neg_X, neg_Y])
-            concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
-            # Convert data to tensors.
-            tensor_X = torch.from_numpy(
-                np.array(concat_inputs, dtype=np.float32))
-            yield (tensor_X, tensor_Y)
+            # Resample negative examples on each iteration.
+            neg_Y = torch.rand(size=(num_samples, num_negatives, self._y_dim),
+                               dtype=tensor_Y.dtype)
+            # Create a multiclass classification-style target vector.
+            tensor_Y = tensor_Y[:, None, :]
+            combined_Y = torch.cat([tensor_Y, neg_Y], axis=1)  # type: ignore
+            combined_Y = combined_Y.reshape([-1, tensor_Y.shape[-1]])
+            # Concatenate to create the final input to the network.
+            XY = torch.cat([extended_X, combined_Y], axis=1)  # type: ignore
+            assert XY.shape == ((num_negatives + 1) * num_samples,
+                                 self._x_dim + self._y_dim)
+            # Create labels for multiclass loss. Note that the true inputs
+            # are first, so the target labels are all zeros.
+            indices = torch.zeros([num_samples], dtype=torch.int64)
+            labels = F.one_hot(indices, num_classes=num_negatives + 1).float()
+            yield (XY, labels)
 
     def _fit(self, X: Array, Y: Array) -> None:
         # Note: we need to override _fit() because we are not just training
@@ -421,30 +435,6 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
-
-    def _create_negative_data(self, X: Array, Y: Array) -> Tuple[Array, Array]:
-        """This makes the assumption that negative data are far, far more
-        common than positive data.
-
-        Under this assumption, the negative y data are simply randomly
-        sampled from a uniform distribution bounded by the min/max seen
-        in the data. There may be false negatives in general, but they
-        should be rare, under the assumption. The x values are taken
-        directly from the X array, not sampled.
-        """
-        # Note that the data has already been normalized.
-        del Y  # unused for now, but may be used in the future
-        num_samples = self._num_negative_data_per_input
-        neg_input_lst = []
-        neg_output_lst = []
-        for pos_input in X:
-            samples = self._rng.uniform(size=(num_samples, self._y_dim))
-            for neg_output in samples:
-                neg_input_lst.append(pos_input)
-                neg_output_lst.append(neg_output)
-        neg_inputs = np.array(neg_input_lst, dtype=np.float32)
-        neg_outputs = np.array(neg_output_lst, dtype=np.float32)
-        return neg_inputs, neg_outputs
 
 
 class NeuralGaussianRegressor(PyTorchRegressor):
