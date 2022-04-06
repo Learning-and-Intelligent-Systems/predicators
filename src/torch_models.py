@@ -1,4 +1,7 @@
-"""Models useful for classification/regression."""
+"""Models useful for classification/regression.
+
+Note: to promote modularity, this file should NOT import CFG.
+"""
 
 import abc
 import logging
@@ -12,7 +15,6 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn, optim
 
-from predicators.src.settings import CFG
 from predicators.src.structs import Array, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore

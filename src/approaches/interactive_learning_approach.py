@@ -105,9 +105,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Train MLP
             X = np.array(input_examples)
             Y = np.array(output_examples)
-            model = MLPClassifierEnsemble(X.shape[1],
-                                          CFG.predicate_mlp_classifier_max_itr,
-                                          CFG.interactive_num_ensemble_members)
+            model = MLPClassifierEnsemble(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.predicate_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                ensemble_size=CFG.interactive_num_ensemble_members)
             model.fit(X, Y)
 
             # Save the ensemble
