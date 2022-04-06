@@ -183,6 +183,7 @@ class GlobalSettings:
     implicit_mlp_regressor_max_itr = 10000
     implicit_mlp_regressor_num_negative_data_per_input = 5
     implicit_mlp_regressor_num_samples_per_inference = 100
+    implicit_mlp_regressor_temperature = 1.0
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
