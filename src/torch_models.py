@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, List, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -127,7 +127,6 @@ class PyTorchRegressor(Regressor, nn.Module):
                                         optimizer,
                                         tensor_X,
                                         tensor_Y,
-                                        seed=self._seed,
                                         max_iters=self._max_train_iters,
                                         clip_gradients=self._clip_gradients,
                                         clip_value=self._clip_value)
@@ -258,7 +257,6 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
             optimizer,
             tensor_X,
             tensor_y,
-            seed=self._seed,
             max_iters=self._max_train_iters,
             n_iter_no_change=self._n_iter_no_change)
 
@@ -392,7 +390,6 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                                         optimizer,
                                         tensor_X,
                                         tensor_Y,
-                                        seed=self._seed,
                                         max_iters=self._max_train_iters,
                                         clip_gradients=self._clip_gradients,
                                         clip_value=self._clip_value)
@@ -565,6 +562,7 @@ class MLPClassifierEnsemble(BinaryClassifier):
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
                  hid_sizes: List[int], ensemble_size: int) -> None:
+        super().__init__(seed, balance_data)
         self._members = [
             MLPClassifier(seed + i, balance_data, max_train_iters,
                           learning_rate, n_iter_no_change, hid_sizes)
@@ -646,7 +644,6 @@ def _train_predictive_pytorch_model(model: nn.Module,
                                     optimizer: optim.Optimizer,
                                     tensor_X: Tensor,
                                     tensor_Y: Tensor,
-                                    seed: int,
                                     max_iters: int,
                                     print_every: int = 1000,
                                     clip_gradients: bool = False,
