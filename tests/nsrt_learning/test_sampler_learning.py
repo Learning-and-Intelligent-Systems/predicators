@@ -10,7 +10,8 @@ from predicators.src.nsrt_learning.sampler_learning import \
     _create_sampler_data, _LearnedSampler, learn_samplers
 from predicators.src.structs import Action, LiftedAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, State, Type
-from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.torch_models import MLPBinaryClassifier, \
+    NeuralGaussianRegressor
 
 
 def test_create_sampler_data():
@@ -133,12 +134,12 @@ def test_learned_sampler_with_goal():
     goal_obj = next(iter(goal)).objects[0]
     objects = [goal_obj]
 
-    classifier = MLPClassifier(seed=123,
-                               balance_data=True,
-                               max_train_iters=10,
-                               learning_rate=1e-3,
-                               n_iter_no_change=1000000,
-                               hid_sizes=[32, 32])
+    classifier = MLPBinaryClassifier(seed=123,
+                                     balance_data=True,
+                                     max_train_iters=10,
+                                     learning_rate=1e-3,
+                                     n_iter_no_change=1000000,
+                                     hid_sizes=[32, 32])
 
     input_size = 11
     output_size = 2

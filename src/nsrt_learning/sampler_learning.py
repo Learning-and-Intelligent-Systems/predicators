@@ -13,8 +13,8 @@ from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
-from predicators.src.torch_models import BinaryClassifier, MLPClassifier, \
-    NeuralGaussianRegressor
+from predicators.src.torch_models import BinaryClassifier, \
+    MLPBinaryClassifier, NeuralGaussianRegressor
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -154,7 +154,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
                                 [0 for _ in negative_data])
-    classifier = MLPClassifier(
+    classifier = MLPBinaryClassifier(
         seed=CFG.seed,
         balance_data=CFG.mlp_classifier_balance_data,
         max_train_iters=CFG.sampler_mlp_classifier_max_itr,

@@ -19,7 +19,7 @@ from predicators.src.structs import Action, Dataset, GroundAtom, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
     Query, State, Task, Type
 from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifierEnsemble
+    MLPBinaryClassifierEnsemble
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -36,7 +36,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
-        self._pred_to_ensemble: Dict[str, MLPClassifierEnsemble] = {}
+        self._pred_to_ensemble: Dict[str, MLPBinaryClassifierEnsemble] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -105,7 +105,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Train MLP
             X = np.array(input_examples)
             Y = np.array(output_examples)
-            model = MLPClassifierEnsemble(
+            model = MLPBinaryClassifierEnsemble(
                 seed=CFG.seed,
                 balance_data=CFG.mlp_classifier_balance_data,
                 max_train_iters=CFG.predicate_mlp_classifier_max_itr,
