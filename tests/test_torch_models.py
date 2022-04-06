@@ -11,14 +11,16 @@ from predicators.src.torch_models import ImplicitMLPRegressor, MLPClassifier, \
 
 def test_basic_mlp_regressor():
     """Tests for MLPRegressor."""
-    utils.reset_config({
-        "mlp_regressor_max_itr": 100,
-        "mlp_regressor_clip_gradients": True
-    })
+    utils.reset_config()
     input_size = 3
     output_size = 2
     num_samples = 5
-    model = MLPRegressor()
+    model = MLPRegressor(seed=123,
+                         hid_sizes=[32, 32],
+                         max_train_iters=100,
+                         clip_gradients=True,
+                         clip_value=5,
+                         learning_rate=1e-3)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)
@@ -64,11 +66,16 @@ def test_implicit_mlp_regressor():
 
 def test_neural_gaussian_regressor():
     """Tests for NeuralGaussianRegressor."""
-    utils.reset_config({"neural_gaus_regressor_max_itr": 100})
+    utils.reset_config()
     input_size = 3
     output_size = 2
     num_samples = 5
-    model = NeuralGaussianRegressor()
+    model = NeuralGaussianRegressor(seed=123,
+                                    hid_sizes=[32, 32],
+                                    max_train_iters=100,
+                                    clip_gradients=False,
+                                    clip_value=5,
+                                    learning_rate=1e-3)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)
@@ -94,7 +101,12 @@ def test_mlp_classifier():
     y = np.concatenate(
         [np.zeros((num_class_samples)),
          np.ones((num_class_samples))])
-    model = MLPClassifier(input_size, 100)
+    model = MLPClassifier(seed=123,
+                          balance_data=True,
+                          max_train_iters=100,
+                          learning_rate=1e-3,
+                          n_iter_no_change=1000000,
+                          hid_sizes=[32, 32])
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
@@ -102,11 +114,12 @@ def test_mlp_classifier():
     assert prediction
     # Test for early stopping
     start_time = time.time()
-    utils.reset_config({
-        "mlp_classifier_n_iter_no_change": 1,
-        "learning_rate": 1e-2
-    })
-    model = MLPClassifier(input_size, 10000)
+    model = MLPClassifier(seed=123,
+                          balance_data=True,
+                          max_train_iters=100000,
+                          learning_rate=1e-2,
+                          n_iter_no_change=1,
+                          hid_sizes=[32, 32])
     model.fit(X, y)
     assert time.time() - start_time < 3, "Didn't early stop"
     # Test with no positive examples.
@@ -116,7 +129,12 @@ def test_mlp_classifier():
         np.ones((num_class_samples, input_size))
     ])
     y = np.zeros(len(X))
-    model = MLPClassifier(input_size, 10000)
+    model = MLPClassifier(seed=123,
+                          balance_data=True,
+                          max_train_iters=100000,
+                          learning_rate=1e-3,
+                          n_iter_no_change=100000,
+                          hid_sizes=[32, 32])
     start_time = time.time()
     model.fit(X, y)
     assert time.time() - start_time < 1, "Fitting was not instantaneous"
@@ -126,7 +144,12 @@ def test_mlp_classifier():
     assert not prediction
     # Test with no negative examples.
     y = np.ones(len(X))
-    model = MLPClassifier(input_size, 10000)
+    model = MLPClassifier(seed=123,
+                          balance_data=True,
+                          max_train_iters=100000,
+                          learning_rate=1e-3,
+                          n_iter_no_change=100000,
+                          hid_sizes=[32, 32])
     start_time = time.time()
     model.fit(X, y)
     assert time.time() - start_time < 1, "Fitting was not instantaneous"
