@@ -378,6 +378,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Cast to torch first.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        # Expand tensor_Y in preparation for concat in the loop below.
+        tensor_Y = tensor_Y[:, None, :]
         # For each of the negative outputs, we need a corresponding input.
         tiled_X = tensor_X.unsqueeze(1).repeat(1, num_negatives + 1, 1)
         extended_X = tiled_X.reshape([-1, tensor_X.shape[-1]])
@@ -386,13 +388,12 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             neg_Y = torch.rand(size=(num_samples, num_negatives, self._y_dim),
                                dtype=tensor_Y.dtype)
             # Create a multiclass classification-style target vector.
-            tensor_Y = tensor_Y[:, None, :]
             combined_Y = torch.cat([tensor_Y, neg_Y], axis=1)  # type: ignore
             combined_Y = combined_Y.reshape([-1, tensor_Y.shape[-1]])
             # Concatenate to create the final input to the network.
             XY = torch.cat([extended_X, combined_Y], axis=1)  # type: ignore
             assert XY.shape == ((num_negatives + 1) * num_samples,
-                                 self._x_dim + self._y_dim)
+                                self._x_dim + self._y_dim)
             # Create labels for multiclass loss. Note that the true inputs
             # are first, so the target labels are all zeros.
             indices = torch.zeros([num_samples], dtype=torch.int64)
