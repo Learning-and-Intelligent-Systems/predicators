@@ -6,7 +6,7 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.torch_models import ImplicitMLPRegressor, MLPClassifier, \
-    MLPRegressor, NeuralGaussianRegressor
+    MLPClassifierEnsemble, MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -117,8 +117,10 @@ def test_mlp_classifier():
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
+    assert model.predict_proba(np.zeros(input_size)) < 0.5
     prediction = model.classify(np.ones(input_size))
     assert prediction
+    assert model.predict_proba(np.ones(input_size)) > 0.5
     # Test for early stopping
     start_time = time.time()
     model = MLPClassifier(seed=123,
@@ -164,3 +166,35 @@ def test_mlp_classifier():
     assert prediction
     prediction = model.classify(np.ones(input_size))
     assert prediction
+
+
+def test_mlp_classifier_ensemble():
+    """Tests for MLPClassifierEnsemble."""
+    utils.reset_config()
+    input_size = 3
+    num_class_samples = 5
+    X = np.concatenate([
+        np.zeros((num_class_samples, input_size)),
+        np.ones((num_class_samples, input_size))
+    ])
+    y = np.concatenate(
+        [np.zeros((num_class_samples)),
+         np.ones((num_class_samples))])
+    model = MLPClassifierEnsemble(seed=123,
+                                  balance_data=True,
+                                  max_train_iters=100,
+                                  learning_rate=1e-3,
+                                  n_iter_no_change=1000000,
+                                  hid_sizes=[32, 32],
+                                  ensemble_size=3)
+    model.fit(X, y)
+    prediction = model.classify(np.zeros(input_size))
+    assert not prediction
+    probas = model.predict_member_probas(np.zeros(input_size))
+    assert all(p < 0.5 for p in probas)
+    assert len(probas) == 3
+    assert probas[0] != probas[1]  # there should be some variation
+    prediction = model.classify(np.ones(input_size))
+    assert prediction
+    probas = model.predict_member_probas(np.ones(input_size))
+    assert all(p > 0.5 for p in probas)

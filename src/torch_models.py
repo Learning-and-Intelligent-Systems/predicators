@@ -82,6 +82,7 @@ class PyTorchRegressor(Regressor, nn.Module):
 
     def __init__(self, seed: int, max_train_iters: int, clip_gradients: bool,
                  clip_value: float, learning_rate: float) -> None:
+        torch.manual_seed(seed)
         Regressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
@@ -212,6 +213,7 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int) -> None:
+        torch.manual_seed(seed)
         BinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
@@ -258,13 +260,28 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
             max_iters=self._max_train_iters,
             n_iter_no_change=self._n_iter_no_change)
 
-    def _classify(self, x: Array) -> bool:
+    def _forward_single_input_np(self, x: Array) -> float:
+        """Helper for _classify() and predict_proba()."""
+        assert x.shape == (self._x_dim, )
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
         y = tensor_y.detach().numpy()  # type: ignore
-        return y.item() > 0.5
+        proba = y.item()
+        assert 0 <= proba <= 1
+        return proba
+
+    def _classify(self, x: Array) -> bool:
+        return self._forward_single_input_np(x) > 0.5
+
+    def predict_proba(self, denorm_x: Array) -> float:
+        """Get the predicted probability that the input classifies to 1.
+
+        The input is unnormalized.
+        """
+        x = (denorm_x - self._input_shift) / self._input_scale
+        return self._forward_single_input_np(x)
 
 
 ################################# Regressors ##################################
@@ -539,41 +556,41 @@ class MLPClassifier(PyTorchClassifier):
         tensor_X = self._linears[-1](tensor_X)
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
-    def predict_proba(self, X: Array) -> Array:
-        """Get the predicted probability that the input classifies to 1.
-
-        This method will be deprecated soon.
-        """
-        return self(torch.from_numpy(X)).detach().numpy()
-
 
 class MLPClassifierEnsemble(BinaryClassifier):
     """MLPClassifierEnsemble definition."""
 
-    def __init__(self, in_size: int, max_itr: int, n: int) -> None:
+    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
+                 learning_rate: float, n_iter_no_change: int,
+                 hid_sizes: List[int], ensemble_size: int) -> None:
         self._members = [
-            MLPClassifier(in_size, max_itr, CFG.seed + i) for i in range(n)
+            MLPClassifier(seed + i, balance_data, max_train_iters,
+                          learning_rate, n_iter_no_change, hid_sizes)
+            for i in range(ensemble_size)
         ]
 
     def fit(self, X: Array, y: Array) -> None:
+        # Each member maintains its own normalizers.
         for i, member in enumerate(self._members):
             logging.info(f"Fitting member {i} of ensemble...")
             member.fit(X, y)
 
     def classify(self, x: Array) -> bool:
+        # Each member maintains its own normalizers.
         avg = np.mean(self.predict_member_probas(x))
         classification = avg > 0.5
         assert classification in [True, False]
         return classification
 
+    def _fit(self, X: Array, y: Array) -> None:
+        raise NotImplementedError("Not used.")
+
+    def _classify(self, x: Array) -> bool:
+        raise NotImplementedError("Not used.")
+
     def predict_member_probas(self, x: Array) -> Array:
         """Return class probabilities predicted by each member."""
-        assert x.ndim == 1
-        ps = []
-        for member in self._members:
-            x_normalized = member.normalize(x)
-            ps.append(member(x_normalized).item())
-        return np.array(ps)
+        return np.array([m.predict_proba(x) for m in self._members])
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -638,7 +655,6 @@ def _train_predictive_pytorch_model(model: nn.Module,
     In the future, with very large datasets, we would want to switch to
     minibatches.
     """
-    torch.manual_seed(seed)
     model.train()
     itr = 0
     best_loss = float("inf")
