@@ -395,7 +395,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         loss_fn = self._create_loss_fn()
         # Create the optimizer.
         optimizer = self._create_optimizer()
-        # Create the negative data.
+        # Create the batch generator, which creates negative data.
         batch_generator = self._create_batch_generator(X, Y)
         # Run training.
         _train_pytorch_model(self,
