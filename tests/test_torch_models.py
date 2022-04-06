@@ -1,5 +1,6 @@
 """Tests for models."""
 
+import pytest
 import time
 
 import numpy as np
@@ -198,3 +199,8 @@ def test_mlp_classifier_ensemble():
     assert prediction
     probas = model.predict_member_probas(np.ones(input_size))
     assert all(p > 0.5 for p in probas)
+    # Test coverage.
+    with pytest.raises(NotImplementedError):
+        model._fit(X, y)  # pylint: disable=protected-access
+    with pytest.raises(NotImplementedError):
+        model._classify(np.ones(input_size)) # pylint: disable=protected-access
