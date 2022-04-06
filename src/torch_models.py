@@ -323,7 +323,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
     For each positive (x, y) pair, a number of "negative" (x, y') pairs are
     generated. The model is then trained to distinguish positive from negative
-    conditioned on x using a classification-esque (constrastive) loss.
+    conditioned on x using a classification-esque (contrastive) loss.
 
     Inference is currently performed by sampling a fixed number of possible
     inputs and returning the sample that has the highest probability of
