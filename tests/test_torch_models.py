@@ -41,11 +41,18 @@ def test_basic_mlp_regressor():
 
 def test_implicit_mlp_regressor():
     """Tests for ImplicitMLPRegressor."""
-    utils.reset_config({"implicit_mlp_regressor_max_itr": 100})
+    utils.reset_config()
     input_size = 3
     output_size = 1
     num_samples = 5
-    model = ImplicitMLPRegressor()
+    model = ImplicitMLPRegressor(seed=123,
+                                 hid_sizes=[32, 32],
+                                 max_train_iters=100,
+                                 clip_gradients=False,
+                                 clip_value=5,
+                                 learning_rate=1e-3,
+                                 num_samples_per_inference=100,
+                                 num_negative_data_per_input=5)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)

@@ -279,6 +279,7 @@ class MLPRegressor(PyTorchRegressor):
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
+        # Set in fit().
         self._linears = nn.ModuleList()
 
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -299,7 +300,7 @@ class MLPRegressor(PyTorchRegressor):
         return nn.MSELoss()
 
 
-class ImplicitMLPRegressor(Regressor):
+class ImplicitMLPRegressor(PyTorchRegressor):
     """A regressor implemented via an "energy function".
 
     Currently the energy function is treated as a binary classifier, which is
@@ -314,31 +315,46 @@ class ImplicitMLPRegressor(Regressor):
     coming soon.
     """
 
-    def __init__(self) -> None:
-        self._rng = np.random.default_rng(CFG.seed)
+    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
+                 clip_gradients: bool, clip_value: float, learning_rate: float,
+                 num_samples_per_inference: int,
+                 num_negative_data_per_input: int) -> None:
+        super().__init__(seed, max_train_iters, clip_gradients, clip_value,
+                         learning_rate)
+        self._hid_sizes = hid_sizes
+        self._num_samples_per_inference = num_samples_per_inference
+        self._num_negative_data_per_input = num_negative_data_per_input
         # Set in fit().
-        self._x_dim = 0
-        self._y_dim = 0
-        self._input_shift = np.zeros(1, dtype=np.float32)
-        self._input_scale = np.zeros(1, dtype=np.float32)
-        self._output_shift = np.zeros(1, dtype=np.float32)
-        self._output_scale = np.zeros(1, dtype=np.float32)
-        self._classifier = MLPClassifier(1, 1)
+        self._linears = nn.ModuleList()
 
-    def fit(self, X: Array, Y: Array) -> None:
-        # Normalize everything right off the bat for simplicity.
-        X, self._input_shift, self._input_scale = self._normalize_data(X)
-        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
-        # Initialize the classifier.
-        num_data, self._x_dim = X.shape
-        assert Y.shape[0] == num_data
-        logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
-        self._y_dim = Y.shape[1]
-        max_itr = CFG.implicit_mlp_regressor_max_itr
-        self._classifier = MLPClassifier(in_size=(self._x_dim + self._y_dim),
-                                         max_itr=max_itr,
-                                         balance_data=False)
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        # The input here is the concatenation of the regressor's input and a
+        # candidate output. A better name would be tensor_XY, but we leave it
+        # as tensor_X for consistency with the parent class.
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X.squeeze(dim=-1)
+
+    def _initialize_net(self) -> None:
+        self._linears = nn.ModuleList()
+        self._linears.append(
+            nn.Linear(self._x_dim + self._y_dim, self._hid_sizes[0]))
+        for i in range(len(self._hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.BCEWithLogitsLoss()
+
+    def _fit(self, X: Array, Y: Array) -> None:
+        # Initialize the network.
+        self._initialize_net()
+        # Create the loss function.
+        loss_fn = self._create_loss_fn()
+        # Create the optimizer.
+        optimizer = self._create_optimizer()
         # Create the negative data.
         neg_X, neg_Y = self._create_negative_data(X, Y)
         # Set up the data for the classifier.
@@ -348,8 +364,35 @@ class ImplicitMLPRegressor(Regressor):
         targets = np.array([1 for _ in pos_concat_inputs] +
                            [0 for _ in neg_concat_inputs],
                            dtype=np.float32)
-        # Train the classifier.
-        self._classifier.fit(concat_inputs, targets)
+        # Convert data to tensors.
+        tensor_X = torch.from_numpy(np.array(concat_inputs, dtype=np.float32))
+        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        # Run training.
+        _train_predictive_pytorch_model(self,
+                                        loss_fn,
+                                        optimizer,
+                                        tensor_X,
+                                        tensor_Y,
+                                        seed=self._seed,
+                                        max_iters=self._max_train_iters,
+                                        clip_gradients=self._clip_gradients,
+                                        clip_value=self._clip_value)
+
+    def _predict(self, x: Array) -> Array:
+        # This sampling-based inference method is okay in 1 dimension, but
+        # won't work well with higher dimensions.
+        assert x.shape == (self._x_dim, )
+        num_samples = self._num_samples_per_inference
+        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
+        # Concatenate the x and ys.
+        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        # Pass through network.
+        scores = self(torch.from_numpy(concat_xy))
+        # Find the highest probability sample.
+        sample_idx = torch.argmax(scores)
+        return sample_ys[sample_idx]
 
     def _create_negative_data(self, X: Array, Y: Array) -> Tuple[Array, Array]:
         """This makes the assumption that negative data are far, far more
@@ -363,7 +406,7 @@ class ImplicitMLPRegressor(Regressor):
         """
         # Note that the data has already been normalized.
         del Y  # unused for now, but may be used in the future
-        num_samples = CFG.implicit_mlp_regressor_num_negative_data_per_input
+        num_samples = self._num_negative_data_per_input
         neg_input_lst = []
         neg_output_lst = []
         for pos_input in X:
@@ -375,34 +418,6 @@ class ImplicitMLPRegressor(Regressor):
         neg_outputs = np.array(neg_output_lst, dtype=np.float32)
         return neg_inputs, neg_outputs
 
-    def predict(self, arr: Array) -> Array:
-        # This sampling-based inference method is okay in 1 dimension, but
-        # won't work well with higher dimensions.
-        assert arr.shape == (self._x_dim, )
-        # Normalize.
-        x = (arr - self._input_shift) / self._input_scale
-        num_samples = CFG.implicit_mlp_regressor_num_samples_per_inference
-        sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
-        # Concatenate the x and ys.
-        concat_xy = np.array([np.hstack([x, y]) for y in sample_ys],
-                             dtype=np.float32)
-        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
-        # Pass through network.
-        scores = self._classifier.predict_proba(concat_xy)
-        # Find the highest probability sample.
-        sample_idx = np.argmax(scores)
-        norm_y = sample_ys[sample_idx]
-        # Denormalize.
-        denorm_y = (norm_y * self._output_scale) + self._output_shift
-        return denorm_y
-
-    @staticmethod
-    def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
-        shift = np.min(data, axis=0)  # type: ignore
-        scale = np.max(data - shift, axis=0)  # type: ignore
-        scale = np.clip(scale, CFG.normalization_scale_clip, None)
-        return (data - shift) / scale, shift, scale
-
 
 class NeuralGaussianRegressor(PyTorchRegressor):
     """NeuralGaussianRegressor definition."""
@@ -413,6 +428,7 @@ class NeuralGaussianRegressor(PyTorchRegressor):
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
+        # Set in fit().
         self._linears = nn.ModuleList()
 
     def forward(self, tensor_X: Tensor) -> Tensor:
