@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, List, Sequence, Tuple
+from typing import Callable, Iterator, List, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -121,12 +121,12 @@ class PyTorchRegressor(Regressor, nn.Module):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_predictive_pytorch_model(self,
                                         loss_fn,
                                         optimizer,
-                                        tensor_X,
-                                        tensor_Y,
+                                        batch_generator,
                                         max_iters=self._max_train_iters,
                                         clip_gradients=self._clip_gradients,
                                         clip_value=self._clip_value)
@@ -250,13 +250,13 @@ class PyTorchClassifier(BinaryClassifier, nn.Module):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
+        batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
         _train_predictive_pytorch_model(
             self,
             loss_fn,
             optimizer,
-            tensor_X,
-            tensor_y,
+            batch_generator,
             max_iters=self._max_train_iters,
             n_iter_no_change=self._n_iter_no_change)
 
@@ -384,12 +384,12 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(concat_inputs, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
         # Run training.
         _train_predictive_pytorch_model(self,
                                         loss_fn,
                                         optimizer,
-                                        tensor_X,
-                                        tensor_Y,
+                                        batch_generator,
                                         max_iters=self._max_train_iters,
                                         clip_gradients=self._clip_gradients,
                                         clip_value=self._clip_value)
@@ -638,12 +638,19 @@ def _balance_binary_classification_data(
     return (X, y)
 
 
+def _single_batch_generator(
+        tensor_X: Tensor, tensor_Y: Tensor) -> Iterator[Tuple[Tensor, Tensor]]:
+    """Infinitely generate all of the data in one batch."""
+    while True:
+        yield (tensor_X, tensor_Y)
+
+
 def _train_predictive_pytorch_model(model: nn.Module,
                                     loss_fn: Callable[[Tensor, Tensor],
                                                       Tensor],
                                     optimizer: optim.Optimizer,
-                                    tensor_X: Tensor,
-                                    tensor_Y: Tensor,
+                                    batch_generator: Iterator[Tuple[Tensor,
+                                                                    Tensor]],
                                     max_iters: int,
                                     print_every: int = 1000,
                                     clip_gradients: bool = False,
@@ -659,7 +666,7 @@ def _train_predictive_pytorch_model(model: nn.Module,
     best_loss = float("inf")
     best_itr = 0
     model_name = tempfile.NamedTemporaryFile(delete=False).name
-    while True:
+    for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
         if loss.item() < best_loss:
@@ -685,6 +692,4 @@ def _train_predictive_pytorch_model(model: nn.Module,
     model.load_state_dict(torch.load(model_name))  # type: ignore
     os.remove(model_name)
     model.eval()
-    Y_hat = model(tensor_X)
-    loss = loss_fn(Y_hat, tensor_Y)
-    logging.info(f"Loaded best model with loss: {loss:.5f}")
+    logging.info(f"Loaded best model with loss: {best_loss:.5f}")
