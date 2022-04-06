@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -18,133 +18,195 @@ from predicators.src.structs import Array, Object, State
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
-class Regressor(abc.ABC):
-    """ABC for regressor classes."""
+################################ Base Classes #################################
 
-    @abc.abstractmethod
+class Regressor(abc.ABC):
+    """ABC for regressor classes.
+
+    All regressors normalize the input and output data.
+    """
+
+    def __init__(self) -> None:
+        self._seed = CFG.seed
+        self._rng = np.random.default_rng(self._seed)
+        # Set in fit().
+        self._x_dim = 0
+        self._y_dim = 0
+        self._input_shift = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.zeros(1, dtype=np.float32)
+        self._output_shift = np.zeros(1, dtype=np.float32)
+        self._output_scale = np.zeros(1, dtype=np.float32)
+
     def fit(self, X: Array, Y: Array) -> None:
-        """Train regressor on the given data.
+        """Train the regressor on the given data.
 
         X and Y are both two-dimensional.
         """
-        raise NotImplementedError("Override me")
-
-    @abc.abstractmethod
-    def predict(self, arr: Array) -> Array:
-        """Return a prediction for the given datapoint.
-
-        arr is single-dimensional.
-        """
-        raise NotImplementedError("Override me")
-
-
-class MLPRegressor(Regressor, nn.Module):
-    """A basic multilayer perceptron regressor."""
-
-    def __init__(self) -> None:  # pylint: disable=useless-super-delegation
-        super().__init__()  # type: ignore
-        self._input_shift = torch.zeros(1)
-        self._input_scale = torch.zeros(1)
-        self._output_shift = torch.zeros(1)
-        self._output_scale = torch.zeros(1)
-        self._linears = nn.ModuleList()
-        self._loss_fn = nn.MSELoss()
-
-    def fit(self, X: Array, Y: Array) -> None:
-        """Train regressor on the given data.
-
-        Both X and Y are two-dimensional.
-        """
-        assert X.ndim == 2
-        assert Y.ndim == 2
-        return self._fit(X, Y)
-
-    def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method."""
-        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
-        for _, linear in enumerate(self._linears[:-1]):
-            x = F.relu(linear(x))
-        x = self._linears[-1](x)
-        return x
-
-    def predict(self, arr: Array) -> Array:
-        """Normalize, predict, un-normalize, and convert to array."""
-        x = torch.from_numpy(np.array(arr, dtype=np.float32))
-        x = x.unsqueeze(dim=0)
-        # Normalize input
-        x = (x - self._input_shift) / self._input_scale
-        y = self(x)
-        # Un-normalize output
-        y = (y * self._output_scale) + self._output_shift
-        y = y.squeeze(dim=0)
-        y = y.detach()  # type: ignore
-        return y.numpy()
-
-    def _initialize_net(self, in_size: int, hid_sizes: List[int],
-                        out_size: int) -> None:
-        self._linears = nn.ModuleList()
-        self._linears.append(nn.Linear(in_size, hid_sizes[0]))
-        for i in range(len(hid_sizes) - 1):
-            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
-        self._linears.append(nn.Linear(hid_sizes[-1], out_size))
-        self._optimizer = optim.Adam(  # pylint: disable=attribute-defined-outside-init
-            self.parameters(),
-            lr=CFG.learning_rate)
-
-    @staticmethod
-    def _normalize_data(data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        shift = torch.min(data, dim=0, keepdim=True).values
-        scale = torch.max(data - shift, dim=0, keepdim=True).values
-        scale = torch.clip(scale, min=CFG.normalization_scale_clip)
-        return (data - shift) / scale, shift, scale
-
-    def _fit(self, inputs: Array, outputs: Array) -> None:
-        torch.manual_seed(CFG.seed)
-        # Infer input and output sizes from data
-        num_data, input_size = inputs.shape
-        _, output_size = outputs.shape
-        # Initialize net
-        hid_sizes = CFG.mlp_regressor_hid_sizes
-        self._initialize_net(input_size, hid_sizes, output_size)
-        # Convert data to torch
-        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
-        Y = torch.from_numpy(np.array(outputs, dtype=np.float32))
-        # Normalize data
-        X, self._input_shift, self._input_scale = self._normalize_data(X)
-        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
-        # Train
+        X, self._input_shift, self._input_scale = _normalize_data(X)
+        Y, self._output_shift, self._output_scale = _normalize_data(Y)
+        num_data, self._x_dim = X.shape
+        _, self._y_dim = Y.shape
+        assert Y.shape[0] == num_data
         logging.info(f"Training {self.__class__.__name__} on {num_data} "
                      "datapoints")
-        self.train()  # switch to train mode
-        itr = 0
-        max_itrs = CFG.mlp_regressor_max_itr
-        best_loss = float("inf")
-        model_name = tempfile.NamedTemporaryFile(delete=False).name
-        while True:
-            yhat = self(X)
-            loss = self._loss_fn(yhat, Y)
-            if loss.item() < best_loss:
-                best_loss = loss.item()
-                # Save this best model
-                torch.save(self.state_dict(), model_name)
-            if itr % 1000 == 0:
-                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}")
-            self._optimizer.zero_grad()
-            loss.backward()
-            if CFG.mlp_regressor_clip_gradients:
-                torch.nn.utils.clip_grad_norm_(
-                    self.parameters(), CFG.mlp_regressor_gradient_clip_value)
-            self._optimizer.step()
-            if itr == max_itrs:
-                break
-            itr += 1
-        # Load best model
-        self.load_state_dict(torch.load(model_name))  # type: ignore
-        os.remove(model_name)
-        self.eval()  # switch to eval mode
-        yhat = self(X)
-        loss = self._loss_fn(yhat, Y)
-        logging.info(f"Loaded best model with loss: {loss:.5f}")
+        self._fit(X, Y)
+
+    def predict(self, x: Array) -> Array:
+        """Return a prediction for the given datapoint.
+
+        x is single-dimensional.
+        """
+        assert x.shape == (self._x_dim, )
+        # Normalize.
+        x = (x - self._input_shift) / self._input_scale
+        # Make prediction.
+        y = self._predict(x)
+        assert y.shape == (self._y_dim, )
+        # Denormalize.
+        y = (y * self._output_scale) + self._output_shift
+        return y
+
+    @abc.abstractmethod
+    def _fit(self, X: Array, Y: Array) -> None:
+        """Train the regressor on normalized data."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def _predict(self, x: Array) -> Array:
+        """Return a normalized prediction for the normalized input.
+        """
+        raise NotImplementedError("Override me!")
+
+
+class PyTorchRegressor(Regressor, nn.Module):
+    """ABC for PyTorch regression models."""
+    def __init__(self) -> None:
+        Regressor.__init__(self)
+        nn.Module.__init__(self)  # type: ignore
+        self._max_train_iters = CFG.mlp_regressor_max_itr
+        self._clip_gradients = CFG.mlp_regressor_clip_gradients
+        self._clip_value = CFG.mlp_regressor_gradient_clip_value
+        self._learning_rate = CFG.learning_rate
+
+    @abc.abstractmethod
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        """Pytorch forward method."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def _initialize_net(self) -> None:
+        """Initialize the network once the data dimensions are known."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        """Create the loss function used for optimization."""
+        raise NotImplementedError("Override me!")
+
+    def _create_optimizer(self) -> optim.Optimizer:
+        """Create an optimizer after the model is initialized."""
+        return optim.Adam(self.parameters(), lr=self._learning_rate)
+
+    def _fit(self, X: Array, Y: Array) -> None:
+        # Initialize the network.
+        self._initialize_net()
+        # Create the loss function.
+        loss_fn = self._create_loss_fn()
+        # Create the optimizer.
+        optimizer = self._create_optimizer()
+        # Convert data to tensors.
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
+        tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        # Run training.
+        _train_predictive_pytorch_model(self, loss_fn, optimizer,
+                tensor_X, tensor_Y, seed=self._seed,
+                max_iters=self._max_train_iters,
+                clip_gradients=self._clip_gradients,
+                clip_value=self._clip_value)
+
+    def _predict(self, x: Array) -> Array:
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        tensor_X = tensor_x.unsqueeze(dim=0)
+        tensor_Y = self(tensor_X)
+        tensor_y = tensor_Y.squeeze(dim=0)
+        y = tensor_y.detach().numpy()  # type: ignore
+        return y
+
+
+class Classifier(abc.ABC):
+    """ABC for binary classifier classes.
+
+    All binary classifiers normalize the input data.
+    """
+
+    def __init__(self) -> None:
+        self._rng = np.random.default_rng(CFG.seed)
+        # Set in fit().
+        self._x_dim = 0
+        self._input_shift = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.zeros(1, dtype=np.float32)
+
+    def fit(self, X: Array, y: Array) -> None:
+        """Train the classifier on the given data.
+
+        X is two-dimensional, y is one-dimensional.
+        """
+        X, self._input_shift, self._input_scale = _normalize_data(X)
+        num_data, self._x_dim = X.shape
+        assert y.shape == (num_data, )
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
+        self._fit(X, y)
+
+    def classify(self, x: Array) -> bool:
+        """Return a predicted class for the given datapoint.
+
+        x is single-dimensional.
+        """
+        assert x.shape == (self._x_dim, )
+        # Normalize.
+        x = (x - self._input_shift) / self._input_scale
+        # Make prediction.
+        return self._classify(x)
+
+    @abc.abstractmethod
+    def _fit(self, X: Array, y: Array) -> None:
+        """Train the regressor on normalized data."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def _classify(self, x: Array) -> bool:
+        """Return a predicted class for the normalized input.
+        """
+        raise NotImplementedError("Override me!")
+
+
+################################# Regressors ##################################
+
+
+class MLPRegressor(PyTorchRegressor, nn.Module):
+    """A basic multilayer perceptron regressor."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._linears = nn.ModuleList()
+        self._hid_sizes = CFG.mlp_regressor_hid_sizes
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X
+
+    def _initialize_net(self) -> None:
+        self._linears = nn.ModuleList()
+        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        for i in range(len(self._hid_sizes) - 1):
+            self._linears.append(nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.MSELoss()
 
 
 class ImplicitMLPRegressor(Regressor):
@@ -329,7 +391,7 @@ class NeuralGaussianRegressor(nn.Module):
                      "datapoints")
         self.train()  # switch to train mode
         itr = 0
-        max_itrs = CFG.neural_gaus_regressor_max_itr
+        max_iters = CFG.neural_gaus_regressor_max_itr
         best_loss = float("inf")
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         while True:
@@ -340,11 +402,11 @@ class NeuralGaussianRegressor(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 1000 == 0:
-                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}")
+                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
-            if itr == max_itrs:
+            if itr == max_iters:
                 break
             itr += 1
         # Load best model
@@ -396,25 +458,7 @@ class NeuralGaussianRegressor(nn.Module):
         return (data - shift) / scale, shift, scale
 
 
-class Classifier(abc.ABC):
-    """ABC for classifier types."""
-
-    @abc.abstractmethod
-    def fit(self, X: Array, y: Array) -> None:
-        """Train classifier on the given data.
-
-        X is two-dimensional, y is single-dimensional.
-        """
-        raise NotImplementedError("Override me")
-
-    @abc.abstractmethod
-    def classify(self, x: Array) -> bool:
-        """Return a classification of the given datapoint.
-
-        x is single-dimensional.
-        """
-        raise NotImplementedError("Override me")
-
+################################ Classifiers ##################################
 
 class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
@@ -602,3 +646,54 @@ class LearnedPredicateClassifier:
         """
         v = state.vec(objects)
         return self._model.classify(v)
+
+
+
+################################## Utilities ##################################
+
+def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
+    shift = np.min(data, axis=0)  # type: ignore
+    scale = np.max(data - shift, axis=0)  # type: ignore
+    scale = np.clip(scale, CFG.normalization_scale_clip, None)
+    return (data - shift) / scale, shift, scale
+
+
+def _train_predictive_pytorch_model(model: nn.Module,
+                                    loss_fn: Callable[[Tensor, Tensor], Tensor],
+                                    optimizer: optim.Optimizer,
+                                    tensor_X: Tensor, tensor_Y: Tensor,
+                                    seed: int, max_iters: int,
+                                    print_every: int = 1000,
+                                    clip_gradients: bool = False,
+                                    clip_value: float = 5) -> None:
+    """Note that this currently does not use minibatches. In the future, with
+    very large datasets, we would want to switch to minibatches."""
+    torch.manual_seed(seed)
+    model.train()
+    itr = 0
+    best_loss = float("inf")
+    model_name = tempfile.NamedTemporaryFile(delete=False).name
+    while True:
+        Y_hat = model(tensor_X)
+        loss = loss_fn(Y_hat, tensor_Y)
+        if loss.item() < best_loss:
+            best_loss = loss.item()
+            # Save this best model.
+            torch.save(model.state_dict(), model_name)
+        if itr % print_every == 0:
+            logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
+        optimizer.zero_grad()
+        loss.backward()  # type: ignore
+        if clip_gradients:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
+        optimizer.step()
+        if itr == max_iters:
+            break
+        itr += 1
+    # Load best model.
+    model.load_state_dict(torch.load(model_name))  # type: ignore
+    os.remove(model_name)
+    model.eval()
+    Y_hat = model(tensor_X)
+    loss = loss_fn(Y_hat, tensor_Y)
+    logging.info(f"Loaded best model with loss: {loss:.5f}")
