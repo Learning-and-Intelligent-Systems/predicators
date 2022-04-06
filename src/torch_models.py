@@ -365,6 +365,25 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCEWithLogitsLoss()
 
+    def _create_batch_generator(self, X: Array,
+                                Y: Array) -> Iterator[Tuple[Tensor, Tensor]]:
+        # Resample negative examples on each iteration.
+        pos_concat_inputs = np.hstack([X, Y])
+        num_pos_inputs = len(pos_concat_inputs)
+        num_neg_inputs = num_pos_inputs * self._num_negative_data_per_input
+        targets = np.array([1] * num_pos_inputs + [0] * num_neg_inputs,
+                           dtype=np.float32)
+        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
+        while True:
+            neg_X, neg_Y = self._create_negative_data(X, Y)
+            # Set up the data for the classifier.
+            neg_concat_inputs = np.hstack([neg_X, neg_Y])
+            concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
+            # Convert data to tensors.
+            tensor_X = torch.from_numpy(
+                np.array(concat_inputs, dtype=np.float32))
+            yield (tensor_X, tensor_Y)
+
     def _fit(self, X: Array, Y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
@@ -373,18 +392,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Create the optimizer.
         optimizer = self._create_optimizer()
         # Create the negative data.
-        neg_X, neg_Y = self._create_negative_data(X, Y)
-        # Set up the data for the classifier.
-        pos_concat_inputs = np.hstack([X, Y])
-        neg_concat_inputs = np.hstack([neg_X, neg_Y])
-        concat_inputs = np.vstack([pos_concat_inputs, neg_concat_inputs])
-        targets = np.array([1 for _ in pos_concat_inputs] +
-                           [0 for _ in neg_concat_inputs],
-                           dtype=np.float32)
-        # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(concat_inputs, dtype=np.float32))
-        tensor_Y = torch.from_numpy(np.array(targets, dtype=np.float32))
-        batch_generator = _single_batch_generator(tensor_X, tensor_Y)
+        batch_generator = self._create_batch_generator(X, Y)
         # Run training.
         _train_predictive_pytorch_model(self,
                                         loss_fn,
