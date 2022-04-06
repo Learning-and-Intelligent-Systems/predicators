@@ -329,6 +329,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         import imageio
         import glob
         import os
+        import torch
         assert CFG.env == "touch_point"
         env = get_or_create_env(CFG.env)
         env_imgs = env.render_state(state, DefaultTask)
@@ -340,10 +341,12 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         yval = np.linspace(low, high, 250).squeeze()
         norm_ys = (yval - self._regressor._output_shift) / self._regressor._output_scale
         norm_x = (x - self._regressor._input_shift) / self._regressor._input_scale
-        concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys])
-        colorvals = self._regressor._classifier.predict_proba(concat_inputs)
+        concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys],
+                                 dtype=np.float32)
+        colorvals = self._regressor(torch.from_numpy(concat_inputs))
+        colorvals = colorvals.detach().numpy()
         colormap = plt.get_cmap('Greens')
-        norm = mpl.colors.Normalize(0, 1)
+        norm = mpl.colors.Normalize(colorvals.min(), colorvals.max())
         dpi = 300
         fig_height = env_img.shape[0] / dpi
         fig_width = fig_height
