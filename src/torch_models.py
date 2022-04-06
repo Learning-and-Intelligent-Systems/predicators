@@ -323,7 +323,28 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
     For each positive (x, y) pair, a number of "negative" (x, y') pairs are
     generated. The model is then trained to distinguish positive from negative
-    conditioned on x using a classification-esque (contrastive) loss.
+    conditioned on x using a contrastive loss.
+
+    The implementation idea is the following. We want to use a contrastive
+    loss that looks like this:
+
+        L = E[-log(p(y | x, {y'}))]
+
+        p(y | x, {y'})) = exp(-f(x, y)) / [
+            (exp(-f(x, y)) + sum_{y'} exp(-f(x, y')))
+        ]
+
+    where (x, y) is an example "positive" input/output from (X, Y), f is
+    the model that we are learning in this class, and {y'} is a set of
+    "negative" output examples for input x. The size of that set is
+    self._num_negatives_per_input (num_negatives).
+
+    One way to interpret the expression is that the numerator exp(-f(x, y))
+    represents an unnormalized probability that the same (x, y) belongs to
+    a certain ground truth "class". Each of the exp(-f(x, y') in the
+    denominator then corresponds to an artificial incorrect "class".
+    So the entire expression is just a softmax over (num_negatives + 1)
+    classes.
 
     Inference is currently performed by sampling a fixed number of possible
     inputs and returning the sample that has the highest probability of
@@ -364,9 +385,12 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
 
+        # See the class docstring for context.
         def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
             pred = Y_hat.reshape(Y.shape)  # (num data, num classes)
             log_probs = F.log_softmax(pred / self._temperature, dim=-1)
+            # Note: batchmean is recommended in the PyTorch documentation
+            # and will become the default in a future version.
             loss = F.kl_div(log_probs, Y, reduction='batchmean')
             return loss
 
@@ -379,11 +403,20 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Cast to torch first.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        assert tensor_X.shape == (num_samples, self._x_dim)
+        assert tensor_Y.shape == (num_samples, self._y_dim)
         # Expand tensor_Y in preparation for concat in the loop below.
         tensor_Y = tensor_Y[:, None, :]
+        assert tensor_Y.shape == (num_samples, 1, self._y_dim)
         # For each of the negative outputs, we need a corresponding input.
+        # So we repeat each x value num_negatives + 1 times so that each of
+        # the num_negatives outputs, and the 1 positive output, have a
+        # corresponding input.
         tiled_X = tensor_X.unsqueeze(1).repeat(1, num_negatives + 1, 1)
+        assert tiled_X.shape == (num_samples, num_negatives + 1, self._x_dim)
         extended_X = tiled_X.reshape([-1, tensor_X.shape[-1]])
+        assert extended_X.shape == (num_samples * (num_negatives + 1),
+                                    self._x_dim)
         while True:
             # Resample negative examples on each iteration.
             neg_Y = torch.rand(size=(num_samples, num_negatives, self._y_dim),
@@ -399,6 +432,11 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             # are first, so the target labels are all zeros.
             indices = torch.zeros([num_samples], dtype=torch.int64)
             labels = F.one_hot(indices, num_classes=num_negatives + 1).float()
+            assert labels.shape == (num_samples, num_negatives + 1)
+            # Note that XY is flattened and labels is not. XY is flattened
+            # because we need to feed each entry through the network during
+            # training. Labels is unflattened because we will want to use
+            # KLDivLoss.
             yield (XY, labels)
 
     def _fit(self, X: Array, Y: Array) -> None:
