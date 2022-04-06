@@ -19,7 +19,7 @@ from predicators.src.structs import Action, Dataset, GroundAtom, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
     Query, State, Task, Type
 from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifierEnsemble
+    MLPBinaryClassifierEnsemble
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -36,7 +36,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
-        self._pred_to_ensemble: Dict[str, MLPClassifierEnsemble] = {}
+        self._pred_to_ensemble: Dict[str, MLPBinaryClassifierEnsemble] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -105,9 +105,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Train MLP
             X = np.array(input_examples)
             Y = np.array(output_examples)
-            model = MLPClassifierEnsemble(X.shape[1],
-                                          CFG.predicate_mlp_classifier_max_itr,
-                                          CFG.interactive_num_ensemble_members)
+            model = MLPBinaryClassifierEnsemble(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.predicate_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                ensemble_size=CFG.interactive_num_ensemble_members)
             model.fit(X, Y)
 
             # Save the ensemble

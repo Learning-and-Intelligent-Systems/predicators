@@ -170,7 +170,6 @@ class GlobalSettings:
     side_predicate_learner = "no_learning"
 
     # torch model parameters
-    normalization_scale_clip = 1
     learning_rate = 1e-3
     mlp_regressor_max_itr = 10000
     mlp_regressor_hid_sizes = [32, 32]

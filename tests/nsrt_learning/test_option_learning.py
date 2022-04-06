@@ -157,7 +157,6 @@ def test_learned_neural_parameterized_option():
     utils.reset_config({
         "env": "cover_multistep_options",
         "option_learner": "direct_bc",
-        "mlp_regressor_max_itr": 10,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
     })
@@ -173,7 +172,12 @@ def test_learned_neural_parameterized_option():
     # In this example, both of the parameters (block and robot) are changing.
     changing_parameters = pick_operator.parameters
     # Create a dummy regressor but with the right shapes.
-    regressor = MLPRegressor()
+    regressor = MLPRegressor(seed=123,
+                             hid_sizes=[32, 32],
+                             max_train_iters=10,
+                             clip_gradients=False,
+                             clip_value=5,
+                             learning_rate=1e-3)
     param_dim = sum([p.type.dim for p in changing_parameters])
     input_dim = sum([p.type.dim for p in pick_operator.parameters]) + param_dim
     # The plus 1 is for the bias term.
