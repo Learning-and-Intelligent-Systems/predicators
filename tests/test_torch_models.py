@@ -1,9 +1,9 @@
 """Tests for models."""
 
-import pytest
 import time
 
 import numpy as np
+import pytest
 
 from predicators.src import utils
 from predicators.src.torch_models import ImplicitMLPRegressor, MLPClassifier, \
@@ -203,4 +203,4 @@ def test_mlp_classifier_ensemble():
     with pytest.raises(NotImplementedError):
         model._fit(X, y)  # pylint: disable=protected-access
     with pytest.raises(NotImplementedError):
-        model._classify(np.ones(input_size)) # pylint: disable=protected-access
+        model._classify(np.ones(input_size))  # pylint: disable=protected-access
