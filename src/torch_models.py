@@ -17,8 +17,8 @@ from predicators.src.structs import Array, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
-
 ################################ Base Classes #################################
+
 
 class Regressor(abc.ABC):
     """ABC for regressor classes.
@@ -73,13 +73,13 @@ class Regressor(abc.ABC):
 
     @abc.abstractmethod
     def _predict(self, x: Array) -> Array:
-        """Return a normalized prediction for the normalized input.
-        """
+        """Return a normalized prediction for the normalized input."""
         raise NotImplementedError("Override me!")
 
 
 class PyTorchRegressor(Regressor, nn.Module):
     """ABC for PyTorch regression models."""
+
     def __init__(self) -> None:
         Regressor.__init__(self)
         nn.Module.__init__(self)  # type: ignore
@@ -118,11 +118,15 @@ class PyTorchRegressor(Regressor, nn.Module):
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
         # Run training.
-        _train_predictive_pytorch_model(self, loss_fn, optimizer,
-                tensor_X, tensor_Y, seed=self._seed,
-                max_iters=self._max_train_iters,
-                clip_gradients=self._clip_gradients,
-                clip_value=self._clip_value)
+        _train_predictive_pytorch_model(self,
+                                        loss_fn,
+                                        optimizer,
+                                        tensor_X,
+                                        tensor_Y,
+                                        seed=self._seed,
+                                        max_iters=self._max_train_iters,
+                                        clip_gradients=self._clip_gradients,
+                                        clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
@@ -176,15 +180,14 @@ class Classifier(abc.ABC):
 
     @abc.abstractmethod
     def _classify(self, x: Array) -> bool:
-        """Return a predicted class for the normalized input.
-        """
+        """Return a predicted class for the normalized input."""
         raise NotImplementedError("Override me!")
 
 
 ################################# Regressors ##################################
 
 
-class MLPRegressor(PyTorchRegressor, nn.Module):
+class MLPRegressor(PyTorchRegressor):
     """A basic multilayer perceptron regressor."""
 
     def __init__(self) -> None:
@@ -202,7 +205,8 @@ class MLPRegressor(PyTorchRegressor, nn.Module):
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
-            self._linears.append(nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+            self._linears.append(
+                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
         self._linears.append(nn.Linear(self._hid_sizes[-1], self._y_dim))
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
@@ -314,26 +318,47 @@ class ImplicitMLPRegressor(Regressor):
         return (data - shift) / scale, shift, scale
 
 
-class NeuralGaussianRegressor(nn.Module):
+class NeuralGaussianRegressor(PyTorchRegressor):
     """NeuralGaussianRegressor definition."""
 
-    def __init__(self) -> None:  # pylint: disable=useless-super-delegation
-        super().__init__()  # type: ignore
-        self._input_shift = torch.zeros(1)
-        self._input_scale = torch.zeros(1)
-        self._output_shift = torch.zeros(1)
-        self._output_scale = torch.zeros(1)
+    def __init__(self) -> None:
+        super().__init__()
         self._linears = nn.ModuleList()
-        self._loss_fn = nn.GaussianNLLLoss()
+        self._hid_sizes = CFG.neural_gaus_regressor_hid_sizes
+        self._max_train_iters = CFG.neural_gaus_regressor_max_itr
 
-    def fit(self, X: Array, Y: Array) -> None:
-        """Train regressor on the given data.
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        """Pytorch forward method."""
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        # Force pred var positive.
+        # Note: use of elu here is very important. Tried several other things
+        # and none worked. Use of elu recommended here:
+        # https://engineering.taboola.com/predicting-probability-distributions/
+        mean, variance = self._split_prediction(tensor_X)
+        variance = F.elu(variance) + 1
+        return torch.cat([mean, variance], dim=-1)
 
-        Both X and Y are two-dimensional.
-        """
-        assert X.ndim == 2
-        assert Y.ndim == 2
-        return self._fit(X, Y)
+    def _initialize_net(self) -> None:
+        # Versus MLPRegressor, the only difference here is that the output
+        # size is 2 * self._y_dim, rather than self._y_dim, because we are
+        # predicting both mean and diagonal variance.
+        self._linears = nn.ModuleList()
+        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+        for i in range(len(self._hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._hid_sizes[-1], 2 * self._y_dim))
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        _nll_loss = nn.GaussianNLLLoss()
+
+        def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
+            pred_mean, pred_var = self._split_prediction(Y_hat)
+            return _nll_loss(pred_mean, Y, pred_var)
+
+        return _loss_fn
 
     def predict_mean(self, x: Array) -> Array:
         """Return a mean prediction on the given datapoint.
@@ -357,108 +382,29 @@ class NeuralGaussianRegressor(nn.Module):
             y.append(y_i)
         return np.array(y)
 
-    def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method."""
-        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
-        for _, linear in enumerate(self._linears[:-1]):
-            x = F.relu(linear(x))
-        x = self._linears[-1](x)
-        # Force pred var positive.
-        # Note: use of elu here is very important. Tried several other things
-        # and none worked. Use of elu recommended here:
-        # https://engineering.taboola.com/predicting-probability-distributions/
-        mean, variance = self._split_prediction(x)
-        variance = F.elu(variance) + 1
-        x = torch.cat([mean, variance], dim=-1)
-        return x
-
-    def _fit(self, inputs: Array, outputs: Array) -> None:
-        torch.manual_seed(CFG.seed)
-        # Infer input and output sizes from data
-        num_data, input_size = inputs.shape
-        _, output_size = outputs.shape
-        # Initialize net
-        hid_sizes = CFG.neural_gaus_regressor_hid_sizes
-        self._initialize_net(input_size, hid_sizes, output_size)
-        # Convert data to torch
-        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
-        Y = torch.from_numpy(np.array(outputs, dtype=np.float32))
-        # Normalize data
-        X, self._input_shift, self._input_scale = self._normalize_data(X)
-        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
-        # Train
-        logging.info(f"Training {self.__class__.__name__} on {num_data} "
-                     "datapoints")
-        self.train()  # switch to train mode
-        itr = 0
-        max_iters = CFG.neural_gaus_regressor_max_itr
-        best_loss = float("inf")
-        model_name = tempfile.NamedTemporaryFile(delete=False).name
-        while True:
-            pred_mean, pred_var = self._split_prediction(self(X))
-            loss = self._loss_fn(pred_mean, Y, pred_var)
-            if loss.item() < best_loss:
-                best_loss = loss.item()
-                # Save this best model
-                torch.save(self.state_dict(), model_name)
-            if itr % 1000 == 0:
-                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
-            self._optimizer.zero_grad()
-            loss.backward()
-            self._optimizer.step()
-            if itr == max_iters:
-                break
-            itr += 1
-        # Load best model
-        self.load_state_dict(torch.load(model_name))  # type: ignore
-        os.remove(model_name)
-        self.eval()  # switch to eval mode
-        pred_mean, pred_var = self._split_prediction(self(X))
-        loss = self._loss_fn(pred_mean, Y, pred_var)
-        logging.info(f"Loaded best model with loss: {loss:.5f}")
-
-    def _initialize_net(self, in_size: int, hid_sizes: List[int],
-                        out_size: int) -> None:
-        self._linears = nn.ModuleList()
-        self._linears.append(nn.Linear(in_size, hid_sizes[0]))
-        for i in range(len(hid_sizes) - 1):
-            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
-        # The 2 here is for mean and variance
-        self._linears.append(nn.Linear(hid_sizes[-1], 2 * out_size))
-        self._optimizer = optim.Adam(  # pylint: disable=attribute-defined-outside-init
-            self.parameters(),
-            lr=CFG.learning_rate)
+    def _predict_mean_var(self, x: Array) -> Tuple[Array, Array]:
+        # Note: we need to use _predict(), rather than predict(), because
+        # we need to apply normalization separately to the mean and variance
+        # components of the prediction (see below).
+        assert x.shape == (self._x_dim, )
+        # Normalize.
+        norm_x = (x - self._input_shift) / self._input_scale
+        norm_y = self._predict(norm_x)
+        assert norm_y.shape == (2 * self._y_dim, )
+        norm_mean = norm_y[:self._y_dim]
+        norm_variance = norm_y[self._y_dim:]
+        # Denormalize output.
+        mean = (norm_mean * self._output_scale) + self._output_shift
+        variance = norm_variance * (np.square(self._output_scale))
+        return mean, variance
 
     @staticmethod
-    def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
-        return torch.split(x, x.shape[-1] // 2, dim=-1)  # type: ignore
-
-    def _predict_mean_var(self, inputs: Array) -> Tuple[Array, Array]:
-        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
-        x = x.unsqueeze(dim=0)
-        # Normalize input
-        x = (x - self._input_shift) / self._input_scale
-        mean, variance = self._split_prediction(self(x))
-        # Normalize output
-        mean = (mean * self._output_scale) + self._output_shift
-        variance = variance * (torch.square(self._output_scale))
-        mean = mean.squeeze(dim=0)
-        mean = mean.detach()  # type: ignore
-        np_mean = mean.numpy()
-        variance = variance.squeeze(dim=0)
-        variance = variance.detach()  # type: ignore
-        np_variance = variance.numpy()
-        return np_mean, np_variance
-
-    @staticmethod
-    def _normalize_data(data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        shift = torch.min(data, dim=0, keepdim=True).values
-        scale = torch.max(data - shift, dim=0, keepdim=True).values
-        scale = torch.clip(scale, min=CFG.normalization_scale_clip)
-        return (data - shift) / scale, shift, scale
+    def _split_prediction(Y: Tensor) -> Tuple[Tensor, Tensor]:
+        return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
 
 
 ################################ Classifiers ##################################
+
 
 class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
@@ -648,8 +594,8 @@ class LearnedPredicateClassifier:
         return self._model.classify(v)
 
 
-
 ################################## Utilities ##################################
+
 
 def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
     shift = np.min(data, axis=0)  # type: ignore
@@ -659,15 +605,21 @@ def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
 
 
 def _train_predictive_pytorch_model(model: nn.Module,
-                                    loss_fn: Callable[[Tensor, Tensor], Tensor],
+                                    loss_fn: Callable[[Tensor, Tensor],
+                                                      Tensor],
                                     optimizer: optim.Optimizer,
-                                    tensor_X: Tensor, tensor_Y: Tensor,
-                                    seed: int, max_iters: int,
+                                    tensor_X: Tensor,
+                                    tensor_Y: Tensor,
+                                    seed: int,
+                                    max_iters: int,
                                     print_every: int = 1000,
                                     clip_gradients: bool = False,
                                     clip_value: float = 5) -> None:
-    """Note that this currently does not use minibatches. In the future, with
-    very large datasets, we would want to switch to minibatches."""
+    """Note that this currently does not use minibatches.
+
+    In the future, with very large datasets, we would want to switch to
+    minibatches.
+    """
     torch.manual_seed(seed)
     model.train()
     itr = 0
