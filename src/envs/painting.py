@@ -284,25 +284,28 @@ class PaintingEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 1.0)
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
-        next_state.set(held_obj, "pose_z", z)
+        if self._update_z_poses:
+            next_state.set(held_obj, "pose_z", z)
         next_state.set(held_obj, "grasp", 0.5)
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
+    @property
+    def _num_objects_train(self) -> List[int]:
+        return CFG.painting_num_objs_train
+
+    @property
+    def _num_objects_test(self) -> List[int]:
+        return CFG.painting_num_objs_test
+
     def _generate_train_tasks(self) -> List[Task]:
-        num_objs_lst = (CFG.rnt_painting_num_objs_train
-                        if CFG.env == "repeated_nextto_painting" else
-                        CFG.painting_num_objs_train)
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=num_objs_lst,
+                               num_objs_lst=self._num_objects_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        num_objs_lst = (CFG.rnt_painting_num_objs_test
-                        if CFG.env == "repeated_nextto_painting" else
-                        CFG.painting_num_objs_test)
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=num_objs_lst,
+                               num_objs_lst=self._num_objects_test,
                                rng=self._test_rng)
 
     @property
@@ -448,6 +451,14 @@ class PaintingEnv(BaseEnv):
         plt.close()
         return [img]
 
+    @property
+    def _max_objs_in_goal(self) -> int:
+        return CFG.painting_max_objs_in_goal
+
+    @property
+    def _update_z_poses(self) -> bool:
+        return False
+
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
@@ -476,18 +487,15 @@ class PaintingEnv(BaseEnv):
             objs = []
             obj_poses: List[Tuple[float, float, float]] = []
             goal = set()
-            max_objs_in_goal = (CFG.rnt_painting_max_objs_in_goal
-                                if CFG.env == "repeated_nextto_painting" else
-                                CFG.painting_max_objs_in_goal)
             assert CFG.painting_goal_receptacles in ("box_and_shelf", "box",
                                                      "shelf")
             if CFG.painting_goal_receptacles == "shelf":
                 # No box; all max_objs_in_goal objects must go in the shelf
-                num_objs_in_shelf = max_objs_in_goal
+                num_objs_in_shelf = self._max_objs_in_goal
             else:
                 # The last object is destined for the box, so the remaining
                 # (max_objs_in_goal - 1) objects must go in the shelf
-                num_objs_in_shelf = max_objs_in_goal - 1
+                num_objs_in_shelf = self._max_objs_in_goal - 1
             for j in range(num_objs):
                 obj = Object(f"obj{j}", self._obj_type)
                 objs.append(obj)
@@ -525,7 +533,7 @@ class PaintingEnv(BaseEnv):
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
-            assert len(goal) <= 2 * max_objs_in_goal
+            assert len(goal) <= 2 * self._max_objs_in_goal
             state = State(data)
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
@@ -535,9 +543,9 @@ class PaintingEnv(BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if CFG.env == "repeated_nextto_painting":
-                    state.set(target_obj, "pose_y",
-                              state.get(self._robot, "pose_y"))
+                state.set(target_obj, "pose_y",
+                          state.get(self._robot, "pose_y"))
+                if self._update_z_poses:
                     state.set(target_obj, "pose_z",
                               state.get(target_obj, "pose_z") + 1.0)
             tasks.append(Task(state, goal))
@@ -667,7 +675,15 @@ class PaintingEnv(BaseEnv):
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
         obj_y = state.get(obj, "pose_y")
-        return self.table_lb < obj_y < self.table_ub
+        if not self.table_lb < obj_y < self.table_ub:
+            return False
+        # Note that obj_z is not updated in this class, but it may be updated
+        # by subclasses by overriding self._update_z_poses.
+        obj_z = state.get(obj, "pose_z")
+        if not np.allclose(obj_z, self.table_height + self.obj_height / 2):
+            assert self._update_z_poses
+            return False
+        return True
 
     def _HoldingTop_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
