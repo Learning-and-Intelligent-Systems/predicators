@@ -99,20 +99,22 @@ class SidePredicateLearner(abc.ABC):
                             # Assuming we only have the ground op's add effects
                             # filled in, we want all transitions in which the
                             # demonstrator might have reasonably executed this
-                            # operator. In these transitions (1) the 
-                            # preconditions of the ground op must hold, 
+                            # operator. In these transitions (1) the
+                            # preconditions of the ground op must hold,
                             # (2) the add effects of the segment intersected
                             # with the ground op's add effects must not be
-                            # empty [because otherwise, there's no point 
+                            # empty [because otherwise, there's no point
                             # calling this operator] and (3) all the ground
                             # op's add effects must hold in the final atoms
                             # [since these add effects are really just 'set'
                             # effects].
-                            if not len(segment.add_effects
-                                       & ground_op.add_effects) > 0:
-                                continue
+
                             if not ground_op.add_effects.issubset(
                                     segment.final_atoms):
+                                continue
+
+                            if not len(segment.add_effects
+                                       & ground_op.add_effects) > 0:
                                 continue
 
                         # Skip over segments that have multiple possible
