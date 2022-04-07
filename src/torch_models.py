@@ -518,10 +518,12 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         return sample_ys[sample_idx]
 
     def _predict_grid(self, x: Array) -> Array:
+        assert self._grid_num_ticks_per_dim is not None
+        assert self._grid_num_ticks_per_dim > 0
         dy = 1.0 / self._grid_num_ticks_per_dim
         ticks = [np.arange(0.0, 1.0, dy)] * self._y_dim
-        candidate_ys = np.transpose(np.meshgrid(*ticks)).reshape(
-            (-1, self._y_dim))
+        grid = np.meshgrid(*ticks)   # type: ignore
+        candidate_ys = np.transpose(grid).reshape((-1, self._y_dim))
         num_samples = candidate_ys.shape[0]
         assert num_samples == self._grid_num_ticks_per_dim**self._y_dim
         # Concatenate the x and ys.
