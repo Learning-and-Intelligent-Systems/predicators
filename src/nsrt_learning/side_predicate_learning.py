@@ -627,11 +627,7 @@ class BackchainingSidePredicateLearner(GeneralToSpecificSidePredicateLearner):
         self._recompute_datastores_from_segments([new_pnad],
                                                  semantics="add_effects")
         # Determine the preconditions.
-        try:
-            preconditions = induce_pnad_preconditions(new_pnad)
-        except AssertionError:
-            import ipdb
-            ipdb.set_trace()
+        preconditions = induce_pnad_preconditions(new_pnad)
         # Update the preconditions of the new PNAD's operator.
         new_pnad.op = new_pnad.op.copy_with(preconditions=preconditions)
         return new_pnad
