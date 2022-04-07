@@ -507,6 +507,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def _predict_derivative_free(self, x: Array) -> Array:
         # Reference: https://arxiv.org/pdf/2109.00137.pdf (Algorithm 1).
         # This method reportedly works well in up to 5 dimensions.
+        # Since we are using torch for random sampling, and since we want
+        # to ensure deterministic predictions, we need to reseed torch.
+        torch.manual_seed(self._seed)
         num_samples = self._num_samples_per_inference
         num_iters = self._derivate_free_num_iters
         sigma = self._derivate_free_sigma_init
