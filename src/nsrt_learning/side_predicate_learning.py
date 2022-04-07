@@ -65,7 +65,7 @@ class SidePredicateLearner(abc.ABC):
         "add_effects", then rather than using apply_operator(), we check
         that (1) the add effects of the segment intersected with the
         ground op's add effects must not be empty [because otherwise, a
-        rational demonstrator would not have called] this operator and
+        rational demonstrator would not have called this operator] and
         (2) all the ground op's add effects must hold in the final atoms
         """
         assert semantics in ("apply_operator", "add_effects")
