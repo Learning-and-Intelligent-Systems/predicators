@@ -364,20 +364,19 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                  num_negative_data_per_input: int,
                  temperature: float,
                  inference_method: str,
-                 derivate_free_num_iters: Optional[int] = None,
-                 derivate_free_sigma_init: Optional[float] = None,
-                 derivate_free_shrink_scale: Optional[float] = None) -> None:
+                 derivative_free_num_iters: Optional[int] = None,
+                 derivative_free_sigma_init: Optional[float] = None,
+                 derivative_free_shrink_scale: Optional[float] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
-        assert inference_method in ("sample_once", "derivate_free")
-        if inference_method == "derivate_free":
-            assert derivate_free_num_iters is not None
-            assert derivate_free_sigma_init is not None
-            assert derivate_free_shrink_scale is not None
+        if inference_method == "derivative_free":
+            assert derivative_free_num_iters is not None
+            assert derivative_free_sigma_init is not None
+            assert derivative_free_shrink_scale is not None
         self._inference_method = inference_method
-        self._derivate_free_num_iters = derivate_free_num_iters
-        self._derivate_free_sigma_init = derivate_free_sigma_init
-        self._derivate_free_shrink_scale = derivate_free_shrink_scale
+        self._derivative_free_num_iters = derivative_free_num_iters
+        self._derivative_free_sigma_init = derivative_free_sigma_init
+        self._derivative_free_shrink_scale = derivative_free_shrink_scale
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
@@ -490,7 +489,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert x.shape == (self._x_dim, )
         if self._inference_method == "sample_once":
             return self._predict_sample_once(x)
-        if self._inference_method == "derivate_free":
+        if self._inference_method == "derivative_free":
             return self._predict_derivative_free(x)
         raise NotImplementedError("Unrecognized inference method: "
                                   f"{self._inference_method}.")
@@ -517,9 +516,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # to ensure deterministic predictions, we need to reseed torch.
         torch.manual_seed(self._seed)
         num_samples = self._num_samples_per_inference
-        num_iters = self._derivate_free_num_iters
-        sigma = self._derivate_free_sigma_init
-        K = self._derivate_free_shrink_scale
+        num_iters = self._derivative_free_num_iters
+        sigma = self._derivative_free_sigma_init
+        K = self._derivative_free_shrink_scale
         assert num_samples is not None and num_samples > 0
         assert num_iters is not None and num_iters > 0
         assert sigma is not None and sigma > 0

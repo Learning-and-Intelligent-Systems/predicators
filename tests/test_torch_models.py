@@ -57,9 +57,9 @@ def test_implicit_mlp_regressor():
                                  num_negative_data_per_input=5,
                                  temperature=1.0,
                                  inference_method="sample_once",
-                                 derivate_free_num_iters=3,
-                                 derivate_free_sigma_init=0.33,
-                                 derivate_free_shrink_scale=0.5)
+                                 derivative_free_num_iters=3,
+                                 derivative_free_sigma_init=0.33,
+                                 derivative_free_shrink_scale=0.5)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)
@@ -77,7 +77,7 @@ def test_implicit_mlp_regressor():
     assert predicted_y.shape == expected_y.shape
     assert np.allclose(predicted_y, expected_y, atol=1e-1)
     # Test other inference methods. Protected access is to avoid retraining.
-    model._inference_method = "derivate_free"  # pylint: disable=protected-access
+    model._inference_method = "derivative_free"  # pylint: disable=protected-access
     predicted_y = model.predict(x)
     assert predicted_y.shape == expected_y.shape
     assert np.allclose(predicted_y, expected_y, atol=1e-1)
