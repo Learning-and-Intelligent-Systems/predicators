@@ -489,4 +489,5 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             clip_value=CFG.mlp_regressor_gradient_clip_value,
             learning_rate=CFG.learning_rate,
             num_negative_data_per_input=num_neg,
-            num_samples_per_inference=num_sam)
+            num_samples_per_inference=num_sam,
+            temperature=CFG.implicit_mlp_regressor_temperature)
