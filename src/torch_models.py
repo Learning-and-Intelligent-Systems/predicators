@@ -436,8 +436,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                                 self._x_dim + self._y_dim)
             # Create labels for multiclass loss. Note that the true inputs
             # are first, so the target labels are all zeros (see docstring).
-            indices = torch.zeros([num_samples], dtype=torch.int64)
-            labels = F.one_hot(indices, num_classes=num_negatives + 1).float()
+            idxs = torch.zeros([num_samples], dtype=torch.int64)
+            labels = F.one_hot(idxs, num_classes=(num_negatives + 1)).float()
             assert labels.shape == (num_samples, num_negatives + 1)
             # Note that XY is flattened and labels is not. XY is flattened
             # because we need to feed each entry through the network during
