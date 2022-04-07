@@ -532,6 +532,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
         # Pass through network.
         scores = self(torch.from_numpy(concat_xy))
+        self._last_Y = candidate_ys
+        self._last_scores = scores.detach().numpy()
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
@@ -577,8 +579,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                 sigma = K * sigma
         # Make a final selection.
         selected_idx = torch.argmax(scores)
-        self._last_Y = Y
-        self._last_scores = scores
+        self._last_Y = Y.detach().numpy()
+        self._last_scores = scores.detach().numpy()
         return Y[selected_idx].detach().numpy()  # type: ignore
 
 

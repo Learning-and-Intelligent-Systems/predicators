@@ -366,9 +366,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
         # python src/main.py --approach nsrt_learning --env cover_multistep_options_fixed_tasks --seed 0 --option_learner implicit_bc --load_data
         assert CFG.env.startswith("cover_multistep_options")
-        last_norm_action_candidates = self._regressor._last_Y.detach().numpy()
+        last_norm_action_candidates = self._regressor._last_Y
         last_action_candidates = (last_norm_action_candidates * self._regressor._output_scale) + self._regressor._output_shift
-        last_scores = self._regressor._last_scores.detach().numpy()
+        last_scores = self._regressor._last_scores
         
         def plt_callback():
             robot = [o for o in state if o.name.startswith("rob")][0]
