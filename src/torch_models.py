@@ -347,10 +347,13 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     So the entire expression is just a softmax over (num_negatives + 1)
     classes.
 
-    Inference is currently performed by sampling a fixed number of possible
+    Inference with the "sample_once" method samples a fixed number of possible
     inputs and returning the sample that has the highest probability of
-    classifying to 1, under the learned classifier. Other inference methods are
-    coming soon.
+    classifying to 1, under the learned classifier.
+
+    Inference with the "derivative_free" method follows Algorithm 1 from the
+    implicit BC paper (https://arxiv.org/pdf/2109.00137.pdf). It is very
+    similar to CEM.
     """
 
     def __init__(self,
@@ -510,6 +513,12 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # This method reportedly works well in up to 5 dimensions.
         # Since we are using torch for random sampling, and since we want
         # to ensure deterministic predictions, we need to reseed torch.
+        # Also note that we need to set the seed here because we need calls
+        # on the same input to deterministically return the same output,
+        # both when saved models are loaded, but also when the same model
+        # is called multiple times in the same process. The latter case
+        # happens when an option is called by the default option model and
+        # then later called at execution time.
         torch.manual_seed(self._seed)
         num_samples = self._num_samples_per_inference
         num_iters = self._derivative_free_num_iters
