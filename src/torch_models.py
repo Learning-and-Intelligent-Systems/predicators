@@ -369,10 +369,6 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                  derivative_free_shrink_scale: Optional[float] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
-        if inference_method == "derivative_free":
-            assert derivative_free_num_iters is not None
-            assert derivative_free_sigma_init is not None
-            assert derivative_free_shrink_scale is not None
         self._inference_method = inference_method
         self._derivative_free_num_iters = derivative_free_num_iters
         self._derivative_free_sigma_init = derivative_free_sigma_init
