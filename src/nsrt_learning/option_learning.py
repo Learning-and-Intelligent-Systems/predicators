@@ -479,8 +479,12 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
     """Use an ImplicitMLPRegressor for regression."""
 
     def _create_regressor(self) -> Regressor:
+        # Pull out the constants that have long names.
         num_neg = CFG.implicit_mlp_regressor_num_negative_data_per_input
         num_sam = CFG.implicit_mlp_regressor_num_samples_per_inference
+        num_itr = CFG.implicit_mlp_regressor_derivative_free_num_iters
+        sigma = CFG.implicit_mlp_regressor_derivative_free_sigma_init
+        shrink_scale = CFG.implicit_mlp_regressor_derivative_free_shrink_scale
         return ImplicitMLPRegressor(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
@@ -490,4 +494,8 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             learning_rate=CFG.learning_rate,
             num_negative_data_per_input=num_neg,
             num_samples_per_inference=num_sam,
-            temperature=CFG.implicit_mlp_regressor_temperature)
+            temperature=CFG.implicit_mlp_regressor_temperature,
+            inference_method=CFG.implicit_mlp_regressor_inference_method,
+            derivative_free_num_iters=num_itr,
+            derivative_free_sigma_init=sigma,
+            derivative_free_shrink_scale=shrink_scale)

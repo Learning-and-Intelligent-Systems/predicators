@@ -8,12 +8,13 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Sequence, Tuple
+from typing import Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn, optim
+from torch.distributions.categorical import Categorical
 
 from predicators.src.structs import Array, Object, State
 
@@ -346,18 +347,35 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     So the entire expression is just a softmax over (num_negatives + 1)
     classes.
 
-    Inference is currently performed by sampling a fixed number of possible
+    Inference with the "sample_once" method samples a fixed number of possible
     inputs and returning the sample that has the highest probability of
-    classifying to 1, under the learned classifier. Other inference methods are
-    coming soon.
+    classifying to 1, under the learned classifier.
+
+    Inference with the "derivative_free" method follows Algorithm 1 from the
+    implicit BC paper (https://arxiv.org/pdf/2109.00137.pdf). It is very
+    similar to CEM.
     """
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float, learning_rate: float,
+    def __init__(self,
+                 seed: int,
+                 hid_sizes: List[int],
+                 max_train_iters: int,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
                  num_samples_per_inference: int,
-                 num_negative_data_per_input: int, temperature: float) -> None:
+                 num_negative_data_per_input: int,
+                 temperature: float,
+                 inference_method: str,
+                 derivative_free_num_iters: Optional[int] = None,
+                 derivative_free_sigma_init: Optional[float] = None,
+                 derivative_free_shrink_scale: Optional[float] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
+        self._inference_method = inference_method
+        self._derivative_free_num_iters = derivative_free_num_iters
+        self._derivative_free_sigma_init = derivative_free_sigma_init
+        self._derivative_free_shrink_scale = derivative_free_shrink_scale
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
@@ -467,9 +485,17 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
+        assert x.shape == (self._x_dim, )
+        if self._inference_method == "sample_once":
+            return self._predict_sample_once(x)
+        if self._inference_method == "derivative_free":
+            return self._predict_derivative_free(x)
+        raise NotImplementedError("Unrecognized inference method: "
+                                  f"{self._inference_method}.")
+
+    def _predict_sample_once(self, x: Array) -> Array:
         # This sampling-based inference method is okay in 1 dimension, but
         # won't work well with higher dimensions.
-        assert x.shape == (self._x_dim, )
         num_samples = self._num_samples_per_inference
         sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
         # Concatenate the x and ys.
@@ -481,6 +507,49 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
+
+    def _predict_derivative_free(self, x: Array) -> Array:
+        # Reference: https://arxiv.org/pdf/2109.00137.pdf (Algorithm 1).
+        # This method reportedly works well in up to 5 dimensions.
+        # Since we are using torch for random sampling, and since we want
+        # to ensure deterministic predictions, we need to reseed torch.
+        # Also note that we need to set the seed here because we need calls
+        # on the same input to deterministically return the same output,
+        # both when saved models are loaded, but also when the same model
+        # is called multiple times in the same process. The latter case
+        # happens when an option is called by the default option model and
+        # then later called at execution time.
+        torch.manual_seed(self._seed)
+        num_samples = self._num_samples_per_inference
+        num_iters = self._derivative_free_num_iters
+        sigma = self._derivative_free_sigma_init
+        K = self._derivative_free_shrink_scale
+        assert num_samples is not None and num_samples > 0
+        assert num_iters is not None and num_iters > 0
+        assert sigma is not None and sigma > 0
+        assert K is not None and 0 < K < 1
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        repeated_x = tensor_x.repeat(num_samples, 1)
+        # Initialize candidate outputs.
+        Y = torch.rand(size=(num_samples, self._y_dim), dtype=tensor_x.dtype)
+        for it in range(num_iters):
+            # Compute candidate scores.
+            concat_xy = torch.cat([repeated_x, Y], axis=1)  # type: ignore
+            scores = self(concat_xy)
+            if it < num_iters - 1:
+                # Multinomial resampling with replacement.
+                dist = Categorical(logits=scores)  # type: ignore
+                indices = dist.sample((num_samples, ))  # type: ignore
+                Y = Y[indices]
+                # Add noise.
+                noise = torch.randn(Y.shape) * sigma
+                Y = Y + noise
+                # Recall that Y is normalized to stay within [0, 1].
+                Y = torch.clip(Y, 0.0, 1.0)
+                sigma = K * sigma
+        # Make a final selection.
+        selected_idx = torch.argmax(scores)
+        return Y[selected_idx].detach().numpy()  # type: ignore
 
 
 class NeuralGaussianRegressor(PyTorchRegressor):
