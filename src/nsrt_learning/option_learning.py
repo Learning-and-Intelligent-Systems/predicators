@@ -378,7 +378,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             dy = last_action_candidates[:, 1]
             x = rx + dx
             y = ry + dy
-            sizes = 5 * np.exp(last_scores)
+            sizes = 5 * np.exp(last_scores / 10)
             plt.scatter(x, y, s=sizes, alpha=0.25)
 
         env = get_or_create_env(CFG.env)
