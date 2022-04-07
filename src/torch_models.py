@@ -335,13 +335,13 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         ]
 
     where (x, y) is an example "positive" input/output from (X, Y), f is
-    the model that we are learning in this class, and {y'} is a set of
-    "negative" output examples for input x. The size of that set is
-    self._num_negatives_per_input (num_negatives).
+    the energy function that we are learning in this class, and {y'} is a set
+    of "negative" output examples for input x. The size of that set is
+    self._num_negatives_per_input.
 
     One way to interpret the expression is that the numerator exp(-f(x, y))
-    represents an unnormalized probability that the same (x, y) belongs to
-    a certain ground truth "class". Each of the exp(-f(x, y') in the
+    represents an unnormalized probability that this (x, y) belongs to
+    a certain ground truth "class". Each of the exp(-f(x, y')) in the
     denominator then corresponds to an artificial incorrect "class".
     So the entire expression is just a softmax over (num_negatives + 1)
     classes.
@@ -387,7 +387,13 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
         # See the class docstring for context.
         def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
-            pred = Y_hat.reshape(Y.shape)  # (num data, num classes)
+            # The shape of Y_hat is (num_samples * (num_negatives + 1), ).
+            # The shape of Y is (num_samples, (num_negatives + 1)).
+            # Each row of Y is a one-hot vector with the first entry 1. We
+            # could reconstruct that here, but we stick with this to conform
+            # to the _train_pytorch_model API, where target outputs are always
+            # passed into the loss function.
+            pred = Y_hat.reshape(Y.shape)
             log_probs = F.log_softmax(pred / self._temperature, dim=-1)
             # Note: batchmean is recommended in the PyTorch documentation
             # and will become the default in a future version.
@@ -426,17 +432,17 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             combined_Y = combined_Y.reshape([-1, tensor_Y.shape[-1]])
             # Concatenate to create the final input to the network.
             XY = torch.cat([extended_X, combined_Y], axis=1)  # type: ignore
-            assert XY.shape == ((num_negatives + 1) * num_samples,
+            assert XY.shape == (num_samples * (num_negatives + 1),
                                 self._x_dim + self._y_dim)
             # Create labels for multiclass loss. Note that the true inputs
-            # are first, so the target labels are all zeros.
+            # are first, so the target labels are all zeros (see docstring).
             indices = torch.zeros([num_samples], dtype=torch.int64)
             labels = F.one_hot(indices, num_classes=num_negatives + 1).float()
             assert labels.shape == (num_samples, num_negatives + 1)
             # Note that XY is flattened and labels is not. XY is flattened
             # because we need to feed each entry through the network during
             # training. Labels is unflattened because we will want to use
-            # KLDivLoss.
+            # F.kl_div in the loss function.
             yield (XY, labels)
 
     def _fit(self, X: Array, Y: Array) -> None:
