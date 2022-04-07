@@ -55,7 +55,11 @@ def test_implicit_mlp_regressor():
                                  learning_rate=1e-3,
                                  num_samples_per_inference=100,
                                  num_negative_data_per_input=5,
-                                 temperature=1.0)
+                                 temperature=1.0,
+                                 inference_method="sample_once",
+                                 derivate_free_num_iters=3,
+                                 derivate_free_sigma_init=0.33,
+                                 derivate_free_shrink_scale=0.5)
     X = np.ones((num_samples, input_size))
     Y = np.zeros((num_samples, output_size))
     model.fit(X, Y)
@@ -72,6 +76,14 @@ def test_implicit_mlp_regressor():
     expected_y = 75 * np.ones(output_size)
     assert predicted_y.shape == expected_y.shape
     assert np.allclose(predicted_y, expected_y, atol=1e-1)
+    # Test other inference methods. Protected access is to avoid retraining.
+    model._inference_method = "derivate_free"  # pylint: disable=protected-access
+    predicted_y = model.predict(x)
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-1)
+    model._inference_method = "not a real inference method"  # pylint: disable=protected-access
+    with pytest.raises(NotImplementedError):
+        model.predict(x)
 
 
 def test_neural_gaussian_regressor():
