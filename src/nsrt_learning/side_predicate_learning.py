@@ -66,7 +66,8 @@ class SidePredicateLearner(abc.ABC):
         that (1) the add effects of the segment intersected with the
         ground op's add effects must not be empty [because otherwise, a
         rational demonstrator would not have called this operator] and
-        (2) all the ground op's add effects must hold in the final atoms.
+        (2) all the ground op's add effects must hold in the final
+        atoms.
         """
         assert semantics in ("apply_operator", "add_effects")
         for pnad in pnads:
