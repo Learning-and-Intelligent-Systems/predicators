@@ -351,6 +351,11 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     inputs and returning the sample that has the highest probability of
     classifying to 1, under the learned classifier.
 
+    Inference with the "grid" method is similar to "sample_once", except that
+    the samples are evenly distributed over the Y space. Note that this method
+    ignores the num_samples_per_inference keyword argument and instead uses the
+    grid_num_ticks_per_dim.
+
     Inference with the "derivative_free" method follows Algorithm 1 from the
     implicit BC paper (https://arxiv.org/pdf/2109.00137.pdf). It is very
     similar to CEM.
@@ -369,13 +374,15 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                  inference_method: str,
                  derivative_free_num_iters: Optional[int] = None,
                  derivative_free_sigma_init: Optional[float] = None,
-                 derivative_free_shrink_scale: Optional[float] = None) -> None:
+                 derivative_free_shrink_scale: Optional[float] = None,
+                 grid_num_ticks_per_dim: Optional[int] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._inference_method = inference_method
         self._derivative_free_num_iters = derivative_free_num_iters
         self._derivative_free_sigma_init = derivative_free_sigma_init
         self._derivative_free_shrink_scale = derivative_free_shrink_scale
+        self._grid_num_ticks_per_dim = grid_num_ticks_per_dim
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
@@ -488,6 +495,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert x.shape == (self._x_dim, )
         if self._inference_method == "sample_once":
             return self._predict_sample_once(x)
+        if self._inference_method == "grid":
+            return self._predict_grid(x)
         if self._inference_method == "derivative_free":
             return self._predict_derivative_free(x)
         raise NotImplementedError("Unrecognized inference method: "
@@ -507,6 +516,23 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
+
+    def _predict_grid(self, x: Array) -> Array:
+        dy = 1.0 / self._grid_num_ticks_per_dim
+        ticks = [np.arange(0.0, 1.0, dy)] * self._y_dim
+        candidate_ys = np.transpose(np.meshgrid(*ticks)).reshape(
+            (-1, self._y_dim))
+        num_samples = candidate_ys.shape[0]
+        assert num_samples == self._grid_num_ticks_per_dim**self._y_dim
+        # Concatenate the x and ys.
+        concat_xy = np.array([np.hstack([x, y]) for y in candidate_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        # Pass through network.
+        scores = self(torch.from_numpy(concat_xy))
+        # Find the highest probability sample.
+        sample_idx = torch.argmax(scores)
+        return candidate_ys[sample_idx]
 
     def _predict_derivative_free(self, x: Array) -> Array:
         # Reference: https://arxiv.org/pdf/2109.00137.pdf (Algorithm 1).
