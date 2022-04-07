@@ -485,6 +485,7 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
         num_itr = CFG.implicit_mlp_regressor_derivative_free_num_iters
         sigma = CFG.implicit_mlp_regressor_derivative_free_sigma_init
         shrink_scale = CFG.implicit_mlp_regressor_derivative_free_shrink_scale
+        num_ticks = CFG.implicit_mlp_regressor_grid_num_ticks_per_dim
         return ImplicitMLPRegressor(
             seed=CFG.seed,
             hid_sizes=CFG.mlp_regressor_hid_sizes,
@@ -498,4 +499,5 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             inference_method=CFG.implicit_mlp_regressor_inference_method,
             derivative_free_num_iters=num_itr,
             derivative_free_sigma_init=sigma,
-            derivative_free_shrink_scale=shrink_scale)
+            derivative_free_shrink_scale=shrink_scale,
+            grid_num_ticks_per_dim=num_ticks)
