@@ -62,9 +62,11 @@ class SidePredicateLearner(abc.ABC):
         a datastore if, for some ground PNAD, the preconditions are
         satisfied and apply_operator() results in an abstract next state
         that is a subset of the segment's final_atoms. If semantics is
-        "add_effects", then rather than using apply_operator(), we
-        simply check that the add effects are a subset of the segment's
-        add effects.
+        "add_effects", then rather than using apply_operator(), we check
+        that (1) the add effects of the segment intersected with the
+        ground op's add effects must not be empty [because otherwise, a
+        rational demonstrator would not have called] this operator and
+        (2) all the ground op's add effects must hold in the final atoms
         """
         assert semantics in ("apply_operator", "add_effects")
         for pnad in pnads:
@@ -96,27 +98,12 @@ class SidePredicateLearner(abc.ABC):
                             if not atoms.issubset(segment.final_atoms):
                                 continue
                         elif semantics == "add_effects":
-                            # Assuming we only have the ground op's add effects
-                            # filled in, we want all transitions in which the
-                            # demonstrator might have reasonably executed this
-                            # operator. In these transitions (1) the
-                            # preconditions of the ground op must hold,
-                            # (2) the add effects of the segment intersected
-                            # with the ground op's add effects must not be
-                            # empty [because otherwise, there's no point
-                            # calling this operator] and (3) all the ground
-                            # op's add effects must hold in the final atoms
-                            # [since these add effects are really just 'set'
-                            # effects].
-
                             if not ground_op.add_effects.issubset(
                                     segment.final_atoms):
                                 continue
-
                             if not len(segment.add_effects
                                        & ground_op.add_effects) > 0:
                                 continue
-
                         # Skip over segments that have multiple possible
                         # bindings.
                         if (len(set(ground_op.objects)) != len(
