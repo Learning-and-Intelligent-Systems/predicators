@@ -8,12 +8,13 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Sequence, Tuple
+from typing import Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn, optim
+from torch.distributions.categorical import Categorical
 
 from predicators.src.structs import Array, Object, State
 
@@ -323,20 +324,58 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
     For each positive (x, y) pair, a number of "negative" (x, y') pairs are
     generated. The model is then trained to distinguish positive from negative
-    conditioned on x using a classification-esque (contrastive) loss.
+    conditioned on x using a contrastive loss.
 
-    Inference is currently performed by sampling a fixed number of possible
+    The implementation idea is the following. We want to use a contrastive
+    loss that looks like this:
+
+        L = E[-log(p(y | x, {y'}))]
+
+        p(y | x, {y'})) = exp(-f(x, y)) / [
+            (exp(-f(x, y)) + sum_{y'} exp(-f(x, y')))
+        ]
+
+    where (x, y) is an example "positive" input/output from (X, Y), f is
+    the energy function that we are learning in this class, and {y'} is a set
+    of "negative" output examples for input x. The size of that set is
+    self._num_negatives_per_input.
+
+    One way to interpret the expression is that the numerator exp(-f(x, y))
+    represents an unnormalized probability that this (x, y) belongs to
+    a certain ground truth "class". Each of the exp(-f(x, y')) in the
+    denominator then corresponds to an artificial incorrect "class".
+    So the entire expression is just a softmax over (num_negatives + 1)
+    classes.
+
+    Inference with the "sample_once" method samples a fixed number of possible
     inputs and returning the sample that has the highest probability of
-    classifying to 1, under the learned classifier. Other inference methods are
-    coming soon.
+    classifying to 1, under the learned classifier.
+
+    Inference with the "derivative_free" method follows Algorithm 1 from the
+    implicit BC paper (https://arxiv.org/pdf/2109.00137.pdf). It is very
+    similar to CEM.
     """
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float, learning_rate: float,
+    def __init__(self,
+                 seed: int,
+                 hid_sizes: List[int],
+                 max_train_iters: int,
+                 clip_gradients: bool,
+                 clip_value: float,
+                 learning_rate: float,
                  num_samples_per_inference: int,
-                 num_negative_data_per_input: int, temperature: float) -> None:
+                 num_negative_data_per_input: int,
+                 temperature: float,
+                 inference_method: str,
+                 derivative_free_num_iters: Optional[int] = None,
+                 derivative_free_sigma_init: Optional[float] = None,
+                 derivative_free_shrink_scale: Optional[float] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
+        self._inference_method = inference_method
+        self._derivative_free_num_iters = derivative_free_num_iters
+        self._derivative_free_sigma_init = derivative_free_sigma_init
+        self._derivative_free_shrink_scale = derivative_free_shrink_scale
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
@@ -364,9 +403,18 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
 
+        # See the class docstring for context.
         def _loss_fn(Y_hat: Tensor, Y: Tensor) -> Tensor:
-            pred = Y_hat.reshape(Y.shape)  # (num data, num classes)
+            # The shape of Y_hat is (num_samples * (num_negatives + 1), ).
+            # The shape of Y is (num_samples, (num_negatives + 1)).
+            # Each row of Y is a one-hot vector with the first entry 1. We
+            # could reconstruct that here, but we stick with this to conform
+            # to the _train_pytorch_model API, where target outputs are always
+            # passed into the loss function.
+            pred = Y_hat.reshape(Y.shape)
             log_probs = F.log_softmax(pred / self._temperature, dim=-1)
+            # Note: batchmean is recommended in the PyTorch documentation
+            # and will become the default in a future version.
             loss = F.kl_div(log_probs, Y, reduction='batchmean')
             return loss
 
@@ -379,11 +427,20 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Cast to torch first.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        assert tensor_X.shape == (num_samples, self._x_dim)
+        assert tensor_Y.shape == (num_samples, self._y_dim)
         # Expand tensor_Y in preparation for concat in the loop below.
         tensor_Y = tensor_Y[:, None, :]
+        assert tensor_Y.shape == (num_samples, 1, self._y_dim)
         # For each of the negative outputs, we need a corresponding input.
+        # So we repeat each x value num_negatives + 1 times so that each of
+        # the num_negatives outputs, and the 1 positive output, have a
+        # corresponding input.
         tiled_X = tensor_X.unsqueeze(1).repeat(1, num_negatives + 1, 1)
+        assert tiled_X.shape == (num_samples, num_negatives + 1, self._x_dim)
         extended_X = tiled_X.reshape([-1, tensor_X.shape[-1]])
+        assert extended_X.shape == (num_samples * (num_negatives + 1),
+                                    self._x_dim)
         while True:
             # Resample negative examples on each iteration.
             neg_Y = torch.rand(size=(num_samples, num_negatives, self._y_dim),
@@ -393,12 +450,17 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             combined_Y = combined_Y.reshape([-1, tensor_Y.shape[-1]])
             # Concatenate to create the final input to the network.
             XY = torch.cat([extended_X, combined_Y], axis=1)  # type: ignore
-            assert XY.shape == ((num_negatives + 1) * num_samples,
+            assert XY.shape == (num_samples * (num_negatives + 1),
                                 self._x_dim + self._y_dim)
             # Create labels for multiclass loss. Note that the true inputs
-            # are first, so the target labels are all zeros.
-            indices = torch.zeros([num_samples], dtype=torch.int64)
-            labels = F.one_hot(indices, num_classes=num_negatives + 1).float()
+            # are first, so the target labels are all zeros (see docstring).
+            idxs = torch.zeros([num_samples], dtype=torch.int64)
+            labels = F.one_hot(idxs, num_classes=(num_negatives + 1)).float()
+            assert labels.shape == (num_samples, num_negatives + 1)
+            # Note that XY is flattened and labels is not. XY is flattened
+            # because we need to feed each entry through the network during
+            # training. Labels is unflattened because we will want to use
+            # F.kl_div in the loss function.
             yield (XY, labels)
 
     def _fit(self, X: Array, Y: Array) -> None:
@@ -423,9 +485,17 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              clip_value=self._clip_value)
 
     def _predict(self, x: Array) -> Array:
+        assert x.shape == (self._x_dim, )
+        if self._inference_method == "sample_once":
+            return self._predict_sample_once(x)
+        if self._inference_method == "derivative_free":
+            return self._predict_derivative_free(x)
+        raise NotImplementedError("Unrecognized inference method: "
+                                  f"{self._inference_method}.")
+
+    def _predict_sample_once(self, x: Array) -> Array:
         # This sampling-based inference method is okay in 1 dimension, but
         # won't work well with higher dimensions.
-        assert x.shape == (self._x_dim, )
         num_samples = self._num_samples_per_inference
         sample_ys = self._rng.uniform(size=(num_samples, self._y_dim))
         # Concatenate the x and ys.
@@ -437,6 +507,49 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Find the highest probability sample.
         sample_idx = torch.argmax(scores)
         return sample_ys[sample_idx]
+
+    def _predict_derivative_free(self, x: Array) -> Array:
+        # Reference: https://arxiv.org/pdf/2109.00137.pdf (Algorithm 1).
+        # This method reportedly works well in up to 5 dimensions.
+        # Since we are using torch for random sampling, and since we want
+        # to ensure deterministic predictions, we need to reseed torch.
+        # Also note that we need to set the seed here because we need calls
+        # on the same input to deterministically return the same output,
+        # both when saved models are loaded, but also when the same model
+        # is called multiple times in the same process. The latter case
+        # happens when an option is called by the default option model and
+        # then later called at execution time.
+        torch.manual_seed(self._seed)
+        num_samples = self._num_samples_per_inference
+        num_iters = self._derivative_free_num_iters
+        sigma = self._derivative_free_sigma_init
+        K = self._derivative_free_shrink_scale
+        assert num_samples is not None and num_samples > 0
+        assert num_iters is not None and num_iters > 0
+        assert sigma is not None and sigma > 0
+        assert K is not None and 0 < K < 1
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+        repeated_x = tensor_x.repeat(num_samples, 1)
+        # Initialize candidate outputs.
+        Y = torch.rand(size=(num_samples, self._y_dim), dtype=tensor_x.dtype)
+        for it in range(num_iters):
+            # Compute candidate scores.
+            concat_xy = torch.cat([repeated_x, Y], axis=1)  # type: ignore
+            scores = self(concat_xy)
+            if it < num_iters - 1:
+                # Multinomial resampling with replacement.
+                dist = Categorical(logits=scores)  # type: ignore
+                indices = dist.sample((num_samples, ))  # type: ignore
+                Y = Y[indices]
+                # Add noise.
+                noise = torch.randn(Y.shape) * sigma
+                Y = Y + noise
+                # Recall that Y is normalized to stay within [0, 1].
+                Y = torch.clip(Y, 0.0, 1.0)
+                sigma = K * sigma
+        # Make a final selection.
+        selected_idx = torch.argmax(scores)
+        return Y[selected_idx].detach().numpy()  # type: ignore
 
 
 class NeuralGaussianRegressor(PyTorchRegressor):
