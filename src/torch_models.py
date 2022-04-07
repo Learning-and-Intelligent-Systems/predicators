@@ -348,12 +348,17 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     classes.
 
     Inference with the "sample_once" method samples a fixed number of possible
-    inputs and returning the sample that has the highest probability of
+    inputs and returns the sample that has the highest probability of
     classifying to 1, under the learned classifier.
 
     Inference with the "derivative_free" method follows Algorithm 1 from the
     implicit BC paper (https://arxiv.org/pdf/2109.00137.pdf). It is very
     similar to CEM.
+
+    Inference with the "grid" method is similar to "sample_once", except that
+    the samples are evenly distributed over the Y space. Note that this method
+    ignores the num_samples_per_inference keyword argument and instead uses the
+    grid_num_ticks_per_dim.
     """
 
     def __init__(self,
@@ -369,13 +374,15 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                  inference_method: str,
                  derivative_free_num_iters: Optional[int] = None,
                  derivative_free_sigma_init: Optional[float] = None,
-                 derivative_free_shrink_scale: Optional[float] = None) -> None:
+                 derivative_free_shrink_scale: Optional[float] = None,
+                 grid_num_ticks_per_dim: Optional[int] = None) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._inference_method = inference_method
         self._derivative_free_num_iters = derivative_free_num_iters
         self._derivative_free_sigma_init = derivative_free_sigma_init
         self._derivative_free_shrink_scale = derivative_free_shrink_scale
+        self._grid_num_ticks_per_dim = grid_num_ticks_per_dim
         self._hid_sizes = hid_sizes
         self._num_samples_per_inference = num_samples_per_inference
         self._num_negatives_per_input = num_negative_data_per_input
@@ -490,6 +497,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
             return self._predict_sample_once(x)
         if self._inference_method == "derivative_free":
             return self._predict_derivative_free(x)
+        if self._inference_method == "grid":
+            return self._predict_grid(x)
         raise NotImplementedError("Unrecognized inference method: "
                                   f"{self._inference_method}.")
 
@@ -550,6 +559,25 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         # Make a final selection.
         selected_idx = torch.argmax(scores)
         return Y[selected_idx].detach().numpy()  # type: ignore
+
+    def _predict_grid(self, x: Array) -> Array:
+        assert self._grid_num_ticks_per_dim is not None
+        assert self._grid_num_ticks_per_dim > 0
+        dy = 1.0 / self._grid_num_ticks_per_dim
+        ticks = [np.arange(0.0, 1.0, dy)] * self._y_dim
+        grid = np.meshgrid(*ticks)  # type: ignore
+        candidate_ys = np.transpose(grid).reshape((-1, self._y_dim))
+        num_samples = candidate_ys.shape[0]
+        assert num_samples == self._grid_num_ticks_per_dim**self._y_dim
+        # Concatenate the x and ys.
+        concat_xy = np.array([np.hstack([x, y]) for y in candidate_ys],
+                             dtype=np.float32)
+        assert concat_xy.shape == (num_samples, self._x_dim + self._y_dim)
+        # Pass through network.
+        scores = self(torch.from_numpy(concat_xy))
+        # Find the highest probability sample.
+        sample_idx = torch.argmax(scores)
+        return candidate_ys[sample_idx]
 
 
 class NeuralGaussianRegressor(PyTorchRegressor):

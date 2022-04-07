@@ -188,6 +188,7 @@ class GlobalSettings:
     implicit_mlp_regressor_derivative_free_num_iters = 3
     implicit_mlp_regressor_derivative_free_sigma_init = 0.33
     implicit_mlp_regressor_derivative_free_shrink_scale = 0.5
+    implicit_mlp_regressor_grid_num_ticks_per_dim = 100
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
