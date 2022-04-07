@@ -522,7 +522,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert self._grid_num_ticks_per_dim > 0
         dy = 1.0 / self._grid_num_ticks_per_dim
         ticks = [np.arange(0.0, 1.0, dy)] * self._y_dim
-        grid = np.meshgrid(*ticks)   # type: ignore
+        grid = np.meshgrid(*ticks)  # type: ignore
         candidate_ys = np.transpose(grid).reshape((-1, self._y_dim))
         num_samples = candidate_ys.shape[0]
         assert num_samples == self._grid_num_ticks_per_dim**self._y_dim
