@@ -321,6 +321,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                              self._action_space.high)
 
         # TODO: This is temporary code that should not be merged.
+        # python src/main.py --approach nsrt_learning --env touch_point --seed 0 --option_learner implicit_bc
         from predicators.src.envs import get_or_create_env
         from predicators.src.structs import DefaultTask
         from predicators.src import utils
@@ -330,36 +331,61 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         import glob
         import os
         import torch
-        assert CFG.env == "touch_point"
+
+        # assert CFG.env == "touch_point"
+        # env = get_or_create_env(CFG.env)
+        # env_imgs = env.render_state(state, DefaultTask)
+        # assert len(env_imgs) == 1
+        # env_img = env_imgs[0]
+        # assert env.action_space.shape == (1, )
+        # low, high = env.action_space.low, env.action_space.high
+        # # Reference: https://stackoverflow.com/questions/31940285/
+        # yval = np.linspace(low, high, 250).squeeze()
+        # norm_ys = (yval - self._regressor._output_shift) / self._regressor._output_scale
+        # norm_x = (x - self._regressor._input_shift) / self._regressor._input_scale
+        # concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys],
+        #                          dtype=np.float32)
+        # colorvals = self._regressor(torch.from_numpy(concat_inputs))
+        # colorvals = colorvals.detach().numpy()
+        # colormap = plt.get_cmap('Greens')
+        # norm = mpl.colors.Normalize(colorvals.min(), colorvals.max())
+        # dpi = 300
+        # fig_height = env_img.shape[0] / dpi
+        # fig_width = fig_height
+        # ax = plt.subplot(1, 1, 1, polar=True)
+        # fig = plt.gcf()
+        # fig.set_size_inches((fig_height, fig_width))
+        # ax.scatter(yval, np.ones_like(yval), c=colorvals, s=100,
+        #            cmap=colormap, norm=norm, linewidths=0, alpha=0.5)
+        # ax.axis('off')
+        # plt.tight_layout()
+        # energy_img = utils.fig2data(fig, dpi=dpi)
+        # plt.close()
+        # img = np.hstack([env_img, energy_img])
+
+
+        # python src/main.py --approach nsrt_learning --env cover_multistep_options_fixed_tasks --seed 0 --option_learner implicit_bc --load_data
+        assert CFG.env.startswith("cover_multistep_options")
+        last_norm_action_candidates = self._regressor._last_Y.detach().numpy()
+        last_action_candidates = (last_norm_action_candidates * self._regressor._output_scale) + self._regressor._output_shift
+        last_scores = self._regressor._last_scores.detach().numpy()
+        
+        def plt_callback():
+            robot = [o for o in state if o.name.startswith("rob")][0]
+            rx = state.get(robot, "x")
+            ry = state.get(robot, "y")
+            dx = last_action_candidates[:, 0]
+            dy = last_action_candidates[:, 1]
+            x = rx + dx
+            y = ry + dy
+            sizes = 5 * np.exp(last_scores)
+            plt.scatter(x, y, s=sizes, alpha=0.25)
+
         env = get_or_create_env(CFG.env)
-        env_imgs = env.render_state(state, DefaultTask)
+        env_imgs = env.render_state(state, DefaultTask, plt_callback=plt_callback)
         assert len(env_imgs) == 1
-        env_img = env_imgs[0]
-        assert env.action_space.shape == (1, )
-        low, high = env.action_space.low, env.action_space.high
-        # Reference: https://stackoverflow.com/questions/31940285/
-        yval = np.linspace(low, high, 250).squeeze()
-        norm_ys = (yval - self._regressor._output_shift) / self._regressor._output_scale
-        norm_x = (x - self._regressor._input_shift) / self._regressor._input_scale
-        concat_inputs = np.array([np.hstack([norm_x, y]) for y in norm_ys],
-                                 dtype=np.float32)
-        colorvals = self._regressor(torch.from_numpy(concat_inputs))
-        colorvals = colorvals.detach().numpy()
-        colormap = plt.get_cmap('Greens')
-        norm = mpl.colors.Normalize(colorvals.min(), colorvals.max())
-        dpi = 300
-        fig_height = env_img.shape[0] / dpi
-        fig_width = fig_height
-        ax = plt.subplot(1, 1, 1, polar=True)
-        fig = plt.gcf()
-        fig.set_size_inches((fig_height, fig_width))
-        ax.scatter(yval, np.ones_like(yval), c=colorvals, s=100,
-                   cmap=colormap, norm=norm, linewidths=0, alpha=0.5)
-        ax.axis('off')
-        plt.tight_layout()
-        energy_img = utils.fig2data(fig, dpi=dpi)
-        plt.close()
-        img = np.hstack([env_img, energy_img])
+        img = env_imgs[0]
+
         outdir = "/tmp"
         existing_filenames = [os.path.split(f)[-1]
             for f in glob.glob(os.path.join(outdir, "option_img*.png"))]

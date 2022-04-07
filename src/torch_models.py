@@ -549,6 +549,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                 sigma = K * sigma
         # Make a final selection.
         selected_idx = torch.argmax(scores)
+        self._last_Y = Y
+        self._last_scores = scores
         return Y[selected_idx].detach().numpy()  # type: ignore
 
 

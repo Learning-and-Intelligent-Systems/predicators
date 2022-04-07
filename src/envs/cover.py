@@ -734,7 +734,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None,
+                     plt_callback = None) -> List[Image]:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -808,6 +809,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 alpha=targ_alpha,
                 label=f"target{i}")
             ax.add_patch(rect)
+
+        if plt_callback is not None:
+            plt_callback()
+
         grip = state.get(self._robot, "grip")
         plt.title(f"Grip: {grip:.3f}")
         plt.xlim(-0.2, 1.2)
