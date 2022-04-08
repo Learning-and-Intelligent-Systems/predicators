@@ -28,4 +28,15 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # implicit BC: grid
     python $FILE $COMMON_ARGS --experiment_id cover_multi_implicit_grid --env cover_multistep_options --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
 
+    ## cover_multistep_options_holding
+    # direct BC
+    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_direct --env cover_multistep_options_holding --option_learner direct_bc
+
+    # implicit BC: derivative_free
+    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_implicit_df --env cover_multistep_options_holding --option_learner implicit_bc --implicit_mlp_regressor_inference_method derivative_free
+
+    # implicit BC: grid
+    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_implicit_grid --env cover_multistep_options_holding --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
+
+
 done
