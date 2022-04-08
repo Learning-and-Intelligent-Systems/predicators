@@ -24,6 +24,7 @@ def test_env_creation():
             "repeated_nextto_painting",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
+            "cover_multistep_options_holding",
             "pybullet_blocks",
             "pddl_blocks_fixed_tasks",
             "pddl_blocks_procedural_tasks",
