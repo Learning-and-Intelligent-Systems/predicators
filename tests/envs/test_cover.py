@@ -7,7 +7,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv, CoverEnvRegrasp, \
     CoverEnvTypedOptions, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks
+    CoverMultistepOptionsFixedTasks, CoverMultistepOptionsHolding
 from predicators.src.structs import Action, Task
 
 
@@ -705,3 +705,22 @@ def test_cover_multistep_options_fixed_tasks():
     for task in env.get_test_tasks():
         assert state.allclose(task.init)
         assert frozenset(task.goal) in all_goals
+
+
+def test_cover_multistep_options_holding():
+    """Tests for CoverMultistepOptionsHolding."""
+    utils.reset_config({
+        "env": "cover_multistep_options_holding",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10
+    })
+    env = CoverMultistepOptionsHolding()
+    assert len(env.goal_predicates) == 1
+    Holding = next(iter(env.goal_predicates))
+    assert Holding.name == "Holding"
+    # This env is mostly the same as CoverMultistepOptionsHolding(), so we just
+    # test that the task goals are indeed Holding.
+    for task in env.get_train_tasks() + env.get_test_tasks():
+        assert len(task.goal) == 1
+        goal_atom = next(iter(task.goal))
+        assert goal_atom.predicate == Holding

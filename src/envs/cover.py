@@ -1255,3 +1255,32 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
         del rng
         zero_rng = np.random.default_rng(0)
         return super()._create_initial_state(blocks, targets, zero_rng)
+
+
+class CoverMultistepOptionsHolding(CoverMultistepOptions):
+    """A variation of CoverMultistepOptions where the goals only involve
+    Holding.
+
+    This environment is useful for debugging option learning.
+    """
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_multistep_options_holding"
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Holding}
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        blocks, targets = self._create_blocks_and_targets()
+        for _ in range(num):
+            init = self._create_initial_state(blocks, targets, rng)
+            assert init.get_objects(self._block_type) == blocks
+            assert init.get_objects(self._target_type) == targets
+            goal_block_idx = rng.choice(len(blocks))
+            goal_block = blocks[goal_block_idx]
+            goal = {GroundAtom(self._Holding, [goal_block, self._robot])}
+            tasks.append(Task(init, goal))
+        return tasks
