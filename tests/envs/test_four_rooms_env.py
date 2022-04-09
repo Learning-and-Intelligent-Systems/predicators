@@ -108,25 +108,25 @@ def test_four_rooms_ground_truth_nsrts(init_state):
     nsrt = next(iter(nsrts))
     state = init_state.copy()
     robot, top_left_room, _, bot_left_room, bot_right_room = sorted(state)
-    # Case: moving up, width a too-large robot.
+    # Case: moving up, with a too-large robot.
     ground_nsrt1 = nsrt.ground([robot, bot_left_room, top_left_room])
     assert all(a.holds(state) for a in ground_nsrt1.preconditions)
     rng = np.random.default_rng(123)
     option = ground_nsrt1.sample_option(state, set(), rng)
     rot, = option.params
     assert np.pi / 2 - 0.1 < rot < np.pi / 2 + 0.1
-    # Case: moving right, width a too-large robot.
+    # Case: moving right, with a too-large robot.
     ground_nsrt2 = nsrt.ground([robot, bot_left_room, bot_right_room])
     assert all(a.holds(state) for a in ground_nsrt2.preconditions)
     option = ground_nsrt2.sample_option(state, set(), rng)
     rot, = option.params
     assert 0.0 - 0.1 < rot < 0.0 + 0.1
-    # Case: moving up, width a not-too-large robot.
+    # Case: moving up, with a not-too-large robot.
     state.set(robot, "width", 0.5 * env.hallway_width)
     option = ground_nsrt1.sample_option(state, set(), rng)
     rot, = option.params
     assert 0.0 - 0.1 < rot < 0.0 + 0.1
-    # Case: moving right, width a not-too-large robot.
+    # Case: moving right, with a not-too-large robot.
     option = ground_nsrt2.sample_option(state, set(), rng)
     rot, = option.params
     assert np.pi / 2 - 0.1 < rot < np.pi / 2 + 0.1
