@@ -13,6 +13,8 @@ from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
 from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions, \
     CoverMultistepOptionsFixedTasks, CoverMultistepOptionsHolding
+from predicators.src.envs.four_rooms import FourRoomsEnv, \
+    FourRoomsGeneralizeEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv
@@ -23,7 +25,6 @@ from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
-from predicators.src.envs.four_rooms import FourRoomsEnv, FourRoomsGeneralizeEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Variable
