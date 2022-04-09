@@ -187,7 +187,7 @@ class FourRoomsEnv(BaseEnv):
         ax.set_ylim(y_lb - pad, y_ub + pad)
 
         assert caption is None
-        # plt.axis("off")
+        plt.axis("off")
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
