@@ -9,6 +9,7 @@ from predicators.src.envs import get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
     navigate_to_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs.four_rooms import FourRoomsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
@@ -50,6 +51,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
+    elif CFG.env == "four_rooms":
+        nsrts = _get_four_rooms_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1940,6 +1943,72 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                      delete_effects, side_predicates, option, option_vars,
                      null_sampler)
+    nsrts.add(move_nsrt)
+
+    return nsrts
+
+
+def _get_four_rooms_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for FourRoomsEnv."""
+    robot_type, room_type = _get_types_by_names(CFG.env, ["robot", "room"])
+    InRoom, Connected = _get_predicates_by_names(CFG.env,
+                                                 ["InRoom", "Connected"])
+    Move, = _get_options_by_names(CFG.env, ["Move"])
+
+    nsrts = set()
+
+    robot = Variable("?robot", robot_type)
+    room1 = Variable("?start", room_type)
+    room2 = Variable("?end", room_type)
+    parameters = [robot, room1, room2]
+    option_vars = [robot, room1, room2]
+    option = Move
+    preconditions: Set[LiftedAtom] = {
+        LiftedAtom(InRoom, [robot, room1]),
+        LiftedAtom(Connected, [room1, room2]),
+    }
+    add_effects = {LiftedAtom(InRoom, [robot, room2])}
+    delete_effects = {LiftedAtom(InRoom, [robot, room1])}
+    side_predicates: Set[Predicate] = set()
+
+    def move_sampler(state: State, goal: Set[GroundAtom],
+                     rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        del goal  # unused
+        # Depending on whether the object can fit through the hallway,
+        # sample a rotation that has it go directly through, or sideways.
+        robot, start_room, end_room = objs
+        robot_width = state.get(robot, "width")
+        padding = robot_width * 0.01
+        # Use the room positions to determine whether we need to move up/down
+        # or left/right.
+        start_x = state.get(start_room, "x")
+        start_y = state.get(start_room, "y")
+        end_x = state.get(end_room, "x")
+        end_y = state.get(end_room, "y")
+        if abs(start_x - end_x) < 1e-7:
+            move_direction = "vertical"
+        else:
+            assert abs(start_y - end_y) < 1e-7
+            move_direction = "horizontal"
+        if robot_width + padding < FourRoomsEnv.hallway_width:
+            if move_direction == "vertical":
+                rot = 0.0
+            else:
+                rot = np.pi / 2
+        else:
+            if move_direction == "vertical":
+                rot = np.pi / 2
+            else:
+                rot = 0.0
+        # Add some variation.
+        noise = rng.uniform(-0.1, 0.1)
+        rot = rot + noise
+        return np.array([rot], dtype=np.float32)
+
+    move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
+                     delete_effects, side_predicates, option, option_vars,
+                     move_sampler)
     nsrts.add(move_nsrt)
 
     return nsrts

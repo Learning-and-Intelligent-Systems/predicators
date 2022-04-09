@@ -83,7 +83,7 @@ class FourRoomsEnv(BaseEnv):
     second dimension indicates the direction of movement (both are angles).
     """
     room_size: ClassVar[float] = 1.0
-    hallway_width: ClassVar[float] = 0.2
+    hallway_width: ClassVar[float] = 0.25
     wall_depth: ClassVar[float] = 0.01
     robot_min_width: ClassVar[float] = 0.1
     robot_max_width: ClassVar[float] = 0.3
@@ -189,6 +189,15 @@ class FourRoomsEnv(BaseEnv):
             for rect in room_rects:
                 self._draw_rectangle(rect, ax, color=wall_color)
 
+        # Label the goal room with a star.
+        assert len(task.goal) == 1
+        goal_room = next(iter(task.goal)).objects[1]
+        room_x = state.get(goal_room, "x")
+        room_y = state.get(goal_room, "y")
+        cx = room_x + self.room_size / 2
+        cy = room_y + self.room_size / 2
+        ax.scatter(cx, cy, s=320, marker='*', color='gold')
+
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
         pad = 2 * self.wall_depth
         ax.set_xlim(x_lb - pad, x_ub + pad)
@@ -248,8 +257,8 @@ class FourRoomsEnv(BaseEnv):
                 "hall_right": 0,
             },
         })
-        rot_lb = -np.pi
-        rot_ub = np.pi
+        rot_lb = -np.pi / 10
+        rot_ub = np.pi / 2 + np.pi / 10
         width_lb = self.robot_min_width
         width_ub = self.robot_max_width
         rooms = sorted(init_state.get_objects(self._room_type))
