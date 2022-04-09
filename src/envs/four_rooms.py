@@ -1,6 +1,7 @@
 """Four rooms environment based on the original options paper."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -12,6 +13,16 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
     ParameterizedOption, Predicate, State, Task, Type
+
+
+@dataclass(frozen=True)
+class _Rectangle:
+    """A helper class for visualizing and collision-checking rectangles."""
+    x: float  # bottom left corner
+    y: float  # bottom left corner
+    length: float  # length
+    width: float
+    rot: float  # in radians, between -np.pi and np.pi
 
 
 class FourRoomsEnv(BaseEnv):
@@ -119,14 +130,9 @@ class FourRoomsEnv(BaseEnv):
         background_color = "white"
         # Draw robot.
         robot_color = "blue"
-        x = state.get(self._robot, "x")
-        y = state.get(self._robot, "y")
-        rot = state.get(self._robot, "rot")
-        angle = rot * 180 / np.pi
-        l = self.robot_length
-        w = state.get(self._robot, "width")
-        rect = patches.Rectangle((x, y), l, w, angle, color=robot_color)
-        ax.add_patch(rect)
+        robot_rect = self._get_rectangle_for_robot(state, self._robot)
+        self._draw_rectangle(robot_rect, ax, color=robot_color)
+        
         # if action:
         #     arrow_width = self.robot_length / 10
         #     drot, = action.arr
@@ -308,3 +314,24 @@ class FourRoomsEnv(BaseEnv):
         y_lb = -self.room_size
         y_ub = self.room_size
         return x_lb, x_ub, y_lb, y_ub
+
+    def _get_rectangle_for_robot(self, state: State, robot: Object) -> _Rectangle:
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        length = self.robot_length
+        width = state.get(self._robot, "width")
+        rot = state.get(robot, "rot")
+        return _Rectangle(x, y, length, width, rot)
+
+    def _get_rectangles_for_room(self, state: State, room: Object) -> List[_Rectangle]:
+        import ipdb; ipdb.set_trace()
+
+    @staticmethod
+    def _draw_rectangle(rectangle: _Rectangle, ax: plt.Axes, **kwargs: Any) -> None:
+        x = rectangle.x
+        y = rectangle.y
+        l = rectangle.length
+        w = rectangle.width
+        angle = rectangle.rot * 180 / np.pi
+        rect = patches.Rectangle((x, y), l, w, angle, **kwargs)
+        ax.add_patch(rect)
