@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
+from numpy.typing import NDArray
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -91,6 +92,10 @@ class FourRoomsEnv(BaseEnv):
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
     rot_max_magnitude: ClassVar[float] = np.pi / 10
+    room_map: ClassVar[NDArray[np.uint8]] = np.array([
+        [1, 1],
+        [1, 1],
+    ])
 
     def __init__(self) -> None:
         super().__init__()
@@ -196,7 +201,9 @@ class FourRoomsEnv(BaseEnv):
         room_y = state.get(goal_room, "y")
         cx = room_x + self.room_size / 2
         cy = room_y + self.room_size / 2
-        ax.scatter(cx, cy, s=320, marker='*', color='gold')
+        map_size = max(self.room_map.shape)
+        star_size = 1200 / map_size
+        ax.scatter(cx, cy, s=star_size, marker='*', color='gold')
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
         pad = 2 * self.wall_depth
@@ -213,48 +220,30 @@ class FourRoomsEnv(BaseEnv):
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
         # Create the static parts of the initial state.
-        top_left_room = Object("top_left_room", self._room_type)
-        top_right_room = Object("top_right_room", self._room_type)
-        bottom_left_room = Object("bottom_left_room", self._room_type)
-        bottom_right_room = Object("bottom_right_room", self._room_type)
+        room_state_dict = {}
+        num_rows, num_cols = self.room_map.shape
+        for (r, c) in np.argwhere(self.room_map):
+            room = Object(f"room{r}-{c}", self._room_type)
+            hall_top = float(r > 0 and self.room_map[r - 1, c])
+            hall_bottom = float(r < num_rows - 1 and self.room_map[r + 1, c])
+            hall_left = float(c > 0 and self.room_map[r, c - 1])
+            hall_right = float(c < num_cols - 1 and self.room_map[r, c + 1])
+            room_state_dict[room] = {
+                "x": float(c * self.room_size),
+                "y": float((num_rows - 1 - r) * self.room_size),
+                "hall_top": hall_top,
+                "hall_bottom": hall_bottom,
+                "hall_left": hall_left,
+                "hall_right": hall_right,
+            }
         init_state = utils.create_state_from_dict({
+            **room_state_dict,
+            # Will get overriden.
             self._robot: {
-                "x": np.inf,  # will get overriden
-                "y": np.inf,  # will get overriden
-                "rot": np.inf,  # will get overriden
-                "width": np.inf,  # will get overriden
-            },
-            top_left_room: {
-                "x": -self.room_size,
-                "y": 0,
-                "hall_top": 0,
-                "hall_bottom": 1,
-                "hall_left": 0,
-                "hall_right": 1,
-            },
-            top_right_room: {
-                "x": 0,
-                "y": 0,
-                "hall_top": 0,
-                "hall_bottom": 1,
-                "hall_left": 1,
-                "hall_right": 0,
-            },
-            bottom_left_room: {
-                "x": -self.room_size,
-                "y": -self.room_size,
-                "hall_top": 1,
-                "hall_bottom": 0,
-                "hall_left": 0,
-                "hall_right": 1,
-            },
-            bottom_right_room: {
-                "x": 0,
-                "y": -self.room_size,
-                "hall_top": 1,
-                "hall_bottom": 0,
-                "hall_left": 1,
-                "hall_right": 0,
+                "x": np.inf,
+                "y": np.inf,
+                "rot": np.inf,
+                "width": np.inf,
             },
         })
         rot_lb = -np.pi / 10
@@ -380,10 +369,11 @@ class FourRoomsEnv(BaseEnv):
         return False
 
     def _get_world_boundaries(self) -> Tuple[float, float, float, float]:
-        x_lb = -self.room_size
-        x_ub = self.room_size
-        y_lb = -self.room_size
-        y_ub = self.room_size
+        num_rows, num_cols = self.room_map.shape
+        x_lb = 0
+        x_ub = self.room_size * num_cols
+        y_lb = 0
+        y_ub = self.room_size * num_rows
         return x_lb, x_ub, y_lb, y_ub
 
     def _get_rectangle_for_robot(self, state: State,
