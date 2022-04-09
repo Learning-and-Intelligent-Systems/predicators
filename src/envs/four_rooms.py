@@ -5,9 +5,9 @@ from functools import cached_property
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import numpy as np
 from gym.spaces import Box
+from matplotlib import patches
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -20,8 +20,8 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class _Rectangle:
     """A helper class for visualizing and collision-checking rectangles.
 
-    Following the convention in plt.Rectangle, the origin is at the bottom
-    left corner, and rotation is anti-clockwise about that point.
+    Following the convention in plt.Rectangle, the origin is at the
+    bottom left corner, and rotation is anti-clockwise about that point.
     """
     x: float
     y: float
@@ -29,19 +29,19 @@ class _Rectangle:
     width: float
     rot: float  # in radians, between -np.pi and np.pi
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert -np.pi <= self.rot <= np.pi, "Expecting angle in [-pi, pi]."
 
     @cached_property
     def vertices(self) -> List[Tuple[float, float]]:
+        """Get the four vertices for the rectangle."""
         scale_matrix = np.array([
             [self.width, 0],
             [0, self.height],
         ])
-        rotate_matrix = np.array([
-            [np.cos(self.rot), -np.sin(self.rot)],
-            [np.sin(self.rot), np.cos(self.rot)]
-        ])
+        rotate_matrix = np.array([[np.cos(self.rot), -np.sin(self.rot)],
+                                  [np.sin(self.rot),
+                                   np.cos(self.rot)]])
         translate_vector = np.array([self.x, self.y])
         vertices = np.array([
             (0, 0),
@@ -52,14 +52,19 @@ class _Rectangle:
         vertices = vertices @ scale_matrix.T
         vertices = vertices @ rotate_matrix.T
         vertices = translate_vector + vertices
-        return [(x, y) for (x, y) in vertices]
+        # Convert to a list of tuples. Slightly complicated to appease both
+        # type checking and linting.
+        return list(map(lambda p: (p[0], p[1]), vertices))
 
     @cached_property
-    def line_segments(self) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
+    def line_segments(
+            self) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
+        """Get the four line segments for the rectangle."""
         return list(zip(self.vertices, self.vertices[1:] + [self.vertices[0]]))
 
     @cached_property
     def center(self) -> Tuple[float, float]:
+        """Get the point at the center of the rectangle."""
         x, y = np.mean(self.vertices, axis=0)
         return (x, y)
 
@@ -74,11 +79,8 @@ class FourRoomsEnv(BaseEnv):
     a person (or dog) is carrying a long stick and is trying to move through
     a narrow passage.
 
-    The action space is 2D. The first dimension rotates the robot and the 
+    The action space is 2D. The first dimension rotates the robot and the
     second dimension indicates the direction of movement (both are angles).
-
-    For consistency with plt.Rectangle, all rectangles are oriented at their
-    bottom left corner.
     """
     room_size: ClassVar[float] = 1.0
     hallway_width: ClassVar[float] = 0.2
@@ -94,14 +96,15 @@ class FourRoomsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["x", "y", "rot", "width"])
-        self._room_type = Type("room", ["x", "y", "hall_top", "hall_bottom", "hall_left", "hall_right"])
+        self._room_type = Type(
+            "room",
+            ["x", "y", "hall_top", "hall_bottom", "hall_left", "hall_right"])
         # Predicates
-        self._InRoom = Predicate("InRoom",
-                                  [self._robot_type, self._room_type],
-                                  self._InRoom_holds)
+        self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
+                                 self._InRoom_holds)
         self._Connected = Predicate("Connected",
-                                   [self._room_type, self._room_type],
-                                   self._Connected_holds)
+                                    [self._room_type, self._room_type],
+                                    self._Connected_holds)
         # Options
         self._Move = ParameterizedOption(
             "Move",
@@ -174,12 +177,11 @@ class FourRoomsEnv(BaseEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        background_color = "white"
         # Draw robot.
         robot_color = "blue"
         robot_rect = self._get_rectangle_for_robot(state, self._robot)
         self._draw_rectangle(robot_rect, ax, color=robot_color)
-        
+
         # Draw rooms.
         wall_color = "black"
         for room in state.get_objects(self._room_type):
@@ -253,7 +255,8 @@ class FourRoomsEnv(BaseEnv):
         rooms = sorted(init_state.get_objects(self._room_type))
         while len(tasks) < num:
             # Sample an initial and target room.
-            start_room, goal_room = rng.choice(rooms, size=2, replace=False)
+            start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
+            start_room, goal_room = rooms[start_idx], rooms[goal_idx]
             # Sample an initial state.
             state = init_state.copy()
             # Always start out near the center of the room to avoid issues with
@@ -281,8 +284,8 @@ class FourRoomsEnv(BaseEnv):
             tasks.append(Task(state, goal))
         return tasks
 
-    def _Move_policy(self, state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
+    def _Move_policy(self, state: State, memory: Dict,
+                     objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         robot, start_room, end_room = objects
         desired_rot, = params
@@ -298,7 +301,8 @@ class FourRoomsEnv(BaseEnv):
         near_center = (dist_to_center < 1.1 * self.action_magnitude)
         dist_to_desired_rot = abs(rot - desired_rot)
         at_desired_rot = dist_to_desired_rot < 1e-6
-        drot = np.clip(desired_rot - rot, -self.rot_max_magnitude, self.rot_max_magnitude)
+        drot = np.clip(desired_rot - rot, -self.rot_max_magnitude,
+                       self.rot_max_magnitude)
         theta_to_center = np.arctan2((room_cy - y), (room_cx - x))
         # If already at the desired rotation, move toward the hallway.
         if at_desired_rot:
@@ -315,14 +319,14 @@ class FourRoomsEnv(BaseEnv):
         return Action(np.array([drot, theta], dtype=np.float32))
 
     def _Move_initiable(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
+                        objects: Sequence[Object], params: Array) -> bool:
         del memory, params  # unused
         robot, start_room, target_room = objects
         return self._InRoom_holds(state, [robot, start_room]) and \
             self._Connected_holds(state, [start_room, target_room])
 
     def _Move_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
+                       objects: Sequence[Object], params: Array) -> bool:
         del memory, params  # unused
         robot, _, target_room = objects
         return self._InRoom_holds(state, [robot, target_room])
@@ -337,7 +341,8 @@ class FourRoomsEnv(BaseEnv):
         return room_x < robot_x < room_x + self.room_size and \
                room_y < robot_y < room_y + self.room_size
 
-    def _Connected_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def _Connected_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
         r1, r2 = objects
         x1 = state.get(r1, "x")
         x2 = state.get(r2, "x")
@@ -372,7 +377,8 @@ class FourRoomsEnv(BaseEnv):
         y_ub = self.room_size
         return x_lb, x_ub, y_lb, y_ub
 
-    def _get_rectangle_for_robot(self, state: State, robot: Object) -> _Rectangle:
+    def _get_rectangle_for_robot(self, state: State,
+                                 robot: Object) -> _Rectangle:
         x = state.get(robot, "x")
         y = state.get(robot, "y")
         height = self.robot_height
@@ -380,7 +386,8 @@ class FourRoomsEnv(BaseEnv):
         rot = state.get(robot, "rot")
         return _Rectangle(x, y, height, width, rot)
 
-    def _get_rectangles_for_room(self, state: State, room: Object) -> List[_Rectangle]:
+    def _get_rectangles_for_room(self, state: State,
+                                 room: Object) -> List[_Rectangle]:
         rectangles = []
         room_x = state.get(room, "x")
         room_y = state.get(room, "y")
@@ -388,16 +395,16 @@ class FourRoomsEnv(BaseEnv):
         # Top wall.
         if state.get(room, "hall_top"):
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y + self.room_size - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=s,
                 rot=0,
             )
             rectangles.append(rect)
             rect = _Rectangle(
-                x=(s + self.hallway_width + room_x - self.wall_depth/2),
-                y=(room_y + self.room_size - self.wall_depth/2),
+                x=(s + self.hallway_width + room_x - self.wall_depth / 2),
+                y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=s,
                 rot=0,
@@ -406,8 +413,8 @@ class FourRoomsEnv(BaseEnv):
 
         else:
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y + self.room_size - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=(self.room_size + self.wall_depth),
                 rot=0,
@@ -417,16 +424,16 @@ class FourRoomsEnv(BaseEnv):
         # Bottom wall.
         if state.get(room, "hall_bottom"):
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=s,
                 rot=0,
             )
             rectangles.append(rect)
             rect = _Rectangle(
-                x=(s + self.hallway_width + room_x - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(s + self.hallway_width + room_x - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=s,
                 rot=0,
@@ -434,8 +441,8 @@ class FourRoomsEnv(BaseEnv):
             rectangles.append(rect)
         else:
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
                 width=(self.room_size + self.wall_depth),
                 rot=0,
@@ -445,16 +452,16 @@ class FourRoomsEnv(BaseEnv):
         # Left wall.
         if state.get(room, "hall_left"):
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=s,
                 width=self.wall_depth,
                 rot=0,
             )
             rectangles.append(rect)
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y + s + self.hallway_width - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y + s + self.hallway_width - self.wall_depth / 2),
                 height=s,
                 width=self.wall_depth,
                 rot=0,
@@ -462,8 +469,8 @@ class FourRoomsEnv(BaseEnv):
             rectangles.append(rect)
         else:
             rect = _Rectangle(
-                x=(room_x - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=(self.room_size + self.wall_depth),
                 width=self.wall_depth,
                 rot=0,
@@ -473,16 +480,16 @@ class FourRoomsEnv(BaseEnv):
         # Right wall.
         if state.get(room, "hall_right"):
             rect = _Rectangle(
-                x=(room_x + self.room_size - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x + self.room_size - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=s,
                 width=self.wall_depth,
                 rot=0,
             )
             rectangles.append(rect)
             rect = _Rectangle(
-                x=(room_x + self.room_size - self.wall_depth/2),
-                y=(room_y + s + self.hallway_width - self.wall_depth/2),
+                x=(room_x + self.room_size - self.wall_depth / 2),
+                y=(room_y + s + self.hallway_width - self.wall_depth / 2),
                 height=s,
                 width=self.wall_depth,
                 rot=0,
@@ -490,8 +497,8 @@ class FourRoomsEnv(BaseEnv):
             rectangles.append(rect)
         else:
             rect = _Rectangle(
-                x=(room_x + self.room_size - self.wall_depth/2),
-                y=(room_y - self.wall_depth/2),
+                x=(room_x + self.room_size - self.wall_depth / 2),
+                y=(room_y - self.wall_depth / 2),
                 height=(self.room_size + self.wall_depth),
                 width=self.wall_depth,
                 rot=0,
@@ -501,7 +508,8 @@ class FourRoomsEnv(BaseEnv):
         return rectangles
 
     @staticmethod
-    def _draw_rectangle(rectangle: _Rectangle, ax: plt.Axes, **kwargs: Any) -> None:
+    def _draw_rectangle(rectangle: _Rectangle, ax: plt.Axes,
+                        **kwargs: Any) -> None:
         x = rectangle.x
         y = rectangle.y
         w = rectangle.width
@@ -509,13 +517,6 @@ class FourRoomsEnv(BaseEnv):
         angle = rectangle.rot * 180 / np.pi
         rect = patches.Rectangle((x, y), w, h, angle, **kwargs)
         ax.add_patch(rect)
-
-        # For debugging.
-        # for (vx, vy) in rectangle.vertices:
-        #     circ = patches.Circle((vx, vy), 0.01, color="red", alpha=0.5)
-        #     ax.add_patch(circ)
-        # for ((x1, y1), (x2, y2)) in rectangle.line_segments:
-        #     ax.plot([x1, x2], [y1, y2], color="red", lw=0.1)
 
     @staticmethod
     def _rectangles_intersect(rect1: _Rectangle, rect2: _Rectangle) -> bool:
@@ -525,7 +526,8 @@ class FourRoomsEnv(BaseEnv):
                     return True
         return False
 
-    def _get_hallway_position(self, state: State, room1: Object, room2: Object) -> Tuple[float, float]:
+    def _get_hallway_position(self, state: State, room1: Object,
+                              room2: Object) -> Tuple[float, float]:
         assert self._Connected_holds(state, [room1, room2])
         x1 = state.get(room1, "x")
         x2 = state.get(room2, "x")
