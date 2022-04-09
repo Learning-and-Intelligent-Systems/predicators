@@ -15,7 +15,7 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv, get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import State, _Option
+from predicators.src.structs import DefaultState, State, _Option
 
 
 def create_option_model(name: str) -> _OptionModelBase:
@@ -87,12 +87,28 @@ class _OracleOptionModel(_OptionModelBase):
             option_copy = env_param_opt.ground(option.objects, option.params)
         del option  # unused after this
         assert option_copy.initiable(state)
+
+        # Detect if the option gets stuck in a state and terminate immediately
+        # if it does. This is a helpful optimization for planning with
+        # fine-grained options over long horizons.
+        # Note: mypy complains if this is None instead of DefaultState.
+        last_state = DefaultState
+
+        def _terminal(s: State) -> bool:
+            nonlocal last_state
+            if option_copy.terminal(s):
+                return True
+            if last_state is not DefaultState and last_state.allclose(s):
+                raise utils.OptionExecutionFailure("Option got stuck.")
+            last_state = s
+            return False
+
         try:
             traj = utils.run_policy_with_simulator(
                 option_copy.policy,
                 self._simulator,
                 state,
-                option_copy.terminal,
+                _terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except utils.OptionExecutionFailure:
             # If there is a failure during the execution of the option, treat
