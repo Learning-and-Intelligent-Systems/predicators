@@ -126,7 +126,7 @@ def test_four_rooms_ground_truth_nsrts(init_state):
     option = ground_nsrt1.sample_option(state, set(), rng)
     rot, = option.params
     assert 0.0 - 0.1 < rot < 0.0 + 0.1
-    # Case: moving up, width a not-too-large robot.
+    # Case: moving right, width a not-too-large robot.
     option = ground_nsrt2.sample_option(state, set(), rng)
     rot, = option.params
     assert np.pi / 2 - 0.1 < rot < np.pi / 2 + 0.1
