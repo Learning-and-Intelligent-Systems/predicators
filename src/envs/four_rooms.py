@@ -32,17 +32,17 @@ class FourRoomsEnv(BaseEnv):
     bottom left corner.
     """
     room_size: ClassVar[float] = 1.0
-    hallway_length: ClassVar[float] = 0.2
-    wall_width: ClassVar[float] = 0.01
-    robot_min_length: ClassVar[float] = 0.1
-    robot_max_length: ClassVar[float] = 0.3
-    robot_width: ClassVar[float] = 0.05
+    hallway_width: ClassVar[float] = 0.2
+    wall_depth: ClassVar[float] = 0.01
+    robot_min_width: ClassVar[float] = 0.1
+    robot_max_width: ClassVar[float] = 0.3
+    robot_length: ClassVar[float] = 0.05
     action_magnitude: ClassVar[float] = 0.05
 
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._robot_type = Type("robot", ["x", "y", "rot", "length"])
+        self._robot_type = Type("robot", ["x", "y", "rot", "width"])
         self._room_type = Type("room", ["x", "y", "hall_top", "hall_bottom", "hall_left", "hall_right"])
         # Predicates
         self._InRoom = Predicate("InRoom",
@@ -123,16 +123,16 @@ class FourRoomsEnv(BaseEnv):
         y = state.get(self._robot, "y")
         rot = state.get(self._robot, "rot")
         angle = rot * 180 / np.pi
-        l = state.get(self._robot, "length")
-        w = self.robot_width
+        l = self.robot_length
+        w = state.get(self._robot, "width")
         rect = patches.Rectangle((x, y), l, w, angle, color=robot_color)
         ax.add_patch(rect)
-        if action:
-            arrow_width = self.robot_width / 10
-            drot, = action.arr
-            dx = np.cos(rot + drot) * self.action_magnitude
-            dy = np.sin(rot + drot) * self.action_magnitude
-            ax.arrow(x, y, dx, dy, width=arrow_width, color="black")
+        # if action:
+        #     arrow_width = self.robot_length / 10
+        #     drot, = action.arr
+        #     dx = np.cos(rot + drot) * self.action_magnitude
+        #     dy = np.sin(rot + drot) * self.action_magnitude
+        #     ax.arrow(x, y, dx, dy, width=arrow_width, color="black")
 
         # Draw rooms.
         wall_color = "black"
@@ -141,7 +141,7 @@ class FourRoomsEnv(BaseEnv):
             x = state.get(room, "x")
             y = state.get(room, "y")
             room_size = self.room_size
-            wall_width = self.wall_width
+            wall_depth = self.wall_depth
             has_top_hall = state.get(room, "hall_top")
             has_bottom_hall = state.get(room, "hall_bottom")
             has_left_hall = state.get(room, "hall_left")
@@ -149,13 +149,13 @@ class FourRoomsEnv(BaseEnv):
             # (center x, center y, length, width, has_hall)
             wall_params = [
                 # Top wall.
-                (x, y + room_size, room_size, wall_width, has_top_hall),
+                (x, y + room_size, room_size, wall_depth, has_top_hall),
                 # Bottom wall.
-                (x, y, room_size, wall_width, has_bottom_hall),
+                (x, y, room_size, wall_depth, has_bottom_hall),
                 # Left wall.
-                (x, y, wall_width, room_size, has_left_hall),
+                (x, y, wall_depth, room_size, has_left_hall),
                 # Right wall.
-                (x + room_size, y, wall_width, room_size, has_right_hall),
+                (x + room_size, y, wall_depth, room_size, has_right_hall),
             ]
             for (x, y, l, w, has_hall) in wall_params:
                 # Draw wall.
@@ -165,16 +165,16 @@ class FourRoomsEnv(BaseEnv):
                 if has_hall:
                     # Determine if vertical or horizontal.
                     if abs(l) > abs(w):
-                        hall_l = self.hallway_length
+                        hall_l = self.hallway_width
                         hall_w = 5 * w
                         center_x = x + l / 2
-                        hall_x = center_x - self.hallway_length / 2
+                        hall_x = center_x - self.hallway_width / 2
                         hall_y = y - w
                     else:
                         hall_l = 4 * l
-                        hall_w = self.hallway_length
+                        hall_w = self.hallway_width
                         center_y = y + w / 2
-                        hall_y = center_y - self.hallway_length / 2
+                        hall_y = center_y - self.hallway_width / 2
                         hall_x = x - l
                     rect = patches.Rectangle((hall_x, hall_y), hall_l, hall_w, color=background_color)
                     ax.add_patch(rect)
@@ -182,7 +182,7 @@ class FourRoomsEnv(BaseEnv):
             
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
-        pad = 1.1 * self.wall_width
+        pad = 1.1 * self.wall_depth
         ax.set_xlim(x_lb - pad, x_ub + pad)
         ax.set_ylim(y_lb - pad, y_ub + pad)
 
@@ -205,7 +205,7 @@ class FourRoomsEnv(BaseEnv):
                 "x": np.inf,  # will get overriden
                 "y": np.inf,  # will get overriden
                 "rot": np.inf,  # will get overriden
-                "length": np.inf,  # will get overriden
+                "width": np.inf,  # will get overriden
             },
             top_left_room: {
                 "x": -self.room_size,
@@ -243,8 +243,8 @@ class FourRoomsEnv(BaseEnv):
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
         rot_lb = -np.pi
         rot_ub = np.pi
-        length_lb = self.robot_min_length
-        length_ub = self.robot_max_length
+        width_lb = self.robot_min_width
+        width_ub = self.robot_max_width
         rooms = sorted(init_state.get_objects(self._room_type))
         while len(tasks) < num:
             # Sample an initial state.
@@ -252,11 +252,11 @@ class FourRoomsEnv(BaseEnv):
             x = rng.uniform(x_lb, x_ub)
             y = rng.uniform(y_lb, y_ub)
             rot = rng.uniform(rot_lb, rot_ub)
-            length = rng.uniform(length_lb, length_ub)
+            width = rng.uniform(width_lb, width_ub)
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
             state.set(self._robot, "rot", rot)
-            state.set(self._robot, "length", length)
+            state.set(self._robot, "width", width)
             # Make sure the state is collision-free.
             if self._state_has_collision(state):
                 continue
