@@ -93,6 +93,9 @@ class FourRoomsEnv(BaseEnv):
         self._InRoom = Predicate("InRoom",
                                   [self._robot_type, self._room_type],
                                   self._InRoom_holds)
+        self._Connected = Predicate("Connected",
+                                   [self._room_type, self._room_type],
+                                   self._Connected_holds)
         # Options
         self._Move = ParameterizedOption(
             "Move",
@@ -136,7 +139,7 @@ class FourRoomsEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._InRoom}
+        return {self._InRoom, self._Connected}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -280,8 +283,9 @@ class FourRoomsEnv(BaseEnv):
     def _Move_initiable(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> bool:
         del memory, params  # unused
-        robot, start_room, _ = objects
-        return self._InRoom_holds(state, [robot, start_room])
+        robot, start_room, target_room = objects
+        return self._InRoom_holds(state, [robot, start_room]) and \
+            self._Connected_holds(state, [start_room, target_room])
 
     def _Move_terminal(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> bool:
@@ -297,6 +301,26 @@ class FourRoomsEnv(BaseEnv):
         room_y = state.get(room, "y")
         return room_x < robot_x < room_x + self.room_size and \
                room_y < robot_y < room_y + self.room_size
+
+    def _Connected_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        r1, r2 = objects
+        x1 = state.get(r1, "x")
+        x2 = state.get(r2, "x")
+        y1 = state.get(r1, "y")
+        y2 = state.get(r2, "y")
+        # Case: room 1 is above room 2.
+        if abs(x1 - x2) < 1e-7 and abs((y1 - self.room_size) - y2) < 1e-7:
+            return state.get(r1, "hall_bottom") and state.get(r2, "hall_top")
+        # Case: room 1 is below room 2.
+        if abs(x1 - x2) < 1e-7 and abs(y1 - (y2 - self.room_size)) < 1e-7:
+            return state.get(r1, "hall_top") and state.get(r2, "hall_bottom")
+        # Case: room 1 is right of room 2.
+        if abs((x1 - self.room_size) - x2) < 1e-7 and abs(y1 - y2) < 1e-7:
+            return state.get(r1, "hall_left") and state.get(r2, "hall_right")
+        # Case: room 1 is left of room 2.
+        if abs(x1 - (x2 - self.room_size)) < 1e-7 and abs(y1 - y2) < 1e-7:
+            return state.get(r1, "hall_right") and state.get(r2, "hall_left")
+        return False
 
     def _state_has_collision(self, state: State) -> bool:
         robot_rect = self._get_rectangle_for_robot(state, self._robot)
