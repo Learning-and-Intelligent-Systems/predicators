@@ -288,9 +288,9 @@ class FourRoomsEnv(BaseEnv):
             state.set(self._robot, "y", y)
             state.set(self._robot, "rot", rot)
             state.set(self._robot, "width", width)
-            # Make sure the state is collision-free.
-            if self._state_has_collision(state):
-                continue
+            # Make sure the state is collision-free. Should be guaranteed
+            # because we're initializing the robot in the middle of the room.
+            assert not self._state_has_collision(state)
             # Sample a goal.
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
@@ -569,9 +569,8 @@ class FourRoomsEnv(BaseEnv):
         if abs((x1 - self.room_size) - x2) < 1e-7 and abs(y1 - y2) < 1e-7:
             return (x1, y1 + self.room_size / 2)
         # Case: room 1 is left of room 2.
-        if abs(x1 - (x2 - self.room_size)) < 1e-7 and abs(y1 - y2) < 1e-7:
-            return (x2, y2 + self.room_size / 2)
-        raise Exception("Should not be reachable.")
+        assert abs(x1 - (x2 - self.room_size)) < 1e-7 and abs(y1 - y2) < 1e-7
+        return (x2, y2 + self.room_size / 2)
 
 
 class FourRoomsGeneralizeEnv(FourRoomsEnv):
