@@ -20,7 +20,7 @@ class _Rectangle:
     """A helper class for visualizing and collision-checking rectangles."""
     x: float  # bottom left corner
     y: float  # bottom left corner
-    length: float  # length
+    height: float  # height
     width: float
     rot: float  # in radians, between -np.pi and np.pi
 
@@ -47,7 +47,7 @@ class FourRoomsEnv(BaseEnv):
     wall_depth: ClassVar[float] = 0.01
     robot_min_width: ClassVar[float] = 0.1
     robot_max_width: ClassVar[float] = 0.3
-    robot_length: ClassVar[float] = 0.05
+    robot_height: ClassVar[float] = 0.05
     action_magnitude: ClassVar[float] = 0.05
 
     def __init__(self) -> None:
@@ -134,7 +134,7 @@ class FourRoomsEnv(BaseEnv):
         self._draw_rectangle(robot_rect, ax, color=robot_color)
         
         # if action:
-        #     arrow_width = self.robot_length / 10
+        #     arrow_width = self.robot_height / 10
         #     drot, = action.arr
         #     dx = np.cos(rot + drot) * self.action_magnitude
         #     dy = np.sin(rot + drot) * self.action_magnitude
@@ -143,52 +143,12 @@ class FourRoomsEnv(BaseEnv):
         # Draw rooms.
         wall_color = "black"
         for room in state.get_objects(self._room_type):
-            # Draw walls.
-            x = state.get(room, "x")
-            y = state.get(room, "y")
-            room_size = self.room_size
-            wall_depth = self.wall_depth
-            has_top_hall = state.get(room, "hall_top")
-            has_bottom_hall = state.get(room, "hall_bottom")
-            has_left_hall = state.get(room, "hall_left")
-            has_right_hall = state.get(room, "hall_right")
-            # (center x, center y, length, width, has_hall)
-            wall_params = [
-                # Top wall.
-                (x, y + room_size, room_size, wall_depth, has_top_hall),
-                # Bottom wall.
-                (x, y, room_size, wall_depth, has_bottom_hall),
-                # Left wall.
-                (x, y, wall_depth, room_size, has_left_hall),
-                # Right wall.
-                (x + room_size, y, wall_depth, room_size, has_right_hall),
-            ]
-            for (x, y, l, w, has_hall) in wall_params:
-                # Draw wall.
-                rect = patches.Rectangle((x, y), l, w, color=wall_color)
-                ax.add_patch(rect)
-                # Draw hallway.
-                if has_hall:
-                    # Determine if vertical or horizontal.
-                    if abs(l) > abs(w):
-                        hall_l = self.hallway_width
-                        hall_w = 5 * w
-                        center_x = x + l / 2
-                        hall_x = center_x - self.hallway_width / 2
-                        hall_y = y - w
-                    else:
-                        hall_l = 4 * l
-                        hall_w = self.hallway_width
-                        center_y = y + w / 2
-                        hall_y = center_y - self.hallway_width / 2
-                        hall_x = x - l
-                    rect = patches.Rectangle((hall_x, hall_y), hall_l, hall_w, color=background_color)
-                    ax.add_patch(rect)
-
-            
+            room_rects = self._get_rectangles_for_room(state, room)
+            for rect in room_rects:
+                self._draw_rectangle(rect, ax, color=wall_color)
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
-        pad = 1.1 * self.wall_depth
+        pad = 2 * self.wall_depth
         ax.set_xlim(x_lb - pad, x_ub + pad)
         ax.set_ylim(y_lb - pad, y_ub + pad)
 
@@ -318,20 +278,138 @@ class FourRoomsEnv(BaseEnv):
     def _get_rectangle_for_robot(self, state: State, robot: Object) -> _Rectangle:
         x = state.get(robot, "x")
         y = state.get(robot, "y")
-        length = self.robot_length
+        height = self.robot_height
         width = state.get(self._robot, "width")
         rot = state.get(robot, "rot")
-        return _Rectangle(x, y, length, width, rot)
+        return _Rectangle(x, y, height, width, rot)
 
     def _get_rectangles_for_room(self, state: State, room: Object) -> List[_Rectangle]:
-        import ipdb; ipdb.set_trace()
+        rectangles = []
+        room_x = state.get(room, "x")
+        room_y = state.get(room, "y")
+        s = (self.room_size + self.wall_depth - self.hallway_width) / 2
+        # Top wall.
+        if state.get(room, "hall_top"):
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y + self.room_size - self.wall_depth/2),
+                height=self.wall_depth,
+                width=s,
+                rot=0,
+            )
+            rectangles.append(rect)
+            rect = _Rectangle(
+                x=(s + self.hallway_width + room_x - self.wall_depth/2),
+                y=(room_y + self.room_size - self.wall_depth/2),
+                height=self.wall_depth,
+                width=s,
+                rot=0,
+            )
+            rectangles.append(rect)
+
+        else:
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y + self.room_size - self.wall_depth/2),
+                height=self.wall_depth,
+                width=(self.room_size + self.wall_depth),
+                rot=0,
+            )
+            rectangles.append(rect)
+
+        # Bottom wall.
+        if state.get(room, "hall_bottom"):
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=self.wall_depth,
+                width=s,
+                rot=0,
+            )
+            rectangles.append(rect)
+            rect = _Rectangle(
+                x=(s + self.hallway_width + room_x - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=self.wall_depth,
+                width=s,
+                rot=0,
+            )
+            rectangles.append(rect)
+        else:
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=self.wall_depth,
+                width=(self.room_size + self.wall_depth),
+                rot=0,
+            )
+            rectangles.append(rect)
+
+        # Left wall.
+        if state.get(room, "hall_left"):
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=s,
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y + s + self.hallway_width - self.wall_depth/2),
+                height=s,
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+        else:
+            rect = _Rectangle(
+                x=(room_x - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=(self.room_size + self.wall_depth),
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+
+        # Right wall.
+        if state.get(room, "hall_right"):
+            rect = _Rectangle(
+                x=(room_x + self.room_size - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=s,
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+            rect = _Rectangle(
+                x=(room_x + self.room_size - self.wall_depth/2),
+                y=(room_y + s + self.hallway_width - self.wall_depth/2),
+                height=s,
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+        else:
+            rect = _Rectangle(
+                x=(room_x + self.room_size - self.wall_depth/2),
+                y=(room_y - self.wall_depth/2),
+                height=(self.room_size + self.wall_depth),
+                width=self.wall_depth,
+                rot=0,
+            )
+            rectangles.append(rect)
+
+        return rectangles
+
 
     @staticmethod
     def _draw_rectangle(rectangle: _Rectangle, ax: plt.Axes, **kwargs: Any) -> None:
         x = rectangle.x
         y = rectangle.y
-        l = rectangle.length
         w = rectangle.width
+        h = rectangle.height
         angle = rectangle.rot * 180 / np.pi
-        rect = patches.Rectangle((x, y), l, w, angle, **kwargs)
+        rect = patches.Rectangle((x, y), w, h, angle, **kwargs)
         ax.add_patch(rect)
