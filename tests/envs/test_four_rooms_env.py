@@ -61,6 +61,7 @@ def test_four_rooms(init_state):
     assert env.action_space.shape == (2, )
     task = env.get_train_tasks()[0]
     state = init_state.copy()
+    env.render_state(state, task)
     robots = state.get_objects(robot_type)
     assert len(robots) == 1
     robot = robots[0]
