@@ -27,7 +27,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
     """Create ground truth NSRTs for an env."""
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
                    "cover_regrasp", "cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -115,10 +116,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
@@ -129,7 +132,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     parameters = [block]
     holding_predicate_args = [block]
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding"):
         parameters.append(robot)
         holding_predicate_args.append(robot)
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
@@ -140,17 +144,20 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks") and \
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         option = Pick
         option_vars = [block]
 
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
@@ -208,14 +215,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 assert len(objs) == 2
             else:
                 assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 lb = -1.0
                 ub = 1.0
             elif CFG.env == "cover_typed_options":
@@ -237,7 +246,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     parameters = [block, target]
     holding_predicate_args = [block]
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding"):
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
     preconditions = {
@@ -259,17 +269,20 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         option = Place
         option_vars = [target]
         if CFG.env in ("cover_multistep_options",
-                       "cover_multistep_options_fixed_tasks") and \
+                       "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
             CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, goal: Set[GroundAtom],
@@ -335,14 +348,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 assert len(objs) == 3
             else:
                 assert len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 lb = -1.0
                 ub = 1.0
             else:

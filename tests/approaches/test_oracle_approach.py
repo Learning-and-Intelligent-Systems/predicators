@@ -12,7 +12,7 @@ from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks
+    CoverMultistepOptionsFixedTasks, CoverMultistepOptionsHolding
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv
@@ -384,6 +384,36 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
         "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptionsFixedTasks()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    for task in train_tasks:
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not policy_solves_task(lambda s: random_action, task,
+                                      env.simulate)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not policy_solves_task(lambda s: random_action, task,
+                                      env.simulate)
+
+
+def test_oracle_approach_cover_multistep_options_holding():
+    """Tests for OracleApproach class with CoverMultistepOptionsHolding."""
+    utils.reset_config({
+        "env": "cover_multistep_options_holding",
+        "cover_multistep_use_learned_equivalents": True,
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
+    })
+    env = CoverMultistepOptionsHolding()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
