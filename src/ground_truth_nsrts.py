@@ -51,7 +51,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
-    elif CFG.env == "four_rooms":
+    elif CFG.env.startswith("four_rooms"):
         nsrts = _get_four_rooms_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")

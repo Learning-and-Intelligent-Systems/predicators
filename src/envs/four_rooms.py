@@ -92,7 +92,11 @@ class FourRoomsEnv(BaseEnv):
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
     rot_max_magnitude: ClassVar[float] = np.pi / 10
-    room_map: ClassVar[NDArray[np.uint8]] = np.array([
+    train_room_map: ClassVar[NDArray[np.uint8]] = np.array([
+        [1, 1],
+        [1, 1],
+    ])
+    test_room_map: ClassVar[NDArray[np.uint8]] = np.array([
         [1, 1],
         [1, 1],
     ])
@@ -146,10 +150,14 @@ class FourRoomsEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               room_map=self.train_room_map,
+                               rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               room_map=self.test_room_map,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -201,11 +209,11 @@ class FourRoomsEnv(BaseEnv):
         room_y = state.get(goal_room, "y")
         cx = room_x + self.room_size / 2
         cy = room_y + self.room_size / 2
-        map_size = max(self.room_map.shape)
+        map_size = len(list(state))
         star_size = 1200 / map_size
         ax.scatter(cx, cy, s=star_size, marker='*', color='gold')
 
-        x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
+        x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
         ax.set_xlim(x_lb - pad, x_ub + pad)
         ax.set_ylim(y_lb - pad, y_ub + pad)
@@ -217,17 +225,18 @@ class FourRoomsEnv(BaseEnv):
         plt.close()
         return [img]
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int, room_map: NDArray[np.uint8],
+                   rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
         # Create the static parts of the initial state.
         room_state_dict = {}
-        num_rows, num_cols = self.room_map.shape
-        for (r, c) in np.argwhere(self.room_map):
+        num_rows, num_cols = room_map.shape
+        for (r, c) in np.argwhere(room_map):
             room = Object(f"room{r}-{c}", self._room_type)
-            hall_top = float(r > 0 and self.room_map[r - 1, c])
-            hall_bottom = float(r < num_rows - 1 and self.room_map[r + 1, c])
-            hall_left = float(c > 0 and self.room_map[r, c - 1])
-            hall_right = float(c < num_cols - 1 and self.room_map[r, c + 1])
+            hall_top = float(r > 0 and room_map[r - 1, c])
+            hall_bottom = float(r < num_rows - 1 and room_map[r + 1, c])
+            hall_left = float(c > 0 and room_map[r, c - 1])
+            hall_right = float(c < num_cols - 1 and room_map[r, c + 1])
             room_state_dict[room] = {
                 "x": float(c * self.room_size),
                 "y": float((num_rows - 1 - r) * self.room_size),
@@ -368,12 +377,17 @@ class FourRoomsEnv(BaseEnv):
                     return True
         return False
 
-    def _get_world_boundaries(self) -> Tuple[float, float, float, float]:
-        num_rows, num_cols = self.room_map.shape
-        x_lb = 0
-        x_ub = self.room_size * num_cols
-        y_lb = 0
-        y_ub = self.room_size * num_rows
+    def _get_world_boundaries(
+            self, state: State) -> Tuple[float, float, float, float]:
+        x_lb, y_lb = np.inf, np.inf
+        x_ub, y_ub = -np.inf, -np.inf
+        for room in state.get_objects(self._room_type):
+            room_x = state.get(room, "x")
+            room_y = state.get(room, "y")
+            x_lb = min(x_lb, room_x)
+            x_ub = max(x_ub, room_x + self.room_size)
+            y_lb = min(y_lb, room_y)
+            y_ub = max(y_ub, room_y + self.room_size)
         return x_lb, x_ub, y_lb, y_ub
 
     def _get_rectangle_for_robot(self, state: State,
@@ -545,3 +559,20 @@ class FourRoomsEnv(BaseEnv):
         if abs(x1 - (x2 - self.room_size)) < 1e-7 and abs(y1 - y2) < 1e-7:
             return (x2, y2 + self.room_size / 2)
         raise Exception("Should not be reachable.")
+
+
+class FourRoomsGeneralizeEnv(FourRoomsEnv):
+    """A variation on the four rooms environment where the test tasks require
+    generalizing to more than four rooms."""
+
+    test_room_map: ClassVar[NDArray[np.uint8]] = np.array([
+        [1, 0, 0, 0, 1],
+        [1, 0, 1, 1, 1],
+        [1, 1, 1, 0, 1],
+        [0, 1, 1, 1, 1],
+        [1, 1, 1, 0, 1],
+    ])
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "four_rooms_generalize"
