@@ -329,8 +329,9 @@ class FourRoomsEnv(BaseEnv):
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, room = objects
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
+        # Use the center of the robot to determine if it's in the room.
+        rect = self._get_rectangle_for_robot(state, robot)
+        robot_x, robot_y = rect.center
         room_x = state.get(room, "x")
         room_y = state.get(room, "y")
         return room_x < robot_x < room_x + self.room_size and \
