@@ -69,6 +69,13 @@ class _Rectangle:
         x, y = np.mean(self.vertices, axis=0)
         return (x, y)
 
+    @cached_property
+    def circumscribed_circle(self) -> Tuple[float, float, float]:
+        """Returns x, y, radius."""
+        x, y = self.center
+        radius = np.sqrt(self.width**2 + self.height**2)
+        return x, y, radius
+
 
 class FourRoomsEnv(BaseEnv):
     """An environment where a 2D robot must navigate between rooms that are
@@ -533,6 +540,12 @@ class FourRoomsEnv(BaseEnv):
 
     @staticmethod
     def _rectangles_intersect(rect1: _Rectangle, rect2: _Rectangle) -> bool:
+        # Optimization: if the circumscribed circles don't intersect, then
+        # the rectangles also don't intersect.
+        x1, y1, r1 = rect1.circumscribed_circle
+        x2, y2, r2 = rect2.circumscribed_circle
+        if not abs(r1 - r2) <= np.sqrt((x1 - x2)**2 + (y1 - y2)**2) <= r1 + r2:
+            return False
         for (p1, p2) in rect1.line_segments:
             for (p3, p4) in rect2.line_segments:
                 if utils.intersects(p1, p2, p3, p4):
