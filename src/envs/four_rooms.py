@@ -58,6 +58,11 @@ class _Rectangle:
     def line_segments(self) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
         return list(zip(self.vertices, self.vertices[1:] + [self.vertices[0]]))
 
+    @cached_property
+    def center(self) -> Tuple[float, float]:
+        x, y = np.mean(self.vertices, axis=0)
+        return (x, y)
+
 
 class FourRoomsEnv(BaseEnv):
     """An environment where a 2D robot must navigate between rooms that are
@@ -83,6 +88,7 @@ class FourRoomsEnv(BaseEnv):
     robot_height: ClassVar[float] = 0.05
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
+    rot_max_magnitude: ClassVar[float] = np.pi / 10
 
     def __init__(self) -> None:
         super().__init__()
@@ -158,8 +164,8 @@ class FourRoomsEnv(BaseEnv):
         # Angles in radians. The first dimension rotates the body, and is
         # constrained to prevent large movements. The second dimension is
         # the direction that the body moves.
-        lb = np.array([-np.pi / 10, -np.pi], dtype=np.float32)
-        ub = np.array([np.pi / 10, np.pi], dtype=np.float32)
+        lb = np.array([-self.rot_max_magnitude, -np.pi], dtype=np.float32)
+        ub = np.array([self.rot_max_magnitude, np.pi], dtype=np.float32)
         return Box(lb, ub, (2, ))
 
     def render_state(self,
@@ -275,12 +281,38 @@ class FourRoomsEnv(BaseEnv):
             tasks.append(Task(state, goal))
         return tasks
 
-    @staticmethod
-    def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
+    def _Move_policy(self, state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> Action:
         del memory  # unused
-        import ipdb; ipdb.set_trace()
-        return Action(np.array([rot], dtype=np.float32))
+        robot, start_room, end_room = objects
+        desired_rot, = params
+        # Get the center of the robot.
+        rect = self._get_rectangle_for_robot(state, robot)
+        x, y = rect.center
+        rot = state.get(robot, "rot")
+        room_x = state.get(start_room, "x")
+        room_y = state.get(start_room, "y")
+        room_cx = room_x + self.room_size / 2
+        room_cy = room_y + self.room_size / 2
+        dist_to_center = np.sqrt((x - room_cx)**2 + (y - room_cy)**2)
+        near_center = (dist_to_center < 1.1 * self.action_magnitude)
+        dist_to_desired_rot = abs(rot - desired_rot)
+        at_desired_rot = dist_to_desired_rot < 1e-6
+        drot = np.clip(desired_rot - rot, -self.rot_max_magnitude, self.rot_max_magnitude)
+        theta_to_center = np.arctan2((room_cy - y), (room_cx - x))
+        # If already at the desired rotation, move toward the hallway.
+        if at_desired_rot:
+            cx, cy = self._get_hallway_position(state, start_room, end_room)
+            theta = np.arctan2((cy - y), (cx - x))
+        # If near enough to the center of the room, rotate, and continue
+        # moving toward the center.
+        elif near_center:
+            theta = theta_to_center
+        # If not yet near the center of the room, move without rotating.
+        else:
+            drot = 0
+            theta = theta_to_center
+        return Action(np.array([drot, theta], dtype=np.float32))
 
     def _Move_initiable(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> bool:
@@ -491,3 +523,23 @@ class FourRoomsEnv(BaseEnv):
                 if utils.intersects(p1, p2, p3, p4):
                     return True
         return False
+
+    def _get_hallway_position(self, state: State, room1: Object, room2: Object) -> Tuple[float, float]:
+        assert self._Connected_holds(state, [room1, room2])
+        x1 = state.get(room1, "x")
+        x2 = state.get(room2, "x")
+        y1 = state.get(room1, "y")
+        y2 = state.get(room2, "y")
+        # Case: room 1 is above room 2.
+        if abs(x1 - x2) < 1e-7 and abs((y1 - self.room_size) - y2) < 1e-7:
+            return (x1 + self.room_size / 2, y1)
+        # Case: room 1 is below room 2.
+        if abs(x1 - x2) < 1e-7 and abs(y1 - (y2 - self.room_size)) < 1e-7:
+            return (x2 + self.room_size / 2, y2)
+        # Case: room 1 is right of room 2.
+        if abs((x1 - self.room_size) - x2) < 1e-7 and abs(y1 - y2) < 1e-7:
+            return (x1, y1 + self.room_size / 2)
+        # Case: room 1 is left of room 2.
+        if abs(x1 - (x2 - self.room_size)) < 1e-7 and abs(y1 - y2) < 1e-7:
+            return (x2, y2 + self.room_size / 2)
+        raise Exception("Should not be reachable.")
