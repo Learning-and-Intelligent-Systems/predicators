@@ -1,6 +1,7 @@
 """Four rooms environment based on the original options paper."""
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
@@ -17,12 +18,45 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 
 @dataclass(frozen=True)
 class _Rectangle:
-    """A helper class for visualizing and collision-checking rectangles."""
-    x: float  # bottom left corner
-    y: float  # bottom left corner
-    height: float  # height
+    """A helper class for visualizing and collision-checking rectangles.
+
+    Following the convention in plt.Rectangle, the origin is at the bottom
+    left corner, and rotation is anti-clockwise about that point.
+    """
+    x: float
+    y: float
+    height: float
     width: float
     rot: float  # in radians, between -np.pi and np.pi
+
+    def __post_init__(self):
+        assert -np.pi <= self.rot <= np.pi, "Expecting angle in [-pi, pi]."
+
+    @cached_property
+    def vertices(self) -> List[Tuple[float, float]]:
+        scale_matrix = np.array([
+            [self.width, 0],
+            [0, self.height],
+        ])
+        rotate_matrix = np.array([
+            [np.cos(self.rot), -np.sin(self.rot)],
+            [np.sin(self.rot), np.cos(self.rot)]
+        ])
+        translate_vector = np.array([self.x, self.y])
+        vertices = np.array([
+            (0, 0),
+            (0, 1),
+            (1, 1),
+            (1, 0),
+        ])
+        vertices = vertices @ scale_matrix.T
+        vertices = vertices @ rotate_matrix.T
+        vertices = translate_vector + vertices
+        return [(x, y) for (x, y) in vertices]
+
+    @cached_property
+    def line_segments(self) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
+        return list(zip(self.vertices, self.vertices[1:] + [self.vertices[0]]))
 
 
 class FourRoomsEnv(BaseEnv):
@@ -82,7 +116,7 @@ class FourRoomsEnv(BaseEnv):
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         rot = state.get(self._robot, "rot")
-        new_rot = rot + drot
+        new_rot = np.clip(rot + drot, -np.pi, np.pi)
         new_x = x + np.cos(new_rot) * self.action_magnitude
         new_y = y + np.sin(new_rot) * self.action_magnitude
         next_state = state.copy()
@@ -265,7 +299,11 @@ class FourRoomsEnv(BaseEnv):
                room_y < robot_y < room_y + self.room_size
 
     def _state_has_collision(self, state: State) -> bool:
-        # TODO
+        robot_rect = self._get_rectangle_for_robot(state, self._robot)
+        for room in state.get_objects(self._room_type):
+            for rect in self._get_rectangles_for_room(state, room):
+                if self._rectangles_intersect(robot_rect, rect):
+                    return True
         return False
 
     def _get_world_boundaries(self) -> Tuple[float, float, float, float]:
@@ -403,7 +441,6 @@ class FourRoomsEnv(BaseEnv):
 
         return rectangles
 
-
     @staticmethod
     def _draw_rectangle(rectangle: _Rectangle, ax: plt.Axes, **kwargs: Any) -> None:
         x = rectangle.x
@@ -413,3 +450,18 @@ class FourRoomsEnv(BaseEnv):
         angle = rectangle.rot * 180 / np.pi
         rect = patches.Rectangle((x, y), w, h, angle, **kwargs)
         ax.add_patch(rect)
+
+        # For debugging.
+        # for (vx, vy) in rectangle.vertices:
+        #     circ = patches.Circle((vx, vy), 0.01, color="red", alpha=0.5)
+        #     ax.add_patch(circ)
+        # for ((x1, y1), (x2, y2)) in rectangle.line_segments:
+        #     ax.plot([x1, x2], [y1, y2], color="red", lw=0.1)
+
+    @staticmethod
+    def _rectangles_intersect(rect1: _Rectangle, rect2: _Rectangle) -> bool:
+        for (p1, p2) in rect1.line_segments:
+            for (p3, p4) in rect2.line_segments:
+                if utils.intersects(p1, p2, p3, p4):
+                    return True
+        return False
