@@ -69,9 +69,8 @@ class FourRoomsEnv(BaseEnv):
     a person (or dog) is carrying a long stick and is trying to move through
     a narrow passage.
 
-    The action space is 1D, which rotates the robot. At each time step, the
-    rotation is applied first, and then the robot moves forward by a constant
-    displacement.
+    The action space is 2D. The first dimension rotates the robot and the 
+    second dimension indicates the direction of movement (both are angles).
 
     For consistency with plt.Rectangle, all rectangles are oriented at their
     bottom left corner.
@@ -116,13 +115,13 @@ class FourRoomsEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        drot, = action.arr
+        drot, theta = action.arr
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         rot = state.get(self._robot, "rot")
         new_rot = np.clip(rot + drot, -np.pi, np.pi)
-        new_x = x + np.cos(new_rot) * self.action_magnitude
-        new_y = y + np.sin(new_rot) * self.action_magnitude
+        new_x = x + np.cos(theta) * self.action_magnitude
+        new_y = y + np.sin(theta) * self.action_magnitude
         next_state = state.copy()
         next_state.set(self._robot, "x", new_x)
         next_state.set(self._robot, "y", new_y)
@@ -156,8 +155,12 @@ class FourRoomsEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # An angle in radians. Constrained to prevent very large movements.
-        return Box(-np.pi / 10, np.pi / 10, (1, ))
+        # Angles in radians. The first dimension rotates the body, and is
+        # constrained to prevent large movements. The second dimension is
+        # the direction that the body moves.
+        lb = np.array([-np.pi / 10, -np.pi], dtype=np.float32)
+        ub = np.array([np.pi / 10, np.pi], dtype=np.float32)
+        return Box(lb, ub, (2, ))
 
     def render_state(self,
                      state: State,
@@ -171,13 +174,6 @@ class FourRoomsEnv(BaseEnv):
         robot_rect = self._get_rectangle_for_robot(state, self._robot)
         self._draw_rectangle(robot_rect, ax, color=robot_color)
         
-        # if action:
-        #     arrow_width = self.robot_height / 10
-        #     drot, = action.arr
-        #     dx = np.cos(rot + drot) * self.action_magnitude
-        #     dy = np.sin(rot + drot) * self.action_magnitude
-        #     ax.arrow(x, y, dx, dy, width=arrow_width, color="black")
-
         # Draw rooms.
         wall_color = "black"
         for room in state.get_objects(self._room_type):
