@@ -23,6 +23,7 @@ from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
+from predicators.src.envs.four_rooms import FourRoomsEnv, FourRoomsGeneralizeEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Variable
@@ -840,6 +841,46 @@ def test_oracle_approach_touch_point():
         "num_test_tasks": 2
     })
     env = TouchPointEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_four_rooms():
+    """Tests for OracleApproach class with FourRoomsEnv."""
+    utils.reset_config({
+        "env": "four_rooms",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = FourRoomsEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_four_rooms_generalize():
+    """Tests for OracleApproach class with FourRoomsGeneralizeEnv."""
+    utils.reset_config({
+        "env": "four_rooms_generalize",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+    })
+    env = FourRoomsGeneralizeEnv()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
