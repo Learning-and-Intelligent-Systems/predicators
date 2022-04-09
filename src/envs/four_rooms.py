@@ -83,6 +83,7 @@ class FourRoomsEnv(BaseEnv):
     robot_max_width: ClassVar[float] = 0.3
     robot_height: ClassVar[float] = 0.05
     action_magnitude: ClassVar[float] = 0.05
+    robot_initial_position_radius: ClassVar[float] = 0.05
 
     def __init__(self) -> None:
         super().__init__()
@@ -243,17 +244,25 @@ class FourRoomsEnv(BaseEnv):
                 "hall_right": 0,
             },
         })
-        x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries()
         rot_lb = -np.pi
         rot_ub = np.pi
         width_lb = self.robot_min_width
         width_ub = self.robot_max_width
         rooms = sorted(init_state.get_objects(self._room_type))
         while len(tasks) < num:
+            # Sample an initial and target room.
+            start_room, goal_room = rng.choice(rooms, size=2, replace=False)
             # Sample an initial state.
             state = init_state.copy()
-            x = rng.uniform(x_lb, x_ub)
-            y = rng.uniform(y_lb, y_ub)
+            # Always start out near the center of the room to avoid issues with
+            # rotating in corners.
+            room_x = init_state.get(start_room, "x")
+            room_y = init_state.get(start_room, "y")
+            room_cx = room_x + self.room_size / 2
+            room_cy = room_y + self.room_size / 2
+            rad = self.robot_initial_position_radius
+            x = rng.uniform(room_cx - rad, room_cx + rad)
+            y = rng.uniform(room_cy - rad, room_cy + rad)
             rot = rng.uniform(rot_lb, rot_ub)
             width = rng.uniform(width_lb, width_ub)
             state.set(self._robot, "x", x)
@@ -264,13 +273,10 @@ class FourRoomsEnv(BaseEnv):
             if self._state_has_collision(state):
                 continue
             # Sample a goal.
-            goal_room_idx = rng.choice(len(rooms))
-            goal_room = rooms[goal_room_idx]
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
-            # Make sure goal is not satisfied.
-            if not goal_atom.holds(state):
-                tasks.append(Task(state, goal))
+            assert not goal_atom.holds(state)
+            tasks.append(Task(state, goal))
         return tasks
 
     @staticmethod
