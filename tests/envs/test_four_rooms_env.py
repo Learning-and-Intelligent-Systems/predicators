@@ -94,6 +94,9 @@ def test_four_rooms(init_state):
     assert in_room.holds(state)
     # Now if we make the width smaller, it should fit through.
     state.set(robot, "width", 0.5 * env.hallway_width)
+    # We also have to move it over because the coordinate frame is oriented
+    # at the bottom left corner.
+    state.set(robot, "x", state.get(robot, "x") + 0.1 * env.hallway_width)
     for _ in range(5):
         state = env.simulate(state, up_action)
     assert not in_room.holds(state)
