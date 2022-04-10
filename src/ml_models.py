@@ -213,8 +213,8 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         raise NotImplementedError("Override me!")
 
-    def fit(self, X: Array, Y: Array) -> None:
-        return self._model.fit(X, Y)
+    def fit(self, X: Array, y: Array) -> None:
+        return self._model.fit(X, y)
 
     def classify(self, x: Array) -> bool:
         class_prediction = self._model.predict([x])[0]
