@@ -7,8 +7,8 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.ml_models import ImplicitMLPRegressor, \
-    KNeighborsRegressor, MLPBinaryClassifier, MLPBinaryClassifierEnsemble, \
-    MLPRegressor, NeuralGaussianRegressor
+    KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
+    MLPBinaryClassifierEnsemble, MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -236,3 +236,20 @@ def test_k_neighbors_regressor():
     expected_y = Y[0]
     assert predicted_y.shape == expected_y.shape
     assert np.allclose(predicted_y, expected_y, atol=1e-7)
+
+
+def test_k_neighbors_classifier():
+    """Tests for KNeighborsClassifier()."""
+    utils.reset_config()
+    input_size = 3
+    num_samples = 5
+    model = KNeighborsClassifier(seed=123, n_neighbors=1)
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(num_samples, input_size))
+    Y = rng.choice(2, size=(num_samples, ))
+    model.fit(X, Y)
+    x = X[0]
+    predicted_y = model.classify(x)
+    expected_y = Y[0]
+    assert isinstance(predicted_y, bool)
+    assert predicted_y == expected_y

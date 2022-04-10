@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from sklearn.base import BaseEstimator
+from sklearn.neighbors import KNeighborsClassifier as _KNeighborsClassifier
 from sklearn.neighbors import KNeighborsRegressor as _KNeighborsRegressor
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
@@ -199,6 +200,26 @@ class BinaryClassifier(abc.ABC):
         x is single-dimensional.
         """
         raise NotImplementedError("Override me!")
+
+
+class _ScikitLearnBinaryClassifier(BinaryClassifier):
+    """A regressor that lightly wraps a scikit-learn classification model."""
+
+    def __init__(self, seed: int, **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._model = self._initialize_model(**kwargs)
+
+    @abc.abstractmethod
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        raise NotImplementedError("Override me!")
+
+    def fit(self, X: Array, Y: Array) -> None:
+        return self._model.fit(X, Y)
+
+    def classify(self, x: Array) -> bool:
+        class_prediction = self._model.predict([x])[0]
+        assert class_prediction in [0, 1]
+        return bool(class_prediction)
 
 
 class _NormalizingBinaryClassifier(BinaryClassifier):
@@ -798,6 +819,16 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
         return np.array([m.predict_proba(x) for m in self._members])
 
 
+class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
+    """K nearest neighbors from scikit-learn."""
+
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        return _KNeighborsClassifier(**kwargs)
+
+
+################################## Utilities ##################################
+
+
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned
@@ -811,9 +842,6 @@ class LearnedPredicateClassifier:
         """
         v = state.vec(objects)
         return self._model.classify(v)
-
-
-################################## Utilities ##################################
 
 
 def _normalize_data(data: Array,
