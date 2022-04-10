@@ -34,6 +34,7 @@ def test_sesame_plan():
         123,  # seed
         CFG.sesame_task_planning_heuristic,
         CFG.sesame_max_skeletons_optimized,
+        max_horizon=CFG.horizon,
     )
     assert len(plan) == 2
     assert isinstance(plan[0], _Option)
@@ -141,6 +142,19 @@ def test_sesame_plan_failures():
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
     nsrts = get_gt_nsrts(env.predicates, env.options)
+    # Test that no plan is found when the horizon is too short.
+    with pytest.raises(PlanningFailure):
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=0)
+    # Test for dr-reachability.
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, should fail fast.
@@ -152,7 +166,8 @@ def test_sesame_plan_failures():
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized)
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon)
     with pytest.raises(PlanningFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
@@ -165,6 +180,7 @@ def test_sesame_plan_failures():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
             check_dr_reachable=False)
     utils.reset_config({"env": "painting", "painting_num_objs_train": [10]})
     env = PaintingEnv()
@@ -209,7 +225,8 @@ def test_sesame_plan_uninitiable_option():
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized)
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon)
     assert "Planning reached max_skeletons_optimized!" in str(e.value)
 
 
@@ -293,6 +310,7 @@ def test_planning_determinism():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
         )[0]
     ]
     plan2 = [
@@ -305,6 +323,7 @@ def test_planning_determinism():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
         )[0]
     ]
     plan3 = [
@@ -317,6 +336,7 @@ def test_planning_determinism():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
         )[0]
     ]
     plan4 = [
@@ -329,6 +349,7 @@ def test_planning_determinism():
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
         )[0]
     ]
     assert plan1 == plan2 == plan3 == plan4
