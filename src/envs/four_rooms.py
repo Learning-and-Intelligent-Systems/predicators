@@ -207,7 +207,7 @@ class FourRoomsEnv(BaseEnv):
         # Draw rooms.
         wall_color = "black"
         for room in state.get_objects(self._room_type):
-            for rect in self._room_to_rectangles[room]:
+            for rect in self._get_rectangles_for_room(state, room):
                 self._draw_rectangle(rect, ax, color=wall_color)
 
         # Label the goal room with a star.
@@ -263,9 +263,6 @@ class FourRoomsEnv(BaseEnv):
                 "width": np.inf,
             },
         })
-        for room in init_state.get_objects(self._room_type):
-            self._room_to_rectangles[room] = self._get_rectangles_for_room(
-                init_state, room)
         rot_lb = -np.pi / 10
         rot_ub = np.pi / 2 + np.pi / 10
         width_lb = self.robot_min_width
@@ -383,7 +380,7 @@ class FourRoomsEnv(BaseEnv):
     def _state_has_collision(self, state: State) -> bool:
         robot_rect = self._get_rectangle_for_robot(state, self._robot)
         for room in state.get_objects(self._room_type):
-            for rect in self._room_to_rectangles[room]:
+            for rect in self._get_rectangles_for_room(state, room):
                 if self._rectangles_intersect(robot_rect, rect):
                     return True
         return False
@@ -412,6 +409,11 @@ class FourRoomsEnv(BaseEnv):
 
     def _get_rectangles_for_room(self, state: State,
                                  room: Object) -> List[_Rectangle]:
+        # Since rooms are static, we should only need to compute their
+        # rectangles once.
+        if room in self._room_to_rectangles:
+            return self._room_to_rectangles[room]
+
         rectangles = []
         room_x = state.get(room, "x")
         room_y = state.get(room, "y")
@@ -528,6 +530,9 @@ class FourRoomsEnv(BaseEnv):
                 rot=0,
             )
             rectangles.append(rect)
+
+        # Update cache.
+        self._room_to_rectangles[room] = rectangles
 
         return rectangles
 
