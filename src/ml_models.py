@@ -8,11 +8,13 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from sklearn.base import BaseEstimator
+from sklearn.neighbors import KNeighborsRegressor as _KNeighborsRegressor
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
@@ -45,6 +47,24 @@ class Regressor(abc.ABC):
         x is single-dimensional.
         """
         raise NotImplementedError("Override me!")
+
+
+class _ScikitLearnRegressor(Regressor):
+    """A regressor that lightly wraps a scikit-learn regression model."""
+
+    def __init__(self, seed: int, **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._model = self._initialize_model(**kwargs)
+
+    @abc.abstractmethod
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        raise NotImplementedError("Override me!")
+
+    def fit(self, X: Array, Y: Array) -> None:
+        return self._model.fit(X, Y)
+
+    def predict(self, x: Array) -> Array:
+        return self._model.predict([x])[0]
 
 
 class _NormalizingRegressor(Regressor):
@@ -705,6 +725,13 @@ class NeuralGaussianRegressor(PyTorchRegressor):
     @staticmethod
     def _split_prediction(Y: Tensor) -> Tuple[Tensor, Tensor]:
         return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
+
+
+class KNeighborsRegressor(_ScikitLearnRegressor):
+    """K nearest neighbors from scikit-learn."""
+
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        return _KNeighborsRegressor(**kwargs)
 
 
 ################################ Classifiers ##################################
