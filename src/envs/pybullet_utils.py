@@ -15,7 +15,7 @@ def get_kinematic_chain(robot: int, end_effector: int,
     Includes the end effector.
     """
     kinematic_chain = []
-    while end_effector > 0:
+    while end_effector > -1:
         joint_info = p.getJointInfo(robot,
                                     end_effector,
                                     physicsClientId=physics_client_id)

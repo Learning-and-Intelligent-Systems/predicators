@@ -237,6 +237,117 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     physicsClientId=self._physics_client_id)
 
 
+class PandaPyBulletRobot(_SingleArmPyBulletRobot):
+    """Franka Emika Panda which we assume is fixed on some base."""
+
+    # Parameters that aren't important enough to need to clog up settings.py
+    _base_pose: Pose3D = (0.75, 0.7441, 0.2)
+
+    _base_orientation: Sequence[float] = [0.0, 0.0, 0.0, 1.0]
+    _ee_orientation: Sequence[float] = [-1.0, 0.0, 0.0, 0.0]
+    _finger_action_nudge_magnitude: float = 0.001
+
+    def _initialize(self) -> None:
+        self._panda_id = p.loadURDF(
+            utils.get_env_asset_path(
+                "urdf/franka_description/robots/panda_arm_hand.urdf"
+            ),
+            basePosition=self._base_pose,
+            baseOrientation=self._base_orientation,
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id,
+        )
+
+        # Extract IDs for individual robot links and joints.
+
+        # TODO: factor out common code here and elsewhere.
+        joint_names = [
+            p.getJointInfo(
+                self._panda_id, i,
+                physicsClientId=self._physics_client_id)[1].decode("utf-8")
+            for i in range(
+                p.getNumJoints(self._panda_id,
+                               physicsClientId=self._physics_client_id))
+        ]
+
+        self._ee_id = joint_names.index("tool_joint")
+        self._arm_joints = get_kinematic_chain(
+            self._panda_id, self._ee_id, physics_client_id=self._physics_client_id
+        )
+        self._left_finger_id = joint_names.index("panda_finger_joint1")
+        self._right_finger_id = joint_names.index("panda_finger_joint2")
+        self._arm_joints.append(self._left_finger_id)
+        self._arm_joints.append(self._right_finger_id)
+
+        import ipdb; ipdb.set_trace()
+
+        self._initial_joint_values = inverse_kinematics(
+            self._panda_id,
+            self._ee_id,
+            self._ee_home_pose,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id,
+        )
+
+
+    @property
+    def robot_id(self) -> int:
+        return self._panda_id
+
+    @property
+    def end_effector_id(self) -> int:
+        return self._ee_id
+
+    @property
+    def left_finger_id(self) -> int:
+        return self._left_finger_id
+
+    @property
+    def right_finger_id(self) -> int:
+        return self._right_finger_id
+
+    def reset_state(self, robot_state: Array) -> None:
+        rx, ry, rz, rf = robot_state
+        p.resetBasePositionAndOrientation(
+            self._panda_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id,
+        )
+        assert np.allclose((rx, ry, rz), self._ee_home_pose)
+        joint_values = self._initial_joint_values
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(
+                self._panda_id,
+                joint_id,
+                joint_val,
+                physicsClientId=self._physics_client_id,
+            )
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            p.resetJointState(
+                self._panda_id, finger_id, rf, physicsClientId=self._physics_client_id
+            )
+
+    def get_state(self) -> Array:
+        ee_link_state = p.getLinkState(
+            self._panda_id, self._ee_id, physicsClientId=self._physics_client_id
+        )
+        rx, ry, rz = ee_link_state[4]
+        rf = p.getJointState(
+            self._panda_id,
+            self._left_finger_id,
+            physicsClientId=self._physics_client_id,
+        )[0]
+        # pose_x, pose_y, pose_z, fingers
+        return np.array([rx, ry, rz, rf], dtype=np.float32)
+
+    def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
+        raise NotImplementedError("Override me!")
+
+
+
+
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, open_fingers: float,
         closed_fingers: float, finger_action_tol: float,
@@ -245,4 +356,7 @@ def create_single_arm_pybullet_robot(
     if robot_name == "fetch":
         return FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
                                   finger_action_tol, physics_client_id)
+    if robot_name == "panda":
+        return PandaPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
+                                  finger_action_tol, physics_client_id)        
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
