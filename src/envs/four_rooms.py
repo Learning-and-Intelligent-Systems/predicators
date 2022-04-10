@@ -73,7 +73,7 @@ class _Rectangle:
     def circumscribed_circle(self) -> Tuple[float, float, float]:
         """Returns x, y, radius."""
         x, y = self.center
-        radius = np.sqrt(self.width**2 + self.height**2)
+        radius = np.sqrt((self.width / 2)**2 + (self.height / 2)**2)
         return x, y, radius
 
 
@@ -133,6 +133,8 @@ class FourRoomsEnv(BaseEnv):
             terminal=self._Move_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        # Cache the rectangles for each room because the rooms never move.
+        self._room_to_rectangles: Dict[Object, List[_Rectangle]] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -261,8 +263,6 @@ class FourRoomsEnv(BaseEnv):
                 "width": np.inf,
             },
         })
-        # Cache the rectangles for each room because the rooms never move.
-        self._room_to_rectangles: Dict[Object, List[_Rectangle]] = {}
         for room in init_state.get_objects(self._room_type):
             self._room_to_rectangles[room] = self._get_rectangles_for_room(
                 init_state, room)
@@ -315,8 +315,8 @@ class FourRoomsEnv(BaseEnv):
         room_y = state.get(start_room, "y")
         room_cx = room_x + self.room_size / 2
         room_cy = room_y + self.room_size / 2
-        dist_to_center = np.sqrt((x - room_cx)**2 + (y - room_cy)**2)
-        near_center = (dist_to_center < 1.1 * self.action_magnitude)
+        square_dist_to_center = (x - room_cx)**2 + (y - room_cy)**2
+        near_center = square_dist_to_center < (1.1 * self.action_magnitude)**2
         dist_to_desired_rot = abs(rot - desired_rot)
         at_desired_rot = dist_to_desired_rot < 1e-6
         drot = np.clip(desired_rot - rot, -self.rot_max_magnitude,
@@ -548,7 +548,8 @@ class FourRoomsEnv(BaseEnv):
         # the rectangles also don't intersect.
         x1, y1, r1 = rect1.circumscribed_circle
         x2, y2, r2 = rect2.circumscribed_circle
-        if not abs(r1 - r2) <= np.sqrt((x1 - x2)**2 + (y1 - y2)**2) <= r1 + r2:
+        center_square_dist = (x1 - x2)**2 + (y1 - y2)**2
+        if center_square_dist > (r1 + r2)**2:
             return False
         for (p1, p2) in rect1.line_segments:
             for (p3, p4) in rect2.line_segments:
