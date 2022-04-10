@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.torch_models import ImplicitMLPRegressor, \
+from predicators.src.ml_models import ImplicitMLPRegressor, \
     MLPBinaryClassifier, MLPBinaryClassifierEnsemble, MLPRegressor, \
     NeuralGaussianRegressor
 
@@ -218,8 +218,3 @@ def test_mlp_classifier_ensemble():
     assert prediction
     probas = model.predict_member_probas(np.ones(input_size))
     assert all(p > 0.5 for p in probas)
-    # Test coverage.
-    with pytest.raises(Exception):
-        model._fit(X, y)  # pylint: disable=protected-access
-    with pytest.raises(Exception):
-        model._classify(np.ones(input_size))  # pylint: disable=protected-access
