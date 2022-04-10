@@ -285,7 +285,17 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
         if self._update_z_poses:
-            next_state.set(held_obj, "pose_z", z)
+            if receptacle == "table" and np.allclose(
+                    z, self.table_height + self.obj_height / 2, rtol=5e-02):
+                # If placing on table, snap the object to the correct z
+                # position as long as the place location is close enough
+                # (measured by rtol) to the correct table height. This
+                # is necessary for learned samplers to have any hope of
+                # placing objects on the table.
+                next_state.set(held_obj, "pose_z",
+                               self.table_height + self.obj_height / 2)
+            else:
+                next_state.set(held_obj, "pose_z", z)
         next_state.set(held_obj, "grasp", 0.5)
         next_state.set(held_obj, "held", 0.0)
         return next_state
