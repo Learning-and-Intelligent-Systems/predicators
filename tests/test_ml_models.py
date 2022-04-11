@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.torch_models import ImplicitMLPRegressor, \
-    MLPBinaryClassifier, MLPBinaryClassifierEnsemble, MLPRegressor, \
-    NeuralGaussianRegressor
+from predicators.src.ml_models import ImplicitMLPRegressor, \
+    KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
+    MLPBinaryClassifierEnsemble, MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -218,8 +218,38 @@ def test_mlp_classifier_ensemble():
     assert prediction
     probas = model.predict_member_probas(np.ones(input_size))
     assert all(p > 0.5 for p in probas)
-    # Test coverage.
-    with pytest.raises(Exception):
-        model._fit(X, y)  # pylint: disable=protected-access
-    with pytest.raises(Exception):
-        model._classify(np.ones(input_size))  # pylint: disable=protected-access
+
+
+def test_k_neighbors_regressor():
+    """Tests for KNeighborsRegressor()."""
+    utils.reset_config()
+    input_size = 3
+    output_size = 2
+    num_samples = 5
+    model = KNeighborsRegressor(seed=123, n_neighbors=1)
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(num_samples, input_size))
+    Y = rng.normal(size=(num_samples, output_size))
+    model.fit(X, Y)
+    x = X[0]
+    predicted_y = model.predict(x)
+    expected_y = Y[0]
+    assert predicted_y.shape == expected_y.shape
+    assert np.allclose(predicted_y, expected_y, atol=1e-7)
+
+
+def test_k_neighbors_classifier():
+    """Tests for KNeighborsClassifier()."""
+    utils.reset_config()
+    input_size = 3
+    num_samples = 5
+    model = KNeighborsClassifier(seed=123, n_neighbors=1)
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(num_samples, input_size))
+    Y = rng.choice(2, size=(num_samples, ))
+    model.fit(X, Y)
+    x = X[0]
+    predicted_y = model.classify(x)
+    expected_y = Y[0]
+    assert isinstance(predicted_y, bool)
+    assert predicted_y == expected_y

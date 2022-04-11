@@ -10,12 +10,12 @@ import numpy as np
 
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.ml_models import ImplicitMLPRegressor, MLPRegressor, \
+    Regressor
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Box, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
-from predicators.src.torch_models import ImplicitMLPRegressor, MLPRegressor, \
-    Regressor
 from predicators.src.utils import OptionExecutionFailure
 
 

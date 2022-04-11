@@ -1,4 +1,4 @@
-"""Models useful for classification/regression.
+"""Machine learning models useful for classification/regression.
 
 Note: to promote modularity, this file should NOT import CFG.
 """
@@ -8,11 +8,16 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from sklearn.base import BaseEstimator
+from sklearn.neighbors import \
+    KNeighborsClassifier as _SKLearnKNeighborsClassifier
+from sklearn.neighbors import \
+    KNeighborsRegressor as _SKLearnKNeighborsRegressor
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
@@ -24,14 +29,55 @@ torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
 class Regressor(abc.ABC):
-    """ABC for regressor classes.
-
-    All regressors normalize the input and output data.
-    """
+    """ABC for regressor classes."""
 
     def __init__(self, seed: int) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(self._seed)
+
+    @abc.abstractmethod
+    def fit(self, X: Array, Y: Array) -> None:
+        """Train the regressor on the given data.
+
+        X and Y are both two-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def predict(self, x: Array) -> Array:
+        """Return a prediction for the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+
+class _ScikitLearnRegressor(Regressor):
+    """A regressor that lightly wraps a scikit-learn regression model."""
+
+    def __init__(self, seed: int, **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._model = self._initialize_model(**kwargs)
+
+    @abc.abstractmethod
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        raise NotImplementedError("Override me!")
+
+    def fit(self, X: Array, Y: Array) -> None:
+        return self._model.fit(X, Y)
+
+    def predict(self, x: Array) -> Array:
+        return self._model.predict([x])[0]
+
+
+class _NormalizingRegressor(Regressor):
+    """A regressor that normalizes the data.
+
+    Also infers the dimensionality of the inputs and outputs from fit().
+    """
+
+    def __init__(self, seed: int) -> None:
+        super().__init__(seed)
         # Set in fit().
         self._x_dim = -1
         self._y_dim = -1
@@ -41,10 +87,6 @@ class Regressor(abc.ABC):
         self._output_scale = np.zeros(1, dtype=np.float32)
 
     def fit(self, X: Array, Y: Array) -> None:
-        """Train the regressor on the given data.
-
-        X and Y are both two-dimensional.
-        """
         num_data, self._x_dim = X.shape
         _, self._y_dim = Y.shape
         assert Y.shape[0] == num_data
@@ -55,10 +97,6 @@ class Regressor(abc.ABC):
         self._fit(X, Y)
 
     def predict(self, x: Array) -> Array:
-        """Return a prediction for the given datapoint.
-
-        x is single-dimensional.
-        """
         assert self._x_dim > -1, "Fit must be called before predict."
         assert x.shape == (self._x_dim, )
         # Normalize.
@@ -81,13 +119,13 @@ class Regressor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class PyTorchRegressor(Regressor, nn.Module):
+class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     """ABC for PyTorch regression models."""
 
     def __init__(self, seed: int, max_train_iters: int, clip_gradients: bool,
                  clip_value: float, learning_rate: float) -> None:
         torch.manual_seed(seed)
-        Regressor.__init__(self, seed)
+        _NormalizingRegressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._clip_gradients = clip_gradients
@@ -143,14 +181,59 @@ class PyTorchRegressor(Regressor, nn.Module):
 
 
 class BinaryClassifier(abc.ABC):
-    """ABC for binary classifier classes.
+    """ABC for binary classifier classes."""
 
-    All binary classifiers normalize the input data.
+    def __init__(self, seed: int) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
+
+    @abc.abstractmethod
+    def fit(self, X: Array, y: Array) -> None:
+        """Train the classifier on the given data.
+
+        X is two-dimensional, y is one-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def classify(self, x: Array) -> bool:
+        """Return a predicted class for the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+
+class _ScikitLearnBinaryClassifier(BinaryClassifier):
+    """A regressor that lightly wraps a scikit-learn classification model."""
+
+    def __init__(self, seed: int, **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._model = self._initialize_model(**kwargs)
+
+    @abc.abstractmethod
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        raise NotImplementedError("Override me!")
+
+    def fit(self, X: Array, y: Array) -> None:
+        return self._model.fit(X, y)
+
+    def classify(self, x: Array) -> bool:
+        class_prediction = self._model.predict([x])[0]
+        assert class_prediction in [0, 1]
+        return bool(class_prediction)
+
+
+class _NormalizingBinaryClassifier(BinaryClassifier):
+    """A binary classifier that normalizes the data.
+
+    Also infers the dimensionality of the inputs and outputs from fit().
+
+    Also implements data balancing (optionally) and single-class prediction.
     """
 
     def __init__(self, seed: int, balance_data: bool) -> None:
-        self._seed = seed
-        self._rng = np.random.default_rng(seed)
+        super().__init__(seed)
         self._balance_data = balance_data
         # Set in fit().
         self._x_dim = -1
@@ -212,13 +295,13 @@ class BinaryClassifier(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class PyTorchBinaryClassifier(BinaryClassifier, nn.Module):
+class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int) -> None:
         torch.manual_seed(seed)
-        BinaryClassifier.__init__(self, seed, balance_data)
+        _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
@@ -667,6 +750,13 @@ class NeuralGaussianRegressor(PyTorchRegressor):
         return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
 
 
+class KNeighborsRegressor(_ScikitLearnRegressor):
+    """K nearest neighbors from scikit-learn."""
+
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        return _SKLearnKNeighborsRegressor(**kwargs)
+
+
 ################################ Classifiers ##################################
 
 
@@ -706,7 +796,7 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
                  hid_sizes: List[int], ensemble_size: int) -> None:
-        super().__init__(seed, balance_data)
+        super().__init__(seed)
         self._members = [
             MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
                                 learning_rate, n_iter_no_change, hid_sizes)
@@ -726,15 +816,19 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
         assert classification in [True, False]
         return classification
 
-    def _fit(self, X: Array, y: Array) -> None:
-        raise Exception("Not used.")
-
-    def _classify(self, x: Array) -> bool:
-        raise Exception("Not used.")
-
     def predict_member_probas(self, x: Array) -> Array:
         """Return class probabilities predicted by each member."""
         return np.array([m.predict_proba(x) for m in self._members])
+
+
+class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
+    """K nearest neighbors from scikit-learn."""
+
+    def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
+        return _SKLearnKNeighborsClassifier(**kwargs)
+
+
+################################## Utilities ##################################
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -750,9 +844,6 @@ class LearnedPredicateClassifier:
         """
         v = state.vec(objects)
         return self._model.classify(v)
-
-
-################################## Utilities ##################################
 
 
 def _normalize_data(data: Array,
