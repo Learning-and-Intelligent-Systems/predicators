@@ -165,9 +165,9 @@ class GlobalSettings:
     teacher_dataset_num_examples = 1
 
     # NSRT learning parameters
-    min_data_for_nsrt = 0
-    # Side predicate learning strategy. See nsrt_learning_main.py for options.
-    side_predicate_learner = "no_learning"
+    # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
+    # for valid settings.
+    strips_learner = "cluster_and_intersect"
 
     # torch model parameters
     learning_rate = 1e-3
