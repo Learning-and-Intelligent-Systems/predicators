@@ -11,7 +11,7 @@ from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
     PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    VarToObjSub, Task
+    VarToObjSub, Task, Datastore
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
@@ -25,8 +25,8 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             op = STRIPSOperator(nsrt.name, nsrt.parameters, nsrt.preconditions,
                                 nsrt.add_effects, nsrt.delete_effects,
                                 nsrt.side_predicates)
-            datastore = []  # will be recomputed in super().learn()
-            option_spec = (nsrt.option, nsrt.option_vars)
+            datastore: Datastore = []
+            option_spec = (nsrt.option, list(nsrt.option_vars))
             pnads.append(PartialNSRTAndDatastore(
                 op, datastore, option_spec))
         return pnads

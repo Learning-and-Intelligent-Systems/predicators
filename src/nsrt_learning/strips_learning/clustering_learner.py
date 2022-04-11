@@ -4,14 +4,13 @@
 import abc
 import logging
 import functools
-from typing import List, Sequence, Set, cast, Tuple, Iterator
+from typing import List, Set, cast, Tuple, Iterator
 
 from predicators.src import utils
-from predicators.src.settings import CFG
-from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
-    PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    VarToObjSub, Task
+from predicators.src.structs import DummyOption, LiftedAtom, VarToObjSub, \
+    PartialNSRTAndDatastore, Predicate, STRIPSOperator
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a clustering-based STRIPS learner.
@@ -85,7 +84,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         for pnad in pnads:
             self._learn_pnad_preconditions(pnad)
 
-        # Optionally postprocess to learn side predicates.
+        # Handle optional postprocessing to learn side predicates.
         pnads = self._postprocessing_learn_side_predicates(pnads)
 
         # Log and return the PNADs.
@@ -141,7 +140,10 @@ class ClusterAndIntersectSidelineSTRIPSLearner(
             tuple(pnads), self._check_goal, self._get_sidelining_successors,
             functools.partial(self._evaluate, pnads))
         # The last state in the search holds the final PNADs.
-        return list(path[-1])
+        pnads = list(path[-1])
+        # Because the PNADs have been modified, recompute the datastores.
+        self._recompute_datastores_from_segments(pnads)
+        return pnads
 
     @abc.abstractmethod
     def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],

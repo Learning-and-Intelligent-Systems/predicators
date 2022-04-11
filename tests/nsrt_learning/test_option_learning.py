@@ -37,10 +37,11 @@ def test_known_options_option_learner():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert act.has_option()
-    segments = [
-        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
     ]
-    pnads = learn_strips_operators(segments)
+    pnads = learn_strips_operators(
+        dataset.trajectories, train_tasks, env.predicates, segmented_trajs)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4
@@ -76,10 +77,11 @@ def test_oracle_option_learner_cover():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
-    segments = [
-        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
     ]
-    pnads = learn_strips_operators(segments)
+    pnads = learn_strips_operators(
+        dataset.trajectories, train_tasks, env.predicates, segmented_trajs)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 3
@@ -120,10 +122,11 @@ def test_oracle_option_learner_blocks():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
-    segments = [
-        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
     ]
-    pnads = learn_strips_operators(segments)
+    pnads = learn_strips_operators(
+        dataset.trajectories, train_tasks, env.predicates, segmented_trajs)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
     assert len(strips_ops) == len(datastores) == 4

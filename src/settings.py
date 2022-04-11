@@ -165,6 +165,7 @@ class GlobalSettings:
     teacher_dataset_num_examples = 1
 
     # NSRT learning parameters
+    min_data_for_nsrt = 0
     # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
     # for valid settings.
     strips_learner = "cluster_and_intersect"

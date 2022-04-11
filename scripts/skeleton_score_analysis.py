@@ -147,10 +147,10 @@ def _skeleton_based_score_function(
     # Learn operators.
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     current_predicate_set)
-    segments = [
-        seg for traj in atom_dataset for seg in segment_trajectory(traj)
-    ]
-    pnads = learn_strips_operators(segments, verbose=False)
+    segmented_trajs = [segment_trajectory(traj) for traj in atom_dataset]
+    pnads = learn_strips_operators(
+        dataset.trajectories, train_tasks,
+        current_predicate_set, segmented_trajs, verbose=False)
     strips_ops = [pnad.op for pnad in pnads]
     option_specs = [pnad.option_spec for pnad in pnads]
     per_skeleton_results = []  # shape (num tasks, max skeletons)

@@ -187,6 +187,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._finalize_pnad_delete_effects(pnad)
             self._finalize_pnad_side_predicates(pnad)
 
+        # Finally, recompute the datastores.
+        self._recompute_datastores_from_segments(all_pnads)
+
         return all_pnads
 
     @staticmethod

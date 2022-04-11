@@ -18,26 +18,32 @@ class BaseSTRIPSLearner(abc.ABC):
     """
     def __init__(self, trajectories: List[LowLevelTrajectory],
                  train_tasks: List[Task], predicates: Set[Predicate],
-                 segmented_trajs: List[List[Segment]], verbose: bool = True,
+                 segmented_trajs: List[List[Segment]],
+                 verify_harmlessness: bool = False,
+                 verbose: bool = True,
                  ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
+        self._verify_harmlessness = verify_harmlessness
         self._verbose = verbose
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PartialNSRTAndDatastore]:
         """The public method for a STRIPS operator learning strategy.
 
-        A simple wrapper around self._learn() that (1) calls
-        self._recompute_datastores_from_segments() afterward for safety,
-        and (2) sanity checks that harmlessness holds on the training data.
+        A wrapper around self._learn() to sanity check that harmlessness holds
+        on the training data, and then filter out operators without enough
+        data. We check harmlessness first because filtering may break it.
         """
         learned_pnads = self._learn()
-        self._recompute_datastores_from_segments(learned_pnads)
-        if self._should_satisfy_harmlessness:
+        if self._should_satisfy_harmlessness and self._verify_harmlessness:
             assert self._check_harmlessness(learned_pnads)
+        learned_pnads = [
+            pnad for pnad in learned_pnads
+            if len(pnad.datastore) >= CFG.min_data_for_nsrt
+        ]
         return learned_pnads
 
     @abc.abstractmethod
@@ -59,63 +65,6 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         return True
 
-    def _recompute_datastores_from_segments(
-            self,
-            pnads: List[PartialNSRTAndDatastore],
-            semantics: str = "apply_operator") -> None:
-        """For the given PNADs, wipe and recompute the datastores.
-
-        If semantics is "apply_operator", then a segment is included in
-        a datastore if, for some ground PNAD, the preconditions are
-        satisfied and apply_operator() results in an abstract next state
-        that is a subset of the segment's final_atoms. If semantics is
-        "add_effects", then rather than using apply_operator(), we
-        simply check that the add effects are a subset of the segment's
-        add effects.
-        """
-        assert semantics in ("apply_operator", "add_effects")
-        for pnad in pnads:
-            pnad.datastore = []  # reset all PNAD datastores
-        for seg_traj in self._segmented_trajs:
-            objects = set(seg_traj[0].states[0])
-            for segment in seg_traj:
-                assert segment.has_option()
-                segment_option = segment.get_option()
-                segment_param_option = segment_option.parent
-                segment_option_objs = tuple(segment_option.objects)
-                # Get ground operators given these objects and option objs.
-                for pnad in pnads:
-                    param_opt, opt_vars = pnad.option_spec
-                    if param_opt != segment_param_option:
-                        continue
-                    isub = dict(zip(opt_vars, segment_option_objs))
-                    # Consider adding this segment to each datastore.
-                    for ground_op in utils.all_ground_operators_given_partial(
-                            pnad.op, objects, isub):
-                        # Check if preconditions hold.
-                        if not ground_op.preconditions.issubset(
-                                segment.init_atoms):
-                            continue
-                        # Check if effects match.
-                        if semantics == "apply_operator":
-                            atoms = utils.apply_operator(
-                                ground_op, segment.init_atoms)
-                            if not atoms.issubset(segment.final_atoms):
-                                continue
-                        elif semantics == "add_effects":
-                            if not ground_op.add_effects.issubset(
-                                    segment.add_effects):
-                                continue
-                        # Skip over segments that have multiple possible
-                        # bindings.
-                        if (len(set(ground_op.objects)) != len(
-                                ground_op.objects)):
-                            continue
-                        # This segment belongs in this datastore, so add it.
-                        sub = dict(zip(pnad.op.parameters, ground_op.objects))
-                        pnad.add_to_datastore((segment, sub),
-                                              check_effect_equality=False)
-
     def _check_harmlessness(self,
                             pnads: List[PartialNSRTAndDatastore]) -> bool:
         """Function to check whether the given PNADs holistically preserve
@@ -134,7 +83,12 @@ class BaseSTRIPSLearner(abc.ABC):
             if not ll_traj.is_demo:
                 continue
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            task = self._train_tasks[ll_traj.train_task_idx]
+            traj_goal = task.goal
+            if not traj_goal.issubset(atoms_seq[-1]):
+                # In this case, the goal predicates are not correct (e.g.,
+                # we are learning them), so we skip this demonstration.
+                continue
             demo_preserved = self._check_single_demo_preservation(
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
@@ -147,11 +101,16 @@ class BaseSTRIPSLearner(abc.ABC):
             atoms_seq: List[Set[GroundAtom]], traj_goal: Set[GroundAtom],
             strips_ops: List[STRIPSOperator],
             option_specs: List[OptionSpec]) -> bool:
-        """Function to check whether a given set of operators and predicates
-        preserves a single training trajectory."""
+        """Function to check whether a given set of operators preserves
+        a single training trajectory."""
         init_atoms = utils.abstract(init_state, self._predicates)
         objects = set(init_state)
-        options = [seg.get_option() for seg in seg_traj]
+        options = []
+        for seg in seg_traj:
+            if seg.has_option():
+                options.append(seg.get_option())
+            else:
+                options.append(DummyOption)
         ground_nsrts, _ = task_plan_grounding(init_atoms,
                                               objects,
                                               strips_ops,
@@ -209,6 +168,67 @@ class BaseSTRIPSLearner(abc.ABC):
             lambda searchnode_state: heuristic(searchnode_state[0]))
 
         return _check_goal(state_seq[-1])
+
+    def _recompute_datastores_from_segments(
+            self,
+            pnads: List[PartialNSRTAndDatastore],
+            semantics: str = "apply_operator") -> None:
+        """For the given PNADs, wipe and recompute the datastores.
+
+        If semantics is "apply_operator", then a segment is included in
+        a datastore if, for some ground PNAD, the preconditions are
+        satisfied and apply_operator() results in an abstract next state
+        that is a subset of the segment's final_atoms. If semantics is
+        "add_effects", then rather than using apply_operator(), we
+        simply check that the add effects are a subset of the segment's
+        add effects.
+        """
+        assert semantics in ("apply_operator", "add_effects")
+        for pnad in pnads:
+            pnad.datastore = []  # reset all PNAD datastores
+        # Note: we want to loop over all segments, NOT just the ones
+        # associated with demonstrations.
+        for seg_traj in self._segmented_trajs:
+            objects = set(seg_traj[0].states[0])
+            for segment in seg_traj:
+                if segment.has_option():
+                    segment_option = segment.get_option()
+                else:
+                    segment_option = DummyOption
+                segment_param_option = segment_option.parent
+                segment_option_objs = tuple(segment_option.objects)
+                # Get ground operators given these objects and option objs.
+                for pnad in pnads:
+                    param_opt, opt_vars = pnad.option_spec
+                    if param_opt != segment_param_option:
+                        continue
+                    isub = dict(zip(opt_vars, segment_option_objs))
+                    # Consider adding this segment to each datastore.
+                    for ground_op in utils.all_ground_operators_given_partial(
+                            pnad.op, objects, isub):
+                        # Check if preconditions hold.
+                        if not ground_op.preconditions.issubset(
+                                segment.init_atoms):
+                            continue
+                        # Check if effects match.
+                        if semantics == "apply_operator":
+                            atoms = utils.apply_operator(
+                                ground_op, segment.init_atoms)
+                            if not atoms.issubset(segment.final_atoms):
+                                continue
+                        elif semantics == "add_effects":
+                            if not ground_op.add_effects.issubset(
+                                    segment.add_effects):
+                                continue
+                        # Skip over segments that have multiple possible
+                        # bindings.
+                        if (len(set(ground_op.objects)) != len(
+                                ground_op.objects)):
+                            continue
+                        # This segment belongs in this datastore, so add it.
+                        sub = dict(zip(pnad.op.parameters, ground_op.objects))
+                        pnad.add_to_datastore((segment, sub),
+                                              check_effect_equality=False)
 
     @staticmethod
     def _induce_preconditions_via_intersection(
