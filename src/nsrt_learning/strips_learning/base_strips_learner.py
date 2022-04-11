@@ -36,7 +36,8 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         learned_pnads = self._learn()
         self._recompute_datastores_from_segments(learned_pnads)
-        assert self._check_harmlessness(learned_pnads)
+        if self._should_satisfy_harmlessness:
+            assert self._check_harmlessness(learned_pnads)
         return learned_pnads
 
     @abc.abstractmethod
@@ -49,6 +50,14 @@ class BaseSTRIPSLearner(abc.ABC):
         in (but not sampler).
         """
         raise NotImplementedError("Override me!")
+
+    @property
+    def _should_satisfy_harmlessness(self) -> bool:
+        """Return whether the learned operators are expected to satisfy
+        harmlessness on the training data. We keep it True by default, but
+        some subclasses (e.g., baselines) may choose to set it to False.
+        """
+        return True
 
     def _recompute_datastores_from_segments(
             self,

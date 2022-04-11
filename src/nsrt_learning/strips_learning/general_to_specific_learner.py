@@ -21,29 +21,16 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
     def _initialize_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
     ) -> PartialNSRTAndDatastore:
+        """Create the most general PNAD for the given option.
+        """
+        # Create the parameters, which are determined solely from the option
+        # types, since the most general operator has no add/delete effects.
+        parameters = utils.create_new_variables(parameterized_option.types)
+        option_spec = (parameterized_option, parameters)
 
-        # There could be multiple PNADs in self._initial_pnads corresponding
-        # to this option. The goal of this function will be to merge them into
-        # a new, very general PNAD.
-        initial_pnads_for_option = [
-            p for p in self._initial_pnads
-            if p.option_spec[0] == parameterized_option
-        ]
-        assert len(initial_pnads_for_option) > 0
-
-        # The side predicates are simply all predicates that appear in any
-        # add or delete effects.
-        side_predicates = set()
-        for initial_pnad in initial_pnads_for_option:
-            for effect in initial_pnad.op.add_effects:
-                side_predicates.add(effect.predicate)
-            for effect in initial_pnad.op.delete_effects:
-                side_predicates.add(effect.predicate)
-
-        # Now, we use an arbitrarily-chosen option to set the option spec
-        # and parameters for the PNAD.
-        option_spec = initial_pnads_for_option[0].option_spec
-        parameters = sorted(option_spec[1])
+        # In the most general operator, the side predicates contain ALL
+        # predicates.
+        side_predicates = self._predicates.copy()
 
         # There are no add effects or delete effects. The preconditions
         # are initialized to be trivial. They will be recomputed next.
@@ -71,14 +58,20 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         param_opt_to_general_pnad = {}
         param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                      List[PartialNSRTAndDatastore]] = {}
-        parameterized_options = {p.option_spec[0] for p in self._initial_pnads}
+        # Extract all parameterized options from the data.
+        parameterized_options = set()
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            for segment in seg_traj:
+                parameterized_options.add(segment.get_option().parent)
         total_datastore_len = 0
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
             param_opt_to_general_pnad[param_opt] = pnad
             param_opt_to_nec_pnads[param_opt] = []
             total_datastore_len += len(pnad.datastore)
-        del self._initial_pnads  # no longer used
         # Assert that all data is in some PNAD's datastore.
         assert total_datastore_len == sum(
             len(seg_traj) for seg_traj in self._segmented_trajs)
