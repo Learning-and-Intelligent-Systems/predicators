@@ -1,4 +1,7 @@
-"""Tests for clustering-based STRIPS operator learning."""
+"""Tests for clustering-based STRIPS operator learning. Note that most of the
+coverage is provided by test_nsrt_learning_approach.py, which runs end-to-end
+tests of the algorithms on actual domains.
+"""
 
 import pytest
 from predicators.src import utils
@@ -7,7 +10,7 @@ from predicators.tests.nsrt_learning.test_segmentation import \
     test_segment_trajectory
 
 
-def test_cluster_and_intersect():
+def test_cluster_and_intersect_strips_learner():
     """Tests for ClusterAndIntersectSTRIPSLearner."""
     known_option_ll_traj, known_option_segments, unknown_option_ll_traj, \
         unknown_option_segments = test_segment_trajectory()
@@ -34,7 +37,7 @@ def test_cluster_and_intersect():
     Side Predicates: []"""  # pylint: disable=line-too-long
 
 
-def test_cluster_and_search():
+def test_cluster_and_search_strips_learner():
     """Tests for ClusterAndSearchSTRIPSLearner."""
     _, _, ll_traj, segments = test_segment_trajectory()
     utils.reset_config({"strips_learner": "cluster_and_search"})

@@ -2,15 +2,14 @@
 """
 
 import abc
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Sequence, \
-    Tuple, cast
+from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.planning import task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
     PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    VarToObjSub, Task, GroundAtom, _GroundNSRT, State, OptionSpec
+    Task, GroundAtom, _GroundNSRT, State, OptionSpec
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -191,10 +190,7 @@ class BaseSTRIPSLearner(abc.ABC):
         for seg_traj in self._segmented_trajs:
             objects = set(seg_traj[0].states[0])
             for segment in seg_traj:
-                if segment.has_option():
-                    segment_option = segment.get_option()
-                else:
-                    segment_option = DummyOption
+                segment_option = segment.get_option()
                 segment_param_option = segment_option.parent
                 segment_option_objs = tuple(segment_option.objects)
                 # Get ground operators given these objects and option objs.

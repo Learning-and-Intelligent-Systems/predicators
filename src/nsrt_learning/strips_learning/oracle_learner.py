@@ -1,17 +1,13 @@
 """Oracle for STRIPS learning.
 """
 
-import abc
-import logging
-from typing import List, Sequence, Set, cast
+from typing import List
 
-from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
-    PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    VarToObjSub, Task, Datastore
+from predicators.src.structs import PartialNSRTAndDatastore, STRIPSOperator, \
+    Datastore
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
@@ -29,4 +25,5 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             option_spec = (nsrt.option, list(nsrt.option_vars))
             pnads.append(PartialNSRTAndDatastore(
                 op, datastore, option_spec))
+        self._recompute_datastores_from_segments(pnads)
         return pnads

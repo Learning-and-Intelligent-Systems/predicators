@@ -9,8 +9,8 @@ from predicators.src.nsrt_learning.strips_learning.clustering_learner import \
     ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner, \
     ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner, \
     ClusterAndIntersectSTRIPSLearner, ClusterAndSearchSTRIPSLearner
-from predicators.src.nsrt_learning.strips_learning.general_to_specific_learner import \
-    BackchainingSTRIPSLearner
+from predicators.src.nsrt_learning.strips_learning.general_to_specific_learner \
+    import BackchainingSTRIPSLearner
 from predicators.src.nsrt_learning.strips_learning.oracle_learner import \
     OracleSTRIPSLearner
 from predicators.src.settings import CFG

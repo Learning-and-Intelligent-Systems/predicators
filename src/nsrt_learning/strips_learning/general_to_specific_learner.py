@@ -2,15 +2,12 @@
 then specialize them based on the data.
 """
 
-import abc
-import logging
-from typing import List, Sequence, Set, cast, Optional, Dict
+from typing import List, Set, Optional, Dict
 
 from predicators.src import utils
-from predicators.src.settings import CFG
-from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
-    PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    VarToObjSub, Task, ParameterizedOption, Variable, GroundAtom, \
+from predicators.src.structs import LiftedAtom, Segment, \
+    PartialNSRTAndDatastore, STRIPSOperator, \
+    ParameterizedOption, Variable, GroundAtom, \
     _GroundSTRIPSOperator
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 
