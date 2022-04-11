@@ -40,7 +40,7 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
-        if self._should_satisfy_harmlessness and self._verify_harmlessness:
+        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
             assert self._check_harmlessness(learned_pnads)
         learned_pnads = [
             pnad for pnad in learned_pnads
@@ -58,16 +58,6 @@ class BaseSTRIPSLearner(abc.ABC):
         (but not sampler).
         """
         raise NotImplementedError("Override me!")
-
-    @property
-    def _should_satisfy_harmlessness(self) -> bool:
-        """Return whether the learned operators are expected to satisfy
-        harmlessness on the training data.
-
-        We keep it True by default, but some subclasses (e.g.,
-        baselines) may choose to set it to False.
-        """
-        return True
 
     def _check_harmlessness(self,
                             pnads: List[PartialNSRTAndDatastore]) -> bool:

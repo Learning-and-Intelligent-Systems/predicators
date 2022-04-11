@@ -203,12 +203,6 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
         # false positives.
         return num_false_positives + 10 * (-num_true_positives)
 
-    @property
-    def _should_satisfy_harmlessness(self) -> bool:
-        # There are no guarantees that local search to improve prediction error
-        # would satisfy harmlessness!
-        return False
-
 
 class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):

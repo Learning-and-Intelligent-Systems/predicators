@@ -169,6 +169,7 @@ class GlobalSettings:
     # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
     # for valid settings.
     strips_learner = "cluster_and_intersect"
+    disable_harmlessness_check = False  # some methods may want this to be True
 
     # torch model parameters
     learning_rate = 1e-3
