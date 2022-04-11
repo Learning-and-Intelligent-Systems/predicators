@@ -63,7 +63,9 @@ def test_repeated_nextto_painting_failure_cases():
     state = task.init
     x = state.get(obj0, "pose_x")
     y = state.get(obj0, "pose_y")
-    z = 0.269  # Set to be slightly above the table.
+    # Set z to be slightly above the table to test
+    # whether env snaps to the table on placement.
+    z = env.table_height + env.obj_height / 2 + 0.04
     # Perform invalid place because we are not NextTo the target
     # (state should remain the same)
     act = Place.ground([robot], np.array([x, y - 3.0, z],
