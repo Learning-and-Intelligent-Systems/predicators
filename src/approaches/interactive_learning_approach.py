@@ -13,13 +13,13 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
+from predicators.src.ml_models import LearnedPredicateClassifier, \
+    MLPBinaryClassifierEnsemble
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
     Query, State, Task, Type
-from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPBinaryClassifierEnsemble
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
