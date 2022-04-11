@@ -45,6 +45,7 @@ def sesame_plan(
     seed: int,
     task_planning_heuristic: str,
     max_skeletons_optimized: int,
+    max_horizon: int,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
 ) -> Tuple[List[_Option], Metrics]:
@@ -99,7 +100,7 @@ def sesame_plan(
                     max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.time() - start_time))
+                    timeout - (time.time() - start_time), max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -256,7 +257,8 @@ def _skeleton_generator(
 def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                           skeleton: List[_GroundNSRT],
                           atoms_sequence: List[Set[GroundAtom]], seed: int,
-                          timeout: float) -> Tuple[List[_Option], bool]:
+                          timeout: float,
+                          max_horizon: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -273,6 +275,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     cur_idx = 0
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DummyOption for _ in skeleton]
+    # The number of actions taken by each option in the plan. This is to
+    # make sure that we do not exceed the task horizon.
+    num_actions_per_option = [0 for _ in plan]
     traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
     longest_failed_refinement: List[_Option] = []
     # We'll use a maximum of one discovered failure per step, since
@@ -298,34 +303,39 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
-                next_state, _ = option_model.get_next_state_and_num_actions(
-                    state, option)
+                next_state, num_actions = \
+                    option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
                 can_continue_on = False
                 # Remember only the most recent failure.
                 discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
             else:  # an EnvironmentFailure was not raised
                 discovered_failures[cur_idx - 1] = None
+                num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
-                # Check atoms against expected atoms_sequence constraint.
-                assert len(traj) == len(atoms_sequence)
-                # The expected atoms are ones that we definitely expect to be
-                # true at this point in the plan. They are not *all* the atoms
-                # that could be true.
-                expected_atoms = {
-                    atom
-                    for atom in atoms_sequence[cur_idx]
-                    if atom.predicate.name != _NOT_CAUSES_FAILURE
-                }
-                # This "if all" statement is equivalent to, but faster than,
-                # checking whether expected_atoms is a subset of
-                # utils.abstract(traj[cur_idx], predicates).
-                if all(atom.holds(traj[cur_idx]) for atom in expected_atoms):
-                    can_continue_on = True
-                    if cur_idx == len(skeleton):
-                        return plan, True  # success!
-                else:
+                # Check if we have exceeded the horizon.
+                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
+                else:
+                    # Check atoms against expected atoms_sequence constraint.
+                    assert len(traj) == len(atoms_sequence)
+                    # The expected atoms are ones that we definitely expect to
+                    # be true at this point in the plan. They are not *all* the
+                    # atoms that could be true.
+                    expected_atoms = {
+                        atom
+                        for atom in atoms_sequence[cur_idx]
+                        if atom.predicate.name != _NOT_CAUSES_FAILURE
+                    }
+                    # This "if all" statement is equivalent to, but faster
+                    # than, checking whether expected_atoms is a subset of
+                    # utils.abstract(traj[cur_idx], predicates).
+                    if all(a.holds(traj[cur_idx]) for a in expected_atoms):
+                        can_continue_on = True
+                        if cur_idx == len(skeleton):
+                            return plan, True  # success!
+                    else:
+                        can_continue_on = False
         else:
             # The option is not initiable.
             can_continue_on = False
@@ -350,6 +360,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             while num_tries[cur_idx] == CFG.sesame_max_samples_per_step:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
+                num_actions_per_option[cur_idx] = 0
                 traj[cur_idx + 1] = DefaultState
                 cur_idx -= 1
                 if cur_idx < 0:
