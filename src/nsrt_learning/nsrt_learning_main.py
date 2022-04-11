@@ -59,7 +59,10 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     #         STRIPSOperator, Datastore, and OptionSpec. The samplers will be
     #         filled in on a later step.
     pnads = learn_strips_operators(
-        trajectories, train_tasks, predicates, segmented_trajs,
+        trajectories,
+        train_tasks,
+        predicates,
+        segmented_trajs,
         verify_harmlessness=True,
         verbose=(CFG.option_learner != "no_learning"))
 

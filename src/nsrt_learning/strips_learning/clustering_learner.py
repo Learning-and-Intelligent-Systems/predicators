@@ -1,20 +1,19 @@
-"""Algorithms for STRIPS learning that rely on clustering to obtain effects.
-"""
+"""Algorithms for STRIPS learning that rely on clustering to obtain effects."""
 
 import abc
-import logging
 import functools
-from typing import List, Set, cast, Tuple, Iterator
+import logging
+from typing import Iterator, List, Set, Tuple, cast
 
 from predicators.src import utils
-from predicators.src.structs import DummyOption, LiftedAtom, VarToObjSub, \
-    PartialNSRTAndDatastore, Predicate, STRIPSOperator
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.src.structs import DummyOption, LiftedAtom, \
+    PartialNSRTAndDatastore, Predicate, STRIPSOperator, VarToObjSub
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
-    """Base class for a clustering-based STRIPS learner.
-    """
+    """Base class for a clustering-based STRIPS learner."""
+
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         segments = [seg for segs in self._segmented_trajs for seg in segs]
         # Cluster the segments according to common option and effects.
@@ -43,8 +42,9 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     pnad_param_option,
                     segment_option_objs,
                     tuple(pnad_option_vars))
-                sub = cast(VarToObjSub, {v: o for o, v
-                                         in ent_to_ent_sub.items()})
+                sub = cast(VarToObjSub,
+                           {v: o
+                            for o, v in ent_to_ent_sub.items()})
                 if suc:
                     # Add to this PNAD.
                     assert set(sub.keys()) == set(pnad.op.parameters)
@@ -69,15 +69,16 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     atom.lift(obj_to_var)
                     for atom in segment.delete_effects
                 }
-                side_predicates: Set[Predicate] = set()  # will be learned later
+                side_predicates: Set[Predicate] = set(
+                )  # will be learned later
                 op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                     add_effects, delete_effects,
                                     side_predicates)
                 datastore = [(segment, var_to_obj)]
                 option_vars = [obj_to_var[o] for o in segment_option_objs]
                 option_spec = (segment_param_option, option_vars)
-                pnads.append(PartialNSRTAndDatastore(
-                    op, datastore, option_spec))
+                pnads.append(
+                    PartialNSRTAndDatastore(op, datastore, option_spec))
 
         # Learn the preconditions of the operators in the PNADs. This part
         # is flexible; subclasses choose how to implement it.
@@ -105,15 +106,15 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     def _postprocessing_learn_side_predicates(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
-        """Optionally postprocess to learn side predicates.
-        """
+        """Optionally postprocess to learn side predicates."""
         _ = self  # unused, but may be used in subclasses
         return pnads
 
 
 class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
-    """A clustering STRIPS learner that learns preconditions via intersection.
-    """
+    """A clustering STRIPS learner that learns preconditions via
+    intersection."""
+
     def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
         preconditions = self._induce_preconditions_via_intersection(pnad)
         pnad.op = pnad.op.copy_with(preconditions=preconditions)
@@ -121,17 +122,17 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
 
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,
-    following the LOFT algorithm: https://arxiv.org/abs/2103.00589.
-    """
+    following the LOFT algorithm: https://arxiv.org/abs/2103.00589."""
+
     def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
         raise NotImplementedError
 
 
-class ClusterAndIntersectSidelineSTRIPSLearner(
-        ClusterAndIntersectSTRIPSLearner):
+class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
+                                               ):
     """Base class for a clustering-based STRIPS learner that does sidelining
-    via hill climbing, after operator learning.
-    """
+    via hill climbing, after operator learning."""
+
     def _postprocessing_learn_side_predicates(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
@@ -149,6 +150,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(
     def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
                   s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
         """Abstract evaluation/score function for search.
+
         Lower is better.
         """
         raise NotImplementedError("Override me!")

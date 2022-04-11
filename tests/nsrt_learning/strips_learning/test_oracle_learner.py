@@ -1,13 +1,12 @@
-"""Tests for oracle STRIPS operator learning.
-"""
+"""Tests for oracle STRIPS operator learning."""
 
 from predicators.src import utils
-from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 
 
 def test_oracle_strips_learner():
-    """Tests for OracleSTRIPSLearner.
-    """
+    """Tests for OracleSTRIPSLearner."""
     utils.reset_config({"env": "blocks", "strips_learner": "oracle"})
     pnads = learn_strips_operators([], None, None, [])
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:

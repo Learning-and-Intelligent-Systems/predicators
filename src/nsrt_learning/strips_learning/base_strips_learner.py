@@ -1,5 +1,4 @@
-"""Base class for a STRIPS operator learning algorithm.
-"""
+"""Base class for a STRIPS operator learning algorithm."""
 
 import abc
 from typing import FrozenSet, Iterator, List, Set, Tuple
@@ -7,20 +6,23 @@ from typing import FrozenSet, Iterator, List, Set, Tuple
 from predicators.src import utils
 from predicators.src.planning import task_plan_grounding
 from predicators.src.settings import CFG
-from predicators.src.structs import DummyOption, LiftedAtom, Segment, \
-    PartialNSRTAndDatastore, Predicate, LowLevelTrajectory, STRIPSOperator, \
-    Task, GroundAtom, _GroundNSRT, State, OptionSpec
+from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
+    LowLevelTrajectory, OptionSpec, PartialNSRTAndDatastore, Predicate, \
+    Segment, State, STRIPSOperator, Task, _GroundNSRT
 
 
 class BaseSTRIPSLearner(abc.ABC):
-    """Base class definition.
-    """
-    def __init__(self, trajectories: List[LowLevelTrajectory],
-                 train_tasks: List[Task], predicates: Set[Predicate],
-                 segmented_trajs: List[List[Segment]],
-                 verify_harmlessness: bool = False,
-                 verbose: bool = True,
-                 ) -> None:
+    """Base class definition."""
+
+    def __init__(
+        self,
+        trajectories: List[LowLevelTrajectory],
+        train_tasks: List[Task],
+        predicates: Set[Predicate],
+        segmented_trajs: List[List[Segment]],
+        verify_harmlessness: bool = False,
+        verbose: bool = True,
+    ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
@@ -32,9 +34,10 @@ class BaseSTRIPSLearner(abc.ABC):
     def learn(self) -> List[PartialNSRTAndDatastore]:
         """The public method for a STRIPS operator learning strategy.
 
-        A wrapper around self._learn() to sanity check that harmlessness holds
-        on the training data, and then filter out operators without enough
-        data. We check harmlessness first because filtering may break it.
+        A wrapper around self._learn() to sanity check that harmlessness
+        holds on the training data, and then filter out operators
+        without enough data. We check harmlessness first because
+        filtering may break it.
         """
         learned_pnads = self._learn()
         if self._should_satisfy_harmlessness and self._verify_harmlessness:
@@ -50,17 +53,19 @@ class BaseSTRIPSLearner(abc.ABC):
         """The key method that a STRIPS operator learning strategy must
         implement.
 
-        Returns a new list of PNADs learned from the data, with
-        op (STRIPSOperator), datastore, and option_spec fields filled
-        in (but not sampler).
+        Returns a new list of PNADs learned from the data, with op
+        (STRIPSOperator), datastore, and option_spec fields filled in
+        (but not sampler).
         """
         raise NotImplementedError("Override me!")
 
     @property
     def _should_satisfy_harmlessness(self) -> bool:
         """Return whether the learned operators are expected to satisfy
-        harmlessness on the training data. We keep it True by default, but
-        some subclasses (e.g., baselines) may choose to set it to False.
+        harmlessness on the training data.
+
+        We keep it True by default, but some subclasses (e.g.,
+        baselines) may choose to set it to False.
         """
         return True
 
@@ -100,8 +105,8 @@ class BaseSTRIPSLearner(abc.ABC):
             atoms_seq: List[Set[GroundAtom]], traj_goal: Set[GroundAtom],
             strips_ops: List[STRIPSOperator],
             option_specs: List[OptionSpec]) -> bool:
-        """Function to check whether a given set of operators preserves
-        a single training trajectory."""
+        """Function to check whether a given set of operators preserves a
+        single training trajectory."""
         init_atoms = utils.abstract(init_state, self._predicates)
         objects = set(init_state)
         options = []
@@ -228,7 +233,7 @@ class BaseSTRIPSLearner(abc.ABC):
 
     @staticmethod
     def _induce_preconditions_via_intersection(
-        pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
+            pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
         """Given a PNAD with a nonempty datastore, compute the preconditions
         for the PNAD's operator by intersecting all lifted preimages."""
         assert len(pnad.datastore) > 0

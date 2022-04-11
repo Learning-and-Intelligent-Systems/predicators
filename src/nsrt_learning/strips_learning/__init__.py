@@ -1,5 +1,4 @@
-"""This directory contains algorithms for STRIPS operator learning.
-"""
+"""This directory contains algorithms for STRIPS operator learning."""
 
 from typing import List, Set, Type
 
@@ -9,8 +8,8 @@ from predicators.src.nsrt_learning.strips_learning.clustering_learner import \
     ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner, \
     ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner, \
     ClusterAndIntersectSTRIPSLearner, ClusterAndSearchSTRIPSLearner
-from predicators.src.nsrt_learning.strips_learning.general_to_specific_learner \
-    import BackchainingSTRIPSLearner
+from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
+    BackchainingSTRIPSLearner
 from predicators.src.nsrt_learning.strips_learning.oracle_learner import \
     OracleSTRIPSLearner
 from predicators.src.settings import CFG
@@ -19,11 +18,12 @@ from predicators.src.structs import LowLevelTrajectory, \
 
 
 def learn_strips_operators(
-        trajectories: List[LowLevelTrajectory],
-        train_tasks: List[Task], predicates: Set[Predicate],
-        segmented_trajs: List[List[Segment]],
-        verify_harmlessness: bool = False,
-        verbose: bool = True,
+    trajectories: List[LowLevelTrajectory],
+    train_tasks: List[Task],
+    predicates: Set[Predicate],
+    segmented_trajs: List[List[Segment]],
+    verify_harmlessness: bool = False,
+    verbose: bool = True,
 ) -> List[PartialNSRTAndDatastore]:
     """Learn strips operators on the given data segments.
 
