@@ -9,12 +9,12 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.ml_models import BinaryClassifier, MLPBinaryClassifier, \
+    NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
-from predicators.src.torch_models import BinaryClassifier, \
-    MLPBinaryClassifier, NeuralGaussianRegressor
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
