@@ -1,6 +1,6 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
-from predicators.src.nsrt_learning.strips_learning.general_to_specific_learner import \
+from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
