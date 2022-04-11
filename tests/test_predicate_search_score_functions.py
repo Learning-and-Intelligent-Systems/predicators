@@ -4,6 +4,7 @@ from typing import Callable, FrozenSet, List, Set
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.approaches.grammar_search_invention_approach import \
@@ -23,9 +24,8 @@ from predicators.src.predicate_search_score_functions import \
     _RelaxationHeuristicMatchBasedScoreFunction, _TaskPlanningScoreFunction, \
     create_score_function
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Box, GroundAtom, \
-    LowLevelTrajectory, OptionSpec, Predicate, STRIPSOperator, \
-    _GroundSTRIPSOperator
+from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
+    OptionSpec, Predicate, STRIPSOperator, _GroundSTRIPSOperator
 
 
 def test_create_score_function():

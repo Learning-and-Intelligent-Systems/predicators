@@ -45,9 +45,9 @@ matplotlib.use("Agg")
 
 
 def count_positives_for_ops(
-        strips_ops: List[STRIPSOperator],
-        option_specs: List[OptionSpec],
-        segments: List[Segment],
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+    segments: List[Segment],
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
