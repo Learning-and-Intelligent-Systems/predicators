@@ -53,6 +53,7 @@ class PaintingEnv(BaseEnv):
     side_grasp_thresh: ClassVar[float] = 0.5 - 1e-2
     robot_x: ClassVar[float] = table_x - 0.5
     nextto_thresh: ClassVar[float] = 1.0
+    on_table_height_tol: ClassVar[float] = 5e-02
 
     def __init__(self) -> None:
         super().__init__()
@@ -286,7 +287,9 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "pose_y", y)
         if self._update_z_poses:
             if receptacle == "table" and np.allclose(
-                    z, self.table_height + self.obj_height / 2, rtol=5e-02):
+                    z,
+                    self.table_height + self.obj_height / 2,
+                    rtol=self.on_table_height_tol):
                 # If placing on table, snap the object to the correct z
                 # position as long as the place location is close enough
                 # (measured by rtol) to the correct table height. This

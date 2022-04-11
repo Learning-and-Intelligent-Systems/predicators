@@ -53,6 +53,7 @@ def test_repeated_nextto_painting_failure_cases():
     Pick = [o for o in env.options if o.name == "Pick"][0]
     Place = [o for o in env.options if o.name == "Place"][0]
     Holding = [o for o in env.predicates if o.name == "Holding"][0]
+    OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     obj0 = obj_type("obj0")
@@ -62,7 +63,7 @@ def test_repeated_nextto_painting_failure_cases():
     state = task.init
     x = state.get(obj0, "pose_x")
     y = state.get(obj0, "pose_y")
-    z = state.get(obj0, "pose_z")
+    z = 0.269  # Set to be slightly above the table.
     # Perform invalid place because we are not NextTo the target
     # (state should remain the same)
     act = Place.ground([robot], np.array([x, y - 3.0, z],
@@ -76,6 +77,7 @@ def test_repeated_nextto_painting_failure_cases():
     assert not state.allclose(handempty_state)
     state = handempty_state
     assert Holding([obj0]) not in utils.abstract(state, env.predicates)
+    assert OnTable([obj0]) in utils.abstract(state, env.predicates)
     # Perform invalid pick because we are not NextTo the object
     # (state should remain the same)
     act = Pick.ground([robot, obj1], np.array([1],
