@@ -12,12 +12,9 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.predicate_search_score_functions import \
-    _count_positives_for_ops
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Box, Dataset, LowLevelTrajectory, \
-    Object, Predicate, State, STRIPSOperator, Type
+from predicators.src.structs import Dataset, LowLevelTrajectory, Object, \
+    Predicate, State, Type
 
 
 def test_predicate_grammar():
@@ -82,58 +79,6 @@ def test_predicate_grammar():
     debug_grammar = _create_grammar(dataset, set())
     assert len(debug_grammar.generate(max_num=10)) == 2
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
-
-
-def test_count_positives_for_ops():
-    """Tests for _count_positives_for_ops()."""
-    utils.reset_config({"segmenter": "atom_changes"})
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1"])
-    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
-    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
-    cup_var = cup_type("?cup")
-    plate_var = plate_type("?plate")
-    parameters = [cup_var, plate_var]
-    preconditions = {not_on([cup_var, plate_var])}
-    add_effects = {on([cup_var, plate_var])}
-    delete_effects = {not_on([cup_var, plate_var])}
-    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects, set())
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    parameterized_option = utils.SingletonParameterizedOption(
-        "Dummy",
-        lambda s, m, o, p: Action(np.array([0.0])),
-        params_space=Box(0, 1, (1, )))
-    option = parameterized_option.ground([], np.array([0.0]))
-    state = State({cup: [0.5], plate: [1.0]})
-    action = Action(np.zeros(1, dtype=np.float32))
-    action.set_option(option)
-    states = [state, state]
-    actions = [action]
-    strips_ops = [strips_operator]
-    option_specs = [(parameterized_option, [])]
-    pruned_atom_data = [
-        # Test empty sequence.
-        (LowLevelTrajectory([state], []), [{on([cup, plate])}]),
-        # Test not positive.
-        (LowLevelTrajectory(states, actions), [{on([cup, plate])},
-                                               set()]),
-        # Test true positive.
-        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
-                                               {on([cup, plate])}]),
-        # Test false positive.
-        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
-                                               set()]),
-    ]
-    segments = [
-        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
-    ]
-
-    num_true, num_false, _, _ = _count_positives_for_ops(
-        strips_ops, option_specs, segments)
-    assert num_true == 1
-    assert num_false == 1
 
 
 def test_halving_constant_generator():

@@ -13,12 +13,65 @@ from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
     State, STRIPSOperator, Type, Variable
 from predicators.src.utils import GoalCountHeuristic, \
     _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+
+
+def test_count_positives_for_ops():
+    """Tests for count_positives_for_ops()."""
+    utils.reset_config({"segmenter": "atom_changes"})
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions = {not_on([cup_var, plate_var])}
+    add_effects = {on([cup_var, plate_var])}
+    delete_effects = {not_on([cup_var, plate_var])}
+    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
+                                     add_effects, delete_effects, set())
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
+    option = parameterized_option.ground([], np.array([0.0]))
+    state = State({cup: [0.5], plate: [1.0]})
+    action = Action(np.zeros(1, dtype=np.float32))
+    action.set_option(option)
+    states = [state, state]
+    actions = [action]
+    strips_ops = [strips_operator]
+    option_specs = [(parameterized_option, [])]
+    pruned_atom_data = [
+        # Test empty sequence.
+        (LowLevelTrajectory([state], []), [{on([cup, plate])}]),
+        # Test not positive.
+        (LowLevelTrajectory(states, actions), [{on([cup, plate])},
+                                               set()]),
+        # Test true positive.
+        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
+                                               {on([cup, plate])}]),
+        # Test false positive.
+        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
+                                               set()]),
+    ]
+    segments = [
+        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
+    ]
+
+    num_true, num_false, _, _ = utils.count_positives_for_ops(
+        strips_ops, option_specs, segments)
+    assert num_true == 1
+    assert num_false == 1
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():

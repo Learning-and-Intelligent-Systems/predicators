@@ -1,6 +1,6 @@
 """Procedurally generates PDDL problem strings."""
 
-from functools import partial
+import functools
 from typing import Collection, List, Optional, Set
 
 import numpy as np
@@ -19,9 +19,10 @@ def create_blocks_pddl_generator(
     if force_goal_not_achieved:
         assert new_pile_prob < 1.0, ("Impossible to create an unsolved problem"
                                      " with new_pile_prob = 1.0.")
-    return partial(_generate_blocks_problems, min_num_blocks, max_num_blocks,
-                   min_num_blocks_goal, max_num_blocks_goal, new_pile_prob,
-                   force_goal_not_achieved)
+    return functools.partial(_generate_blocks_problems, min_num_blocks,
+                             max_num_blocks, min_num_blocks_goal,
+                             max_num_blocks_goal, new_pile_prob,
+                             force_goal_not_achieved)
 
 
 def _generate_blocks_problems(min_num_blocks: int, max_num_blocks: int,
