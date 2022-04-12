@@ -102,8 +102,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
 
-                # import ipdb; ipdb.set_trace()
-
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:

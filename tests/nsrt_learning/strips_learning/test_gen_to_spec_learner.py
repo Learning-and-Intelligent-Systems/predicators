@@ -90,38 +90,31 @@ def test_backchaining_strips_learner():
 
     # Test sidelining where an existing operator needs to
     # be specialized.
-    goal3 = {Asleep([bob]), Sad([bob])}
+    goal3 = {Asleep([bob])}
     act3 = Action([], Cry)
-    traj3 = LowLevelTrajectory([state_awake_and_sad, state_asleep_and_sad],
+    traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
                                [act3], True, 0)
+    goal4 = {Asleep([bob]), Sad([bob])}
     traj4 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
-                               [act3], True, 0)
+                               [act3], True, 1)
     task3 = Task(state_awake_and_sad, goal3)
-    segment3 = Segment(traj3, set([Sad([bob])]), goal3, Cry)
-    segment4 = Segment(traj4, set(), goal3, Cry)
+    task4 = Task(state_awake_and_sad, goal4)
+    segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
+    segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
-    learner = MockBackchainingSTRIPSLearner([traj3, traj4], [task3],
+    learner = MockBackchainingSTRIPSLearner([traj3, traj4], [task3, task4],
                                             {Asleep, Sad},
                                             [[segment3], [segment4]])
     pnads = learner.learn()
-    assert len(pnads) == 2
-    expected_pnads = [
-        """STRIPS-Cry0:
-    Parameters: [?x0:human_type]
-    Preconditions: []
-    Add Effects: [Asleep(?x0:human_type)]
-    Delete Effects: []
-    Side Predicates: [Sad]
-    Option Spec: Cry()""", """STRIPS-Cry1:
+    assert len(pnads) == 1
+    expected_str = """STRIPS-Cry0:
     Parameters: [?x0:human_type]
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
     Delete Effects: []
     Side Predicates: []
     Option Spec: Cry()"""
-    ]
-    for i, pnad in enumerate(pnads):
-        assert str(pnad) == repr(pnad) == expected_pnads[i]
+    assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
 def test_backchaining_strips_learner_order_dependence():
