@@ -11,10 +11,14 @@ from predicators.src.utils import SingletonParameterizedOption
 class MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
+    def try_specializing_pnad(self,
+                              necessary_add_effects,
+                              pnad,
+                              segment,
+                              check_datastore_change=True):
         """Exposed for testing."""
         return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           segment)
+                                           segment, check_datastore_change)
 
     @staticmethod
     def find_unification(necessary_add_effects,
@@ -27,7 +31,7 @@ class MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
 
 def test_backchaining_strips_learner():
-    """Test the BackchainingSidePredicateLearner."""
+    """Test the BackchainingSTRIPSLearner."""
     # Set up the PNADs.
     human_type = Type("human_type", ["feat1", "feat2"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -86,17 +90,19 @@ def test_backchaining_strips_learner():
 
     # Test sidelining where an existing operator needs to
     # be specialized.
-    goal3 = {Asleep([bob]), Sad([bob])}
+    goal3 = {Asleep([bob])}
     act3 = Action([], Cry)
-    traj3 = LowLevelTrajectory([state_awake_and_sad, state_asleep_and_sad],
+    traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
                                [act3], True, 0)
+    goal4 = {Asleep([bob]), Sad([bob])}
     traj4 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
-                               [act3], True, 0)
+                               [act3], True, 1)
     task3 = Task(state_awake_and_sad, goal3)
-    segment3 = Segment(traj3, set([Sad([bob])]), goal3, Cry)
-    segment4 = Segment(traj4, set(), goal3, Cry)
+    task4 = Task(state_awake_and_sad, goal4)
+    segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
+    segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
-    learner = MockBackchainingSTRIPSLearner([traj3, traj4], [task3],
+    learner = MockBackchainingSTRIPSLearner([traj3, traj4], [task3, task4],
                                             {Asleep, Sad},
                                             [[segment3], [segment4]])
     pnads = learner.learn()
@@ -111,9 +117,137 @@ def test_backchaining_strips_learner():
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
+def test_backchaining_strips_learner_order_dependence():
+    """Test that the BackchainingSTRIPSLearner is invariant to order of
+    traversal through trajectories."""
+    # Set up up the types and predicates.
+    light_type = Type("light_type", ["brightness", "color"])
+    LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
+    NotLightOn = Predicate("NotLightOn", [light_type],
+                           lambda s, o: s[o[0]][0] <= 0.5)
+    LightColorBlue = Predicate("LightColorBlue", [light_type],
+                               lambda s, o: s[o[0]][1] > 0.5)
+    LightColorRed = Predicate("LightColorRed", [light_type],
+                              lambda s, o: s[o[0]][1] <= 0.5)
+    fridge_type = Type("fridge_type", ["x", "y"])
+    robot_type = Type("robot_type", ["x", "y"])
+    RobotAt = Predicate(
+        "RobotAt", [robot_type, fridge_type], lambda s, o: abs(s[o[0]][0] - s[
+            o[1]][0]) < 0.05 and abs(s[o[0]][1] - s[o[1]][1]) < 0.05)
+    light = light_type("light")
+    fridge = fridge_type("fridge")
+    robby = robot_type("robby")
+    # Create states to be used as part of trajectories.
+    not_on_light_red = State({
+        light: [0.0, 0.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_not_on_light_red = State({
+        light: [0.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    on_light_blue = State({
+        light: [1.0, 1.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_on_light_red = State({
+        light: [1.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    not_on_light_blue = State({
+        light: [0.0, 1.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_on_light_blue = State({
+        light: [1.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    # Create the single necessary option and action.
+    move_and_mess_with_lights = SingletonParameterizedOption(
+        "MoveAndMessWithLights", lambda s, m, o, p: None)
+    MoveAndMessWithLights = move_and_mess_with_lights.ground([], [])
+    act = Action([], MoveAndMessWithLights)
+    # Now create the trajectories, goals and tasks.
+    traj1 = LowLevelTrajectory([not_on_light_red, at_fridge_not_on_light_red],
+                               [act], True, 0)
+    goal1 = {
+        RobotAt([robby, fridge]),
+    }
+    traj2 = LowLevelTrajectory([on_light_blue, at_fridge_on_light_red], [act],
+                               True, 1)
+    traj3 = LowLevelTrajectory([not_on_light_blue, at_fridge_on_light_blue],
+                               [act], True, 2)
+    goal2 = {RobotAt([robby, fridge]), LightOn([light])}
+    task1 = Task(not_on_light_red, goal1)
+    task2 = Task(on_light_blue, goal2)
+    task3 = Task(not_on_light_blue, goal2)
+    # Define the 3 demos to backchain over.
+    segment1 = Segment(
+        traj1,
+        {NotLightOn([light]), LightColorRed([light])}, goal1,
+        MoveAndMessWithLights)
+    segment2 = Segment(
+        traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
+        MoveAndMessWithLights)
+    segment3 = Segment(
+        traj3,
+        {NotLightOn([light]), LightColorBlue([light])}, goal2,
+        MoveAndMessWithLights)
+
+    # Create and run the learner with the 3 demos in the natural order.
+    learner = MockBackchainingSTRIPSLearner(
+        [traj1, traj2, traj3], [task1, task2, task3],
+        {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
+        [[segment1], [segment2], [segment3]])
+    natural_order_pnads = learner.learn()
+    # Now, create and run the learner with the 3 demos in the reverse order.
+    learner = MockBackchainingSTRIPSLearner(
+        [traj3, traj2, traj1], [task1, task2, task3],
+        {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
+        [[segment3], [segment2], [segment1]])
+    reverse_order_pnads = learner.learn()
+
+    # First, check that the two sets of PNADs have the same number of PNADs.
+    assert len(natural_order_pnads) == len(reverse_order_pnads) == 2
+
+    correct_pnads = {
+        """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
+    Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
+    Add Effects: [LightOn(?x1:light_type), """ +
+        """RobotAt(?x2:robot_type, ?x0:fridge_type)]
+    Delete Effects: [LightColorBlue(?x1:light_type), """ +
+        """NotLightOn(?x1:light_type)]
+    Side Predicates: []
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:robot_type]
+    Preconditions: []
+    Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
+    Delete Effects: []
+    Side Predicates: [LightColorBlue, LightColorRed, LightOn, NotLightOn]
+    Option Spec: MoveAndMessWithLights()"""
+    }
+    # Edit the names of all the returned PNADs to match the correct ones for
+    # easy checking.
+    for i in range(len(correct_pnads)):
+        natural_order_pnads[i].op = natural_order_pnads[i].op.copy_with(
+            name="MoveAndMessWithLights")
+        reverse_order_pnads[i].op = reverse_order_pnads[i].op.copy_with(
+            name="MoveAndMessWithLights")
+        # Check that the two sets of PNADs are both correct.
+        assert str(natural_order_pnads[i]) in correct_pnads
+        assert str(reverse_order_pnads[i]) in correct_pnads
+
+
 def test_find_unification_and_try_specializing_pnad():
     """Test the find_unification() and try_specializing_pnad() methods in the
-    BackchainingSidePredicateLearner."""
+    BackchainingSTRIPSLearner."""
 
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -177,7 +311,7 @@ def test_find_unification_and_try_specializing_pnad():
     Side Predicates: []"""
     new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
                                              Segment(traj, {Happy([bob])},
-                                                     set(), Move))
+                                                     set(), Move), False)
     assert str(new_pnad) == repr(new_pnad) == """STRIPS-MoveOp:
     Parameters: [?x0:human_type]
     Preconditions: [Happy(?x0:human_type)]
