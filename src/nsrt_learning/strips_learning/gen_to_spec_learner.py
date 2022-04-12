@@ -1,7 +1,6 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
-from builtins import AssertionError
 from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
