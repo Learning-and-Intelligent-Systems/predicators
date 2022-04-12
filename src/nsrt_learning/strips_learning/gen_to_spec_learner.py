@@ -1,6 +1,7 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
+from builtins import AssertionError
 from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
@@ -289,11 +290,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         new_pnad = self._create_new_pnad_with_params_and_add_effects(
             pnad, updated_params, updated_add_effects)
 
-        assert len(new_pnad.datastore) <= len(pnad.datastore)
         if check_datastore_change:
             # If the new PNAD has a datastore size that's not the same
             # as that of the original PNAD, then we've potentially lost some
             # data by specializing, which might do harm!
+            assert len(new_pnad.datastore) <= len(pnad.datastore)
             if len(new_pnad.datastore) < len(pnad.datastore):
                 return None
 
