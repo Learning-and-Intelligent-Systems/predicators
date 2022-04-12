@@ -649,17 +649,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         logging.info("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
-            candidates, score_function, self._initial_predicates, atom_dataset)
+            candidates, score_function, self._initial_predicates, atom_dataset,
+            self._train_tasks)
         logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
-def _select_predicates_to_keep(
-        candidates: Dict[Predicate,
-                         float], score_function: _PredicateSearchScoreFunction,
-        initial_predicates: set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
+def _select_predicates_to_keep(candidates: Dict[Predicate, float],
+                               score_function: _PredicateSearchScoreFunction,
+                               initial_predicates: set[Predicate],
+                               atom_dataset: List[GroundAtomTrajectory],
+                               train_tasks: List[Task]) -> Set[Predicate]:
     """Perform a greedy search over predicate sets."""
 
     # There are no goal states for this search; run until exhausted.
@@ -717,11 +718,15 @@ def _select_predicates_to_keep(
                  "preconditions...")
     pruned_atom_data = utils.prune_ground_atom_dataset(
         atom_dataset, kept_predicates | initial_predicates)
-    segments = [
-        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
-    ]
+    segmented_trajs = [segment_trajectory(traj) for traj in pruned_atom_data]
+    low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
     preds_in_preconds = set()
-    for pnad in learn_strips_operators(segments, verbose=False):
+    for pnad in learn_strips_operators(low_level_trajs,
+                                       train_tasks,
+                                       set(kept_predicates
+                                           | initial_predicates),
+                                       segmented_trajs,
+                                       verbose=False):
         for atom in pnad.op.preconditions:
             preds_in_preconds.add(atom.predicate)
     kept_predicates &= preds_in_preconds

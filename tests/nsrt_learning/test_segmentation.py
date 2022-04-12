@@ -45,8 +45,10 @@ def test_segment_trajectory():
     option2 = param_option.ground([cup1], np.array([0.1]))
     assert option2.initiable(state0)
     action2 = option2.policy(state0)
-    trajectory = (LowLevelTrajectory([state0.copy() for _ in range(5)],
-                                     [action0, action1, action2, action0]),
+    known_option_ll_traj = LowLevelTrajectory(
+        [state0.copy() for _ in range(5)],
+        [action0, action1, action2, action0])
+    trajectory = (known_option_ll_traj,
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     known_option_segments = segment_trajectory(trajectory)
     assert len(known_option_segments) == 4
@@ -136,9 +138,10 @@ def test_segment_trajectory():
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
     assert len(segment_trajectory(trajectory)) == 0
-    trajectory = (LowLevelTrajectory(
+    unknown_option_ll_traj = LowLevelTrajectory(
         [state0.copy() for _ in range(5)] + [state1],
-        [action0, action1, action2, action0, action1]),
+        [action0, action1, action2, action0, action1])
+    trajectory = (unknown_option_ll_traj,
                   [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
     unknown_option_segments = segment_trajectory(trajectory)
     assert len(unknown_option_segments) == 1
@@ -151,5 +154,6 @@ def test_segment_trajectory():
     utils.reset_config({"segmenter": "not a real segmenter"})
     with pytest.raises(NotImplementedError):
         segment_trajectory(trajectory)
-    # Return for use by test_strips_learning.
-    return known_option_segments, unknown_option_segments
+    # Return for use elsewhere.
+    return (known_option_ll_traj, known_option_segments,
+            unknown_option_ll_traj, unknown_option_segments)
