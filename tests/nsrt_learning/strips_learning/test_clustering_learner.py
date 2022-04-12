@@ -62,8 +62,8 @@ def test_cluster_and_search_strips_learner():
     preds = {IsRed, IsGreen, IsBlue, IsHappy, IsSad}
     Interact = utils.SingletonParameterizedOption(
         "Interact", lambda s, m, o, p: None).ground([], [])
-    # We give three demonstrations. When object is red or green, it becomes
-    # happy. When object is blue, it becomes sad.
+    # We give three demonstrations. When the object is red or green, it
+    # becomes happy. When the object is blue, it becomes sad.
     s1 = State({obj: [1.0, 0.0, 0.0, 0.0, 0.0]})
     a1 = Action([], Interact)
     ns1 = State({obj: [1.0, 0.0, 0.0, 1.0, 0.0]})
@@ -131,7 +131,7 @@ def test_cluster_and_search_strips_learner():
     Option Spec: Interact()"""
     assert str(op1) == """STRIPS-Op1:
     Parameters: [?x0:obj_type]
-    Preconditions: [IsBlue(?x0:obj_type)]
+    Preconditions: [IsGreen(?x0:obj_type)]
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
     Side Predicates: []
