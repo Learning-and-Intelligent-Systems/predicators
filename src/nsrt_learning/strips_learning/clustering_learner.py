@@ -182,7 +182,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         remaining_positives = list(positive_data)
         while remaining_positives:
             new_preconditions = self._run_single_search(
-                remaining_positives, negative_data)
+                pnad, remaining_positives, negative_data)
             # Update the remaining positives.
             new_remaining_positives = []
             for seg, var_to_obj in remaining_positives:
@@ -202,13 +202,14 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             all_preconditions.add(new_preconditions)
         return all_preconditions
 
-    def _run_single_search(self, positive_data: Datastore,
+    def _run_single_search(self, pnad: PartialNSRTAndDatastore,
+                           positive_data: Datastore,
                            negative_data: Datastore) -> FrozenSet[LiftedAtom]:
         """Run inner-level search to find a single precondition set."""
         tiebreak = itertools.count()
         queue: List[Tuple[float, float, FrozenSet[LiftedAtom]]] = []
         best_preconditions = self._get_initial_preconditions(positive_data)
-        best_score = self._score_preconditions(best_preconditions,
+        best_score = self._score_preconditions(best_preconditions, pnad,
                                                positive_data, negative_data)
         hq.heappush(queue, (best_score, next(tiebreak), best_preconditions))
         visited = {best_preconditions}
@@ -219,7 +220,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                 if child in visited:
                     continue
                 child_score = self._score_preconditions(
-                    child, positive_data, negative_data)
+                    child, pnad, positive_data, negative_data)
                 if child_score < best_score:
                     best_score = child_score
                     best_preconditions = child
@@ -247,36 +248,6 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         return frozenset(initial_preconditions)
 
     @staticmethod
-    def _score_preconditions(preconditions: FrozenSet[LiftedAtom],
-                             positive_data: Datastore,
-                             negative_data: Datastore) -> float:
-        # Count up the number of true positives and false positives.
-        num_true_positives = 0
-        num_false_positives = 0
-        for seg, var_to_obj in positive_data:
-            ground_pre = {a.ground(var_to_obj) for a in preconditions}
-            if ground_pre.issubset(seg.init_atoms):
-                num_true_positives += 1
-        for seg, var_to_obj in negative_data:
-            ground_pre = set()
-            for atom in preconditions:
-                if not all(var in var_to_obj for var in atom.variables):
-                    continue
-                ground_pre.add(atom.ground(var_to_obj))
-            if ground_pre.issubset(seg.init_atoms):
-                num_false_positives += 1
-        tp_w = CFG.clustering_learner_true_pos_weight
-        fp_w = CFG.clustering_learner_false_pos_weight
-        score = fp_w * num_false_positives + tp_w * (-num_true_positives)
-        # Penalize the number of variables in the preconditions.
-        all_vars = {v for atom in preconditions for v in atom.variables}
-        score += CFG.cluster_and_search_var_count_weight * len(all_vars)
-        # Penalize the number of preconditions.
-        score += CFG.cluster_and_search_precon_size_weight * len(preconditions)
-        print(f"for {preconditions} got score {score} found {num_true_positives} tp and {num_false_positives} fp")
-        return score
-
-    @staticmethod
     def _get_precondition_successors(
             preconditions: FrozenSet[LiftedAtom]
     ) -> List[FrozenSet[LiftedAtom]]:
@@ -287,6 +258,48 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
             successors.append(frozenset(successor))
         return successors
+
+    @staticmethod
+    def _score_preconditions(preconditions: FrozenSet[LiftedAtom],
+                             pnad: PartialNSRTAndDatastore,
+                             positive_data: Datastore,
+                             negative_data: Datastore) -> float:
+        candidate_op = pnad.op.copy_with(preconditions=preconditions)
+        option_spec = pnad.option_spec
+        del pnad  # unused after this
+        # Count up the number of true positives and false positives.
+        num_true_positives = 0
+        num_false_positives = 0
+        for seg, var_to_obj in positive_data:
+            ground_pre = {a.ground(var_to_obj) for a in preconditions}
+            if ground_pre.issubset(seg.init_atoms):
+                num_true_positives += 1
+        for seg, _ in negative_data:
+            # We don't want to use the substitution in the datastore for
+            # negative_data, because in general the variables could be totally
+            # different. So we consider all possible groundings that are
+            # consistent with the option_spec. If, for any such grounding, the
+            # preconditions hold in the segment's init_atoms, then this is a
+            # false positive.
+            objects = list(seg.states[0])
+            option = seg.get_option()
+            assert option.parent == option_spec[0]
+            option_objs = option.objects
+            isub = dict(zip(option_spec[1], option_objs))
+            num_false_positives += int(any(
+                ground_op.preconditions.issubset(seg.init_atoms)
+                for ground_op in utils.all_ground_operators_given_partial(
+                        candidate_op, objects, isub)))
+        tp_w = CFG.clustering_learner_true_pos_weight
+        fp_w = CFG.clustering_learner_false_pos_weight
+        score = fp_w * num_false_positives + tp_w * (-num_true_positives)
+        # Penalize the number of variables in the preconditions.
+        all_vars = {v for atom in preconditions for v in atom.variables}
+        score += CFG.cluster_and_search_var_count_weight * len(all_vars)
+        # Penalize the number of preconditions.
+        score += CFG.cluster_and_search_precon_size_weight * len(preconditions)
+        print(f"for {preconditions} got score {score} found {num_true_positives} tp and {num_false_positives} fp")
+        return score
 
     @classmethod
     def get_name(cls) -> str:
