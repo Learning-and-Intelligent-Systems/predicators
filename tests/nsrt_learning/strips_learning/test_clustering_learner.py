@@ -93,7 +93,7 @@ def test_cluster_and_search_strips_learner():
     # will have trivial preconditions, which is undesirable. Ideally, we want
     # the demonstration that makes the object sad to provide signal for
     # producing two different PNADs for making the object happy, one with
-    # IsRed and another with IsBlue as the precondition.
+    # IsRed and another with IsGreen as the precondition.
     utils.reset_config({"strips_learner": "cluster_and_intersect"})
     pnads = learn_strips_operators([traj1, traj2, traj3],
                                    [task1, task2, task3],
