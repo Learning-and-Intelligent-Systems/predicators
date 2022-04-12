@@ -8,11 +8,11 @@ algorithms on actual domains.
 import pytest
 
 from predicators.src import utils
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
-from predicators.src.nsrt_learning.strips_learning import \
-    learn_strips_operators
 from predicators.tests.nsrt_learning.test_segmentation import \
     test_segment_trajectory
 
@@ -95,9 +95,10 @@ def test_cluster_and_search_strips_learner():
     # producing two different PNADs for making the object happy, one with
     # IsRed and another with IsBlue as the precondition.
     utils.reset_config({"strips_learner": "cluster_and_intersect"})
-    pnads = learn_strips_operators(
-        [traj1, traj2, traj3], [task1, task2, task3], preds,
-        [[segment1], [segment2], [segment3]], verify_harmlessness=True)
+    pnads = learn_strips_operators([traj1, traj2, traj3],
+                                   [task1, task2, task3],
+                                   preds, [[segment1], [segment2], [segment3]],
+                                   verify_harmlessness=True)
     assert len(pnads) == 2
     op0, op1 = sorted(pnads, key=str)
     assert str(op0) == """STRIPS-Op0:
@@ -116,27 +117,32 @@ def test_cluster_and_search_strips_learner():
     Option Spec: Interact()"""
 
     # Run cluster_and_search. This should produce the desired operators.
-    utils.reset_config({"strips_learner": "cluster_and_search"})
-    pnads = learn_strips_operators(
-        [traj1, traj2, traj3], [task1, task2, task3], preds,
-        [[segment1], [segment2], [segment3]], verify_harmlessness=True)
+    # For this test, we make false positives very costly.
+    utils.reset_config({
+        "strips_learner": "cluster_and_search",
+        "clustering_learner_false_pos_weight": 100
+    })
+    pnads = learn_strips_operators([traj1, traj2, traj3],
+                                   [task1, task2, task3],
+                                   preds, [[segment1], [segment2], [segment3]],
+                                   verify_harmlessness=True)
     assert len(pnads) == 3
     op0, op1, op2 = sorted(pnads, key=str)
-    assert str(op0) == """STRIPS-Op0:
+    assert str(op0) == """STRIPS-Op0-0:
     Parameters: [?x0:obj_type]
     Preconditions: [IsRed(?x0:obj_type)]
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
-    assert str(op1) == """STRIPS-Op1:
+    assert str(op1) == """STRIPS-Op0-1:
     Parameters: [?x0:obj_type]
     Preconditions: [IsGreen(?x0:obj_type)]
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
-    assert str(op2) == """STRIPS-Op2:
+    assert str(op2) == """STRIPS-Op1-0:
     Parameters: [?x0:obj_type]
     Preconditions: [IsBlue(?x0:obj_type)]
     Add Effects: [IsSad(?x0:obj_type)]
