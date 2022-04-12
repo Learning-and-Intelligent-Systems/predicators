@@ -133,7 +133,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     else:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent], segment,
+                            param_opt_to_general_pnad[option.parent],
+                            segment,
                             check_datastore_change=False)
                         assert new_pnad is not None
 
@@ -246,10 +247,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         Returns the new constructed PNAD, without modifying the
         original. If the PNAD does not have a grounding that can even
-        partially satisfy the necessary add effects, then returns None. 
+        partially satisfy the necessary add effects, then returns None.
         If check_datastore_change is set to True, then additionally
-        checks whether the newly created PNAD covers a different set
-        of datapoints than the original, and returns None in this case.
+        checks whether the newly created PNAD covers a smaller set of
+        datapoints than the original, and returns None in this case.
         """
 
         # Get an arbitrary grounding of the PNAD's operator whose
@@ -288,6 +289,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         new_pnad = self._create_new_pnad_with_params_and_add_effects(
             pnad, updated_params, updated_add_effects)
 
+        assert len(new_pnad.datastore) <= len(pnad.datastore)
         if check_datastore_change:
             # If the new PNAD has a datastore size that's not the same
             # as that of the original PNAD, then we've potentially lost some
