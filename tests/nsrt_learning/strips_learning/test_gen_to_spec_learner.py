@@ -11,10 +11,14 @@ from predicators.src.utils import SingletonParameterizedOption
 class MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
+    def try_specializing_pnad(self,
+                              necessary_add_effects,
+                              pnad,
+                              segment,
+                              check_datastore_change=True):
         """Exposed for testing."""
         return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           segment)
+                                           segment, check_datastore_change)
 
     @staticmethod
     def find_unification(necessary_add_effects,
@@ -100,15 +104,24 @@ def test_backchaining_strips_learner():
                                             {Asleep, Sad},
                                             [[segment3], [segment4]])
     pnads = learner.learn()
-    assert len(pnads) == 1
-    expected_str = """STRIPS-Cry0:
+    assert len(pnads) == 2
+    expected_pnads = [
+        """STRIPS-Cry0:
+    Parameters: [?x0:human_type]
+    Preconditions: []
+    Add Effects: [Asleep(?x0:human_type)]
+    Delete Effects: []
+    Side Predicates: [Sad]
+    Option Spec: Cry()""", """STRIPS-Cry1:
     Parameters: [?x0:human_type]
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
     Delete Effects: []
     Side Predicates: []
     Option Spec: Cry()"""
-    assert str(pnads[0]) == repr(pnads[0]) == expected_str
+    ]
+    for i, pnad in enumerate(pnads):
+        assert str(pnad) == repr(pnad) == expected_pnads[i]
 
 
 def test_backchaining_strips_learner_order_dependence():
@@ -215,12 +228,11 @@ def test_backchaining_strips_learner_order_dependence():
     Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
     Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
     Add Effects: [LightOn(?x1:light_type), """ +
-    """RobotAt(?x2:robot_type, ?x0:fridge_type)]
+        """RobotAt(?x2:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
-    """NotLightOn(?x1:light_type)]
+        """NotLightOn(?x1:light_type)]
     Side Predicates: []
-    Option Spec: MoveAndMessWithLights()""", 
-    """STRIPS-MoveAndMessWithLights:
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type]
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
@@ -306,7 +318,7 @@ def test_find_unification_and_try_specializing_pnad():
     Side Predicates: []"""
     new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
                                              Segment(traj, {Happy([bob])},
-                                                     set(), Move))
+                                                     set(), Move), False)
     assert str(new_pnad) == repr(new_pnad) == """STRIPS-MoveOp:
     Parameters: [?x0:human_type]
     Preconditions: [Happy(?x0:human_type)]
