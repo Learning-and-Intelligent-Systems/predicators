@@ -170,6 +170,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._score_atom_set_entropy(atom_set, state)
         if CFG.interactive_score_function == "BALD":
             return self._score_atom_set_bald(atom_set, state)
+        if CFG.interactive_score_function == "variance":
+            return self._score_atom_set_variance(atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -351,7 +353,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_entropy(self, atom_set: Set[GroundAtom],
                                 state: State) -> float:
         """Score an atom set as the sum of the entropies of each atom's
-        predicate."""
+        predicate classifier."""
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -363,7 +365,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
                              state: State) -> float:
         """Score an atom set as the sum of the BALD objectives of each atom's
-        predicate."""
+        predicate classifier."""
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -371,4 +373,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 atom.predicate.name].predict_member_probas(x)
             entropy = utils.entropy(np.mean(ps))
             objective += entropy - np.mean([utils.entropy(p) for p in ps])
+        return objective
+
+    def _score_atom_set_variance(self, atom_set: Set[GroundAtom],
+                                 state: State) -> float:
+        """Score an atom set as the sum of the variances of the ensemble
+        predictions for each atom's classifier."""
+        objective = 0.0
+        for atom in atom_set:
+            x = state.vec(atom.objects)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
+            objective += np.var(ps)
         return objective
