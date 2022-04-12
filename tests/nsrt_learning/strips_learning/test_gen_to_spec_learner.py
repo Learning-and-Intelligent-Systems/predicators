@@ -120,7 +120,7 @@ def test_backchaining_strips_learner():
 def test_backchaining_strips_learner_order_dependence():
     """Test that the BackchainingSTRIPSLearner is invariant to order of
     traversal through trajectories."""
-    # Setup up the types and predicates.
+    # Set up up the types and predicates.
     light_type = Type("light_type", ["brightness", "color"])
     LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
     NotLightOn = Predicate("NotLightOn", [light_type],
@@ -216,7 +216,7 @@ def test_backchaining_strips_learner_order_dependence():
     # First, check that the two sets of PNADs have the same number of PNADs.
     assert len(natural_order_pnads) == len(reverse_order_pnads) == 2
 
-    correct_pnads = [
+    correct_pnads = {
         """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
     Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
@@ -232,7 +232,7 @@ def test_backchaining_strips_learner_order_dependence():
     Delete Effects: []
     Side Predicates: [LightColorBlue, LightColorRed, LightOn, NotLightOn]
     Option Spec: MoveAndMessWithLights()"""
-    ]
+    }
     # Edit the names of all the returned PNADs to match the correct ones for
     # easy checking.
     for i in range(len(correct_pnads)):
@@ -247,7 +247,7 @@ def test_backchaining_strips_learner_order_dependence():
 
 def test_find_unification_and_try_specializing_pnad():
     """Test the find_unification() and try_specializing_pnad() methods in the
-    BackchainingSidePredicateLearner."""
+    BackchainingSTRIPSLearner."""
 
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
