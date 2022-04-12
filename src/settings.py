@@ -170,6 +170,8 @@ class GlobalSettings:
     # for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    cluster_and_intersect_sideline_prederror_true_pos_weight = 10
+    cluster_and_intersect_sideline_prederror_false_pos_weight = 1
 
     # torch model parameters
     learning_rate = 1e-3

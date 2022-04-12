@@ -7,6 +7,7 @@ from typing import Iterator, List, Set, Tuple, cast
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, LiftedAtom, \
     PartialNSRTAndDatastore, Predicate, STRIPSOperator, VarToObjSub
 
@@ -119,6 +120,10 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
         preconditions = self._induce_preconditions_via_intersection(pnad)
         pnad.op = pnad.op.copy_with(preconditions=preconditions)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluster_and_intersect"
+
 
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,
@@ -126,6 +131,10 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
 
     def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
         raise NotImplementedError
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluster_and_search"
 
 
 class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
@@ -192,6 +201,10 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
     """A STRIPS learner that uses hill climbing with a prediction error score
     function for side predicate learning."""
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluster_and_intersect_sideline_prederror"
+
     def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
                   s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
         segments = [seg for traj in self._segmented_trajs for seg in traj]
@@ -201,13 +214,19 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
             utils.count_positives_for_ops(strips_ops, option_specs, segments)
         # Note: lower is better! We want more true positives and fewer
         # false positives.
-        return num_false_positives + 10 * (-num_true_positives)
+        tp_w = CFG.cluster_and_intersect_sideline_prederror_true_pos_weight
+        fp_w = CFG.cluster_and_intersect_sideline_prederror_false_pos_weight
+        return fp_w * num_false_positives + tp_w * (-num_true_positives)
 
 
 class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a harmlessness score
     function for side predicate learning."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluster_and_intersect_sideline_harmlessness"
 
     def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
                   s: Tuple[PartialNSRTAndDatastore, ...]) -> float:

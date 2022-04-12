@@ -186,6 +186,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         return all_pnads
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "backchaining"
+
     @staticmethod
     def _find_unification(
         necessary_add_effects: Set[GroundAtom],

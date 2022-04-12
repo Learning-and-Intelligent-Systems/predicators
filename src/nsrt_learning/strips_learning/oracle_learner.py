@@ -26,3 +26,7 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
         self._recompute_datastores_from_segments(pnads)
         return pnads
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "oracle"

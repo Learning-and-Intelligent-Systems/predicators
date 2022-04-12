@@ -59,6 +59,13 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the unique name of this STRIPS learner, used as the
+        strips_learner setting in settings.py."""
+        raise NotImplementedError("Override me!")
+
     def _check_harmlessness(self,
                             pnads: List[PartialNSRTAndDatastore]) -> bool:
         """Function to check whether the given PNADs holistically preserve
