@@ -1,6 +1,7 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
+from builtins import AssertionError
 from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
@@ -102,6 +103,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
 
+                # import ipdb; ipdb.set_trace()
+
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:
@@ -133,7 +136,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     else:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent], segment)
+                            param_opt_to_general_pnad[option.parent], segment,
+                            False)
                         assert new_pnad is not None
 
                     pnad = new_pnad
@@ -237,6 +241,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
+        check_datastore_change: bool = True
     ) -> Optional[PartialNSRTAndDatastore]:
         """Given a PNAD and some necessary add effects that the PNAD must
         achieve, try to make the PNAD's add effects more specific
@@ -244,7 +249,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         Returns the new constructed PNAD, without modifying the
         original. If the PNAD does not have a grounding that can even
-        partially satisfy the necessary add effects, returns None.
+        partially satisfy the necessary add effects, or if the newly
+        created PNAD covers a different set of datapoints than the
+        original, returns None.
         """
 
         # Get an arbitrary grounding of the PNAD's operator whose
@@ -282,6 +289,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Create a new PNAD with the updated parameters and add effects.
         new_pnad = self._create_new_pnad_with_params_and_add_effects(
             pnad, updated_params, updated_add_effects)
+
+        if check_datastore_change:
+            # If the new PNAD has a datastore size that's not the same
+            # as that of the original PNAD, then we've potentially lost some
+            # data by specializing, which might do harm!
+            if len(new_pnad.datastore) != len(pnad.datastore):
+                return None
 
         return new_pnad
 
