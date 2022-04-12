@@ -166,8 +166,12 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    # Side predicate learning strategy. See nsrt_learning_main.py for options.
-    side_predicate_learner = "no_learning"
+    # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
+    # for valid settings.
+    strips_learner = "cluster_and_intersect"
+    disable_harmlessness_check = False  # some methods may want this to be True
+    cluster_and_intersect_sideline_prederror_true_pos_weight = 10
+    cluster_and_intersect_sideline_prederror_false_pos_weight = 1
 
     # torch model parameters
     learning_rate = 1e-3

@@ -1,19 +1,14 @@
-"""Tests to cover side_predicate_learning.py.
+"""Tests for general-to-specific STRIPS operator learning."""
 
-Note that most of the coverage is provided by
-test_nsrt_learning_approach.py, which runs end-to-end tests of the
-algorithms on an actual domain.
-"""
-
-from predicators.src.nsrt_learning.side_predicate_learning import \
-    BackchainingSidePredicateLearner
+from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
+    BackchainingSTRIPSLearner
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
 from predicators.src.utils import SingletonParameterizedOption
 
 
-class MockBackchainingSPL(BackchainingSidePredicateLearner):
+class MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
     def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
@@ -27,28 +22,20 @@ class MockBackchainingSPL(BackchainingSidePredicateLearner):
                          segment,
                          find_partial_grounding=True):
         """Exposed for testing."""
-        return (BackchainingSidePredicateLearner._find_unification(
+        return (BackchainingSTRIPSLearner._find_unification(
             necessary_add_effects, pnad, segment, find_partial_grounding))
 
 
-def test_backchaining():
+def test_backchaining_strips_learner():
     """Test the BackchainingSidePredicateLearner."""
-
     # Set up the PNADs.
     human_type = Type("human_type", ["feat1", "feat2"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
-    initial_pnads = set()
     opt_name_to_opt = {}
     for opt_name in ["Cry", "Eat"]:
         opt = SingletonParameterizedOption(opt_name, lambda s, m, o, p: None)
         opt_name_to_opt[opt_name] = opt
-        human_var = human_type("?human")
-        params = [human_var]
-        add_effects = {Asleep([human_var]), Sad([human_var])}
-        op = STRIPSOperator(f"{opt_name}Op", params, set(), add_effects, set(),
-                            set())
-        initial_pnads.add(PartialNSRTAndDatastore(op, [], (opt, [])))
     # Set up the data.
     bob = human_type("bob")
     state_awake_and_sad = State({bob: [0.0, 0.0]})
@@ -74,9 +61,9 @@ def test_backchaining():
                                [act2], True, 1)
     task2 = Task(state_awake_and_sad, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
-    spl = MockBackchainingSPL(initial_pnads, [traj1, traj2], [task1, task2],
-                              {Asleep}, [[segment1], [segment2]])
-    pnads = spl.sideline()
+    learner = MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
+                                            {Asleep}, [[segment1], [segment2]])
+    pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
         """STRIPS-Cry0:
@@ -108,13 +95,11 @@ def test_backchaining():
     task3 = Task(state_awake_and_sad, goal3)
     segment3 = Segment(traj3, set([Sad([bob])]), goal3, Cry)
     segment4 = Segment(traj4, set(), goal3, Cry)
-    cry_pnads = [pnad for pnad in initial_pnads if pnad.op.name == "CryOp"]
-    assert len(cry_pnads) == 1
-    cry_pnad = cry_pnads[0]
     # Create and run the sidelining approach.
-    spl = MockBackchainingSPL(set([cry_pnad]), [traj3, traj4], [task3],
-                              {Asleep, Sad}, [[segment3], [segment4]])
-    pnads = spl.sideline()
+    learner = MockBackchainingSTRIPSLearner([traj3, traj4], [task3],
+                                            {Asleep, Sad},
+                                            [[segment3], [segment4]])
+    pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
     Parameters: [?x0:human_type]
@@ -146,11 +131,11 @@ def test_find_unification_and_try_specializing_pnad():
     traj = LowLevelTrajectory([state], [])
     segment = Segment(traj, {Happy([bob])}, {Asleep([bob])}, Move)
     # Create the sidelining approach.
-    spl = MockBackchainingSPL({pnad}, [traj], [task], {Asleep, Happy},
-                              [[segment]])
+    learner = MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
+                                            [[segment]])
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
-    ground_op = spl.find_unification(
+    ground_op = learner.find_unification(
         {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
@@ -161,27 +146,28 @@ def test_find_unification_and_try_specializing_pnad():
     Side Predicates: []"""
     # The necessary_add_effects is empty, but the PNAD has an add effect,
     # so no grounding is possible.
-    ground_op = spl.find_unification(set(), pnad,
-                                     Segment(traj, set(), set(), Move))
+    ground_op = learner.find_unification(set(), pnad,
+                                         Segment(traj, set(), set(), Move))
     assert ground_op is None
-    ground_op = spl.find_unification(set(), pnad,
-                                     Segment(traj, set(), set(), Move), False)
+    ground_op = learner.find_unification(set(), pnad,
+                                         Segment(traj, set(), set(), Move),
+                                         False)
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
     # The new preconditions are not satisfiable in the segment's init_atoms,
     # so no grounding is possible.
-    ground_op = spl.find_unification(
+    ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    new_pnad = spl.try_specializing_pnad(
+    new_pnad = learner.try_specializing_pnad(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert new_pnad is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
-    ground_op = spl.find_unification({Asleep([bob])}, pnad,
-                                     Segment(traj, {Happy([bob])}, set(),
-                                             Move))
+    ground_op = learner.find_unification({Asleep([bob])}, pnad,
+                                         Segment(traj, {Happy([bob])}, set(),
+                                                 Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -189,9 +175,9 @@ def test_find_unification_and_try_specializing_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = spl.try_specializing_pnad({Asleep([bob])}, pnad,
-                                         Segment(traj, {Happy([bob])}, set(),
-                                                 Move))
+    new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
+                                             Segment(traj, {Happy([bob])},
+                                                     set(), Move))
     assert str(new_pnad) == repr(new_pnad) == """STRIPS-MoveOp:
     Parameters: [?x0:human_type]
     Preconditions: [Happy(?x0:human_type)]
