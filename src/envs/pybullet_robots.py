@@ -1,7 +1,7 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-from typing import ClassVar, Sequence
+from typing import ClassVar, List, Sequence
 
 import numpy as np
 import pybullet as p
@@ -33,7 +33,15 @@ class _SingleArmPyBulletRobot(abc.ABC):
         # If an f_delta is less than this magnitude, it's considered a noop.
         self._finger_action_tol = finger_action_tol
         self._physics_client_id = physics_client_id
+        # These get overridden in initialize(), but type checking needs to be
+        # aware that it exists.
+        self._initial_joint_values: List[float] = []
         self._initialize()
+
+    @property
+    def initial_joint_values(self) -> List[float]:
+        """The joint values for the robot in its home pose."""
+        return self._initial_joint_values
 
     @abc.abstractmethod
     def _initialize(self) -> None:
@@ -138,6 +146,10 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             self._ee_orientation,
             self._arm_joints,
             physics_client_id=self._physics_client_id)
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        self._initial_joint_values[-2] = self._open_fingers
+        self._initial_joint_values[-1] = self._open_fingers
 
     @property
     def robot_id(self) -> int:

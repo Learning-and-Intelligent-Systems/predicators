@@ -33,7 +33,7 @@ def inverse_kinematics(
     joints: Sequence[int],
     physics_client_id: int,
     validate: bool = True,
-) -> Sequence[float]:
+) -> List[float]:
     """Runs IK and returns joint values for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple

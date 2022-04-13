@@ -5,7 +5,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv, \
-    _PybulletState
+    _PyBulletState
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Object, State
 from predicators.tests.conftest import longrun
@@ -51,8 +51,8 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         robot's initial joint values rather than rerunning inverse
         kinematics here.
         """
-        joint_state = list(self._pybullet_robot._initial_joint_values)  # pylint: disable=protected-access
-        state_with_sim = _PybulletState(state.data,
+        joint_state = list(self._pybullet_robot.initial_joint_values)
+        state_with_sim = _PyBulletState(state.data,
                                         simulator_state=joint_state)
         self._current_state = state_with_sim
         self._current_task = None
