@@ -522,17 +522,17 @@ class ToolsEnv(BaseEnv):
             # while all other Fasten options have 4 parameters.
             _, item, contraption = objects
             # For fastening by hand, we don't want to be holding any tool.
-            correct_tool = (self._get_held_item_or_tool(state) is None)
+            tool_is_correct = (self._get_held_item_or_tool(state) is None)
         else:
             _, item, tool, contraption = objects
             # For fastening with a tool, we should be holding it.
-            correct_tool = (state.get(tool, "is_held") > 0.5)
+            tool_is_correct = (state.get(tool, "is_held") > 0.5)
         assert self._is_item(item)
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
-        correct_contraption = self._is_pose_on_contraption(
+        contraption_is_correct = self._is_pose_on_contraption(
             state, pose_x, pose_y, contraption)
-        if not correct_tool or not correct_contraption:
+        if not tool_is_correct or not contraption_is_correct:
             # Simulate a no-op by fastening at poses where there is guaranteed
             # to be no contraption. We don't use an initiable() function here
             # because we want replay data to be able to try this, in order
