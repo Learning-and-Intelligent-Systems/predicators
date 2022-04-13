@@ -11,6 +11,7 @@ from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_robots import \
     create_single_arm_pybullet_robot
+from predicators.src.envs.pybullet_utils import _PyBulletState
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Pose3D, State, Task, Type
@@ -254,7 +255,12 @@ class PyBulletBlocksEnv(BlocksEnv):
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
-        return state
+        # We could call self._get_state() here, but there could be small
+        # inconsistencies between that and the state expected as the initial
+        # train task state. Giving the expected initial state in this way
+        # leads to a tiny improvement in performance.
+        joint_state = list(self._pybullet_robot.initial_joint_values)
+        return _PyBulletState(state.data, simulator_state=joint_state)
 
     def _reset_state(self, state: State) -> None:
         """Helper for reset and testing."""
@@ -453,6 +459,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Get robot state.
         state_dict[self._robot] = self._pybullet_robot.get_state()
+        joint_state = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -462,7 +469,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
 
-        state = State(state_dict)
+        state = _PyBulletState(state_dict, simulator_state=joint_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
