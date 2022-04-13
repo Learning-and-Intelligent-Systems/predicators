@@ -2,8 +2,6 @@
 
 import abc
 import functools
-import heapq as hq
-import itertools
 import logging
 from typing import FrozenSet, Iterator, List, Set, Tuple, cast
 
@@ -157,8 +155,8 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                 if pnad.option_spec[0] != other_pnad.option_spec[0]:
                     continue
                 negative_data.extend(other_pnad.datastore)
-            all_preconditions = self._run_search(pnad, positive_data,
-                                                 negative_data)
+            all_preconditions = self._run_outer_search(pnad, positive_data,
+                                                       negative_data)
             # The datastores of the new PNADs could need to be changed, so
             # we initialize them as empty, then recompute them at the end.
             for j, preconditions in enumerate(all_preconditions):
@@ -170,9 +168,9 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         self._recompute_datastores_from_segments(new_pnads)
         return new_pnads
 
-    def _run_search(self, pnad: PartialNSRTAndDatastore,
-                    positive_data: Datastore,
-                    negative_data: Datastore) -> Set[FrozenSet[LiftedAtom]]:
+    def _run_outer_search(
+            self, pnad: PartialNSRTAndDatastore, positive_data: Datastore,
+            negative_data: Datastore) -> Set[FrozenSet[LiftedAtom]]:
         """Run outer-level search to find a set of precondition sets.
 
         Each precondition set will produce one operator.
@@ -181,8 +179,9 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         # We'll remove positives as they get covered.
         remaining_positives = list(positive_data)
         while remaining_positives:
-            new_preconditions = self._run_single_search(
-                pnad, remaining_positives, negative_data)
+            new_preconditions = self._run_inner_search(pnad,
+                                                       remaining_positives,
+                                                       negative_data)
             # Update the remaining positives.
             new_remaining_positives = []
             for seg, var_to_obj in remaining_positives:
@@ -203,31 +202,17 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             all_preconditions.add(new_preconditions)
         return all_preconditions
 
-    def _run_single_search(self, pnad: PartialNSRTAndDatastore,
-                           positive_data: Datastore,
-                           negative_data: Datastore) -> FrozenSet[LiftedAtom]:
+    def _run_inner_search(self, pnad: PartialNSRTAndDatastore,
+                          positive_data: Datastore,
+                          negative_data: Datastore) -> FrozenSet[LiftedAtom]:
         """Run inner-level search to find a single precondition set."""
-        tiebreak = itertools.count()
-        queue: List[Tuple[float, float, FrozenSet[LiftedAtom]]] = []
-        best_preconditions = self._get_initial_preconditions(positive_data)
-        best_score = self._score_preconditions(best_preconditions, pnad,
-                                               positive_data, negative_data)
-        hq.heappush(queue, (best_score, next(tiebreak), best_preconditions))
-        visited = {best_preconditions}
-
-        while queue:
-            _, _, preconditions = hq.heappop(queue)
-            for child in self._get_precondition_successors(preconditions):
-                if child in visited:
-                    continue
-                child_score = self._score_preconditions(
-                    child, pnad, positive_data, negative_data)
-                if child_score < best_score:
-                    best_score = child_score
-                    best_preconditions = child
-                hq.heappush(queue, (child_score, next(tiebreak), child))
-                visited.add(child)
-        return best_preconditions
+        initial_state = self._get_initial_preconditions(positive_data)
+        check_goal = lambda s: False
+        heuristic = functools.partial(self._score_preconditions, pnad,
+                                      positive_data, negative_data)
+        path, _ = utils.run_gbfs(initial_state, check_goal,
+                                 self._get_precondition_successors, heuristic)
+        return path[-1]
 
     @staticmethod
     def _get_initial_preconditions(
@@ -249,21 +234,19 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
 
     @staticmethod
     def _get_precondition_successors(
-            preconditions: FrozenSet[LiftedAtom]
-    ) -> List[FrozenSet[LiftedAtom]]:
+        preconditions: FrozenSet[LiftedAtom]
+    ) -> Iterator[Tuple[int, FrozenSet[LiftedAtom], float]]:
         """The successors remove each atom in the preconditions."""
-        successors = []
         preconditions_sorted = sorted(preconditions)
         for i in range(len(preconditions_sorted)):
             successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
-            successors.append(frozenset(successor))
-        return successors
+            yield i, frozenset(successor), 1.0
 
     @staticmethod
-    def _score_preconditions(preconditions: FrozenSet[LiftedAtom],
-                             pnad: PartialNSRTAndDatastore,
+    def _score_preconditions(pnad: PartialNSRTAndDatastore,
                              positive_data: Datastore,
-                             negative_data: Datastore) -> float:
+                             negative_data: Datastore,
+                             preconditions: FrozenSet[LiftedAtom]) -> float:
         candidate_op = pnad.op.copy_with(preconditions=preconditions)
         option_spec = pnad.option_spec
         del pnad  # unused after this
