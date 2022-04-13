@@ -38,6 +38,36 @@ def test_tools():
         env.render_state(task.init, task)
 
 
+def test_tools_fasten_option():
+    """Tests for the ToolsEnv option policy for fastening, which checks that
+    the correct tool and contraption are used."""
+    utils.reset_config({"env": "tools", "tools_num_items_train": [25]})
+    env = DummyToolsEnv()
+    task = env.get_train_tasks()[0]
+    state = task.init
+    robot = None
+    screw = None
+    contraption = None
+    for obj in state:
+        if obj.type.name == "robot":
+            robot = obj
+        elif obj.type.name == "contraption":
+            contraption = obj
+        elif obj.type.name == "screw":
+            assert screw is None  # only 1 screw possible
+            screw = obj
+    assert robot is not None
+    assert screw is not None
+    assert contraption is not None
+    FastenScrewByHand = [
+        o for o in env.options if o.name == "FastenScrewByHand"
+    ][0]
+    option = FastenScrewByHand.ground([robot, screw, contraption], [])
+    act = option.policy(state)
+    exp = np.array([DummyToolsEnv.table_ux, DummyToolsEnv.table_uy, 0.0, 0.0])
+    assert np.allclose(act.arr, exp)
+
+
 def test_tools_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
     utils.reset_config({"env": "tools", "tools_num_items_train": [25]})
