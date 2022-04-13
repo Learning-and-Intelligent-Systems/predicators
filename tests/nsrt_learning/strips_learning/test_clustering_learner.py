@@ -8,8 +8,8 @@ algorithms on actual domains.
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
-from predicators.src.structs import Action, LowLevelTrajectory, \
-    Predicate, Segment, State, Task, Type
+from predicators.src.structs import Action, LowLevelTrajectory, Predicate, \
+    Segment, State, Task, Type
 from predicators.tests.nsrt_learning.test_segmentation import \
     test_segment_trajectory
 

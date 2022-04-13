@@ -274,6 +274,8 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             ground_pre = {a.ground(var_to_obj) for a in preconditions}
             if ground_pre.issubset(seg.init_atoms):
                 num_true_positives += 1
+        if num_true_positives == 0:
+            return float("inf")
         for seg, _ in negative_data:
             # We don't want to use the substitution in the datastore for
             # negative_data, because in general the variables could be totally
