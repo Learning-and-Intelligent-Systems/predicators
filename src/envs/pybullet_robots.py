@@ -73,12 +73,16 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_state(self) -> Array:
+    def get_object_state(self) -> Array:
         """Get the robot state vector based on the current PyBullet state.
 
-        The robot_state corresponds to the State vector for the robot
-        object.
+        This corresponds to the State vector for the robot object.
         """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def get_joint_state(self) -> Sequence[float]:
+        """Get the joint states from the current PyBullet state."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -171,7 +175,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                               rf,
                               physicsClientId=self._physics_client_id)
 
-    def get_state(self) -> Array:
+    def get_object_state(self) -> Array:
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
@@ -181,6 +185,16 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                              physicsClientId=self._physics_client_id)[0]
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
+
+    def get_joint_state(self) -> Sequence[float]:
+        joint_state = []
+        for joint_idx in self._arm_joints:
+            joint_val = p.getJointState(
+                self._fetch_id,
+                joint_idx,
+                physicsClientId=self._physics_client_id)[0]
+            joint_state.append(joint_val)
+        return joint_state
 
     def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
         ee_link_state = p.getLinkState(self._fetch_id,

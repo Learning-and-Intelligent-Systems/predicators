@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv, \
+    _PybulletState
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Object, State
 from predicators.tests.conftest import longrun
@@ -40,10 +41,22 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._PutOnTable
 
     def set_state(self, state):
-        """Forcibly reset the state."""
-        self._current_state = state
+        """Forcibly reset the state.
+
+        Note that for convenience, we do not expect that the simulator
+        state will be present in the input state (because that simulator
+        state needs to include the robot joint states). For even further
+        convenience, we assume that the state that we are setting to has
+        the robot in the initial position, so we can just use the
+        robot's initial joint values rather than rerunning inverse
+        kinematics here.
+        """
+        joint_state = list(self._pybullet_robot._initial_joint_values)  # pylint: disable=protected-access
+        state_with_sim = _PybulletState(state.data,
+                                        simulator_state=joint_state)
+        self._current_state = state_with_sim
         self._current_task = None
-        self._reset_state(state)
+        self._reset_state(state_with_sim)
 
     def get_state(self):
         """Expose get state."""
