@@ -210,8 +210,12 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         check_goal = lambda s: False
         heuristic = functools.partial(self._score_preconditions, pnad,
                                       positive_data, negative_data)
-        path, _ = utils.run_gbfs(initial_state, check_goal,
-                                 self._get_precondition_successors, heuristic)
+        max_expansions = CFG.cluster_and_search_inner_search_max_expansions
+        path, _ = utils.run_gbfs(initial_state,
+                                 check_goal,
+                                 self._get_precondition_successors,
+                                 heuristic,
+                                 max_expansions=max_expansions)
         return path[-1]
 
     @staticmethod
