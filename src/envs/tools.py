@@ -144,7 +144,7 @@ class ToolsEnv(BaseEnv):
                 np.array([self.table_ux, self.table_uy], dtype=np.float32)),
         )
         self._FastenScrewWithScrewdriver = utils.SingletonParameterizedOption(
-            # variables: [robot, screw, screwdriver]
+            # variables: [robot, screw, screwdriver, contraption]
             # params: []
             "FastenScrewWithScrewdriver",
             self._Fasten_policy,
@@ -153,13 +153,13 @@ class ToolsEnv(BaseEnv):
                 self._contraption_type
             ])
         self._FastenScrewByHand = utils.SingletonParameterizedOption(
-            # variables: [robot, screw]
+            # variables: [robot, screw, contraption]
             # params: []
             "FastenScrewByHand",
             self._Fasten_policy,
             types=[self._robot_type, self._screw_type, self._contraption_type])
         self._FastenNailWithHammer = utils.SingletonParameterizedOption(
-            # variables: [robot, nail, hammer]
+            # variables: [robot, nail, hammer, contraption]
             # params: []
             "FastenNailWithHammer",
             self._Fasten_policy,
@@ -168,7 +168,7 @@ class ToolsEnv(BaseEnv):
                 self._contraption_type
             ])
         self._FastenBoltWithWrench = utils.SingletonParameterizedOption(
-            # variables: [robot, bolt, wrench]
+            # variables: [robot, bolt, wrench, contraption]
             # params: []
             "FastenBoltWithWrench",
             self._Fasten_policy,
@@ -517,10 +517,27 @@ class ToolsEnv(BaseEnv):
                        objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         assert not params
-        item = objects[1]
+        if len(objects) == 3:
+            # Note that the FastenScrewByHand option has only 3 parameters,
+            # while all other Fasten options have 4 parameters.
+            _, item, contraption = objects
+            # For fastening by hand, we don't want to be holding any tool.
+            correct_tool = (self._get_held_item_or_tool(state) is None)
+        else:
+            _, item, tool, contraption = objects
+            # For fastening with a tool, we should be holding it.
+            correct_tool = (state.get(tool, "is_held") > 0.5)
         assert self._is_item(item)
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
+        correct_contraption = self._is_pose_on_contraption(
+            state, pose_x, pose_y, contraption)
+        if not correct_tool or not correct_contraption:
+            # Simulate a no-op by fastening at poses where there is guaranteed
+            # to be no contraption. We don't use an initiable() function here
+            # because we want replay data to be able to try this, in order
+            # to discover good operator preconditions.
+            pose_x, pose_y = self.table_ux, self.table_uy
         arr = np.array([pose_x, pose_y, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
