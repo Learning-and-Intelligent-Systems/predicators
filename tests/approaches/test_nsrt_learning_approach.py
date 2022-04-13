@@ -92,6 +92,10 @@ def test_nsrt_learning_approach():
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    try_solving=False)
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
+                   strips_learner="cluster_and_search",
+                   try_solving=False)
     for strips_learner in [
             "cluster_and_intersect_sideline_prederror",
             "cluster_and_intersect_sideline_harmlessness",

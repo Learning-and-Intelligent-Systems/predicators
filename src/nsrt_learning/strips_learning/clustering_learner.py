@@ -227,7 +227,6 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                     best_preconditions = child
                 hq.heappush(queue, (child_score, next(tiebreak), child))
                 visited.add(child)
-        print(f"Added preconditions {best_preconditions} with score {best_score}")
         return best_preconditions
 
     @staticmethod
@@ -287,9 +286,10 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             assert option.parent == option_spec[0]
             option_objs = option.objects
             isub = dict(zip(option_spec[1], option_objs))
-            num_false_positives += int(any(
-                ground_op.preconditions.issubset(seg.init_atoms)
-                for ground_op in utils.all_ground_operators_given_partial(
+            num_false_positives += int(
+                any(
+                    ground_op.preconditions.issubset(seg.init_atoms)
+                    for ground_op in utils.all_ground_operators_given_partial(
                         candidate_op, objects, isub)))
         tp_w = CFG.clustering_learner_true_pos_weight
         fp_w = CFG.clustering_learner_false_pos_weight
@@ -299,7 +299,6 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         score += CFG.cluster_and_search_var_count_weight * len(all_vars)
         # Penalize the number of preconditions.
         score += CFG.cluster_and_search_precon_size_weight * len(preconditions)
-        print(f"for {preconditions} got score {score} found {num_true_positives} tp and {num_false_positives} fp")
         return score
 
     @classmethod
