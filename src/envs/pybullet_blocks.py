@@ -1,8 +1,7 @@
 """A PyBullet version of Blocks."""
 
 import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Tuple, \
-    cast
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pybullet as p
@@ -12,28 +11,10 @@ from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_robots import \
     create_single_arm_pybullet_robot
+from predicators.src.envs.pybullet_utils import _PyBulletState
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Object, \
     ParameterizedOption, Pose3D, State, Task, Type
-
-
-class _PyBulletState(State):
-    """A PyBullet state that stores the robot joint states in addition to the
-    features that are exposed in the object-centric state."""
-
-    @property
-    def joint_state(self) -> Sequence[float]:
-        """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
-
-    def allclose(self, other: State) -> bool:
-        # Ignores the simulator state.
-        return State(self.data).allclose(State(other.data))
-
-    def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_state)
-        return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
 class PyBulletBlocksEnv(BlocksEnv):
@@ -477,8 +458,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         state_dict = {}
 
         # Get robot state.
-        state_dict[self._robot] = self._pybullet_robot.get_object_state()
-        joint_state = self._pybullet_robot.get_joint_state()
+        state_dict[self._robot] = self._pybullet_robot.get_state()
+        joint_state = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():

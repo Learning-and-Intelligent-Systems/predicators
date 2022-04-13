@@ -22,9 +22,9 @@ def test_fetch_pybullet_robot():
 
     robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
     robot.reset_state(robot_state)
-    recovered_state = robot.get_object_state()
+    recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
-    assert np.allclose(robot.get_joint_state(),
+    assert np.allclose(robot.get_joints(),
                        robot.initial_joint_values,
                        atol=1e-3)
 
@@ -34,7 +34,7 @@ def test_fetch_pybullet_robot():
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
     expected_state = np.add(robot_state, ee_delta + (f_delta, ))
-    recovered_state = robot.get_object_state()
+    recovered_state = robot.get_state()
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
 
