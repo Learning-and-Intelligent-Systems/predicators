@@ -196,6 +196,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                     # Otherwise, we can move this segment to negative_data,
                     # for any future preconditions that get learned.
                     negative_data.append((seg, var_to_obj))
+            assert len(new_remaining_positives) < len(remaining_positives)
             remaining_positives = new_remaining_positives
             # Update the set to be returned.
             assert new_preconditions not in all_preconditions
