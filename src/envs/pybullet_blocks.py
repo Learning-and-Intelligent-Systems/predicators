@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.pybullet_env import PyBulletEnv, _PyBulletState
+from predicators.src.envs.pybullet_env import PyBulletEnv, _PyBulletState, \
+    create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
@@ -175,9 +176,14 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # (teleporting them far away) based on which ones are in the state.
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
-        self._block_ids = [
-            self._create_block(i, self.block_size) for i in range(num_blocks)
-        ]
+        self._block_ids = []
+        for i in range(num_blocks):
+            color = self._obj_colors[i % len(self._obj_colors)]
+            orientation = [0.0, 0.0, 0.0, 1.0]  # default
+            self._block_ids.append(
+                create_pybullet_block(color, self.block_size, self._obj_mass,
+                                      self._obj_friction, orientation,
+                                      self._physics_client_id))
 
     def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
@@ -217,8 +223,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # Assume not holding in the initial state
             assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz],
-                self._obj_orientation,
+                block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
 
         # For any blocks not involved, put them out of view.
@@ -228,8 +233,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             block_id = self._block_ids[i]
             assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, i * h],
-                self._obj_orientation,
+                block_id, [oov_x, oov_y, i * h], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
@@ -274,9 +278,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return sorted(self._block_id_to_block)
 
     def _create_move_to_above_block_option(
-            self, name: str, z_func: Callable[[float],
-                                              float],
-                                              finger_status: str) -> ParameterizedOption:
+            self, name: str, z_func: Callable[[float], float],
+            finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         block argument.
 
@@ -303,8 +306,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             name, types, params_space, _get_current_and_target_pose,
             finger_status)
 
-    def _create_move_to_above_table_option(self, name: str,
-                                           z: float, finger_status: str) -> ParameterizedOption:
+    def _create_move_to_above_table_option(
+            self, name: str, z: float,
+            finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         table.
 
@@ -327,4 +331,5 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose, finger_status)
+            name, types, params_space, _get_current_and_target_pose,
+            finger_status)
