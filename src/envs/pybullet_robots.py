@@ -85,6 +85,18 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """The PyBullet ID for the right finger."""
         raise NotImplementedError("Override me!")
 
+    @property
+    @abc.abstractmethod
+    def left_finger_joint_idx(self) -> int:
+        """The index into the joints corresponding to the left finger."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def right_finger_joint_idx(self) -> int:
+        """The index into the joints corresponding to the right finger."""
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def reset_state(self, robot_state: Array) -> None:
         """Reset the robot state to match the input state.
@@ -180,6 +192,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     @property
     def right_finger_id(self) -> int:
         return self._right_finger_id
+
+    @property
+    def left_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 2
+
+    @property
+    def right_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 1
 
     def reset_state(self, robot_state: Array) -> None:
         rx, ry, rz, rf = robot_state

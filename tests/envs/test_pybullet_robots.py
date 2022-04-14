@@ -22,6 +22,9 @@ def test_fetch_pybullet_robot():
                                finger_tol, max_vel_norm, physics_client_id)
     assert np.allclose(robot.action_space.low, [-max_vel_norm] * 4)
     assert np.allclose(robot.action_space.high, [max_vel_norm] * 4)
+    # The robot arm is 7 DOF and the left and right fingers are appended last.
+    assert robot.left_finger_joint_idx == 7
+    assert robot.right_finger_joint_idx == 8
 
     robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
     robot.reset_state(robot_state)
