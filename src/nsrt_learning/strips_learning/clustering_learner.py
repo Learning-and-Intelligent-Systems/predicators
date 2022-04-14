@@ -3,12 +3,12 @@
 import abc
 import functools
 import logging
-from typing import Iterator, List, Set, Tuple, cast
+from typing import FrozenSet, Iterator, List, Set, Tuple, cast
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.src.settings import CFG
-from predicators.src.structs import DummyOption, LiftedAtom, \
+from predicators.src.structs import Datastore, DummyOption, LiftedAtom, \
     PartialNSRTAndDatastore, Predicate, STRIPSOperator, VarToObjSub
 
 
@@ -83,8 +83,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
 
         # Learn the preconditions of the operators in the PNADs. This part
         # is flexible; subclasses choose how to implement it.
-        for pnad in pnads:
-            self._learn_pnad_preconditions(pnad)
+        pnads = self._learn_pnad_preconditions(pnads)
 
         # Handle optional postprocessing to learn side predicates.
         pnads = self._postprocessing_learn_side_predicates(pnads)
@@ -97,10 +96,12 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         return pnads
 
     @abc.abstractmethod
-    def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
+    def _learn_pnad_preconditions(
+            self, pnads: List[PartialNSRTAndDatastore]
+    ) -> List[PartialNSRTAndDatastore]:
         """Subclass-specific algorithm for learning PNAD preconditions.
 
-        Modifies the given PNAD.
+        Returns a list of new PNADs. Should NOT modify the given PNADs.
         """
         raise NotImplementedError("Override me!")
 
@@ -116,9 +117,19 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via
     intersection."""
 
-    def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
-        preconditions = self._induce_preconditions_via_intersection(pnad)
-        pnad.op = pnad.op.copy_with(preconditions=preconditions)
+    def _learn_pnad_preconditions(
+            self, pnads: List[PartialNSRTAndDatastore]
+    ) -> List[PartialNSRTAndDatastore]:
+        new_pnads = []
+        for pnad in pnads:
+            preconditions = self._induce_preconditions_via_intersection(pnad)
+            # Since we are taking an intersection, we're guaranteed that the
+            # datastore can't change, so we can safely use pnad.datastore here.
+            new_pnads.append(
+                PartialNSRTAndDatastore(
+                    pnad.op.copy_with(preconditions=preconditions),
+                    pnad.datastore, pnad.option_spec))
+        return new_pnads
 
     @classmethod
     def get_name(cls) -> str:
@@ -129,8 +140,157 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,
     following the LOFT algorithm: https://arxiv.org/abs/2103.00589."""
 
-    def _learn_pnad_preconditions(self, pnad: PartialNSRTAndDatastore) -> None:
-        raise NotImplementedError
+    def _learn_pnad_preconditions(
+            self, pnads: List[PartialNSRTAndDatastore]
+    ) -> List[PartialNSRTAndDatastore]:
+        new_pnads = []
+        for i, pnad in enumerate(pnads):
+            positive_data = pnad.datastore
+            # Construct negative data by merging the datastores of all
+            # other PNADs that have the same option.
+            negative_data = []
+            for j, other_pnad in enumerate(pnads):
+                if i == j:
+                    continue
+                if pnad.option_spec[0] != other_pnad.option_spec[0]:
+                    continue
+                negative_data.extend(other_pnad.datastore)
+            all_preconditions = self._run_outer_search(pnad, positive_data,
+                                                       negative_data)
+            # The datastores of the new PNADs could need to be changed, so
+            # we initialize them as empty, then recompute them at the end.
+            for j, preconditions in enumerate(all_preconditions):
+                new_pnads.append(
+                    PartialNSRTAndDatastore(
+                        pnad.op.copy_with(name=f"{pnad.op.name}-{j}",
+                                          preconditions=preconditions), [],
+                        pnad.option_spec))
+        self._recompute_datastores_from_segments(new_pnads)
+        return new_pnads
+
+    def _run_outer_search(
+            self, pnad: PartialNSRTAndDatastore, positive_data: Datastore,
+            negative_data: Datastore) -> Set[FrozenSet[LiftedAtom]]:
+        """Run outer-level search to find a set of precondition sets.
+
+        Each precondition set will produce one operator.
+        """
+        all_preconditions = set()
+        # We'll remove positives as they get covered.
+        remaining_positives = list(positive_data)
+        while remaining_positives:
+            new_preconditions = self._run_inner_search(pnad,
+                                                       remaining_positives,
+                                                       negative_data)
+            # Update the remaining positives.
+            new_remaining_positives = []
+            for seg, var_to_obj in remaining_positives:
+                ground_pre = {a.ground(var_to_obj) for a in new_preconditions}
+                if not ground_pre.issubset(seg.init_atoms):
+                    # If the preconditions ground with this substitution don't
+                    # hold in this segment's init_atoms, this segment has yet
+                    # to be covered, so we keep it in the positives.
+                    new_remaining_positives.append((seg, var_to_obj))
+                else:
+                    # Otherwise, we can move this segment to negative_data,
+                    # for any future preconditions that get learned.
+                    negative_data.append((seg, var_to_obj))
+            assert len(new_remaining_positives) < len(remaining_positives)
+            remaining_positives = new_remaining_positives
+            # Update the set to be returned.
+            assert new_preconditions not in all_preconditions
+            all_preconditions.add(new_preconditions)
+        return all_preconditions
+
+    def _run_inner_search(self, pnad: PartialNSRTAndDatastore,
+                          positive_data: Datastore,
+                          negative_data: Datastore) -> FrozenSet[LiftedAtom]:
+        """Run inner-level search to find a single precondition set."""
+        initial_state = self._get_initial_preconditions(positive_data)
+        check_goal = lambda s: False
+        heuristic = functools.partial(self._score_preconditions, pnad,
+                                      positive_data, negative_data)
+        max_expansions = CFG.cluster_and_search_inner_search_max_expansions
+        path, _ = utils.run_gbfs(initial_state,
+                                 check_goal,
+                                 self._get_precondition_successors,
+                                 heuristic,
+                                 max_expansions=max_expansions)
+        return path[-1]
+
+    @staticmethod
+    def _get_initial_preconditions(
+            positive_data: Datastore) -> FrozenSet[LiftedAtom]:
+        """The initial preconditions are a UNION over all lifted initial states
+        in the data.
+
+        We filter out atoms containing any object that doesn't have a
+        binding to the PNAD parameters.
+        """
+        initial_preconditions = set()
+        for seg, var_to_obj in positive_data:
+            obj_to_var = {v: k for k, v in var_to_obj.items()}
+            for atom in seg.init_atoms:
+                if not all(obj in obj_to_var for obj in atom.objects):
+                    continue
+                initial_preconditions.add(atom.lift(obj_to_var))
+        return frozenset(initial_preconditions)
+
+    @staticmethod
+    def _get_precondition_successors(
+        preconditions: FrozenSet[LiftedAtom]
+    ) -> Iterator[Tuple[int, FrozenSet[LiftedAtom], float]]:
+        """The successors remove each atom in the preconditions."""
+        preconditions_sorted = sorted(preconditions)
+        for i in range(len(preconditions_sorted)):
+            successor = preconditions_sorted[:i] + preconditions_sorted[i + 1:]
+            yield i, frozenset(successor), 1.0
+
+    @staticmethod
+    def _score_preconditions(pnad: PartialNSRTAndDatastore,
+                             positive_data: Datastore,
+                             negative_data: Datastore,
+                             preconditions: FrozenSet[LiftedAtom]) -> float:
+        candidate_op = pnad.op.copy_with(preconditions=preconditions)
+        option_spec = pnad.option_spec
+        del pnad  # unused after this
+        # Count up the number of true positives and false positives.
+        num_true_positives = 0
+        num_false_positives = 0
+        for seg, var_to_obj in positive_data:
+            ground_pre = {a.ground(var_to_obj) for a in preconditions}
+            if ground_pre.issubset(seg.init_atoms):
+                num_true_positives += 1
+        if num_true_positives == 0:
+            # As a special case, if the number of true positives is 0, we
+            # never want to accept these preconditions, so we can give up.
+            return float("inf")
+        for seg, _ in negative_data:
+            # We don't want to use the substitution in the datastore for
+            # negative_data, because in general the variables could be totally
+            # different. So we consider all possible groundings that are
+            # consistent with the option_spec. If, for any such grounding, the
+            # preconditions hold in the segment's init_atoms, then this is a
+            # false positive.
+            objects = list(seg.states[0])
+            option = seg.get_option()
+            assert option.parent == option_spec[0]
+            option_objs = option.objects
+            isub = dict(zip(option_spec[1], option_objs))
+            num_false_positives += int(
+                any(
+                    ground_op.preconditions.issubset(seg.init_atoms)
+                    for ground_op in utils.all_ground_operators_given_partial(
+                        candidate_op, objects, isub)))
+        tp_w = CFG.clustering_learner_true_pos_weight
+        fp_w = CFG.clustering_learner_false_pos_weight
+        score = fp_w * num_false_positives + tp_w * (-num_true_positives)
+        # Penalize the number of variables in the preconditions.
+        all_vars = {v for atom in preconditions for v in atom.variables}
+        score += CFG.cluster_and_search_var_count_weight * len(all_vars)
+        # Penalize the number of preconditions.
+        score += CFG.cluster_and_search_precon_size_weight * len(preconditions)
+        return score
 
     @classmethod
     def get_name(cls) -> str:
@@ -214,8 +374,8 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
             utils.count_positives_for_ops(strips_ops, option_specs, segments)
         # Note: lower is better! We want more true positives and fewer
         # false positives.
-        tp_w = CFG.cluster_and_intersect_sideline_prederror_true_pos_weight
-        fp_w = CFG.cluster_and_intersect_sideline_prederror_false_pos_weight
+        tp_w = CFG.clustering_learner_true_pos_weight
+        fp_w = CFG.clustering_learner_false_pos_weight
         return fp_w * num_false_positives + tp_w * (-num_true_positives)
 
 
