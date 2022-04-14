@@ -101,8 +101,10 @@ class PyBulletEnv(BaseEnv):
     @abc.abstractmethod
     def _extract_robot_state(self, state: State) -> Array:
         """Given a State, extract the robot state, to be passed into
-        self._pybullet_robot.reset_state(). This should be the same
-        type as the return value of self._pybullet_robot.get_state().
+        self._pybullet_robot.reset_state().
+
+        This should be the same type as the return value of
+        self._pybullet_robot.get_state().
         """
         raise NotImplementedError("Override me!")
 

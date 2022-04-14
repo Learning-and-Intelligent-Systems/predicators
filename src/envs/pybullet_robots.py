@@ -99,6 +99,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def reset_state(self, robot_state: Array) -> None:
         """Reset the robot state to match the input state.
+
         The robot_state corresponds to the State vector for the robot
         object.
         """
