@@ -300,11 +300,14 @@ class PyBulletEnv(BaseEnv):
         f_delta = self._action_to_finger_delta(action)
         return f_delta > self._finger_action_tol
 
-    def _action_to_finger_delta(self, action: Action) -> float:
+    def _get_finger_state(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
+        state = cast(_PyBulletState, state)
         joint_idx = self._pybullet_robot.left_finger_joint_idx
-        state = cast(_PyBulletState, self._current_state)
-        finger_state = state.joint_state[joint_idx]
+        return state.joint_state[joint_idx]
+
+    def _action_to_finger_delta(self, action: Action) -> float:
+        finger_state = self._get_finger_state(self._current_state)
         target = action.arr[-1]
         return target - finger_state
 
@@ -338,10 +341,7 @@ class PyBulletEnv(BaseEnv):
                 assert finger_status == "closed"
                 finger_delta = -self._finger_action_nudge_magnitude
             # Extract the current finger state from the simulator state.
-            # Arbitrarily use the left finger as reference.
-            state = cast(_PyBulletState, state)
-            joint_idx = self._pybullet_robot.left_finger_joint_idx
-            finger_state = state.joint_state[joint_idx]
+            finger_state = self._get_finger_state(state)
             # The finger action is an absolute joint position for the fingers.
             finger_action = finger_state + finger_delta
             action = np.subtract(target, current)
