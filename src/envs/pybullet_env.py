@@ -424,9 +424,9 @@ class _PyBulletState(State):
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],
-                          half_extents: Tuple[float, float, float],
-                          mass: float, friction: float,
-                          orientation: Sequence[float],
+                          half_extents: Tuple[float, float,
+                                              float], mass: float,
+                          friction: float, orientation: Sequence[float],
                           physics_client_id: int) -> int:
     """A generic utility for creating a new block.
 
