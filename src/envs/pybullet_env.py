@@ -336,14 +336,9 @@ class PyBulletEnv(BaseEnv):
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del memory  # unused
-            current, target, finger_status = \
+            current, target, _ = \
                 get_current_and_target_pose_and_finger_status(
                     state, objects, params)
-            if finger_status == "open":
-                finger_action = self._finger_action_nudge_magnitude
-            else:
-                assert finger_status == "closed"
-                finger_action = -self._finger_action_nudge_magnitude
             squared_dist = np.sum(np.square(np.subtract(current, target)))
             return squared_dist < self._move_to_pose_tol
 
