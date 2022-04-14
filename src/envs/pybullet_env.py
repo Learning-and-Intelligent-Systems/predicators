@@ -301,31 +301,30 @@ class PyBulletEnv(BaseEnv):
         name: str,
         types: Sequence[Type],
         params_space: Box,
-        get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
-                                              Tuple[Pose3D, Pose3D]],
-        finger_status: str,
+        get_current_and_target_pose_and_finger_status: Callable[
+            [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
     ) -> ParameterizedOption:
         """A generic utility that creates a ParameterizedOption for moving the
         end effector to a target pose, given a function that takes in the
         current state, objects, and parameters, and returns the current pose
-        and target pose of the end effector.
+        and target pose of the end effector, and the finger status.
 
         Fingers drift if left alone. When the fingers are not explicitly
         being opened or closed, we nudge the fingers toward being open
-        or closed according to the finger_status argument.
+        or closed according to the finger status.
         """
-
-        if finger_status == "open":
-            finger_action = self._finger_action_nudge_magnitude
-        else:
-            assert finger_status == "closed"
-            finger_action = -self._finger_action_nudge_magnitude
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
             del memory  # unused
-            current, target = get_current_and_target_pose(
-                state, objects, params)
+            current, target, finger_status = \
+                get_current_and_target_pose_and_finger_status(
+                    state, objects, params)
+            if finger_status == "open":
+                finger_action = self._finger_action_nudge_magnitude
+            else:
+                assert finger_status == "closed"
+                finger_action = -self._finger_action_nudge_magnitude
             action = np.subtract(target, current)
             action_norm = np.linalg.norm(action)  # type: ignore
             if action_norm > self._max_vel_norm:
@@ -337,8 +336,14 @@ class PyBulletEnv(BaseEnv):
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del memory  # unused
-            current, target = get_current_and_target_pose(
-                state, objects, params)
+            current, target, finger_status = \
+                get_current_and_target_pose_and_finger_status(
+                    state, objects, params)
+            if finger_status == "open":
+                finger_action = self._finger_action_nudge_magnitude
+            else:
+                assert finger_status == "closed"
+                finger_action = -self._finger_action_nudge_magnitude
             squared_dist = np.sum(np.square(np.subtract(current, target)))
             return squared_dist < self._move_to_pose_tol
 
@@ -349,18 +354,21 @@ class PyBulletEnv(BaseEnv):
                                    initiable=lambda _1, _2, _3, _4: True,
                                    terminal=_terminal)
 
-    def _create_change_fingers_option(self, name: str, target_val: float,
-                                      types: Sequence[Type], params_space: Box,
-                                      robot: Object) -> ParameterizedOption:
+    def _create_change_fingers_option(
+        self, name: str, types: Sequence[Type], params_space: Box,
+        get_current_and_target_val: Callable[[State, Sequence[Object], Array],
+                                             Tuple[float, float]]
+    ) -> ParameterizedOption:
         """A generic utility that creates a ParameterizedOption for changing
-        the robot fingers."""
-
-        assert types[0] == robot.type
+        the robot fingers, given a function that takes in the current state,
+        objects, and parameters, and returns the current and target finger
+        joint values."""
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del memory, objects, params  # unused
-            current_val = state.get(robot, "fingers")
+            del memory  # unused
+            current_val, target_val = get_current_and_target_val(
+                state, objects, params)
             f_delta = target_val - current_val
             f_delta = np.clip(f_delta, self.action_space.low[3],
                               self.action_space.high[3])
@@ -368,8 +376,9 @@ class PyBulletEnv(BaseEnv):
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            del memory, objects, params  # unused
-            current_val = state.get(robot, "fingers")
+            del memory  # unused
+            current_val, target_val = get_current_and_target_val(
+                state, objects, params)
             squared_dist = (target_val - current_val)**2
             return squared_dist < self._grasp_tol
 
