@@ -190,7 +190,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
                                                 self.open_fingers,
                                                 self.closed_fingers,
-                                                self._finger_action_tol,
                                                 self._max_vel_norm,
                                                 self._physics_client_id)
 
