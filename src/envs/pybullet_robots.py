@@ -97,9 +97,11 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def reset_state(self, rx: float, ry: float, rz: float, rf: float) -> None:
-        """Reset the robot state to match the given one, consisting of the
-        robot (x, y, z) and fingers in the State."""
+    def reset_state(self, robot_state: Array) -> None:
+        """Reset the robot state to match the input state.
+        The robot_state corresponds to the State vector for the robot
+        object.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -197,7 +199,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     def right_finger_joint_idx(self) -> int:
         return len(self._arm_joints) - 1
 
-    def reset_state(self, rx: float, ry: float, rz: float, rf: float) -> None:
+    def reset_state(self, robot_state: Array) -> None:
+        rx, ry, rz, rf = robot_state
         p.resetBasePositionAndOrientation(
             self._fetch_id,
             self._base_pose,

@@ -99,10 +99,11 @@ class PyBulletEnv(BaseEnv):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def _extract_robot_xyzf(self,
-                            state: State) -> Tuple[float, float, float, float]:
-        """Given a State, extract rx, ry, rz, and rf to be passed into
-        self._pybullet_robot.reset_state()."""
+    def _extract_robot_state(self, state: State) -> Array:
+        """Given a State, extract the robot state, to be passed into
+        self._pybullet_robot.reset_state(). This should be the same
+        type as the return value of self._pybullet_robot.get_state().
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -152,7 +153,7 @@ class PyBulletEnv(BaseEnv):
         self._held_obj_id = None
 
         # Reset robot.
-        self._pybullet_robot.reset_state(*self._extract_robot_xyzf(state))
+        self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
     def render(
             self,

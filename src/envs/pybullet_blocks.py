@@ -177,12 +177,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                                 self._max_vel_norm,
                                                 self._physics_client_id)
 
-    def _extract_robot_xyzf(self,
-                            state: State) -> Tuple[float, float, float, float]:
-        return (state.get(self._robot,
-                          "pose_x"), state.get(self._robot, "pose_y"),
-                state.get(self._robot,
-                          "pose_z"), state.get(self._robot, "fingers"))
+    def _extract_robot_state(self, state: State) -> Array:
+        return np.array([state.get(self._robot, "pose_x"),
+                         state.get(self._robot, "pose_y"),
+                         state.get(self._robot, "pose_z"),
+                         state.get(self._robot, "fingers")], dtype=np.float32)
 
     @classmethod
     def get_name(cls) -> str:

@@ -169,7 +169,7 @@ def test_fetch_pybullet_robot():
     assert robot.right_finger_joint_idx == 8
 
     robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
-    robot.reset_state(*robot_state)
+    robot.reset_state(robot_state)
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
