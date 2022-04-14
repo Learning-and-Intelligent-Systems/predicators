@@ -308,11 +308,13 @@ class PyBulletEnv(BaseEnv):
         """A generic utility that creates a ParameterizedOption for moving the
         end effector to a target pose, given a function that takes in the
         current state, objects, and parameters, and returns the current pose
-        and target pose of the end effector."""
+        and target pose of the end effector.
 
-        # Fingers drift if left alone. When the fingers are not explicitly
-        # being opened or closed, we nudge the fingers toward being open or
-        # closed according to the finger_status argument.
+        Fingers drift if left alone. When the fingers are not explicitly
+        being opened or closed, we nudge the fingers toward being open
+        or closed according to the finger_status argument.
+        """
+
         if finger_status == "open":
             finger_action = self._finger_action_nudge_magnitude
         else:
