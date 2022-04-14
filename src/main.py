@@ -221,8 +221,7 @@ def _generate_interaction_results(
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
             monitor=monitor,
-            exceptions_to_break_on={OptionExecutionFailure}
-        )
+            exceptions_to_break_on={OptionExecutionFailure})
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
         result = InteractionResult(traj.states, traj.actions,

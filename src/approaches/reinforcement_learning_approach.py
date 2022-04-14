@@ -1,32 +1,23 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
-continues learning options through reinforcement learning.
-"""
+continues learning options through reinforcement learning."""
 
-import logging
-from typing import List, Optional, Set, Callable, Sequence
+from typing import Callable, List, Optional, Sequence, Set
 
 import dill as pkl
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
+from predicators.src.approaches.base_approach import ApproachFailure, \
+    ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
-from predicators.src.approaches.base_approach import ApproachTimeout, \
-    ApproachFailure
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Task, Type, GroundAtom, LowLevelTrajectory, InteractionRequest, \
-    InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    Query, DemonstrationQuery, State
-from predicators.src.envs.base_env import BaseEnv
-from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_pruned_nsrts_from_data
-from predicators.src.utils import create_ground_atom_dataset
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Dataset, GroundAtom, \
+    InteractionRequest, InteractionResult, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, State, Task, Type
+
 
 class ReinforcementLearningApproach(NSRTLearningApproach):
     """A bilevel planning approach that learns NSRTs."""
@@ -38,12 +29,14 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self.online_learning_cycle = 0
+        self.initial_dataset: List[LowLevelTrajectory] = []
+        self.online_dataset: List[LowLevelTrajectory] = []
         # initialize option learner?
 
     def _learn_pruned_nsrts(self,
-                initial_trajectories: List[LowLevelTrajectory],
-                trajectories: List[LowLevelTrajectory],
-                online_learning_cycle: Optional[int]) -> None:
+                            initial_trajectories: List[LowLevelTrajectory],
+                            trajectories: List[LowLevelTrajectory],
+                            online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_pruned_nsrts_from_data(
             initial_trajectories,
             trajectories,
@@ -64,13 +57,15 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         # which we split off into a different function in case
         # subclasses want to make use of it.
         self.initial_dataset = dataset.trajectories
-        self.online_dataset = []
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
-    def _make_termination_fn(
-            self, goal: Set[GroundAtom]) -> Callable[[State], bool]:
+    @classmethod
+    def _make_termination_fn(cls, goal: Set[GroundAtom]) \
+            -> Callable[[State], bool]:
+
         def _termination_fn(s: State) -> bool:
             return all(goal_atom.holds(s) for goal_atom in goal)
+
         return _termination_fn
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
@@ -81,13 +76,15 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
                 _act_policy = self.solve(task, CFG.timeout)
             except (ApproachTimeout, ApproachFailure) as e:
                 partial_refinements = e.info.get("partial_refinements")
+                assert partial_refinements is not None
                 _, plan = max(partial_refinements, key=lambda x: len(x[1]))
                 _act_policy = utils.option_plan_to_policy(plan)
             request = InteractionRequest(
-                train_task_idx = i,
-                act_policy = _act_policy,
-                query_policy = lambda s: None,
-                termination_function = self._make_termination_fn(task.goal)
+                train_task_idx=i,
+                act_policy=_act_policy,
+                query_policy=lambda s: None,
+                termination_function=ReinforcementLearningApproach.
+                _make_termination_fn(task.goal)  # pylint: disable=line-too-long
             )
             requests.append(request)
         return requests
@@ -96,19 +93,17 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
             self, results: Sequence[InteractionResult]) -> None:
         self.online_learning_cycle += 1
         # We get one result per training task.
-        for i, result in enumerate(results): 
+        for i, result in enumerate(results):
             states = result.states
             actions = result.actions
-            traj = LowLevelTrajectory(
-                states,
-                actions,
-                _is_demo=False,
-                _train_task_idx = i
-            )
+            traj = LowLevelTrajectory(states,
+                                      actions,
+                                      _is_demo=False,
+                                      _train_task_idx=i)
             self.online_dataset.append(traj)
 
         # Replace this with an _RLOptionLearner.
         self._learn_pruned_nsrts(
-            self.initial_dataset, self.initial_dataset + self.online_dataset,
-            online_learning_cycle=self.online_learning_cycle
-        )
+            self.initial_dataset,
+            self.initial_dataset + self.online_dataset,
+            online_learning_cycle=self.online_learning_cycle)

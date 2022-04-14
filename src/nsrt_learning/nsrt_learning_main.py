@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import List, Set
 
+import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
@@ -20,7 +21,6 @@ from predicators.src.nsrt_learning.strips_learning import \
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Task
-import numpy as np
 
 
 def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
@@ -117,11 +117,11 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     return set(nsrts)
 
 
-def learn_pruned_nsrts_from_data(initial_trajectories: List[LowLevelTrajectory],
-            trajectories: List[LowLevelTrajectory],
-            train_tasks: List[Task], predicates: Set[Predicate],
-            action_space: Box,
-            sampler_learner: str) -> Set[NSRT]:
+def learn_pruned_nsrts_from_data(
+        initial_trajectories: List[LowLevelTrajectory],
+        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate], action_space: Box,
+        sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
@@ -173,22 +173,22 @@ def learn_pruned_nsrts_from_data(initial_trajectories: List[LowLevelTrajectory],
                  or CFG.side_predicate_learner != "no_learning"))
 
     # Step 3.5: Prune pnads that result from options that fail to terminate. For
-    # each learned pnad, check if it has a segment that is in initial
-    # dataset, meaning that it must correspond to one of the nsrts learned
-    # from the offline dataset.
+    # each learned pnad, check if it has a segment from the offline
+    # dataset. If it does, it must correspond to one of the nsrts learned
+    # from the offline dataset, which are all "correct".
     remaining_pnads = []
     ground_atom_dataset_initial = utils.create_ground_atom_dataset(
-        initial_trajectories, predicates
-    )
+        initial_trajectories, predicates)
     segmented_trajs_initial = [
         segment_trajectory(traj) for traj in ground_atom_dataset_initial
     ]
-    initial_segments = set(seg for segs in segmented_trajs_initial for seg in segs)
+    initial_segments = set(seg for segs in segmented_trajs_initial
+                           for seg in segs)
     initial_segments_states = [seg.states for seg in initial_segments]
     for pnad in pnads:
         first_segment_of_datastore = pnad.datastore[0][0].states
         for s in initial_segments_states:
-            if np.array_equal(first_segment_of_datastore, s):
+            if np.array_equal(first_segment_of_datastore, s):  # type: ignore
                 remaining_pnads.append(pnad)
     pnads = remaining_pnads
 
