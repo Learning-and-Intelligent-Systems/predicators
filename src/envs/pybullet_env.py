@@ -29,6 +29,7 @@ class PyBulletEnv(BaseEnv):
     _grasp_tol: ClassVar[float] = 0.05
     _move_to_pose_tol: ClassVar[float] = 0.0001
     _finger_action_tol: ClassVar[float] = 0.0001
+    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
 
     # Object parameters.
     _obj_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
@@ -337,12 +338,22 @@ class PyBulletEnv(BaseEnv):
     def _create_move_end_effector_to_pose_option(
         self, name: str, types: Sequence[Type], params_space: Box,
         get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
-                                              Tuple[Pose3D, Pose3D]]
+                                              Tuple[Pose3D, Pose3D]],
+        finger_status: str,
     ) -> ParameterizedOption:
         """A generic utility that creates a ParameterizedOption for moving the
         end effector to a target pose, given a function that takes in the
         current state, objects, and parameters, and returns the current pose
         and target pose of the end effector."""
+
+        # Fingers drift if left alone. When the fingers are not explicitly
+        # being opened or closed, we nudge the fingers toward being open or
+        # closed according to the finger_status argument.
+        if finger_status == "open":
+            finger_action = self._finger_action_nudge_magnitude
+        else:
+            assert finger_status == "closed"
+            finger_action = -self._finger_action_nudge_magnitude
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
@@ -353,7 +364,7 @@ class PyBulletEnv(BaseEnv):
             action_norm = np.linalg.norm(action)  # type: ignore
             if action_norm > self._max_vel_norm:
                 action = action * self._max_vel_norm / action_norm
-            action = np.r_[action, 0.0].astype(np.float32)
+            action = np.r_[action, finger_action].astype(np.float32)
             assert self.action_space.contains(action)
             return Action(action)
 
