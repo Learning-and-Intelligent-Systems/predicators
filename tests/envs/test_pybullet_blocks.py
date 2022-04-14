@@ -192,7 +192,10 @@ def test_pybullet_blocks_picking_corners(env):
         state.set(block, "pose_x", bx)
         state.set(block, "pose_y", by)
         env.set_state(state)
-        assert env.get_state().allclose(state)
+        recovered_state = env.get_state()
+        assert recovered_state.allclose(state)
+        # Use the recovered state from here, since it will have joint states.
+        state = recovered_state
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
         assert option.initiable(state)
