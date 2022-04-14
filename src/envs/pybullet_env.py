@@ -384,29 +384,29 @@ class _PyBulletState(State):
         return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
-def create_pybullet_block(color: Tuple[float, float, float, float],
-                          size: float, mass, friction: float,
-                          orientation: Sequence[float],
+def create_pybullet_block(color: Tuple[float, float, float,
+                                       float], size: float, mass,
+                          friction: float, orientation: Sequence[float],
                           physics_client_id: int) -> int:
-    """A generic utility for creating a new block. Returns the PyBullet ID
-    of the newly created block."""
+    """A generic utility for creating a new block.
+
+    Returns the PyBullet ID of the newly created block.
+    """
     # The poses here are not important because they are overwritten by
     # the state values when a task is reset.
     pose = (0, 0, 0)
     half_extents = [size / 2.] * 3
 
     # Create the collision shape.
-    collision_id = p.createCollisionShape(
-        p.GEOM_BOX,
-        halfExtents=half_extents,
-        physicsClientId=physics_client_id)
+    collision_id = p.createCollisionShape(p.GEOM_BOX,
+                                          halfExtents=half_extents,
+                                          physicsClientId=physics_client_id)
 
     # Create the visual_shape.
-    visual_id = p.createVisualShape(
-        p.GEOM_BOX,
-        halfExtents=half_extents,
-        rgbaColor=color,
-        physicsClientId=physics_client_id)
+    visual_id = p.createVisualShape(p.GEOM_BOX,
+                                    halfExtents=half_extents,
+                                    rgbaColor=color,
+                                    physicsClientId=physics_client_id)
 
     # Create the body.
     block_id = p.createMultiBody(baseMass=mass,
