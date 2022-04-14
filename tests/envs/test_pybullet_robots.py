@@ -24,6 +24,9 @@ def test_fetch_pybullet_robot():
     robot.reset_state(robot_state)
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
+    assert np.allclose(robot.get_joints(),
+                       robot.initial_joint_values,
+                       atol=1e-3)
 
     ee_delta = (-0.01, 0.0, 0.01)
     f_delta = -0.01

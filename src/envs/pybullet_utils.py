@@ -1,11 +1,31 @@
 """Generic utilities for Pybullet."""
 
-from typing import List, Sequence
+from typing import List, Sequence, cast
 
 import numpy as np
 import pybullet as p
 
 from predicators.src.settings import CFG
+from predicators.src.structs import State
+
+
+class _PyBulletState(State):
+    """A PyBullet state that stores the robot joint states in addition to the
+    features that are exposed in the object-centric state."""
+
+    @property
+    def joint_state(self) -> Sequence[float]:
+        """Expose the current joint state in the simulator_state."""
+        return cast(Sequence[float], self.simulator_state)
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        simulator_state_copy = list(self.joint_state)
+        return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
 def get_kinematic_chain(robot: int, end_effector: int,
@@ -33,7 +53,7 @@ def inverse_kinematics(
     joints: Sequence[int],
     physics_client_id: int,
     validate: bool = True,
-) -> Sequence[float]:
+) -> List[float]:
     """Runs IK and returns joint values for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple
