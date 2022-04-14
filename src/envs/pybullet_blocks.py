@@ -179,11 +179,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._block_ids = []
         for i in range(num_blocks):
             color = self._obj_colors[i % len(self._obj_colors)]
+            half_extents = (self.block_size / 2.0, self.block_size / 2.0,
+                            self.block_size / 2.0)
             orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._block_ids.append(
-                create_pybullet_block(color, [self.block_size / 2.0] * 3,
-                                      self._obj_mass, self._obj_friction,
-                                      orientation, self._physics_client_id))
+                create_pybullet_block(color, half_extents, self._obj_mass,
+                                      self._obj_friction, orientation,
+                                      self._physics_client_id))
 
     def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
