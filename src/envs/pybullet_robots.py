@@ -132,7 +132,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _ee_orientation: ClassVar[Sequence[float]] = [1., 0., -1., 0.]
-    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(
@@ -275,20 +274,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                 self._fetch_id,
                 finger_id,
                 physicsClientId=self._physics_client_id)[0]
-            # Fingers drift if left alone. If the finger action is near zero,
-            # nudge the fingers toward being open or closed, based on which end
-            # of the spectrum they are currently closer to.
-            if abs(f_delta) < self._finger_action_tol:
-                assert self._open_fingers > self._closed_fingers
-                if abs(current_val -
-                       self._open_fingers) < abs(current_val -
-                                                 self._closed_fingers):
-                    nudge = self._finger_action_nudge_magnitude
-                else:
-                    nudge = -self._finger_action_nudge_magnitude
-                target_val = current_val + nudge
-            else:
-                target_val = current_val + f_delta
+            target_val = current_val + f_delta
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
                                     controlMode=p.POSITION_CONTROL,
