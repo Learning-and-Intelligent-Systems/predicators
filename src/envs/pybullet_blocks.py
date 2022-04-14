@@ -289,9 +289,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         types = [self._robot_type, self._block_type]
         params_space = Box(0, 1, (0, ))
 
-        def _get_current_and_target_pose(
+        def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D]:
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, block = objects
             current_pose = (state.get(robot,
@@ -303,7 +303,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose, finger_status
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space,
+            _get_current_and_target_pose_and_finger_status)
 
     def _create_move_to_above_table_option(
             self, name: str, z: float,
@@ -316,9 +317,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         types = [self._robot_type]
         params_space = Box(0, 1, (2, ))
 
-        def _get_current_and_target_pose(
+        def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D]:
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
             robot, = objects
             current_pose = (state.get(robot,
                                       "pose_x"), state.get(robot, "pose_y"),
@@ -330,4 +331,5 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose, finger_status
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space,
+            _get_current_and_target_pose_and_finger_status)
