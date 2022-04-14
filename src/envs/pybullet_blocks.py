@@ -173,7 +173,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         self._pybullet_robot = create_single_arm_pybullet_robot(
             CFG.pybullet_robot, ee_home, self.open_fingers,
-            self.closed_fingers, self._finger_action_tol,
+            self.closed_fingers, self._finger_action_tol, self._max_vel_norm,
             self._physics_client_id)
 
         # Load table.
@@ -231,11 +231,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     @property
     def action_space(self) -> Box:
-        # dimensions: [dx, dy, dz, dfingers]
-        return Box(low=-self._max_vel_norm,
-                   high=self._max_vel_norm,
-                   shape=(4, ),
-                   dtype=np.float32)
+        return self._pybullet_robot.action_space
 
     @classmethod
     def get_name(cls) -> str:

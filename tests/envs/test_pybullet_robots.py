@@ -17,8 +17,11 @@ def test_fetch_pybullet_robot():
     open_fingers = 0.04
     closed_fingers = 0.01
     finger_tol = 0.0001
+    max_vel_norm = 0.05
     robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                               finger_tol, physics_client_id)
+                               finger_tol, max_vel_norm, physics_client_id)
+    assert np.allclose(robot.action_space.low, [-max_vel_norm] * 4)
+    assert np.allclose(robot.action_space.high, [max_vel_norm] * 4)
 
     robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
     robot.reset_state(robot_state)
@@ -46,11 +49,14 @@ def test_create_single_arm_pybullet_robot():
     open_fingers = 0.04
     closed_fingers = 0.01
     finger_tol = 0.0001
+    max_vel_norm = 0.05
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose,
                                              open_fingers, closed_fingers,
-                                             finger_tol, physics_client_id)
+                                             finger_tol, max_vel_norm,
+                                             physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          open_fingers, closed_fingers,
-                                         finger_tol, physics_client_id)
+                                         finger_tol, max_vel_norm,
+                                         physics_client_id)
