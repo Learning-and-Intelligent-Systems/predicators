@@ -23,16 +23,14 @@ class _SingleArmPyBulletRobot(abc.ABC):
     """
 
     def __init__(self, ee_home_pose: Pose3D, open_fingers: float,
-                 closed_fingers: float, finger_action_tol: float,
-                 max_vel_norm: float, physics_client_id: int) -> None:
+                 closed_fingers: float, max_vel_norm: float,
+                 physics_client_id: int) -> None:
         # Initial position for the end effector.
         self._ee_home_pose = ee_home_pose
         # The value at which the finger joints should be open.
         self._open_fingers = open_fingers
         # The value at which the finger joints should be closed.
         self._closed_fingers = closed_fingers
-        # If an f_delta is less than this magnitude, it's considered a noop.
-        self._finger_action_tol = finger_action_tol
         # Used for the action space.
         self._max_vel_norm = max_vel_norm
         self._physics_client_id = physics_client_id
@@ -51,7 +49,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """The action space for the robot."""
         # This is a temporary implementation that will soon be replaced with
         # the robot's joint space.
-        # dimensions: [dx, dy, dz, dfingers]
+        # dimensions: [dx, dy, dz, finger value]
         return Box(low=-self._max_vel_norm,
                    high=self._max_vel_norm,
                    shape=(4, ),
@@ -120,7 +118,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
+    def set_motors(self, ee_delta: Pose3D, f_value: float) -> None:
         """Update the motors to execute the given action in PyBullet given a
         delta on the end effector and finger joint(s)."""
         raise NotImplementedError("Override me!")
@@ -242,7 +240,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joint_state.append(joint_val)
         return joint_state
 
-    def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
+    def set_motors(self, ee_delta: Pose3D, f_value: float) -> None:
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
@@ -272,38 +270,19 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Set finger joint motors.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
-            current_val = p.getJointState(
-                self._fetch_id,
-                finger_id,
-                physicsClientId=self._physics_client_id)[0]
-            # Fingers drift if left alone. If the finger action is near zero,
-            # nudge the fingers toward being open or closed, based on which end
-            # of the spectrum they are currently closer to.
-            if abs(f_delta) < self._finger_action_tol:
-                assert self._open_fingers > self._closed_fingers
-                if abs(current_val -
-                       self._open_fingers) < abs(current_val -
-                                                 self._closed_fingers):
-                    nudge = self._finger_action_nudge_magnitude
-                else:
-                    nudge = -self._finger_action_nudge_magnitude
-                target_val = current_val + nudge
-            else:
-                target_val = current_val + f_delta
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
                                     controlMode=p.POSITION_CONTROL,
-                                    targetPosition=target_val,
+                                    targetPosition=f_value,
                                     physicsClientId=self._physics_client_id)
 
 
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, open_fingers: float,
-        closed_fingers: float, finger_action_tol: float, max_vel_norm: float,
+        closed_fingers: float, max_vel_norm: float,
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
         return FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                                  finger_action_tol, max_vel_norm,
-                                  physics_client_id)
+                                  max_vel_norm, physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")

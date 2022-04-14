@@ -16,10 +16,9 @@ def test_fetch_pybullet_robot():
     ee_home_pose = (1.35, 0.75, 0.75)
     open_fingers = 0.04
     closed_fingers = 0.01
-    finger_tol = 0.0001
     max_vel_norm = 0.05
     robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                               finger_tol, max_vel_norm, physics_client_id)
+                               max_vel_norm, physics_client_id)
     assert np.allclose(robot.action_space.low, [-max_vel_norm] * 4)
     assert np.allclose(robot.action_space.high, [max_vel_norm] * 4)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -35,11 +34,11 @@ def test_fetch_pybullet_robot():
                        atol=1e-3)
 
     ee_delta = (-0.01, 0.0, 0.01)
-    f_delta = -0.01
-    robot.set_motors(ee_delta, f_delta)
+    f_value = 0.02
+    robot.set_motors(ee_delta, f_value)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
-    expected_state = np.add(robot_state, ee_delta + (f_delta, ))
+    expected_state = tuple(np.add(robot_state[:3], ee_delta)) + (f_value, )
     recovered_state = robot.get_state()
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
@@ -51,15 +50,12 @@ def test_create_single_arm_pybullet_robot():
     ee_home_pose = (1.35, 0.75, 0.75)
     open_fingers = 0.04
     closed_fingers = 0.01
-    finger_tol = 0.0001
     max_vel_norm = 0.05
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose,
                                              open_fingers, closed_fingers,
-                                             finger_tol, max_vel_norm,
-                                             physics_client_id)
+                                             max_vel_norm, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          open_fingers, closed_fingers,
-                                         finger_tol, max_vel_norm,
-                                         physics_client_id)
+                                         max_vel_norm, physics_client_id)

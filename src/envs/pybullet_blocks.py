@@ -22,7 +22,6 @@ class PyBulletBlocksEnv(BlocksEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _move_gain: ClassVar[float] = 1.0
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_offset_z: ClassVar[float] = 0.01
     _place_offset_z: ClassVar[float] = 0.01
@@ -73,21 +72,18 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # to high above the block in preparation for picking.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
-                # Open fingers.
-                self._create_change_fingers_option(
-                    "OpenFingers", self.open_fingers, types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "open"),
                 # Move down to grasp.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToGrasp", (0., 0., self._grasp_offset_z),
-                    ("rel", "rel", "rel"), types, params_space),
+                    ("rel", "rel", "rel"), types, params_space, "open"),
                 # Grasp.
                 self._create_change_fingers_option(
                     "Grasp", self.closed_fingers, types, params_space),
                 # Move up.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "closed"),
             ])
 
         types = self._Stack.types
@@ -98,19 +94,19 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Move to above the block on which we will stack.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "closed"),
                 # Move down to place.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToPlace",
                     (0., 0., self.block_size + self._place_offset_z),
-                    ("rel", "rel", "rel"), types, params_space),
+                    ("rel", "rel", "rel"), types, params_space, "closed"),
                 # Open fingers.
                 self._create_change_fingers_option("OpenFingers",
                     self.open_fingers, types, params_space),
                 # Move up.
                 self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "open"),
             ])
 
         types = self._PutOnTable.types
@@ -121,19 +117,19 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Move to above the table at the (x, y) where we will place.
                 self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "closed"),
                 # Move down to place.
                 self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToPlaceOnTable",
                     (0., 0., self.block_size + self._place_offset_z),
-                    ("rel", "rel", "rel"), types, params_space),
+                    ("rel", "rel", "rel"), types, params_space, "closed"),
                 # Open fingers.
                 self._create_change_fingers_option("OpenFingers",
                     self.open_fingers, types, params_space),
                 # Move up.
                 self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
-                    ("rel", "rel", "abs"), types, params_space),
+                    ("rel", "rel", "abs"), types, params_space, "open"),
             ])
 
         # We track the correspondence between PyBullet object IDs and Object
@@ -173,8 +169,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         self._pybullet_robot = create_single_arm_pybullet_robot(
             CFG.pybullet_robot, ee_home, self.open_fingers,
-            self.closed_fingers, self._finger_action_tol, self._max_vel_norm,
-            self._physics_client_id)
+            self.closed_fingers, self._max_vel_norm, self._physics_client_id)
 
         # Load table.
         self._table_id = p.loadURDF(
@@ -393,8 +388,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     def step(self, action: Action) -> State:
         # Send the action to the robot.
         ee_delta = (action.arr[0], action.arr[1], action.arr[2])
-        f_delta = action.arr[3]
-        self._pybullet_robot.set_motors(ee_delta, f_delta)
+        f_value = action.arr[3]
+        self._pybullet_robot.set_motors(ee_delta, f_value)
 
         # Step the simulation here before adding or removing constraints
         # because detect_held_block() should use the updated state.
@@ -404,7 +399,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and \
-            f_delta < -self._finger_action_tol:
+            f_value <= self.closed_fingers + self._finger_action_tol:
             # Detect whether an object is held.
             self._held_block_id = self._detect_held_block()
             if self._held_block_id is not None:
@@ -434,7 +429,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
-            f_delta > self._finger_action_tol:
+            f_value >= self.open_fingers - self._finger_action_tol:
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
@@ -518,13 +513,19 @@ class PyBulletBlocksEnv(BlocksEnv):
     ########################## Parameterized Options ##########################
 
     def _create_move_end_effector_to_pose_option(
-        self, name: str, types: Sequence[Type], params_space: Box,
-        get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
-                                              Tuple[Pose3D, Pose3D]]
-    ) -> ParameterizedOption:
+            self, name: str, types: Sequence[Type], params_space: Box,
+            get_current_and_target_pose: Callable[
+                [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D]],
+            finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving the end effector to a
         target pose, given a function that takes in the current state and
         objects and returns the current pose and target pose of the robot."""
+
+        if finger_status == "open":
+            finger_value = self.open_fingers
+        else:
+            assert finger_status == "closed"
+            finger_value = self.closed_fingers
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
@@ -532,7 +533,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             current, target = get_current_and_target_pose(
                 state, objects, params)
             return self._get_end_effector_move_toward_waypoint_action(
-                current, target)
+                current, target, finger_value)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
@@ -552,7 +553,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     def _create_move_end_effector_relative_to_block_option(
             self, name: str, rel_or_abs_target_pose: Pose3D,
             rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
-            params_space: Box) -> ParameterizedOption:
+            params_space: Box, finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving the end effector to a
         target pose relative to a block.
 
@@ -575,12 +576,13 @@ class PyBulletBlocksEnv(BlocksEnv):
             return current_pose, target_pose
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space, _get_current_and_target_pose,
+            finger_status)
 
     def _create_move_end_effector_relative_to_table_option(
             self, name: str, rel_or_abs_target_pose: Pose3D,
             rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
-            params_space: Box) -> ParameterizedOption:
+            params_space: Box, finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving the end effector to a
         target pose relative to the table.
 
@@ -605,7 +607,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             return current_pose, target_pose
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space, _get_current_and_target_pose,
+            finger_status)
 
     def _create_change_fingers_option(
             self, name: str, target_val: float, types: Sequence[Type],
@@ -616,12 +619,10 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del memory, objects, params  # unused
-            current_val = state.get(self._robot, "fingers")
-            f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, self.action_space.low[3],
+            del state, memory, objects, params  # unused
+            f_value = np.clip(target_val, self.action_space.low[3],
                               self.action_space.high[3])
-            return Action(np.array([0., 0., 0., f_delta], dtype=np.float32))
+            return Action(np.array([0., 0., 0., f_value], dtype=np.float32))
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
@@ -638,12 +639,13 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    terminal=_terminal)
 
     def _get_end_effector_move_toward_waypoint_action(
-            self, ee_pose: Pose3D, target_pose: Pose3D) -> Action:
-        action = self._move_gain * np.subtract(target_pose, ee_pose)
+            self, ee_pose: Pose3D, target_pose: Pose3D,
+            finger_value: float) -> Action:
+        action = np.subtract(target_pose, ee_pose)
         action_norm = np.linalg.norm(action)  # type: ignore
         if action_norm > self._max_vel_norm:
             action = action * self._max_vel_norm / action_norm
-        action = np.r_[action, 0.0].astype(np.float32)
+        action = np.r_[action, finger_value].astype(np.float32)
         assert self.action_space.contains(action)
         return Action(action)
 
