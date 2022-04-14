@@ -43,7 +43,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Move to far above the block which we will grasp.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorToPreGrasp",
-                    z_func=lambda _: self.pick_z),
+                    z_func=lambda _: self.pick_z,
+                    finger_status="open"),
                 # Open fingers.
                 self._create_change_fingers_option(
                     "OpenFingers", self.open_fingers, types, params_space,
@@ -51,7 +52,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Move down to grasp.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorToGrasp",
-                    z_func=lambda block_z: (block_z + self._offset_z)),
+                    z_func=lambda block_z: (block_z + self._offset_z),
+                    finger_status="open"),
                 # Grasp.
                 self._create_change_fingers_option(
                     "Grasp", self.closed_fingers, types, params_space,
@@ -59,7 +61,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Move back up.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: self.pick_z),
+                    z_func=lambda _: self.pick_z,
+                    finger_status="closed"),
             ])
 
         ## Stack option
@@ -71,12 +74,14 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Move to above the block on which we will stack.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorToPreStack",
-                    z_func=lambda _: self.pick_z),
+                    z_func=lambda _: self.pick_z,
+                    finger_status="closed"),
                 # Move down to place.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorToStack",
                     z_func=lambda block_z: (
-                        block_z + self.block_size + self._offset_z)),
+                        block_z + self.block_size + self._offset_z),
+                    finger_status="closed"),
                 # Open fingers.
                 self._create_change_fingers_option(
                     "OpenFingers", self.open_fingers, types, params_space,
@@ -84,7 +89,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 # Move back up.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
-                    z_func=lambda _: self.pick_z),
+                    z_func=lambda _: self.pick_z,
+                    finger_status="open"),
             ])
 
         ## PutOnTable option
@@ -96,17 +102,22 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             [
                 # Move to above the table at the (x, y) where we will place.
                 self._create_move_to_above_table_option(
-                    name="MoveEndEffectorToPrePutOnTable", z=self.pick_z),
+                    name="MoveEndEffectorToPrePutOnTable",
+                    z=self.pick_z,
+                    finger_status="closed"),
                 # Move down to place.
                 self._create_move_to_above_table_option(
-                    name="MoveEndEffectorToPutOnTable", z=place_z),
+                    name="MoveEndEffectorToPutOnTable",
+                    z=place_z,
+                    finger_status="closed"),
                 # Open fingers.
                 self._create_change_fingers_option(
                     "OpenFingers", self.open_fingers, types, params_space,
                     self._robot),
                 # Move back up.
                 self._create_move_to_above_table_option(
-                    name="MoveEndEffectorBackUp", z=self.pick_z),
+                    name="MoveEndEffectorBackUp", z=self.pick_z,
+                    finger_status="open"),
             ])
 
         # We track the correspondence between PyBullet object IDs and Object
@@ -267,8 +278,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return sorted(self._block_id_to_block)
 
     def _create_move_to_above_block_option(
-            self, name: str, z_func: Callable[[float],
-                                              float]) -> ParameterizedOption:
+            self, name: str, z_func: Callable[[float], float],
+            finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         block argument.
 
@@ -292,10 +303,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space, _get_current_and_target_pose,
+            finger_status)
 
-    def _create_move_to_above_table_option(self, name: str,
-                                           z: float) -> ParameterizedOption:
+    def _create_move_to_above_table_option(
+            self, name: str, z: float,
+            finger_status: str) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose above that of the
         table.
 
@@ -318,4 +331,5 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose)
+            name, types, params_space, _get_current_and_target_pose,
+            finger_status)
