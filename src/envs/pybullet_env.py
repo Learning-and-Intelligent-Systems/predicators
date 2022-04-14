@@ -423,8 +423,9 @@ class _PyBulletState(State):
         return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
-def create_pybullet_block(color: Tuple[float, float, float,
-                                       float], size: float, mass: float,
+def create_pybullet_block(color: Tuple[float, float, float, float],
+                          half_extents: Tuple[float, float,
+                                              float], mass: float,
                           friction: float, orientation: Sequence[float],
                           physics_client_id: int) -> int:
     """A generic utility for creating a new block.
@@ -434,7 +435,6 @@ def create_pybullet_block(color: Tuple[float, float, float,
     # The poses here are not important because they are overwritten by
     # the state values when a task is reset.
     pose = (0, 0, 0)
-    half_extents = [size / 2.] * 3
 
     # Create the collision shape.
     collision_id = p.createCollisionShape(p.GEOM_BOX,
