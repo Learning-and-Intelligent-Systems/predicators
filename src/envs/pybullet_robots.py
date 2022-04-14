@@ -5,6 +5,7 @@ from typing import ClassVar, List, Sequence
 
 import numpy as np
 import pybullet as p
+from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
@@ -23,7 +24,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     def __init__(self, ee_home_pose: Pose3D, open_fingers: float,
                  closed_fingers: float, finger_action_tol: float,
-                 physics_client_id: int) -> None:
+                 max_vel_norm: float, physics_client_id: int) -> None:
         # Initial position for the end effector.
         self._ee_home_pose = ee_home_pose
         # The value at which the finger joints should be open.
@@ -32,6 +33,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
         self._closed_fingers = closed_fingers
         # If an f_delta is less than this magnitude, it's considered a noop.
         self._finger_action_tol = finger_action_tol
+        # Used for the action space.
+        self._max_vel_norm = max_vel_norm
         self._physics_client_id = physics_client_id
         # These get overridden in initialize(), but type checking needs to be
         # aware that it exists.
@@ -42,6 +45,17 @@ class _SingleArmPyBulletRobot(abc.ABC):
     def initial_joint_values(self) -> List[float]:
         """The joint values for the robot in its home pose."""
         return self._initial_joint_values
+
+    @property
+    def action_space(self) -> Box:
+        """The action space for the robot."""
+        # This is a temporary implementation that will soon be replaced with
+        # the robot's joint space.
+        # dimensions: [dx, dy, dz, dfingers]
+        return Box(low=-self._max_vel_norm,
+                   high=self._max_vel_norm,
+                   shape=(4, ),
+                   dtype=np.float32)
 
     @abc.abstractmethod
     def _initialize(self) -> None:
@@ -69,6 +83,18 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def right_finger_id(self) -> int:
         """The PyBullet ID for the right finger."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def left_finger_joint_idx(self) -> int:
+        """The index into the joints corresponding to the left finger."""
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def right_finger_joint_idx(self) -> int:
+        """The index into the joints corresponding to the right finger."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -166,6 +192,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     @property
     def right_finger_id(self) -> int:
         return self._right_finger_id
+
+    @property
+    def left_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 2
+
+    @property
+    def right_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 1
 
     def reset_state(self, robot_state: Array) -> None:
         rx, ry, rz, rf = robot_state
@@ -265,10 +299,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, open_fingers: float,
-        closed_fingers: float, finger_action_tol: float,
+        closed_fingers: float, finger_action_tol: float, max_vel_norm: float,
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
         return FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                                  finger_action_tol, physics_client_id)
+                                  finger_action_tol, max_vel_norm,
+                                  physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
