@@ -24,14 +24,12 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _move_gain: ClassVar[float] = 1.0
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
     _move_to_pose_tol: ClassVar[float] = 0.0001
     _finger_action_tol: ClassVar[float] = 0.0001
 
     # Object parameters.
-    _obj_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _obj_mass: ClassVar[float] = 0.5
     _obj_friction: ClassVar[float] = 1.2
     _obj_colors: ClassVar[Sequence[Tuple[float, float, float, float]]] = [
@@ -297,43 +295,6 @@ class PyBulletEnv(BaseEnv):
                         closest_held_obj_dist = contact_distance
         return closest_held_obj
 
-    def _create_block(self, block_num: int, size: float) -> int:
-        """A generic utility for creating a new block."""
-        color = self._obj_colors[block_num % len(self._obj_colors)]
-
-        # The poses here are not important because they are overwritten by
-        # the state values when a task is reset.
-        pose = (0, 0, block_num)
-        half_extents = [size / 2.] * 3
-
-        # Create the collision shape.
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=self._physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            rgbaColor=color,
-            physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        block_id = p.createMultiBody(baseMass=self._obj_mass,
-                                     baseCollisionShapeIndex=collision_id,
-                                     baseVisualShapeIndex=visual_id,
-                                     basePosition=pose,
-                                     baseOrientation=self._obj_orientation,
-                                     physicsClientId=self._physics_client_id)
-        p.changeDynamics(
-            block_id,
-            linkIndex=-1,  # -1 for the base
-            lateralFriction=self._obj_friction,
-            physicsClientId=self._physics_client_id)
-
-        return block_id
-
     def _create_move_end_effector_to_pose_option(
         self, name: str, types: Sequence[Type], params_space: Box,
         get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
@@ -349,7 +310,7 @@ class PyBulletEnv(BaseEnv):
             del memory  # unused
             current, target = get_current_and_target_pose(
                 state, objects, params)
-            action = self._move_gain * np.subtract(target, current)
+            action = np.subtract(target, current)
             action_norm = np.linalg.norm(action)  # type: ignore
             if action_norm > self._max_vel_norm:
                 action = action * self._max_vel_norm / action_norm
@@ -421,3 +382,43 @@ class _PyBulletState(State):
         state_dict_copy = super().copy().data
         simulator_state_copy = list(self.joint_state)
         return _PyBulletState(state_dict_copy, simulator_state_copy)
+
+
+def create_pybullet_block(color: Tuple[float, float, float, float],
+                          size: float, mass, friction: float,
+                          orientation: Sequence[float],
+                          physics_client_id: int) -> int:
+    """A generic utility for creating a new block. Returns the PyBullet ID
+    of the newly created block."""
+    # The poses here are not important because they are overwritten by
+    # the state values when a task is reset.
+    pose = (0, 0, 0)
+    half_extents = [size / 2.] * 3
+
+    # Create the collision shape.
+    collision_id = p.createCollisionShape(
+        p.GEOM_BOX,
+        halfExtents=half_extents,
+        physicsClientId=physics_client_id)
+
+    # Create the visual_shape.
+    visual_id = p.createVisualShape(
+        p.GEOM_BOX,
+        halfExtents=half_extents,
+        rgbaColor=color,
+        physicsClientId=physics_client_id)
+
+    # Create the body.
+    block_id = p.createMultiBody(baseMass=mass,
+                                 baseCollisionShapeIndex=collision_id,
+                                 baseVisualShapeIndex=visual_id,
+                                 basePosition=pose,
+                                 baseOrientation=orientation,
+                                 physicsClientId=physics_client_id)
+    p.changeDynamics(
+        block_id,
+        linkIndex=-1,  # -1 for the base
+        lateralFriction=friction,
+        physicsClientId=physics_client_id)
+
+    return block_id
