@@ -33,6 +33,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         super().__init__()
 
         # Override options, keeping the types and parameter spaces the same.
+        open_fingers_func = lambda s, _1, _2: (s.get(self._robot, "fingers"),
+                                               self.open_fingers)
+        close_fingers_func = lambda s, _1, _2: (s.get(self._robot, "fingers"),
+                                                self.closed_fingers)
 
         ## Pick option
         types = self._Pick.types
@@ -47,17 +51,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     finger_status="open"),
                 # Open fingers.
                 self._create_change_fingers_option(
-                    "OpenFingers", self.open_fingers, types, params_space,
-                    self._robot),
+                    "OpenFingers", types, params_space, open_fingers_func),
                 # Move down to grasp.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorToGrasp",
                     z_func=lambda block_z: (block_z + self._offset_z),
                     finger_status="open"),
-                # Grasp.
+                # Close fingers.
                 self._create_change_fingers_option(
-                    "Grasp", self.closed_fingers, types, params_space,
-                    self._robot),
+                    "CloseFingers", types, params_space, close_fingers_func),
                 # Move back up.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
@@ -84,8 +86,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     finger_status="closed"),
                 # Open fingers.
                 self._create_change_fingers_option(
-                    "OpenFingers", self.open_fingers, types, params_space,
-                    self._robot),
+                    "OpenFingers", types, params_space, open_fingers_func),
                 # Move back up.
                 self._create_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
@@ -112,8 +113,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     finger_status="closed"),
                 # Open fingers.
                 self._create_change_fingers_option(
-                    "OpenFingers", self.open_fingers, types, params_space,
-                    self._robot),
+                    "OpenFingers", types, params_space, open_fingers_func),
                 # Move back up.
                 self._create_move_to_above_table_option(
                     name="MoveEndEffectorBackUp", z=self.pick_z,
@@ -288,9 +288,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         types = [self._robot_type, self._block_type]
         params_space = Box(0, 1, (0, ))
 
-        def _get_current_and_target_pose(
+        def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D]:
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, block = objects
             current_pose = (state.get(robot,
@@ -299,11 +299,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             target_pose = (state.get(block,
                                      "pose_x"), state.get(block, "pose_y"),
                            z_func(state.get(block, "pose_z")))
-            return current_pose, target_pose
+            return current_pose, target_pose, finger_status
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose,
-            finger_status)
+            name, types, params_space,
+            _get_current_and_target_pose_and_finger_status)
 
     def _create_move_to_above_table_option(
             self, name: str, z: float,
@@ -316,9 +316,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         types = [self._robot_type]
         params_space = Box(0, 1, (2, ))
 
-        def _get_current_and_target_pose(
+        def _get_current_and_target_pose_and_finger_status(
                 state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D]:
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
             robot, = objects
             current_pose = (state.get(robot,
                                       "pose_x"), state.get(robot, "pose_y"),
@@ -327,8 +327,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             x_norm, y_norm = params
             target_pose = (self.x_lb + (self.x_ub - self.x_lb) * x_norm,
                            self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
-            return current_pose, target_pose
+            return current_pose, target_pose, finger_status
 
         return self._create_move_end_effector_to_pose_option(
-            name, types, params_space, _get_current_and_target_pose,
-            finger_status)
+            name, types, params_space,
+            _get_current_and_target_pose_and_finger_status)
