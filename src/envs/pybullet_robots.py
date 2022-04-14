@@ -119,9 +119,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
-        """Update the motors to execute the given action in PyBullet given a
-        delta on the end effector and finger joint(s)."""
+    def set_motors(self, action_arr: Array) -> None:
+        """Update the motors to execute the given action in PyBullet."""
         raise NotImplementedError("Override me!")
 
 
@@ -240,7 +239,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joint_state.append(joint_val)
         return joint_state
 
-    def set_motors(self, ee_delta: Pose3D, f_delta: float) -> None:
+    def set_motors(self, action_arr: Array) -> None:
+        ee_delta = (action_arr[0], action_arr[1], action_arr[2])
+        f_delta = action_arr[3]
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)

@@ -202,9 +202,7 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        ee_delta = (action.arr[0], action.arr[1], action.arr[2])
-        f_delta = action.arr[3]
-        self._pybullet_robot.set_motors(ee_delta, f_delta)
+        self._pybullet_robot.set_motors(action.arr)
 
         # Step the simulation here before adding or removing constraints
         # because detect_held_object() should use the updated state.
@@ -213,8 +211,7 @@ class PyBulletEnv(BaseEnv):
 
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
-        if self._held_constraint_id is None and \
-            f_delta < -self._finger_action_tol:
+        if self._held_constraint_id is None and self._fingers_closing(action):
             # Detect whether an object is held.
             self._held_obj_id = self._detect_held_object()
             if self._held_obj_id is not None:
@@ -244,7 +241,7 @@ class PyBulletEnv(BaseEnv):
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
-            f_delta > self._finger_action_tol:
+            self._fingers_opening(action):
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
@@ -295,6 +292,16 @@ class PyBulletEnv(BaseEnv):
                         closest_held_obj = obj_id
                         closest_held_obj_dist = contact_distance
         return closest_held_obj
+
+    def _fingers_closing(self, action: Action) -> bool:
+        """Check whether this action is working toward closing the fingers."""
+        # TODO change
+        return action.arr[-1] < -self._finger_action_tol
+
+    def _fingers_opening(self, action: Action) -> bool:
+        """Check whether this action is working toward opening the fingers."""
+        # TODO change
+        return action.arr[-1] > self._finger_action_tol
 
     def _create_move_end_effector_to_pose_option(
         self,
