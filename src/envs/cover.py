@@ -278,7 +278,7 @@ class CoverEnv(BaseEnv):
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
         # [hand]
-        data[self._robot] = np.array([0.0])
+        data[self._robot] = np.array([0.5])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
@@ -289,8 +289,9 @@ class CoverEnv(BaseEnv):
                 assert -1.0 < offset < 1.0, \
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
+            temp_env = CoverEnv()
             action = Action(np.array([pick_pose], dtype=np.float32))
-            state = self.simulate(state, action)
+            state = temp_env.simulate(state, action)
             assert self._Holding_holds(state, [block])
         return state
 
