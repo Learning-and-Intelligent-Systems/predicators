@@ -281,10 +281,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Set finger joint motors.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
-            current_val = p.getJointState(
-                self._fetch_id,
-                finger_id,
-                physicsClientId=self._physics_client_id)[0]
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
                                     controlMode=p.POSITION_CONTROL,
