@@ -137,12 +137,9 @@ class PyBulletEnv(BaseEnv):
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
-        # We could call self._get_state() here, but there could be small
-        # inconsistencies between that and the state expected as the initial
-        # train task state. Giving the expected initial state in this way
-        # leads to a tiny improvement in performance.
-        joint_state = list(self._pybullet_robot.initial_joint_values)
-        return _PyBulletState(state.data, simulator_state=joint_state)
+        # Converts the State into a _PyBulletState.
+        self._current_state = self._get_state()
+        return self._current_state.copy()
 
     def _reset_state(self, state: State) -> None:
         """Helper for reset and testing."""
@@ -295,13 +292,21 @@ class PyBulletEnv(BaseEnv):
 
     def _fingers_closing(self, action: Action) -> bool:
         """Check whether this action is working toward closing the fingers."""
-        # TODO change
-        return action.arr[-1] < -self._finger_action_tol
+        f_delta = self._action_to_finger_delta(action)
+        return f_delta < -self._finger_action_tol
 
     def _fingers_opening(self, action: Action) -> bool:
         """Check whether this action is working toward opening the fingers."""
-        # TODO change
-        return action.arr[-1] > self._finger_action_tol
+        f_delta = self._action_to_finger_delta(action)
+        return f_delta > self._finger_action_tol
+
+    def _action_to_finger_delta(self, action: Action) -> float:
+        # Arbitrarily use the left finger as reference.
+        joint_idx = self._pybullet_robot.left_finger_joint_idx
+        state = cast(_PyBulletState, self._current_state)
+        finger_state = state.joint_state[joint_idx]
+        target = action.arr[-1]
+        return target - finger_state
 
     def _create_move_end_effector_to_pose_option(
         self,
@@ -322,15 +327,21 @@ class PyBulletEnv(BaseEnv):
         or closed according to the finger_status argument.
         """
 
-        if finger_status == "open":
-            finger_action = self._finger_action_nudge_magnitude
-        else:
-            assert finger_status == "closed"
-            finger_action = -self._finger_action_nudge_magnitude
-
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
             del memory  # unused
+            if finger_status == "open":
+                finger_delta = self._finger_action_nudge_magnitude
+            else:
+                assert finger_status == "closed"
+                finger_delta = -self._finger_action_nudge_magnitude
+            # Extract the current finger state from the simulator state.
+            # Arbitrarily use the left finger as reference.
+            state = cast(_PyBulletState, state)
+            joint_idx = self._pybullet_robot.left_finger_joint_idx
+            finger_state = state.joint_state[joint_idx]
+            # The finger action is an absolute joint position for the fingers.
+            finger_action = finger_state + finger_delta
             current, target = get_current_and_target_pose(
                 state, objects, params)
             action = np.subtract(target, current)
@@ -369,9 +380,9 @@ class PyBulletEnv(BaseEnv):
             del memory, objects, params  # unused
             current_val = state.get(robot, "fingers")
             f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, self.action_space.low[3],
-                              self.action_space.high[3])
-            return Action(np.array([0., 0., 0., f_delta], dtype=np.float32))
+            f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
+            f_action = current_val + f_delta
+            return Action(np.array([0., 0., 0., f_action], dtype=np.float32))
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
