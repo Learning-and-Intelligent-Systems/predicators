@@ -266,7 +266,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         init = self._train_tasks[train_task_idx].init
         # Sample trajectories by sampling random sequences of NSRTs.
         # TODO: convert to hyperparameters.
-        max_num_trajectories = 10
+        max_num_trajectories = 100
         max_trajectory_length = 2
         best_score = -np.inf
         best_options = []
