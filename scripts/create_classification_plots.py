@@ -45,7 +45,7 @@ def _main() -> None:
 
 DPI = 500
 GRID_SIZE = 40
-TICKS_PER = 5
+TICKS_PER = 8
 COLOR = "Greys"
 
 
@@ -95,9 +95,9 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
                                                  (block, target)) else 0
     fig, axes = plt.subplots(1, 3, figsize=(8, 6))
     # Plot means, stds, and true means
-    heatmap(true_means, axes[0], "True Means")
-    heatmap(means, axes[1], "Means")
-    heatmap(stds, axes[2], "Stds")
+    heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
+    heatmap(means, axes[1], axis_vals, axis_vals, "Means")
+    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds")
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0], pos_examples[1], marker="o", c="green")
@@ -114,21 +114,25 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     print(f"Wrote out to {outfile}")
 
 
-def heatmap(data: Array, ax: matplotlib.axis, cbarlabel: str) -> None:
+def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
+            y_axis_vals: Array, cbarlabel: str) -> None:
     """Create a heatmap from a numpy array and two lists of labels."""
     # Plot the heatmap
     im = ax.imshow(data, cmap=COLOR)
     # Create colorbar
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-    # Show all ticks
-    ax.set_xticks(np.arange(0, data.shape[1], TICKS_PER))
-    ax.set_yticks(np.arange(0, data.shape[0], TICKS_PER))
-    # why doesn't this work??
-    # labels = list(map(str, [i / GRID_SIZE for i in range(GRID_SIZE)]))
-    # print(labels)
-    # ax.set_xticks(np.arange(0, GRID_SIZE, TICKS_PER), labels=labels)
-    # ax.set_yticks(np.arange(0, GRID_SIZE, TICKS_PER), labels=labels)
+    # Determine axis ticks
+    assert data.shape[0] % TICKS_PER == 0
+    assert data.shape[1] % TICKS_PER == 0
+    xticks = np.arange(0, data.shape[1], TICKS_PER)
+    yticks = np.arange(0, data.shape[0], TICKS_PER)
+    xtick_labels = map(lambda x: f"{x:.1f}", x_axis_vals[::TICKS_PER])
+    ytick_labels = map(lambda x: f"{x:.1f}", y_axis_vals[::TICKS_PER])
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+    ax.set_xticklabels(xtick_labels)
+    ax.set_yticklabels(ytick_labels)
     # Let the horizontal axes labeling appear on top
     ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
     # Rotate the tick labels and set their alignment
