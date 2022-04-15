@@ -97,7 +97,7 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     # Plot means, stds, and true means
     heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
     heatmap(means, axes[1], axis_vals, axis_vals, "Means")
-    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds")
+    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds", normalize_color_map=False)
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0], pos_examples[1], marker="o", c="green")
@@ -115,11 +115,17 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
 
 
 def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
-            y_axis_vals: Array, cbarlabel: str) -> None:
+            y_axis_vals: Array, cbarlabel: str,
+            normalize_color_map: bool = True) -> None:
     """Create a heatmap from a numpy array and two lists of labels."""
     # Plot the heatmap
-    im = ax.imshow(data, cmap=COLOR)
+    if normalize_color_map:
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+    else:
+        norm = None
+    im = ax.imshow(data, cmap=COLOR, norm=norm)
     # Create colorbar
+    # Reference for magic numbers: https://stackoverflow.com/questions/18195758
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     # Determine axis ticks
     assert data.shape[0] % TICKS_PER == 0
