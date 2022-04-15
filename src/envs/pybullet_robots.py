@@ -47,7 +47,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
     def action_space(self) -> Box:
         """The action space for the robot.
 
-        Represents position control of the arm and finger joints."""
+        Represents position control of the arm and finger joints.
+        """
         return Box(np.array(self.joint_lower_limits, dtype=np.float32),
                    np.array(self.joint_upper_limits, dtype=np.float32),
                    dtype=np.float32)
@@ -132,8 +133,9 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def run_inverse_kinematics(self, end_effector_pose: Pose3D,
-                               validate: bool = True) -> Sequence[float]:
+    def run_inverse_kinematics(self,
+                               end_effector_pose: Pose3D,
+                               validate: bool = True) -> List[float]:
         """Run inverse kinematics."""
         raise NotImplementedError("Override me!")
 
@@ -186,9 +188,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         self._joint_lower_limits = []
         self._joint_upper_limits = []
         for i in self._arm_joints:
-            info = p.getJointInfo(
-                self._fetch_id, i,
-                physicsClientId=self._physics_client_id)
+            info = p.getJointInfo(self._fetch_id,
+                                  i,
+                                  physicsClientId=self._physics_client_id)
             lower_limit = info[8]
             upper_limit = info[9]
             # Per PyBullet documentation, values ignored if upper < lower.
@@ -229,7 +231,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
     @property
     def joint_upper_limits(self) -> List[float]:
-        return self._joint_upper_limits 
+        return self._joint_upper_limits
 
     def reset_state(self, robot_state: Array) -> None:
         rx, ry, rz, rf = robot_state
@@ -283,16 +285,17 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-    def run_inverse_kinematics(self, end_effector_pose: Pose3D,
+    def run_inverse_kinematics(self,
+                               end_effector_pose: Pose3D,
                                validate: bool = True) -> List[float]:
-        return inverse_kinematics(
-            self._fetch_id,
-            self._ee_id,
-            end_effector_pose,
-            self._ee_orientation,
-            self._arm_joints,
-            physics_client_id=self._physics_client_id,
-            validate=validate)
+        return inverse_kinematics(self._fetch_id,
+                                  self._ee_id,
+                                  end_effector_pose,
+                                  self._ee_orientation,
+                                  self._arm_joints,
+                                  physics_client_id=self._physics_client_id,
+                                  validate=validate)
+
 
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, open_fingers: float,

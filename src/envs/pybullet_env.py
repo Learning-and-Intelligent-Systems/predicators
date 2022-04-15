@@ -347,7 +347,7 @@ class PyBulletEnv(BaseEnv):
             # position that IK will succeed with one call, so validate is False.
             # Furthermore, updating the state of the robot during simulation,
             # which validate=True would do, is discouraged by PyBullet.
-            target = self._pybullet_robot.run_inverse_kinematics(
+            joint_state = self._pybullet_robot.run_inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Handle the fingers.
             if finger_status == "open":
@@ -358,15 +358,15 @@ class PyBulletEnv(BaseEnv):
             # Extract the current finger state from the simulator state.
             finger_state = self._get_finger_state(state)
             # The finger action is an absolute joint position for the fingers.
-            f_action = finger_state #+ finger_delta
+            f_action = finger_state + finger_delta
             # Override the meaningless finger values in joint_action.
-            target[self._pybullet_robot.left_finger_joint_idx] = f_action
-            target[self._pybullet_robot.right_finger_joint_idx] = f_action
-            action_arr = np.array(target, dtype=np.float32)
-            try:
-                assert self.action_space.contains(action_arr)
-            except:
-                import ipdb; ipdb.set_trace()
+            joint_state[self._pybullet_robot.left_finger_joint_idx] = f_action
+            joint_state[self._pybullet_robot.right_finger_joint_idx] = f_action
+            action_arr = np.array(joint_state, dtype=np.float32)
+            # This clipping is needed sometimes for the finger joint limits.
+            action_arr = np.clip(action_arr, self.action_space.low,
+                                 self.action_space.high)
+            assert self.action_space.contains(action_arr)
             return Action(action_arr)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
