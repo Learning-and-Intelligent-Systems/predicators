@@ -1,7 +1,7 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-from typing import ClassVar, List, Sequence, Tuple
+from typing import ClassVar, List, Sequence
 
 import numpy as np
 import pybullet as p
