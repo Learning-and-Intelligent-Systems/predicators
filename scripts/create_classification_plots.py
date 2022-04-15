@@ -1,0 +1,149 @@
+"""Create 2D plots for investigating interactively-learned predicate classifier
+ensembles."""
+
+import os
+from typing import List, Set, Tuple
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+
+from predicators.scripts.evaluate_interactive_approach_classifiers import \
+    create_states_cover
+from predicators.src import utils
+from predicators.src.approaches import create_approach
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
+from predicators.src.envs import create_new_env
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Array, Predicate, Task
+
+
+def _main() -> None:
+    # Parse & validate args
+    args = utils.parse_args()
+    utils.update_config(args)
+    # Create classes.
+    env = create_new_env(CFG.env, do_cache=True)
+    preds, excluded_preds = utils.parse_config_excluded_predicates(env)
+    # Don't need actual train tasks.
+    train_tasks: List[Task] = []
+    # Create the agent (approach).
+    approach = create_approach(CFG.approach, preds, env.options, env.types,
+                               env.action_space, train_tasks)
+    assert isinstance(approach, InteractiveLearningApproach)
+    # Load approach
+    approach.load(online_learning_cycle=None)
+    if CFG.env == "cover":
+        assert isinstance(env, CoverEnv)
+        _plot_cover(env, approach, excluded_preds)
+    else:
+        raise NotImplementedError(
+            f"Plotting not yet implemented for {CFG.env}")
+
+
+DPI = 500
+GRID_SIZE = 40
+TICKS_PER = 5
+COLOR = "Greys"
+
+
+def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
+                excluded_preds: Set[Predicate]) -> None:
+    PRED_NAME = "Covers"
+    Covers = [p for p in excluded_preds if p.name == PRED_NAME][0]
+    # Create state and objects
+    states, blocks, targets = create_states_cover(env)
+    block = blocks[0]
+    target = targets[0]
+    # Get original labelled data points
+    dataset = approach._dataset  # pylint: disable=protected-access
+    # ([target_pose values], [block_pose values])
+    neg_examples: Tuple[List[float], List[float]] = ([], [])
+    pos_examples: Tuple[List[float], List[float]] = ([], [])
+    for (traj, traj_annotations) in zip(dataset.trajectories,
+                                        dataset.annotations):
+        assert len(traj.states) == len(traj_annotations)
+        for (state, state_annotation) in zip(traj.states, traj_annotations):
+            assert len(state_annotation) == 2
+            for examples, annotations in zip((neg_examples, pos_examples),
+                                             state_annotation):
+                for atom in annotations:
+                    if atom.predicate.name != PRED_NAME:
+                        continue
+                    block_pose = state.get(atom.objects[0], "pose")
+                    target_pose = state.get(atom.objects[1], "pose")
+                    examples[0].append(target_pose * GRID_SIZE)
+                    examples[1].append(block_pose * GRID_SIZE)
+    # Aggregate data
+    state = states[0]
+    axis_vals = np.linspace(0.0, 1.0, num=GRID_SIZE)
+    means = np.zeros((GRID_SIZE, GRID_SIZE))
+    stds = np.zeros((GRID_SIZE, GRID_SIZE))
+    true_means = np.zeros((GRID_SIZE, GRID_SIZE))
+    for c, target_pose in enumerate(axis_vals):
+        for r, block_pose in enumerate(axis_vals):
+            new_state = state.copy()
+            new_state.set(block, "pose", block_pose)
+            new_state.set(target, "pose", target_pose)
+            x = new_state.vec((block, target))
+            ps = approach._pred_to_ensemble[PRED_NAME].predict_member_probas(x)  # pylint: disable=protected-access
+            means[r][c] = np.mean(ps)
+            stds[r][c] = np.std(ps)
+            true_means[r][c] = 1 if Covers.holds(new_state,
+                                                 (block, target)) else 0
+    fig, axes = plt.subplots(1, 3, figsize=(8, 6))
+    # Plot means, stds, and true means
+    heatmap(true_means, axes[0], "True Means")
+    heatmap(means, axes[1], "Means")
+    heatmap(stds, axes[2], "Stds")
+    # Plot originally annotated data points
+    for ax in axes[:2]:
+        ax.scatter(pos_examples[0], pos_examples[1], marker="o", c="green")
+        ax.scatter(neg_examples[0], neg_examples[1], marker="o", c="red")
+    fig.suptitle(CFG.experiment_id.replace("_", " "))
+    plt.tight_layout()
+    # Write image
+    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "results")
+    os.makedirs(outdir, exist_ok=True)
+    filename = f"ensemble_predictions__{utils.get_config_path_str()}.png"
+    outfile = os.path.join(outdir, filename)
+    plt.savefig(outfile, dpi=DPI)
+    print(f"Wrote out to {outfile}")
+
+
+def heatmap(data: Array, ax: matplotlib.axis, cbarlabel: str) -> None:
+    """Create a heatmap from a numpy array and two lists of labels."""
+    # Plot the heatmap
+    im = ax.imshow(data, cmap=COLOR)
+    # Create colorbar
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    # Show all ticks
+    ax.set_xticks(np.arange(0, data.shape[1], TICKS_PER))
+    ax.set_yticks(np.arange(0, data.shape[0], TICKS_PER))
+    # why doesn't this work??
+    # labels = list(map(str, [i / GRID_SIZE for i in range(GRID_SIZE)]))
+    # print(labels)
+    # ax.set_xticks(np.arange(0, GRID_SIZE, TICKS_PER), labels=labels)
+    # ax.set_yticks(np.arange(0, GRID_SIZE, TICKS_PER), labels=labels)
+    # Let the horizontal axes labeling appear on top
+    ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+    # Rotate the tick labels and set their alignment
+    plt.setp(ax.get_xticklabels(),
+             rotation=-90,
+             ha="right",
+             rotation_mode="anchor")
+    # ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+    # ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+    ax.tick_params(which="minor", bottom=False, left=False)
+    # Label axes and plot
+    ax.set_title(cbarlabel)
+    ax.set_xlabel("Target Pose")
+    ax.set_ylabel("Block Pose")
+
+
+if __name__ == "__main__":
+    _main()
