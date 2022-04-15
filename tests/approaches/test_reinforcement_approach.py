@@ -10,10 +10,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverMultistepOptions
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset
 from predicators.src.teacher import Teacher
-from predicators.tests.approaches.test_nsrt_learning_approach import \
-    _test_approach
 
 
 def test_reinforcement_learning_approach():
@@ -30,9 +27,9 @@ def test_reinforcement_learning_approach():
     })
     env = CoverMultistepOptions()
     train_tasks = env.get_train_tasks()
-    approach = ReinforcementLearningApproach(
-        env.predicates, env.options, env.types, env.action_space, train_tasks
-    )
+    approach = ReinforcementLearningApproach(env.predicates, env.options,
+                                             env.types, env.action_space,
+                                             train_tasks)
     teacher = Teacher(train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
@@ -40,8 +37,7 @@ def test_reinforcement_learning_approach():
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
-        env, teacher, interaction_requests
-    )
+        env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=1)
     with pytest.raises(FileNotFoundError):

@@ -1,9 +1,8 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import Callable, List, Optional, Sequence, Set
+from typing import Callable, List, Sequence, Set
 
-import dill as pkl
 from gym.spaces import Box
 
 from predicators.src import utils
@@ -11,8 +10,6 @@ from predicators.src.approaches.base_approach import ApproachFailure, \
     ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
-from predicators.src.nsrt_learning.nsrt_learning_main import \
-    learn_pruned_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, GroundAtom, \
     InteractionRequest, InteractionResult, LowLevelTrajectory, \
@@ -32,21 +29,6 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         self.initial_dataset: List[LowLevelTrajectory] = []
         self.online_dataset: List[LowLevelTrajectory] = []
         # initialize option learner?
-
-    def _learn_pruned_nsrts(self,
-                            initial_trajectories: List[LowLevelTrajectory],
-                            trajectories: List[LowLevelTrajectory],
-                            online_learning_cycle: Optional[int]) -> None:
-        self._nsrts = learn_pruned_nsrts_from_data(
-            initial_trajectories,
-            trajectories,
-            self._train_tasks,
-            self._get_current_predicates(),
-            self._action_space,
-            sampler_learner=CFG.sampler_learner)
-        save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
 
     @classmethod
     def get_name(cls) -> str:
@@ -103,7 +85,5 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
             self.online_dataset.append(traj)
 
         # Replace this with an _RLOptionLearner.
-        self._learn_pruned_nsrts(
-            self.initial_dataset,
-            self.initial_dataset + self.online_dataset,
-            online_learning_cycle=self.online_learning_cycle)
+        self._learn_nsrts(self.initial_dataset + self.online_dataset,
+                          online_learning_cycle=self.online_learning_cycle)
