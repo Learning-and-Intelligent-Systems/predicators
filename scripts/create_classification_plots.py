@@ -120,8 +120,7 @@ def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
     # Plot the heatmap
     im = ax.imshow(data, cmap=COLOR)
     # Create colorbar
-    cbar = ax.figure.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    cbar = ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     # Determine axis ticks
     assert data.shape[0] % TICKS_PER == 0
     assert data.shape[1] % TICKS_PER == 0
@@ -140,8 +139,6 @@ def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
              rotation=-90,
              ha="right",
              rotation_mode="anchor")
-    # ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-    # ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
     ax.tick_params(which="minor", bottom=False, left=False)
     # Label axes and plot
     ax.set_title(cbarlabel)
