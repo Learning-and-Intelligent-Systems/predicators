@@ -17,7 +17,8 @@ from predicators.src.structs import NSRT, Dataset, GroundAtom, \
 
 
 class ReinforcementLearningApproach(NSRTLearningApproach):
-    """A bilevel planning approach that learns NSRTs."""
+    """A bilevel planning approach that learns NSRTs from an offline dataset,
+    and continues learning options through reinforcement learning."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -25,21 +26,18 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
-        self.online_learning_cycle = 0
-        self.initial_dataset: List[LowLevelTrajectory] = []
-        self.online_dataset: List[LowLevelTrajectory] = []
-        # initialize option learner?
+        self._online_learning_cycle = 0
+        self._initial_trajectories: List[LowLevelTrajectory] = []
+        self._online_trajectories: List[LowLevelTrajectory] = []
+        # TODO: initialize option learner
 
     @classmethod
     def get_name(cls) -> str:
-        return "reinforcement_learning"
+        return "nsrt_rl"
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # The only thing we need to do here is learn NSRTs,
-        # which we split off into a different function in case
-        # subclasses want to make use of it.
-        self.initial_dataset = dataset.trajectories
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        self._initial_trajectories = dataset.trajectories
+        super().learn_from_offline_dataset(dataset)
 
     @classmethod
     def _make_termination_fn(cls, goal: Set[GroundAtom]) \
@@ -51,6 +49,11 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         return _termination_fn
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
+        # For each training task, try to solve the task to get a policy. If the
+        # task can't be solved, construct a policy from the sequence of _Options
+        # that achieves the longest partial refinement of a valid plan skeleton.
+        # The teacher will collect a trajectory on the training task using this
+        # policy.
         requests = []
         for i in range(len(self._train_tasks)):
             task = self._train_tasks[i]
@@ -65,15 +68,13 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
                 train_task_idx=i,
                 act_policy=_act_policy,
                 query_policy=lambda s: None,
-                termination_function=ReinforcementLearningApproach.
-                _make_termination_fn(task.goal)  # pylint: disable=line-too-long
-            )
+                termination_function=self._make_termination_fn(task.goal))
             requests.append(request)
         return requests
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
-        self.online_learning_cycle += 1
+        self._online_learning_cycle += 1
         # We get one result per training task.
         for i, result in enumerate(results):
             states = result.states
@@ -82,8 +83,10 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
                                       actions,
                                       _is_demo=False,
                                       _train_task_idx=i)
-            self.online_dataset.append(traj)
+            self._online_trajectories.append(traj)
 
         # Replace this with an _RLOptionLearner.
-        self._learn_nsrts(self.initial_dataset + self.online_dataset,
-                          online_learning_cycle=self.online_learning_cycle)
+        self._learn_nsrts(self._initial_trajectories + \
+            self._online_trajectories,
+            online_learning_cycle=self._online_learning_cycle
+        )

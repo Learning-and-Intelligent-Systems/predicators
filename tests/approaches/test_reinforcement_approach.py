@@ -18,7 +18,7 @@ def test_reinforcement_learning_approach():
 
     utils.reset_config({
         "env": "cover_multistep_options",
-        "approach": "reinforcement_learning",
+        "approach": "nsrt_rl",
         "num_train_tasks": 5,
         "num_test_tasks": 5,
         "option_learner": "direct_bc",
