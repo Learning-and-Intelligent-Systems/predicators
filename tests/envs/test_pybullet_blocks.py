@@ -10,7 +10,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Object, State
 from predicators.tests.conftest import longrun
 
-_GUI_ON = False  # toggle for debugging
+_GUI_ON = True  # toggle for debugging
 
 
 class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
@@ -133,7 +133,10 @@ def test_pybullet_blocks_picking(env):
         block: np.array([bx, by, bz, 0.0]),
     })
     env.set_state(init_state)
-    assert env.get_state().allclose(init_state)
+    recovered_state = env.get_state()
+    assert recovered_state.allclose(init_state)
+    # Use the recovered state from here, since it will have joint states.
+    init_state = recovered_state
     # Create an option for picking the block.
     option = env.Pick.ground([robot, block], [])
     state = init_state.copy()

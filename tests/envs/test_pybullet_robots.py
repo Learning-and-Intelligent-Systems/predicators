@@ -161,11 +161,9 @@ def test_fetch_pybullet_robot():
     max_vel_norm = 0.05
     robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
                                max_vel_norm, physics_client_id)
-    finger_joint_lb, finger_joint_ub = robot.finger_joint_bounds
-    assert np.allclose(robot.action_space.low[:3], [-max_vel_norm] * 3)
-    assert np.allclose(robot.action_space.high[:3], [max_vel_norm] * 3)
-    assert np.allclose(robot.action_space.low[3], finger_joint_lb)
-    assert np.allclose(robot.action_space.high[3], finger_joint_ub)
+    lb, ub = robot.arm_joint_bounds
+    assert np.allclose(robot.action_space.low, [lb] * 4)
+    assert np.allclose(robot.action_space.high, [ub] * 4)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
