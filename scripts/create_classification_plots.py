@@ -79,9 +79,9 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     # Aggregate data
     state = states[0]
     axis_vals = np.linspace(0.0, 1.0, num=GRID_SIZE)
-    means = np.zeros((GRID_SIZE, GRID_SIZE))
-    stds = np.zeros((GRID_SIZE, GRID_SIZE))
-    true_means = np.zeros((GRID_SIZE, GRID_SIZE))
+    means = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
+    stds = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
+    true_means = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
     for c, target_pose in enumerate(axis_vals):
         for r, block_pose in enumerate(axis_vals):
             new_state = state.copy()
@@ -93,11 +93,16 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
             stds[r][c] = np.std(ps)
             true_means[r][c] = 1 if Covers.holds(new_state,
                                                  (block, target)) else 0
-    fig, axes = plt.subplots(1, 3, figsize=(8, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(8, 3))
     # Plot means, stds, and true means
     heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
     heatmap(means, axes[1], axis_vals, axis_vals, "Means")
-    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds", normalize_color_map=False)
+    heatmap(stds,
+            axes[2],
+            axis_vals,
+            axis_vals,
+            "Stds",
+            normalize_color_map=False)
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0], pos_examples[1], marker="o", c="green")
@@ -114,8 +119,11 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     print(f"Wrote out to {outfile}")
 
 
-def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
-            y_axis_vals: Array, cbarlabel: str,
+def heatmap(data: Array,
+            ax: matplotlib.axis,
+            x_axis_vals: Array,
+            y_axis_vals: Array,
+            cbarlabel: str,
             normalize_color_map: bool = True) -> None:
     """Create a heatmap from a numpy array and two lists of labels."""
     # Plot the heatmap
@@ -126,7 +134,7 @@ def heatmap(data: Array, ax: matplotlib.axis, x_axis_vals: Array,
     im = ax.imshow(data, cmap=COLOR, norm=norm)
     # Create colorbar
     # Reference for magic numbers: https://stackoverflow.com/questions/18195758
-    cbar = ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     # Determine axis ticks
     assert data.shape[0] % TICKS_PER == 0
     assert data.shape[1] % TICKS_PER == 0
