@@ -19,7 +19,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Query, State, Task, Type
+    Query, State, Task, Type, _GroundNSRT
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -186,6 +186,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns an action policy and a termination function."""
         if CFG.interactive_action_strategy == "glib":
             return self._create_glib_interaction_strategy(train_task_idx)
+        if CFG.interactive_action_strategy == "greedy_lookahead":
+            return self._create_greedy_lookahead_interaction_strategy(
+                train_task_idx)
         if CFG.interactive_action_strategy == "random":
             return self._create_random_interaction_strategy(train_task_idx)
         raise NotImplementedError("Unrecognized interactive_action_strategy:"
@@ -254,6 +257,72 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Stop the episode if we reach the goal that we babbled.
         termination_function = task.goal_holds
         return act_policy, termination_function
+
+    def _create_greedy_lookahead_interaction_strategy(
+        self, train_task_idx: int
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Sample a certain number of max-length trajectories and pick the one
+        that has the highest cumulative score."""
+        init = self._train_tasks[train_task_idx].init
+        # Sample trajectories by sampling random sequences of NSRTs.
+        # TODO: convert to hyperparameters.
+        max_num_trajectories = 10
+        max_trajectory_length = 2
+        best_score = -np.inf
+        best_options = []
+        for _ in range(max_num_trajectories):
+            state = init.copy()
+            options = []
+            trajectory_length = 0
+            total_score = 0.0
+            while trajectory_length < max_trajectory_length:
+                # Sample an NSRT that has preconditions satisfied in the
+                # current state.
+                ground_nsrt = self._sample_applicable_ground_nsrt(state)
+                assert all(a.holds for a in ground_nsrt.preconditions)
+                # Sample an option. Note that goal is assumed not used.
+                option = ground_nsrt.sample_option(state,
+                                                   goal=set(),
+                                                   rng=self._rng)
+                # Assume for now that options will be initiable when the
+                # preconditions of the NSRT are satisfied.
+                assert option.initiable(state)
+                state, num_actions = self._option_model.get_next_state_and_num_actions(
+                    state, option)
+                # Special case: if the num actions is 0, something went wrong,
+                # and we don't want to use this option after all. To prevent
+                # possible infinite loops, just break immediately in this case.
+                if num_actions == 0:
+                    break
+                options.append(option)
+                trajectory_length += num_actions
+                # Update the total score.
+                atoms = utils.abstract(state, self._predicates_to_learn)
+                total_score += self._score_atom_set(atoms, state)
+            if total_score > best_score:
+                best_score = total_score
+                best_options = options
+
+        act_policy = utils.option_plan_to_policy(best_options)
+        # When the act policy finishes, an OptionExecutionFailure is raised
+        # and caught, terminating the episode.
+        termination_function = lambda s: False
+
+        return act_policy, termination_function
+
+    def _sample_applicable_ground_nsrt(self, state: State) -> _GroundNSRT:
+        """Choose uniformly among the ground NSRTs that are applicable in the
+        state."""
+        ground_nsrts = []
+        for nsrt in sorted(self._get_current_nsrts()):
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, list(state)):
+                ground_nsrts.append(ground_nsrt)
+        atoms = utils.abstract(state, self._get_current_predicates())
+        applicable_nsrts = sorted(
+            utils.get_applicable_operators(ground_nsrts, atoms))
+        assert len(applicable_nsrts) > 0  # TODO handle this case
+        idx = self._rng.choice(len(applicable_nsrts))
+        return applicable_nsrts[idx]
 
     def _create_random_interaction_strategy(
         self, train_task_idx: int
