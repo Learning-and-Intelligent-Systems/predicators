@@ -328,38 +328,68 @@ class PyBulletEnv(BaseEnv):
         being opened or closed, we nudge the fingers toward being open
         or closed according to the finger status.
         """
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            # First handle the main arm joints.
+        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> bool:
+            # Extract the current joint state.
+            current_joints = cast(_PyBulletState, state).joint_state
+            # Extract the current finger state from the simulator state.
+            finger_state = self._get_finger_state(state)
+            # Make a plan in joint space.
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
                     state, objects, params)
-            # Run IK to determine the target joint positions.
+            # TODO: this validate might screw things up, check.
+            target_joints = self._pybullet_robot.run_inverse_kinematics(
+                target, validate=False)
+            # Soon, we will want to do motion planning and check collisions
+            # here, but for now, linear interpolation in joint space is ok.
+            # Use the difference between the current and target poses to
+            # determine how many steps to take so that we conform to the
+            # max velocity constraint.
             ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
             ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            if ee_norm > self._max_vel_norm:
-                ee_delta = ee_delta * self._max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # We assume that the robot is already close enough to the target
-            # position that IK will succeed with one call, so validate is False.
-            # Furthermore, updating the state of the robot during simulation,
-            # which validate=True would do, is discouraged by PyBullet.
-            joint_state = self._pybullet_robot.run_inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+            num_steps = int(np.ceil(ee_norm / self._max_vel_norm))
+            plan = np.linspace(current_joints, target_joints, num_steps)
+            memory["waypoints"] = plan.tolist()
+            memory["finger_status"] = finger_status
+            # Always initiable.
+            return True
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            assert "waypoints" in memory and "finger_status" in memory, \
+                "initiable() must be called before policy()"
+            # Extract the current joint state.
+            current_joints = cast(_PyBulletState, state).joint_state
+            # Extract the current finger state from the simulator state.
+            finger_state = self._get_finger_state(state)
+            finger_status = memory["finger_status"]
+            # Determine if we have reached the next waypoint in the plan.
+            # The only way that the plan would be empty is if we were
+            # already close enough to the final waypoint, i.e. the target,
+            # in which case the option should have terminated and the
+            # policy should no longer be getting called.
+            waypoint = memory["waypoints"][0]
+            # The finger states should not be used in the distance computation
+            # because they will get overriden below.
+            waypoint[self._pybullet_robot.left_finger_joint_idx] = finger_state
+            waypoint[self._pybullet_robot.right_finger_joint_idx] = finger_state
+            squared_dist = np.sum(np.square(np.subtract(current_joints, waypoint)))
+            if squared_dist < self._move_to_pose_tol:
+                # Advance the plan.
+                memory["waypoints"].pop(0)
+                assert memory["waypoints"]
+                waypoint = memory["waypoints"][0]
             # Handle the fingers.
             if finger_status == "open":
                 finger_delta = self._finger_action_nudge_magnitude
             else:
                 assert finger_status == "closed"
                 finger_delta = -self._finger_action_nudge_magnitude
-            # Extract the current finger state from the simulator state.
-            finger_state = self._get_finger_state(state)
             # The finger action is an absolute joint position for the fingers.
             f_action = finger_state + finger_delta
-            # Override the meaningless finger values in joint_action.
+            # Override the meaningless finger values.
+            joint_state = waypoint.copy()
             joint_state[self._pybullet_robot.left_finger_joint_idx] = f_action
             joint_state[self._pybullet_robot.right_finger_joint_idx] = f_action
             action_arr = np.array(joint_state, dtype=np.float32)
@@ -371,18 +401,22 @@ class PyBulletEnv(BaseEnv):
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            del memory  # unused
-            current, target, _ = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            squared_dist = np.sum(np.square(np.subtract(current, target)))
+            assert "waypoints" in memory, \
+                "initiable() must be called before terminal()"
+            current_joints = cast(_PyBulletState, state).joint_state
+            waypoint = memory["waypoints"][0]
+            # The finger states should not be used in the distance computation.
+            finger_state = self._get_finger_state(state)
+            waypoint[self._pybullet_robot.left_finger_joint_idx] = finger_state
+            waypoint[self._pybullet_robot.right_finger_joint_idx] = finger_state
+            squared_dist = np.sum(np.square(np.subtract(current_joints, waypoint)))
             return squared_dist < self._move_to_pose_tol
 
         return ParameterizedOption(name,
                                    types=types,
                                    params_space=params_space,
                                    policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
+                                   initiable=_initiable,
                                    terminal=_terminal)
 
     def _create_change_fingers_option(

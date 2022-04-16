@@ -295,6 +295,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 params: Array) -> Tuple[Pose3D, Pose3D, str]:
             assert not params
             robot, block = objects
+            print("RUNNING _create_blocks_move_to_above_block_option with z=", z_func(state.get(block, "pose_z")))
             current_pose = (state.get(robot,
                                       "pose_x"), state.get(robot, "pose_y"),
                             state.get(robot, "pose_z"))
