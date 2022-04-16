@@ -338,9 +338,8 @@ class PyBulletEnv(BaseEnv):
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
                     state, objects, params)
-            # TODO: this validate might screw things up, check.
             target_joints = self._pybullet_robot.run_inverse_kinematics(
-                target, validate=False)
+                target, validate=True)
             # Soon, we will want to do motion planning and check collisions
             # here, but for now, linear interpolation in joint space is ok.
             # Use the difference between the current and target poses to
@@ -348,7 +347,12 @@ class PyBulletEnv(BaseEnv):
             # max velocity constraint.
             ee_delta = np.subtract(target, current)
             ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            num_steps = int(np.ceil(ee_norm / self._max_vel_norm))
+            # Special case: we're already at the target. We should terminate
+            # successfully in one step.
+            if ee_norm == 0.0:
+                num_steps = 1
+            else:
+                num_steps = int(np.ceil(ee_norm / self._max_vel_norm))
             plan = np.linspace(current_joints, target_joints, num_steps)
             memory["waypoints"] = plan.tolist()
             memory["finger_status"] = finger_status
@@ -404,12 +408,12 @@ class PyBulletEnv(BaseEnv):
             assert "waypoints" in memory, \
                 "initiable() must be called before terminal()"
             current_joints = cast(_PyBulletState, state).joint_state
-            waypoint = memory["waypoints"][0]
+            final_joints = memory["waypoints"][-1]
             # The finger states should not be used in the distance computation.
             finger_state = self._get_finger_state(state)
-            waypoint[self._pybullet_robot.left_finger_joint_idx] = finger_state
-            waypoint[self._pybullet_robot.right_finger_joint_idx] = finger_state
-            squared_dist = np.sum(np.square(np.subtract(current_joints, waypoint)))
+            final_joints[self._pybullet_robot.left_finger_joint_idx] = finger_state
+            final_joints[self._pybullet_robot.right_finger_joint_idx] = finger_state
+            squared_dist = np.sum(np.square(np.subtract(current_joints, final_joints)))
             return squared_dist < self._move_to_pose_tol
 
         return ParameterizedOption(name,

@@ -305,8 +305,8 @@ def test_pybullet_blocks_putontable(env):
     # And block should be on the table.
     assert OnTable([block]).holds(state)
     # Specifically, it should be at the center of the workspace.
-    assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
-    assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
+    assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-2
+    assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-2
 
 
 @longrun
