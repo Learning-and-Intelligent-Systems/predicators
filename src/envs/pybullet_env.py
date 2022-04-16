@@ -328,8 +328,15 @@ class PyBulletEnv(BaseEnv):
         being opened or closed, we nudge the fingers toward being open
         or closed according to the finger status.
         """
+
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
+            # This is a really hacky hack to handle the situation where we are
+            # planning with a simplified model (that from the Blocks env) where
+            # states do not have joints. In this case, we want the option to
+            # be always initiable.
+            if not hasattr(state, "joint_state"):
+                return True
             # Extract the current joint state.
             current_joints = cast(_PyBulletState, state).joint_state
             # Extract the current finger state from the simulator state.
@@ -377,8 +384,10 @@ class PyBulletEnv(BaseEnv):
             # The finger states should not be used in the distance computation
             # because they will get overriden below.
             waypoint[self._pybullet_robot.left_finger_joint_idx] = finger_state
-            waypoint[self._pybullet_robot.right_finger_joint_idx] = finger_state
-            squared_dist = np.sum(np.square(np.subtract(current_joints, waypoint)))
+            waypoint[
+                self._pybullet_robot.right_finger_joint_idx] = finger_state
+            squared_dist = np.sum(
+                np.square(np.subtract(current_joints, waypoint)))
             if squared_dist < self._move_to_pose_tol:
                 # Advance the plan.
                 memory["waypoints"].pop(0)
@@ -411,9 +420,12 @@ class PyBulletEnv(BaseEnv):
             final_joints = memory["waypoints"][-1]
             # The finger states should not be used in the distance computation.
             finger_state = self._get_finger_state(state)
-            final_joints[self._pybullet_robot.left_finger_joint_idx] = finger_state
-            final_joints[self._pybullet_robot.right_finger_joint_idx] = finger_state
-            squared_dist = np.sum(np.square(np.subtract(current_joints, final_joints)))
+            final_joints[
+                self._pybullet_robot.left_finger_joint_idx] = finger_state
+            final_joints[
+                self._pybullet_robot.right_finger_joint_idx] = finger_state
+            squared_dist = np.sum(
+                np.square(np.subtract(current_joints, final_joints)))
             return squared_dist < self._move_to_pose_tol
 
         return ParameterizedOption(name,
