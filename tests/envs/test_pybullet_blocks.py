@@ -7,7 +7,7 @@ from predicators.src import utils
 from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv, \
     _PyBulletState
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Object, State
+from predicators.src.structs import Object, State
 from predicators.tests.conftest import longrun
 
 _GUI_ON = False  # toggle for debugging
@@ -133,7 +133,10 @@ def test_pybullet_blocks_picking(env):
         block: np.array([bx, by, bz, 0.0]),
     })
     env.set_state(init_state)
-    assert env.get_state().allclose(init_state)
+    recovered_state = env.get_state()
+    assert recovered_state.allclose(init_state)
+    # Use the recovered state from here, since it will have joint states.
+    init_state = recovered_state
     # Create an option for picking the block.
     option = env.Pick.ground([robot, block], [])
     state = init_state.copy()
@@ -148,22 +151,6 @@ def test_pybullet_blocks_picking(env):
         state = env.step(action)
     # The block should now be held.
     assert state.get(block, "held") == 1.0
-    # Test the case where the right finger is on the left side of the block,
-    # but within the grasp tolerance. The contact normal check should prevent
-    # a holding constraint from being created.
-    env.set_state(init_state)
-    state = init_state.copy()
-    move_left_actions = [
-        # Move to the left of the block.
-        Action(np.array([0.0, env.block_size, 0.0, 0.0], dtype=np.float32)),
-        # Make room for the finger.
-        Action(np.array([0.0, 0.04, 0.0, 0.0], dtype=np.float32)),
-    ]
-    actions = move_left_actions + pick_actions
-    for action in actions:
-        state = env.step(action)
-    # The block should NOT be held.
-    assert state.get(block, "held") == 0.0
 
 
 @longrun
