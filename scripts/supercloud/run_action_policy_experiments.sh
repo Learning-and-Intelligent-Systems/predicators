@@ -16,6 +16,6 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # glib
     python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy glib
     # greedy lookahead
-    python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy greedy_lookahead
+    python $FILE $COMMON_ARGS --experiment_id greedy_lookahead --interactive_action_strategy greedy_lookahead
 
 done
