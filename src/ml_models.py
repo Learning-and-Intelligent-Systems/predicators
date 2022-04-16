@@ -778,6 +778,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
+        for linear in self._linears:
+            torch.nn.init.normal_(linear.weight, std=1)
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCELoss()
