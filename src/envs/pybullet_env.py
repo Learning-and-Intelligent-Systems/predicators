@@ -331,12 +331,13 @@ class PyBulletEnv(BaseEnv):
 
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            del objects, params  # unused
             # This is a really hacky hack to handle the situation where we are
             # planning with a simplified model (that from the Blocks env) where
             # states do not have joints. In this case, we want the option to
-            # be always initiable.
-            if not hasattr(state, "joint_state"):
+            # be always initiable. Furthermore, we use pragma here because
+            # the oracle approach is not unit tested on this environment
+            # because it would be too slow.
+            if not hasattr(state, "joint_state"):  # pragma: no cover
                 return True
             # Extract the current joint state.
             current_joints = cast(_PyBulletState, state).joint_state
