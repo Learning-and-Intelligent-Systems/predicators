@@ -331,6 +331,7 @@ class PyBulletEnv(BaseEnv):
 
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
+            del objects, params  # unused
             # This is a really hacky hack to handle the situation where we are
             # planning with a simplified model (that from the Blocks env) where
             # states do not have joints. In this case, we want the option to
@@ -339,8 +340,6 @@ class PyBulletEnv(BaseEnv):
                 return True
             # Extract the current joint state.
             current_joints = cast(_PyBulletState, state).joint_state
-            # Extract the current finger state from the simulator state.
-            finger_state = self._get_finger_state(state)
             # Make a plan in joint space.
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
@@ -368,6 +367,7 @@ class PyBulletEnv(BaseEnv):
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
+            del objects, params  # unused
             assert "waypoints" in memory and "finger_status" in memory, \
                 "initiable() must be called before policy()"
             # Extract the current joint state.
@@ -414,6 +414,7 @@ class PyBulletEnv(BaseEnv):
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
+            del objects, params  # unused
             assert "waypoints" in memory, \
                 "initiable() must be called before terminal()"
             current_joints = cast(_PyBulletState, state).joint_state
