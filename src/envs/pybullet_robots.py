@@ -133,9 +133,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def run_inverse_kinematics(self,
-                               end_effector_pose: Pose3D,
-                               validate: bool = True) -> List[float]:
+    def run_inverse_kinematics(self, end_effector_pose: Pose3D,
+                               validate: bool) -> List[float]:
         """Run inverse kinematics."""
         raise NotImplementedError("Override me!")
 
@@ -179,7 +178,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         self._arm_joints.append(self._right_finger_id)
 
         self._initial_joint_values = self.run_inverse_kinematics(
-            self._ee_home_pose)
+            self._ee_home_pose, validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
         self._initial_joint_values[-2] = self._open_fingers
@@ -285,9 +284,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-    def run_inverse_kinematics(self,
-                               end_effector_pose: Pose3D,
-                               validate: bool = True) -> List[float]:
+    def run_inverse_kinematics(self, end_effector_pose: Pose3D,
+                               validate: bool) -> List[float]:
         return inverse_kinematics(self._fetch_id,
                                   self._ee_id,
                                   end_effector_pose,
