@@ -332,9 +332,24 @@ class PyBulletEnv(BaseEnv):
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
             del memory  # unused
+            # First handle the main arm joints.
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
                     state, objects, params)
+            # Run IK to determine the target joint positions.
+            ee_delta = np.subtract(target, current)
+            # Reduce the target to conform to the max velocity constraint.
+            ee_norm = np.linalg.norm(ee_delta)  # type: ignore
+            if ee_norm > self._max_vel_norm:
+                ee_delta = ee_delta * self._max_vel_norm / ee_norm
+            ee_action = np.add(current, ee_delta)
+            # We assume that the robot is already close enough to the target
+            # position that IK will succeed with one call, so validate is False.
+            # Furthermore, updating the state of the robot during simulation,
+            # which validate=True would do, is discouraged by PyBullet.
+            joint_state = self._pybullet_robot.run_inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+            # Handle the fingers.
             if finger_status == "open":
                 finger_delta = self._finger_action_nudge_magnitude
             else:
@@ -343,14 +358,16 @@ class PyBulletEnv(BaseEnv):
             # Extract the current finger state from the simulator state.
             finger_state = self._get_finger_state(state)
             # The finger action is an absolute joint position for the fingers.
-            finger_action = finger_state + finger_delta
-            action = np.subtract(target, current)
-            action_norm = np.linalg.norm(action)  # type: ignore
-            if action_norm > self._max_vel_norm:
-                action = action * self._max_vel_norm / action_norm
-            action = np.r_[action, finger_action].astype(np.float32)
-            assert self.action_space.contains(action)
-            return Action(action)
+            f_action = finger_state + finger_delta
+            # Override the meaningless finger values in joint_action.
+            joint_state[self._pybullet_robot.left_finger_joint_idx] = f_action
+            joint_state[self._pybullet_robot.right_finger_joint_idx] = f_action
+            action_arr = np.array(joint_state, dtype=np.float32)
+            # This clipping is needed sometimes for the finger joint limits.
+            action_arr = np.clip(action_arr, self.action_space.low,
+                                 self.action_space.high)
+            assert self.action_space.contains(action_arr)
+            return Action(action_arr)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
@@ -386,7 +403,13 @@ class PyBulletEnv(BaseEnv):
             f_delta = target_val - current_val
             f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
             f_action = current_val + f_delta
-            return Action(np.array([0., 0., 0., f_action], dtype=np.float32))
+            # Don't change the rest of the joints.
+            state = cast(_PyBulletState, state)
+            target = np.array(state.joint_state, dtype=np.float32)
+            target[self._pybullet_robot.left_finger_joint_idx] = f_action
+            target[self._pybullet_robot.right_finger_joint_idx] = f_action
+            assert self.action_space.contains(target)
+            return Action(target)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
