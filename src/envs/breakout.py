@@ -21,10 +21,14 @@ class BreakoutEnv(BaseEnv):
 
     brick_height: ClassVar[int] = 6
     brick_width: ClassVar[int] = 8
-    brick_top_row: ClassVar[int] = 56
+    brick_top_row: ClassVar[int] = 57
     brick_left_col: ClassVar[int] = 8
     brick_num_rows: ClassVar[int] = 6
     brick_num_cols: ClassVar[int] = 18
+    paddle_height: ClassVar[int] = 4
+    paddle_width: ClassVar[int] = 16
+    paddle_row: ClassVar[int] = 189
+    side_wall_width: ClassVar[int] = 8
 
     def __init__(self) -> None:
         super().__init__()
@@ -125,10 +129,16 @@ class BreakoutEnv(BaseEnv):
 
         state = self._observation_to_state(img)
         for brick in state.get_objects(self._brick_type):
+            if not self._BrickAlive_holds(state, [brick]):
+                continue
             r = state.get(brick, "r")
             c = state.get(brick, "c")
-            rect = patches.Rectangle((c, r), self.brick_width, self.brick_height, linewidth=1, edgecolor='r', facecolor='none')
+            rect = patches.Rectangle((c - 0.5, r - 0.5), self.brick_width, self.brick_height, linewidth=1, edgecolor='r', facecolor='none')
             ax.add_patch(rect)
+        r = self.paddle_row
+        c = state.get(self._paddle, "c")
+        rect = patches.Rectangle((c - 0.5, r - 0.5), self.paddle_width, self.paddle_height, linewidth=1, edgecolor='r', facecolor='none')
+        ax.add_patch(rect)
 
         plt.tight_layout()
         img = utils.fig2data(fig)
@@ -169,13 +179,18 @@ class BreakoutEnv(BaseEnv):
             r = self.brick_top_row + self.brick_height * brick_row
             for brick_col in range(self.brick_num_cols):
                 c = self.brick_left_col + self.brick_width * brick_col
-                alive = True  # TODO
+                crop = obs[r:r+self.brick_height, c:c+self.brick_width]
+                alive = np.any(crop)
                 name = f"brick{brick_row}-{brick_col}"
                 brick = Object(name, self._brick_type)
                 state_dict[brick] = {"r": r, "c": c, "alive": alive}
 
         # Add the paddle.
-        state_dict[self._paddle] = {"c": 40}  # TODO
+        left_pad = self. side_wall_width
+        crop = obs[self.paddle_row, left_pad:].max(axis=-1)
+        offset_c = np.argwhere(crop)[0].item()
+        c = left_pad + offset_c
+        state_dict[self._paddle] = {"c": c}
 
         # Add the ball.
         # TODO
