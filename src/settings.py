@@ -201,6 +201,7 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_mlp_classifier_n_reinitialize_tries = 1
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
 
@@ -213,7 +214,10 @@ class GlobalSettings:
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
     interactive_num_requests_per_cycle = 10
+    predicate_mlp_classifier_n_reinitialize_tries = 5
     predicate_mlp_classifier_max_itr = 1000
+    predicate_mlp_classifier_init = "normal"  # or "uniform" or "default"
+    predicate_mlp_classifier_init_std = 1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

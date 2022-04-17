@@ -299,13 +299,15 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int) -> None:
+                 learning_rate: float, n_iter_no_change: int,
+                 n_reinitialize_tries: int) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
         self._n_iter_no_change = n_iter_no_change
+        self._n_reinitialize_tries = n_reinitialize_tries
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -334,24 +336,41 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """Create an optimizer after the model is initialized."""
         return optim.Adam(self.parameters(), lr=self._learning_rate)
 
+    def _reset_weights(self) -> None:
+        """(Re-)initialize the network weights."""
+        self.apply(self._weight_reset)
+
+    @staticmethod
+    def _weight_reset(m: torch.nn.Module) -> None:
+        if isinstance(m, nn.Linear):
+            m.reset_parameters()
+
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
-        # Create the loss function.
-        loss_fn = self._create_loss_fn()
-        # Create the optimizer.
-        optimizer = self._create_optimizer()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
-        # Run training.
-        _train_pytorch_model(self,
-                             loss_fn,
-                             optimizer,
-                             batch_generator,
-                             max_iters=self._max_train_iters,
-                             n_iter_no_change=self._n_iter_no_change)
+        for _ in range(self._n_reinitialize_tries):
+            # (Re-)initialize weights.
+            self._reset_weights()
+            # Create the loss function.
+            loss_fn = self._create_loss_fn()
+            # Create the optimizer.
+            optimizer = self._create_optimizer()
+            # Run training.
+            best_loss = _train_pytorch_model(self,
+                                loss_fn,
+                                optimizer,
+                                batch_generator,
+                                max_iters=self._max_train_iters,
+                                n_iter_no_change=self._n_iter_no_change)
+            if best_loss < 1:
+                break  # success!
+        else:
+            raise RuntimeError(f"Failed to converge within "
+                f"{self._n_reinitialize_tries} tries")
 
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
@@ -765,9 +784,9 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int]) -> None:
+                 n_reinitialize_tries: int, hid_sizes: List[int]) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
-                         n_iter_no_change)
+                         n_iter_no_change, n_reinitialize_tries)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -778,8 +797,12 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
-        for linear in self._linears:
-            torch.nn.init.normal_(linear.weight, std=1)
+        self._reset_weights()
+
+    @staticmethod
+    def _weight_reset(m: torch.nn.Module) -> None:
+        if isinstance(m, nn.Linear):
+            torch.nn.init.uniform_(m.weight, -3, 3)
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCELoss()
@@ -797,11 +820,13 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int], ensemble_size: int) -> None:
+                 n_reinitialize_tries: int, hid_sizes: List[int],
+                 ensemble_size: int) -> None:
         super().__init__(seed)
         self._members = [
             MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
-                                learning_rate, n_iter_no_change, hid_sizes)
+                                learning_rate, n_iter_no_change,
+                                n_reinitialize_tries, hid_sizes)
             for i in range(ensemble_size)
         ]
 
@@ -890,7 +915,7 @@ def _train_pytorch_model(model: nn.Module,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
-                         n_iter_no_change: int = 10000000) -> None:
+                         n_iter_no_change: int = 10000000) -> float:
     """Note that this currently does not use minibatches.
 
     In the future, with very large datasets, we would want to switch to
@@ -928,3 +953,4 @@ def _train_pytorch_model(model: nn.Module,
     os.remove(model_name)
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
+    return best_loss
