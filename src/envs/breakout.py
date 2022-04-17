@@ -128,46 +128,49 @@ class BreakoutEnv(BaseEnv):
         most_recent_obs = self._current_obs[1]
 
         # For debugging perception.
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        ax.set_xlim((0, most_recent_obs.shape[1]))
-        ax.set_ylim((most_recent_obs.shape[0], 0))
-        ax.imshow(most_recent_obs, alpha=0.5)
+        if CFG.breakout_debug_render:
+            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+            ax.set_xlim((0, most_recent_obs.shape[1]))
+            ax.set_ylim((most_recent_obs.shape[0], 0))
+            ax.imshow(most_recent_obs, alpha=0.5)
 
-        state = self._observation_to_state(self._current_obs)
-        for brick in state.get_objects(self._brick_type):
-            if not self._BrickAlive_holds(state, [brick]):
-                continue
-            r = state.get(brick, "r")
-            c = state.get(brick, "c")
+            state = self._observation_to_state(self._current_obs)
+            for brick in state.get_objects(self._brick_type):
+                if not self._BrickAlive_holds(state, [brick]):
+                    continue
+                r = state.get(brick, "r")
+                c = state.get(brick, "c")
+                rect = patches.Rectangle((c - 0.5, r - 0.5),
+                                         self.brick_width,
+                                         self.brick_height,
+                                         linewidth=1,
+                                         edgecolor='r',
+                                         facecolor='none')
+                ax.add_patch(rect)
+            r = self.paddle_row
+            c = state.get(self._paddle, "c")
             rect = patches.Rectangle((c - 0.5, r - 0.5),
-                                     self.brick_width,
-                                     self.brick_height,
+                                     self.paddle_width,
+                                     self.paddle_height,
                                      linewidth=1,
                                      edgecolor='r',
                                      facecolor='none')
             ax.add_patch(rect)
-        r = self.paddle_row
-        c = state.get(self._paddle, "c")
-        rect = patches.Rectangle((c - 0.5, r - 0.5),
-                                 self.paddle_width,
-                                 self.paddle_height,
-                                 linewidth=1,
-                                 edgecolor='r',
-                                 facecolor='none')
-        ax.add_patch(rect)
-        r = state.get(self._ball, "r")
-        c = state.get(self._ball, "c")
-        rect = patches.Rectangle((c - 0.5, r - 0.5),
-                                 self.ball_width,
-                                 self.ball_height,
-                                 linewidth=1,
-                                 edgecolor='r',
-                                 facecolor='none')
-        ax.add_patch(rect)
+            r = state.get(self._ball, "r")
+            c = state.get(self._ball, "c")
+            rect = patches.Rectangle((c - 0.5, r - 0.5),
+                                     self.ball_width,
+                                     self.ball_height,
+                                     linewidth=1,
+                                     edgecolor='r',
+                                     facecolor='none')
+            ax.add_patch(rect)
 
-        plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
+            plt.tight_layout()
+            img = utils.fig2data(fig)
+            plt.close()
+        else:
+            img = most_recent_obs
 
         return [img]
 

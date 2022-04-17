@@ -124,6 +124,9 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
+    # breakout env parameters
+    breakout_debug_render = False
+
     # parameters for random options approach
     random_options_max_tries = 100
 
