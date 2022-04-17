@@ -37,7 +37,7 @@ class BreakoutEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._paddle_type = Type("paddle", ["c"])
+        self._paddle_type = Type("paddle", ["c", "dc", "w"])
         self._ball_type = Type("ball", ["r", "c", "dr", "dc"])
         self._brick_type = Type("brick", ["r", "c", "alive"])
         # Predicates
@@ -51,7 +51,8 @@ class BreakoutEnv(BaseEnv):
         self._paddle = Object("paddle", self._paddle_type)
         self._ball = Object("ball", self._ball_type)
         # Gym environment.
-        self._gym_env = FrameStack(gym.make("BreakoutNoFrameskip-v0"), 2)
+        self._gym_env = FrameStack(gym.make("BreakoutNoFrameskip-v4",
+                                   repeat_action_probability=0.0), 2)
 
     @classmethod
     def get_name(cls) -> str:
@@ -209,36 +210,27 @@ class BreakoutEnv(BaseEnv):
         state_dict = {}
         all_crop_bounds = []
 
-        # Use the current frame to detect the bricks and paddle.
-        frame = obs[1]
-
         # Start with the bricks.
         for brick_row in range(self.brick_num_rows):
             r = self.brick_top_row + self.brick_height * brick_row
             for brick_col in range(self.brick_num_cols):
                 c = self.brick_left_col + self.brick_width * brick_col
-                crop = frame[r:r + self.brick_height, c:c + self.brick_width]
-                all_crop_bounds.append(
-                    (r, r + self.brick_height, c, c + self.brick_width))
+                crop = obs[1][r:r + self.brick_height, c:c + self.brick_width]
                 alive = np.any(crop)
                 name = f"brick{brick_row}-{brick_col}"
                 brick = Object(name, self._brick_type)
                 state_dict[brick] = {"r": r, "c": c, "alive": alive}
+                all_crop_bounds.append(
+                    (r, r + self.brick_height, c, c + self.brick_width))
 
         # Add the paddle.
-        left_pad = self.side_wall_width
-        detection_line = frame[self.paddle_row, left_pad:].max(axis=-1)
-        # The logical and here is to handle the case where the ball is in the
-        # same row as the paddle.
-        shift = self.ball_width + 1
-        shifted_line = np.zeros_like(detection_line)
-        shifted_line[:-shift] = detection_line[shift:]
-        offset_c = np.argwhere(detection_line & shifted_line)[0].item()
-        c = left_pad + offset_c
+        c0 = self._frame_to_paddle_position(obs[0])
+        c1 = self._frame_to_paddle_position(obs[1])
+        dc = c1 - c0
+        state_dict[self._paddle] = {"c": c1, "dc": dc, "w": self.paddle_width}
         all_crop_bounds.append(
-            (self.paddle_row, self.paddle_row + self.paddle_height, c,
-             c + self.paddle_width))
-        state_dict[self._paddle] = {"c": c}
+            (self.paddle_row, self.paddle_row + self.paddle_height, c1,
+             c1 + self.paddle_width))
 
         # Add the ball.
         r0, c0 = self._frame_to_ball_position(obs[0], all_crop_bounds)
@@ -253,6 +245,18 @@ class BreakoutEnv(BaseEnv):
         state_dict[self._ball] = {"r": r1, "c": c1, "dr": dr, "dc": dc}
 
         return utils.create_state_from_dict(state_dict)
+
+    def _frame_to_paddle_position(self, frame: NDArray[np.uint8]) -> int:
+        left_pad = self.side_wall_width
+        detection_line = frame[self.paddle_row, left_pad:].max(axis=-1)
+        # The logical and here is to handle the case where the ball is in the
+        # same row as the paddle.
+        shift = self.ball_width + 1
+        shifted_line = np.zeros_like(detection_line)
+        shifted_line[:-shift] = detection_line[shift:]
+        offset_c = np.argwhere(detection_line & shifted_line)[0].item()
+        c = left_pad + offset_c
+        return c
 
     def _frame_to_ball_position(
         self, frame: NDArray[np.uint8],

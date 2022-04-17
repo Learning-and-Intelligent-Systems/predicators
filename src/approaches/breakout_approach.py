@@ -33,11 +33,15 @@ class HardcodedBreakoutApproach(BaseApproach):
             paddle, = state.get_objects(paddle_type)
 
             ball_c = state.get(ball, "c")
-            paddle_c = state.get(paddle, "c")
+            paddle_c = state.get(paddle, "c") + state.get(paddle, "w")/2
+            paddle_dc = state.get(paddle, "dc")
 
-            if ball_c < paddle_c:
+            # If the ball and paddle are this far apart, always try to move.
+            rush_margin = 10
+
+            if ball_c < paddle_c and (np.sign(paddle_dc) != -1 or paddle_c - ball_c > rush_margin):
                 act_str = "left"
-            elif ball_c > paddle_c:
+            elif ball_c > paddle_c and (np.sign(paddle_dc) != -1 or ball_c - paddle_c > rush_margin):
                 act_str = "right"
             else:
                 act_str = "noop"
