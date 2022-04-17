@@ -4,6 +4,7 @@ from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import gym
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
@@ -18,12 +19,19 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 class BreakoutEnv(BaseEnv):
     """An Atari Breakout environment."""
 
+    brick_height: ClassVar[int] = 6
+    brick_width: ClassVar[int] = 8
+    brick_top_row: ClassVar[int] = 56
+    brick_left_col: ClassVar[int] = 8
+    brick_num_rows: ClassVar[int] = 6
+    brick_num_cols: ClassVar[int] = 18
+
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._paddle_type = Type("paddle", ["x"])
-        self._ball_type = Type("ball", ["x", "y", "dx", "dy"])
-        self._brick_type = Type("brick", ["x", "y", "alive"])
+        self._paddle_type = Type("paddle", ["c"])
+        self._ball_type = Type("ball", ["r", "c", "dr", "dc"])
+        self._brick_type = Type("brick", ["r", "c", "alive"])
         # Predicates
         self._BrickAlive = Predicate("BrickAlive",
                                      [self._brick_type],
@@ -107,8 +115,26 @@ class BreakoutEnv(BaseEnv):
         caption: Optional[str] = None) -> List[Image]:
         assert caption is None
         del action  # unused
-        rgb_arr = self._gym_env.render(mode="rgb_array")
-        return [rgb_arr]
+        img = self._gym_env.render(mode="rgb_array")
+
+        # For debugging perception.
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        ax.set_xlim((0, img.shape[1]))
+        ax.set_ylim((img.shape[0], 0))
+        ax.imshow(img, alpha=0.5)
+
+        state = self._observation_to_state(img)
+        for brick in state.get_objects(self._brick_type):
+            r = state.get(brick, "r")
+            c = state.get(brick, "c")
+            rect = patches.Rectangle((c, r), self.brick_width, self.brick_height, linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
+
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+
+        return [img]
 
     def _get_tasks(self, num: int, seed_offset: int) -> List[Task]:
         tasks = []
@@ -131,18 +157,29 @@ class BreakoutEnv(BaseEnv):
 
     def _observation_to_state(self, obs: NDArray[np.uint8]) -> State:
         """Extract a State from a self._gym_env observation."""
+
+        # import imageio
+        # imageio.imsave("/tmp/debug.png", obs)
+        # import ipdb; ipdb.set_trace()
+
+        state_dict = {}
+
+        # Start with the bricks.
+        for brick_row in range(self.brick_num_rows):
+            r = self.brick_top_row + self.brick_height * brick_row
+            for brick_col in range(self.brick_num_cols):
+                c = self.brick_left_col + self.brick_width * brick_col
+                alive = True  # TODO
+                name = f"brick{brick_row}-{brick_col}"
+                brick = Object(name, self._brick_type)
+                state_dict[brick] = {"r": r, "c": c, "alive": alive}
+
+        # Add the paddle.
+        state_dict[self._paddle] = {"c": 40}  # TODO
+
+        # Add the ball.
         # TODO
-        bricks = [Object("brick0", self._brick_type)]
-        return utils.create_state_from_dict({
-            self._paddle: {
-                "x": 10.0,
-            },
-            bricks[0]: {
-                "x": 10.0,
-                "y": 10.0,
-                "alive": 1.0,
-            }
-        })
+        return utils.create_state_from_dict(state_dict)
 
     @staticmethod
     def _BrickAlive_holds(state: State, objects: Sequence[Object]) -> bool:
