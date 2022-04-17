@@ -1,12 +1,13 @@
 """An Atari Breakout environment."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import gym
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+from gym.wrappers import FrameStack
 from numpy.typing import NDArray
 
 from predicators.src import utils
@@ -50,7 +51,7 @@ class BreakoutEnv(BaseEnv):
         self._paddle = Object("paddle", self._paddle_type)
         self._ball = Object("ball", self._ball_type)
         # Gym environment.
-        self._gym_env = gym.make("Breakout-v0")
+        self._gym_env = FrameStack(gym.make("BreakoutNoFrameskip-v0"), 2)
 
     @classmethod
     def get_name(cls) -> str:
@@ -66,7 +67,8 @@ class BreakoutEnv(BaseEnv):
             assert train_or_test == "test"
             seed_offset = CFG.test_env_seed_offset
         seed = task_idx + seed_offset
-        return self._reset_initial_state_from_seed(seed)
+        self._current_obs = self._reset_initial_state_from_seed(seed)
+        return self._observation_to_state(self._current_obs)
 
     def step(self, action: Action) -> State:
         # Actions are [0, 1, 2, 3] = ['NOOP', 'FIRE', 'RIGHT', 'LEFT'].
@@ -78,8 +80,8 @@ class BreakoutEnv(BaseEnv):
         else:
             assert -0.5 < continuous_action < 0.5
             gym_action = 0  # noop
-        obs, _, _, _ = self._gym_env.step(gym_action)
-        return self._observation_to_state(obs)
+        self._current_obs, _, _, _ = self._gym_env.step(gym_action)
+        return self._observation_to_state(self._current_obs)
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, seed_offset=0)
@@ -121,15 +123,17 @@ class BreakoutEnv(BaseEnv):
                caption: Optional[str] = None) -> List[Image]:
         assert caption is None
         del action  # unused
-        img = self._gym_env.render(mode="rgb_array")
+
+        assert self._current_obs.shape[0] == 2
+        most_recent_obs = self._current_obs[1]
 
         # For debugging perception.
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        ax.set_xlim((0, img.shape[1]))
-        ax.set_ylim((img.shape[0], 0))
-        ax.imshow(img, alpha=0.5)
+        ax.set_xlim((0, most_recent_obs.shape[1]))
+        ax.set_ylim((most_recent_obs.shape[0], 0))
+        ax.imshow(most_recent_obs, alpha=0.5)
 
-        state = self._observation_to_state(img)
+        state = self._observation_to_state(self._current_obs)
         for brick in state.get_objects(self._brick_type):
             if not self._BrickAlive_holds(state, [brick]):
                 continue
@@ -171,14 +175,15 @@ class BreakoutEnv(BaseEnv):
         tasks = []
         for i in range(num):
             seed = i + seed_offset
-            init_state = self._reset_initial_state_from_seed(seed)
+            obs = self._reset_initial_state_from_seed(seed)
+            init_state = self._observation_to_state(obs)
             bricks = init_state.get_objects(self._brick_type)
             goal = {GroundAtom(self._BrickDead, [b]) for b in bricks}
             task = Task(init_state, goal)
             tasks.append(task)
         return tasks
 
-    def _reset_initial_state_from_seed(self, seed: int) -> State:
+    def _reset_initial_state_from_seed(self, seed: int) -> NDArray[np.uint8]:
         self._gym_env.seed(seed)
         self._gym_env.reset()
         # Firing starts the game. Occasionally, we need to fire multiple
@@ -189,20 +194,27 @@ class BreakoutEnv(BaseEnv):
             # The ball has appeared.
             if init_state.get(self._ball, "r") >= 0:
                 break
-        return init_state
+        return obs
 
     def _observation_to_state(self, obs: NDArray[np.uint8]) -> State:
         """Extract a State from a self._gym_env observation."""
 
+        # Expecting two frames stacked together.
+        assert len(obs.shape) == 4
+        assert obs.shape[0] == 2
+
         state_dict = {}
         all_crop_bounds = []
+
+        # Use the current frame to detect the bricks and paddle.
+        frame = obs[1]
 
         # Start with the bricks.
         for brick_row in range(self.brick_num_rows):
             r = self.brick_top_row + self.brick_height * brick_row
             for brick_col in range(self.brick_num_cols):
                 c = self.brick_left_col + self.brick_width * brick_col
-                crop = obs[r:r + self.brick_height, c:c + self.brick_width]
+                crop = frame[r:r + self.brick_height, c:c + self.brick_width]
                 all_crop_bounds.append(
                     (r, r + self.brick_height, c, c + self.brick_width))
                 alive = np.any(crop)
@@ -212,33 +224,51 @@ class BreakoutEnv(BaseEnv):
 
         # Add the paddle.
         left_pad = self.side_wall_width
-        detection_line = obs[self.paddle_row, left_pad:].max(axis=-1)
-        offset_c = np.argwhere(detection_line)[0].item()
+        detection_line = frame[self.paddle_row, left_pad:].max(axis=-1)
+        # The logical and here is to handle the case where the ball is in the
+        # same row as the paddle.
+        shift = self.ball_width + 1
+        shifted_line = np.zeros_like(detection_line)
+        shifted_line[:-shift] = detection_line[shift:]
+        offset_c = np.argwhere(detection_line & shifted_line)[0].item()
         c = left_pad + offset_c
         all_crop_bounds.append(
             (self.paddle_row, self.paddle_row + self.paddle_height, c,
              c + self.paddle_width))
         state_dict[self._paddle] = {"c": c}
 
-        # Add the ball. To detect the ball, remove already detected objects.
-        ablated_obs = obs.copy()
-        for (sr, er, sc, ec) in all_crop_bounds:
-            ablated_obs[sr:er, sc:ec] = 0
-        # Remove the walls.
-        ablated_obs[:, :self.side_wall_width] = 0
-        ablated_obs[:, -self.side_wall_width:] = 0
-        ablated_obs[:self.top_panel_height] = 0
-        # The ball should now be the only remaining colorful thing.
-        colorful_idxs = np.argwhere(ablated_obs.max(-1))
-        if not len(colorful_idxs):
-            # We lost the ball!
-            state_dict[self._ball] = {"r": -100, "c": -100, "dr": 0, "dc": 0}
+        # Add the ball.
+        r0, c0 = self._frame_to_ball_position(obs[0], all_crop_bounds)
+        r1, c1 = self._frame_to_ball_position(obs[1], all_crop_bounds)
+        # Special case: we lost the ball.
+        if r1 == -1:
+            dr = 0
+            dc = 0
         else:
-            r, c = colorful_idxs[0]
-            # TODO: detect velocities by concatenating frames.
-            state_dict[self._ball] = {"r": r, "c": c, "dr": 0, "dc": 0}
+            dr = r1 - r0
+            dc = c1 - c0
+        state_dict[self._ball] = {"r": r1, "c": c1, "dr": dr, "dc": dc}
 
         return utils.create_state_from_dict(state_dict)
+
+    def _frame_to_ball_position(
+        self, frame: NDArray[np.uint8],
+        all_crop_bounds: Sequence[Tuple[int, int, int,
+                                        int]]) -> Tuple[int, int]:
+        ablated_frame = frame.copy()
+        for (sr, er, sc, ec) in all_crop_bounds:
+            ablated_frame[sr:er, sc:ec] = 0
+        # Remove the walls.
+        ablated_frame[:, :self.side_wall_width] = 0
+        ablated_frame[:, -self.side_wall_width:] = 0
+        ablated_frame[:self.top_panel_height] = 0
+        # The ball should now be the only remaining colorful thing.
+        colorful_idxs = np.argwhere(ablated_frame.max(-1))
+        if not len(colorful_idxs):
+            # We lost the ball!
+            return -1, -1
+        r, c = tuple(colorful_idxs[0])
+        return r, c
 
     @staticmethod
     def _BrickAlive_holds(state: State, objects: Sequence[Object]) -> bool:
