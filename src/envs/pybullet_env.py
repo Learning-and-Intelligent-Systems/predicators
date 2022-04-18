@@ -74,24 +74,37 @@ class PyBulletEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
         else:
             self._physics_client_id = p.connect(p.DIRECT)
+        # This second connection can be useful for stateless operations.
+        self._physics_client_id_copy = p.connect(p.DIRECT)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id_copy)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
                    physicsClientId=self._physics_client_id)
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id_copy)
 
         # Load robot.
-        self._pybullet_robot = self._create_pybullet_robot()
+        self._pybullet_robot = self._create_pybullet_robot(
+            self._physics_client_id)
+        self._pybullet_robot_copy = self._create_pybullet_robot(
+            self._physics_client_id_copy)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id_copy)
 
     @abc.abstractmethod
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
-        """Make and return a PyBullet robot object, which will be saved as
-        self._pybullet_robot."""
+    def _create_pybullet_robot(self, physics_client_id: int
+                               ) -> _SingleArmPyBulletRobot:
+        """Make and return a PyBullet robot object in the given
+        physics_client_id. It will be saved as either self._pybullet_robot
+        or self._pybullet_robot_copy.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod

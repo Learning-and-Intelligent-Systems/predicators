@@ -137,7 +137,19 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def set_motors(self, action_arr: Array) -> None:
-        """Update the motors to execute the given action in PyBullet."""
+        """Update the motors to execute the given action in PyBullet.
+        The action_arr is an array of desired arm joint values."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def forward_kinematics(self, action_arr: Array) -> None:
+        """Compute the end effector pose that would result from executing
+        the given action in PyBullet. The action_arr is an array of desired
+        arm joint values.
+
+        WARNING: This method uses resetJointState. Do NOT use it during
+        simulation.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -313,6 +325,20 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
+    def forward_kinematics(self, action_arr: Array) -> None:
+        assert len(action_arr) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, action_arr):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       computeForwardKinematics=True,
+                                       physicsClientId=self._physics_client_id)
+        position = ee_link_state[4]
+        return position
+
     def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
                                 validate: bool) -> List[float]:
         return inverse_kinematics(self._fetch_id,
@@ -346,10 +372,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             if ee_norm > self._max_vel_norm:
                 ee_delta = ee_delta * self._max_vel_norm / ee_norm
             ee_action = np.add(current, ee_delta)
-            # We assume that the robot is already close enough to the target
-            # position that IK will succeed with one call, so validate is False.
-            # Furthermore, updating the state of the robot during simulation,
-            # which validate=True would do, is discouraged by PyBullet.
+            # Keep validate as False because validate=True would update the
+            # state of the robot during simulation, which is discouraged.
             joint_state = self._run_inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Handle the fingers. Fingers drift if left alone.

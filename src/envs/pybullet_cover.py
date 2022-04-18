@@ -80,7 +80,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         """Run super(), then handle cover-specific initialization."""
         super()._initialize_pybullet()
 
-        # Load table.
+        # Load table in both the main client and the copy.
         self._table_id = p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
             useFixedBase=True,
@@ -90,6 +90,15 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
+        p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id_copy)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_pose,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id_copy)
 
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
@@ -117,7 +126,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                       self._obj_friction, orientation,
                                       self._physics_client_id))
 
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
+    def _create_pybullet_robot(self, physics_client_id: int
+                               ) -> _SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
         ee_orn = p.getQuaternionFromEuler([np.pi / 2, np.pi / 2, -np.pi])
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
@@ -127,7 +137,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                                 self._move_to_pose_tol,
                                                 self._max_vel_norm,
                                                 self._grasp_tol,
-                                                self._physics_client_id)
+                                                physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
@@ -205,12 +215,18 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
         # constraint before we can call PyBullet.
-        # TODO: figuring out the pose from the action (joints) requires FK
-        # hand_regions = self._get_hand_regions(self._current_state)
-        # If we're not in any hand region, no-op.
-        # if not any(hand_lb <= pose <= hand_rb
-        #            for hand_lb, hand_rb in hand_regions):
-        #     return self._current_state.copy()
+        # Use the pybullet_robot_copy to run forward kinematics, since that
+        # method shouldn't be run on the client that is doing simulation.
+        _, ry, rz = self._pybullet_robot_copy.forward_kinematics(action.arr)
+        hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
+        hand_regions = self._get_hand_regions(self._current_state)
+        # If we're going down to grasp, we need to be in a hand region.
+        # Otherwise, we don't care if we're between hand regions.
+        z_thresh = (self._pickplace_z + self._workspace_z) / 2
+        if rz < z_thresh and not any(hand_lb <= hand <= hand_rb
+                                     for hand_lb, hand_rb in hand_regions):
+            # The constraint is violated, so no-op.
+            return self._current_state.copy()
         return super().step(action)
 
     def _get_state(self) -> State:

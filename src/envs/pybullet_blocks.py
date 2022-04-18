@@ -129,7 +129,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         """Run super(), then handle blocks-specific initialization."""
         super()._initialize_pybullet()
 
-        # Load table.
+        # Load table in both the main client and the copy.
         self._table_id = p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
             useFixedBase=True,
@@ -139,6 +139,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
+        p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id_copy)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_pose,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id_copy)
 
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
@@ -196,7 +205,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       self._obj_friction, orientation,
                                       self._physics_client_id))
 
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
+    def _create_pybullet_robot(self, physics_client_id: int
+                               ) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
@@ -206,7 +216,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                                 self._move_to_pose_tol,
                                                 self._max_vel_norm,
                                                 self._grasp_tol,
-                                                self._physics_client_id)
+                                                physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
