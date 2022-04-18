@@ -30,6 +30,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
+    # Robot parameters.
+    _ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -141,12 +144,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             physicsClientId=self._physics_client_id)
         p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                    useFixedBase=True,
-                   physicsClientId=self._physics_client_id_copy)
+                   physicsClientId=self._physics_client_id2)
         p.resetBasePositionAndOrientation(
             self._table_id,
             self._table_pose,
             self._table_orientation,
-            physicsClientId=self._physics_client_id_copy)
+            physicsClientId=self._physics_client_id2)
 
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
@@ -207,9 +210,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
         return create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, ee_home, ee_orn, self.open_fingers,
+            CFG.pybullet_robot, ee_home, self._ee_orn, self.open_fingers,
             self.closed_fingers, self._move_to_pose_tol, self._max_vel_norm,
             self._grasp_tol, physics_client_id)
 

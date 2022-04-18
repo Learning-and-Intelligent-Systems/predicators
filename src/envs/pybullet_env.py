@@ -75,10 +75,10 @@ class PyBulletEnv(BaseEnv):
         else:
             self._physics_client_id = p.connect(p.DIRECT)
         # This second connection can be useful for stateless operations.
-        self._physics_client_id_copy = p.connect(p.DIRECT)
+        self._physics_client_id2 = p.connect(p.DIRECT)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
-        p.resetSimulation(physicsClientId=self._physics_client_id_copy)
+        p.resetSimulation(physicsClientId=self._physics_client_id2)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
@@ -86,20 +86,17 @@ class PyBulletEnv(BaseEnv):
                    physicsClientId=self._physics_client_id)
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
-                   physicsClientId=self._physics_client_id_copy)
+                   physicsClientId=self._physics_client_id2)
 
         # Load robot.
         self._pybullet_robot = self._create_pybullet_robot(
             self._physics_client_id)
-        self._pybullet_robot_copy = self._create_pybullet_robot(
-            self._physics_client_id_copy)
+        self._pybullet_robot2 = self._create_pybullet_robot(
+            self._physics_client_id2)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
-        p.setGravity(0.,
-                     0.,
-                     -10.,
-                     physicsClientId=self._physics_client_id_copy)
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
 
     @abc.abstractmethod
     def _create_pybullet_robot(
@@ -108,7 +105,7 @@ class PyBulletEnv(BaseEnv):
         physics_client_id.
 
         It will be saved as either self._pybullet_robot or
-        self._pybullet_robot_copy.
+        self._pybullet_robot2.
         """
         raise NotImplementedError("Override me!")
 
