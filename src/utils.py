@@ -520,6 +520,25 @@ class SingletonParameterizedOption(ParameterizedOption):
                          terminal=_terminal)
 
 
+class PyBulletState(State):
+    """A PyBullet state that stores the robot joint states in addition to the
+    features that are exposed in the object-centric state."""
+
+    @property
+    def joint_state(self) -> Sequence[float]:
+        """Expose the current joint state in the simulator_state."""
+        return cast(Sequence[float], self.simulator_state)
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+    def copy(self) -> State:
+        state_dict_copy = super().copy().data
+        simulator_state_copy = list(self.joint_state)
+        return PyBulletState(state_dict_copy, simulator_state_copy)
+
+
 class Monitor(abc.ABC):
     """Observes states and actions during environment interaction."""
 

@@ -159,8 +159,9 @@ def test_fetch_pybullet_robot():
     open_fingers = 0.04
     closed_fingers = 0.01
     max_vel_norm = 0.05
+    grasp_tol = 0.05
     robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                               max_vel_norm, physics_client_id)
+                               max_vel_norm, grasp_tol, physics_client_id)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -177,7 +178,7 @@ def test_fetch_pybullet_robot():
 
     ee_delta = (-0.01, 0.0, 0.01)
     ee_target = np.add(ee_home_pose, ee_delta)
-    joint_target = robot.run_inverse_kinematics(ee_target, validate=False)
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=False)  # pylint: disable=protected-access
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
@@ -198,11 +199,14 @@ def test_create_single_arm_pybullet_robot():
     open_fingers = 0.04
     closed_fingers = 0.01
     max_vel_norm = 0.05
+    grasp_tol = 0.05
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose,
                                              open_fingers, closed_fingers,
-                                             max_vel_norm, physics_client_id)
+                                             max_vel_norm, grasp_tol,
+                                             physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          open_fingers, closed_fingers,
-                                         max_vel_norm, physics_client_id)
+                                         max_vel_norm, grasp_tol,
+                                         physics_client_id)
