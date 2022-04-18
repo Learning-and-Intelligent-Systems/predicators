@@ -117,6 +117,13 @@ def test_interactive_learning_approach():
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
+    # Test with greedy lookahead action strategy.
+    utils.update_config({
+        "interactive_action_strategy": "greedy_lookahead",
+        "interactive_max_num_trajectories": 1,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
