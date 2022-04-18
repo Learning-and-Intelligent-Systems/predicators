@@ -310,7 +310,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return act_policy, termination_function
 
-    def _sample_applicable_ground_nsrt(self, state: State) -> Optional[_GroundNSRT]:
+    def _sample_applicable_ground_nsrt(self,
+                                       state: State) -> Optional[_GroundNSRT]:
         """Choose uniformly among the ground NSRTs that are applicable in the
         state."""
         ground_nsrts = []
