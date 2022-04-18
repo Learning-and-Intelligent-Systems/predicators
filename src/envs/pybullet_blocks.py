@@ -24,7 +24,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Option parameters.
     _offset_z: ClassVar[float] = 0.01
-    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
@@ -32,6 +31,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Robot parameters.
     _ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:
         super().__init__()
