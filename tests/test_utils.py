@@ -278,8 +278,6 @@ def test_overlap():
 
 def test_line_segment():
     """Tests for LineSegment()."""
-    # Create a canvas for plotting. When debugging, it can be useful to
-    # visualize this canvas.
     _, ax = plt.subplots(1, 1)
     ax.set_xlim((-5, 5))
     ax.set_ylim((-8, 8))
@@ -297,14 +295,59 @@ def test_line_segment():
     seg3 = utils.LineSegment(x1=-2, y1=-3, x2=-4, y2=2)
     seg3.plot(ax, color="green", linewidth=2)
 
-    # assert utils.geom2d_bodies_intersect(seg1, seg2)
-    # assert not utils.geom2d_bodies_intersect(seg1, seg3)
-    # assert not utils.geom2d_bodies_intersect(seg2, seg3)
+    assert utils.geom2d_bodies_intersect(seg1, seg2)
+    assert not utils.geom2d_bodies_intersect(seg1, seg3)
+    assert not utils.geom2d_bodies_intersect(seg2, seg3)
 
     # Uncomment for debugging.
-    plt.savefig("/tmp/line_segment_unit_test.png")
+    # plt.savefig("/tmp/line_segment_unit_test.png")
+
+    # Legacy tests.
+    seg1 = utils.LineSegment(2, 5, 7, 6)
+    seg2 = utils.LineSegment(2.5, 7.1, 7.4, 5.3)
+    assert utils.geom2d_bodies_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 3, 5, 3)
+    seg2 = utils.LineSegment(3, 7, 3, 2)
+    assert utils.geom2d_bodies_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(2, 5, 7, 6)
+    seg2 = utils.LineSegment(2, 6, 7, 7)
+    assert not utils.geom2d_bodies_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 1, 3, 3)
+    seg2 = utils.LineSegment(2, 2, 4, 4)
+    assert not utils.geom2d_bodies_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 1, 3, 3)
+    seg2 = utils.LineSegment(1, 1, 6.7, 7.4)
+    assert not utils.geom2d_bodies_intersect(seg1, seg2)
 
 
+def test_circle():
+    """Tests for Circle()."""
+    _, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.set_xlim((-11, 5))
+    ax.set_ylim((-6, 10))
+
+    circ1 = utils.Circle(x=0, y=1, radius=3)
+    assert circ1.x == 0
+    assert circ1.y == 1
+    assert circ1.radius == 3
+    circ1.plot(ax, color="red", alpha=0.5)
+
+    circ2 = utils.Circle(x=-3, y=2, radius=6)
+    circ2.plot(ax, color="blue", alpha=0.5)
+
+    circ3 = utils.Circle(x=-6, y=1, radius=1)
+    circ3.plot(ax, color="green", alpha=0.5)
+
+    assert utils.geom2d_bodies_intersect(circ1, circ2)
+    assert not utils.geom2d_bodies_intersect(circ1, circ3)
+    assert utils.geom2d_bodies_intersect(circ2, circ3)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/circle_unit_test.png")
 
 
 def test_get_static_preds():
