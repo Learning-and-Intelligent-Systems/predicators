@@ -393,11 +393,12 @@ def test_line_segment_circle_intersection():
     assert not utils.geom2d_bodies_intersect(seg4, circ1)
     assert not utils.geom2d_bodies_intersect(circ1, seg4)
 
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+    assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
+
     # Uncomment for debugging.
-    # _, ax = plt.subplots(1, 1, figsize=(10, 10))
-    # ax.set_xlim((-5, 5))
-    # ax.set_ylim((-5, 5))
-    # assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
     # plt.savefig("/tmp/line_segment_circle_unit_test.png")
 
 
@@ -426,16 +427,21 @@ def test_rectangle_circle_intersection():
     rect1 = utils.Rectangle(x=0, y=0, width=4, height=3, theta=0)
     circ1 = utils.Circle(x=0, y=0, radius=1)
     assert utils.geom2d_bodies_intersect(rect1, circ1)
+    assert utils.geom2d_bodies_intersect(circ1, rect1)
 
     circ2 = utils.Circle(x=1, y=1, radius=0.5)
     assert utils.geom2d_bodies_intersect(rect1, circ2)
+    assert utils.geom2d_bodies_intersect(circ2, rect1)
 
     rect2 = utils.Rectangle(x=1, y=1, width=1, height=1, theta=0)
     assert not utils.geom2d_bodies_intersect(rect2, circ1)
+    assert not utils.geom2d_bodies_intersect(circ1, rect2)
 
     circ3 = utils.Circle(x=0, y=0, radius=100)
     assert utils.geom2d_bodies_intersect(rect1, circ3)
+    assert utils.geom2d_bodies_intersect(circ3, rect1)
     assert utils.geom2d_bodies_intersect(rect2, circ3)
+    assert utils.geom2d_bodies_intersect(circ3, rect2)
 
 
 def test_geom2d_bodies_intersect():
@@ -450,6 +456,13 @@ def test_geom2d_bodies_intersect():
             raise NotImplementedError("Not used.")
 
     body = _MockGeom2DBody()
+
+    _, ax = plt.subplots(1, 1)
+    with pytest.raises(NotImplementedError):
+        body.plot(ax)
+
+    with pytest.raises(NotImplementedError):
+        body.contains_point(0, 0)
 
     with pytest.raises(NotImplementedError):
         utils.geom2d_bodies_intersect(body, body)
