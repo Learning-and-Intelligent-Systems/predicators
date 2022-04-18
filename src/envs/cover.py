@@ -670,6 +670,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             # of the held object vertices.
             if any(seg.intersects(rect) for seg in held_move_segs):
                 return state.copy()
+            # Check for overlap between the held object and this block.
+            if rect.intersects(next_held_rect):
+                return state.copy()
 
         # No collisions; update robot and possible held block state based on
         # action.
