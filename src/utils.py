@@ -470,9 +470,8 @@ def line_segment_intersects_rectangle(seg: LineSegment,
                                       rect: Rectangle) -> bool:
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment are in the rectangle.
-    if rect.contains_point(seg.x1, seg.y1):
-        return True
-    if rect.contains_point(seg.x2, seg.y2):
+    if rect.contains_point(seg.x1, seg.y1) or \
+       rect.contains_point(seg.x2, seg.y2):
         return True
     # Case 2: the segment intersects with one of the rectangle sides.
     return any(line_segments_intersect(s, seg) for s in rect.line_segments)
