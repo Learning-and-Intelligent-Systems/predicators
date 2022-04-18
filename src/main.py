@@ -241,6 +241,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     approach.reset_metrics()
     total_suc_time = 0.0
     total_num_execution_failures = 0
+    total_num_solve_failures = 0
     video_prefix = utils.get_config_path_str()
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
@@ -249,6 +250,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
+            total_num_solve_failures += 1
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
@@ -312,6 +314,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
     metrics["num_execution_failures"] = total_num_execution_failures
+    metrics["num_solve_failures"] = total_num_solve_failures
     # Handle computing averages of total approach metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
