@@ -170,8 +170,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _ee_orientation: ClassVar[Sequence[float]] = [1., 0., -1., 0.]
-    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
-    _move_to_pose_tol: ClassVar[float] = 0.0001
+    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(
@@ -328,12 +328,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         get_current_and_target_pose_and_finger_status: Callable[
             [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
     ) -> ParameterizedOption:
-        """Fingers drift if left alone.
-
-        When the fingers are not explicitly being opened or closed, we
-        nudge the fingers toward being open or closed according to the
-        finger status.
-        """
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
@@ -355,7 +349,10 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             # which validate=True would do, is discouraged by PyBullet.
             joint_state = self._run_inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-            # Handle the fingers.
+            # Handle the fingers. Fingers drift if left alone.
+            # When the fingers are not explicitly being opened or closed, we
+            # nudge the fingers toward being open or closed according to the
+            # finger status.
             if finger_status == "open":
                 finger_delta = self._finger_action_nudge_magnitude
             else:
