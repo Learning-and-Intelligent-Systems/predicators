@@ -287,6 +287,10 @@ class _Geom2DBody(abc.ABC):
         """Checks if a point is contained in the body."""
         raise NotImplementedError("Override me!")
 
+    def intersects(self, other: _Geom2DBody) -> bool:
+        """Checks if this body intersects with another one."""
+        return geom2d_bodies_intersect(self, other)
+
 
 @dataclass(frozen=True)
 class LineSegment(_Geom2DBody):
@@ -522,6 +526,17 @@ def line_segment_intersects_circle(seg: LineSegment,
     return circ.contains_point(dx, dy)
 
 
+def line_segment_intersects_rectangle(seg: LineSegment, rect: Rectangle) -> bool:
+    """Checks if a line segment intersects a rectangle."""
+    # Case 1: one of the end points of the segment are in the rectangle.
+    if rect.contains_point(seg.x1, seg.y1):
+        return True
+    if rect.contains_point(seg.x2, seg.y2):
+        return True
+    # Case 2: the segment intersects with one of the rectangle sides.
+    return any(line_segments_intersect(s, seg) for s in rect.line_segments)
+
+
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     """Checks if a rectangle intersects a circle."""
     # Case 1: the circle's center is in the rectangle.
@@ -544,6 +559,10 @@ def geom2d_bodies_intersect(body1: Union[Rectangle, Circle],
         return line_segments_intersect(body1, body2)
     if isinstance(body1, LineSegment) and isinstance(body2, Circle):
         return line_segment_intersects_circle(body1, body2)
+    if isinstance(body1, LineSegment) and isinstance(body2, Rectangle):
+        return line_segment_intersects_rectangle(body1, body2)
+    if isinstance(body1, Rectangle) and isinstance(body2, LineSegment):
+        return line_segment_intersects_rectangle(body2, body1)
     if isinstance(body1, Circle) and isinstance(body2, LineSegment):
         return line_segment_intersects_circle(body2, body1)
     if isinstance(body1, Rectangle) and isinstance(body2, Rectangle):
