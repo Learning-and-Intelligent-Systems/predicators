@@ -24,6 +24,8 @@ import matplotlib
 import numpy as np
 import pathos.multiprocessing as mp
 from gym.spaces import Box
+from matplotlib import patches
+from matplotlib import pyplot as plt
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -227,6 +229,8 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
     for collinearity, and only checks if each segment straddles the line
     containing the other.
     """
+    # TODO refactor
+
     def subtract(a: Tuple[float, float], b: Tuple[float, float]) \
         -> Tuple[float, float]:
         x1, y1 = a
@@ -260,12 +264,187 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
     The first rectangle is defined by (l1, r1) and the second is defined
     by (l2, r2).
     """
+    # TODO refactor
 
     if (l1[0] >= r2[0] or l2[0] >= r1[0]):  # one rect on left side of other
         return False
     if (r1[1] >= l2[1] or r2[1] >= l1[1]):  # one rect above the other
         return False
     return True
+
+
+@dataclass(frozen=True)
+class LineSegment:
+    """A helper class for visualizing and collision checking line segments."""
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        """Plot the line segment on a given pyplot axis."""
+        ax.plot([self.x1, self.x2], [self.y1, self.y2], **kwargs)
+
+
+@dataclass(frozen=True)
+class Circle:
+    """A helper class for visualizing and collision checking circles."""
+    x: float
+    y: float
+    radius: float
+
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        """Plot the circle on a given pyplot axis."""
+        patch = patches.Circle((self.x, self.y), self.radius, **kwargs)
+        ax.add_patch(patch)
+
+
+@dataclass(frozen=True)
+class Rectangle:
+    """A helper class for visualizing and collision checking rectangles.
+
+    Following the convention in plt.Rectangle, the origin is at the
+    bottom left corner, and rotation is anti-clockwise about that point.
+
+    Unlike plt.Rectangle, the angle is in radians.
+    """
+    x: float
+    y: float
+    height: float
+    width: float
+    theta: float  # in radians, between -np.pi and np.pi
+
+    def __post_init__(self) -> None:
+        assert -np.pi <= self.theta <= np.pi, "Expecting angle in [-pi, pi]."
+
+    @functools.cached_property
+    def vertices(self) -> List[Tuple[float, float]]:
+        """Get the four vertices for the rectangle."""
+        scale_matrix = np.array([
+            [self.width, 0],
+            [0, self.height],
+        ])
+        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
+                                  [np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        translate_vector = np.array([self.x, self.y])
+        vertices = np.array([
+            (0, 0),
+            (0, 1),
+            (1, 1),
+            (1, 0),
+        ])
+        vertices = vertices @ scale_matrix.T
+        vertices = vertices @ rotate_matrix.T
+        vertices = translate_vector + vertices
+        # Convert to a list of tuples. Slightly complicated to appease both
+        # type checking and linting.
+        return list(map(lambda p: (p[0], p[1]), vertices))
+
+    @functools.cached_property
+    def line_segments(self) -> List[LineSegment]:
+        """Get the four line segments for the rectangle."""
+        vs = list(zip(self.vertices, self.vertices[1:] + [self.vertices[0]]))
+        line_segments = []
+        for ((x1, y1), (x2, y2)) in vs:
+            line_segments.append(LineSegment(x1, y1, x2, y2))
+        return line_segments
+
+    @functools.cached_property
+    def center(self) -> Tuple[float, float]:
+        """Get the point at the center of the rectangle."""
+        x, y = np.mean(self.vertices, axis=0)
+        return (x, y)
+
+    @functools.cached_property
+    def circumscribed_circle(self) -> Circle:
+        """Returns x, y, radius."""
+        x, y = self.center
+        radius = np.sqrt((self.width / 2)**2 + (self.height / 2)**2)
+        return Circle(x, y, radius)
+
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        """Plot the rectangle on a given pyplot axis."""
+        angle = self.theta * 180 / np.pi
+        patch = patches.Rectangle((self.x, self.y), self.width, self.height,
+                                  angle, **kwargs)
+        ax.add_patch(patch)
+
+
+def circles_intersect(circ1: Circle, circ2: Circle) -> bool:
+    """Checks if two circles intersect."""
+    x1, y1, r1 = circ1.x, circ1.y, circ1.radius
+    x2, y2, r2 = circ2.x, circ2.y, circ2.radius
+    return (x1 - y1)**2 + (x2 - y2)**2 < (r1 + r2)**2
+
+
+def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
+    """Checks if two rectangles intersect."""
+    # Optimization: if the circumscribed circles don't intersect, then
+    # the rectangles also don't intersect.
+    if not circles_intersect(rect1.circumscribed_circle,
+                             rect2.circumscribed_circle):
+        return False
+    # TODO fix
+    for (p1, p2) in rect1.line_segments:
+        for (p3, p4) in rect2.line_segments:
+            if intersects(p1, p2, p3, p4):
+                return True
+    return False
+
+
+def line_segment_intersects_circle(seg: LineSegment, circ: Circle) -> bool:
+    """Checks if a line segment intersects a circle."""
+    # See the diagram in https://stackoverflow.com/questions/1073336.
+    c = (circ.x, circ.y)
+    # Project (a, c) onto (a, b).
+    a = (seg.x1, seg.y1)
+    b = (seg.x2, seg.y2)
+    ba = np.subtract(b, a)
+    ca = np.subtract(c, a)
+    da = ba * np.dot(bc, ba) / np.dot(ba, ba)
+    # Check if the distance between d and c is smaller than the radius
+    # of the circle.
+    ca_sq_len = np.sum(np.square(ca))
+    da_sq_len = np.sum(np.square(da))
+    cd_sq_len = ca_sq_len - da_sq_len
+    return cd_sq_len < circ.radius
+
+
+def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
+    """Checks if a rectangle intersects a circle."""
+    # Case 1: the circle's center is in the rectangle.
+    if rectangle.contains_point(circ.x, circ.y):
+        return True
+    # Case 2: one of the sides of the rectangle intersects the circle.
+    for seg in rect.line_segments:
+        if line_segment_intersects_circle(seg, circ):
+            return True
+    return False
+
+
+def geom2d_bodies_intersect(body1: Union[Rectangle, Circle],
+                            body2: Union[Rectangle, Circle]) -> bool:
+    """Check if two 2D bodies intersect.
+
+    Useful for collision checking.
+    """
+    if isinstance(body1, LineSegment) and isinstance(body2, LineSegment):
+        return line_segments_intersect(body1, body2)
+    if isinstance(body1, LineSegment) and isinstance(body2, Circle):
+        return line_segment_intersects_circle(body1, body2)
+    if isinstance(body1, Circle) and isinstance(body2, LineSegment):
+        return line_segment_intersects_circle(body2, body2)
+    if isinstance(body1, Rectangle) and isinstance(body2, Rectangle):
+        return rectangles_intersect(body1, body2)
+    if isinstance(body1, Rectangle) and isinstance(body2, Circle):
+        return rectangle_intersects_circle(body1, body2)
+    if isinstance(body1, Circle) and isinstance(body2, Rectangle):
+        return rectangle_intersects_circle(body2, body1)
+    if isinstance(body1, Circle) and isinstance(body2, Circle):
+        return circles_intersect(body1, body2)
+    raise NotImplementedError("Intersection not implemented for bodies "
+                              f"{body1} and {body2}")
 
 
 @functools.lru_cache(maxsize=None)

@@ -8,6 +8,7 @@ from typing import Type as TypingType
 import numpy as np
 import pytest
 from gym.spaces import Box
+from matplotlib import pyplot as plt
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
@@ -273,6 +274,37 @@ def test_overlap():
     l1, r1 = (1, 4), (6, 1)
     l2, r2 = (2, 7), (5, 5)
     assert not utils.overlap(l1, r1, l2, r2)
+
+
+def test_line_segment():
+    """Tests for LineSegment()."""
+    # Create a canvas for plotting. When debugging, it can be useful to
+    # visualize this canvas.
+    _, ax = plt.subplots(1, 1)
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-8, 8))
+
+    seg1 = utils.LineSegment(x1=0, y1=1, x2=3, y2=6)
+    assert seg1.x1 == 0
+    assert seg1.y1 == 1
+    assert seg1.x2 == 3
+    assert seg1.y2 == 6
+    seg1.plot(ax, color="red", linewidth=2)
+
+    seg2 = utils.LineSegment(x1=2, y1=-5, x2=1, y2=6)
+    seg2.plot(ax, color="blue", linewidth=2)
+
+    seg3 = utils.LineSegment(x1=-2, y1=-3, x2=-4, y2=2)
+    seg3.plot(ax, color="green", linewidth=2)
+
+    # assert utils.geom2d_bodies_intersect(seg1, seg2)
+    # assert not utils.geom2d_bodies_intersect(seg1, seg3)
+    # assert not utils.geom2d_bodies_intersect(seg2, seg3)
+
+    # Uncomment for debugging.
+    plt.savefig("/tmp/line_segment_unit_test.png")
+
+
 
 
 def test_get_static_preds():
