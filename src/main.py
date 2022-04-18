@@ -311,9 +311,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             "min_num_skeletons_optimized"] < float("inf") else 0
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
-    metrics["avg_execution_failures"] = (
-        total_num_execution_failures /
-        num_found_policy if num_found_policy > 0 else float("inf"))
+    metrics["num_execution_failures"] = total_num_execution_failures
     # Handle computing averages of total approach metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more
