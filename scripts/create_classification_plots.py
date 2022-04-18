@@ -1,7 +1,6 @@
 """Create 2D plots for investigating interactively-learned predicate classifier
 ensembles."""
 
-import os
 from typing import List, Set, Tuple
 
 import matplotlib
@@ -17,7 +16,7 @@ from predicators.src.approaches.interactive_learning_approach import \
 from predicators.src.envs import create_new_env
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, Predicate, Task
+from predicators.src.structs import Array, Image, Predicate, Task
 
 
 def _main() -> None:
@@ -33,14 +32,29 @@ def _main() -> None:
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)
     assert isinstance(approach, InteractiveLearningApproach)
-    # Load approach
-    approach.load(online_learning_cycle=None)
+    # Get plotting function
     if CFG.env == "cover":
         assert isinstance(env, CoverEnv)
-        _plot_cover(env, approach, excluded_preds)
+        plot_fnc = _plot_cover
     else:
         raise NotImplementedError(
             f"Plotting not yet implemented for {CFG.env}")
+    # Load approaches and gather images
+    video = []
+    approach.load(online_learning_cycle=None)
+    image = plot_fnc(env, approach, excluded_preds)
+    video.append(image)
+    for i in range(CFG.num_online_learning_cycles):
+        print(f"\n\nONLINE LEARNING CYCLE {i}\n")
+        try:
+            approach.load(online_learning_cycle=i)
+            image = plot_fnc(env, approach, excluded_preds)
+            video.append(image)
+        except FileNotFoundError:
+            break
+    # Save video
+    outfile = f"ensemble_predictions__{utils.get_config_path_str()}.mp4"
+    utils.save_video(outfile, video)
 
 
 DPI = 500
@@ -50,14 +64,14 @@ COLOR = "Greys"
 
 
 def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
-                excluded_preds: Set[Predicate]) -> None:
+                excluded_preds: Set[Predicate]) -> Image:
     PRED_NAME = "Covers"
     Covers = [p for p in excluded_preds if p.name == PRED_NAME][0]
     # Create state and objects
     states, blocks, targets = create_states_cover(env)
     block = blocks[0]
     target = targets[0]
-    # Get original labelled data points
+    # Get labelled data points
     dataset = approach._dataset  # pylint: disable=protected-access
     # ([target_pose values], [block_pose values])
     neg_examples: Tuple[List[float], List[float]] = ([], [])
@@ -105,18 +119,17 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
             normalize_color_map=False)
     # Plot originally annotated data points
     for ax in axes[:2]:
-        ax.scatter(pos_examples[0], pos_examples[1], marker="o", c="green")
-        ax.scatter(neg_examples[0], neg_examples[1], marker="o", c="red")
+        ax.scatter(pos_examples[0],
+                   pos_examples[1],
+                   s=2,
+                   marker="o",
+                   c="green")
+        ax.scatter(neg_examples[0], neg_examples[1], s=2, marker="o", c="red")
     fig.suptitle(CFG.experiment_id.replace("_", " "))
     plt.tight_layout()
-    # Write image
-    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "results")
-    os.makedirs(outdir, exist_ok=True)
-    filename = f"ensemble_predictions__{utils.get_config_path_str()}.png"
-    outfile = os.path.join(outdir, filename)
-    plt.savefig(outfile, dpi=DPI)
-    print(f"Wrote out to {outfile}")
+    image = utils.fig2data(fig, dpi=DPI)
+    plt.close(fig)
+    return image
 
 
 def heatmap(data: Array,
