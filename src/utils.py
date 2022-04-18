@@ -363,6 +363,22 @@ class Rectangle:
         radius = np.sqrt((self.width / 2)**2 + (self.height / 2)**2)
         return Circle(x, y, radius)
 
+    def contains_point(self, x: float, y: float) -> bool:
+        """Returns whether this point is inside the rectangle."""
+        # This is not the most efficient implementation, but it allows us to
+        # reuse more code than alternatives. The idea is that a line starting
+        # at (x, y) and extending far enough in one direction will intersect
+        # exactly zero, one, or two sides of the rectangle. If it's zero or
+        # two, the point is outside; if it's one, the point is inside.
+        l = 2 * self.circumscribed_circle.radius + 1e-7
+        line = LineSegment(x, y, x + l, y)
+        num_intersections = 0
+        for seg in self.line_segments:
+            if line_segments_intersect(line, seg):
+                num_intersections += 1
+        assert num_intersections in [0, 1, 2]
+        return num_intersections == 1
+
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         """Plot the rectangle on a given pyplot axis."""
         angle = self.theta * 180 / np.pi
@@ -421,11 +437,18 @@ def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
     if not circles_intersect(rect1.circumscribed_circle,
                              rect2.circumscribed_circle):
         return False
-    # TODO fix
-    for (p1, p2) in rect1.line_segments:
-        for (p3, p4) in rect2.line_segments:
-            if intersects(p1, p2, p3, p4):
-                return True
+    # Case 1: line segments intersect.
+    if any(line_segments_intersect(seg1, seg2)
+           for seg1 in rect1.line_segments
+           for seg2 in rect2.line_segments):
+        return True
+    # Case 2: rect1 inside rect2.
+    if rect1.contains_point(rect2.center[0], rect2.center[1]):
+        return True
+    # Case 3: rect2 inside rect1.
+    if rect2.contains_point(rect1.center[0], rect1.center[1]):
+        return True
+    # Not intersecting.
     return False
 
 

@@ -367,19 +367,28 @@ def test_rectangle():
     assert np.allclose(rect1.center, (0, 0.5))
 
     circ1 = rect1.circumscribed_circle
-    assert np.allclose(rect1.center, (circ1.x, circ1.y))
-    assert np.allclose(circ1.radius, 5)
-    circ1.plot(ax, facecolor="none", edgecolor="black", linewidth=1)
+    assert np.allclose((circ1.x, circ1.y), (0, 0.5))
+    assert np.allclose(circ1.radius, 2.5)
+    circ1.plot(ax, facecolor="none", edgecolor="black", linewidth=1, linestyle="dashed")
 
-    # circ2 = utils.Circle(x=-3, y=2, radius=6)
-    # circ2.plot(ax, color="blue", alpha=0.5)
+    expected_vertices = np.array([(-2, -1), (-2, 2), (2, -1), (2, 2)])
+    assert np.allclose(sorted(rect1.vertices), expected_vertices)
+    for (x, y) in rect1.vertices:
+        v = utils.Circle(x, y, radius=0.1)
+        v.plot(ax, facecolor="none", edgecolor="black", linewidth=1, linestyle="dashed")
 
-    # circ3 = utils.Circle(x=-6, y=1, radius=1)
-    # circ3.plot(ax, color="green", alpha=0.5)
+    for seg in rect1.line_segments:
+        seg.plot(ax, color="black", linewidth=1, linestyle="dashed")
 
-    # assert utils.geom2d_bodies_intersect(circ1, circ2)
-    # assert not utils.geom2d_bodies_intersect(circ1, circ3)
-    # assert utils.geom2d_bodies_intersect(circ2, circ3)
+    rect2 = utils.Rectangle(x=1, y=-2, width=2, height=2, theta=0.5)
+    rect2.plot(ax, color="blue", alpha=0.5)
+
+    rect3 = utils.Rectangle(x=-1.5, y=1, width=1, height=1, theta=-0.5)
+    rect3.plot(ax, color="green", alpha=0.5)
+
+    assert utils.geom2d_bodies_intersect(rect1, rect2)
+    assert utils.geom2d_bodies_intersect(rect1, rect3)
+    assert not utils.geom2d_bodies_intersect(rect2, rect3)
 
     # Uncomment for debugging.
     plt.savefig("/tmp/rectangle_unit_test.png")
