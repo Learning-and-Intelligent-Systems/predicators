@@ -276,6 +276,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 # Sample an NSRT that has preconditions satisfied in the
                 # current state.
                 ground_nsrt = self._sample_applicable_ground_nsrt(state)
+                if ground_nsrt is None:  # No applicable NSRTs
+                    break
                 assert all(a.holds for a in ground_nsrt.preconditions)
                 # Sample an option. Note that goal is assumed not used.
                 option = ground_nsrt.sample_option(state,
@@ -296,9 +298,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 # Update the total score.
                 atoms = utils.abstract(state, self._predicates_to_learn)
                 total_score += self._score_atom_set(atoms, state)
-            if total_score > best_score:
-                best_score = total_score
-                best_options = options
+            else:  # Sampled a complete trajectory
+                if total_score > best_score:
+                    best_score = total_score
+                    best_options = options
 
         act_policy = utils.option_plan_to_policy(best_options)
         # When the act policy finishes, an OptionExecutionFailure is raised
@@ -307,7 +310,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return act_policy, termination_function
 
-    def _sample_applicable_ground_nsrt(self, state: State) -> _GroundNSRT:
+    def _sample_applicable_ground_nsrt(self, state: State) -> Optional[_GroundNSRT]:
         """Choose uniformly among the ground NSRTs that are applicable in the
         state."""
         ground_nsrts = []
@@ -317,7 +320,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         atoms = utils.abstract(state, self._get_current_predicates())
         applicable_nsrts = sorted(
             utils.get_applicable_operators(ground_nsrts, atoms))
-        assert len(applicable_nsrts) > 0  # TODO handle this case
+        if len(applicable_nsrts) == 0:
+            return None
         idx = self._rng.choice(len(applicable_nsrts))
         return applicable_nsrts[idx]
 
