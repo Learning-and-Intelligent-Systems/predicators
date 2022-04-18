@@ -229,6 +229,7 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
     for collinearity, and only checks if each segment straddles the line
     containing the other.
     """
+
     # TODO refactor
 
     def subtract(a: Tuple[float, float], b: Tuple[float, float]) \
@@ -307,8 +308,9 @@ class LineSegment(_Geom2DBody):
         # if the distance from a to b is (approximately) equal to the distance
         # from a to c and the distance from c to b.
         eps = 1e-6
-        dist = lambda p,q: np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
-        return -eps < dist(a, c) + dist(c, b) - dist(a, b) < eps
+        def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
+            return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+        return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
 
 @dataclass(frozen=True)
@@ -425,7 +427,7 @@ def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
         x1, y1 = a
         x2, y2 = b
         return (x1 - x2), (y1 - y2)
-    
+
     def _cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
         -> float:
         x1, y1 = b
@@ -444,8 +446,9 @@ def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     d2 = _direction(p3, p4, p2)
     d3 = _direction(p1, p2, p3)
     d4 = _direction(p1, p2, p4)
-    
-    return ((d2 < 0 < d1) or (d1 < 0 < d2)) and ((d4 < 0 < d3) or (d3 < 0 < d4))
+
+    return ((d2 < 0 < d1) or (d1 < 0 < d2)) and ((d4 < 0 < d3) or
+                                                 (d3 < 0 < d4))
 
 
 def circles_intersect(circ1: Circle, circ2: Circle) -> bool:
@@ -463,9 +466,9 @@ def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
                              rect2.circumscribed_circle):
         return False
     # Case 1: line segments intersect.
-    if any(line_segments_intersect(seg1, seg2)
-           for seg1 in rect1.line_segments
-           for seg2 in rect2.line_segments):
+    if any(
+            line_segments_intersect(seg1, seg2) for seg1 in rect1.line_segments
+            for seg2 in rect2.line_segments):
         return True
     # Case 2: rect1 inside rect2.
     if rect1.contains_point(rect2.center[0], rect2.center[1]):
@@ -477,12 +480,13 @@ def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
     return False
 
 
-def line_segment_intersects_circle(seg: LineSegment, circ: Circle,
+def line_segment_intersects_circle(seg: LineSegment,
+                                   circ: Circle,
                                    ax: Optional[plt.Axes] = None) -> bool:
     """Checks if a line segment intersects a circle.
 
-    If ax is not None, a diagram is plotted on the axis to illustrate the
-    computations, which is useful for checking correctness.
+    If ax is not None, a diagram is plotted on the axis to illustrate
+    the computations, which is useful for checking correctness.
     """
     # First check if the end points of the segment are in the circle.
     if circ.contains_point(seg.x1, seg.y1):
@@ -496,7 +500,7 @@ def line_segment_intersects_circle(seg: LineSegment, circ: Circle,
     b = (seg.x2, seg.y2)
     ba = np.subtract(b, a)
     ca = np.subtract(c, a)
-    da = ba * np.dot(ca, ba) / np.dot(ba, ba)
+    da = ba * np.dot(ca, ba) / np.dot(ba, ba)  # type: ignore
     # The point on the extended line that is the closest to the center.
     d = dx, dy = (a[0] + da[0], a[1] + da[1])
     # Optionally plot the important points.
@@ -519,7 +523,7 @@ def line_segment_intersects_circle(seg: LineSegment, circ: Circle,
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     """Checks if a rectangle intersects a circle."""
     # Case 1: the circle's center is in the rectangle.
-    if rectangle.contains_point(circ.x, circ.y):
+    if rect.contains_point(circ.x, circ.y):
         return True
     # Case 2: one of the sides of the rectangle intersects the circle.
     for seg in rect.line_segments:

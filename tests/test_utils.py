@@ -282,12 +282,15 @@ def test_line_segment():
     ax.set_xlim((-5, 5))
     ax.set_ylim((-8, 8))
 
-    seg1 = utils.LineSegment(x1=0, y1=1, x2=3, y2=6)
+    seg1 = utils.LineSegment(x1=0, y1=1, x2=3, y2=7)
     assert seg1.x1 == 0
     assert seg1.y1 == 1
     assert seg1.x2 == 3
-    assert seg1.y2 == 6
+    assert seg1.y2 == 7
     seg1.plot(ax, color="red", linewidth=2)
+    assert seg1.contains_point(2, 5)
+    assert not seg1.contains_point(2.1, 5)
+    assert not seg1.contains_point(2, 4.9)
 
     seg2 = utils.LineSegment(x1=2, y1=-5, x2=1, y2=6)
     seg2.plot(ax, color="blue", linewidth=2)
@@ -298,8 +301,6 @@ def test_line_segment():
     assert utils.geom2d_bodies_intersect(seg1, seg2)
     assert not utils.geom2d_bodies_intersect(seg1, seg3)
     assert not utils.geom2d_bodies_intersect(seg2, seg3)
-
-    # TODO test contains point
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/line_segment_unit_test.png")
@@ -338,7 +339,14 @@ def test_circle():
     assert circ1.radius == 3
     circ1.plot(ax, color="red", alpha=0.5)
 
-    # TODO test contains point
+    assert circ1.contains_point(0, 1)
+    assert circ1.contains_point(0.5, 1)
+    assert circ1.contains_point(0, 0.5)
+    assert circ1.contains_point(0.25, 1.25)
+    assert not circ1.contains_point(0, 4.1)
+    assert not circ1.contains_point(3.1, 0)
+    assert not circ1.contains_point(0, -2.1)
+    assert not circ1.contains_point(-3.1, 0)
 
     circ2 = utils.Circle(x=-3, y=2, radius=6)
     circ2.plot(ax, color="blue", alpha=0.5)
@@ -373,13 +381,21 @@ def test_rectangle():
     circ1 = rect1.circumscribed_circle
     assert np.allclose((circ1.x, circ1.y), (0, 0.5))
     assert np.allclose(circ1.radius, 2.5)
-    circ1.plot(ax, facecolor="none", edgecolor="black", linewidth=1, linestyle="dashed")
+    circ1.plot(ax,
+               facecolor="none",
+               edgecolor="black",
+               linewidth=1,
+               linestyle="dashed")
 
     expected_vertices = np.array([(-2, -1), (-2, 2), (2, -1), (2, 2)])
     assert np.allclose(sorted(rect1.vertices), expected_vertices)
     for (x, y) in rect1.vertices:
         v = utils.Circle(x, y, radius=0.1)
-        v.plot(ax, facecolor="none", edgecolor="black", linewidth=1, linestyle="dashed")
+        v.plot(ax,
+               facecolor="none",
+               edgecolor="black",
+               linewidth=1,
+               linestyle="dashed")
 
     for seg in rect1.line_segments:
         seg.plot(ax, color="black", linewidth=1, linestyle="dashed")
@@ -429,12 +445,11 @@ def test_line_segment_circle_intersection():
     assert not utils.geom2d_bodies_intersect(circ1, seg4)
 
     # Uncomment for debugging.
-    _, ax = plt.subplots(1, 1, figsize=(10, 10))
-    ax.set_xlim((-5, 5))
-    ax.set_ylim((-5, 5))
-    assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
-    plt.savefig("/tmp/line_segment_circle_unit_test.png")
-
+    # _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    # ax.set_xlim((-5, 5))
+    # ax.set_ylim((-5, 5))
+    # assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
+    # plt.savefig("/tmp/line_segment_circle_unit_test.png")
 
 
 def test_get_static_preds():
