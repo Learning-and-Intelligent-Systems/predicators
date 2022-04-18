@@ -118,7 +118,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
-            assert len(strips_ops) == 3
+            assert len(strips_ops) == 4
             PickPlace = [
                 option for option in env.options if option.name == "PickPlace"
             ][0]
