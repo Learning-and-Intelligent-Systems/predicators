@@ -265,17 +265,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         that has the highest cumulative score."""
         init = self._train_tasks[train_task_idx].init
         # Sample trajectories by sampling random sequences of NSRTs.
-        # TODO: convert to hyperparameters.
-        max_num_trajectories = 100
-        max_trajectory_length = 2
         best_score = -np.inf
         best_options = []
-        for _ in range(max_num_trajectories):
+        for _ in range(CFG.interactive_max_num_trajectories):
             state = init.copy()
             options = []
             trajectory_length = 0
             total_score = 0.0
-            while trajectory_length < max_trajectory_length:
+            while trajectory_length < CFG.interactive_max_trajectory_length:
                 # Sample an NSRT that has preconditions satisfied in the
                 # current state.
                 ground_nsrt = self._sample_applicable_ground_nsrt(state)
