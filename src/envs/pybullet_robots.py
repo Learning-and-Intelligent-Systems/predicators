@@ -24,7 +24,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     def __init__(self, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
                  open_fingers: float, closed_fingers: float,
-                 max_vel_norm: float, grasp_tol: float, physics_client_id: int) -> None:
+                 move_to_pose_tol: float, max_vel_norm: float,
+                 grasp_tol: float, physics_client_id: int) -> None:
         # Initial position for the end effector.
         self._ee_home_pose = ee_home_pose
         # Orientation for the end effector.
@@ -33,6 +34,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
         self._open_fingers = open_fingers
         # The value at which the finger joints should be closed.
         self._closed_fingers = closed_fingers
+        # The tolerance used in create_move_end_effector_to_pose_option().
+        self._move_to_pose_tol = move_to_pose_tol
         # Used for the action space.
         self._max_vel_norm = max_vel_norm
         # Used for detecting when an object is considered grasped.
@@ -172,7 +175,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(
@@ -430,13 +432,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
-        open_fingers: float, closed_fingers: float, max_vel_norm: float, grasp_tol: float,
+        open_fingers: float, closed_fingers: float, move_to_pose_tol: float,
+        max_vel_norm: float, grasp_tol: float,
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
         return FetchPyBulletRobot(
             ee_home_pose, ee_orientation, open_fingers, closed_fingers,
-            max_vel_norm, grasp_tol, physics_client_id)
+            move_to_pose_tol, max_vel_norm, grasp_tol, physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
 
 

@@ -9,8 +9,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.envs.pybullet_env import PyBulletEnv, _PyBulletState, \
-    create_pybullet_block
+from predicators.src.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
@@ -25,6 +24,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Option parameters.
     _open_fingers: ClassVar[float] = 0.04
     _closed_fingers: ClassVar[float] = 0.01
+    _move_to_pose_tol: ClassVar[float] = 1e-7
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
@@ -65,7 +65,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         name="MoveEndEffectorToPose",
                         target_z=self._pickplace_z),
                     # Toggle fingers.
-                    self._create_change_fingers_option(
+                    self._pybullet_robot.create_change_fingers_option(
                         "ToggleFingers", types, params_space,
                         toggle_fingers_func),
                     # Move back up.
@@ -130,7 +130,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                                 ee_orn,
                                                 self._open_fingers,
                                                 self._closed_fingers,
+                                                self._move_to_pose_tol,
                                                 self._max_vel_norm,
+                                                self._grasp_tol,
                                                 self._physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
@@ -241,7 +243,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[target] = np.array([0.0, 1.0, width, pose],
                                           dtype=np.float32)
 
-        state = _PyBulletState(state_dict, simulator_state=joint_state)
+        state = utils.PyBulletState(state_dict, simulator_state=joint_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
@@ -280,6 +282,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 finger_status = "closed"
             return current_pose, target_pose, finger_status
 
-        return self._create_move_end_effector_to_pose_option(
+        return self._pybullet_robot.create_move_end_effector_to_pose_option(
             name, types, params_space,
             _get_current_and_target_pose_and_finger_status)
