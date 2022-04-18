@@ -32,7 +32,7 @@ class StickPointEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["x", "y", "theta"])
-        self._point_type = Type("point", ["x", "y"])
+        self._point_type = Type("point", ["x", "y", "touched"])
         self._stick_type = Type("stick", ["x", "y", "theta", "held"])
         # Predicates
         self._Touched = Predicate("Touched", [self._point_type],
@@ -141,8 +141,18 @@ class StickPointEnv(BaseEnv):
 
     def _get_tasks(self, num: int, num_point_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
-        import ipdb
-        ipdb.set_trace()
+        tasks = []
+        while len(tasks) < num:
+            state_dict = {}
+            num_points = num_point_lst[rng.choice(len(num_point_lst))]
+            points = [Object(f"point{i}", self._point_type) for p in range(num_points)]
+            goal = {GroundAtom(self._Touched, p) for p in points}
+            import ipdb; ipdb.set_trace()
+
+
+            init_state = utils.create_state_from_dict(state_dict)
+
+        return tasks
 
     def _MoveTo_policy(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> Action:
