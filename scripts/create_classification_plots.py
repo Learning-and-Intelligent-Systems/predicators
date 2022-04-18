@@ -37,7 +37,8 @@ def _main() -> None:
         assert isinstance(env, CoverEnv)
         plot_fnc = _plot_cover
     else:
-        raise NotImplementedError(f"Plotting not yet implemented for {CFG.env}")
+        raise NotImplementedError(
+            f"Plotting not yet implemented for {CFG.env}")
     # Load approaches and gather images
     video = []
     approach.load(online_learning_cycle=None)
@@ -118,7 +119,11 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
             normalize_color_map=False)
     # Plot originally annotated data points
     for ax in axes[:2]:
-        ax.scatter(pos_examples[0], pos_examples[1], s=2, marker="o", c="green")
+        ax.scatter(pos_examples[0],
+                   pos_examples[1],
+                   s=2,
+                   marker="o",
+                   c="green")
         ax.scatter(neg_examples[0], neg_examples[1], s=2, marker="o", c="red")
     fig.suptitle(CFG.experiment_id.replace("_", " "))
     plt.tight_layout()
