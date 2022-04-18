@@ -91,12 +91,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        # Skip test coverage because GUI is too expensive to use in unit tests
-        # and cannot be used in headless mode.
-        if CFG.pybullet_draw_debug:  # pragma: no cover
-            # TODO: draw hand regions
-            pass
-
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
         self._block_ids = []
@@ -170,6 +164,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
 
+        # Reset targets based on the state.
         target_objs = state.get_objects(self._target_type)
         self._target_id_to_target = {}
         for i, target_obj in enumerate(target_objs):
@@ -185,6 +180,18 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             p.resetBasePositionAndOrientation(
                 target_id, [tx, ty, tz], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
+
+        # Draw hand regions as debug lines.
+        p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
+        for hand_lb, hand_rb in self._get_hand_regions(state):
+            # De-normalize hand bounds to actual coordinates.
+            y_lb = self._y_lb + (self._y_ub - self._y_lb) * hand_lb
+            y_rb = self._y_lb + (self._y_ub - self._y_lb) * hand_rb
+            p.addUserDebugLine([self._workspace_x, y_lb, self._table_height + 1e-4],
+                               [self._workspace_x, y_rb, self._table_height + 1e-4],
+                               [0.0, 0.0, 1.0],
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
