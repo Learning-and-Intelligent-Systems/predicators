@@ -26,8 +26,8 @@ class PyBulletEnv(BaseEnv):
     # General robot parameters.
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
-    _move_to_pose_tol: ClassVar[float] = 0.0001
-    _finger_action_tol: ClassVar[float] = 0.0001
+    _move_to_pose_tol: ClassVar[float] = 1e-7
+    _finger_action_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 0.001
 
     # Object parameters.

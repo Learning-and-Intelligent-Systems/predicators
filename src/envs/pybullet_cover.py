@@ -216,7 +216,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
             width_unnorm = p.getVisualShapeData(block_id)[0][3][1]
-            # Normalize width.
             width = width_unnorm / self._max_obj_width * max_width
             (_, by, _), _ = p.getBasePositionAndOrientation(
                 block_id, physicsClientId=self._physics_client_id)
