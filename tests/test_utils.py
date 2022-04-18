@@ -367,6 +367,9 @@ def test_rectangle():
     assert utils.geom2d_bodies_intersect(rect1, rect3)
     assert not utils.geom2d_bodies_intersect(rect2, rect3)
 
+    rect4 = utils.Rectangle(x=0.8, y=1e-5, height=0.1, width=0.07, theta=0)
+    assert not rect4.contains_point(0.2, 0.05)
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/rectangle_unit_test.png")
 

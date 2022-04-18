@@ -404,14 +404,14 @@ class Rectangle(_Geom2DBody):
         # at (x, y) and extending far enough in one direction will intersect
         # exactly zero, one, or two sides of the rectangle. If it's zero or
         # two, the point is outside; if it's one, the point is inside.
-        l = 2 * self.circumscribed_circle.radius + 1e-7
+        l = 2 * max(self.width, self.height)
         line = LineSegment(x, y, x + l, y)
         num_intersections = 0
         for seg in self.line_segments:
             if line_segments_intersect(line, seg):
                 num_intersections += 1
         assert num_intersections in [0, 1, 2]
-        return num_intersections == 1
+        return (num_intersections == 1)
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         angle = self.theta * 180 / np.pi
@@ -526,7 +526,8 @@ def line_segment_intersects_circle(seg: LineSegment,
     return circ.contains_point(dx, dy)
 
 
-def line_segment_intersects_rectangle(seg: LineSegment, rect: Rectangle) -> bool:
+def line_segment_intersects_rectangle(seg: LineSegment,
+                                      rect: Rectangle) -> bool:
     """Checks if a line segment intersects a rectangle."""
     # Case 1: one of the end points of the segment are in the rectangle.
     if rect.contains_point(seg.x1, seg.y1):
