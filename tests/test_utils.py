@@ -380,6 +380,17 @@ def test_rectangle():
     for seg in rect1.line_segments:
         seg.plot(ax, color="black", linewidth=1, linestyle="dashed")
 
+    assert not rect1.contains_point(-2.1, 0)
+    assert rect1.contains_point(-1.9, 0)
+    assert not rect1.contains_point(0, 2.1)
+    assert rect1.contains_point(0, 1.9)
+    assert not rect1.contains_point(2.1, 0)
+    assert rect1.contains_point(1.9, 0)
+    assert not rect1.contains_point(0, -1.1)
+    assert rect1.contains_point(0, -0.9)
+    assert rect1.contains_point(0, 0.5)
+    assert not rect1.contains_point(100, 100)
+
     rect2 = utils.Rectangle(x=1, y=-2, width=2, height=2, theta=0.5)
     rect2.plot(ax, color="blue", alpha=0.5)
 
