@@ -273,8 +273,22 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
     return True
 
 
+class _Geom2DBody(abc.ABC):
+    """A 2D body that contains some points."""
+
+    @abc.abstractmethod
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        """Plot the body on a given pyplot axis."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def contains_point(self, x: float, y: float) -> bool:
+        """Checks if a point is contained in the body."""
+        raise NotImplementedError("Override me!")
+
+
 @dataclass(frozen=True)
-class LineSegment:
+class LineSegment(_Geom2DBody):
     """A helper class for visualizing and collision checking line segments."""
     x1: float
     y1: float
@@ -282,25 +296,38 @@ class LineSegment:
     y2: float
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
-        """Plot the line segment on a given pyplot axis."""
         ax.plot([self.x1, self.x2], [self.y1, self.y2], **kwargs)
+
+    def contains_point(self, x: float, y: float) -> bool:
+        # https://stackoverflow.com/questions/328107
+        a = (self.x1, self.y1)
+        b = (self.x2, self.y2)
+        c = (x, y)
+        # Need to use an epsilon for numerical stability. But we are checking
+        # if the distance from a to b is (approximately) equal to the distance
+        # from a to c and the distance from c to b.
+        eps = 1e-6
+        dist = lambda p,q: np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+        return -eps < dist(a, c) + dist(c, b) - dist(a, b) < eps
 
 
 @dataclass(frozen=True)
-class Circle:
+class Circle(_Geom2DBody):
     """A helper class for visualizing and collision checking circles."""
     x: float
     y: float
     radius: float
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
-        """Plot the circle on a given pyplot axis."""
         patch = patches.Circle((self.x, self.y), self.radius, **kwargs)
         ax.add_patch(patch)
 
+    def contains_point(self, x: float, y: float) -> bool:
+        return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+
 
 @dataclass(frozen=True)
-class Rectangle:
+class Rectangle(_Geom2DBody):
     """A helper class for visualizing and collision checking rectangles.
 
     Following the convention in plt.Rectangle, the origin is at the
@@ -364,7 +391,6 @@ class Rectangle:
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        """Returns whether this point is inside the rectangle."""
         # This is not the most efficient implementation, but it allows us to
         # reuse more code than alternatives. The idea is that a line starting
         # at (x, y) and extending far enough in one direction will intersect
@@ -380,7 +406,6 @@ class Rectangle:
         return num_intersections == 1
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
-        """Plot the rectangle on a given pyplot axis."""
         angle = self.theta * 180 / np.pi
         patch = patches.Rectangle((self.x, self.y), self.width, self.height,
                                   angle, **kwargs)
@@ -452,22 +477,43 @@ def rectangles_intersect(rect1: Rectangle, rect2: Rectangle) -> bool:
     return False
 
 
-def line_segment_intersects_circle(seg: LineSegment, circ: Circle) -> bool:
-    """Checks if a line segment intersects a circle."""
-    # See the diagram in https://stackoverflow.com/questions/1073336.
+def line_segment_intersects_circle(seg: LineSegment, circ: Circle,
+                                   ax: Optional[plt.Axes] = None) -> bool:
+    """Checks if a line segment intersects a circle.
+
+    If ax is not None, a diagram is plotted on the axis to illustrate the
+    computations, which is useful for checking correctness.
+    """
+    # First check if the end points of the segment are in the circle.
+    if circ.contains_point(seg.x1, seg.y1):
+        return True
+    if circ.contains_point(seg.x2, seg.y2):
+        return True
+    # Project the circle radius onto the extended line.
     c = (circ.x, circ.y)
     # Project (a, c) onto (a, b).
     a = (seg.x1, seg.y1)
     b = (seg.x2, seg.y2)
     ba = np.subtract(b, a)
     ca = np.subtract(c, a)
-    da = ba * np.dot(bc, ba) / np.dot(ba, ba)
-    # Check if the distance between d and c is smaller than the radius
-    # of the circle.
-    ca_sq_len = np.sum(np.square(ca))
-    da_sq_len = np.sum(np.square(da))
-    cd_sq_len = ca_sq_len - da_sq_len
-    return cd_sq_len < circ.radius
+    da = ba * np.dot(ca, ba) / np.dot(ba, ba)
+    # The point on the extended line that is the closest to the center.
+    d = dx, dy = (a[0] + da[0], a[1] + da[1])
+    # Optionally plot the important points.
+    if ax is not None:
+        circ.plot(ax, color="red", alpha=0.5)
+        seg.plot(ax, color="black", linewidth=2)
+        ax.annotate("A", a)
+        ax.annotate("B", b)
+        ax.annotate("C", c)
+        ax.annotate("D", d)
+    # Check if the point is on the line. If it's not, there is no intersection,
+    # because we already checked that the circle does not contain the end
+    # points of the line segment.
+    if not seg.contains_point(dx, dy):
+        return False
+    # So d is on the segment. Check if it's in the circle.
+    return circ.contains_point(dx, dy)
 
 
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
@@ -493,7 +539,7 @@ def geom2d_bodies_intersect(body1: Union[Rectangle, Circle],
     if isinstance(body1, LineSegment) and isinstance(body2, Circle):
         return line_segment_intersects_circle(body1, body2)
     if isinstance(body1, Circle) and isinstance(body2, LineSegment):
-        return line_segment_intersects_circle(body2, body2)
+        return line_segment_intersects_circle(body2, body1)
     if isinstance(body1, Rectangle) and isinstance(body2, Rectangle):
         return rectangles_intersect(body1, body2)
     if isinstance(body1, Rectangle) and isinstance(body2, Circle):

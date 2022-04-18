@@ -299,6 +299,8 @@ def test_line_segment():
     assert not utils.geom2d_bodies_intersect(seg1, seg3)
     assert not utils.geom2d_bodies_intersect(seg2, seg3)
 
+    # TODO test contains point
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/line_segment_unit_test.png")
 
@@ -335,6 +337,8 @@ def test_circle():
     assert circ1.y == 1
     assert circ1.radius == 3
     circ1.plot(ax, color="red", alpha=0.5)
+
+    # TODO test contains point
 
     circ2 = utils.Circle(x=-3, y=2, radius=6)
     circ2.plot(ax, color="blue", alpha=0.5)
@@ -402,7 +406,35 @@ def test_rectangle():
     assert not utils.geom2d_bodies_intersect(rect2, rect3)
 
     # Uncomment for debugging.
-    plt.savefig("/tmp/rectangle_unit_test.png")
+    # plt.savefig("/tmp/rectangle_unit_test.png")
+
+
+def test_line_segment_circle_intersection():
+    """Tests for line_segment_intersects_circle()."""
+    seg1 = utils.LineSegment(-3, 0, 0, 0)
+    circ1 = utils.Circle(0, 0, 1)
+    assert utils.geom2d_bodies_intersect(seg1, circ1)
+    assert utils.geom2d_bodies_intersect(circ1, circ1)
+
+    seg2 = utils.LineSegment(-3, 3, 4, 3)
+    assert not utils.geom2d_bodies_intersect(seg2, circ1)
+    assert not utils.geom2d_bodies_intersect(circ1, seg2)
+
+    seg3 = utils.LineSegment(0, -2, 1, -2.5)
+    assert not utils.geom2d_bodies_intersect(seg3, circ1)
+    assert not utils.geom2d_bodies_intersect(circ1, seg3)
+
+    seg4 = utils.LineSegment(0, -3, 0, -4)
+    assert not utils.geom2d_bodies_intersect(seg4, circ1)
+    assert not utils.geom2d_bodies_intersect(circ1, seg4)
+
+    # Uncomment for debugging.
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+    assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
+    plt.savefig("/tmp/line_segment_circle_unit_test.png")
+
 
 
 def test_get_static_preds():
