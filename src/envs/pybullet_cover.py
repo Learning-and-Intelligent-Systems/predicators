@@ -1,7 +1,6 @@
 """A PyBullet version of Cover."""
 
-import logging
-from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
+from typing import ClassVar, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pybullet as p
@@ -22,6 +21,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Option parameters.
+    # TODO: update to match pybullet_blocks
     _open_fingers: ClassVar[float] = 0.04
     _closed_fingers: ClassVar[float] = 0.01
     _move_to_pose_tol: ClassVar[float] = 1e-7
