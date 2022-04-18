@@ -26,5 +26,5 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # python $FILE $COMMON_ARGS --experiment_id excludeall_silent_kid --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function trivial
 
     # glib new init
-    python $FILE $COMMON_ARGS --experiment_id glib_init_std_1 --interactive_action_strategy glib --interactive_query_policy threshold --interactive_score_function entropy --interactive_score_threshold 0.05
+    python $FILE $COMMON_ARGS --experiment_id glib_init_uniform_3 --interactive_action_strategy glib --interactive_query_policy threshold --interactive_score_function entropy --interactive_score_threshold 0.05
 done
