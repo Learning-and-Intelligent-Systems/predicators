@@ -124,6 +124,10 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
+    # stick point env parameters
+    stick_point_num_points_train = [1, 2]
+    stick_point_num_points_test = [3, 4]
+
     # parameters for random options approach
     random_options_max_tries = 100
 
