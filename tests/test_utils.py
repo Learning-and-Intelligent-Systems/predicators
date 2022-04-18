@@ -350,6 +350,41 @@ def test_circle():
     # plt.savefig("/tmp/circle_unit_test.png")
 
 
+def test_rectangle():
+    """Tests for Rectangle()."""
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+
+    rect1 = utils.Rectangle(x=-2, y=-1, width=4, height=3, theta=0)
+    assert rect1.x == -2
+    assert rect1.y == -1
+    assert rect1.width == 4
+    assert rect1.height == 3
+    assert rect1.theta == 0
+    rect1.plot(ax, color="red", alpha=0.5)
+
+    assert np.allclose(rect1.center, (0, 0.5))
+
+    circ1 = rect1.circumscribed_circle
+    assert np.allclose(rect1.center, (circ1.x, circ1.y))
+    assert np.allclose(circ1.radius, 5)
+    circ1.plot(ax, facecolor="none", edgecolor="black", linewidth=1)
+
+    # circ2 = utils.Circle(x=-3, y=2, radius=6)
+    # circ2.plot(ax, color="blue", alpha=0.5)
+
+    # circ3 = utils.Circle(x=-6, y=1, radius=1)
+    # circ3.plot(ax, color="green", alpha=0.5)
+
+    # assert utils.geom2d_bodies_intersect(circ1, circ2)
+    # assert not utils.geom2d_bodies_intersect(circ1, circ3)
+    # assert utils.geom2d_bodies_intersect(circ2, circ3)
+
+    # Uncomment for debugging.
+    plt.savefig("/tmp/rectangle_unit_test.png")
+
+
 def test_get_static_preds():
     """Tests for get_static_preds()."""
     utils.reset_config({"env": "cover"})
