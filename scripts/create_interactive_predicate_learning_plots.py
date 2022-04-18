@@ -33,8 +33,7 @@ COLUMN_NAMES_AND_KEYS = [
 ]
 
 DERIVED_KEYS = [
-    ("perc_solved",
-     lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
     ("perc_exec_fail",
      lambda r: 100 * r["num_execution_failures"] / r["num_test_tasks"]),
     ("perc_plan_fail",
