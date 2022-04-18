@@ -254,8 +254,8 @@ class PyBulletEnv(BaseEnv):
         one that is closest.
         """
         expected_finger_normals = {
-            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
+            self._pybullet_robot.left_finger_id: np.array([np.pi / 2., 1., 0.]),
+            self._pybullet_robot.right_finger_id: np.array([np.pi / 2., -1., 0.]),
         }
         closest_held_obj = None
         closest_held_obj_dist = float("inf")

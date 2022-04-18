@@ -189,7 +189,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
+                                                ee_orn,
                                                 self.open_fingers,
                                                 self.closed_fingers,
                                                 self._max_vel_norm,
