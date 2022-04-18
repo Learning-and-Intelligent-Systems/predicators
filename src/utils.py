@@ -221,59 +221,6 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     return State(state_dict, simulator_state)
 
 
-def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
-               p3: Tuple[float, float], p4: Tuple[float, float]) -> bool:
-    """Checks if line segment p1p2 and p3p4 intersect.
-
-    This method, which works by checking relative orientation, allows
-    for collinearity, and only checks if each segment straddles the line
-    containing the other.
-    """
-
-    # TODO refactor
-
-    def subtract(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> Tuple[float, float]:
-        x1, y1 = a
-        x2, y2 = b
-        return (x1 - x2), (y1 - y2)
-    def cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
-        -> float:
-        x1, y1 = b
-        x2, y2 = a
-        return x1 * y2 - x2 * y1
-
-    def direction(a: Tuple[float, float], b: Tuple[float, float],
-                  c: Tuple[float, float]) -> float:
-        return cross_product(subtract(a, c), subtract(a, b))
-
-    d1 = direction(p3, p4, p1)
-    d2 = direction(p3, p4, p2)
-    d3 = direction(p1, p2, p3)
-    d4 = direction(p1, p2, p4)
-    if ((d2 < 0 < d1) or (d1 < 0 < d2)) and \
-    ((d4 < 0 < d3) or (d3 < 0 < d4)):
-        return True
-    return False
-
-
-def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
-            l2: Tuple[float, float], r2: Tuple[float, float]) -> bool:
-    """Checks if two rectangles defined by their top left and bottom right
-    points overlap, allowing for overlaps of measure zero.
-
-    The first rectangle is defined by (l1, r1) and the second is defined
-    by (l2, r2).
-    """
-    # TODO refactor
-
-    if (l1[0] >= r2[0] or l2[0] >= r1[0]):  # one rect on left side of other
-        return False
-    if (r1[1] >= l2[1] or r2[1] >= l1[1]):  # one rect above the other
-        return False
-    return True
-
-
 class _Geom2DBody(abc.ABC):
     """A 2D body that contains some points."""
 
@@ -399,19 +346,12 @@ class Rectangle(_Geom2DBody):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        # This is not the most efficient implementation, but it allows us to
-        # reuse more code than alternatives. The idea is that a line starting
-        # at (x, y) and extending far enough in one direction will intersect
-        # exactly zero, one, or two sides of the rectangle. If it's zero or
-        # two, the point is outside; if it's one, the point is inside.
-        l = 2 * max(self.width, self.height)
-        line = LineSegment(x, y, x + l, y)
-        num_intersections = 0
-        for seg in self.line_segments:
-            if line_segments_intersect(line, seg):
-                num_intersections += 1
-        assert num_intersections in [0, 1, 2]
-        return (num_intersections == 1)
+        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
+                                  [np.sin(self.theta),
+                                   np.cos(self.theta)]])
+        rx, ry = np.array([x, y]) @ rotate_matrix.T
+        return self.x <= rx <= self.x + self.width and \
+               self.y <= ry <= self.y + self.height
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         angle = self.theta * 180 / np.pi
@@ -550,12 +490,8 @@ def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     return False
 
 
-def geom2d_bodies_intersect(body1: Union[Rectangle, Circle],
-                            body2: Union[Rectangle, Circle]) -> bool:
-    """Check if two 2D bodies intersect.
-
-    Useful for collision checking.
-    """
+def geom2d_bodies_intersect(body1: _Geom2DBody, body2: _Geom2DBody) -> bool:
+    """Check if two 2D bodies intersect."""
     if isinstance(body1, LineSegment) and isinstance(body2, LineSegment):
         return line_segments_intersect(body1, body2)
     if isinstance(body1, LineSegment) and isinstance(body2, Circle):
