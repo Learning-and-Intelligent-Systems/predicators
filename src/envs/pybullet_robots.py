@@ -280,13 +280,24 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
-        assert np.allclose((rx, ry, rz), self._ee_home_pose)
+        # First, reset the joint values to self._initial_joint_values,
+        # so that IK is consistent (less sensitive to initialization).
         joint_values = self._initial_joint_values
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
                               physicsClientId=self._physics_client_id)
+        # Now run IK to get to the actual starting rx, ry, rz. We use
+        # validate=True to ensure that this initialization works.
+        joint_values = self._run_inverse_kinematics(
+            (rx, ry, rz), validate=True)
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        # Handle setting the robot finger joints.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
             p.resetJointState(self._fetch_id,
                               finger_id,

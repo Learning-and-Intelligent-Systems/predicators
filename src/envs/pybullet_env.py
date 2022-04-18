@@ -219,32 +219,10 @@ class PyBulletEnv(BaseEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and self._fingers_closing(action):
-            # Detect whether an object is held.
+            # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
             if self._held_obj_id is not None:
-                # Create a grasp constraint.
-                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2])]
-                world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                    self._held_obj_id,
-                    physicsClientId=self._physics_client_id)]
-                base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
-                    base_link_to_world[:3], base_link_to_world[3:],
-                    world_to_obj[:3], world_to_obj[3:]))
-                self._held_constraint_id = p.createConstraint(
-                    parentBodyUniqueId=self._pybullet_robot.robot_id,
-                    parentLinkIndex=self._pybullet_robot.end_effector_id,
-                    childBodyUniqueId=self._held_obj_id,
-                    childLinkIndex=-1,  # -1 for the base
-                    jointType=p.JOINT_FIXED,
-                    jointAxis=[0, 0, 0],
-                    parentFramePosition=[0, 0, 0],
-                    childFramePosition=base_link_to_obj[0],
-                    parentFrameOrientation=[0, 0, 0, 1],
-                    childFrameOrientation=base_link_to_obj[1],
-                    physicsClientId=self._physics_client_id)
+                self._create_grasp_constraint()
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
@@ -299,6 +277,31 @@ class PyBulletEnv(BaseEnv):
                         closest_held_obj = obj_id
                         closest_held_obj_dist = contact_distance
         return closest_held_obj
+
+    def _create_grasp_constraint(self) -> None:
+        assert self._held_obj_id is not None
+        base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+            self._pybullet_robot.robot_id,
+            self._pybullet_robot.end_effector_id,
+            physicsClientId=self._physics_client_id)[:2])]
+        world_to_obj = np.r_[p.getBasePositionAndOrientation(
+            self._held_obj_id,
+            physicsClientId=self._physics_client_id)]
+        base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+            base_link_to_world[:3], base_link_to_world[3:],
+            world_to_obj[:3], world_to_obj[3:]))
+        self._held_constraint_id = p.createConstraint(
+            parentBodyUniqueId=self._pybullet_robot.robot_id,
+            parentLinkIndex=self._pybullet_robot.end_effector_id,
+            childBodyUniqueId=self._held_obj_id,
+            childLinkIndex=-1,  # -1 for the base
+            jointType=p.JOINT_FIXED,
+            jointAxis=[0, 0, 0],
+            parentFramePosition=[0, 0, 0],
+            childFramePosition=base_link_to_obj[0],
+            parentFrameOrientation=[0, 0, 0, 1],
+            childFrameOrientation=base_link_to_obj[1],
+            physicsClientId=self._physics_client_id)
 
     def _fingers_closing(self, action: Action) -> bool:
         """Check whether this action is working toward closing the fingers."""

@@ -156,8 +156,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         super()._reset_state(state)
 
         # Reset blocks based on the state.
-        # Assume not holding in the initial state
-        assert self._HandEmpty_holds(state, [])
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
@@ -167,12 +165,19 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize block y to actual coordinates.
             y_norm = state.get(block_obj, "pose")
             by = self._y_lb + (self._y_ub - self._y_lb) * y_norm
-            height = p.getVisualShapeData(
-                block_id, physicsClientId=self._physics_client_id)[0][3][-1]
-            bz = self._table_height + height * 0.5
+            if state.get(block_obj, "grasp") != -1:
+                # If an object starts out held, it has a different z.
+                bz = self._workspace_z - 0.01
+            else:
+                bz = self._table_height + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
+            if state.get(block_obj, "grasp") != -1:
+                # If an object starts out held, set up the grasp constraint.
+                self._held_obj_id = self._detect_held_object()
+                assert self._held_obj_id == block_id
+                self._create_grasp_constraint()
 
         # Reset targets based on the state.
         target_objs = state.get_objects(self._target_type)
@@ -184,9 +189,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize target y to actual coordinates.
             y_norm = state.get(target_obj, "pose")
             ty = self._y_lb + (self._y_ub - self._y_lb) * y_norm
-            height = p.getVisualShapeData(
-                target_id, physicsClientId=self._physics_client_id)[0][3][-1]
-            tz = self._table_height + height * 0.5
+            tz = self._table_height + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
                 target_id, [tx, ty, tz], [0.0, 0.0, 0.0, 1.0],
                 physicsClientId=self._physics_client_id)
@@ -202,15 +205,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                [0.0, 0.0, 1.0],
                                lineWidth=5.0,
                                physicsClientId=self._physics_client_id)
-
-        # Assert that the state was properly reconstructed.
-        reconstructed_state = self._get_state()
-        if not reconstructed_state.allclose(state):
-            logging.debug("Desired state:")
-            logging.debug(state.pretty_str())
-            logging.debug("Reconstructed state:")
-            logging.debug(reconstructed_state.pretty_str())
-            raise ValueError("Could not reconstruct state.")
 
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
