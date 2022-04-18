@@ -286,8 +286,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 # Assume for now that options will be initiable when the
                 # preconditions of the NSRT are satisfied.
                 assert option.initiable(state)
-                state, num_actions = self._option_model.get_next_state_and_num_actions(
-                    state, option)
+                state, num_actions = \
+                    self._option_model.get_next_state_and_num_actions(state,
+                                                                      option)
                 # Special case: if the num actions is 0, something went wrong,
                 # and we don't want to use this option after all. To prevent
                 # possible infinite loops, just break immediately in this case.
