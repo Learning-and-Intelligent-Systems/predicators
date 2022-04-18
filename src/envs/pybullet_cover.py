@@ -163,7 +163,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize block y to actual coordinates.
             y_norm = state.get(block_obj, "pose")
             by = self._y_lb + (self._y_ub - self._y_lb) * y_norm
-            height = p.getVisualShapeData(block_id)[0][3][-1]
+            height = p.getVisualShapeData(
+                block_id, physicsClientId=self._physics_client_id)[0][3][-1]
             bz = self._table_height + height * 0.5
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
@@ -178,7 +179,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize target y to actual coordinates.
             y_norm = state.get(target_obj, "pose")
             ty = self._y_lb + (self._y_ub - self._y_lb) * y_norm
-            height = p.getVisualShapeData(target_id)[0][3][-1]
+            height = p.getVisualShapeData(
+                target_id, physicsClientId=self._physics_client_id)[0][3][-1]
             tz = self._table_height + height * 0.5
             p.resetBasePositionAndOrientation(
                 target_id, [tx, ty, tz], [0.0, 0.0, 0.0, 1.0],
@@ -217,7 +219,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
-            width_unnorm = p.getVisualShapeData(block_id)[0][3][1]
+            width_unnorm = p.getVisualShapeData(
+                block_id, physicsClientId=self._physics_client_id)[0][3][1]
             width = width_unnorm / self._max_obj_width * max_width
             (_, by, _), _ = p.getBasePositionAndOrientation(
                 block_id, physicsClientId=self._physics_client_id)
@@ -235,7 +238,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
         # Get target states.
         for target_id, target in self._target_id_to_target.items():
-            width_unnorm = p.getVisualShapeData(target_id)[0][3][1]
+            width_unnorm = p.getVisualShapeData(
+                target_id, physicsClientId=self._physics_client_id)[0][3][1]
             width = width_unnorm / self._max_obj_width * max_width
             (_, ty, _), _ = p.getBasePositionAndOrientation(
                 target_id, physicsClientId=self._physics_client_id)

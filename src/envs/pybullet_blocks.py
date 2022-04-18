@@ -149,28 +149,36 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
                                [self.x_ub, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_lb, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
                                [self.x_ub, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             # Draw coordinate frame labels for reference.
-            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0])
-            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0])
-            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0])
+            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
+            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
+            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
             # Draw the pick z location at the x/y midpoint.
             mid_x = (self.x_ub + self.x_lb) / 2
             mid_y = (self.y_ub + self.y_lb) / 2
             p.addUserDebugText("*", [mid_x, mid_y, self.pick_z],
-                               [1.0, 0.0, 0.0])
+                               [1.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
 
         # Create blocks. Note that we create the maximum number once, and then
         # later on, in reset_state(), we will remove blocks from the workspace
