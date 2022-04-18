@@ -452,6 +452,24 @@ def test_line_segment_circle_intersection():
     # plt.savefig("/tmp/line_segment_circle_unit_test.png")
 
 
+
+def test_geom2d_bodies_intersect():
+    """Tests for geom2d_bodies_intersect()."""
+
+    class _MockGeom2DBody(utils._Geom2DBody):  # pylint: disable=protected-access
+
+        def plot(self, ax, **kwargs):
+            raise NotImplementedError("Not used.")
+
+        def contains_point(self, x, y):
+            raise NotImplementedError("Not used.")
+
+    body = _MockGeom2DBody()
+
+    with pytest.raises(NotImplementedError):
+        utils.geom2d_bodies_intersect(body, body)
+
+
 def test_get_static_preds():
     """Tests for get_static_preds()."""
     utils.reset_config({"env": "cover"})
