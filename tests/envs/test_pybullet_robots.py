@@ -163,8 +163,8 @@ def test_fetch_pybullet_robot():
     max_vel_norm = 0.05
     grasp_tol = 0.05
     robot = FetchPyBulletRobot(ee_home_pose, ee_orn, open_fingers,
-                               closed_fingers, move_to_pose_tol,
-                               max_vel_norm, grasp_tol, physics_client_id)
+                               closed_fingers, move_to_pose_tol, max_vel_norm,
+                               grasp_tol, physics_client_id)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -193,6 +193,9 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
+    # Test forward kinematics.
+    fk_result = robot.forward_kinematics(action_arr)
+    assert np.allclose(fk_result, ee_target, atol=1e-3)
 
 
 def test_create_single_arm_pybullet_robot():
