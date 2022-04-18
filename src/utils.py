@@ -308,8 +308,10 @@ class LineSegment(_Geom2DBody):
         # if the distance from a to b is (approximately) equal to the distance
         # from a to c and the distance from c to b.
         eps = 1e-6
+
         def _dist(p: Tuple[float, float], q: Tuple[float, float]) -> float:
             return np.sqrt((p[0] - q[0])**2 + (p[1] - q[1])**2)
+
         return -eps < _dist(a, c) + _dist(c, b) - _dist(a, b) < eps
 
 
