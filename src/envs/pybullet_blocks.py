@@ -24,6 +24,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Option parameters.
     _offset_z: ClassVar[float] = 0.01
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
@@ -128,7 +129,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         """Run super(), then handle blocks-specific initialization."""
         super()._initialize_pybullet()
 
-        # Load table.
+        # Load table in both the main client and the copy.
         self._table_id = p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
             useFixedBase=True,
@@ -138,6 +139,14 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
+        p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id_copy)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_pose,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id_copy)
 
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
@@ -148,28 +157,36 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
                                [self.x_ub, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_lb, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
                                [self.x_ub, self.y_ub, self.table_height],
                                [1.0, 0.0, 0.0],
-                               lineWidth=5.0)
+                               lineWidth=5.0,
+                               physicsClientId=self._physics_client_id)
             # Draw coordinate frame labels for reference.
-            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0])
-            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0])
-            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0])
+            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
+            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
+            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
             # Draw the pick z location at the x/y midpoint.
             mid_x = (self.x_ub + self.x_lb) / 2
             mid_y = (self.y_ub + self.y_lb) / 2
             p.addUserDebugText("*", [mid_x, mid_y, self.pick_z],
-                               [1.0, 0.0, 0.0])
+                               [1.0, 0.0, 0.0],
+                               physicsClientId=self._physics_client_id)
 
         # Create blocks. Note that we create the maximum number once, and then
         # later on, in reset_state(), we will remove blocks from the workspace
@@ -187,14 +204,14 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       self._obj_friction, orientation,
                                       self._physics_client_id))
 
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
+    def _create_pybullet_robot(
+            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                self.open_fingers,
-                                                self.closed_fingers,
-                                                self._max_vel_norm,
-                                                self._grasp_tol,
-                                                self._physics_client_id)
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+        return create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, ee_orn, self.open_fingers,
+            self.closed_fingers, self._move_to_pose_tol, self._max_vel_norm,
+            self._grasp_tol, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
