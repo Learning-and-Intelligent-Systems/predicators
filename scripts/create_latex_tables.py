@@ -18,7 +18,6 @@ GROUPS = [
     "APPROACH",
     "EXCLUDED_PREDICATES",
     "EXPERIMENT_ID",
-    # "NUM_TRAIN_TASKS", "CYCLE"
 ]
 
 # All column names and keys to load into the pandas tables.
@@ -28,23 +27,10 @@ COLUMN_NAMES_AND_KEYS = [
     ("EXCLUDED_PREDICATES", "excluded_predicates"),
     ("EXPERIMENT_ID", "experiment_id"),
     ("SEED", "seed"),
-    # ("NUM_TRAIN_TASKS", "num_train_tasks"),
-    # ("CYCLE", "cycle"),
-    # ("NUM_SOLVED", "num_solved"),
-    # ("AVG_NUM_PREDS", "avg_num_preds"),
     ("AVG_TEST_TIME", "avg_suc_time"),
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
-    # ("MIN_SKELETONS", "min_skeletons_optimized"),
-    # ("MAX_SKELETONS", "max_skeletons_optimized"),
-    # ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
-    # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
-    # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
-    # ("AVG_PLAN_LEN", "avg_plan_length"),
-    # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
-    # ("NUM_TRANSITIONS", "num_transitions"),
 ]
 
 DERIVED_KEYS = [("perc_solved",

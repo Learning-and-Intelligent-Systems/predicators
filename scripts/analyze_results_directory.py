@@ -38,7 +38,7 @@ COLUMN_NAMES_AND_KEYS = [
     # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
     # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
     # ("AVG_PLAN_LEN", "avg_plan_length"),
-    # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
+    # ("NUM_EXECUTION_FAILURES", "num_execution_failures"),
     # ("NUM_TRANSITIONS", "num_transitions"),
     # ("QUERY_COST", "query_cost"),
 ]
