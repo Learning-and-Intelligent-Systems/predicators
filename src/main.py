@@ -219,6 +219,7 @@ def _generate_interaction_results(
             request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
+            exceptions_to_break_on={utils.OptionExecutionFailure},
             monitor=monitor)
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
