@@ -449,21 +449,11 @@ def test_geom2ds_intersect():
     """Tests for geom2ds_intersect()."""
 
     class _MockGeom2D(utils._Geom2D):  # pylint: disable=protected-access
+        pass
 
-        def plot(self, ax, **kwargs):
-            raise NotImplementedError("Not used.")
-
-        def contains_point(self, x, y):
-            raise NotImplementedError("Not used.")
-
+    # Reference: https://stackoverflow.com/questions/9757299
+    _MockGeom2D.__abstractmethods__ = set()
     geom = _MockGeom2D()
-
-    _, ax = plt.subplots(1, 1)
-    with pytest.raises(NotImplementedError):
-        geom.plot(ax)
-
-    with pytest.raises(NotImplementedError):
-        geom.contains_point(0, 0)
 
     with pytest.raises(NotImplementedError):
         utils.geom2ds_intersect(geom, geom)
