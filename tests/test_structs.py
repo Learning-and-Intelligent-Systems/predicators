@@ -268,6 +268,13 @@ def test_predicate_and_atom():
     zero_arity_pred = Predicate("NoArity", [], _classifier)
     with pytest.raises(ValueError):
         zero_arity_pred([])  # ambiguous whether lifted or ground
+    unary_predicate = Predicate("Unary", [cup_type], _classifier)
+    with pytest.raises(ValueError) as e:
+        GroundAtom(unary_predicate, cup1)  # expecting a sequence of atoms
+    assert "Atoms expect a sequence of entities" in str(e)
+    with pytest.raises(ValueError) as e:
+        LiftedAtom(unary_predicate, cup_var)  # expecting a sequence of atoms
+    assert "Atoms expect a sequence of entities" in str(e)
 
 
 def test_task(state):

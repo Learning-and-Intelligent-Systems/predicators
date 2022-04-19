@@ -8,6 +8,7 @@ from typing import Type as TypingType
 import numpy as np
 import pytest
 from gym.spaces import Box
+from matplotlib import pyplot as plt
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
@@ -221,58 +222,233 @@ def test_create_state_from_dict():
         state2.allclose(state3)
 
 
-def test_intersects():
-    """Tests for intersects()."""
-    p1, p2 = (2, 5), (7, 6)
-    p3, p4 = (2.5, 7.1), (7.4, 5.3)
-    assert utils.intersects(p1, p2, p3, p4)
+def test_line_segment():
+    """Tests for LineSegment()."""
+    _, ax = plt.subplots(1, 1)
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-8, 8))
 
-    p1, p2 = (1, 3), (5, 3)
-    p3, p4 = (3, 7), (3, 2)
-    assert utils.intersects(p1, p2, p3, p4)
+    seg1 = utils.LineSegment(x1=0, y1=1, x2=3, y2=7)
+    assert seg1.x1 == 0
+    assert seg1.y1 == 1
+    assert seg1.x2 == 3
+    assert seg1.y2 == 7
+    seg1.plot(ax, color="red", linewidth=2)
+    assert seg1.contains_point(2, 5)
+    assert not seg1.contains_point(2.1, 5)
+    assert not seg1.contains_point(2, 4.9)
 
-    p1, p2 = (2, 5), (7, 6)
-    p3, p4 = (2, 6), (7, 7)
-    assert not utils.intersects(p1, p2, p3, p4)
+    seg2 = utils.LineSegment(x1=2, y1=-5, x2=1, y2=6)
+    seg2.plot(ax, color="blue", linewidth=2)
 
-    p1, p2 = (1, 1), (3, 3)
-    p3, p4 = (2, 2), (4, 4)
-    assert not utils.intersects(p1, p2, p3, p4)
+    seg3 = utils.LineSegment(x1=-2, y1=-3, x2=-4, y2=2)
+    seg3.plot(ax, color="green", linewidth=2)
 
-    p1, p2 = (1, 1), (3, 3)
-    p3, p4 = (1, 1), (6.7, 7.4)
-    assert not utils.intersects(p1, p2, p3, p4)
+    assert utils.geom2ds_intersect(seg1, seg2)
+    assert not utils.geom2ds_intersect(seg1, seg3)
+    assert not utils.geom2ds_intersect(seg2, seg3)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/line_segment_unit_test.png")
+
+    # Legacy tests.
+    seg1 = utils.LineSegment(2, 5, 7, 6)
+    seg2 = utils.LineSegment(2.5, 7.1, 7.4, 5.3)
+    assert utils.geom2ds_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 3, 5, 3)
+    seg2 = utils.LineSegment(3, 7, 3, 2)
+    assert utils.geom2ds_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(2, 5, 7, 6)
+    seg2 = utils.LineSegment(2, 6, 7, 7)
+    assert not utils.geom2ds_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 1, 3, 3)
+    seg2 = utils.LineSegment(2, 2, 4, 4)
+    assert not utils.geom2ds_intersect(seg1, seg2)
+
+    seg1 = utils.LineSegment(1, 1, 3, 3)
+    seg2 = utils.LineSegment(1, 1, 6.7, 7.4)
+    assert not utils.geom2ds_intersect(seg1, seg2)
 
 
-def test_overlap():
-    """Tests for overlap()."""
-    l1, r1 = (1, 7), (3, 1)
-    l2, r2 = (2, 10), (7, 3)
-    assert utils.overlap(l1, r1, l2, r2)
+def test_circle():
+    """Tests for Circle()."""
+    _, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.set_xlim((-11, 5))
+    ax.set_ylim((-6, 10))
 
-    l1, r1 = (1, 7), (3, 1)
-    l2, r2 = (1, 8), (6, 1)
-    assert utils.overlap(l1, r1, l2, r2)
+    circ1 = utils.Circle(x=0, y=1, radius=3)
+    assert circ1.x == 0
+    assert circ1.y == 1
+    assert circ1.radius == 3
+    circ1.plot(ax, color="red", alpha=0.5)
 
-    l1, r1 = (1, 7), (5, 1)
-    l2, r2 = (2, 4), (4, 2)
-    assert utils.overlap(l1, r1, l2, r2)
+    assert circ1.contains_point(0, 1)
+    assert circ1.contains_point(0.5, 1)
+    assert circ1.contains_point(0, 0.5)
+    assert circ1.contains_point(0.25, 1.25)
+    assert not circ1.contains_point(0, 4.1)
+    assert not circ1.contains_point(3.1, 0)
+    assert not circ1.contains_point(0, -2.1)
+    assert not circ1.contains_point(-3.1, 0)
 
-    l1, r1 = (1, 4), (5, 1)
-    l2, r2 = (2, 5), (4, 3)
-    assert utils.overlap(l1, r1, l2, r2)
+    circ2 = utils.Circle(x=-3, y=2, radius=6)
+    circ2.plot(ax, color="blue", alpha=0.5)
 
-    l1, r1 = (1, 7), (3, 1)
-    l2, r2 = (3, 5), (5, 3)
-    assert not utils.overlap(l1, r1, l2, r2)
+    circ3 = utils.Circle(x=-6, y=1, radius=1)
+    circ3.plot(ax, color="green", alpha=0.5)
 
-    l1, r1 = (1, 4), (3, 1)
-    l2, r2 = (5, 8), (7, 6)
-    assert not utils.overlap(l1, r1, l2, r2)
+    assert utils.geom2ds_intersect(circ1, circ2)
+    assert not utils.geom2ds_intersect(circ1, circ3)
+    assert utils.geom2ds_intersect(circ2, circ3)
 
-    l1, r1 = (1, 4), (6, 1)
-    l2, r2 = (2, 7), (5, 5)
-    assert not utils.overlap(l1, r1, l2, r2)
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/circle_unit_test.png")
+
+
+def test_rectangle():
+    """Tests for Rectangle()."""
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+
+    rect1 = utils.Rectangle(x=-2, y=-1, width=4, height=3, theta=0)
+    assert rect1.x == -2
+    assert rect1.y == -1
+    assert rect1.width == 4
+    assert rect1.height == 3
+    assert rect1.theta == 0
+    rect1.plot(ax, color="red", alpha=0.5)
+
+    assert np.allclose(rect1.center, (0, 0.5))
+
+    circ1 = rect1.circumscribed_circle
+    assert np.allclose((circ1.x, circ1.y), (0, 0.5))
+    assert np.allclose(circ1.radius, 2.5)
+    circ1.plot(ax,
+               facecolor="none",
+               edgecolor="black",
+               linewidth=1,
+               linestyle="dashed")
+
+    expected_vertices = np.array([(-2, -1), (-2, 2), (2, -1), (2, 2)])
+    assert np.allclose(sorted(rect1.vertices), expected_vertices)
+    for (x, y) in rect1.vertices:
+        v = utils.Circle(x, y, radius=0.1)
+        v.plot(ax,
+               facecolor="none",
+               edgecolor="black",
+               linewidth=1,
+               linestyle="dashed")
+
+    for seg in rect1.line_segments:
+        seg.plot(ax, color="black", linewidth=1, linestyle="dashed")
+
+    assert not rect1.contains_point(-2.1, 0)
+    assert rect1.contains_point(-1.9, 0)
+    assert not rect1.contains_point(0, 2.1)
+    assert rect1.contains_point(0, 1.9)
+    assert not rect1.contains_point(2.1, 0)
+    assert rect1.contains_point(1.9, 0)
+    assert not rect1.contains_point(0, -1.1)
+    assert rect1.contains_point(0, -0.9)
+    assert rect1.contains_point(0, 0.5)
+    assert not rect1.contains_point(100, 100)
+
+    rect2 = utils.Rectangle(x=1, y=-2, width=2, height=2, theta=0.5)
+    rect2.plot(ax, color="blue", alpha=0.5)
+
+    rect3 = utils.Rectangle(x=-1.5, y=1, width=1, height=1, theta=-0.5)
+    rect3.plot(ax, color="green", alpha=0.5)
+
+    assert utils.geom2ds_intersect(rect1, rect2)
+    assert utils.geom2ds_intersect(rect1, rect3)
+    assert utils.geom2ds_intersect(rect3, rect1)
+    assert not utils.geom2ds_intersect(rect2, rect3)
+
+    rect4 = utils.Rectangle(x=0.8, y=1e-5, height=0.1, width=0.07, theta=0)
+    assert not rect4.contains_point(0.2, 0.05)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/rectangle_unit_test.png")
+
+
+def test_line_segment_circle_intersection():
+    """Tests for line_segment_intersects_circle()."""
+    seg1 = utils.LineSegment(-3, 0, 0, 0)
+    circ1 = utils.Circle(0, 0, 1)
+    assert utils.geom2ds_intersect(seg1, circ1)
+    assert utils.geom2ds_intersect(circ1, seg1)
+
+    seg2 = utils.LineSegment(-3, 3, 4, 3)
+    assert not utils.geom2ds_intersect(seg2, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg2)
+
+    seg3 = utils.LineSegment(0, -2, 1, -2.5)
+    assert not utils.geom2ds_intersect(seg3, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg3)
+
+    seg4 = utils.LineSegment(0, -3, 0, -4)
+    assert not utils.geom2ds_intersect(seg4, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg4)
+
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+    assert not utils.line_segment_intersects_circle(seg2, circ1, ax=ax)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/line_segment_circle_unit_test.png")
+
+
+def test_line_segment_rectangle_intersection():
+    """Tests for line_segment_intersects_rectangle()."""
+    seg1 = utils.LineSegment(-3, 0, 0, 0)
+    rect1 = utils.Rectangle(-1, -1, 2, 2, 0)
+    assert utils.geom2ds_intersect(seg1, rect1)
+    assert utils.geom2ds_intersect(rect1, seg1)
+
+    seg2 = utils.LineSegment(-3, 3, 4, 3)
+    assert not utils.geom2ds_intersect(seg2, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg2)
+
+    seg3 = utils.LineSegment(0, -2, 1, -2.5)
+    assert not utils.geom2ds_intersect(seg3, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg3)
+
+    seg4 = utils.LineSegment(0, -3, 0, -4)
+    assert not utils.geom2ds_intersect(seg4, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg4)
+
+
+def test_rectangle_circle_intersection():
+    """Tests for rectangle_intersects_circle()."""
+    rect1 = utils.Rectangle(x=0, y=0, width=4, height=3, theta=0)
+    circ1 = utils.Circle(x=0, y=0, radius=1)
+    assert utils.geom2ds_intersect(rect1, circ1)
+    assert utils.geom2ds_intersect(circ1, rect1)
+
+    circ2 = utils.Circle(x=1, y=1, radius=0.5)
+    assert utils.geom2ds_intersect(rect1, circ2)
+    assert utils.geom2ds_intersect(circ2, rect1)
+
+    rect2 = utils.Rectangle(x=1, y=1, width=1, height=1, theta=0)
+    assert not utils.geom2ds_intersect(rect2, circ1)
+    assert not utils.geom2ds_intersect(circ1, rect2)
+
+    circ3 = utils.Circle(x=0, y=0, radius=100)
+    assert utils.geom2ds_intersect(rect1, circ3)
+    assert utils.geom2ds_intersect(circ3, rect1)
+    assert utils.geom2ds_intersect(rect2, circ3)
+    assert utils.geom2ds_intersect(circ3, rect2)
+
+
+def test_geom2ds_intersect():
+    """Tests for geom2ds_intersect()."""
+    with pytest.raises(NotImplementedError):
+        utils.geom2ds_intersect(None, None)
 
 
 def test_get_static_preds():

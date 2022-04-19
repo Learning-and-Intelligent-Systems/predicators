@@ -9,7 +9,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.pybullet_env import PyBulletEnv, PyBulletState, \
+from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
@@ -202,10 +202,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             color = self._obj_colors[i % len(self._obj_colors)]
             half_extents = (self.block_size / 2.0, self.block_size / 2.0,
                             self.block_size / 2.0)
-            orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._block_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
-                                      self._obj_friction, orientation,
+                                      self._obj_friction, self._default_orn,
                                       self._physics_client_id))
 
     def _create_pybullet_robot(
@@ -245,7 +244,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # Assume not holding in the initial state
             assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
+                block_id, [bx, by, bz],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
 
         # For any blocks not involved, put them out of view.
@@ -255,7 +255,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             block_id = self._block_ids[i]
             assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, i * h], [0.0, 0.0, 0.0, 1.0],
+                block_id, [oov_x, oov_y, i * h],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
@@ -289,7 +290,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
 
-        state = PyBulletState(state_dict, simulator_state=joint_state)
+        state = utils.PyBulletState(state_dict, simulator_state=joint_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")

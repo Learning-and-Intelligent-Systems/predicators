@@ -15,7 +15,6 @@ from predicators.src.envs import BaseEnv
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Image, Pose3D, State, Task
-from predicators.src.utils import PyBulletState
 
 
 class PyBulletEnv(BaseEnv):
@@ -42,6 +41,7 @@ class PyBulletEnv(BaseEnv):
         (0.05, 0.95, 0.95, 1.),
     ]
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
+    _default_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8
@@ -328,7 +328,7 @@ class PyBulletEnv(BaseEnv):
 
     def _get_finger_state(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
-        state = cast(PyBulletState, state)
+        state = cast(utils.PyBulletState, state)
         joint_idx = self._pybullet_robot.left_finger_joint_idx
         return state.joint_state[joint_idx]
 
