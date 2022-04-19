@@ -58,7 +58,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         self._reset_state(state_with_sim)
 
     def get_state(self):
-        """Expose get state."""
+        """Expose get_state()."""
         return self._get_state()
 
     def execute_option(self, option):
@@ -66,8 +66,8 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         # Note that since we want to use self._current_state, it's convenient
         # to make this an environment method, rather than a helper function.
         assert option.initiable(self._current_state)
-        # Execute the pick option.
-        while True:
+        # Execute the option.
+        for _ in range(100):
             if option.terminal(self._current_state):
                 break
             action = option.policy(self._current_state)
@@ -134,20 +134,10 @@ def test_pybullet_blocks_picking(env):
     env.set_state(init_state)
     recovered_state = env.get_state()
     assert recovered_state.allclose(init_state)
-    # Use the recovered state from here, since it will have joint states.
-    init_state = recovered_state
     # Create an option for picking the block.
     option = env.Pick.ground([robot, block], [])
-    state = init_state.copy()
-    assert option.initiable(state)
-    # Execute the option. Also record the actions for use in the next test.
-    pick_actions = []
-    while True:
-        if option.terminal(state):
-            break
-        action = option.policy(state)
-        pick_actions.append(action)
-        state = env.step(action)
+    # Execute the option.
+    state = env.execute_option(option)
     # The block should now be held.
     assert state.get(block, "held") == 1.0
 
@@ -180,17 +170,10 @@ def test_pybullet_blocks_picking_corners(env):
         env.set_state(state)
         recovered_state = env.get_state()
         assert recovered_state.allclose(state)
-        # Use the recovered state from here, since it will have joint states.
-        state = recovered_state
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
-        assert option.initiable(state)
         # Execute the option.
-        while True:
-            if option.terminal(state):
-                break
-            action = option.policy(state)
-            state = env.step(action)
+        state = env.execute_option(option)
         # The block should now be held.
         assert state.get(block, "held") == 1.0
 
