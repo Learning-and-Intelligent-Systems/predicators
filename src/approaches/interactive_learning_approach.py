@@ -264,6 +264,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Sample a certain number of max-length trajectories and pick the one
         that has the highest cumulative score."""
         init = self._train_tasks[train_task_idx].init
+        # Create all applicable ground NSRTs
+        ground_nsrts: List[_GroundNSRT] = []
+        for nsrt in sorted(self._get_current_nsrts()):
+            ground_nsrts.extend(utils.all_ground_nsrts(nsrt, list(init)))
         # Sample trajectories by sampling random sequences of NSRTs.
         best_score = -np.inf
         best_options = []
@@ -275,11 +279,13 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             while trajectory_length < CFG.interactive_max_trajectory_length:
                 # Sample an NSRT that has preconditions satisfied in the
                 # current state.
-                ground_nsrt = self._sample_applicable_ground_nsrt(state)
+                ground_nsrt = self._sample_applicable_ground_nsrt(state,
+                                                                  ground_nsrts)
                 if ground_nsrt is None:  # No applicable NSRTs
                     break
                 assert all(a.holds for a in ground_nsrt.preconditions)
                 # Sample an option. Note that goal is assumed not used.
+                assert not CFG.sampler_learning_use_goals
                 option = ground_nsrt.sample_option(state,
                                                    goal=set(),
                                                    rng=self._rng)
@@ -299,10 +305,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 # Update the total score.
                 atoms = utils.abstract(state, self._predicates_to_learn)
                 total_score += self._score_atom_set(atoms, state)
-            else:  # Sampled a complete trajectory
-                if total_score > best_score:
-                    best_score = total_score
-                    best_options = options
+            if total_score > best_score:
+                best_score = total_score
+                assert not np.isinf(best_score)
+                best_options = options
 
         act_policy = utils.option_plan_to_policy(best_options)
         # When the act policy finishes, an OptionExecutionFailure is raised
@@ -311,14 +317,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return act_policy, termination_function
 
-    def _sample_applicable_ground_nsrt(self,
-                                       state: State) -> Optional[_GroundNSRT]:
+    def _sample_applicable_ground_nsrt(self, state: State,
+                                       ground_nsrts: Sequence[_GroundNSRT]
+                                       ) -> Optional[_GroundNSRT]:
         """Choose uniformly among the ground NSRTs that are applicable in the
         state."""
-        ground_nsrts = []
-        for nsrt in sorted(self._get_current_nsrts()):
-            for ground_nsrt in utils.all_ground_nsrts(nsrt, list(state)):
-                ground_nsrts.append(ground_nsrt)
         atoms = utils.abstract(state, self._get_current_predicates())
         applicable_nsrts = sorted(
             utils.get_applicable_operators(ground_nsrts, atoms))
