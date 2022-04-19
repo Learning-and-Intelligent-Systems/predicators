@@ -8,12 +8,13 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.src.envs.pybullet_env import PyBulletEnv, \
+    create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, Object, ParameterizedOption, \
-    Pose3D, State, Action
+from predicators.src.structs import Action, Array, Object, \
+    ParameterizedOption, Pose3D, State, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -93,10 +94,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
-        p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id2)
+        p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id2)
         p.resetBasePositionAndOrientation(
             self._table_id,
             self._table_pose,
@@ -129,17 +129,13 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                                       self._obj_friction, orientation,
                                       self._physics_client_id))
 
-    def _create_pybullet_robot(self, physics_client_id: int
-                               ) -> _SingleArmPyBulletRobot:
+    def _create_pybullet_robot(
+            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                self._ee_orn,
-                                                self._open_fingers,
-                                                self._closed_fingers,
-                                                self._move_to_pose_tol,
-                                                self._max_vel_norm,
-                                                self._grasp_tol,
-                                                physics_client_id)
+        return create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, self._ee_orn, self._open_fingers,
+            self._closed_fingers, self._move_to_pose_tol, self._max_vel_norm,
+            self._grasp_tol, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
@@ -202,11 +198,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             # De-normalize hand bounds to actual coordinates.
             y_lb = self._y_lb + (self._y_ub - self._y_lb) * hand_lb
             y_rb = self._y_lb + (self._y_ub - self._y_lb) * hand_rb
-            p.addUserDebugLine([self._workspace_x, y_lb, self._table_height + 1e-4],
-                               [self._workspace_x, y_rb, self._table_height + 1e-4],
-                               [0.0, 0.0, 1.0],
-                               lineWidth=5.0,
-                               physicsClientId=self._physics_client_id)
+            p.addUserDebugLine(
+                [self._workspace_x, y_lb, self._table_height + 1e-4],
+                [self._workspace_x, y_rb, self._table_height + 1e-4],
+                [0.0, 0.0, 1.0],
+                lineWidth=5.0,
+                physicsClientId=self._physics_client_id)
 
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
@@ -286,10 +283,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def get_name(cls) -> str:
         return "pybullet_cover"
 
-    def _create_cover_move_option(self, name: str, target_z: float
-                                  ) -> ParameterizedOption:
+    def _create_cover_move_option(self, name: str,
+                                  target_z: float) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a pose in Cover."""
-        types = []
+        types: Sequence[Type] = []
         params_space = Box(0, 1, (1, ))
 
         def _get_current_and_target_pose_and_finger_status(
