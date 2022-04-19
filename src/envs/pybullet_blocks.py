@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.src.envs.pybullet_env import PyBulletEnv, \
+    create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
