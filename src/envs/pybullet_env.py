@@ -41,6 +41,7 @@ class PyBulletEnv(BaseEnv):
         (0.05, 0.95, 0.95, 1.),
     ]
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
+    _default_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
     # Camera parameters.
     _camera_distance: ClassVar[float] = 0.8

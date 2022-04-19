@@ -27,7 +27,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
                    "cover_regrasp", "cover_multistep_options",
                    "cover_multistep_options_fixed_tasks",
-                   "cover_multistep_options_holding"):
+                   "cover_multistep_options_holding", "pybullet_cover"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -110,7 +110,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                                            "HandEmpty", "Holding"])
 
     # Options
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
                      "cover_multistep_options_fixed_tasks",
@@ -137,7 +138,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_multistep_options",
@@ -227,8 +229,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             elif CFG.env == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
-            elif CFG.env in ("cover", "cover_hierarchical_types",
-                             "cover_regrasp"):
+            elif CFG.env in ("cover", "pybullet_cover",
+                             "cover_hierarchical_types", "cover_regrasp"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -262,7 +264,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         preconditions.add(LiftedAtom(Clear, [target]))
         delete_effects.add(LiftedAtom(Clear, [target]))
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
