@@ -4,8 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Tuple, \
-    cast
+from typing import ClassVar, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -15,8 +14,8 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Image, Object, \
-    ParameterizedOption, Pose3D, State, Task, Type
+from predicators.src.structs import Action, Array, Image, Pose3D, State, Task
+from predicators.src.utils import PyBulletState
 
 
 class PyBulletEnv(BaseEnv):
@@ -26,9 +25,7 @@ class PyBulletEnv(BaseEnv):
     # General robot parameters.
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
-    _move_to_pose_tol: ClassVar[float] = 0.0001
-    _finger_action_tol: ClassVar[float] = 0.0001
-    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
+    _finger_action_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5
@@ -137,7 +134,7 @@ class PyBulletEnv(BaseEnv):
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
-        # Converts the State into a _PyBulletState.
+        # Converts the State into a PyBulletState.
         self._current_state = self._get_state()
         return self._current_state.copy()
 
@@ -302,7 +299,7 @@ class PyBulletEnv(BaseEnv):
 
     def _get_finger_state(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
-        state = cast(_PyBulletState, state)
+        state = cast(PyBulletState, state)
         joint_idx = self._pybullet_robot.left_finger_joint_idx
         return state.joint_state[joint_idx]
 
@@ -310,140 +307,6 @@ class PyBulletEnv(BaseEnv):
         finger_state = self._get_finger_state(self._current_state)
         target = action.arr[-1]
         return target - finger_state
-
-    def _create_move_end_effector_to_pose_option(
-        self,
-        name: str,
-        types: Sequence[Type],
-        params_space: Box,
-        get_current_and_target_pose_and_finger_status: Callable[
-            [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for moving the
-        end effector to a target pose, given a function that takes in the
-        current state, objects, and parameters, and returns the current pose
-        and target pose of the end effector, and the finger status.
-
-        Fingers drift if left alone. When the fingers are not explicitly
-        being opened or closed, we nudge the fingers toward being open
-        or closed according to the finger status.
-        """
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            # First handle the main arm joints.
-            current, target, finger_status = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            # Run IK to determine the target joint positions.
-            ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
-            ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            if ee_norm > self._max_vel_norm:
-                ee_delta = ee_delta * self._max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # We assume that the robot is already close enough to the target
-            # position that IK will succeed with one call, so validate is False.
-            # Furthermore, updating the state of the robot during simulation,
-            # which validate=True would do, is discouraged by PyBullet.
-            joint_state = self._pybullet_robot.run_inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-            # Handle the fingers.
-            if finger_status == "open":
-                finger_delta = self._finger_action_nudge_magnitude
-            else:
-                assert finger_status == "closed"
-                finger_delta = -self._finger_action_nudge_magnitude
-            # Extract the current finger state from the simulator state.
-            finger_state = self._get_finger_state(state)
-            # The finger action is an absolute joint position for the fingers.
-            f_action = finger_state + finger_delta
-            # Override the meaningless finger values in joint_action.
-            joint_state[self._pybullet_robot.left_finger_joint_idx] = f_action
-            joint_state[self._pybullet_robot.right_finger_joint_idx] = f_action
-            action_arr = np.array(joint_state, dtype=np.float32)
-            # This clipping is needed sometimes for the finger joint limits.
-            action_arr = np.clip(action_arr, self.action_space.low,
-                                 self.action_space.high)
-            assert self.action_space.contains(action_arr)
-            return Action(action_arr)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current, target, _ = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            squared_dist = np.sum(np.square(np.subtract(current, target)))
-            return squared_dist < self._move_to_pose_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-    def _create_change_fingers_option(
-        self, name: str, types: Sequence[Type], params_space: Box,
-        get_current_and_target_val: Callable[[State, Sequence[Object], Array],
-                                             Tuple[float, float]]
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for changing
-        the robot fingers, given a function that takes in the current state,
-        objects, and parameters, and returns the current and target finger
-        joint values."""
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
-            f_action = current_val + f_delta
-            # Don't change the rest of the joints.
-            state = cast(_PyBulletState, state)
-            target = np.array(state.joint_state, dtype=np.float32)
-            target[self._pybullet_robot.left_finger_joint_idx] = f_action
-            target[self._pybullet_robot.right_finger_joint_idx] = f_action
-            assert self.action_space.contains(target)
-            return Action(target)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            squared_dist = (target_val - current_val)**2
-            return squared_dist < self._grasp_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-
-class _PyBulletState(State):
-    """A PyBullet state that stores the robot joint states in addition to the
-    features that are exposed in the object-centric state."""
-
-    @property
-    def joint_state(self) -> Sequence[float]:
-        """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
-
-    def allclose(self, other: State) -> bool:
-        # Ignores the simulator state.
-        return State(self.data).allclose(State(other.data))
-
-    def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_state)
-        return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],
