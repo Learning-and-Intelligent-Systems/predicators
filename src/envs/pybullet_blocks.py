@@ -30,7 +30,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     # Robot parameters.
-    _ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
+        [0.0, np.pi / 2, -np.pi])
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:

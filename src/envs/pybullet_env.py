@@ -258,8 +258,9 @@ class PyBulletEnv(BaseEnv):
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
-                assert abs(np.linalg.norm(expected_normal) -
-                           1.0) < 1e-5  # type: ignore
+                assert abs(
+                    np.linalg.norm(expected_normal) -  # type: ignore
+                    1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object
