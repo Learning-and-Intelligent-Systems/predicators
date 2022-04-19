@@ -4,7 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import ClassVar, List, Optional, Sequence, Tuple, cast
+from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -129,6 +129,16 @@ class PyBulletEnv(BaseEnv):
         held."""
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        """Get the expected finger normals, used in detect_held_object(), as a
+        mapping from finger link index to a unit-length normal vector.
+
+        This is environment-specific because it depends on the end
+        effector's orientation when grasping.
+        """
+        raise NotImplementedError("Override me!")
+
     @property
     def action_space(self) -> Box:
         return self._pybullet_robot.action_space
@@ -241,14 +251,12 @@ class PyBulletEnv(BaseEnv):
         If multiple objects are within the grasp tolerance, return the
         one that is closest.
         """
-        expected_finger_normals = {
-            self._pybullet_robot.left_finger_id: np.array([np.pi / 2., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([np.pi / 2., -1., 0.]),
-        }
+        expected_finger_normals = self._get_expected_finger_normals()
         closest_held_obj = None
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
+                assert abs(np.linalg.norm(expected_normal) - 1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object
@@ -266,7 +274,9 @@ class PyBulletEnv(BaseEnv):
                     # on the outside of the fingers, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
-                    if expected_normal.dot(contact_normal) < 0.5:
+                    score = expected_normal.dot(contact_normal)
+                    assert -1.0 <= score <= 1.0
+                    if score < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it
