@@ -391,7 +391,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
     # Check collision of the robot with the floor.
     action_arrs = [
@@ -415,7 +415,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
     # Check collision of held block with a block via overlap.
     action_arrs = [
@@ -457,7 +457,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
     # Check collision of held block with a block via translation intersection.
     action_arrs = [
@@ -498,7 +498,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
     # Check collision of held block with the floor.
     action_arrs = [
@@ -539,7 +539,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
     # Cover the case where a place is attempted outside of a hand region.
     action_arrs = [
