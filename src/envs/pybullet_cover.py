@@ -96,12 +96,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
             useFixedBase=True,
-            physicsClientId=self._physics_client_id_copy)
+            physicsClientId=self._physics_client_id2)
         p.resetBasePositionAndOrientation(
             self._table_id,
             self._table_pose,
             self._table_orientation,
-            physicsClientId=self._physics_client_id_copy)
+            physicsClientId=self._physics_client_id2)
 
         max_width = max(max(CFG.cover_block_widths),
                         max(CFG.cover_target_widths))
@@ -211,9 +211,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
         # constraint before we can call PyBullet.
-        # Use the pybullet_robot_copy to run forward kinematics, since that
+        # Use self._pybullet_robot2 to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
-        _, ry, rz = self._pybullet_robot_copy.forward_kinematics(action.arr)
+        _, ry, rz = self._pybullet_robot2.forward_kinematics(action.arr)
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.

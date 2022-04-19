@@ -138,7 +138,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def set_motors(self, action_arr: Array) -> None:
         """Update the motors to execute the given action in PyBullet.
-        
+
         The action_arr is an array of desired arm joint values.
         """
         raise NotImplementedError("Override me!")
