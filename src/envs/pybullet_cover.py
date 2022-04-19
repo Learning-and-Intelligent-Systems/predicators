@@ -21,18 +21,21 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Option parameters.
-    # TODO: update to match pybullet_blocks
     _open_fingers: ClassVar[float] = 0.04
     _closed_fingers: ClassVar[float] = 0.01
-    _move_to_pose_tol: ClassVar[float] = 1e-7
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
+    # Robot parameters.
+    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
+        [np.pi / 2, np.pi / 2, -np.pi])
+    _move_to_pose_tol: ClassVar[float] = 1e-7
+
     # Object parameters.
-    _obj_len_hgt = 0.045
-    _max_obj_width = 0.07  # highest width is normalized to this value
+    _obj_len_hgt: ClassVar[float] = 0.045
+    _max_obj_width: ClassVar[float] = 0.07  # highest width normalized to this
 
     # Dimension and workspace parameters.
     _table_height: ClassVar[float] = 0.2
@@ -118,8 +121,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             color = self._obj_colors[i % len(self._obj_colors)]
             color = (color[0], color[1], color[2], 0.5)  # slightly transparent
             width = CFG.cover_target_widths[i] / max_width * self._max_obj_width
-            half_extents = [self._obj_len_hgt / 2.0, width / 2.0,
-                            self._target_height / 2.0]
+            half_extents = (self._obj_len_hgt / 2.0, width / 2.0,
+                            self._target_height / 2.0)
             orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._target_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
@@ -129,9 +132,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _create_pybullet_robot(self, physics_client_id: int
                                ) -> _SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
-        ee_orn = p.getQuaternionFromEuler([np.pi / 2, np.pi / 2, -np.pi])
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                ee_orn,
+                                                self._ee_orn,
                                                 self._open_fingers,
                                                 self._closed_fingers,
                                                 self._move_to_pose_tol,
