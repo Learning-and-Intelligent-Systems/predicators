@@ -75,10 +75,10 @@ class PyBulletEnv(BaseEnv):
         else:
             self._physics_client_id = p.connect(p.DIRECT)
         # This second connection can be useful for stateless operations.
-        self._physics_client_id_copy = p.connect(p.DIRECT)
+        self._physics_client_id2 = p.connect(p.DIRECT)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
-        p.resetSimulation(physicsClientId=self._physics_client_id_copy)
+        p.resetSimulation(physicsClientId=self._physics_client_id2)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
@@ -86,24 +86,26 @@ class PyBulletEnv(BaseEnv):
                    physicsClientId=self._physics_client_id)
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
-                   physicsClientId=self._physics_client_id_copy)
+                   physicsClientId=self._physics_client_id2)
 
         # Load robot.
         self._pybullet_robot = self._create_pybullet_robot(
             self._physics_client_id)
-        self._pybullet_robot_copy = self._create_pybullet_robot(
-            self._physics_client_id_copy)
+        self._pybullet_robot2 = self._create_pybullet_robot(
+            self._physics_client_id2)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
-        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id_copy)
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
 
     @abc.abstractmethod
-    def _create_pybullet_robot(self, physics_client_id: int
-                               ) -> _SingleArmPyBulletRobot:
+    def _create_pybullet_robot(
+            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         """Make and return a PyBullet robot object in the given
-        physics_client_id. It will be saved as either self._pybullet_robot
-        or self._pybullet_robot_copy.
+        physics_client_id.
+
+        It will be saved as either self._pybullet_robot or
+        self._pybullet_robot2.
         """
         raise NotImplementedError("Override me!")
 
@@ -256,7 +258,9 @@ class PyBulletEnv(BaseEnv):
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
-                assert abs(np.linalg.norm(expected_normal) - 1.0) < 1e-5
+                assert abs(
+                    np.linalg.norm(expected_normal) -  # type: ignore
+                    1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object
@@ -290,16 +294,15 @@ class PyBulletEnv(BaseEnv):
 
     def _create_grasp_constraint(self) -> None:
         assert self._held_obj_id is not None
-        base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-            self._pybullet_robot.robot_id,
-            self._pybullet_robot.end_effector_id,
-            physicsClientId=self._physics_client_id)[:2])]
+        base_link_to_world = np.r_[p.invertTransform(
+            *p.getLinkState(self._pybullet_robot.robot_id,
+                            self._pybullet_robot.end_effector_id,
+                            physicsClientId=self._physics_client_id)[:2])]
         world_to_obj = np.r_[p.getBasePositionAndOrientation(
-            self._held_obj_id,
-            physicsClientId=self._physics_client_id)]
+            self._held_obj_id, physicsClientId=self._physics_client_id)]
         base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
-            base_link_to_world[:3], base_link_to_world[3:],
-            world_to_obj[:3], world_to_obj[3:]))
+            base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+            world_to_obj[3:]))
         self._held_constraint_id = p.createConstraint(
             parentBodyUniqueId=self._pybullet_robot.robot_id,
             parentLinkIndex=self._pybullet_robot.end_effector_id,

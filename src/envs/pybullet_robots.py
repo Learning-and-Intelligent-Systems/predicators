@@ -138,17 +138,19 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def set_motors(self, action_arr: Array) -> None:
         """Update the motors to execute the given action in PyBullet.
-        The action_arr is an array of desired arm joint values."""
+        
+        The action_arr is an array of desired arm joint values.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def forward_kinematics(self, action_arr: Array) -> None:
-        """Compute the end effector pose that would result from executing
-        the given action in PyBullet. The action_arr is an array of desired
-        arm joint values.
+        """Compute the end effector pose that would result from executing the
+        given action in PyBullet. The action_arr is an array of desired arm
+        joint values.
 
-        WARNING: This method uses resetJointState. Do NOT use it during
-        simulation.
+        WARNING: This method will make use of resetJointState(), and so it
+        should NOT be used during simulation.
         """
         raise NotImplementedError("Override me!")
 
@@ -290,8 +292,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                               physicsClientId=self._physics_client_id)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joint_values = self._run_inverse_kinematics(
-            (rx, ry, rz), validate=True)
+        joint_values = self._run_inverse_kinematics((rx, ry, rz),
+                                                    validate=True)
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
@@ -384,7 +386,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                 ee_delta = ee_delta * self._max_vel_norm / ee_norm
             ee_action = np.add(current, ee_delta)
             # Keep validate as False because validate=True would update the
-            # state of the robot during simulation, which is discouraged.
+            # state of the robot during simulation, which overrides physics.
             joint_state = self._run_inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Handle the fingers. Fingers drift if left alone.
@@ -472,9 +474,9 @@ def create_single_arm_pybullet_robot(
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
-        return FetchPyBulletRobot(
-            ee_home_pose, ee_orientation, open_fingers, closed_fingers,
-            move_to_pose_tol, max_vel_norm, grasp_tol, physics_client_id)
+        return FetchPyBulletRobot(ee_home_pose, ee_orientation, open_fingers,
+                                  closed_fingers, move_to_pose_tol,
+                                  max_vel_norm, grasp_tol, physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
 
 

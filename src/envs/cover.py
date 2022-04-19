@@ -284,7 +284,8 @@ class CoverEnv(BaseEnv):
             data[target] = np.array([0.0, 1.0, width, pose])
         # [hand, pose_x, pose_z]
         # For the non-PyBullet environments, pose_x and pose_z are constant.
-        data[self._robot] = np.array([0.5, self._workspace_x, self._workspace_z])
+        data[self._robot] = np.array(
+            [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
