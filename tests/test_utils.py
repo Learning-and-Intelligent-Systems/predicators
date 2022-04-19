@@ -244,9 +244,9 @@ def test_line_segment():
     seg3 = utils.LineSegment(x1=-2, y1=-3, x2=-4, y2=2)
     seg3.plot(ax, color="green", linewidth=2)
 
-    assert utils.geom2d_bodies_intersect(seg1, seg2)
-    assert not utils.geom2d_bodies_intersect(seg1, seg3)
-    assert not utils.geom2d_bodies_intersect(seg2, seg3)
+    assert utils.geom2ds_intersect(seg1, seg2)
+    assert not utils.geom2ds_intersect(seg1, seg3)
+    assert not utils.geom2ds_intersect(seg2, seg3)
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/line_segment_unit_test.png")
@@ -254,23 +254,23 @@ def test_line_segment():
     # Legacy tests.
     seg1 = utils.LineSegment(2, 5, 7, 6)
     seg2 = utils.LineSegment(2.5, 7.1, 7.4, 5.3)
-    assert utils.geom2d_bodies_intersect(seg1, seg2)
+    assert utils.geom2ds_intersect(seg1, seg2)
 
     seg1 = utils.LineSegment(1, 3, 5, 3)
     seg2 = utils.LineSegment(3, 7, 3, 2)
-    assert utils.geom2d_bodies_intersect(seg1, seg2)
+    assert utils.geom2ds_intersect(seg1, seg2)
 
     seg1 = utils.LineSegment(2, 5, 7, 6)
     seg2 = utils.LineSegment(2, 6, 7, 7)
-    assert not utils.geom2d_bodies_intersect(seg1, seg2)
+    assert not utils.geom2ds_intersect(seg1, seg2)
 
     seg1 = utils.LineSegment(1, 1, 3, 3)
     seg2 = utils.LineSegment(2, 2, 4, 4)
-    assert not utils.geom2d_bodies_intersect(seg1, seg2)
+    assert not utils.geom2ds_intersect(seg1, seg2)
 
     seg1 = utils.LineSegment(1, 1, 3, 3)
     seg2 = utils.LineSegment(1, 1, 6.7, 7.4)
-    assert not utils.geom2d_bodies_intersect(seg1, seg2)
+    assert not utils.geom2ds_intersect(seg1, seg2)
 
 
 def test_circle():
@@ -300,9 +300,9 @@ def test_circle():
     circ3 = utils.Circle(x=-6, y=1, radius=1)
     circ3.plot(ax, color="green", alpha=0.5)
 
-    assert utils.geom2d_bodies_intersect(circ1, circ2)
-    assert not utils.geom2d_bodies_intersect(circ1, circ3)
-    assert utils.geom2d_bodies_intersect(circ2, circ3)
+    assert utils.geom2ds_intersect(circ1, circ2)
+    assert not utils.geom2ds_intersect(circ1, circ3)
+    assert utils.geom2ds_intersect(circ2, circ3)
 
     # Uncomment for debugging.
     # plt.savefig("/tmp/circle_unit_test.png")
@@ -363,10 +363,10 @@ def test_rectangle():
     rect3 = utils.Rectangle(x=-1.5, y=1, width=1, height=1, theta=-0.5)
     rect3.plot(ax, color="green", alpha=0.5)
 
-    assert utils.geom2d_bodies_intersect(rect1, rect2)
-    assert utils.geom2d_bodies_intersect(rect1, rect3)
-    assert utils.geom2d_bodies_intersect(rect3, rect1)
-    assert not utils.geom2d_bodies_intersect(rect2, rect3)
+    assert utils.geom2ds_intersect(rect1, rect2)
+    assert utils.geom2ds_intersect(rect1, rect3)
+    assert utils.geom2ds_intersect(rect3, rect1)
+    assert not utils.geom2ds_intersect(rect2, rect3)
 
     rect4 = utils.Rectangle(x=0.8, y=1e-5, height=0.1, width=0.07, theta=0)
     assert not rect4.contains_point(0.2, 0.05)
@@ -379,20 +379,20 @@ def test_line_segment_circle_intersection():
     """Tests for line_segment_intersects_circle()."""
     seg1 = utils.LineSegment(-3, 0, 0, 0)
     circ1 = utils.Circle(0, 0, 1)
-    assert utils.geom2d_bodies_intersect(seg1, circ1)
-    assert utils.geom2d_bodies_intersect(circ1, seg1)
+    assert utils.geom2ds_intersect(seg1, circ1)
+    assert utils.geom2ds_intersect(circ1, seg1)
 
     seg2 = utils.LineSegment(-3, 3, 4, 3)
-    assert not utils.geom2d_bodies_intersect(seg2, circ1)
-    assert not utils.geom2d_bodies_intersect(circ1, seg2)
+    assert not utils.geom2ds_intersect(seg2, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg2)
 
     seg3 = utils.LineSegment(0, -2, 1, -2.5)
-    assert not utils.geom2d_bodies_intersect(seg3, circ1)
-    assert not utils.geom2d_bodies_intersect(circ1, seg3)
+    assert not utils.geom2ds_intersect(seg3, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg3)
 
     seg4 = utils.LineSegment(0, -3, 0, -4)
-    assert not utils.geom2d_bodies_intersect(seg4, circ1)
-    assert not utils.geom2d_bodies_intersect(circ1, seg4)
+    assert not utils.geom2ds_intersect(seg4, circ1)
+    assert not utils.geom2ds_intersect(circ1, seg4)
 
     _, ax = plt.subplots(1, 1, figsize=(10, 10))
     ax.set_xlim((-5, 5))
@@ -407,48 +407,48 @@ def test_line_segment_rectangle_intersection():
     """Tests for line_segment_intersects_rectangle()."""
     seg1 = utils.LineSegment(-3, 0, 0, 0)
     rect1 = utils.Rectangle(-1, -1, 2, 2, 0)
-    assert utils.geom2d_bodies_intersect(seg1, rect1)
-    assert utils.geom2d_bodies_intersect(rect1, seg1)
+    assert utils.geom2ds_intersect(seg1, rect1)
+    assert utils.geom2ds_intersect(rect1, seg1)
 
     seg2 = utils.LineSegment(-3, 3, 4, 3)
-    assert not utils.geom2d_bodies_intersect(seg2, rect1)
-    assert not utils.geom2d_bodies_intersect(rect1, seg2)
+    assert not utils.geom2ds_intersect(seg2, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg2)
 
     seg3 = utils.LineSegment(0, -2, 1, -2.5)
-    assert not utils.geom2d_bodies_intersect(seg3, rect1)
-    assert not utils.geom2d_bodies_intersect(rect1, seg3)
+    assert not utils.geom2ds_intersect(seg3, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg3)
 
     seg4 = utils.LineSegment(0, -3, 0, -4)
-    assert not utils.geom2d_bodies_intersect(seg4, rect1)
-    assert not utils.geom2d_bodies_intersect(rect1, seg4)
+    assert not utils.geom2ds_intersect(seg4, rect1)
+    assert not utils.geom2ds_intersect(rect1, seg4)
 
 
 def test_rectangle_circle_intersection():
     """Tests for rectangle_intersects_circle()."""
     rect1 = utils.Rectangle(x=0, y=0, width=4, height=3, theta=0)
     circ1 = utils.Circle(x=0, y=0, radius=1)
-    assert utils.geom2d_bodies_intersect(rect1, circ1)
-    assert utils.geom2d_bodies_intersect(circ1, rect1)
+    assert utils.geom2ds_intersect(rect1, circ1)
+    assert utils.geom2ds_intersect(circ1, rect1)
 
     circ2 = utils.Circle(x=1, y=1, radius=0.5)
-    assert utils.geom2d_bodies_intersect(rect1, circ2)
-    assert utils.geom2d_bodies_intersect(circ2, rect1)
+    assert utils.geom2ds_intersect(rect1, circ2)
+    assert utils.geom2ds_intersect(circ2, rect1)
 
     rect2 = utils.Rectangle(x=1, y=1, width=1, height=1, theta=0)
-    assert not utils.geom2d_bodies_intersect(rect2, circ1)
-    assert not utils.geom2d_bodies_intersect(circ1, rect2)
+    assert not utils.geom2ds_intersect(rect2, circ1)
+    assert not utils.geom2ds_intersect(circ1, rect2)
 
     circ3 = utils.Circle(x=0, y=0, radius=100)
-    assert utils.geom2d_bodies_intersect(rect1, circ3)
-    assert utils.geom2d_bodies_intersect(circ3, rect1)
-    assert utils.geom2d_bodies_intersect(rect2, circ3)
-    assert utils.geom2d_bodies_intersect(circ3, rect2)
+    assert utils.geom2ds_intersect(rect1, circ3)
+    assert utils.geom2ds_intersect(circ3, rect1)
+    assert utils.geom2ds_intersect(rect2, circ3)
+    assert utils.geom2ds_intersect(circ3, rect2)
 
 
-def test_geom2d_bodies_intersect():
-    """Tests for geom2d_bodies_intersect()."""
+def test_geom2ds_intersect():
+    """Tests for geom2ds_intersect()."""
 
-    class _MockGeom2DBody(utils._Geom2DBody):  # pylint: disable=protected-access
+    class _MockGeom2D(utils._Geom2D):  # pylint: disable=protected-access
 
         def plot(self, ax, **kwargs):
             raise NotImplementedError("Not used.")
@@ -456,17 +456,17 @@ def test_geom2d_bodies_intersect():
         def contains_point(self, x, y):
             raise NotImplementedError("Not used.")
 
-    body = _MockGeom2DBody()
+    geom = _MockGeom2D()
 
     _, ax = plt.subplots(1, 1)
     with pytest.raises(NotImplementedError):
-        body.plot(ax)
+        geom.plot(ax)
 
     with pytest.raises(NotImplementedError):
-        body.contains_point(0, 0)
+        geom.contains_point(0, 0)
 
     with pytest.raises(NotImplementedError):
-        utils.geom2d_bodies_intersect(body, body)
+        utils.geom2ds_intersect(geom, geom)
 
 
 def test_get_static_preds():

@@ -221,26 +221,26 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
     return State(state_dict, simulator_state)
 
 
-class _Geom2DBody(abc.ABC):
-    """A 2D body that contains some points."""
+class _Geom2D(abc.ABC):
+    """A 2D shape that contains some points."""
 
     @abc.abstractmethod
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
-        """Plot the body on a given pyplot axis."""
+        """Plot the shape on a given pyplot axis."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def contains_point(self, x: float, y: float) -> bool:
-        """Checks if a point is contained in the body."""
+        """Checks if a point is contained in the shape."""
         raise NotImplementedError("Override me!")
 
-    def intersects(self, other: _Geom2DBody) -> bool:
-        """Checks if this body intersects with another one."""
-        return geom2d_bodies_intersect(self, other)
+    def intersects(self, other: _Geom2D) -> bool:
+        """Checks if this shape intersects with another one."""
+        return geom2ds_intersect(self, other)
 
 
 @dataclass(frozen=True)
-class LineSegment(_Geom2DBody):
+class LineSegment(_Geom2D):
     """A helper class for visualizing and collision checking line segments."""
     x1: float
     y1: float
@@ -267,7 +267,7 @@ class LineSegment(_Geom2DBody):
 
 
 @dataclass(frozen=True)
-class Circle(_Geom2DBody):
+class Circle(_Geom2D):
     """A helper class for visualizing and collision checking circles."""
     x: float
     y: float
@@ -282,7 +282,7 @@ class Circle(_Geom2DBody):
 
 
 @dataclass(frozen=True)
-class Rectangle(_Geom2DBody):
+class Rectangle(_Geom2D):
     """A helper class for visualizing and collision checking rectangles.
 
     Following the convention in plt.Rectangle, the origin is at the
@@ -489,28 +489,28 @@ def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     return False
 
 
-def geom2d_bodies_intersect(body1: _Geom2DBody, body2: _Geom2DBody) -> bool:
+def geom2ds_intersect(geom1: _Geom2D, geom2: _Geom2D) -> bool:
     """Check if two 2D bodies intersect."""
-    if isinstance(body1, LineSegment) and isinstance(body2, LineSegment):
-        return line_segments_intersect(body1, body2)
-    if isinstance(body1, LineSegment) and isinstance(body2, Circle):
-        return line_segment_intersects_circle(body1, body2)
-    if isinstance(body1, LineSegment) and isinstance(body2, Rectangle):
-        return line_segment_intersects_rectangle(body1, body2)
-    if isinstance(body1, Rectangle) and isinstance(body2, LineSegment):
-        return line_segment_intersects_rectangle(body2, body1)
-    if isinstance(body1, Circle) and isinstance(body2, LineSegment):
-        return line_segment_intersects_circle(body2, body1)
-    if isinstance(body1, Rectangle) and isinstance(body2, Rectangle):
-        return rectangles_intersect(body1, body2)
-    if isinstance(body1, Rectangle) and isinstance(body2, Circle):
-        return rectangle_intersects_circle(body1, body2)
-    if isinstance(body1, Circle) and isinstance(body2, Rectangle):
-        return rectangle_intersects_circle(body2, body1)
-    if isinstance(body1, Circle) and isinstance(body2, Circle):
-        return circles_intersect(body1, body2)
-    raise NotImplementedError("Intersection not implemented for bodies "
-                              f"{body1} and {body2}")
+    if isinstance(geom1, LineSegment) and isinstance(geom2, LineSegment):
+        return line_segments_intersect(geom1, geom2)
+    if isinstance(geom1, LineSegment) and isinstance(geom2, Circle):
+        return line_segment_intersects_circle(geom1, geom2)
+    if isinstance(geom1, LineSegment) and isinstance(geom2, Rectangle):
+        return line_segment_intersects_rectangle(geom1, geom2)
+    if isinstance(geom1, Rectangle) and isinstance(geom2, LineSegment):
+        return line_segment_intersects_rectangle(geom2, geom1)
+    if isinstance(geom1, Circle) and isinstance(geom2, LineSegment):
+        return line_segment_intersects_circle(geom2, geom1)
+    if isinstance(geom1, Rectangle) and isinstance(geom2, Rectangle):
+        return rectangles_intersect(geom1, geom2)
+    if isinstance(geom1, Rectangle) and isinstance(geom2, Circle):
+        return rectangle_intersects_circle(geom1, geom2)
+    if isinstance(geom1, Circle) and isinstance(geom2, Rectangle):
+        return rectangle_intersects_circle(geom2, geom1)
+    if isinstance(geom1, Circle) and isinstance(geom2, Circle):
+        return circles_intersect(geom1, geom2)
+    raise NotImplementedError("Intersection not implemented for geoms "
+                              f"{geom1} and {geom2}")
 
 
 @functools.lru_cache(maxsize=None)
