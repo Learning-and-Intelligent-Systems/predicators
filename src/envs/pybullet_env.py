@@ -4,7 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import ClassVar, List, Optional, Sequence, Tuple, cast
+from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -74,24 +74,39 @@ class PyBulletEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
         else:
             self._physics_client_id = p.connect(p.DIRECT)
+        # This second connection can be useful for stateless operations.
+        self._physics_client_id2 = p.connect(p.DIRECT)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id2)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
                    physicsClientId=self._physics_client_id)
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id2)
 
         # Load robot.
-        self._pybullet_robot = self._create_pybullet_robot()
+        self._pybullet_robot = self._create_pybullet_robot(
+            self._physics_client_id)
+        self._pybullet_robot2 = self._create_pybullet_robot(
+            self._physics_client_id2)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
 
     @abc.abstractmethod
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
-        """Make and return a PyBullet robot object, which will be saved as
-        self._pybullet_robot."""
+    def _create_pybullet_robot(
+            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
+        """Make and return a PyBullet robot object in the given
+        physics_client_id.
+
+        It will be saved as either self._pybullet_robot or
+        self._pybullet_robot2.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -114,6 +129,16 @@ class PyBulletEnv(BaseEnv):
         """Return a list of pybullet IDs corresponding to objects in the
         simulator that should be checked when determining whether one is
         held."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        """Get the expected finger normals, used in detect_held_object(), as a
+        mapping from finger link index to a unit-length normal vector.
+
+        This is environment-specific because it depends on the end
+        effector's orientation when grasping.
+        """
         raise NotImplementedError("Override me!")
 
     @property
@@ -206,32 +231,10 @@ class PyBulletEnv(BaseEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and self._fingers_closing(action):
-            # Detect whether an object is held.
+            # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
             if self._held_obj_id is not None:
-                # Create a grasp constraint.
-                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2])]
-                world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                    self._held_obj_id,
-                    physicsClientId=self._physics_client_id)]
-                base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
-                    base_link_to_world[:3], base_link_to_world[3:],
-                    world_to_obj[:3], world_to_obj[3:]))
-                self._held_constraint_id = p.createConstraint(
-                    parentBodyUniqueId=self._pybullet_robot.robot_id,
-                    parentLinkIndex=self._pybullet_robot.end_effector_id,
-                    childBodyUniqueId=self._held_obj_id,
-                    childLinkIndex=-1,  # -1 for the base
-                    jointType=p.JOINT_FIXED,
-                    jointAxis=[0, 0, 0],
-                    parentFramePosition=[0, 0, 0],
-                    childFramePosition=base_link_to_obj[0],
-                    parentFrameOrientation=[0, 0, 0, 1],
-                    childFrameOrientation=base_link_to_obj[1],
-                    physicsClientId=self._physics_client_id)
+                self._create_grasp_constraint()
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
@@ -250,14 +253,14 @@ class PyBulletEnv(BaseEnv):
         If multiple objects are within the grasp tolerance, return the
         one that is closest.
         """
-        expected_finger_normals = {
-            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
-        }
+        expected_finger_normals = self._get_expected_finger_normals()
         closest_held_obj = None
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
+                assert abs(
+                    np.linalg.norm(expected_normal) -  # type: ignore
+                    1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object
@@ -275,7 +278,9 @@ class PyBulletEnv(BaseEnv):
                     # on the outside of the fingers, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
-                    if expected_normal.dot(contact_normal) < 0.5:
+                    score = expected_normal.dot(contact_normal)
+                    assert -1.0 <= score <= 1.0
+                    if score < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it
@@ -286,6 +291,30 @@ class PyBulletEnv(BaseEnv):
                         closest_held_obj = obj_id
                         closest_held_obj_dist = contact_distance
         return closest_held_obj
+
+    def _create_grasp_constraint(self) -> None:
+        assert self._held_obj_id is not None
+        base_link_to_world = np.r_[p.invertTransform(
+            *p.getLinkState(self._pybullet_robot.robot_id,
+                            self._pybullet_robot.end_effector_id,
+                            physicsClientId=self._physics_client_id)[:2])]
+        world_to_obj = np.r_[p.getBasePositionAndOrientation(
+            self._held_obj_id, physicsClientId=self._physics_client_id)]
+        base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+            base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+            world_to_obj[3:]))
+        self._held_constraint_id = p.createConstraint(
+            parentBodyUniqueId=self._pybullet_robot.robot_id,
+            parentLinkIndex=self._pybullet_robot.end_effector_id,
+            childBodyUniqueId=self._held_obj_id,
+            childLinkIndex=-1,  # -1 for the base
+            jointType=p.JOINT_FIXED,
+            jointAxis=[0, 0, 0],
+            parentFramePosition=[0, 0, 0],
+            childFramePosition=base_link_to_obj[0],
+            parentFrameOrientation=[0, 0, 0, 1],
+            childFrameOrientation=base_link_to_obj[1],
+            physicsClientId=self._physics_client_id)
 
     def _fingers_closing(self, action: Action) -> bool:
         """Check whether this action is working toward closing the fingers."""

@@ -22,15 +22,20 @@ class _SingleArmPyBulletRobot(abc.ABC):
     symmetric.
     """
 
-    def __init__(self, ee_home_pose: Pose3D, open_fingers: float,
-                 closed_fingers: float, max_vel_norm: float, grasp_tol: float,
-                 physics_client_id: int) -> None:
+    def __init__(self, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
+                 open_fingers: float, closed_fingers: float,
+                 move_to_pose_tol: float, max_vel_norm: float,
+                 grasp_tol: float, physics_client_id: int) -> None:
         # Initial position for the end effector.
         self._ee_home_pose = ee_home_pose
+        # Orientation for the end effector.
+        self._ee_orientation = ee_orientation
         # The value at which the finger joints should be open.
         self._open_fingers = open_fingers
         # The value at which the finger joints should be closed.
         self._closed_fingers = closed_fingers
+        # The tolerance used in create_move_end_effector_to_pose_option().
+        self._move_to_pose_tol = move_to_pose_tol
         # Used for the action space.
         self._max_vel_norm = max_vel_norm
         # Used for detecting when an object is considered grasped.
@@ -132,7 +137,21 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def set_motors(self, action_arr: Array) -> None:
-        """Update the motors to execute the given action in PyBullet."""
+        """Update the motors to execute the given action in PyBullet.
+
+        The action_arr is an array of desired arm joint values.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def forward_kinematics(self, action_arr: Array) -> None:
+        """Compute the end effector pose that would result from executing the
+        given action in PyBullet. The action_arr is an array of desired arm
+        joint values.
+
+        WARNING: This method will make use of resetJointState(), and so it
+        should NOT be used during simulation.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -169,9 +188,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     # Parameters that aren't important enough to need to clog up settings.py
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
-    _ee_orientation: ClassVar[Sequence[float]] = [1., 0., -1., 0.]
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
-    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(
@@ -265,13 +282,24 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
-        assert np.allclose((rx, ry, rz), self._ee_home_pose)
+        # First, reset the joint values to self._initial_joint_values,
+        # so that IK is consistent (less sensitive to initialization).
         joint_values = self._initial_joint_values
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
                               physicsClientId=self._physics_client_id)
+        # Now run IK to get to the actual starting rx, ry, rz. We use
+        # validate=True to ensure that this initialization works.
+        joint_values = self._run_inverse_kinematics((rx, ry, rz),
+                                                    validate=True)
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        # Handle setting the robot finger joints.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
             p.resetJointState(self._fetch_id,
                               finger_id,
@@ -310,6 +338,20 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
+    def forward_kinematics(self, action_arr: Array) -> None:
+        assert len(action_arr) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, action_arr):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       computeForwardKinematics=True,
+                                       physicsClientId=self._physics_client_id)
+        position = ee_link_state[4]
+        return position
+
     def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
                                 validate: bool) -> List[float]:
         return inverse_kinematics(self._fetch_id,
@@ -343,10 +385,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             if ee_norm > self._max_vel_norm:
                 ee_delta = ee_delta * self._max_vel_norm / ee_norm
             ee_action = np.add(current, ee_delta)
-            # We assume that the robot is already close enough to the target
-            # position that IK will succeed with one call, so validate is False.
-            # Furthermore, updating the state of the robot during simulation,
-            # which validate=True would do, is discouraged by PyBullet.
+            # Keep validate as False because validate=True would update the
+            # state of the robot during simulation, which overrides physics.
             joint_state = self._run_inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Handle the fingers. Fingers drift if left alone.
@@ -428,12 +468,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
 
 def create_single_arm_pybullet_robot(
-        robot_name: str, ee_home_pose: Pose3D, open_fingers: float,
-        closed_fingers: float, max_vel_norm: float, grasp_tol: float,
+        robot_name: str, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
+        open_fingers: float, closed_fingers: float, move_to_pose_tol: float,
+        max_vel_norm: float, grasp_tol: float,
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
-        return FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
+        return FetchPyBulletRobot(ee_home_pose, ee_orientation, open_fingers,
+                                  closed_fingers, move_to_pose_tol,
                                   max_vel_norm, grasp_tol, physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
 
