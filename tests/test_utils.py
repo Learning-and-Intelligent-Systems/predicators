@@ -447,16 +447,8 @@ def test_rectangle_circle_intersection():
 
 def test_geom2ds_intersect():
     """Tests for geom2ds_intersect()."""
-
-    class _MockGeom2D(utils._Geom2D):  # pylint: disable=protected-access
-        pass
-
-    # Reference: https://stackoverflow.com/questions/9757299
-    _MockGeom2D.__abstractmethods__ = set()
-    geom = _MockGeom2D()  # pylint: disable = abstract-class-instantiated
-
     with pytest.raises(NotImplementedError):
-        utils.geom2ds_intersect(geom, geom)
+        utils.geom2ds_intersect(None, None)
 
 
 def test_get_static_preds():
