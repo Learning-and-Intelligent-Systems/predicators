@@ -142,7 +142,7 @@ def test_interactive_learning_approach():
     new_nsrts = set()
     for nsrt in approach._nsrts:  # pylint: disable=protected-access
         new_option = utils.SingletonParameterizedOption(
-            nsrt.option.name,
+            "LearnedMockOption",
             _policy,
             types=nsrt.option.types,
             params_space=nsrt.option.params_space,
