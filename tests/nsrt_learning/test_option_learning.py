@@ -44,13 +44,13 @@ def test_known_options_option_learner():
                                    env.predicates, segmented_trajs)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
-    assert len(strips_ops) == len(datastores) == 4
+    assert len(strips_ops) == len(datastores) == 5
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
-    assert len(option_specs) == len(strips_ops) == 4
+    assert len(option_specs) == len(strips_ops) == 5
     assert len(env.options) == 1
     PickPlace = next(iter(env.options))
-    assert option_specs == [(PickPlace, []) for _ in range(4)]
+    assert option_specs == [(PickPlace, []) for _ in range(5)]
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
             assert segment.has_option()
@@ -84,13 +84,13 @@ def test_oracle_option_learner_cover():
                                    env.predicates, segmented_trajs)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
-    assert len(strips_ops) == len(datastores) == 3
+    assert len(strips_ops) == len(datastores) == 4
     option_learner = create_option_learner(env.action_space)
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
-    assert len(option_specs) == len(strips_ops) == 3
+    assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 1
     PickPlace = next(iter(env.options))
-    assert option_specs == [(PickPlace, []), (PickPlace, []), (PickPlace, [])]
+    assert option_specs == [(PickPlace, []) for _ in range(4)]
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
             assert not segment.has_option()
