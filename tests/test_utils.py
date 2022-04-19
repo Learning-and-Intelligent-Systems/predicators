@@ -453,7 +453,7 @@ def test_geom2ds_intersect():
 
     # Reference: https://stackoverflow.com/questions/9757299
     _MockGeom2D.__abstractmethods__ = set()
-    geom = _MockGeom2D()
+    geom = _MockGeom2D()  # pylint: disable = abstract-class-instantiated
 
     with pytest.raises(NotImplementedError):
         utils.geom2ds_intersect(geom, geom)
