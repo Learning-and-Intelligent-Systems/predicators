@@ -21,10 +21,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     """PyBullet Cover domain."""
     # Parameters that aren't important enough to need to clog up settings.py
 
-    # Option parameters.
-    _open_fingers: ClassVar[float] = 0.04
-    _closed_fingers: ClassVar[float] = 0.01
-
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
@@ -59,9 +55,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # This could lead to slippage or bad grasps, but we haven't seen this
         # in practice, so we'll leave it as is instead of changing the State.
         toggle_fingers_func = lambda s, _1, _2: (
-            (self._open_fingers, self._closed_fingers)
-            if self._HandEmpty_holds(s, []) else
-            (self._closed_fingers, self._open_fingers))
+            (self._pybullet_robot.open_fingers, self._pybullet_robot.
+             closed_fingers) if self._HandEmpty_holds(s, []) else
+            (self._pybullet_robot.closed_fingers, self._pybullet_robot.
+             open_fingers))
         self._PickPlace: ParameterizedOption = \
             utils.LinearChainParameterizedOption(
                 "PickPlace",
@@ -138,15 +135,14 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
         return create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, ee_home, self._ee_orn, self._open_fingers,
-            self._closed_fingers, self._move_to_pose_tol, self._max_vel_norm,
-            self._grasp_tol, physics_client_id)
+            CFG.pybullet_robot, ee_home, self._ee_orn, self._move_to_pose_tol,
+            self._max_vel_norm, self._grasp_tol, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
-            fingers = self._open_fingers
+            fingers = self._pybullet_robot.open_fingers
         else:
-            fingers = self._closed_fingers
+            fingers = self._pybullet_robot.closed_fingers
         y_norm = state.get(self._robot, "hand")
         # De-normalize robot y to actual coordinates.
         ry = self._y_lb + (self._y_ub - self._y_lb) * y_norm

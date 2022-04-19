@@ -41,9 +41,6 @@ class BlocksEnv(BaseEnv):
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
     held_tol: ClassVar[float] = 0.5
-    open_fingers: ClassVar[float] = 0.04
-    closed_fingers: ClassVar[float] = 0.01
-    finger_tol: ClassVar[float] = 0.00001
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
@@ -123,7 +120,7 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", self.pick_z)
         next_state.set(block, "held", 1.0)
-        next_state.set(self._robot, "fingers", self.closed_fingers)
+        next_state.set(self._robot, "fingers", 0.0)  # close fingers
         return next_state
 
     def _transition_putontable(self, state: State, x: float, y: float,
@@ -148,7 +145,7 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", z)
         next_state.set(block, "held", 0.0)
-        next_state.set(self._robot, "fingers", self.open_fingers)
+        next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
 
     def _transition_stack(self, state: State, x: float, y: float,
@@ -177,7 +174,7 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", cur_y)
         next_state.set(block, "pose_z", cur_z + self.block_size)
         next_state.set(block, "held", 0.0)
-        next_state.set(self._robot, "fingers", self.open_fingers)
+        next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -337,7 +334,7 @@ class BlocksEnv(BaseEnv):
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
-        rf = self.open_fingers
+        rf = 1.0  # fingers start out open
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
         return State(data)
 
@@ -404,11 +401,12 @@ class BlocksEnv(BaseEnv):
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
-    def _GripperOpen_holds(self, state: State,
-                           objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         rf = state.get(robot, "fingers")
-        return rf + self.finger_tol > self.open_fingers
+        assert rf in (0.0, 1.0)
+        return rf == 1.0
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
