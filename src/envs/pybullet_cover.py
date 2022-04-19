@@ -43,7 +43,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _y_lb: ClassVar[float] = 0.4
     _y_ub: ClassVar[float] = 1.1
     _robot_init_y: ClassVar[float] = (_y_lb + _y_ub) / 2
-    _pickplace_z: ClassVar[float] = _table_height + _obj_len_hgt * 0.5 + 0.01
+    _offset: ClassVar[float] = 0.01
+    _pickplace_z: ClassVar[
+        float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
 
     def __init__(self) -> None:
@@ -52,6 +54,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # Override PickPlace option
         types = self._PickPlace.types
         params_space = self._PickPlace.params_space
+        # Note: this isn't exactly correct because the first argument should be
+        # the current finger joint value, which we don't have in the State `s`.
+        # This could lead to slippage or bad grasps, but we haven't seen this
+        # in practice, so we'll leave it as is instead of changing the State.
         toggle_fingers_func = lambda s, _1, _2: (
             (self._open_fingers, self._closed_fingers)
             if self._HandEmpty_holds(s, []) else
@@ -94,11 +100,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
-        p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
-                   useFixedBase=True,
-                   physicsClientId=self._physics_client_id2)
+        self._table_id2 = p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id2)
         p.resetBasePositionAndOrientation(
-            self._table_id,
+            self._table_id2,
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id2)
@@ -111,10 +118,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = CFG.cover_block_widths[i] / max_width * self._max_obj_width
             half_extents = (self._obj_len_hgt / 2.0, width / 2.0,
                             self._obj_len_hgt / 2.0)
-            orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._block_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
-                                      self._obj_friction, orientation,
+                                      self._obj_friction, self._default_orn,
                                       self._physics_client_id))
         self._target_ids = []
         for i in range(CFG.cover_num_targets):
@@ -123,10 +129,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = CFG.cover_target_widths[i] / max_width * self._max_obj_width
             half_extents = (self._obj_len_hgt / 2.0, width / 2.0,
                             self._target_height / 2.0)
-            orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._target_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
-                                      self._obj_friction, orientation,
+                                      self._obj_friction, self._default_orn,
                                       self._physics_client_id))
 
     def _create_pybullet_robot(
@@ -152,12 +157,18 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _reset_state(self, state: State) -> None:
         """Run super(), then handle cover-specific resetting."""
         super()._reset_state(state)
+        max_width = max(max(CFG.cover_block_widths),
+                        max(CFG.cover_target_widths))
 
         # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
+            width_unnorm = p.getVisualShapeData(
+                block_id, physicsClientId=self._physics_client_id)[0][3][1]
+            width = width_unnorm / self._max_obj_width * max_width
+            assert width == state.get(block_obj, "width")
             self._block_id_to_block[block_id] = block_obj
             bx = self._workspace_x
             # De-normalize block y to actual coordinates.
@@ -165,11 +176,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             by = self._y_lb + (self._y_ub - self._y_lb) * y_norm
             if state.get(block_obj, "grasp") != -1:
                 # If an object starts out held, it has a different z.
-                bz = self._workspace_z - 0.01
+                bz = self._workspace_z - self._offset
             else:
                 bz = self._table_height + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
+                block_id, [bx, by, bz],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
             if state.get(block_obj, "grasp") != -1:
                 # If an object starts out held, set up the grasp constraint.
@@ -182,6 +194,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         self._target_id_to_target = {}
         for i, target_obj in enumerate(target_objs):
             target_id = self._target_ids[i]
+            width_unnorm = p.getVisualShapeData(
+                target_id, physicsClientId=self._physics_client_id)[0][3][1]
+            width = width_unnorm / self._max_obj_width * max_width
+            assert width == state.get(target_obj, "width")
             self._target_id_to_target[target_id] = target_obj
             tx = self._workspace_x
             # De-normalize target y to actual coordinates.
@@ -189,21 +205,27 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             ty = self._y_lb + (self._y_ub - self._y_lb) * y_norm
             tz = self._table_height + self._obj_len_hgt * 0.5
             p.resetBasePositionAndOrientation(
-                target_id, [tx, ty, tz], [0.0, 0.0, 0.0, 1.0],
+                target_id, [tx, ty, tz],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
 
         # Draw hand regions as debug lines.
-        p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
-        for hand_lb, hand_rb in self._get_hand_regions(state):
-            # De-normalize hand bounds to actual coordinates.
-            y_lb = self._y_lb + (self._y_ub - self._y_lb) * hand_lb
-            y_rb = self._y_lb + (self._y_ub - self._y_lb) * hand_rb
-            p.addUserDebugLine(
-                [self._workspace_x, y_lb, self._table_height + 1e-4],
-                [self._workspace_x, y_rb, self._table_height + 1e-4],
-                [0.0, 0.0, 1.0],
-                lineWidth=5.0,
-                physicsClientId=self._physics_client_id)
+        # Skip test coverage because GUI is too expensive to use in unit tests
+        # and cannot be used in headless mode.
+        if CFG.pybullet_draw_debug:  # pragma: no cover
+            assert CFG.pybullet_use_gui, \
+                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
+            for hand_lb, hand_rb in self._get_hand_regions(state):
+                # De-normalize hand bounds to actual coordinates.
+                y_lb = self._y_lb + (self._y_ub - self._y_lb) * hand_lb
+                y_rb = self._y_lb + (self._y_ub - self._y_lb) * hand_rb
+                p.addUserDebugLine(
+                    [self._workspace_x, y_lb, self._table_height + 1e-4],
+                    [self._workspace_x, y_rb, self._table_height + 1e-4],
+                    [0.0, 0.0, 1.0],
+                    lineWidth=5.0,
+                    physicsClientId=self._physics_client_id)
 
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
@@ -215,6 +237,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.
         # Otherwise, we don't care if we're between hand regions.
+        # To decide whether we should care about hand regions, we use a
+        # value z_thresh that is the average between the resting z
+        # and the z used for picking/placing a block.
         z_thresh = (self._pickplace_z + self._workspace_z) / 2
         if rz < z_thresh and not any(hand_lb <= hand <= hand_rb
                                      for hand_lb, hand_rb in hand_regions):

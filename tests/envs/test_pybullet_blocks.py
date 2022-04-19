@@ -118,7 +118,7 @@ def test_pybullet_blocks_reset(env):
 
 
 def test_pybullet_blocks_picking(env):
-    """Tests cases for picking blocks in PyBulletBlocksEnv."""
+    """Tests for picking blocks in PyBulletBlocksEnv."""
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
@@ -179,7 +179,7 @@ def test_pybullet_blocks_picking_corners(env):
 
 
 def test_pybullet_blocks_stacking(env):
-    """Tests cases for stacking blocks in PyBulletBlocksEnv."""
+    """Tests for stacking blocks in PyBulletBlocksEnv."""
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
     robot = env.robot
@@ -258,7 +258,7 @@ def test_pybullet_blocks_stacking_corners(env):
 
 
 def test_pybullet_blocks_putontable(env):
-    """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
+    """Tests for putting blocks on the table in PyBulletBlocksEnv."""
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
     block = Object("block0", env.block_type)
     robot = env.robot

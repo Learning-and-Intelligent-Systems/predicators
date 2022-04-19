@@ -101,7 +101,7 @@ def test_pybullet_cover_reset(env):
 
 
 def test_pybullet_cover_step(env):
-    """Tests cases for taking actions in PyBulletCoverEnv."""
+    """Tests for taking actions in PyBulletCoverEnv."""
     block = Object("block0", env.block_type)
     target = Object("target0", env.target_type)
     robot = env.robot
@@ -154,3 +154,27 @@ def test_pybullet_cover_step(env):
     state = env.execute_option(option)
     assert state.get(block, "grasp") == -1
     assert abs(state.get(block, "pose") - 0.75) < 0.01
+
+
+def test_pybullet_cover_pick_workspace_bounds(env):
+    """Tests for picking at workspace bounds in PyBulletCoverEnv."""
+    block = Object("block0", env.block_type)
+    robot = env.robot
+    workspace_x, workspace_z = env.workspace_dimensions
+    for pose in [0.0, 1.0]:
+        # Create a simple custom state with one block for testing.
+        init_state = State({
+            robot:
+            np.array([0.5, workspace_x, workspace_z]),
+            block:
+            np.array([1.0, 0.0, CFG.cover_block_widths[0], pose, -1]),
+        })
+        env.set_state(init_state)
+        recovered_state = env.get_state()
+        assert recovered_state.allclose(init_state)
+        # Create an option for picking the block.
+        option = env.PickPlace.ground([], [pose])
+        # Execute the option.
+        state = env.execute_option(option)
+        # The block should now be held.
+        assert state.get(block, "grasp") != -1
