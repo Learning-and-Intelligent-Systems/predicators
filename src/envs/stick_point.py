@@ -27,7 +27,8 @@ class StickPointEnv(BaseEnv):
     rz_x_ub: ClassVar[float] = x_ub
     rz_y_lb: ClassVar[float] = y_lb
     rz_y_ub: ClassVar[float] = y_lb + 3.0
-    max_speed: ClassVar[float] = 0.1  # shared by dx, dy, dtheta
+    max_speed: ClassVar[float] = 0.1  # shared by dx, dy
+    max_angular_speed: ClassVar[float] = np.pi / 5
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
     stick_width: ClassVar[float] = 0.1
@@ -78,12 +79,26 @@ class StickPointEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        dx, dy, dtheta = action.arr
-        x = state.get(self._robot, "x")
-        y = state.get(self._robot, "y")
-        theta = state.get(self._robot, "theta")
-        # TODO
+        norm_dx, norm_dy, norm_dtheta = action.arr
+        # Actions are normalized to [-1, 1]. Denormalize them here.
+        dx = norm_dx * self.max_speed
+        dy = norm_dy * self.max_speed
+        dtheta = norm_dtheta * self.max_angular_speed
+        rx = state.get(self._robot, "x")
+        ry = state.get(self._robot, "y")
+        rtheta = state.get(self._robot, "theta")
+        new_rx = rx + dx
+        new_ry = ry + dy
+        new_rtheta = rtheta + dtheta
+
+        # TODO handle stick.
+
+        # TODO handle touching.
+
         next_state = state.copy()
+        next_state.set(self._robot, "x", new_rx)
+        next_state.set(self._robot, "y", new_ry)
+        next_state.set(self._robot, "theta", new_rtheta)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -118,9 +133,9 @@ class StickPointEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # dx, dy, dtheta (radians)
-        return Box(low=-self.max_speed,
-                   high=self.max_speed,
+        # Normalized dx, dy, dtheta.
+        return Box(low=-1.,
+                   high=1.,
                    shape=(3, ),
                    dtype=np.float32)
 
