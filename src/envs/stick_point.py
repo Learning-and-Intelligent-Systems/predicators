@@ -73,32 +73,42 @@ class StickPointEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
 
+
     @classmethod
     def get_name(cls) -> str:
         return "stick_point"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        norm_dx, norm_dy, norm_dtheta = action.arr
+        norm_dx, norm_dy, norm_dtheta, press = action.arr
         # Actions are normalized to [-1, 1]. Denormalize them here.
         dx = norm_dx * self.max_speed
         dy = norm_dy * self.max_speed
         dtheta = norm_dtheta * self.max_angular_speed
+        # Update the robot state.
         rx = state.get(self._robot, "x")
         ry = state.get(self._robot, "y")
         rtheta = state.get(self._robot, "theta")
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
-
-        # TODO handle stick.
-
-        # TODO handle touching.
-
         next_state = state.copy()
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
         next_state.set(self._robot, "theta", new_rtheta)
+        next_robot_circ = utils.Circle(new_rx, new_ry, self.robot_radius)
+
+        # TODO handle stick.
+
+        # Check if any point is now touched.
+        if press > 0:
+            for point in state.get_objects(self._point_type):
+                px = state.get(point, "x")
+                py = state.get(point, "y")
+                circ = utils.Circle(px, py, self.point_radius)
+                if circ.intersects(next_robot_circ):
+                    next_state.set(point, "touched", 1.0)
+
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -133,10 +143,10 @@ class StickPointEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Normalized dx, dy, dtheta.
+        # Normalized dx, dy, dtheta, press.
         return Box(low=-1.,
                    high=1.,
-                   shape=(3, ),
+                   shape=(4, ),
                    dtype=np.float32)
 
     def render_state(self,
@@ -161,8 +171,12 @@ class StickPointEnv(BaseEnv):
             x = state.get(point, "x")
             y = state.get(point, "y")
             radius = self.point_radius
+            if state.get(point, "touched") > 0.5:
+                face_color = "blue"
+            else:
+                face_color = "yellow"
             circ = utils.Circle(x, y, radius)
-            circ.plot(ax, facecolor="blue", edgecolor="black", alpha=0.75)
+            circ.plot(ax, facecolor=face_color, edgecolor="black", alpha=0.75)
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
         x = state.get(stick, "x")
