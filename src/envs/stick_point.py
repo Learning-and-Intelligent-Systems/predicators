@@ -27,7 +27,7 @@ class StickPointEnv(BaseEnv):
     rz_x_ub: ClassVar[float] = x_ub
     rz_y_lb: ClassVar[float] = y_lb
     rz_y_ub: ClassVar[float] = y_lb + 3.0
-    max_speed: ClassVar[float] = 0.1  # shared by dx, dy
+    max_speed: ClassVar[float] = 0.5  # shared by dx, dy
     max_angular_speed: ClassVar[float] = np.pi / 5
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
