@@ -279,8 +279,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             while trajectory_length < CFG.interactive_max_trajectory_length:
                 # Sample an NSRT that has preconditions satisfied in the
                 # current state.
-                ground_nsrt = self._sample_applicable_ground_nsrt(state,
-                                                                  ground_nsrts)
+                ground_nsrt = self._sample_applicable_ground_nsrt(
+                    state, ground_nsrts)
                 if ground_nsrt is None:  # No applicable NSRTs
                     break
                 assert all(a.holds for a in ground_nsrt.preconditions)
@@ -317,9 +317,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return act_policy, termination_function
 
-    def _sample_applicable_ground_nsrt(self, state: State,
-                                       ground_nsrts: Sequence[_GroundNSRT]
-                                       ) -> Optional[_GroundNSRT]:
+    def _sample_applicable_ground_nsrt(
+            self, state: State,
+            ground_nsrts: Sequence[_GroundNSRT]) -> Optional[_GroundNSRT]:
         """Choose uniformly among the ground NSRTs that are applicable in the
         state."""
         atoms = utils.abstract(state, self._get_current_predicates())
