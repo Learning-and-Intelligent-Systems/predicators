@@ -23,6 +23,9 @@ class CoverEnv(BaseEnv):
     _allow_free_space_placing: ClassVar[bool] = False
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
+    _workspace_x: ClassVar[float] = 1.35
+    _workspace_z: ClassVar[float] = 0.75
+
     def __init__(self) -> None:
         super().__init__()
         # Types
@@ -30,7 +33,7 @@ class CoverEnv(BaseEnv):
             "block", ["is_block", "is_target", "width", "pose", "grasp"])
         self._target_type = Type("target",
                                  ["is_block", "is_target", "width", "pose"])
-        self._robot_type = Type("robot", ["hand"])
+        self._robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
                                   self._IsBlock_holds)
@@ -43,8 +46,10 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         # Options
-        self._PickPlace = utils.SingletonParameterizedOption(
-            "PickPlace", self._PickPlace_policy, params_space=Box(0, 1, (1, )))
+        self._PickPlace: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
+                "PickPlace", self._PickPlace_policy,
+                params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -277,21 +282,23 @@ class CoverEnv(BaseEnv):
                     break
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
-        # [hand]
-        data[self._robot] = np.array([0.0])
+        # [hand, pose_x, pose_z]
+        # For the non-PyBullet environments, pose_x and pose_z are constant.
+        data[self._robot] = np.array(
+            [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
             block = blocks[rng.choice(len(blocks))]
-            pick_pose = state.get(block, "pose")
+            block_pose = state.get(block, "pose")
+            pick_pose = block_pose
             if self._initial_pick_offsets:
                 offset = rng.choice(self._initial_pick_offsets)
                 assert -1.0 < offset < 1.0, \
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
-            action = Action(np.array([pick_pose], dtype=np.float32))
-            state = self.simulate(state, action)
-            assert self._Holding_holds(state, [block])
+            state.set(self._robot, "hand", pick_pose)
+            state.set(block, "grasp", pick_pose - block_pose)
         return state
 
     @staticmethod
@@ -312,7 +319,8 @@ class CoverEnv(BaseEnv):
         target_pose = state.get(target, "pose")
         target_width = state.get(target, "width")
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
-               (block_pose+block_width/2 >= target_pose+target_width/2)
+               (block_pose+block_width/2 >= target_pose+target_width/2) and \
+               state.get(block, "grasp") == -1
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:

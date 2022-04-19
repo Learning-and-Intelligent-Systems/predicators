@@ -4,8 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Tuple, \
-    cast
+from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -15,8 +14,7 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Image, Object, \
-    ParameterizedOption, Pose3D, State, Task, Type
+from predicators.src.structs import Action, Array, Image, Pose3D, State, Task
 
 
 class PyBulletEnv(BaseEnv):
@@ -26,9 +24,7 @@ class PyBulletEnv(BaseEnv):
     # General robot parameters.
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
-    _move_to_pose_tol: ClassVar[float] = 0.0001
-    _finger_action_tol: ClassVar[float] = 0.0001
-    _finger_action_nudge_magnitude: ClassVar[float] = 0.001
+    _finger_action_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5
@@ -77,24 +73,39 @@ class PyBulletEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
         else:
             self._physics_client_id = p.connect(p.DIRECT)
+        # This second connection can be useful for stateless operations.
+        self._physics_client_id2 = p.connect(p.DIRECT)
 
         p.resetSimulation(physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id2)
 
         # Load plane.
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
                    physicsClientId=self._physics_client_id)
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id2)
 
         # Load robot.
-        self._pybullet_robot = self._create_pybullet_robot()
+        self._pybullet_robot = self._create_pybullet_robot(
+            self._physics_client_id)
+        self._pybullet_robot2 = self._create_pybullet_robot(
+            self._physics_client_id2)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id2)
 
     @abc.abstractmethod
-    def _create_pybullet_robot(self) -> _SingleArmPyBulletRobot:
-        """Make and return a PyBullet robot object, which will be saved as
-        self._pybullet_robot."""
+    def _create_pybullet_robot(
+            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
+        """Make and return a PyBullet robot object in the given
+        physics_client_id.
+
+        It will be saved as either self._pybullet_robot or
+        self._pybullet_robot2.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -119,6 +130,16 @@ class PyBulletEnv(BaseEnv):
         held."""
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        """Get the expected finger normals, used in detect_held_object(), as a
+        mapping from finger link index to a unit-length normal vector.
+
+        This is environment-specific because it depends on the end
+        effector's orientation when grasping.
+        """
+        raise NotImplementedError("Override me!")
+
     @property
     def action_space(self) -> Box:
         return self._pybullet_robot.action_space
@@ -137,7 +158,7 @@ class PyBulletEnv(BaseEnv):
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
-        # Converts the State into a _PyBulletState.
+        # Converts the State into a PyBulletState.
         self._current_state = self._get_state()
         return self._current_state.copy()
 
@@ -209,32 +230,10 @@ class PyBulletEnv(BaseEnv):
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
         if self._held_constraint_id is None and self._fingers_closing(action):
-            # Detect whether an object is held.
+            # Detect if an object is held. If so, create a grasp constraint.
             self._held_obj_id = self._detect_held_object()
             if self._held_obj_id is not None:
-                # Create a grasp constraint.
-                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2])]
-                world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                    self._held_obj_id,
-                    physicsClientId=self._physics_client_id)]
-                base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
-                    base_link_to_world[:3], base_link_to_world[3:],
-                    world_to_obj[:3], world_to_obj[3:]))
-                self._held_constraint_id = p.createConstraint(
-                    parentBodyUniqueId=self._pybullet_robot.robot_id,
-                    parentLinkIndex=self._pybullet_robot.end_effector_id,
-                    childBodyUniqueId=self._held_obj_id,
-                    childLinkIndex=-1,  # -1 for the base
-                    jointType=p.JOINT_FIXED,
-                    jointAxis=[0, 0, 0],
-                    parentFramePosition=[0, 0, 0],
-                    childFramePosition=base_link_to_obj[0],
-                    parentFrameOrientation=[0, 0, 0, 1],
-                    childFrameOrientation=base_link_to_obj[1],
-                    physicsClientId=self._physics_client_id)
+                self._create_grasp_constraint()
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and \
@@ -253,14 +252,14 @@ class PyBulletEnv(BaseEnv):
         If multiple objects are within the grasp tolerance, return the
         one that is closest.
         """
-        expected_finger_normals = {
-            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
-        }
+        expected_finger_normals = self._get_expected_finger_normals()
         closest_held_obj = None
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
+                assert abs(
+                    np.linalg.norm(expected_normal) -  # type: ignore
+                    1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object
@@ -278,7 +277,9 @@ class PyBulletEnv(BaseEnv):
                     # on the outside of the fingers, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
-                    if expected_normal.dot(contact_normal) < 0.5:
+                    score = expected_normal.dot(contact_normal)
+                    assert -1.0 <= score <= 1.0
+                    if score < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it
@@ -289,6 +290,30 @@ class PyBulletEnv(BaseEnv):
                         closest_held_obj = obj_id
                         closest_held_obj_dist = contact_distance
         return closest_held_obj
+
+    def _create_grasp_constraint(self) -> None:
+        assert self._held_obj_id is not None
+        base_link_to_world = np.r_[p.invertTransform(
+            *p.getLinkState(self._pybullet_robot.robot_id,
+                            self._pybullet_robot.end_effector_id,
+                            physicsClientId=self._physics_client_id)[:2])]
+        world_to_obj = np.r_[p.getBasePositionAndOrientation(
+            self._held_obj_id, physicsClientId=self._physics_client_id)]
+        base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+            base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+            world_to_obj[3:]))
+        self._held_constraint_id = p.createConstraint(
+            parentBodyUniqueId=self._pybullet_robot.robot_id,
+            parentLinkIndex=self._pybullet_robot.end_effector_id,
+            childBodyUniqueId=self._held_obj_id,
+            childLinkIndex=-1,  # -1 for the base
+            jointType=p.JOINT_FIXED,
+            jointAxis=[0, 0, 0],
+            parentFramePosition=[0, 0, 0],
+            childFramePosition=base_link_to_obj[0],
+            parentFrameOrientation=[0, 0, 0, 1],
+            childFrameOrientation=base_link_to_obj[1],
+            physicsClientId=self._physics_client_id)
 
     def _fingers_closing(self, action: Action) -> bool:
         """Check whether this action is working toward closing the fingers."""
@@ -302,7 +327,7 @@ class PyBulletEnv(BaseEnv):
 
     def _get_finger_state(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
-        state = cast(_PyBulletState, state)
+        state = cast(utils.PyBulletState, state)
         joint_idx = self._pybullet_robot.left_finger_joint_idx
         return state.joint_state[joint_idx]
 
@@ -310,140 +335,6 @@ class PyBulletEnv(BaseEnv):
         finger_state = self._get_finger_state(self._current_state)
         target = action.arr[-1]
         return target - finger_state
-
-    def _create_move_end_effector_to_pose_option(
-        self,
-        name: str,
-        types: Sequence[Type],
-        params_space: Box,
-        get_current_and_target_pose_and_finger_status: Callable[
-            [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for moving the
-        end effector to a target pose, given a function that takes in the
-        current state, objects, and parameters, and returns the current pose
-        and target pose of the end effector, and the finger status.
-
-        Fingers drift if left alone. When the fingers are not explicitly
-        being opened or closed, we nudge the fingers toward being open
-        or closed according to the finger status.
-        """
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            # First handle the main arm joints.
-            current, target, finger_status = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            # Run IK to determine the target joint positions.
-            ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
-            ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            if ee_norm > self._max_vel_norm:
-                ee_delta = ee_delta * self._max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # We assume that the robot is already close enough to the target
-            # position that IK will succeed with one call, so validate is False.
-            # Furthermore, updating the state of the robot during simulation,
-            # which validate=True would do, is discouraged by PyBullet.
-            joint_state = self._pybullet_robot.run_inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-            # Handle the fingers.
-            if finger_status == "open":
-                finger_delta = self._finger_action_nudge_magnitude
-            else:
-                assert finger_status == "closed"
-                finger_delta = -self._finger_action_nudge_magnitude
-            # Extract the current finger state from the simulator state.
-            finger_state = self._get_finger_state(state)
-            # The finger action is an absolute joint position for the fingers.
-            f_action = finger_state + finger_delta
-            # Override the meaningless finger values in joint_action.
-            joint_state[self._pybullet_robot.left_finger_joint_idx] = f_action
-            joint_state[self._pybullet_robot.right_finger_joint_idx] = f_action
-            action_arr = np.array(joint_state, dtype=np.float32)
-            # This clipping is needed sometimes for the finger joint limits.
-            action_arr = np.clip(action_arr, self.action_space.low,
-                                 self.action_space.high)
-            assert self.action_space.contains(action_arr)
-            return Action(action_arr)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current, target, _ = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            squared_dist = np.sum(np.square(np.subtract(current, target)))
-            return squared_dist < self._move_to_pose_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-    def _create_change_fingers_option(
-        self, name: str, types: Sequence[Type], params_space: Box,
-        get_current_and_target_val: Callable[[State, Sequence[Object], Array],
-                                             Tuple[float, float]]
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for changing
-        the robot fingers, given a function that takes in the current state,
-        objects, and parameters, and returns the current and target finger
-        joint values."""
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
-            f_action = current_val + f_delta
-            # Don't change the rest of the joints.
-            state = cast(_PyBulletState, state)
-            target = np.array(state.joint_state, dtype=np.float32)
-            target[self._pybullet_robot.left_finger_joint_idx] = f_action
-            target[self._pybullet_robot.right_finger_joint_idx] = f_action
-            assert self.action_space.contains(target)
-            return Action(target)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            squared_dist = (target_val - current_val)**2
-            return squared_dist < self._grasp_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-
-class _PyBulletState(State):
-    """A PyBullet state that stores the robot joint states in addition to the
-    features that are exposed in the object-centric state."""
-
-    @property
-    def joint_state(self) -> Sequence[float]:
-        """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
-
-    def allclose(self, other: State) -> bool:
-        # Ignores the simulator state.
-        return State(self.data).allclose(State(other.data))
-
-    def copy(self) -> State:
-        state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_state)
-        return _PyBulletState(state_dict_copy, simulator_state_copy)
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],

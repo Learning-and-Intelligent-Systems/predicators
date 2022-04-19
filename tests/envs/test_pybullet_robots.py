@@ -156,11 +156,15 @@ def test_fetch_pybullet_robot():
     physics_client_id = p.connect(p.DIRECT)
 
     ee_home_pose = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     open_fingers = 0.04
     closed_fingers = 0.01
+    move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
-    robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                               max_vel_norm, physics_client_id)
+    grasp_tol = 0.05
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, open_fingers,
+                               closed_fingers, move_to_pose_tol, max_vel_norm,
+                               grasp_tol, physics_client_id)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -173,11 +177,11 @@ def test_fetch_pybullet_robot():
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
                        robot.initial_joint_values,
-                       atol=1e-3)
+                       atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
     ee_target = np.add(ee_home_pose, ee_delta)
-    joint_target = robot.run_inverse_kinematics(ee_target, validate=False)
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=False)  # pylint: disable=protected-access
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
@@ -189,20 +193,28 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
+    # Test forward kinematics.
+    fk_result = robot.forward_kinematics(action_arr)
+    assert np.allclose(fk_result, ee_target, atol=1e-3)
 
 
 def test_create_single_arm_pybullet_robot():
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     open_fingers = 0.04
     closed_fingers = 0.01
+    move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose,
+    grasp_tol = 0.05
+    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              open_fingers, closed_fingers,
-                                             max_vel_norm, physics_client_id)
+                                             move_to_pose_tol, max_vel_norm,
+                                             grasp_tol, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         open_fingers, closed_fingers,
-                                         max_vel_norm, physics_client_id)
+                                         ee_orn, open_fingers, closed_fingers,
+                                         move_to_pose_tol, max_vel_norm,
+                                         grasp_tol, physics_client_id)
