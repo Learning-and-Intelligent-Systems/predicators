@@ -144,7 +144,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def forward_kinematics(self, action_arr: Array) -> None:
+    def forward_kinematics(self, action_arr: Array) -> Pose3D:
         """Compute the end effector pose that would result from executing the
         given action in PyBullet. The action_arr is an array of desired arm
         joint values.
@@ -338,7 +338,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-    def forward_kinematics(self, action_arr: Array) -> None:
+    def forward_kinematics(self, action_arr: Array) -> Pose3D:
         assert len(action_arr) == len(self._arm_joints)
         for joint_id, joint_val in zip(self._arm_joints, action_arr):
             p.resetJointState(self._fetch_id,

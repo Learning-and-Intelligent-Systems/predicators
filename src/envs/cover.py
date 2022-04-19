@@ -46,8 +46,10 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         # Options
-        self._PickPlace = utils.SingletonParameterizedOption(
-            "PickPlace", self._PickPlace_policy, params_space=Box(0, 1, (1, )))
+        self._PickPlace: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
+                "PickPlace", self._PickPlace_policy,
+                params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
