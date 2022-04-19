@@ -38,10 +38,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         super().__init__()
 
         # Override options, keeping the types and parameter spaces the same.
-        open_fingers_func = lambda s, _1, _2: (s.get(self._robot, "fingers"),
-                                               self.open_fingers)
-        close_fingers_func = lambda s, _1, _2: (s.get(self._robot, "fingers"),
-                                                self.closed_fingers)
+        open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
+            s.get(self._robot, "fingers")), self._pybullet_robot.open_fingers)
+        close_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
+            s.get(self._robot, "fingers")), self._pybullet_robot.closed_fingers
+                                                )
 
         ## Pick option
         types = self._Pick.types
@@ -211,16 +212,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         return create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, ee_home, self._ee_orn, self.open_fingers,
-            self.closed_fingers, self._move_to_pose_tol, self._max_vel_norm,
-            self._grasp_tol, physics_client_id)
+            CFG.pybullet_robot, ee_home, self._ee_orn, self._move_to_pose_tol,
+            self._max_vel_norm, self._grasp_tol, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
             state.get(self._robot, "pose_z"),
-            state.get(self._robot, "fingers")
+            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
         ],
                         dtype=np.float32)
 
@@ -279,7 +279,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         state_dict = {}
 
         # Get robot state.
-        state_dict[self._robot] = self._pybullet_robot.get_state()
+        rx, ry, rz, rf = self._pybullet_robot.get_state()
+        fingers = self._fingers_joint_to_state(rf)
+        state_dict[self._robot] = np.array([rx, ry, rz, fingers],
+                                           dtype=np.float32)
         joint_state = self._pybullet_robot.get_joints()
 
         # Get block states.
@@ -362,3 +365,26 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return self._pybullet_robot.create_move_end_effector_to_pose_option(
             name, types, params_space,
             _get_current_and_target_pose_and_finger_status)
+
+    def _fingers_state_to_joint(self, fingers_state: float) -> float:
+        """Convert the fingers in the given State to joint values for PyBullet.
+
+        The fingers in the State are either 0 or 1. Transform them to be
+        either self._pybullet_robot.closed_fingers or
+        self._pybullet_robot.open_fingers.
+        """
+        assert fingers_state in (0.0, 1.0)
+        open_f = self._pybullet_robot.open_fingers
+        closed_f = self._pybullet_robot.closed_fingers
+        return closed_f if fingers_state == 0.0 else open_f
+
+    def _fingers_joint_to_state(self, fingers_joint: float) -> float:
+        """Convert the finger joint values in PyBullet to values for the State.
+
+        The joint values given as input are the ones coming out of
+        self._pybullet_robot.get_state().
+        """
+        open_f = self._pybullet_robot.open_fingers
+        closed_f = self._pybullet_robot.closed_fingers
+        # Fingers in the State should be either 0 or 1.
+        return int(fingers_joint > (open_f + closed_f) / 2)
