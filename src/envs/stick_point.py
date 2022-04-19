@@ -24,14 +24,14 @@ class StickPointEnv(BaseEnv):
     theta_ub: ClassVar[float] = np.pi  # radians
     # Reachable zone boundaries.
     rz_x_lb: ClassVar[float] = x_lb
-    rz_x_ub: ClassVar[float] = 3.0
+    rz_x_ub: ClassVar[float] = x_ub
     rz_y_lb: ClassVar[float] = y_lb
-    rz_y_ub: ClassVar[float] = y_ub
+    rz_y_ub: ClassVar[float] = y_lb + 3.0
     max_speed: ClassVar[float] = 0.1  # shared by dx, dy, dtheta
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
-    stick_width: ClassVar[float] = 0.02
-    stick_height: ClassVar[float] = 1.0
+    stick_width: ClassVar[float] = 0.1
+    stick_height: ClassVar[float] = 3.0
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
 
     def __init__(self) -> None:
@@ -82,12 +82,8 @@ class StickPointEnv(BaseEnv):
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         theta = state.get(self._robot, "theta")
-        import ipdb
-        ipdb.set_trace()
+        # TODO
         next_state = state.copy()
-        next_state.set(self._robot, "x", new_x)
-        next_state.set(self._robot, "y", new_y)
-        next_state.set(self._robot, "theta", new_theta)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -133,13 +129,49 @@ class StickPointEnv(BaseEnv):
                      task: Task,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
-        fig, ax = plt.subplots(1,
-                               1,
-                               figsize=(self.x_ub - self.x_lb,
-                                        self.y_ub - self.y_lb))
+        figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
         assert caption is None
-        import ipdb
-        ipdb.set_trace()
+        # Draw a light green rectangle for the reachable zone.
+        reachable_zone = utils.Rectangle(
+            x=self.rz_x_lb,
+            y=self.rz_y_lb,
+            width=(self.rz_x_ub - self.rz_x_lb),
+            height=(self.rz_y_ub - self.rz_y_lb),
+            theta=0
+        )
+        reachable_zone.plot(ax, color="lightgreen", alpha=0.25)
+        # Draw the points.
+        for point in state.get_objects(self._point_type):
+            x = state.get(point, "x")
+            y = state.get(point, "y")
+            radius = self.point_radius
+            circ = utils.Circle(x, y, radius)
+            circ.plot(ax, facecolor="blue", edgecolor="black", alpha=0.75)
+        # Draw the stick.
+        stick, = state.get_objects(self._stick_type)
+        x = state.get(stick, "x")
+        y = state.get(stick, "y")
+        w = self.stick_width
+        h = self.stick_height
+        theta = state.get(stick, "theta")
+        rect = utils.Rectangle(x, y, w, h, theta)
+        rect.plot(ax, facecolor="brown", edgecolor="black")
+        # Draw the robot.
+        robot, = state.get_objects(self._robot_type)
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        radius = self.robot_radius
+        circ = utils.Circle(x, y, radius)
+        circ.plot(ax, facecolor="red", edgecolor="black")
+        # Show the direction that the robot is facing.
+        theta = state.get(robot, "theta")
+        l = 1.5 * self.robot_radius  # arrow length
+        w = 0.1 * self.robot_radius  # arrow width
+        ax.arrow(x, y, l * np.cos(theta), l * np.sin(theta), width=w)
+        ax.set_xlim(self.x_lb, self.x_ub)
+        ax.set_ylim(self.y_lb, self.y_ub)
+        ax.axis("off")
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
@@ -221,8 +253,8 @@ class StickPointEnv(BaseEnv):
         ipdb.set_trace()
 
     def _Touched_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
+        point, = objects
+        return state.get(point, "touched") > 0.5
 
     def _InContactStickPoint_holds(self, state: State,
                                    objects: Sequence[Object]) -> bool:
