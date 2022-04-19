@@ -145,8 +145,8 @@ class StickPointEnv(BaseEnv):
         while len(tasks) < num:
             state_dict = {}
             num_points = num_point_lst[rng.choice(len(num_point_lst))]
-            points = [Object(f"point{i}", self._point_type) for p in range(num_points)]
-            goal = {GroundAtom(self._Touched, p) for p in points}
+            points = [Object(f"point{i}", self._point_type) for i in range(num_points)]
+            goal = {GroundAtom(self._Touched, [p]) for p in points}
             import ipdb; ipdb.set_trace()
 
 
