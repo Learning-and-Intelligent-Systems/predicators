@@ -138,8 +138,9 @@ def test_interactive_learning_approach():
         del s, memory, objects, params  # unused
         raise utils.OptionExecutionFailure("Mock error")
 
+    # Force 0 actions in trajectory
     new_nsrts = set()
-    for nsrt in approach._nsrts:  # Force 0 actions in trajectory
+    for nsrt in approach._nsrts:  # pylint: disable=protected-access
         new_option = utils.SingletonParameterizedOption(
             nsrt.option.name,
             _policy,
@@ -148,12 +149,13 @@ def test_interactive_learning_approach():
             initiable=nsrt.option.initiable)
         new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
                         nsrt.add_effects, nsrt.delete_effects, set(),
-                        new_option, nsrt.option_vars, nsrt._sampler)
+                        new_option, nsrt.option_vars, nsrt._sampler)  # pylint: disable=protected-access
         new_nsrts.add(new_nsrt)
-    approach._nsrts = new_nsrts
+    approach._nsrts = new_nsrts  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
-    approach._nsrts = set()  # Force no applicable NSRTs
+    # Force no applicable NSRTs
+    approach._nsrts = set()  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
     # Cover unrecognized interactive_action_strategy.
