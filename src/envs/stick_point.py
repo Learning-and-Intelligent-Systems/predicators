@@ -22,11 +22,17 @@ class StickPointEnv(BaseEnv):
     x_ub: ClassVar[float] = 10.0
     y_ub: ClassVar[float] = 6.0
     theta_ub: ClassVar[float] = np.pi  # radians
+    # Reachable zone boundaries.
+    rz_x_lb: ClassVar[float] = x_lb
+    rz_x_ub: ClassVar[float] = 3.0
+    rz_y_lb: ClassVar[float] = y_lb
+    rz_y_ub: ClassVar[float] = y_ub
     max_speed: ClassVar[float] = 0.1  # shared by dx, dy, dtheta
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
     stick_width: ClassVar[float] = 0.02
-    stick_length: ClassVar[float] = 1.0
+    stick_height: ClassVar[float] = 1.0
+    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
 
     def __init__(self) -> None:
         super().__init__()
@@ -142,16 +148,66 @@ class StickPointEnv(BaseEnv):
     def _get_tasks(self, num: int, num_point_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
-        while len(tasks) < num:
+        for _ in range(num):
             state_dict = {}
             num_points = num_point_lst[rng.choice(len(num_point_lst))]
-            points = [Object(f"point{i}", self._point_type) for i in range(num_points)]
+            points = [
+                Object(f"point{i}", self._point_type)
+                for i in range(num_points)
+            ]
             goal = {GroundAtom(self._Touched, [p]) for p in points}
-            import ipdb; ipdb.set_trace()
-
-
+            # Sample initial positions for points, making sure to keep them
+            # far enough apart from one another.
+            collision_geoms: Set[utils.Circle] = set()
+            radius = self.point_radius + self.init_padding
+            for point in points:
+                # Assuming that the dimensions are forgiving enough that
+                # infinite loops are impossible.
+                while True:
+                    x = rng.uniform(self.x_lb + radius, self.x_ub - radius)
+                    y = rng.uniform(self.y_lb + radius, self.y_ub - radius)
+                    geom = utils.Circle(x, y, radius)
+                    # Keep only if no intersections with existing objects.
+                    if not any(geom.intersects(g) for g in collision_geoms):
+                        break
+                collision_geoms.add(geom)
+                state_dict[point] = {"x": x, "y": y, "touched": 0.0}
+            # Sample an initial position for the robot, making sure that it
+            # doesn't collide with points and that it's in the reachable zone.
+            radius = self.robot_radius + self.init_padding
+            while True:
+                x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
+                y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
+                geom = utils.Circle(x, y, radius)
+                # Keep only if no intersections with existing objects.
+                if not any(geom.intersects(g) for g in collision_geoms):
+                    break
+            collision_geoms.add(geom)
+            theta = rng.uniform(self.theta_lb, self.theta_ub)
+            state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
+            # Finally, sample the stick, making sure that the origin is in the
+            # reachable zone, and that it doesn't collide with anything.
+            radius = self.robot_radius + self.init_padding
+            while True:
+                # The radius here is to prevent the stick from being very
+                # slightly in the reachable zone, but not grabbable.
+                x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
+                y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
+                theta = rng.uniform(self.theta_lb, self.theta_ub)
+                geom = utils.Rectangle(x, y, self.stick_width,
+                                       self.stick_height, theta)
+                # Keep only if no intersections with existing objects.
+                if not any(geom.intersects(g) for g in collision_geoms):
+                    break
+            state_dict[self._stick] = {
+                "x": x,
+                "y": y,
+                "theta": theta,
+                "held": 0.0
+            }
             init_state = utils.create_state_from_dict(state_dict)
-
+            task = Task(init_state, goal)
+            tasks.append(task)
         return tasks
 
     def _MoveTo_policy(self, state: State, memory: Dict,
