@@ -38,28 +38,31 @@ def test_stick_point():
     stick, = state.get_objects(stick_type)
     points = state.get_objects(point_type)
     assert len(points) == 2
-    robot_x = (env.rz_x_ub + env.rz_x_lb)/2
+    robot_x = (env.rz_x_ub + env.rz_x_lb) / 2
     state.set(robot, "x", robot_x)
-    state.set(robot, "y", (env.rz_y_ub + env.rz_y_lb)/2)
-    state.set(robot, "theta", np.pi/2)
+    state.set(robot, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
+    state.set(robot, "theta", np.pi / 2)
     reachable_point, unreachable_point = points
-    reachable_x = (env.rz_x_ub + env.rz_x_lb)/4
+    reachable_x = (env.rz_x_ub + env.rz_x_lb) / 4
     state.set(reachable_point, "x", reachable_x)
-    state.set(reachable_point, "y", (env.rz_y_ub + env.rz_y_lb)/2)
+    state.set(reachable_point, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
     state.set(unreachable_point, "x", robot_x)
     unreachable_y = 0.75 * env.y_ub
     assert not env.rz_y_lb <= unreachable_y <= env.rz_y_ub
     state.set(unreachable_point, "y", unreachable_y)
-    state.set(stick, "x", 3*(env.rz_x_ub + env.rz_x_lb)/4)
-    state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb)/4)
-    state.set(stick, "theta", np.pi/4)
+    stick_x = 3 * (env.rz_x_ub + env.rz_x_lb) / 4
+    state.set(stick, "x", stick_x)
+    state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
+    state.set(stick, "theta", np.pi / 4)
     task = Task(state, task.goal)
     env.render_state(state, task)
-    
+
     # Test for going to touch the reachable point.
     num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
-    action_arrs = [np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
-                             for _ in range(num_steps_to_left)]
+    action_arrs = [
+        np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+        for _ in range(num_steps_to_left)
+    ]
 
     policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
@@ -71,8 +74,36 @@ def test_stick_point():
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
 
     # Test for going to pick up the stick.
-    action_arrs.extend([np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)])
-    # TODO
+    pick_x = stick_x + 0.2  # figuring out this constant generally is a pain
+    num_steps_to_right = int(np.ceil((pick_x - reachable_x) / env.max_speed))
+    action_arrs.extend([
+        np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        for _ in range(num_steps_to_right)
+    ])
+
+    # The stick should now be held.
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert traj.states[-2].get(stick, "held") < 0.5
+    assert traj.states[-1].get(stick, "held") > 0.5
+
+    # Test for rotating the stick.
+    assert env.max_angular_speed >= np.pi / 4
+    action_arrs.append(np.array([0.0, 0.0, 1.0, 0.0], dtype=np.float32))
+
+    # The stick should now be rotated. The actual amount is complicated.
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert abs(traj.states[-2].get(stick, "theta") - np.pi / 4) < 1e-6
+    assert traj.states[-1].get(stick, "theta") < np.pi / 4 - 1e-6
 
     # TODO remove
     policy = utils.action_arrs_to_policy(action_arrs)

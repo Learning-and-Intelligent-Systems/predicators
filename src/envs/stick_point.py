@@ -28,7 +28,7 @@ class StickPointEnv(BaseEnv):
     rz_y_lb: ClassVar[float] = y_lb
     rz_y_ub: ClassVar[float] = y_lb + 3.0
     max_speed: ClassVar[float] = 0.5  # shared by dx, dy
-    max_angular_speed: ClassVar[float] = np.pi / 5
+    max_angular_speed: ClassVar[float] = np.pi / 4
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
     stick_width: ClassVar[float] = 0.1
@@ -73,7 +73,6 @@ class StickPointEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
 
-
     @classmethod
     def get_name(cls) -> str:
         return "stick_point"
@@ -97,8 +96,24 @@ class StickPointEnv(BaseEnv):
         next_state.set(self._robot, "y", new_ry)
         next_state.set(self._robot, "theta", new_rtheta)
         next_robot_circ = utils.Circle(new_rx, new_ry, self.robot_radius)
+        sx = state.get(self._stick, "x")
+        sy = state.get(self._stick, "y")
+        sw = self.stick_width
+        sh = self.stick_height
+        st = state.get(self._stick, "theta")
+        stick_rect = utils.Rectangle(sx, sy, sw, sh, st)
 
-        # TODO handle stick.
+        # Check if the stick is held. If so, we need to rotate it.
+        if state.get(self._stick, "held") > 0.5:
+            new_stick_rect = utils.rotate_rectangle_about_point(
+                stick_rect, dtheta, (x, y))
+            next_state.set(self._stick, "x", new_stick_rect.x)
+            next_state.set(self._stick, "y", new_stick_rect.y)
+            next_state.set(self._stick, "theta", new_stick_rect.theta)
+
+        # Check if the stick is now held for the first time.
+        elif stick_rect.intersects(next_robot_circ):
+            next_state.set(self._stick, "held", 1.0)
 
         # Check if any point is now touched.
         if press > 0:
@@ -144,10 +159,7 @@ class StickPointEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # Normalized dx, dy, dtheta, press.
-        return Box(low=-1.,
-                   high=1.,
-                   shape=(4, ),
-                   dtype=np.float32)
+        return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
 
     def render_state(self,
                      state: State,
@@ -158,25 +170,20 @@ class StickPointEnv(BaseEnv):
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         assert caption is None
         # Draw a light green rectangle for the reachable zone.
-        reachable_zone = utils.Rectangle(
-            x=self.rz_x_lb,
-            y=self.rz_y_lb,
-            width=(self.rz_x_ub - self.rz_x_lb),
-            height=(self.rz_y_ub - self.rz_y_lb),
-            theta=0
-        )
+        reachable_zone = utils.Rectangle(x=self.rz_x_lb,
+                                         y=self.rz_y_lb,
+                                         width=(self.rz_x_ub - self.rz_x_lb),
+                                         height=(self.rz_y_ub - self.rz_y_lb),
+                                         theta=0)
         reachable_zone.plot(ax, color="lightgreen", alpha=0.25)
         # Draw the points.
         for point in state.get_objects(self._point_type):
             x = state.get(point, "x")
             y = state.get(point, "y")
             radius = self.point_radius
-            if state.get(point, "touched") > 0.5:
-                face_color = "blue"
-            else:
-                face_color = "yellow"
+            color = "blue" if state.get(point, "touched") > 0.5 else "yellow"
             circ = utils.Circle(x, y, radius)
-            circ.plot(ax, facecolor=face_color, edgecolor="black", alpha=0.75)
+            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
         x = state.get(stick, "x")
@@ -185,7 +192,8 @@ class StickPointEnv(BaseEnv):
         h = self.stick_height
         theta = state.get(stick, "theta")
         rect = utils.Rectangle(x, y, w, h, theta)
-        rect.plot(ax, facecolor="brown", edgecolor="black")
+        color = "black" if state.get(stick, "held") > 0.5 else "white"
+        rect.plot(ax, facecolor="brown", edgecolor=color)
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
         x = state.get(robot, "x")
