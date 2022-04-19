@@ -263,6 +263,7 @@ class GlobalSettings:
                     # For BEHAVIOR and PyBullet environments, actions are
                     # lower level, so tasks take more actions to complete.
                     "behavior": 1000,
+                    "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     # For the very simple TouchPoint environment, restrict
                     # the horizon to be shorter.
@@ -307,6 +308,7 @@ class GlobalSettings:
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "oracle_behavior",
                     # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
