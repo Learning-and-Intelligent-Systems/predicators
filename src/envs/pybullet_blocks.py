@@ -202,10 +202,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             color = self._obj_colors[i % len(self._obj_colors)]
             half_extents = (self.block_size / 2.0, self.block_size / 2.0,
                             self.block_size / 2.0)
-            orientation = [0.0, 0.0, 0.0, 1.0]  # default
             self._block_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
-                                      self._obj_friction, orientation,
+                                      self._obj_friction, self._default_orn,
                                       self._physics_client_id))
 
     def _create_pybullet_robot(
@@ -245,7 +244,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # Assume not holding in the initial state
             assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
-                block_id, [bx, by, bz], [0.0, 0.0, 0.0, 1.0],
+                block_id, [bx, by, bz],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
 
         # For any blocks not involved, put them out of view.
@@ -255,7 +255,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             block_id = self._block_ids[i]
             assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
-                block_id, [oov_x, oov_y, i * h], [0.0, 0.0, 0.0, 1.0],
+                block_id, [oov_x, oov_y, i * h],
+                self._default_orn,
                 physicsClientId=self._physics_client_id)
 
         # Assert that the state was properly reconstructed.
