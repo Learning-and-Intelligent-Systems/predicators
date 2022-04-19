@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv, \
-    PyBulletState
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Object, State
 from predicators.tests.conftest import longrun
@@ -52,7 +51,8 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         kinematics here.
         """
         joint_state = list(self._pybullet_robot.initial_joint_values)
-        state_with_sim = PyBulletState(state.data, simulator_state=joint_state)
+        state_with_sim = utils.PyBulletState(state.data,
+                                             simulator_state=joint_state)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
