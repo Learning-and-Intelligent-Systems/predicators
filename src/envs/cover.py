@@ -622,6 +622,25 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                            state.get(held_block, "y")
                 hw, hh = state.get(held_block, "width"), \
                          state.get(held_block, "height")
+                # Note: the block (x, y) is the middle-top of the block. The
+                # Rectangle expects the lower left corner as (x, y).
+                held_rect = utils.Rectangle(x=(hx - hw / 2),
+                                            y=(hy - hh),
+                                            width=hw,
+                                            height=hh,
+                                            theta=0)
+                next_held_rect = utils.Rectangle(x=(held_rect.x + dx),
+                                                 y=(held_rect.y + dy),
+                                                 width=held_rect.width,
+                                                 height=held_rect.height,
+                                                 theta=held_rect.theta)
+                # Compute line segments corresponding to the movement of each
+                # of the held object vertices.
+                held_move_segs = [
+                    utils.LineSegment(x1, y1, x2, y2) for (x1, y1), (
+                        x2,
+                        y2) in zip(held_rect.vertices, next_held_rect.vertices)
+                ]
 
         # Ensure neither the gripper nor the possible held block go below the
         # y-axis.
@@ -633,47 +652,34 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Ensure neither the gripper nor the possible held block collide with
         # another block during the trajectory defined by dx, dy.
-        p1 = (x, y)
-        p2 = (x + dx, y + dy)
+        grip_move_seg = utils.LineSegment(x, y, x + dx, y + dy)
         for block in blocks:
+            if held_block is not None and block == held_block:
+                continue
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
             ct = self.collision_threshold
-            # These segments defines a slightly smaller rectangle to prevent
+            # These segments define a slightly smaller rectangle to prevent
             # floating point arithmetic making us declare a false positive.
-            segments = [
-                ((bx - bw / 2 + ct, by - ct), (bx + bw / 2 - ct,
-                                               by - ct)),  # top
-                ((bx + bw / 2 - ct, by - ct), (bx + bw / 2 - ct,
-                                               by - bh)),  # right
-                ((bx - bw / 2 + ct, by - ct), (bx - bw / 2 + ct, by - bh)
-                 )  # left
-            ]
-            # Check if the robot collides with a block.
-            if held_block is not None and block == held_block:
-                continue
-            if any(utils.intersects(p1, p2, p3, p4) for p3, p4 in segments):
+            # Note: the block (x, y) is the middle-top of the block. The
+            # Rectangle expects the lower left corner as (x, y).
+            rect = utils.Rectangle(x=(bx - bw / 2 + ct),
+                                   y=(by - bh + ct),
+                                   width=(bw - 2 * ct),
+                                   height=(bh - 2 * ct),
+                                   theta=0)
+            # Check if the robot would collide with this block during moving.
+            if rect.intersects(grip_move_seg):
                 return state.copy()
             # Check if the held_block collides with a block.
-            # For each of the four vertices of our held block, construct the
-            # line segment from its old location to its new location, and check
-            # if this line segment intersects any segment of the block. Also
-            # check if the blocks overlap.
             if held_block is None:
                 continue
-            # Check translations.
-            vertices = [(hx-hw/2, hy), (hx+hw/2, hy), \
-                        (hx-hw/2, hy-hh), (hx+hw/2, hy-hh)]
-            translations = [((vx, vy), (vx+dx, vy+dy)) \
-                            for vx, vy in vertices]
-            if any(utils.intersects(p1, p2, p3, p4) \
-                for p1, p2 in translations for p3, p4 in segments):
+            # Check the line segments corresponding to the movement of each
+            # of the held object vertices.
+            if any(seg.intersects(rect) for seg in held_move_segs):
                 return state.copy()
-            # Check overlap
-            l1, r1 = (hx - hw / 2 + dx, hy + dy), (hx + hw / 2 + dx,
-                                                   hy - hh + dy)
-            l2, r2 = (bx - bw / 2, by), (bx + bw / 2, by - bh)
-            if utils.overlap(l1, r1, l2, r2):
+            # Check for overlap between the held object and this block.
+            if rect.intersects(next_held_rect):
                 return state.copy()
 
         # No collisions; update robot and possible held block state based on
