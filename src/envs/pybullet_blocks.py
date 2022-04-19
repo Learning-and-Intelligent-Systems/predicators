@@ -38,9 +38,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         super().__init__()
 
         # Override options, keeping the types and parameter spaces the same.
-        open_fingers_func = lambda s, _1, _2: (self._fingers_state2joint(
+        open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
             s.get(self._robot, "fingers")), self._pybullet_robot.open_fingers)
-        close_fingers_func = lambda s, _1, _2: (self._fingers_state2joint(
+        close_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
             s.get(self._robot, "fingers")), self._pybullet_robot.closed_fingers
                                                 )
 
@@ -220,7 +220,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             state.get(self._robot, "pose_x"),
             state.get(self._robot, "pose_y"),
             state.get(self._robot, "pose_z"),
-            self._fingers_state2joint(state.get(self._robot, "fingers")),
+            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
         ],
                         dtype=np.float32)
 
@@ -280,7 +280,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # Get robot state.
         rx, ry, rz, rf = self._pybullet_robot.get_state()
-        fingers = self._fingers_joint2state(rf)
+        fingers = self._fingers_joint_to_state(rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
         joint_state = self._pybullet_robot.get_joints()
@@ -366,7 +366,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             name, types, params_space,
             _get_current_and_target_pose_and_finger_status)
 
-    def _fingers_state2joint(self, fingers_state: float) -> float:
+    def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
 
         The fingers in the State are either 0 or 1. Transform them to be
@@ -378,7 +378,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         closed_f = self._pybullet_robot.closed_fingers
         return closed_f if fingers_state == 0.0 else open_f
 
-    def _fingers_joint2state(self, fingers_joint: float) -> float:
+    def _fingers_joint_to_state(self, fingers_joint: float) -> float:
         """Convert the finger joint values in PyBullet to values for the State.
 
         The joint values given as input are the ones coming out of
