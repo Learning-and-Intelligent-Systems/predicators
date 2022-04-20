@@ -58,10 +58,7 @@ class GNNPolicyApproach(GNNApproach):
         self._max_option_objects = max_option_objects
         self._max_option_params = max_option_params
 
-    def _graphify_single_target(self, datapoint: Tuple[State, Set[GroundAtom],
-                                                       Set[GroundAtom],
-                                                       _Option],
-                                graph_input: Dict,
+    def _graphify_single_target(self, target: _Option, graph_input: Dict,
                                 object_to_node: Dict) -> Dict:
         # First, copy over all unchanged fields.
         graph_target = {
@@ -71,20 +68,19 @@ class GNNPolicyApproach(GNNApproach):
             "senders": graph_input["senders"],
             "receivers": graph_input["receivers"],
         }
-        # Next, set up the target node features.
-        _, _, _, option = datapoint
+        # Next, set up the target node features. The target is an _Option.
         object_mask = np.zeros((len(object_to_node), self._max_option_objects),
                                dtype=np.int64)
-        for i, obj in enumerate(option.objects):
+        for i, obj in enumerate(target.objects):
             object_mask[object_to_node[obj], i] = 1
         graph_target["nodes"] = object_mask
         # Finally, set up the target globals.
-        option_index = self._sorted_options.index(option.parent)
+        option_index = self._sorted_options.index(target.parent)
         onehot_target = np.zeros(len(self._sorted_options))
         onehot_target[option_index] = 1
-        assert len(option.params.shape) == 1
+        assert len(target.params.shape) == 1
         params_target = np.zeros(self._max_option_params)
-        params_target[:option.params.shape[0]] = option.params
+        params_target[:target.params.shape[0]] = target.params
         graph_target["globals"] = np.r_[onehot_target, params_target]
         return graph_target
 

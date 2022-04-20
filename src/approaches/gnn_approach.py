@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 from predicators.src import utils
 from predicators.src.approaches import BaseApproach
-from predicators.src.gnn.gnn import setup_graph_net
+from predicators.src.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.src.gnn.gnn_utils import GraphDictDataset, \
     compute_normalizers, get_single_model_prediction, graph_batch_collate, \
     normalize_graph, train_model
@@ -39,7 +39,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Fields for the GNN.
-        self._gnn: Any = None
+        self._gnn: Optional[EncodeProcessDecode] = None
         self._nullary_predicates: List[Predicate] = []
         self._node_feature_to_index: Dict[Any, int] = {}
         self._edge_feature_to_index: Dict[Any, int] = {}
@@ -55,7 +55,13 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                                   ll_traj: LowLevelTrajectory) -> _Output:
         """Given a segment in the data, which was part of the given segment
         trajectory associated with the given low-level trajectory, extract the
-        target output for the GNN."""
+        target output for the GNN.
+
+        The input corresponding to this target is
+        a tuple (state, atoms, goal), where state = segment.states[0],
+        atoms = segment.init_atoms, and
+        goal = self._train_tasks[ll_traj.train_task_idx].goal.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -68,13 +74,10 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def _graphify_single_target(self, datapoint: Tuple[State, Set[GroundAtom],
-                                                       Set[GroundAtom],
-                                                       _Output],
-                                graph_input: Dict,
+    def _graphify_single_target(self, target: _Output, graph_input: Dict,
                                 object_to_node: Dict) -> Dict:
-        """Given a single datapoint (input and output) and the return values of
-        graphify_single_input on the input, return a target graph."""
+        """Given a target output and the return values of graphify_single_input
+        on the corresponding input, return a target graph."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -135,7 +138,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         # Set up exemplar, which is just the first tuple in the data.
         example_input, example_object_to_node = self._graphify_single_input(
             data[0][0], data[0][1], data[0][2])
-        example_target = self._graphify_single_target(data[0], example_input,
+        example_target = self._graphify_single_target(data[0][3],
+                                                      example_input,
                                                       example_object_to_node)
         self._data_exemplar = (example_input, example_target)
         example_dataset = GraphDictDataset([example_input], [example_target])
@@ -153,8 +157,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                 state=state, atoms=atoms, goal=goal)
             graph_inputs.append(graph_input)
             graph_targets.append(
-                self._graphify_single_target((state, atoms, goal, target),
-                                             graph_input, object_to_node))
+                self._graphify_single_target(target, graph_input,
+                                             object_to_node))
         if CFG.gnn_policy_do_normalization:
             # Update normalization constants. Note that we do this for both
             # the input graph and the target graph.
