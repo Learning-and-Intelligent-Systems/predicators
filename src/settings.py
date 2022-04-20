@@ -206,12 +206,16 @@ class GlobalSettings:
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
-    interactive_action_strategy = "glib"
-    interactive_query_policy = "strict_best_seen"
-    interactive_score_function = "frequency"
-    interactive_score_threshold = 0.5
+    interactive_action_strategy = "greedy_lookahead"
+    interactive_query_policy = "threshold"
+    interactive_score_function = "entropy"
+    interactive_score_threshold = 0.1
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    # for action strategy greedy_lookahead
+    interactive_max_num_trajectories = 100
+    # for action strategy greedy_lookahead
+    interactive_max_trajectory_length = 2
     interactive_num_requests_per_cycle = 10
     predicate_mlp_classifier_max_itr = 1000
 

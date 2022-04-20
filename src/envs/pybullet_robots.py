@@ -422,7 +422,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joint_state[self.left_finger_joint_idx] = f_action
             joint_state[self.right_finger_joint_idx] = f_action
             action_arr = np.array(joint_state, dtype=np.float32)
-            # This clipping is needed sometimes for the finger joint limits.
+            # This clipping is needed sometimes for the joint limits.
             action_arr = np.clip(action_arr, self.action_space.low,
                                  self.action_space.high)
             assert self.action_space.contains(action_arr)
@@ -463,6 +463,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             target = np.array(state.joint_state, dtype=np.float32)
             target[self.left_finger_joint_idx] = f_action
             target[self.right_finger_joint_idx] = f_action
+            # This clipping is needed sometimes for the joint limits.
+            target = np.clip(target, self.action_space.low,
+                             self.action_space.high)
             assert self.action_space.contains(target)
             return Action(target)
 
