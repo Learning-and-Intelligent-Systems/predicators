@@ -137,6 +137,7 @@ def test_stick_point():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(unreachable_point, "touched") < 0.5
     assert traj.states[-1].get(unreachable_point, "touched") > 0.5
+    assert not GroundAtom(NoPointInContact, []).holds(traj.states[-1])
 
     # Uncomment for debugging.
     # policy = utils.action_arrs_to_policy(action_arrs)
