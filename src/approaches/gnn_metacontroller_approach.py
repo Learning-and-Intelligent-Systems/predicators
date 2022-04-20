@@ -5,6 +5,7 @@ satisfied. This approach can be understood as an ablation of bilevel planning
 that uses a metacontroller, instead of task planning, to generate skeletons.
 """
 
+import logging
 import abc
 from collections import defaultdict
 from typing import Callable, List, Set, Optional, Tuple, Dict
@@ -169,7 +170,6 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         until we find an option that produces the expected next atoms
         under the ground NSRT.
         """
-        opt = DummyOption
         for _ in range(CFG.gnn_metacontroller_max_samples):
             # Invoke the ground NSRT's sampler to produce an option.
             opt = ground_nsrt.sample_option(state, goal, self._rng)
@@ -184,13 +184,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                 # Some expected atom is not achieved. Continue on to the
                 # next sample.
                 continue
-            break
-        if not opt.initiable(state):
-            # Edge case, which could happen if no sample passes the
-            # expected atoms check.
-            raise ApproachFailure(
-                "GNN metacontroller chose a non-initiable option")
-        return opt
+            return opt
+        raise ApproachFailure("GNN metacontroller could not sample an option")
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         NSRTLearningApproach.load(self, online_learning_cycle)
@@ -206,4 +201,5 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         assert self._sorted_nsrts
         del self._nsrts  # henceforth, we'll use self._sorted_nsrts
         # Then learn the GNN metacontroller.
+        logging.info("Learning metacontroller...")
         GNNApproach.learn_from_offline_dataset(self, dataset)
