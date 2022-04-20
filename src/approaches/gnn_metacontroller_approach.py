@@ -1,51 +1,50 @@
-"""An approach that learns NSRTs, then learns a metacontroller to select
-ground NSRTs sequentially on evaluation tasks. For each ground NSRT in this
-sequence, we sample continuous parameters until the expected atoms check is
-satisfied. This approach can be understood as an ablation of bilevel planning
-that uses a metacontroller, instead of task planning, to generate skeletons.
+"""An approach that learns NSRTs, then learns a metacontroller to select ground
+NSRTs sequentially on evaluation tasks.
+
+For each ground NSRT in this sequence, we sample continuous parameters
+until the expected atoms check is satisfied. This approach can be
+understood as an ablation of bilevel planning that uses a
+metacontroller, instead of task planning, to generate skeletons.
 """
 
 import logging
-import abc
 from collections import defaultdict
-from typing import Callable, List, Set, Optional, Tuple, Dict
-import torch
+from typing import Callable, Dict, List, Optional, Set, Tuple
+
 import numpy as np
-import dill as pkl
+import torch
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.gnn_approach import GNNApproach
-from predicators.src.approaches.nsrt_learning_approach import NSRTLearningApproach
-from predicators.src.option_model import create_option_model
-from predicators.src.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
-    Predicate, State, Task, Type, Dataset, Segment, LowLevelTrajectory, \
-    GroundAtom, Object, Array, _GroundNSRT, DummyOption
+from predicators.src.structs import NSRT, Action, Dataset, DummyOption, \
+    GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
+    State, Task, Type, _GroundNSRT, _Option
 
 
 class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
-    """GNNMetacontrollerApproach definition.
-    """
+    """GNNMetacontrollerApproach definition."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
-        NSRTLearningApproach.__init__(self, initial_predicates, initial_options,
-                                      types, action_space, train_tasks)
-        GNNApproach.__init__(self, initial_predicates, initial_options,
-                             types, action_space, train_tasks)
-        self._sorted_nsrts = []
+        NSRTLearningApproach.__init__(self, initial_predicates,
+                                      initial_options, types, action_space,
+                                      train_tasks)
+        GNNApproach.__init__(self, initial_predicates, initial_options, types,
+                             action_space, train_tasks)
+        self._sorted_nsrts: List[NSRT] = []
         self._max_nsrt_objects = 0
         self._bce_loss = torch.nn.BCEWithLogitsLoss()
         self._crossent_loss = torch.nn.CrossEntropyLoss()
 
     def _extract_target_from_data(self, segment: Segment,
                                   segment_traj: List[Segment],
-                                  ll_traj: LowLevelTrajectory
-                                  ) -> _GroundNSRT:
+                                  ll_traj: LowLevelTrajectory) -> _GroundNSRT:
         seg_option = segment.get_option()
         objects = list(segment.states[0])
         poss_ground_nsrts = []
@@ -58,11 +57,9 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                 # match, add this ground NSRT to poss_ground_nsrts.
                 if ground_nsrt.option_objs != seg_option.objects:
                     continue
-                if not ground_nsrt.preconditions.issubset(
-                        segment.init_atoms):
+                if not ground_nsrt.preconditions.issubset(segment.init_atoms):
                     continue
-                atoms = utils.apply_operator(
-                    ground_nsrt, segment.init_atoms)
+                atoms = utils.apply_operator(ground_nsrt, segment.init_atoms)
                 if not atoms.issubset(segment.final_atoms):
                     continue
                 poss_ground_nsrts.append(ground_nsrt)
@@ -117,8 +114,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
     def _load_output_specific_fields_from_save_info(self, info: Dict) -> None:
         self._max_nsrt_objects = info["max_nsrt_objects"]
 
-    def _extract_output_from_graph(
-        self, graph_output: Dict, object_to_node: Dict) -> _GroundNSRT:
+    def _extract_output_from_graph(self, graph_output: Dict,
+                                   object_to_node: Dict) -> _GroundNSRT:
         """The output is a ground NSRT."""
         node_to_object = {v: k for k, v in object_to_node.items()}
         type_to_node = defaultdict(set)
@@ -163,13 +160,12 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
 
         return _policy
 
-    def _sample_option_from_nsrt(self, ground_nsrt: _GroundNSRT,
-                                 state: State, atoms: Set[GroundAtom],
-                                 goal: Set[GroundAtom]):
-        """Given a ground NSRT, try invoking its sampler repeatedly
-        until we find an option that produces the expected next atoms
-        under the ground NSRT.
-        """
+    def _sample_option_from_nsrt(self, ground_nsrt: _GroundNSRT, state: State,
+                                 atoms: Set[GroundAtom],
+                                 goal: Set[GroundAtom]) -> _Option:
+        """Given a ground NSRT, try invoking its sampler repeatedly until we
+        find an option that produces the expected next atoms under the ground
+        NSRT."""
         for _ in range(CFG.gnn_metacontroller_max_samples):
             # Invoke the ground NSRT's sampler to produce an option.
             opt = ground_nsrt.sample_option(state, goal, self._rng)
