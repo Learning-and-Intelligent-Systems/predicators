@@ -111,8 +111,9 @@ class StickPointEnv(BaseEnv):
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
         # The robot cannot leave the reachable zone.
-        new_rx = np.clip(new_rx, self.rz_x_lb, self.rz_x_ub)
-        new_ry = np.clip(new_ry, self.rz_y_lb, self.rz_y_ub)
+        rad = self.robot_radius
+        new_rx = np.clip(new_rx, self.rz_x_lb + rad, self.rz_x_ub - rad)
+        new_ry = np.clip(new_ry, self.rz_y_lb + rad, self.rz_y_ub - rad)
         # Recompute the dx and dy after clipping, since those values will be
         # reused by the stick.
         dx = new_rx - rx
