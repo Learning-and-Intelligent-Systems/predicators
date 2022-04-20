@@ -11,6 +11,7 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
     ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.utils import _Geom2D
 
 
 class StickPointEnv(BaseEnv):
@@ -47,29 +48,46 @@ class StickPointEnv(BaseEnv):
                                   self._Touched_holds)
         self._InContactStickPoint = Predicate(
             "InContactStickPoint", [self._stick_type, self._point_type],
-            self._InContactStickPoint_holds)
+            self._InContact_holds)
         self._InContactRobotPoint = Predicate(
             "InContactRobotPoint", [self._robot_type, self._point_type],
-            self._InContactRobotPoint_holds)
+            self._InContact_holds)
         self._InContactRobotStick = Predicate(
             "InContactRobotStick", [self._robot_type, self._stick_type],
-            self._InContactRobotStick_holds)
+            self._InContact_holds)
         self._Grasped = Predicate("Grasped",
                                   [self._robot_type, self._stick_type],
                                   self._Grasped_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
         # Options
-        self._MoveTo = ParameterizedOption(
-            "MoveTo",
-            types=[self._robot_type],
-            params_space=Box(np.array([self.x_lb, self.y_lb, self.theta_lb]),
-                             np.array([self.x_ub, self.y_ub, self.theta_ub]),
-                             (3, ),
-                             dtype=np.float32),
-            policy=self._MoveTo_policy,
+        self._RobotTouchPoint = ParameterizedOption(
+            "RobotTouchPoint",
+            types=[self._robot_type, self._point_type],
+            params_space=Box(0, 1, (0, )),
+            policy=self._RobotTouchPoint_policy,
             initiable=lambda s, m, o, p: True,
-            terminal=self._MoveTo_terminal)
+            terminal=self._RobotTouchPoint_terminal,
+        )
+
+        self._PickStick = ParameterizedOption(
+            "PickStick",
+            types=[self._robot_type, self._stick_type],
+            params_space=Box(0, self.stick_width, (1, )),
+            policy=self._PickStick_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._PickStick_terminal,
+        )
+
+        self._StickTouchPoint = ParameterizedOption(
+            "StickTouchPoint",
+            types=[self._robot_type, self._stick_type, self._point_type],
+            params_space=Box(0, 1, (0, )),
+            policy=self._StickTouchPoint_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._StickTouchPoint_terminal,
+        )
+
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
@@ -96,21 +114,16 @@ class StickPointEnv(BaseEnv):
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
         next_state.set(self._robot, "theta", new_rtheta)
-        robot_circ = utils.Circle(new_rx, new_ry, self.robot_radius)
-        sx = state.get(self._stick, "x")
-        sy = state.get(self._stick, "y")
-        sw = self.stick_width
-        sh = self.stick_height
-        st = state.get(self._stick, "theta")
-        stick_rect = utils.Rectangle(sx, sy, sw, sh, st)
+        robot_circ = self._object_to_geom(self._robot, next_state)
 
         # Check if the stick is held. If so, we need to move and rotate it.
+        stick_rect = self._object_to_geom(self._stick, state)
         if state.get(self._stick, "held") > 0.5:
             stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
             stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
                                          y=(stick_rect.y + dy),
-                                         width=sw,
-                                         height=sh,
+                                         width=stick_rect.width,
+                                         height=stick_rect.height,
                                          theta=stick_rect.theta)
             next_state.set(self._stick, "x", stick_rect.x)
             next_state.set(self._stick, "y", stick_rect.y)
@@ -124,9 +137,7 @@ class StickPointEnv(BaseEnv):
         if press > 0:
             tip_rect = self._stick_rect_to_tip_rect(stick_rect)
             for point in state.get_objects(self._point_type):
-                px = state.get(point, "x")
-                py = state.get(point, "y")
-                circ = utils.Circle(px, py, self.point_radius)
+                circ = self._object_to_geom(point, state)
                 if circ.intersects(robot_circ) or circ.intersects(tip_rect):
                     next_state.set(point, "touched", 1.0)
 
@@ -160,7 +171,7 @@ class StickPointEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveTo}
+        return {self._RobotTouchPoint, self._PickStick, self._StickTouchPoint}
 
     @property
     def action_space(self) -> Box:
@@ -184,36 +195,25 @@ class StickPointEnv(BaseEnv):
         reachable_zone.plot(ax, color="lightgreen", alpha=0.25)
         # Draw the points.
         for point in state.get_objects(self._point_type):
-            x = state.get(point, "x")
-            y = state.get(point, "y")
-            radius = self.point_radius
             color = "blue" if state.get(point, "touched") > 0.5 else "yellow"
-            circ = utils.Circle(x, y, radius)
+            circ = self._object_to_geom(point, state)
             circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
-        x = state.get(stick, "x")
-        y = state.get(stick, "y")
-        w = self.stick_width
-        h = self.stick_height
-        theta = state.get(stick, "theta")
-        rect = utils.Rectangle(x, y, w, h, theta)
+        rect = self._object_to_geom(stick, state)
         color = "black" if state.get(stick, "held") > 0.5 else "white"
         rect.plot(ax, facecolor="firebrick", edgecolor=color)
         rect = self._stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        radius = self.robot_radius
-        circ = utils.Circle(x, y, radius)
+        circ = self._object_to_geom(robot, state)
         circ.plot(ax, facecolor="red", edgecolor="black")
         # Show the direction that the robot is facing.
         theta = state.get(robot, "theta")
         l = 1.5 * self.robot_radius  # arrow length
         w = 0.1 * self.robot_radius  # arrow width
-        ax.arrow(x, y, l * np.cos(theta), l * np.sin(theta), width=w)
+        ax.arrow(circ.x, circ.y, l * np.cos(theta), l * np.sin(theta), width=w)
         ax.set_xlim(self.x_lb, self.x_ub)
         ax.set_ylim(self.y_lb, self.y_ub)
         ax.axis("off")
@@ -287,6 +287,23 @@ class StickPointEnv(BaseEnv):
             tasks.append(task)
         return tasks
 
+    def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
+        x = state.get(obj, "x")
+        y = state.get(obj, "y")
+        if obj.is_instance(self._robot_type):
+            return utils.Circle(x, y, self.robot_radius)
+        if obj.is_instance(self._point_type):
+            return utils.Circle(x, y, self.point_radius)
+        assert obj.is_instance(self._stick_type)
+        theta = state.get(obj, "theta")
+        return utils.Rectangle(
+            x=x,
+            y=y,
+            width=self.stick_width,
+            height=self.stick_height,
+            theta=theta
+        )
+
     def _stick_rect_to_tip_rect(
             self, stick_rect: utils.Rectangle) -> utils.Rectangle:
         theta = stick_rect.theta
@@ -298,12 +315,47 @@ class StickPointEnv(BaseEnv):
                                height=stick_rect.height,
                                theta=theta)
 
-    def _MoveTo_policy(self, state: State, memory: Dict,
+    def _RobotTouchPoint_policy(self, state: State, memory: Dict,
+                       objects: Sequence[Object], params: Array) -> Action:
+        del memory, params  # unused
+        # If the robot and point are already touching, press.
+        if self._InContact_holds(state, objects):
+            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+        # Otherwise, move toward the point.
+        robot, point = objects
+        rx = state.get(robot, "x")
+        ry = state.get(robot, "y")
+        px = state.get(point, "x")
+        py = state.get(point, "y")
+        dx = np.clip(px - rx, -self.max_speed, self.max_speed)
+        dy = np.clip(py - ry, -self.max_speed, self.max_speed)
+        # Normalize.
+        dx = dx / self.max_speed
+        dy = dy / self.max_speed
+        # No need to rotate, and we don't want to press until we're there.
+        return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+
+    def _RobotTouchPoint_terminal(self, state: State, memory: Dict,
+                         objects: Sequence[Object], params: Array) -> bool:
+        import ipdb
+        ipdb.set_trace()
+
+    def _PickStick_policy(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> Action:
         import ipdb
         ipdb.set_trace()
 
-    def _MoveTo_terminal(self, state: State, memory: Dict,
+    def _PickStick_terminal(self, state: State, memory: Dict,
+                         objects: Sequence[Object], params: Array) -> bool:
+        import ipdb
+        ipdb.set_trace()
+
+    def _StickTouchPoint_policy(self, state: State, memory: Dict,
+                       objects: Sequence[Object], params: Array) -> Action:
+        import ipdb
+        ipdb.set_trace()
+
+    def _StickTouchPoint_terminal(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> bool:
         import ipdb
         ipdb.set_trace()
@@ -312,17 +364,7 @@ class StickPointEnv(BaseEnv):
         point, = objects
         return state.get(point, "touched") > 0.5
 
-    def _InContactStickPoint_holds(self, state: State,
-                                   objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
-
-    def _InContactRobotPoint_holds(self, state: State,
-                                   objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
-
-    def _InContactRobotStick_holds(self, state: State,
+    def _InContact_holds(self, state: State,
                                    objects: Sequence[Object]) -> bool:
         import ipdb
         ipdb.set_trace()

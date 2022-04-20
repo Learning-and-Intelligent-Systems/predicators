@@ -23,7 +23,7 @@ def test_stick_point():
     assert len(env.predicates) == 6
     assert len(env.goal_predicates) == 1
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
-    assert len(env.options) == 1
+    assert len(env.options) == 3
     assert len(env.types) == 3
     point_type, robot_type, stick_type = sorted(env.types)
     assert point_type.name == "point"
@@ -57,6 +57,8 @@ def test_stick_point():
     state.set(stick, "theta", np.pi / 4)
     task = Task(state, task.goal)
     env.render_state(state, task)
+
+    ## Test simulate ##
 
     # Test for going to touch the reachable point.
     num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
@@ -141,3 +143,37 @@ def test_stick_point():
     # video = monitor.get_video()
     # outfile = "hardcoded_actions_stick_point.mp4"
     # utils.save_video(outfile, video)
+
+    ## Test options ##
+
+    PickStick, RobotTouchPoint, StickTouchPoint = sorted(env.options)
+    assert PickStick.name == "PickStick"
+    assert RobotTouchPoint.name == "RobotTouchPoint"
+    assert StickTouchPoint.name == "StickTouchPoint"
+
+    # Test RobotTouchPoint.
+    option = RobotTouchPoint.ground([robot, reachable_point], [])
+
+    policy = utils.option_plan_to_policy([option])
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           lambda _: False,
+                                           max_num_steps=1000,
+                                           exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(reachable_point, "touched") < 0.5
+    assert traj.states[-1].get(reachable_point, "touched") > 0.5
+
+    # Uncomment for debugging.
+    policy = utils.option_plan_to_policy([option])
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           lambda _: False,
+                                           
+                                           exceptions_to_break_on={utils.OptionExecutionFailure},
+                                           monitor=monitor)
+    video = monitor.get_video()
+    outfile = "hardcoded_options_stick_point.mp4"
+    utils.save_video(outfile, video)
