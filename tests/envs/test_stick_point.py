@@ -129,25 +129,15 @@ def test_stick_point():
     assert traj.states[-2].get(unreachable_point, "touched") < 0.5
     assert traj.states[-1].get(unreachable_point, "touched") > 0.5
 
-    # TODO remove
-    policy = utils.action_arrs_to_policy(action_arrs)
-    monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           lambda _: False,
-                                           max_num_steps=len(action_arrs),
-                                           monitor=monitor)
-    video = monitor.get_video()
-    outfile = "hardcoded_actions_stick_point.mp4"
-    utils.save_video(outfile, video)
-    # TODO end remove
-
-    policy = utils.action_arrs_to_policy(action_arrs)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           lambda _: False,
-                                           max_num_steps=len(action_arrs))
-
-    # TODO: what should we do if the circle passes over the stick?
+    # Uncomment for debugging.
+    # policy = utils.action_arrs_to_policy(action_arrs)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # traj = utils.run_policy_with_simulator(policy,
+    #                                        env.simulate,
+    #                                        task.init,
+    #                                        lambda _: False,
+    #                                        max_num_steps=len(action_arrs),
+    #                                        monitor=monitor)
+    # video = monitor.get_video()
+    # outfile = "hardcoded_actions_stick_point.mp4"
+    # utils.save_video(outfile, video)

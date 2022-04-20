@@ -31,8 +31,8 @@ class StickPointEnv(BaseEnv):
     max_angular_speed: ClassVar[float] = np.pi / 4
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
-    stick_width: ClassVar[float] = 0.1
-    stick_height: ClassVar[float] = 3.0
+    stick_width: ClassVar[float] = 3.0
+    stick_height: ClassVar[float] = 0.1
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
 
     def __init__(self) -> None:
@@ -106,13 +106,11 @@ class StickPointEnv(BaseEnv):
         # Check if the stick is held. If so, we need to move and rotate it.
         if state.get(self._stick, "held") > 0.5:
             stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
-            stick_rect = utils.Rectangle(
-                x=(stick_rect.x + dx),
-                y=(stick_rect.y + dy),
-                width=sw,
-                height=sh,
-                theta=stick_rect.theta
-            )
+            stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
+                                         y=(stick_rect.y + dy),
+                                         width=sw,
+                                         height=sh,
+                                         theta=stick_rect.theta)
             next_state.set(self._stick, "x", stick_rect.x)
             next_state.set(self._stick, "y", stick_rect.y)
             next_state.set(self._stick, "theta", stick_rect.theta)
@@ -269,10 +267,10 @@ class StickPointEnv(BaseEnv):
                 x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
                 y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
                 theta = rng.uniform(self.theta_lb, self.theta_ub)
-                geom = utils.Rectangle(x, y, self.stick_width,
+                rect = utils.Rectangle(x, y, self.stick_width,
                                        self.stick_height, theta)
                 # Keep only if no intersections with existing objects.
-                if not any(geom.intersects(g) for g in collision_geoms):
+                if not any(rect.intersects(g) for g in collision_geoms):
                     break
             state_dict[self._stick] = {
                 "x": x,
