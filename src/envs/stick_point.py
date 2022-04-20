@@ -60,6 +60,8 @@ class StickPointEnv(BaseEnv):
                                   self._Grasped_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
+        self._NoPointInContact = Predicate("NoPointInContact", [],
+                                           self._NoPointInContact_holds)
         # Options
         self._RobotTouchPoint = ParameterizedOption(
             "RobotTouchPoint",
@@ -168,7 +170,7 @@ class StickPointEnv(BaseEnv):
         return {
             self._Touched, self._InContactRobotPoint,
             self._InContactRobotStick, self._InContactStickPoint,
-            self._Grasped, self._HandEmpty
+            self._Grasped, self._HandEmpty, self._NoPointInContact
         }
 
     @property
@@ -458,3 +460,16 @@ class StickPointEnv(BaseEnv):
         robot, = objects
         stick, = state.get_objects(self._stick_type)
         return not self._Grasped_holds(state, [robot, stick])
+
+    def _NoPointInContact_holds(self, state: State,
+                                objects: Sequence[Object]) -> bool:
+        assert not objects
+        robot, = state.get_objects(self._robot_type)
+        stick, = state.get_objects(self._stick_type)
+        points = state.get_objects(self._point_type)
+        for point in points:
+            if self._InContact_holds(state, [robot, point]):
+                return False
+            if self._InContact_holds(state, [stick, point]):
+                return False
+        return True

@@ -1970,45 +1970,75 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     robot_type, point_type, stick_type = _get_types_by_names(
         CFG.env, ["robot", "point", "stick"])
     Touched, InContactRobotPoint, InContactRobotStick, InContactStickPoint, \
-        Grasped, HandEmpty = _get_predicates_by_names(CFG.env, ["Touched",
+        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(CFG.env, ["Touched",
             "InContactRobotPoint", "InContactRobotStick",
-            "InContactStickPoint", "Grasped", "HandEmpty"])
+            "InContactStickPoint", "Grasped", "HandEmpty", "NoPointInContact"])
     RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
         CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
 
     nsrts = set()
 
-    # RobotTouchPoint
+    # RobotTouchPointFromNothing
     robot = Variable("?robot", robot_type)
     point = Variable("?point", point_type)
     parameters = [robot, point]
     option_vars = [robot, point]
     option = RobotTouchPoint
-    preconditions = {LiftedAtom(HandEmpty, [robot])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NoPointInContact, []),
+    }
     add_effects = {
         LiftedAtom(Touched, [point]),
         LiftedAtom(InContactRobotPoint, [robot, point])
     }
-    delete_effects: Set[LiftedAtom] = set()
+    delete_effects = {LiftedAtom(NoPointInContact, [])}
     side_predicates: Set[Predicate] = set()
-    robot_touch_point_nsrt = NSRT("RobotTouchPoint", parameters, preconditions,
-                                  add_effects, delete_effects, side_predicates,
-                                  option, option_vars, null_sampler)
+    robot_touch_point_nsrt = NSRT("RobotTouchPointFromNothing", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  side_predicates, option, option_vars,
+                                  null_sampler)
     nsrts.add(robot_touch_point_nsrt)
 
-    # PickStick1
+    # RobotTouchPointFromPoint
+    robot = Variable("?robot", robot_type)
+    point = Variable("?point", point_type)
+    from_point = Variable("?from-point", point_type)
+    parameters = [robot, point, from_point]
+    option_vars = [robot, point]
+    option = RobotTouchPoint
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(InContactRobotPoint, [robot, from_point]),
+    }
+    add_effects = {
+        LiftedAtom(Touched, [point]),
+        LiftedAtom(InContactRobotPoint, [robot, point])
+    }
+    delete_effects = {LiftedAtom(InContactRobotPoint, [robot, from_point])}
+    side_predicates = set()
+    robot_touch_point_nsrt = NSRT("RobotTouchPointFromPoint", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  side_predicates, option, option_vars,
+                                  null_sampler)
+    nsrts.add(robot_touch_point_nsrt)
+
+    # PickStickFromNothing
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
     parameters = [robot, stick]
     option_vars = [robot, stick]
     option = PickStick
-    preconditions = {LiftedAtom(HandEmpty, [robot])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NoPointInContact, []),
+    }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
         LiftedAtom(InContactRobotStick, [robot, stick])
     }
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    side_predicates: Set[Predicate] = set()
+    side_predicates = set()
 
     def pick_stick_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
@@ -2017,12 +2047,12 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
         pick_pos = rng.uniform(0, 1)  # normalized x position on the stick
         return np.array([pick_pos], dtype=np.float32)
 
-    pick_stick_nsrt = NSRT("PickStick", parameters, preconditions, add_effects,
-                           delete_effects, side_predicates, option,
-                           option_vars, pick_stick_sampler)
+    pick_stick_nsrt = NSRT("PickStickFromNothing", parameters, preconditions,
+                           add_effects, delete_effects, side_predicates,
+                           option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # PickStick2
+    # PickStickFromPoint
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
     point = Variable("?from-point", point_type)
@@ -2035,38 +2065,42 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactRobotStick, [robot, stick])
+        LiftedAtom(InContactRobotStick, [robot, stick]),
+        LiftedAtom(NoPointInContact, [])
     }
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
         LiftedAtom(InContactRobotPoint, [robot, point]),
     }
-    side_predicates: Set[Predicate] = set()
-    pick_stick_nsrt = NSRT("PickStick", parameters, preconditions, add_effects,
-                           delete_effects, side_predicates, option,
-                           option_vars, pick_stick_sampler)
+    side_predicates = set()
+    pick_stick_nsrt = NSRT("PickStickFromPoint", parameters, preconditions,
+                           add_effects, delete_effects, side_predicates,
+                           option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # StickTouchPoint1
+    # StickTouchPointFromNothing
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
     point = Variable("?point", point_type)
     parameters = [robot, stick, point]
     option_vars = [robot, stick, point]
     option = StickTouchPoint
-    preconditions = {LiftedAtom(Grasped, [robot, stick])}
+    preconditions = {
+        LiftedAtom(Grasped, [robot, stick]),
+        LiftedAtom(NoPointInContact, []),
+    }
     add_effects = {
         LiftedAtom(InContactStickPoint, [stick, point]),
         LiftedAtom(Touched, [point])
     }
-    delete_effects: Set[Predicate] = set()
-    side_predicates: Set[Predicate] = set()
-    stick_point_nsrt = NSRT("StickTouchPoint1", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates,
-                           option, option_vars, null_sampler)
+    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    side_predicates = set()
+    stick_point_nsrt = NSRT("StickTouchPointFromNothing", parameters,
+                            preconditions, add_effects, delete_effects,
+                            side_predicates, option, option_vars, null_sampler)
     nsrts.add(stick_point_nsrt)
 
-    # StickTouchPoint2
+    # StickTouchPointFromPoint
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
     point = Variable("?point", point_type)
@@ -2083,10 +2117,10 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Touched, [point])
     }
     delete_effects = {LiftedAtom(InContactStickPoint, [stick, from_point])}
-    side_predicates: Set[Predicate] = set()
-    stick_point_nsrt = NSRT("StickTouchPoint2", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates,
-                           option, option_vars, null_sampler)
+    side_predicates = set()
+    stick_point_nsrt = NSRT("StickTouchPointFromPoint", parameters,
+                            preconditions, add_effects, delete_effects,
+                            side_predicates, option, option_vars, null_sampler)
     nsrts.add(stick_point_nsrt)
 
     return nsrts
