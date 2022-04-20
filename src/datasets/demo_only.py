@@ -50,7 +50,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         except (ApproachTimeout, ApproachFailure, AssertionError) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
-            continue  # pragma: no cover
+            continue
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
                                   traj.actions,
