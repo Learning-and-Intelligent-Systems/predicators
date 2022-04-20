@@ -46,7 +46,8 @@ def test_stick_point():
     reachable_x = (env.rz_x_ub + env.rz_x_lb) / 4
     state.set(reachable_point, "x", reachable_x)
     state.set(reachable_point, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
-    state.set(unreachable_point, "x", robot_x)
+    unreachable_x = robot_x
+    state.set(unreachable_point, "x", unreachable_x)
     unreachable_y = 0.75 * env.y_ub
     assert not env.rz_y_lb <= unreachable_y <= env.rz_y_ub
     state.set(unreachable_point, "y", unreachable_y)
@@ -103,7 +104,30 @@ def test_stick_point():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     assert abs(traj.states[-2].get(stick, "theta") - np.pi / 4) < 1e-6
-    assert traj.states[-1].get(stick, "theta") < np.pi / 4 - 1e-6
+    assert traj.states[-1].get(stick, "theta") > np.pi / 4 + 1e-6
+
+    # Test for moving and pressing the unreachable point with the stick.
+    robot_x = traj.states[-1].get(robot, "x")
+    num_steps_to_left = int(np.ceil((robot_x - unreachable_x) / env.max_speed))
+    action_arrs.extend([
+        np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+        for _ in range(num_steps_to_left)
+    ])
+    # Move up and slightly left while pressing.
+    action_arrs.extend([
+        np.array([-0.1, 1.0, 0.0, 1.0], dtype=np.float32),
+        np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32),
+    ])
+
+    # The unreachable point should now be touched.
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert traj.states[-2].get(unreachable_point, "touched") < 0.5
+    assert traj.states[-1].get(unreachable_point, "touched") > 0.5
 
     # TODO remove
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -125,3 +149,5 @@ def test_stick_point():
                                            task.init,
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
+
+    # TODO: what should we do if the circle passes over the stick?

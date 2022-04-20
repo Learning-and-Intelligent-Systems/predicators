@@ -95,7 +95,7 @@ class StickPointEnv(BaseEnv):
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
         next_state.set(self._robot, "theta", new_rtheta)
-        next_robot_circ = utils.Circle(new_rx, new_ry, self.robot_radius)
+        robot_circ = utils.Circle(new_rx, new_ry, self.robot_radius)
         sx = state.get(self._stick, "x")
         sy = state.get(self._stick, "y")
         sw = self.stick_width
@@ -103,16 +103,22 @@ class StickPointEnv(BaseEnv):
         st = state.get(self._stick, "theta")
         stick_rect = utils.Rectangle(sx, sy, sw, sh, st)
 
-        # Check if the stick is held. If so, we need to rotate it.
+        # Check if the stick is held. If so, we need to move and rotate it.
         if state.get(self._stick, "held") > 0.5:
-            new_stick_rect = utils.rotate_rectangle_about_point(
-                stick_rect, dtheta, (x, y))
-            next_state.set(self._stick, "x", new_stick_rect.x)
-            next_state.set(self._stick, "y", new_stick_rect.y)
-            next_state.set(self._stick, "theta", new_stick_rect.theta)
+            stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
+            stick_rect = utils.Rectangle(
+                x=(stick_rect.x + dx),
+                y=(stick_rect.y + dy),
+                width=sw,
+                height=sh,
+                theta=stick_rect.theta
+            )
+            next_state.set(self._stick, "x", stick_rect.x)
+            next_state.set(self._stick, "y", stick_rect.y)
+            next_state.set(self._stick, "theta", stick_rect.theta)
 
         # Check if the stick is now held for the first time.
-        elif stick_rect.intersects(next_robot_circ):
+        elif stick_rect.intersects(robot_circ):
             next_state.set(self._stick, "held", 1.0)
 
         # Check if any point is now touched.
@@ -121,7 +127,7 @@ class StickPointEnv(BaseEnv):
                 px = state.get(point, "x")
                 py = state.get(point, "y")
                 circ = utils.Circle(px, py, self.point_radius)
-                if circ.intersects(next_robot_circ):
+                if circ.intersects(robot_circ) or circ.intersects(stick_rect):
                     next_state.set(point, "touched", 1.0)
 
         return next_state
