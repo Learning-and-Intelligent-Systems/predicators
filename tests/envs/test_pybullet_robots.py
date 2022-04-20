@@ -157,21 +157,19 @@ def test_fetch_pybullet_robot():
 
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    open_fingers = 0.04
-    closed_fingers = 0.01
     move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
     grasp_tol = 0.05
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, open_fingers,
-                               closed_fingers, move_to_pose_tol, max_vel_norm,
-                               grasp_tol, physics_client_id)
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, move_to_pose_tol,
+                               max_vel_norm, grasp_tol, physics_client_id)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
 
-    robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
+    robot_state = np.array(ee_home_pose + (robot.open_fingers, ),
+                           dtype=np.float32)
     robot.reset_state(robot_state)
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
@@ -203,18 +201,15 @@ def test_create_single_arm_pybullet_robot():
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    open_fingers = 0.04
-    closed_fingers = 0.01
     move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
     grasp_tol = 0.05
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             open_fingers, closed_fingers,
                                              move_to_pose_tol, max_vel_norm,
                                              grasp_tol, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         ee_orn, open_fingers, closed_fingers,
-                                         move_to_pose_tol, max_vel_norm,
-                                         grasp_tol, physics_client_id)
+                                         ee_orn, move_to_pose_tol,
+                                         max_vel_norm, grasp_tol,
+                                         physics_client_id)
