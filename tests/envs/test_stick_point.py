@@ -4,7 +4,7 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.envs.stick_point import StickPointEnv
-from predicators.src.structs import Task
+from predicators.src.structs import GroundAtom, Task
 
 
 def test_stick_point():
@@ -22,6 +22,9 @@ def test_stick_point():
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 7
     assert len(env.goal_predicates) == 1
+    NoPointInContact = [
+        p for p in env.predicates if p.name == "NoPointInContact"
+    ][0]
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
     assert len(env.options) == 3
     assert len(env.types) == 3
@@ -57,6 +60,7 @@ def test_stick_point():
     state.set(stick, "theta", np.pi / 4)
     task = Task(state, task.goal)
     env.render_state(state, task)
+    assert GroundAtom(NoPointInContact, []).holds(state)
 
     ## Test simulate ##
 
@@ -75,6 +79,7 @@ def test_stick_point():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(reachable_point, "touched") < 0.5
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
+    assert not GroundAtom(NoPointInContact, []).holds(traj.states[-1])
 
     # Test for going to pick up the stick.
     num_steps_to_right = 11
