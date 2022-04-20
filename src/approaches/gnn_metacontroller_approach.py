@@ -58,8 +58,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                     continue
                 if not ground_nsrt.preconditions.issubset(segment.init_atoms):
                     continue
-                atoms = utils.apply_operator(ground_nsrt, segment.init_atoms)
-                if not atoms.issubset(segment.final_atoms):
+                if ground_nsrt.add_effects != segment.add_effects or \
+                   ground_nsrt.delete_effects != segment.delete_effects:
                     continue
                 poss_ground_nsrts.append(ground_nsrt)
         # Verify that there is exactly one grounding that matches.
