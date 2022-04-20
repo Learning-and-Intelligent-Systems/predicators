@@ -35,7 +35,7 @@ class _MockOptionModel2(_OptionModelBase):
 
 
 @pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
-def test_gnn_policy_approach_with_envs(env_name: str):
+def test_gnn_policy_approach_with_envs(env_name):
     """Tests for GNNPolicyApproach class on environments."""
     utils.reset_config({
         "env": env_name,
@@ -115,7 +115,7 @@ def test_gnn_policy_approach_special_cases():
         Task(state, {Solved([cup])}),
         Task(state, {GroundAtom(Solved2, [])})
     ]
-    # Note: from this initial state, the Move option is always non-initiable.
+    # Note: from test_task.init, both Move and Dump are always non-initiable.
     test_task = Task(State({cup: [0.0]}), train_tasks[0].goal)
 
     approach = create_approach("gnn_policy", {Solved}, {Move, Dump},

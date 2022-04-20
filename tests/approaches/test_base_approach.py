@@ -89,6 +89,7 @@ def test_create_approach():
             "random_actions",
             "random_options",
             "gnn_policy",
+            "gnn_metacontroller",
             "oracle",
             "nsrt_learning",
             "interactive_learning",
