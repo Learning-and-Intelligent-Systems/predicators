@@ -33,6 +33,7 @@ class StickPointEnv(BaseEnv):
     point_radius: ClassVar[float] = 0.1
     stick_width: ClassVar[float] = 3.0
     stick_height: ClassVar[float] = 0.1
+    stick_tip_width: ClassVar[float] = 0.1
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
 
     def __init__(self) -> None:
@@ -121,11 +122,12 @@ class StickPointEnv(BaseEnv):
 
         # Check if any point is now touched.
         if press > 0:
+            tip_rect = self._stick_rect_to_tip_rect(stick_rect)
             for point in state.get_objects(self._point_type):
                 px = state.get(point, "x")
                 py = state.get(point, "y")
                 circ = utils.Circle(px, py, self.point_radius)
-                if circ.intersects(robot_circ) or circ.intersects(stick_rect):
+                if circ.intersects(robot_circ) or circ.intersects(tip_rect):
                     next_state.set(point, "touched", 1.0)
 
         return next_state
@@ -197,7 +199,9 @@ class StickPointEnv(BaseEnv):
         theta = state.get(stick, "theta")
         rect = utils.Rectangle(x, y, w, h, theta)
         color = "black" if state.get(stick, "held") > 0.5 else "white"
-        rect.plot(ax, facecolor="brown", edgecolor=color)
+        rect.plot(ax, facecolor="firebrick", edgecolor=color)
+        rect = self._stick_rect_to_tip_rect(rect)
+        rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
         x = state.get(robot, "x")
@@ -282,6 +286,17 @@ class StickPointEnv(BaseEnv):
             task = Task(init_state, goal)
             tasks.append(task)
         return tasks
+
+    def _stick_rect_to_tip_rect(
+            self, stick_rect: utils.Rectangle) -> utils.Rectangle:
+        theta = stick_rect.theta
+        width = self.stick_tip_width
+        scale = stick_rect.width - width
+        return utils.Rectangle(x=stick_rect.x + scale * np.cos(theta),
+                               y=stick_rect.y + scale * np.sin(theta),
+                               width=self.stick_tip_width,
+                               height=stick_rect.height,
+                               theta=theta)
 
     def _MoveTo_policy(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> Action:
