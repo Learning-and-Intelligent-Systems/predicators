@@ -1970,8 +1970,8 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     robot_type, point_type, stick_type = _get_types_by_names(
         CFG.env, ["robot", "point", "stick"])
     Touched, InContactRobotPoint, InContactRobotStick, InContactStickPoint, \
-        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(CFG.env, ["Touched",
-            "InContactRobotPoint", "InContactRobotStick",
+        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(
+            CFG.env, ["Touched", "InContactRobotPoint", "InContactRobotStick",
             "InContactStickPoint", "Grasped", "HandEmpty", "NoPointInContact"])
     RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
         CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
