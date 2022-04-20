@@ -76,8 +76,13 @@ class GNNApproach(BaseApproach, Generic[_Output]):
     @abc.abstractmethod
     def _graphify_single_target(self, target: _Output, graph_input: Dict,
                                 object_to_node: Dict) -> Dict:
-        """Given a target output and the return values of graphify_single_input
-        on the corresponding input, return a target graph."""
+        """Given a target output, return a target graph.
+
+        We also provide the return values of graphify_single_input on
+        the corresponding input, because some fields may be the same
+        between the input and the target graphs, and so we can simply
+        copy them over.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -143,10 +148,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                                                       example_object_to_node)
         self._data_exemplar = (example_input, example_target)
         example_dataset = GraphDictDataset([example_input], [example_target])
-        self._gnn = setup_graph_net(
-            example_dataset,
-            num_steps=CFG.gnn_policy_num_message_passing,
-            layer_size=CFG.gnn_policy_layer_size)
+        self._gnn = setup_graph_net(example_dataset,
+                                    num_steps=CFG.gnn_num_message_passing,
+                                    layer_size=CFG.gnn_layer_size)
         # Set up all the graphs, now using *all* the data.
         inputs = [(d[0], d[1], d[2]) for d in data]
         targets = [d[3] for d in data]
@@ -159,7 +163,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             graph_targets.append(
                 self._graphify_single_target(target, graph_input,
                                              object_to_node))
-        if CFG.gnn_policy_do_normalization:
+        if CFG.gnn_do_normalization:
             # Update normalization constants. Note that we do this for both
             # the input graph and the target graph.
             self._input_normalizers = compute_normalizers(graph_inputs)
@@ -173,7 +177,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                 for g in graph_targets
             ]
         # Run training.
-        if CFG.gnn_policy_use_validation_set:
+        if CFG.gnn_use_validation_set:
             ## Split data, using 10% for validation.
             num_validation = max(1, int(len(inputs) * 0.1))
         else:
@@ -186,27 +190,26 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         val_dataset = GraphDictDataset(val_inputs, val_targets)
         ## Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
-                                     lr=CFG.gnn_policy_learning_rate)
+                                     lr=CFG.gnn_learning_rate)
         train_dataloader = DataLoader(train_dataset,
-                                      batch_size=CFG.gnn_policy_batch_size,
+                                      batch_size=CFG.gnn_batch_size,
                                       shuffle=False,
                                       num_workers=0,
                                       collate_fn=graph_batch_collate)
         val_dataloader = DataLoader(val_dataset,
-                                    batch_size=CFG.gnn_policy_batch_size,
+                                    batch_size=CFG.gnn_batch_size,
                                     shuffle=False,
                                     num_workers=0,
                                     collate_fn=graph_batch_collate)
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
         ## Launch training code.
-        best_model_dict = train_model(
-            self._gnn,
-            dataloaders,
-            optimizer=optimizer,
-            criterion=self._criterion,
-            global_criterion=self._global_criterion,
-            num_epochs=CFG.gnn_policy_num_epochs,
-            do_validation=CFG.gnn_policy_use_validation_set)
+        best_model_dict = train_model(self._gnn,
+                                      dataloaders,
+                                      optimizer=optimizer,
+                                      criterion=self._criterion,
+                                      global_criterion=self._global_criterion,
+                                      num_epochs=CFG.gnn_num_epochs,
+                                      do_validation=CFG.gnn_use_validation_set)
         self._gnn.load_state_dict(best_model_dict)
         info = {
             "exemplar": self._data_exemplar,
@@ -229,10 +232,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         # Initialize fields from loaded dictionary.
         input_example, target_example = info["exemplar"]
         dataset = GraphDictDataset([input_example], [target_example])
-        self._gnn = setup_graph_net(
-            dataset,
-            num_steps=CFG.gnn_policy_num_message_passing,
-            layer_size=CFG.gnn_policy_layer_size)
+        self._gnn = setup_graph_net(dataset,
+                                    num_steps=CFG.gnn_num_message_passing,
+                                    layer_size=CFG.gnn_layer_size)
         self._gnn.load_state_dict(info["state_dict"])
         self._nullary_predicates = info["nullary_predicates"]
         self._node_feature_to_index = info["node_feature_to_index"]
@@ -246,10 +248,10 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         # Get output graph.
         in_graph, object_to_node = self._graphify_single_input(
             state, atoms, goal)
-        if CFG.gnn_policy_do_normalization:
+        if CFG.gnn_do_normalization:
             in_graph = normalize_graph(in_graph, self._input_normalizers)
         out_graph = get_single_model_prediction(self._gnn, in_graph)
-        if CFG.gnn_policy_do_normalization:
+        if CFG.gnn_do_normalization:
             out_graph = normalize_graph(out_graph,
                                         self._target_normalizers,
                                         invert=True)
