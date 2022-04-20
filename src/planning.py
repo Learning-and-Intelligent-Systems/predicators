@@ -274,6 +274,12 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         {"after_exhaust", "immediately", "never"}
     cur_idx = 0
     num_tries = [0 for _ in skeleton]
+    # Optimization: if the params_space for the NSRT option is empty, only
+    # sample it once, because all samples are just empty (so equivalent).
+    max_tries = [
+        CFG.sesame_max_samples_per_step
+        if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
+    ]
     plan: List[_Option] = [DummyOption for _ in skeleton]
     # The number of actions taken by each option in the plan. This is to
     # make sure that we do not exceed the task horizon.
@@ -288,7 +294,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
             return longest_failed_refinement, False
-        assert num_tries[cur_idx] < CFG.sesame_max_samples_per_step
+        assert num_tries[cur_idx] < max_tries[cur_idx]
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
@@ -357,7 +363,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             # is exhausted, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
-            while num_tries[cur_idx] == CFG.sesame_max_samples_per_step:
+            while num_tries[cur_idx] == max_tries[cur_idx]:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 num_actions_per_option[cur_idx] = 0
