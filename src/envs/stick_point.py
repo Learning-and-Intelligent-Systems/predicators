@@ -73,7 +73,7 @@ class StickPointEnv(BaseEnv):
         self._PickStick = ParameterizedOption(
             "PickStick",
             types=[self._robot_type, self._stick_type],
-            params_space=Box(0, self.stick_width, (1, )),
+            params_space=Box(0, 1, (1, )),  # normalized w.r.t. stick width
             policy=self._PickStick_policy,
             initiable=lambda s, m, o, p: True,
             terminal=self._PickStick_terminal,
