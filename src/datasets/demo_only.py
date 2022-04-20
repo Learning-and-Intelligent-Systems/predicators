@@ -1,7 +1,6 @@
 """Create offline datasets by collecting demonstrations."""
 
 import logging
-import os
 from typing import List
 
 from predicators.src import utils
