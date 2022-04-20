@@ -292,8 +292,8 @@ class Rectangle(_Geom2D):
     """
     x: float
     y: float
-    height: float
     width: float
+    height: float
     theta: float  # in radians, between -np.pi and np.pi
 
     def __post_init__(self) -> None:
@@ -373,7 +373,7 @@ class Rectangle(_Geom2D):
         # Recompute theta.
         (lx, ly), _, _, (rx, ry) = vertices
         theta = np.arctan2(ry - ly, rx - lx)
-        rect = Rectangle(lx, ly, self.height, self.width, theta)
+        rect = Rectangle(lx, ly, self.width, self.height, theta)
         assert np.allclose(rect.vertices, vertices)
         return rect
 
