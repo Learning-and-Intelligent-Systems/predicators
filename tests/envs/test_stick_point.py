@@ -80,7 +80,7 @@ def test_stick_point():
     pick_x = stick_x + 0.2  # figuring out this constant generally is a pain
     num_steps_to_right = int(np.ceil((pick_x - reachable_x) / env.max_speed))
     action_arrs.extend([
-        np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
         for _ in range(num_steps_to_right)
     ])
 

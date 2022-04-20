@@ -138,12 +138,13 @@ class StickPointEnv(BaseEnv):
             next_state.set(self._stick, "y", stick_rect.y)
             next_state.set(self._stick, "theta", stick_rect.theta)
 
-        # Check if the stick is now held for the first time.
-        elif stick_rect.intersects(robot_circ):
-            next_state.set(self._stick, "held", 1.0)
-
-        # Check if any point is now touched.
         if press > 0:
+            # Check if the stick is now held for the first time.
+            if state.get(self._stick, "held") <= 0.5 and \
+                stick_rect.intersects(robot_circ):
+                next_state.set(self._stick, "held", 1.0)
+
+            # Check if any point is now touched.
             tip_rect = self._stick_rect_to_tip_rect(stick_rect)
             for point in state.get_objects(self._point_type):
                 circ = self._object_to_geom(point, state)
@@ -377,6 +378,9 @@ class StickPointEnv(BaseEnv):
         rx = state.get(robot, "x")
         ry = state.get(robot, "y")
         tx, ty = self._get_grasp_point(state, stick, params)
+        # If we're close enough to the grasp point, press.
+        if (tx - rx)**2 + (ty - ry)**2 < 1e-3:
+            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # Move toward the target.
         dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
         dy = np.clip(ty - ry, -self.max_speed, self.max_speed)
