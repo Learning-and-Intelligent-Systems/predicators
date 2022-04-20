@@ -371,6 +371,13 @@ def test_rectangle():
     rect4 = utils.Rectangle(x=0.8, y=1e-5, height=0.1, width=0.07, theta=0)
     assert not rect4.contains_point(0.2, 0.05)
 
+    rect5 = utils.Rectangle(x=-4, y=-2, height=0.25, width=2, theta=-np.pi / 4)
+    rect5.plot(ax, facecolor="yellow", edgecolor="gray")
+    origin = utils.Circle(x=-3.5, y=-2.3, radius=0.05)
+    origin.plot(ax, color="black")
+    rect6 = rect5.rotate_about_point(origin.x, origin.y, rot=np.pi / 4)
+    rect6.plot(ax, facecolor="none", edgecolor="black", linestyle="dashed")
+
     # Uncomment for debugging.
     # plt.savefig("/tmp/rectangle_unit_test.png")
 

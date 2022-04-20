@@ -292,8 +292,8 @@ class Rectangle(_Geom2D):
     """
     x: float
     y: float
-    height: float
     width: float
+    height: float
     theta: float  # in radians, between -np.pi and np.pi
 
     def __post_init__(self) -> None:
@@ -352,6 +352,30 @@ class Rectangle(_Geom2D):
         rx, ry = np.array([x, y]) @ rotate_matrix.T
         return self.x <= rx <= self.x + self.width and \
                self.y <= ry <= self.y + self.height
+
+    def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
+        """Create a new rectangle that is this rectangle, but rotated CCW by
+        the given rotation (in radians), relative to the (x, y) origin.
+
+        Rotates the vertices first, then uses them to recompute the new
+        theta.
+        """
+        vertices = np.array(self.vertices)
+        origin = np.array([x, y])
+        # Translate the vertices so that they become the "origin".
+        vertices = vertices - origin
+        # Rotate.
+        rotate_matrix = np.array([[np.cos(rot), -np.sin(rot)],
+                                  [np.sin(rot), np.cos(rot)]])
+        vertices = vertices @ rotate_matrix.T
+        # Translate the vertices back.
+        vertices = vertices + origin
+        # Recompute theta.
+        (lx, ly), _, _, (rx, ry) = vertices
+        theta = np.arctan2(ry - ly, rx - lx)
+        rect = Rectangle(lx, ly, self.width, self.height, theta)
+        assert np.allclose(rect.vertices, vertices)
+        return rect
 
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         angle = self.theta * 180 / np.pi
