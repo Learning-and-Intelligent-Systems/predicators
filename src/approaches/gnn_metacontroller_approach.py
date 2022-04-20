@@ -46,14 +46,13 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                                   ll_traj: LowLevelTrajectory) -> _GroundNSRT:
         seg_option = segment.get_option()
         objects = list(segment.states[0])
-        poss_ground_nsrts = []
-        # Find the ground NSRT that matches the given segment.
+        # Find a ground NSRT that matches the given segment.
         for nsrt in self._sorted_nsrts:
             if nsrt.option != seg_option.parent:
                 continue
             for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                 # If the option objects, preconditions, and effects
-                # match, add this ground NSRT to poss_ground_nsrts.
+                # match, we've found a matching ground NSRT.
                 if ground_nsrt.option_objs != seg_option.objects:
                     continue
                 if not ground_nsrt.preconditions.issubset(segment.init_atoms):
@@ -61,10 +60,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                 atoms = utils.apply_operator(ground_nsrt, segment.init_atoms)
                 if not atoms.issubset(segment.final_atoms):
                     continue
-                poss_ground_nsrts.append(ground_nsrt)
-        # Verify that there is exactly one grounding that matches.
-        assert len(poss_ground_nsrts) == 1
-        return poss_ground_nsrts[0]
+                return ground_nsrt
+        raise Exception("No ground NSRT matched this segment?!")
 
     def _setup_output_specific_fields(
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
