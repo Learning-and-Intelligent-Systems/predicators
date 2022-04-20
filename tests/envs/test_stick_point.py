@@ -20,7 +20,7 @@ def test_stick_point():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 6
+    assert len(env.predicates) == 7
     assert len(env.goal_predicates) == 1
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
     assert len(env.options) == 3
@@ -77,12 +77,13 @@ def test_stick_point():
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
 
     # Test for going to pick up the stick.
-    pick_x = stick_x + 0.2  # figuring out this constant generally is a pain
-    num_steps_to_right = int(np.ceil((pick_x - reachable_x) / env.max_speed))
+    num_steps_to_right = 11
     action_arrs.extend([
-        np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+        np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         for _ in range(num_steps_to_right)
     ])
+    # Figuring out these constants generally is a pain.
+    action_arrs.append(np.array([0.2, 0.0, 0.0, 1.0], dtype=np.float32))
 
     # The stick should now be held.
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -98,7 +99,7 @@ def test_stick_point():
     assert env.max_angular_speed >= np.pi / 4
     action_arrs.append(np.array([0.0, 0.0, 1.0, 0.0], dtype=np.float32))
 
-    # The stick should now be rotated. The actual amount is complicated.
+    # The stick should now be rotated.
     policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
@@ -110,14 +111,15 @@ def test_stick_point():
 
     # Test for moving and pressing the unreachable point with the stick.
     robot_x = traj.states[-1].get(robot, "x")
-    num_steps_to_left = int(np.ceil((robot_x - unreachable_x) / env.max_speed))
+    num_steps_to_left = int(np.floor(
+        (robot_x - unreachable_x) / env.max_speed))
     action_arrs.extend([
         np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
         for _ in range(num_steps_to_left)
     ])
     # Move up and slightly left while pressing.
     action_arrs.extend([
-        np.array([-0.1, 1.0, 0.0, 1.0], dtype=np.float32),
+        np.array([-0.2, 1.0, 0.0, 1.0], dtype=np.float32),
         np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32),
     ])
 
