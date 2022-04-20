@@ -35,7 +35,7 @@ class StickPointEnv(BaseEnv):
     stick_width: ClassVar[float] = 3.0
     stick_height: ClassVar[float] = 0.1
     stick_tip_width: ClassVar[float] = 0.1
-    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    init_padding: ClassVar[float] = 1.0  # used to space objects in init states
 
     def __init__(self) -> None:
         super().__init__()
