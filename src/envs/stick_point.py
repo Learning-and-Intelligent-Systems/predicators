@@ -320,7 +320,8 @@ class StickPointEnv(BaseEnv):
                                height=stick_rect.height,
                                theta=theta)
 
-    def _get_grasp_point(self, state: State, stick: Object, params: Array) -> Tuple[float, float]:
+    def _get_grasp_point(self, state: State, stick: Object,
+                         params: Array) -> Tuple[float, float]:
         stheta = state.get(stick, "theta")
         # Get the middle of the left side of the stick.
         h = self.stick_height
@@ -385,16 +386,46 @@ class StickPointEnv(BaseEnv):
     def _StickTouchPoint_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
-        import ipdb
-        ipdb.set_trace()
+        del memory, params  # unused
+        _, stick, point = objects
+        point_circ = self._object_to_geom(point, state)
+        stick_rect = self._object_to_geom(self._stick, state)
+        assert isinstance(stick_rect, utils.Rectangle)
+        tip_rect = self._stick_rect_to_tip_rect(stick_rect)
+        # If the stick tip is touching the point, press.
+        if tip_rect.intersects(point_circ):
+            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+        # If the stick is vertical, move the tip toward the point.
+        stheta = state.get(stick, "theta")
+        desired_theta = np.pi / 2
+        if abs(stheta - desired_theta) < 1e-3:
+            tx = tip_rect.x
+            ty = tip_rect.y
+            px = state.get(point, "x")
+            py = state.get(point, "y")
+            dx = np.clip(px - tx, -self.max_speed, self.max_speed)
+            dy = np.clip(py - ty, -self.max_speed, self.max_speed)
+            # Normalize.
+            dx = dx / self.max_speed
+            dy = dy / self.max_speed
+            # No need to rotate or press.
+            return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+        # Otherwise, rotate the stick.
+        dtheta = np.clip(desired_theta - stheta, -self.max_angular_speed,
+                         self.max_angular_speed)
+        # Normalize.
+        dtheta = dtheta / self.max_angular_speed
+        return Action(np.array([0.0, 0.0, dtheta, 0.0], dtype=np.float32))
 
     def _StickTouchPoint_terminal(self, state: State, memory: Dict,
                                   objects: Sequence[Object],
                                   params: Array) -> bool:
-        import ipdb
-        ipdb.set_trace()
+        del memory, params  # unused
+        _, _, point = objects
+        return self._Touched_holds(state, [point])
 
-    def _Touched_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _Touched_holds(state: State, objects: Sequence[Object]) -> bool:
         point, = objects
         return state.get(point, "touched") > 0.5
 
@@ -405,11 +436,13 @@ class StickPointEnv(BaseEnv):
         geom2 = self._object_to_geom(obj2, state)
         return geom1.intersects(geom2)
 
-    def _Grasped_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _Grasped_holds(state: State, objects: Sequence[Object]) -> bool:
         _, stick = objects
         return state.get(stick, "held") > 0.5
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
+        robot, = objects
+        stick, = state.get_objects(self._stick_type)
+        return not self._Grasped_holds(state, [robot, stick])
