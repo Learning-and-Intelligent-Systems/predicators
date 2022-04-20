@@ -139,7 +139,10 @@ class GlobalSettings:
     # parameters for GNN policy approach
     gnn_policy_solve_with_shooting = True
     gnn_policy_shooting_variance = 0.1
-    gnn_policy_shooting_num_samples = 100
+    gnn_policy_shooting_max_samples = 100
+
+    # parameters for GNN metacontroller approach
+    gnn_metacontroller_max_samples = 100
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
