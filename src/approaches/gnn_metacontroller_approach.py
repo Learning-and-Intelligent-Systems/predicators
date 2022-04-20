@@ -1,10 +1,9 @@
-"""An approach that learns NSRTs, then learns a metacontroller to select ground
-NSRTs sequentially on evaluation tasks.
+"""An approach that learns NSRTs, then learns a GNN metacontroller to select
+ground NSRTs sequentially on evaluation tasks.
 
-For each ground NSRT in this sequence, we sample continuous parameters
-until the expected atoms check is satisfied. This approach can be
-understood as an ablation of bilevel planning that uses a
-metacontroller, instead of task planning, to generate skeletons.
+For each ground NSRT, we sample continuous parameters until the expected
+atoms check is satisfied, and use those to produce an option. The option
+policy is executed in the environment, and the process repeats.
 """
 
 import logging
