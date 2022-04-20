@@ -1,6 +1,6 @@
 """An environment where a robot must touch points with its hand or a stick."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -207,6 +207,10 @@ class StickPointEnv(BaseEnv):
         rect.plot(ax, facecolor="firebrick", edgecolor=color)
         rect = self._stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
+        # Uncomment for debugging.
+        # tx, ty = self._get_grasp_point(state, stick, np.array([0.1]))
+        # circ = utils.Circle(tx, ty, radius=0.025)
+        # circ.plot(ax, color="black")
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
         circ = self._object_to_geom(robot, state)
@@ -316,6 +320,19 @@ class StickPointEnv(BaseEnv):
                                height=stick_rect.height,
                                theta=theta)
 
+    def _get_grasp_point(self, state: State, stick: Object, params: Array) -> Tuple[float, float]:
+        stheta = state.get(stick, "theta")
+        # Get the middle of the left side of the stick.
+        h = self.stick_height
+        sx = state.get(stick, "x") + (h / 2) * np.cos(stheta + np.pi / 2)
+        sy = state.get(stick, "y") + (h / 2) * np.sin(stheta + np.pi / 2)
+        # Calculate the target point to reach based on the parameter.
+        pick_param, = params
+        scale = self.stick_width * pick_param
+        tx = sx + scale * np.cos(stheta)
+        ty = sy + scale * np.sin(stheta)
+        return (tx, ty)
+
     def _RobotTouchPoint_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
@@ -346,13 +363,24 @@ class StickPointEnv(BaseEnv):
 
     def _PickStick_policy(self, state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> Action:
-        import ipdb
-        ipdb.set_trace()
+        del memory  # unused
+        robot, stick = objects
+        rx = state.get(robot, "x")
+        ry = state.get(robot, "y")
+        tx, ty = self._get_grasp_point(state, stick, params)
+        # Move toward the target.
+        dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
+        dy = np.clip(ty - ry, -self.max_speed, self.max_speed)
+        # Normalize.
+        dx = dx / self.max_speed
+        dy = dy / self.max_speed
+        # No need to rotate or press.
+        return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
 
     def _PickStick_terminal(self, state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
-        import ipdb
-        ipdb.set_trace()
+        del memory, params  # unused
+        return self._Grasped_holds(state, objects)
 
     def _StickTouchPoint_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
@@ -378,8 +406,8 @@ class StickPointEnv(BaseEnv):
         return geom1.intersects(geom2)
 
     def _Grasped_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
+        _, stick = objects
+        return state.get(stick, "held") > 0.5
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:

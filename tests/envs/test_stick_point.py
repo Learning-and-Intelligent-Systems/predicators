@@ -153,8 +153,9 @@ def test_stick_point():
 
     # Test RobotTouchPoint.
     option = RobotTouchPoint.ground([robot, reachable_point], [])
+    option_plan = [option]
 
-    policy = utils.option_plan_to_policy([option])
+    policy = utils.option_plan_to_policy(option_plan)
     traj = utils.run_policy_with_simulator(
         policy,
         env.simulate,
@@ -165,8 +166,23 @@ def test_stick_point():
     assert traj.states[-2].get(reachable_point, "touched") < 0.5
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
 
+    # Test PickStick.
+    option = PickStick.ground([robot, stick], [0.1])
+    option_plan.append(option)
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(stick, "held") < 0.5
+    assert traj.states[-1].get(stick, "held") > 0.5
+
     # Uncomment for debugging.
-    policy = utils.option_plan_to_policy([option])
+    policy = utils.option_plan_to_policy(option_plan)
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     traj = utils.run_policy_with_simulator(
         policy,
