@@ -323,7 +323,7 @@ class GlobalSettings:
             sesame_max_skeletons_optimized=defaultdict(
                 lambda: 8,
                 {
-                    # For the tools environment, allow many more skeletons.
+                    # For the tools environment, allow more skeletons.
                     "tools": 1000,
                     # For the stick point environment, allow more skeletons.
                     "stick_point": 1000,

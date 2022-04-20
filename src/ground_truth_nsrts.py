@@ -2044,7 +2044,9 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         del state, goal, objs  # unused
-        pick_pos = rng.uniform(0, 1)  # normalized x position on the stick
+        # Normalized x position along the long dimension of the stick, in the
+        # center of the short dimension.
+        pick_pos = rng.uniform(0, 1)
         return np.array([pick_pos], dtype=np.float32)
 
     pick_stick_nsrt = NSRT("PickStickFromNothing", parameters, preconditions,

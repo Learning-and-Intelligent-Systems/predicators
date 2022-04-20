@@ -32,16 +32,23 @@ class StickPointEnv(BaseEnv):
     max_angular_speed: ClassVar[float] = np.pi / 4
     robot_radius: ClassVar[float] = 0.1
     point_radius: ClassVar[float] = 0.1
+    # Note that the stick_width is the longer dimension.
     stick_width: ClassVar[float] = 3.0
     stick_height: ClassVar[float] = 0.05
     stick_tip_width: ClassVar[float] = 0.05
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    pick_grasp_tol: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
         super().__init__()
         # Types
+        # The (x, y) is the center of the robot. Theta is only relevant when
+        # the robot is holding the stick.
         self._robot_type = Type("robot", ["x", "y", "theta"])
+        # The (x, y) is the center of the point.
         self._point_type = Type("point", ["x", "y", "touched"])
+        # The (x, y) is the bottom left-hand corner of the stick, and theta
+        # is CCW angle in radians, consistent with utils.Rectangle.
         self._stick_type = Type("stick", ["x", "y", "theta", "held"])
         # Predicates
         self._Touched = Predicate("Touched", [self._point_type],
@@ -219,7 +226,7 @@ class StickPointEnv(BaseEnv):
         rect = self._stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
         # Uncomment for debugging.
-        # tx, ty = self._get_grasp_point(state, stick, np.array([0.1]))
+        # tx, ty = self._get_stick_grasp_loc(state, stick, np.array([0.1]))
         # circ = utils.Circle(tx, ty, radius=0.025)
         # circ.plot(ax, color="black")
         # Draw the robot.
@@ -281,7 +288,7 @@ class StickPointEnv(BaseEnv):
             theta = rng.uniform(self.theta_lb, self.theta_ub)
             state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
             # Finally, sample the stick, making sure that the origin is in the
-            # reachable zone, and that it doesn't collide with anything.
+            # reachable zone, and that the stick doesn't collide with anything.
             radius = self.robot_radius + self.init_padding
             while True:
                 # The radius here is to prevent the stick from being very
@@ -325,16 +332,17 @@ class StickPointEnv(BaseEnv):
         theta = stick_rect.theta
         width = self.stick_tip_width
         scale = stick_rect.width - width
-        return utils.Rectangle(x=stick_rect.x + scale * np.cos(theta),
-                               y=stick_rect.y + scale * np.sin(theta),
+        return utils.Rectangle(x=(stick_rect.x + scale * np.cos(theta)),
+                               y=(stick_rect.y + scale * np.sin(theta)),
                                width=self.stick_tip_width,
                                height=stick_rect.height,
                                theta=theta)
 
-    def _get_grasp_point(self, state: State, stick: Object,
-                         params: Array) -> Tuple[float, float]:
+    def _get_stick_grasp_loc(self, state: State, stick: Object,
+                             params: Array) -> Tuple[float, float]:
         stheta = state.get(stick, "theta")
-        # Get the middle of the left side of the stick.
+        # We always aim for the center of the shorter dimension. The params
+        # selects a position along the longer dimension.
         h = self.stick_height
         sx = state.get(stick, "x") + (h / 2) * np.cos(stheta + np.pi / 2)
         sy = state.get(stick, "y") + (h / 2) * np.sin(stheta + np.pi / 2)
@@ -364,7 +372,7 @@ class StickPointEnv(BaseEnv):
         dx = dx / self.max_speed
         dy = dy / self.max_speed
         # No need to rotate, and we don't want to press until we're there.
-        return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+        return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
 
     def _RobotTouchPoint_terminal(self, state: State, memory: Dict,
                                   objects: Sequence[Object],
@@ -379,9 +387,9 @@ class StickPointEnv(BaseEnv):
         robot, stick = objects
         rx = state.get(robot, "x")
         ry = state.get(robot, "y")
-        tx, ty = self._get_grasp_point(state, stick, params)
+        tx, ty = self._get_stick_grasp_loc(state, stick, params)
         # If we're close enough to the grasp point, press.
-        if (tx - rx)**2 + (ty - ry)**2 < 1e-3:
+        if (tx - rx)**2 + (ty - ry)**2 < self.pick_grasp_tol:
             return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # Move toward the target.
         dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
@@ -390,7 +398,7 @@ class StickPointEnv(BaseEnv):
         dx = dx / self.max_speed
         dy = dy / self.max_speed
         # No need to rotate or press.
-        return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+        return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
 
     def _PickStick_terminal(self, state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
@@ -423,13 +431,13 @@ class StickPointEnv(BaseEnv):
             dx = dx / self.max_speed
             dy = dy / self.max_speed
             # No need to rotate or press.
-            return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+            return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
         # Otherwise, rotate the stick.
         dtheta = np.clip(desired_theta - stheta, -self.max_angular_speed,
                          self.max_angular_speed)
         # Normalize.
         dtheta = dtheta / self.max_angular_speed
-        return Action(np.array([0.0, 0.0, dtheta, 0.0], dtype=np.float32))
+        return Action(np.array([0.0, 0.0, dtheta, -1.0], dtype=np.float32))
 
     def _StickTouchPoint_terminal(self, state: State, memory: Dict,
                                   objects: Sequence[Object],
@@ -466,8 +474,7 @@ class StickPointEnv(BaseEnv):
         assert not objects
         robot, = state.get_objects(self._robot_type)
         stick, = state.get_objects(self._stick_type)
-        points = state.get_objects(self._point_type)
-        for point in points:
+        for point in state.get_objects(self._point_type):
             if self._InContact_holds(state, [robot, point]):
                 return False
             if self._InContact_holds(state, [stick, point]):

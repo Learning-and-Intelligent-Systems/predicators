@@ -84,7 +84,7 @@ def test_stick_point():
     # Test for going to pick up the stick.
     num_steps_to_right = 11
     action_arrs.extend([
-        np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        np.array([1.0, 0.0, 0.0, -1.0], dtype=np.float32)
         for _ in range(num_steps_to_right)
     ])
     # Figuring out these constants generally is a pain.
@@ -102,7 +102,7 @@ def test_stick_point():
 
     # Test for rotating the stick.
     assert env.max_angular_speed >= np.pi / 4
-    action_arrs.append(np.array([0.0, 0.0, 1.0, 0.0], dtype=np.float32))
+    action_arrs.append(np.array([0.0, 0.0, 1.0, -1.0], dtype=np.float32))
 
     # The stick should now be rotated.
     policy = utils.action_arrs_to_policy(action_arrs)
