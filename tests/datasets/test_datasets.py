@@ -3,7 +3,6 @@
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachTimeout
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.cover import CoverEnv
@@ -70,8 +69,8 @@ def test_demo_dataset():
     Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
     imposs_goal = {GroundAtom(HandEmpty, []), Holding([list(init)[0]])}
     train_tasks[0] = Task(init, imposs_goal)
-    with pytest.raises(ApproachTimeout):
-        dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset.trajectories) == 6
     # Test max_initial_demos.
     utils.reset_config({
         "env": "cover",
