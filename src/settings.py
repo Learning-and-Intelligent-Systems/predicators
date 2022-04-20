@@ -325,6 +325,8 @@ class GlobalSettings:
                 {
                     # For the tools environment, allow many more skeletons.
                     "tools": 1000,
+                    # For the stick point environment, allow more skeletons.
+                    "stick_point": 1000,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into sampling a single skeleton.
