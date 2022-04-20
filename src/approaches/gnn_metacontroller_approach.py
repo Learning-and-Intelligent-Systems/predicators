@@ -173,9 +173,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                 continue
             next_state, _ = self._option_model.get_next_state_and_num_actions(
                 state, opt)
-            next_atoms = utils.abstract(next_state, self._initial_predicates)
             expected_next_atoms = utils.apply_operator(ground_nsrt, atoms)
-            if not expected_next_atoms.issubset(next_atoms):
+            if not all(a.holds(next_state) for a in expected_next_atoms):
                 # Some expected atom is not achieved. Continue on to the
                 # next sample.
                 continue
