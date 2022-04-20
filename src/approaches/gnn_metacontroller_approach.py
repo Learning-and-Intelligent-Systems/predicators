@@ -155,7 +155,6 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
                 ground_nsrt = self._predict(state, atoms, task.goal)
-                # print("sampled:",ground_nsrt.name,ground_nsrt.objects)
                 cur_option = self._sample_option_from_nsrt(
                     ground_nsrt, state, atoms, task.goal)
             act = cur_option.policy(state)
@@ -184,7 +183,6 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             if not expected_next_atoms.issubset(next_atoms):
                 # Some expected atom is not achieved. Continue on to the
                 # next sample.
-                print(opt,"failed:",expected_next_atoms-next_atoms)
                 continue
             break
         if not opt.initiable(state):
@@ -192,7 +190,6 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             # expected atoms check.
             raise ApproachFailure(
                 "GNN metacontroller chose a non-initiable option")
-        print("CRY")
         return opt
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
