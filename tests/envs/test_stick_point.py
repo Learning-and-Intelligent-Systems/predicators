@@ -155,25 +155,27 @@ def test_stick_point():
     option = RobotTouchPoint.ground([robot, reachable_point], [])
 
     policy = utils.option_plan_to_policy([option])
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           lambda _: False,
-                                           max_num_steps=1000,
-                                           exceptions_to_break_on={utils.OptionExecutionFailure})
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(reachable_point, "touched") < 0.5
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
 
     # Uncomment for debugging.
     policy = utils.option_plan_to_policy([option])
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           lambda _: False,
-                                           
-                                           exceptions_to_break_on={utils.OptionExecutionFailure},
-                                           monitor=monitor)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure},
+        monitor=monitor)
     video = monitor.get_video()
     outfile = "hardcoded_options_stick_point.mp4"
     utils.save_video(outfile, video)

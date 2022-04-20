@@ -118,6 +118,7 @@ class StickPointEnv(BaseEnv):
 
         # Check if the stick is held. If so, we need to move and rotate it.
         stick_rect = self._object_to_geom(self._stick, state)
+        assert isinstance(stick_rect, utils.Rectangle)
         if state.get(self._stick, "held") > 0.5:
             stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
             stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
@@ -201,6 +202,7 @@ class StickPointEnv(BaseEnv):
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
         rect = self._object_to_geom(stick, state)
+        assert isinstance(rect, utils.Rectangle)
         color = "black" if state.get(stick, "held") > 0.5 else "white"
         rect.plot(ax, facecolor="firebrick", edgecolor=color)
         rect = self._stick_rect_to_tip_rect(rect)
@@ -208,6 +210,7 @@ class StickPointEnv(BaseEnv):
         # Draw the robot.
         robot, = state.get_objects(self._robot_type)
         circ = self._object_to_geom(robot, state)
+        assert isinstance(circ, utils.Circle)
         circ.plot(ax, facecolor="red", edgecolor="black")
         # Show the direction that the robot is facing.
         theta = state.get(robot, "theta")
@@ -296,13 +299,11 @@ class StickPointEnv(BaseEnv):
             return utils.Circle(x, y, self.point_radius)
         assert obj.is_instance(self._stick_type)
         theta = state.get(obj, "theta")
-        return utils.Rectangle(
-            x=x,
-            y=y,
-            width=self.stick_width,
-            height=self.stick_height,
-            theta=theta
-        )
+        return utils.Rectangle(x=x,
+                               y=y,
+                               width=self.stick_width,
+                               height=self.stick_height,
+                               theta=theta)
 
     def _stick_rect_to_tip_rect(
             self, stick_rect: utils.Rectangle) -> utils.Rectangle:
@@ -316,7 +317,8 @@ class StickPointEnv(BaseEnv):
                                theta=theta)
 
     def _RobotTouchPoint_policy(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> Action:
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
         del memory, params  # unused
         # If the robot and point are already touching, press.
         if self._InContact_holds(state, objects):
@@ -336,27 +338,31 @@ class StickPointEnv(BaseEnv):
         return Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
 
     def _RobotTouchPoint_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
-        import ipdb
-        ipdb.set_trace()
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
+        del memory, params  # unused
+        _, point = objects
+        return self._Touched_holds(state, [point])
 
     def _PickStick_policy(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> Action:
+                          objects: Sequence[Object], params: Array) -> Action:
         import ipdb
         ipdb.set_trace()
 
     def _PickStick_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
+                            objects: Sequence[Object], params: Array) -> bool:
         import ipdb
         ipdb.set_trace()
 
     def _StickTouchPoint_policy(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> Action:
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
         import ipdb
         ipdb.set_trace()
 
     def _StickTouchPoint_terminal(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
         import ipdb
         ipdb.set_trace()
 
@@ -365,9 +371,11 @@ class StickPointEnv(BaseEnv):
         return state.get(point, "touched") > 0.5
 
     def _InContact_holds(self, state: State,
-                                   objects: Sequence[Object]) -> bool:
-        import ipdb
-        ipdb.set_trace()
+                         objects: Sequence[Object]) -> bool:
+        obj1, obj2 = objects
+        geom1 = self._object_to_geom(obj1, state)
+        geom2 = self._object_to_geom(obj2, state)
+        return geom1.intersects(geom2)
 
     def _Grasped_holds(self, state: State, objects: Sequence[Object]) -> bool:
         import ipdb
