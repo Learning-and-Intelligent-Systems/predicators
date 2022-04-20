@@ -49,12 +49,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             assert task.goal_holds(traj.states[-1]), \
                 "Oracle failed on training task"
         except (ApproachTimeout, ApproachFailure, AssertionError) as e:
-            # This should be extremely rare, so we only allow the script
-            # to continue on supercloud, when running batch experiments.
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
-            if not os.getcwd().startswith("/home/gridsan"):
-                raise e
             continue  # pragma: no cover
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
