@@ -202,7 +202,7 @@ class GNNPolicyApproach(GNNApproach):
                 low = param_opt.params_space.low
                 high = param_opt.params_space.high
                 # Sample an initiable option.
-                for _ in range(CFG.gnn_policy_shooting_num_samples):
+                for _ in range(CFG.gnn_policy_shooting_max_samples):
                     params = np.array(self._rng.normal(
                         params_mean, CFG.gnn_policy_shooting_variance),
                                       dtype=np.float32)
