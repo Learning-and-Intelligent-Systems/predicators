@@ -39,4 +39,10 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id pybullet_cover_nsrt_learning --env pybullet_cover --approach nsrt_learning --seed $SEED --num_train_tasks 50
     python $FILE --experiment_id pybullet_cover_invent_noexclude --env pybullet_cover --approach grammar_search_invention --seed $SEED --num_train_tasks 50
     python $FILE --experiment_id pybullet_cover_invent_allexclude --env pybullet_cover --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
+
+    # stick point
+    # requires more data and filtering: "--num_train_tasks 500 --min_data_for_nsrt 50"
+    python $FILE --experiment_id stick_point_oracle --env stick_point --approach oracle --seed $SEED --num_train_tasks 0
+    python $FILE --experiment_id stick_point_nsrt_learning --env stick_point --approach nsrt_learning --seed $SEED --num_train_tasks 500 --min_data_for_nsrt 50
+
 done
