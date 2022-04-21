@@ -1,6 +1,7 @@
 """Base class for a STRIPS operator learning algorithm."""
 
 import abc
+import logging
 from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
@@ -94,14 +95,13 @@ class BaseSTRIPSLearner(abc.ABC):
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
             if not demo_preserved:
-                # Useful debug point.
-                # print("Harmlessness not preserved for demo!")
-                # print("Initial atoms:", atoms_seq[0])
-                # for t in range(1, len(atoms_seq)):
-                #     print(f"Timestep {t} add effects:",
-                #           atoms_seq[t] - atoms_seq[t-1])
-                #     print(f"Timestep {t} del effects:",
-                #           atoms_seq[t-1] - atoms_seq[t])
+                logging.debug("Harmlessness not preserved for demo!")
+                logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                for t in range(1, len(atoms_seq)):
+                    logging.debug(f"Timestep {t} add effects: "
+                                  f"{atoms_seq[t] - atoms_seq[t-1]}")
+                    logging.debug(f"Timestep {t} del effects: "
+                                  f"{atoms_seq[t-1] - atoms_seq[t]}")
                 return False
         return True
 

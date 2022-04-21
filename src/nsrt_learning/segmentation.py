@@ -61,30 +61,35 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     effects achieved, that marks the switch point between segments.
     """
     traj, all_atoms = trajectory
-    if not traj.actions or traj.actions[0].has_option():
+    if traj.actions[0].has_option():
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
     gt_nsrts = get_gt_nsrts(env.predicates, env.options)
+    objects = list(traj.states[0])
     ground_nsrts = {
         ground_nsrt
         for nsrt in gt_nsrts
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, list(traj.states[0]))
+        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects)
     }
     atoms = all_atoms[0]
-    current_nsrts = list(utils.get_applicable_operators(ground_nsrts, atoms))
+    expected_next_atoms = [
+        utils.apply_operator(n, atoms)
+        for n in utils.get_applicable_operators(ground_nsrts, atoms)
+    ]
 
     def _switch_fn(t: int) -> bool:
-        nonlocal current_nsrts  # update at each switch point
+        nonlocal expected_next_atoms  # update at each switch point
         atoms = all_atoms[t + 1]
         # Check if any of the current NSRT effects hold.
-        for ground_nsrt in current_nsrts:
-            # Check effects.
-            if not ground_nsrt.add_effects.issubset(atoms) or (
-                    ground_nsrt.delete_effects & atoms):
+        for next_atoms in expected_next_atoms:
+            # Check if we have reached the expected next atoms.
+            if next_atoms != atoms:
                 continue
-            # Time to segment. Update the current NSRTs.
-            current_nsrts = list(
-                utils.get_applicable_operators(ground_nsrts, atoms))
+            # Time to segment. Update the expected next atoms.
+            expected_next_atoms = [
+                utils.apply_operator(n, atoms)
+                for n in utils.get_applicable_operators(ground_nsrts, atoms)
+            ]
             return True
         # Not yet time to segment.
         return False
