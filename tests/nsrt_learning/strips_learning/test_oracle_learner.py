@@ -36,8 +36,11 @@ def test_oracle_strips_learner():
     Option Spec: Pick(?robot:robot, ?block:block)]"""  # pylint: disable=line-too-long
     # Test with unknown options. Expected behavior is that the operators should
     # be identical, except the option specs will be dummies.
-    utils.reset_config({"env": "blocks", "strips_learner": "oracle",
-                        "option_learner": "oracle"})
+    utils.reset_config({
+        "env": "blocks",
+        "strips_learner": "oracle",
+        "option_learner": "oracle"
+    })
     pnads = learn_strips_operators([], None, None, [])
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
