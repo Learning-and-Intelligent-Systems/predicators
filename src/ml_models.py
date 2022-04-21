@@ -300,7 +300,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
-                 n_reinitialize_tries: int) -> None:
+                 n_reinitialize_tries: int, weight_init: str,
+                 weight_init_param: Optional[float]) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
@@ -308,6 +309,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         self._learning_rate = learning_rate
         self._n_iter_no_change = n_iter_no_change
         self._n_reinitialize_tries = n_reinitialize_tries
+        self._weight_init = weight_init
+        self._weight_init_param = weight_init_param
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -338,12 +341,24 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def _reset_weights(self) -> None:
         """(Re-)initialize the network weights."""
-        self.apply(self._weight_reset)
+        self.apply(lambda m: self._weight_reset(m, self._weight_init,
+                                                self._weight_init_param))
 
     @staticmethod
-    def _weight_reset(m: torch.nn.Module) -> None:
+    def _weight_reset(m: torch.nn.Module, weight_init: str, param: Optional[float]) -> None:
         if isinstance(m, nn.Linear):
-            m.reset_parameters()
+            if weight_init == "default":
+                m.reset_parameters()
+            elif weight_init == "uniform":
+                assert param is not None
+                torch.nn.init.uniform_(m.weight, -param, param)
+            elif weight_init == "normal":
+                assert param is not None
+                torch.nn.init.normal_(m.weight, std=param)
+            else:
+                raise NotImplementedError(f"{weight_init} weight initialization"
+                    " unknown")
+        raise NotImplementedError(f"Module type {type(m)} not supported")
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
@@ -784,9 +799,11 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
-                 n_reinitialize_tries: int, hid_sizes: List[int]) -> None:
+                 n_reinitialize_tries: int, weight_init: str,
+                 weight_init_param: Optional[float], hid_sizes: List[int]) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
-                         n_iter_no_change, n_reinitialize_tries)
+                         n_iter_no_change, n_reinitialize_tries, weight_init,
+                         weight_init_param)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -798,11 +815,6 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
         self._reset_weights()
-
-    @staticmethod
-    def _weight_reset(m: torch.nn.Module) -> None:
-        if isinstance(m, nn.Linear):
-            torch.nn.init.uniform_(m.weight, -3, 3)
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCELoss()
@@ -820,13 +832,15 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
 
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
-                 n_reinitialize_tries: int, hid_sizes: List[int],
+                 n_reinitialize_tries: int, weight_init: str,
+                 weight_init_param: Optional[float], hid_sizes: List[int],
                  ensemble_size: int) -> None:
         super().__init__(seed)
         self._members = [
             MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
                                 learning_rate, n_iter_no_change,
-                                n_reinitialize_tries, hid_sizes)
+                                n_reinitialize_tries, weight_init,
+                                weight_init_param, hid_sizes)
             for i in range(ensemble_size)
         ]
 

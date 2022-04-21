@@ -216,8 +216,8 @@ class GlobalSettings:
     interactive_num_requests_per_cycle = 10
     predicate_mlp_classifier_n_reinitialize_tries = 5
     predicate_mlp_classifier_max_itr = 1000
-    predicate_mlp_classifier_init = "normal"  # or "uniform" or "default"
-    predicate_mlp_classifier_init_std = 1
+    predicate_mlp_classifier_init = "default"  # or "uniform" or "normal"
+    predicate_mlp_classifier_init_param = None
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
