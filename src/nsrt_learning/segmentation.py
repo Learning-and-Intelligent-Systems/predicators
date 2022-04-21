@@ -72,23 +72,24 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects)
     }
     atoms = all_atoms[0]
-    expected_next_atoms = [
+    all_expected_next_atoms = [
         utils.apply_operator(n, atoms)
         for n in utils.get_applicable_operators(ground_nsrts, atoms)
     ]
 
     def _switch_fn(t: int) -> bool:
-        nonlocal expected_next_atoms  # update at each switch point
-        atoms = all_atoms[t + 1]
+        nonlocal all_expected_next_atoms  # update at each switch point
+        next_atoms = all_atoms[t + 1]
         # Check if any of the current NSRT effects hold.
-        for next_atoms in expected_next_atoms:
+        for expected_next_atoms in all_expected_next_atoms:
             # Check if we have reached the expected next atoms.
-            if next_atoms != atoms:
+            if expected_next_atoms != next_atoms:
                 continue
             # Time to segment. Update the expected next atoms.
-            expected_next_atoms = [
-                utils.apply_operator(n, atoms)
-                for n in utils.get_applicable_operators(ground_nsrts, atoms)
+            applicable_nsrts = utils.get_applicable_operators(
+                ground_nsrts, next_atoms)
+            all_expected_next_atoms = [
+                utils.apply_operator(n, next_atoms) for n in applicable_nsrts
             ]
             return True
         # Not yet time to segment.
