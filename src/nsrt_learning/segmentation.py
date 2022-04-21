@@ -78,11 +78,9 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
         atoms = all_atoms[t + 1]
         # Check if any of the current NSRT effects hold.
         for ground_nsrt in current_nsrts:
-            # Check add effects.
-            if not ground_nsrt.add_effects.issubset(atoms):
-                continue
-            # Check delete effects.
-            if ground_nsrt.delete_effects & atoms:
+            # Check effects.
+            if not ground_nsrt.add_effects.issubset(atoms) or (
+                    ground_nsrt.delete_effects & atoms):
                 continue
             # Time to segment. Update the current NSRTs.
             current_nsrts = list(
