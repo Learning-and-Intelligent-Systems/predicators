@@ -360,11 +360,14 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 raise NotImplementedError(
                     f"{weight_init} weight initialization"
                     " unknown")
-        raise NotImplementedError(f"Module type {type(m)} not supported")
+        else:
+            raise NotImplementedError(f"Module type {type(m)} not supported")
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
+        # Create the loss function.
+        loss_fn = self._create_loss_fn()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
@@ -372,8 +375,6 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         for _ in range(self._n_reinitialize_tries):
             # (Re-)initialize weights.
             self._reset_weights()
-            # Create the loss function.
-            loss_fn = self._create_loss_fn()
             # Create the optimizer.
             optimizer = self._create_optimizer()
             # Run training.
