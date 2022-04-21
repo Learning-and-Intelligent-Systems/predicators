@@ -17,13 +17,17 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False"
 
     # section kid
-    # python $FILE $COMMON_ARGS --experiment_id excludeall_section_kid --interactive_query_policy nonstrict_best_seen --interactive_score_function trivial
+    python $FILE $COMMON_ARGS --experiment_id excludeall_section_kid --interactive_query_policy nonstrict_best_seen --interactive_score_function trivial
     # ours, entropy
+<<<<<<< HEAD
     # python $FILE $COMMON_ARGS --experiment_id excludeall_entropy_0.1 --interactive_query_policy threshold --interactive_score_threshold 0.1 --interactive_score_function entropy
+=======
+    python $FILE $COMMON_ARGS --experiment_id excludeall_entropy_0.1 --interactive_query_policy threshold --interactive_score_threshold 0.1 --interactive_score_function entropy
+>>>>>>> parent of 5396c755 (modify script to run experiments with new initialization)
     # ours, BALD
-    # python $FILE $COMMON_ARGS --experiment_id excludeall_BALD_0.01 --interactive_query_policy threshold --interactive_score_threshold 0.01 --interactive_score_function BALD
+    python $FILE $COMMON_ARGS --experiment_id excludeall_BALD_0.01 --interactive_query_policy threshold --interactive_score_threshold 0.01 --interactive_score_function BALD
     # silent kid
-    # python $FILE $COMMON_ARGS --experiment_id excludeall_silent_kid --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function trivial
+    python $FILE $COMMON_ARGS --experiment_id excludeall_silent_kid --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function trivial
 
     # glib new init
     python $FILE $COMMON_ARGS --experiment_id glib_init_std_1 --interactive_action_strategy glib --interactive_query_policy threshold --interactive_score_function entropy --interactive_score_threshold 0.05
