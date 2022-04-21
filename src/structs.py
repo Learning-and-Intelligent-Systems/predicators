@@ -950,7 +950,7 @@ class Action:
 
     def has_option(self) -> bool:
         """Whether this action has a non-default option attached."""
-        return self._option is not DummyOption
+        return self._option.parent != DummyOption.parent
 
     def get_option(self) -> _Option:
         """Get the option that produced this action."""
@@ -1100,7 +1100,7 @@ class Segment:
 
     def has_option(self) -> bool:
         """Whether this segment has a non-default option attached."""
-        return self._option is not DummyOption
+        return self._option.parent != DummyOption.parent
 
     def get_option(self) -> _Option:
         """Get the option that produced this segment."""
