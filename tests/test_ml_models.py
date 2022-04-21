@@ -133,6 +133,9 @@ def test_mlp_classifier():
                                 max_train_iters=100,
                                 learning_rate=1e-3,
                                 n_iter_no_change=1000000,
+                                n_reinitialize_tries=1,
+                                weight_init="default",
+                                weight_init_param=None,
                                 hid_sizes=[32, 32])
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
@@ -148,6 +151,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-2,
                                 n_iter_no_change=1,
+                                n_reinitialize_tries=1,
+                                weight_init="default",
+                                weight_init_param=None,
                                 hid_sizes=[32, 32])
     model.fit(X, y)
     assert time.time() - start_time < 3, "Didn't early stop"
@@ -163,6 +169,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
+                                n_reinitialize_tries=1,
+                                weight_init="default",
+                                weight_init_param=None,
                                 hid_sizes=[32, 32])
     start_time = time.time()
     model.fit(X, y)
@@ -178,6 +187,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
+                                n_reinitialize_tries=1,
+                                weight_init="default",
+                                weight_init_param=None,
                                 hid_sizes=[32, 32])
     start_time = time.time()
     model.fit(X, y)
@@ -205,6 +217,9 @@ def test_mlp_classifier_ensemble():
                                         max_train_iters=100,
                                         learning_rate=1e-3,
                                         n_iter_no_change=1000000,
+                                        n_reinitialize_tries=1,
+                                        weight_init="default",
+                                        weight_init_param=None,
                                         hid_sizes=[32, 32],
                                         ensemble_size=3)
     model.fit(X, y)
