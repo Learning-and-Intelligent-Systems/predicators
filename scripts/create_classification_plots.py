@@ -95,8 +95,10 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
                                                  (block, target)) else 0
     fig, axes = plt.subplots(1, 3, figsize=(8, 3))
     # Plot means, stds, and true means
-    heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
-    heatmap(means, axes[1], axis_vals, axis_vals, "Means")
+    heatmap(means - true_means, axes[0], axis_vals, axis_vals,
+            "Means - True Means")
+    heatmap(true_means - means, axes[1], axis_vals, axis_vals,
+            "True Means - Means")
     heatmap(stds,
             axes[2],
             axis_vals,
