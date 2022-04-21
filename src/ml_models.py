@@ -341,11 +341,12 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def _reset_weights(self) -> None:
         """(Re-)initialize the network weights."""
-        self.apply(lambda m: self._weight_reset(m, self._weight_init,
-                                                self._weight_init_param))
+        self.apply(lambda m: self._weight_reset(m, self._weight_init, self.
+                                                _weight_init_param))
 
     @staticmethod
-    def _weight_reset(m: torch.nn.Module, weight_init: str, param: Optional[float]) -> None:
+    def _weight_reset(m: torch.nn.Module, weight_init: str,
+                      param: Optional[float]) -> None:
         if isinstance(m, nn.Linear):
             if weight_init == "default":
                 m.reset_parameters()
@@ -356,7 +357,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 assert param is not None
                 torch.nn.init.normal_(m.weight, std=param)
             else:
-                raise NotImplementedError(f"{weight_init} weight initialization"
+                raise NotImplementedError(
+                    f"{weight_init} weight initialization"
                     " unknown")
         raise NotImplementedError(f"Module type {type(m)} not supported")
 
@@ -375,17 +377,18 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
             # Create the optimizer.
             optimizer = self._create_optimizer()
             # Run training.
-            best_loss = _train_pytorch_model(self,
-                                loss_fn,
-                                optimizer,
-                                batch_generator,
-                                max_iters=self._max_train_iters,
-                                n_iter_no_change=self._n_iter_no_change)
+            best_loss = _train_pytorch_model(
+                self,
+                loss_fn,
+                optimizer,
+                batch_generator,
+                max_iters=self._max_train_iters,
+                n_iter_no_change=self._n_iter_no_change)
             if best_loss < 1:
                 break  # success!
         else:
             raise RuntimeError(f"Failed to converge within "
-                f"{self._n_reinitialize_tries} tries")
+                               f"{self._n_reinitialize_tries} tries")
 
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
@@ -800,7 +803,8 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
     def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
                  learning_rate: float, n_iter_no_change: int,
                  n_reinitialize_tries: int, weight_init: str,
-                 weight_init_param: Optional[float], hid_sizes: List[int]) -> None:
+                 weight_init_param: Optional[float],
+                 hid_sizes: List[int]) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
                          n_iter_no_change, n_reinitialize_tries, weight_init,
                          weight_init_param)

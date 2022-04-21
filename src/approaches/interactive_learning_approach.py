@@ -111,7 +111,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 max_train_iters=CFG.predicate_mlp_classifier_max_itr,
                 learning_rate=CFG.learning_rate,
                 n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-                n_reinitialize_tries=CFG.predicate_mlp_classifier_n_reinitialize_tries,
+                n_reinitialize_tries=CFG.
+                predicate_mlp_classifier_n_reinitialize_tries,
                 weight_init=CFG.predicate_mlp_classifier_init,
                 weight_init_param=CFG.predicate_mlp_classifier_init_param,
                 hid_sizes=CFG.mlp_classifier_hid_sizes,
