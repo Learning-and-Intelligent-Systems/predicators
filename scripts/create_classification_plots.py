@@ -111,12 +111,7 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
     # Plot means, stds, and true means
     heatmap(true_means, axes[0], axis_vals, axis_vals, "True Means")
     heatmap(means, axes[1], axis_vals, axis_vals, "Means")
-    heatmap(stds,
-            axes[2],
-            axis_vals,
-            axis_vals,
-            "Stds",
-            normalize_color_map=False)
+    heatmap(stds, axes[2], axis_vals, axis_vals, "Stds", cmap_max=0.3)
     # Plot originally annotated data points
     for ax in axes[:2]:
         ax.scatter(pos_examples[0],
@@ -137,13 +132,11 @@ def heatmap(data: Array,
             x_axis_vals: Array,
             y_axis_vals: Array,
             cbarlabel: str,
-            normalize_color_map: bool = True) -> None:
+            cmap_min: float = 0.0,
+            cmap_max: float = 1.0) -> None:
     """Create a heatmap from a numpy array and two lists of labels."""
     # Plot the heatmap
-    if normalize_color_map:
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-    else:
-        norm = None
+    norm = matplotlib.colors.Normalize(vmin=cmap_min, vmax=cmap_max)
     im = ax.imshow(data, cmap=COLOR, norm=norm)
     # Create colorbar
     # Reference for magic numbers: https://stackoverflow.com/questions/18195758
