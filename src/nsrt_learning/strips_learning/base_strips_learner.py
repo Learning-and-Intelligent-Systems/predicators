@@ -93,7 +93,15 @@ class BaseSTRIPSLearner(abc.ABC):
             demo_preserved = self._check_single_demo_preservation(
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
+            print("DEMO IS PRESERVED!")
             if not demo_preserved:
+                print("Harmlessness not preserved for demo!")
+                print("Initial atoms:", atoms_seq[0])
+                for t in range(1, len(atoms_seq)):
+                    print(f"Timestep {t} add effects:", atoms_seq[t] - atoms_seq[t-1])
+                    print(f"Timestep {t} del effects:", atoms_seq[t-1] - atoms_seq[t])
+                print()
+                import ipdb; ipdb.set_trace()
                 return False
         return True
 

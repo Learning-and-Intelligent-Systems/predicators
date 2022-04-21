@@ -52,11 +52,7 @@ def test_segment_trajectory():
         [action0, action1, action2, action0])
     trajectory = (known_option_ll_traj,
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
-    known_option_segments = segment_trajectory(trajectory)
-    assert len(known_option_segments) == 4
-    # Test oracle segmenter with known options. Should be the same as option
-    # changes segmenter.
-    utils.reset_config({"segmenter": "oracle"})
+    known_options_trajectory = trajectory  # used later in the test
     known_option_segments = segment_trajectory(trajectory)
     assert len(known_option_segments) == 4
     # Test case where the final option does not terminate in the final state.
@@ -142,6 +138,11 @@ def test_segment_trajectory():
     # are known.
     with pytest.raises(AssertionError):
         segment_trajectory(trajectory)
+    # Test oracle segmenter with known options. Should be the same as option
+    # changes segmenter.
+    utils.reset_config({"segmenter": "oracle"})
+    known_option_segments = segment_trajectory(known_options_trajectory)
+    assert len(known_option_segments) == 4
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
     assert len(segment_trajectory(trajectory)) == 0
@@ -176,10 +177,14 @@ def test_segment_trajectory():
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks)
-    assert len(dataset.trajectories) == 1
-    trajectory = dataset.trajectories[0]
-    assert len(trajectory.actions) > 0
-    assert not trajectory.actions[0].has_option()
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    assert len(ground_atom_dataset) == 1
+    trajectory = ground_atom_dataset[0]
+    ll_traj, atoms = trajectory
+    assert train_tasks[0].goal.issubset(atoms[-1])
+    assert len(ll_traj.actions) > 0
+    assert not ll_traj.actions[0].has_option()
     segments = segment_trajectory(trajectory)
     # Should be 2 because the hyperparameters force the task to be exactly
     # one pick and one place.
