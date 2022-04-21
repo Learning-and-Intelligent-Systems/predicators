@@ -60,8 +60,6 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     which oracle ground NSRTs are applicable. When any of them have their
     effects achieved, that marks the switch point between segments.
     """
-    import ipdb; ipdb.set_trace()
-
     traj, all_atoms = trajectory
     if not traj.actions or traj.actions[0].has_option():
         return _segment_with_option_changes(trajectory)
