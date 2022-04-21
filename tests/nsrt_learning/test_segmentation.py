@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src.envs import create_new_env
-from predicators.src.datasets import create_dataset
 from predicators.src import utils
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Type
