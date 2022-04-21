@@ -15,6 +15,7 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.envs import create_new_env
 from predicators.src.envs.cover import CoverEnv
+from predicators.src.ml_models import MLPBinaryClassifierEnsemble
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, Image, Predicate, Task
 
@@ -90,6 +91,45 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
                     target_pose = state.get(atom.objects[1], "pose")
                     examples[0].append(target_pose * GRID_SIZE)
                     examples[1].append(block_pose * GRID_SIZE)
+
+    # Retrain ensemble from this data.
+    model = MLPBinaryClassifierEnsemble(
+        CFG.seed,
+        CFG.mlp_classifier_balance_data,
+        CFG.predicate_mlp_classifier_max_itr,
+        CFG.learning_rate,
+        CFG.mlp_classifier_n_iter_no_change,
+        CFG.mlp_classifier_hid_sizes,
+        CFG.interactive_num_ensemble_members)
+    input_examples = []
+    output_examples = []
+    for (traj, traj_annotations) in zip(dataset.trajectories,
+                                        dataset.annotations):
+        assert len(traj.states) == len(traj_annotations)
+        for (state, state_annotation) in zip(traj.states,
+                                             traj_annotations):
+            assert len(state_annotation) == 2
+            for target_class, examples in enumerate(state_annotation):
+                for atom in examples:
+                    if not atom.predicate.name == PRED_NAME:
+                        continue
+                    x = state.vec(atom.objects)
+                    input_examples.append(x)
+                    output_examples.append(target_class)
+    num_positives = sum(y == 1 for y in output_examples)
+    num_negatives = sum(y == 0 for y in output_examples)
+    assert num_positives + num_negatives == len(output_examples)
+    print(f"Generated {num_positives} positive and "
+          f"{num_negatives} negative examples for "
+          f"predicate {PRED_NAME}")
+
+    # Train MLP
+    X = np.array(input_examples)
+    Y = np.array(output_examples)
+    model.fit(X, Y)
+
+    # model = approach._pred_to_ensemble[PRED_NAME]
+
     # Aggregate data
     state = states[0]
     axis_vals = np.linspace(0.0, 1.0, num=GRID_SIZE)
@@ -102,7 +142,7 @@ def _plot_cover(env: CoverEnv, approach: InteractiveLearningApproach,
             new_state.set(block, "pose", block_pose)
             new_state.set(target, "pose", target_pose)
             x = new_state.vec((block, target))
-            ps = approach._pred_to_ensemble[PRED_NAME].predict_member_probas(x)  # pylint: disable=protected-access
+            ps = model.predict_member_probas(x)  # pylint: disable=protected-access
             means[r][c] = np.mean(ps)
             stds[r][c] = np.std(ps)
             true_means[r][c] = 1 if Covers.holds(new_state,

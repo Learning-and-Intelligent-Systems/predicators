@@ -1,13 +1,15 @@
 #!/bin/bash
 
 START_SEED=456
-NUM_SEEDS=10
+# NUM_SEEDS=10
+NUM_SEEDS=1
 MAX_TRANSITIONS=1000  # want this to be stop signal
 CYCLES=100  # way too many cycles
 REQUESTS=10
 MAX_STEPS=3
 MIN_DATA=10
-FILE="scripts/supercloud/submit_supercloud_job.py"
+# FILE="scripts/supercloud/submit_supercloud_job.py"
+FILE="scripts/create_classification_plots.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
@@ -18,10 +20,10 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False"
 
     # glib
-    python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy glib
+    # python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy glib
     # greedy lookahead
     python $FILE $COMMON_ARGS --experiment_id greedy_lookahead --interactive_action_strategy greedy_lookahead
     # glib + 10k max iters
-    python $FILE $COMMON_ARGS --experiment_id glib_10k --interactive_action_strategy glib --predicate_mlp_classifier_max_itr 10000
+    # python $FILE $COMMON_ARGS --experiment_id glib_10k --interactive_action_strategy glib --predicate_mlp_classifier_max_itr 10000
 
 done
