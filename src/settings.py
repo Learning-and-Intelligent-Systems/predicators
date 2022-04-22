@@ -278,7 +278,7 @@ class GlobalSettings:
                 })[args.get("env", "")],
 
             # Maximum number of steps to roll out an option policy.
-            max_num_steps_option_rollout = defaultdict(
+            max_num_steps_option_rollout=defaultdict(
                 lambda: 1000,
                 {
                     # For stick point, limit the per-option horizon.
