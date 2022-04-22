@@ -47,7 +47,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # that the goal holds at the end.
             assert task.goal_holds(traj.states[-1]), \
                 "Oracle failed on training task"
-        except (ApproachTimeout, ApproachFailure, AssertionError) as e:
+        except (ApproachTimeout, ApproachFailure, utils.EnvironmentFailure,
+                AssertionError) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
             continue
