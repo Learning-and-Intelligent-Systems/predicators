@@ -254,7 +254,7 @@ def test_oracle_strips_and_segmenter_learning():
     # will not see data for all operators, which will lead to a crash
     # during option learning. This test still covers an important case, which
     # is recomputing datastores in STRIPS learning when options are unknown.
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(Exception) as e:
         _test_approach(env_name="stick_point",
                        approach_name="nsrt_learning",
                        strips_learner="oracle",
@@ -263,4 +263,4 @@ def test_oracle_strips_and_segmenter_learning():
                        num_train_tasks=1,
                        try_solving=False,
                        additional_settings=additional_settings)
-    assert "not enough values to unpack (expected 2, got 1)" in str(e)
+    assert "No data found for learning an option." in str(e)
