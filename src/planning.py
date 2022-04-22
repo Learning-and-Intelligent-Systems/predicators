@@ -278,7 +278,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     # sample it once, because all samples are just empty (so equivalent).
     max_tries = [
         CFG.sesame_max_samples_per_step
-        if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
+        if "PickStick" in nsrt.option.name else 1 for nsrt in skeleton
+        # if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
     plan: List[_Option] = [DummyOption for _ in skeleton]
     # The number of actions taken by each option in the plan. This is to
