@@ -44,4 +44,4 @@ def test_recompute_datastores_from_segments():
     learner = MockBaseSTRIPSLearner([traj], [task], {Pred}, [[segment]])
     learner.recompute_datastores_from_segments([pnad1, pnad2])
     assert len(pnad1.datastore) == 0
-    assert len(pnad1.datastore) == 0
+    assert len(pnad2.datastore) == 1
