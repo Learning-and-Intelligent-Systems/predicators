@@ -237,11 +237,6 @@ class BaseSTRIPSLearner(abc.ABC):
                     assert best_sub is not None
                     best_pnad.add_to_datastore((segment, best_sub),
                                                check_effect_equality=False)
-        for pnad in pnads:
-            print(pnad)
-            print(len(pnad.datastore))
-            print()
-        # import ipdb; ipdb.set_trace()
 
     @staticmethod
     def _induce_preconditions_via_intersection(

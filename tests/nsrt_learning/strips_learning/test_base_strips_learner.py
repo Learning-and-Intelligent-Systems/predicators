@@ -1,6 +1,7 @@
 """Tests for methods in the BaseSTRIPSLearner class.
 """
 
+import pytest
 from predicators.src.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
 from predicators.src.structs import LowLevelTrajectory, Type, Task, \
@@ -20,7 +21,7 @@ class MockBaseSTRIPSLearner(BaseSTRIPSLearner):
 
     @classmethod
     def get_name(cls) -> str:
-        raise Exception("Can't use this")
+        return "dummy_mock_base_strips_learner"
 
 
 def test_recompute_datastores_from_segments():
@@ -42,6 +43,9 @@ def test_recompute_datastores_from_segments():
     task = Task(state, set())
     segment = Segment(traj, {Pred([obj])}, {Pred([obj])}, act)
     learner = MockBaseSTRIPSLearner([traj], [task], {Pred}, [[segment]])
+    with pytest.raises(Exception) as e:
+        learner.learn()
+    assert "Can't use this" in str(e)
     learner.recompute_datastores_from_segments([pnad1, pnad2])
     assert len(pnad1.datastore) == 0
     assert len(pnad2.datastore) == 1
