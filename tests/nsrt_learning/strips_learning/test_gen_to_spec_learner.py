@@ -219,7 +219,7 @@ def test_backchaining_strips_learner_order_dependence():
     correct_pnads = {
         """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
-    Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
+    Preconditions: [LightColorBlue(?x1:light_type)]
     Add Effects: [LightOn(?x1:light_type), """ +
         """RobotAt(?x2:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
@@ -263,7 +263,7 @@ def test_find_unification_and_try_specializing_pnad():
     task = Task(state, set())
     Move = opt.ground([], [])
     traj = LowLevelTrajectory([state], [])
-    segment = Segment(traj, {Happy([bob])}, {Asleep([bob])}, Move)
+    segment = Segment(traj, {Happy([bob])}, {Asleep([bob]), Happy([bob])}, Move)
     # Create the sidelining approach.
     learner = MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
                                             [[segment]])
