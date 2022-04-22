@@ -119,14 +119,12 @@ class StickPointEnv(BaseEnv):
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
-        # The robot cannot leave the reachable zone.
+        # The robot cannot leave the reachable zone. If it tries to, raise
+        # an EnvironmentFailure, which represents a terminal state.
         rad = self.robot_radius
-        new_rx = np.clip(new_rx, self.rz_x_lb + rad, self.rz_x_ub - rad)
-        new_ry = np.clip(new_ry, self.rz_y_lb + rad, self.rz_y_ub - rad)
-        # Recompute the dx and dy after clipping, since those values will be
-        # reused by the stick.
-        dx = new_rx - rx
-        dy = new_ry - ry
+        if not self.rz_x_lb + rad <= new_rx <= self.rz_x_ub - rad or \
+           not self.rz_y_lb + rad <= new_ry <= self.rz_y_ub - rad:
+            raise utils.EnvironmentFailure("Left reachable zone.")
         next_state = state.copy()
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
