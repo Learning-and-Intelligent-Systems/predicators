@@ -1,10 +1,11 @@
 """Test cases for the stick point environment."""
 
 import numpy as np
+import pytest
 
 from predicators.src import utils
 from predicators.src.envs.stick_point import StickPointEnv
-from predicators.src.structs import GroundAtom, Task
+from predicators.src.structs import Action, GroundAtom, Task
 
 
 def test_stick_point():
@@ -63,6 +64,14 @@ def test_stick_point():
     assert GroundAtom(NoPointInContact, []).holds(state)
 
     ## Test simulate ##
+
+    # Test that an EnvironmentFailure is raised if the robot tries to leave
+    # the reachable zone.
+    up_action = Action(np.array([0.0, -1.0, 0.0, 0.0], dtype=np.float32))
+    with pytest.raises(utils.EnvironmentFailure):
+        s = state
+        for _ in range(20):
+            s = env.simulate(s, up_action)
 
     # Test for going to touch the reachable point.
     num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
