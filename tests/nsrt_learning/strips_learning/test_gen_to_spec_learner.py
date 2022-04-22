@@ -32,7 +32,7 @@ class MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
 def test_backchaining_strips_learner():
     """Test the BackchainingSTRIPSLearner."""
-    # Set up the PNADs.
+    # Set up the structs.
     human_type = Type("human_type", ["feat1", "feat2"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
@@ -120,7 +120,7 @@ def test_backchaining_strips_learner():
 def test_backchaining_strips_learner_order_dependence():
     """Test that the BackchainingSTRIPSLearner is invariant to order of
     traversal through trajectories."""
-    # Set up up the types and predicates.
+    # Set up the types and predicates.
     light_type = Type("light_type", ["brightness", "color"])
     LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
     NotLightOn = Predicate("NotLightOn", [light_type],
