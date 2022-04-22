@@ -1,6 +1,7 @@
 """Base class for a STRIPS operator learning algorithm."""
 
 import abc
+import logging
 from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
@@ -94,6 +95,13 @@ class BaseSTRIPSLearner(abc.ABC):
                 seg_traj, ll_traj.states[0], atoms_seq, traj_goal, strips_ops,
                 option_specs)
             if not demo_preserved:
+                logging.debug("Harmlessness not preserved for demo!")
+                logging.debug(f"Initial atoms: {atoms_seq[0]}")
+                for t in range(1, len(atoms_seq)):
+                    logging.debug(f"Timestep {t} add effects: "
+                                  f"{atoms_seq[t] - atoms_seq[t-1]}")
+                    logging.debug(f"Timestep {t} del effects: "
+                                  f"{atoms_seq[t-1] - atoms_seq[t]}")
                 return False
         return True
 
@@ -192,7 +200,10 @@ class BaseSTRIPSLearner(abc.ABC):
         for seg_traj in self._segmented_trajs:
             objects = set(seg_traj[0].states[0])
             for segment in seg_traj:
-                segment_option = segment.get_option()
+                if segment.has_option():
+                    segment_option = segment.get_option()
+                else:
+                    segment_option = DummyOption
                 segment_param_option = segment_option.parent
                 segment_option_objs = tuple(segment_option.objects)
                 # Get ground operators given these objects and option objs.
