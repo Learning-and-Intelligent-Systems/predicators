@@ -184,7 +184,7 @@ class BaseSTRIPSLearner(abc.ABC):
 
         Uses a "rationality" heuristic, where for each segment, we
         select, among the ground PNADs covering it, the one whose add
-        and delete effects are largest in size (breaking ties
+        and delete effects match the segment's most closely (breaking ties
         arbitrarily). The intuition is that larger effect sets mean that
         the PNAD is more specific, and therefore more likely to be the
         best match. At the end of this procedure, each segment is
@@ -205,7 +205,7 @@ class BaseSTRIPSLearner(abc.ABC):
                 segment_option_objs = tuple(segment_option.objects)
                 # Loop over all ground operators, looking for the most
                 # rational match for this segment.
-                best_score = -1
+                best_score = float("inf")
                 best_pnad = None
                 best_sub = None
                 for pnad in pnads:
@@ -227,9 +227,8 @@ class BaseSTRIPSLearner(abc.ABC):
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
                         # This ground PNAD covers this segment. Score it!
-                        score = (len(segment.add_effects) +
-                                 len(segment.delete_effects))
-                        if score > best_score:  # we want more effects
+                        score = len(segment.add_effects - ground_op.add_effects) + len(ground_op.add_effects - segment.add_effects) + len(segment.delete_effects - ground_op.delete_effects) + len(ground_op.delete_effects - segment.delete_effects)
+                        if score < best_score:  # we want a closer match
                             best_score = score
                             best_pnad = pnad
                             best_sub = dict(
