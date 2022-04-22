@@ -66,6 +66,19 @@ class PyBulletEnv(BaseEnv):
         # and cannot be used in headless mode.
         if CFG.pybullet_use_gui:  # pragma: no cover
             self._physics_client_id = p.connect(p.GUI)
+            # Disable the preview windows for faster rendering.
+            p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                       False,
+                                       physicsClientId=self._physics_client_id)
+            p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                       False,
+                                       physicsClientId=self._physics_client_id)
+            p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                       False,
+                                       physicsClientId=self._physics_client_id)
+            p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                       False,
+                                       physicsClientId=self._physics_client_id)
             p.resetDebugVisualizerCamera(
                 self._camera_distance,
                 self._camera_yaw,
