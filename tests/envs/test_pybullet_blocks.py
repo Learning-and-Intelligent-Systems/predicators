@@ -4,10 +4,9 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv, \
-    _PyBulletState
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Object, State
+from predicators.src.structs import Object, State
 from predicators.tests.conftest import longrun
 
 _GUI_ON = False  # toggle for debugging
@@ -52,14 +51,14 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         kinematics here.
         """
         joint_state = list(self._pybullet_robot.initial_joint_values)
-        state_with_sim = _PyBulletState(state.data,
-                                        simulator_state=joint_state)
+        state_with_sim = utils.PyBulletState(state.data,
+                                             simulator_state=joint_state)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
 
     def get_state(self):
-        """Expose get state."""
+        """Expose get_state()."""
         return self._get_state()
 
     def execute_option(self, option):
@@ -67,8 +66,8 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         # Note that since we want to use self._current_state, it's convenient
         # to make this an environment method, rather than a helper function.
         assert option.initiable(self._current_state)
-        # Execute the pick option.
-        while True:
+        # Execute the option.
+        for _ in range(100):
             if option.terminal(self._current_state):
                 break
             action = option.policy(self._current_state)
@@ -119,51 +118,29 @@ def test_pybullet_blocks_reset(env):
 
 
 def test_pybullet_blocks_picking(env):
-    """Tests cases for picking blocks in PyBulletBlocksEnv."""
+    """Tests for picking blocks in PyBulletBlocksEnv."""
     block = Object("block0", env.block_type)
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
     by = (env.y_lb + env.y_ub) / 2
     bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
         block: np.array([bx, by, bz, 0.0]),
     })
     env.set_state(init_state)
-    assert env.get_state().allclose(init_state)
+    recovered_state = env.get_state()
+    assert recovered_state.allclose(init_state)
     # Create an option for picking the block.
     option = env.Pick.ground([robot, block], [])
-    state = init_state.copy()
-    assert option.initiable(state)
-    # Execute the option. Also record the actions for use in the next test.
-    pick_actions = []
-    while True:
-        if option.terminal(state):
-            break
-        action = option.policy(state)
-        pick_actions.append(action)
-        state = env.step(action)
+    # Execute the option.
+    state = env.execute_option(option)
     # The block should now be held.
     assert state.get(block, "held") == 1.0
-    # Test the case where the right finger is on the left side of the block,
-    # but within the grasp tolerance. The contact normal check should prevent
-    # a holding constraint from being created.
-    env.set_state(init_state)
-    state = init_state.copy()
-    move_left_actions = [
-        # Move to the left of the block.
-        Action(np.array([0.0, env.block_size, 0.0, 0.0], dtype=np.float32)),
-        # Make room for the finger.
-        Action(np.array([0.0, 0.04, 0.0, 0.0], dtype=np.float32)),
-    ]
-    actions = move_left_actions + pick_actions
-    for action in actions:
-        state = env.step(action)
-    # The block should NOT be held.
-    assert state.get(block, "held") == 0.0
+    assert state.get(robot, "fingers") == 0.0
 
 
 @longrun
@@ -175,7 +152,7 @@ def test_pybullet_blocks_picking_corners(env):
     by = (env.y_lb + env.y_ub) / 2
     bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
@@ -194,23 +171,17 @@ def test_pybullet_blocks_picking_corners(env):
         env.set_state(state)
         recovered_state = env.get_state()
         assert recovered_state.allclose(state)
-        # Use the recovered state from here, since it will have joint states.
-        state = recovered_state
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
-        assert option.initiable(state)
         # Execute the option.
-        while True:
-            if option.terminal(state):
-                break
-            action = option.policy(state)
-            state = env.step(action)
+        state = env.execute_option(option)
         # The block should now be held.
         assert state.get(block, "held") == 1.0
+        assert state.get(robot, "fingers") == 0.0
 
 
 def test_pybullet_blocks_stacking(env):
-    """Tests cases for stacking blocks in PyBulletBlocksEnv."""
+    """Tests for stacking blocks in PyBulletBlocksEnv."""
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
     robot = env.robot
@@ -219,7 +190,7 @@ def test_pybullet_blocks_stacking(env):
     by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
     bz0 = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a state with two blocks.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
@@ -237,6 +208,7 @@ def test_pybullet_blocks_stacking(env):
     state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block0, "held") == 0.0
+    assert state.get(robot, "fingers") == 1.0
     # And block0 should be on block1.
     On, = _get_predicates_by_names(env, ["On"])
     assert On([block0, block1]).holds(state)
@@ -259,7 +231,7 @@ def test_pybullet_blocks_stacking_corners(env):
     by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
     bz0 = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     max_num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
     block_to_z = {
@@ -284,12 +256,13 @@ def test_pybullet_blocks_stacking_corners(env):
         state = env.execute_option(option)
         # The block should now NOT be held.
         assert state.get(block0, "held") == 0.0
+        assert state.get(robot, "fingers") == 1.0
         # And block0 should be on top_block.
         assert On([block0, top_block]).holds(state)
 
 
 def test_pybullet_blocks_putontable(env):
-    """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
+    """Tests for putting blocks on the table in PyBulletBlocksEnv."""
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -297,7 +270,7 @@ def test_pybullet_blocks_putontable(env):
     by = (env.y_lb + env.y_ub) / 2
     bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
@@ -315,6 +288,7 @@ def test_pybullet_blocks_putontable(env):
     state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
+    assert state.get(robot, "fingers") == 1.0
     # And block should be on the table.
     assert OnTable([block]).holds(state)
     # Specifically, it should be at the center of the workspace.
@@ -332,7 +306,7 @@ def test_pybullet_blocks_putontable_corners(env):
     by = (env.y_lb + env.y_ub) / 2
     bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
@@ -357,6 +331,7 @@ def test_pybullet_blocks_putontable_corners(env):
         state = env.execute_option(option)
         # The block should now NOT be held.
         assert state.get(block, "held") == 0.0
+        assert state.get(robot, "fingers") == 1.0
         # And block should be on the table.
         assert OnTable([block]).holds(state)
         # Specifically, it should be at the given corner of the workspace.
@@ -383,7 +358,7 @@ def test_pybullet_blocks_close_pick_place(env):
     by0 = by + env.collision_padding * env.block_size
     bz0 = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     max_num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
     block_to_z = {
@@ -403,6 +378,7 @@ def test_pybullet_blocks_close_pick_place(env):
     state = env.execute_option(option)
     # The main block should now be held.
     assert state.get(block, "held") == 1.0
+    assert state.get(robot, "fingers") == 0.0
     # The other block states should be the same.
     pile_state = State({b: state[b] for b in block_to_z})
     assert initial_pile_state.allclose(pile_state)
@@ -415,6 +391,7 @@ def test_pybullet_blocks_close_pick_place(env):
     state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
+    assert state.get(robot, "fingers") == 1.0
     # And block should be on the table.
     assert OnTable([block]).holds(state)
     assert abs(state.get(block, "pose_x") - bx) < 1e-2
@@ -437,7 +414,7 @@ def test_pybullet_blocks_abstract_states(env):
     by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
     bz0 = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
-    rf = env.open_fingers
+    rf = 1.0
     # Create a state with two blocks on the table.
     state = State({
         robot: np.array([rx, ry, rz, rf]),

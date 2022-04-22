@@ -5,6 +5,8 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Type
@@ -50,6 +52,7 @@ def test_segment_trajectory():
         [action0, action1, action2, action0])
     trajectory = (known_option_ll_traj,
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
+    known_options_trajectory = trajectory  # used later in the test
     known_option_segments = segment_trajectory(trajectory)
     assert len(known_option_segments) == 4
     # Test case where the final option does not terminate in the final state.
@@ -135,6 +138,11 @@ def test_segment_trajectory():
     # are known.
     with pytest.raises(AssertionError):
         segment_trajectory(trajectory)
+    # Test oracle segmenter with known options. Should be the same as option
+    # changes segmenter.
+    utils.reset_config({"segmenter": "oracle"})
+    known_option_segments = segment_trajectory(known_options_trajectory)
+    assert len(known_option_segments) == 4
     # Segment with atoms changes instead.
     utils.reset_config({"segmenter": "atom_changes"})
     assert len(segment_trajectory(trajectory)) == 0
@@ -150,6 +158,37 @@ def test_segment_trajectory():
     assert not segment.has_option()
     assert segment.init_atoms == atoms0
     assert segment.final_atoms == atoms1
+    # Test oracle segmenter with unknown options. This segmenter uses the
+    # ground truth NSRTs, so we need to use a real environment where those
+    # are defined.
+    utils.reset_config({
+        "segmenter": "oracle",
+        "option_learner": "oracle",
+        "env": "cover_multistep_options",
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
+        "cover_initial_holding_prob": 0.0,
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1,
+        "num_train_tasks": 1,
+        "offline_data_method": "demo",
+    })
+    env = create_new_env("cover_multistep_options", do_cache=False)
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 1
+    dataset = create_dataset(env, train_tasks)
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    assert len(ground_atom_dataset) == 1
+    trajectory = ground_atom_dataset[0]
+    ll_traj, atoms = trajectory
+    assert train_tasks[0].goal.issubset(atoms[-1])
+    assert len(ll_traj.actions) > 0
+    assert not ll_traj.actions[0].has_option()
+    segments = segment_trajectory(trajectory)
+    # Should be 2 because the hyperparameters force the task to be exactly
+    # one pick and one place.
+    assert len(segments) == 2
     # Test unknown segmenter.
     utils.reset_config({"segmenter": "not a real segmenter"})
     with pytest.raises(NotImplementedError):

@@ -118,7 +118,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
-            assert len(strips_ops) == 3
+            assert len(strips_ops) == 4
             PickPlace = [
                 option for option in env.options if option.name == "PickPlace"
             ][0]
@@ -427,6 +427,9 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     x = np.hstack(([1.0], state_features, relative_goal_vec))
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
+
+            if not X_regressor:
+                raise Exception("No data found for learning an option.")
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)

@@ -156,52 +156,60 @@ def test_fetch_pybullet_robot():
     physics_client_id = p.connect(p.DIRECT)
 
     ee_home_pose = (1.35, 0.75, 0.75)
-    open_fingers = 0.04
-    closed_fingers = 0.01
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
-    robot = FetchPyBulletRobot(ee_home_pose, open_fingers, closed_fingers,
-                               max_vel_norm, physics_client_id)
-    finger_joint_lb, finger_joint_ub = robot.finger_joint_bounds
-    assert np.allclose(robot.action_space.low[:3], [-max_vel_norm] * 3)
-    assert np.allclose(robot.action_space.high[:3], [max_vel_norm] * 3)
-    assert np.allclose(robot.action_space.low[3], finger_joint_lb)
-    assert np.allclose(robot.action_space.high[3], finger_joint_ub)
+    grasp_tol = 0.05
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, move_to_pose_tol,
+                               max_vel_norm, grasp_tol, physics_client_id)
+    assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
+    assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
     assert robot.left_finger_joint_idx == 7
     assert robot.right_finger_joint_idx == 8
 
-    robot_state = np.array(ee_home_pose + (open_fingers, ), dtype=np.float32)
+    robot_state = np.array(ee_home_pose + (robot.open_fingers, ),
+                           dtype=np.float32)
     robot.reset_state(robot_state)
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
                        robot.initial_joint_values,
-                       atol=1e-3)
+                       atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
+    ee_target = np.add(ee_home_pose, ee_delta)
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=False)  # pylint: disable=protected-access
     f_value = 0.03
-    action_arr = np.r_[ee_delta, f_value]
+    joint_target[robot.left_finger_joint_idx] = f_value
+    joint_target[robot.right_finger_joint_idx] = f_value
+    action_arr = np.array(joint_target, dtype=np.float32)
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
-    expected_state = tuple(np.add(robot_state[:3], ee_delta)) + (f_value, )
+    expected_state = tuple(ee_target) + (f_value, )
     recovered_state = robot.get_state()
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
+    # Test forward kinematics.
+    fk_result = robot.forward_kinematics(action_arr)
+    assert np.allclose(fk_result, ee_target, atol=1e-3)
 
 
 def test_create_single_arm_pybullet_robot():
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
-    open_fingers = 0.04
-    closed_fingers = 0.01
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    move_to_pose_tol = 1e-4
     max_vel_norm = 0.05
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose,
-                                             open_fingers, closed_fingers,
-                                             max_vel_norm, physics_client_id)
+    grasp_tol = 0.05
+    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
+                                             move_to_pose_tol, max_vel_norm,
+                                             grasp_tol, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError):
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         open_fingers, closed_fingers,
-                                         max_vel_norm, physics_client_id)
+                                         ee_orn, move_to_pose_tol,
+                                         max_vel_norm, grasp_tol,
+                                         physics_client_id)

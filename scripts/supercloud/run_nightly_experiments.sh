@@ -11,11 +11,11 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id cover_invent_noexclude --env cover --approach grammar_search_invention --seed $SEED --num_train_tasks 50
     python $FILE --experiment_id cover_invent_allexclude --env cover --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
 
-    # blocks
-    python $FILE --experiment_id blocks_oracle --env blocks --approach oracle --seed $SEED --num_train_tasks 0
-    python $FILE --experiment_id blocks_nsrt_learning --env blocks --approach nsrt_learning --seed $SEED --num_train_tasks 50
-    python $FILE --experiment_id blocks_invent_noexclude --env blocks --approach grammar_search_invention --seed $SEED --num_train_tasks 50
-    python $FILE --experiment_id blocks_invent_allexclude --env blocks --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
+    # pybullet_blocks
+    python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --seed $SEED --num_train_tasks 0
+    python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_blocks_invent_noexclude --env pybullet_blocks --approach grammar_search_invention --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_blocks_invent_allexclude --env pybullet_blocks --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
 
     # painting
     python $FILE --experiment_id painting_oracle --env painting --approach oracle --seed $SEED --num_train_tasks 0
@@ -34,9 +34,15 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id playroom_oracle --env playroom --approach oracle --seed $SEED --num_train_tasks 0
     python $FILE --experiment_id playroom_nsrt_learning --env playroom --approach nsrt_learning --seed $SEED --num_train_tasks 50
 
-    # pybullet_blocks
-    python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --seed $SEED --num_train_tasks 0
-    python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --seed $SEED --num_train_tasks 50
-    python $FILE --experiment_id pybullet_blocks_invent_noexclude --env pybullet_blocks --approach grammar_search_invention --seed $SEED --num_train_tasks 50
-    python $FILE --experiment_id pybullet_blocks_invent_allexclude --env pybullet_blocks --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
+    # pybullet_cover
+    python $FILE --experiment_id pybullet_cover_oracle --env pybullet_cover --approach oracle --seed $SEED --num_train_tasks 0
+    python $FILE --experiment_id pybullet_cover_nsrt_learning --env pybullet_cover --approach nsrt_learning --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_cover_invent_noexclude --env pybullet_cover --approach grammar_search_invention --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_cover_invent_allexclude --env pybullet_cover --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
+
+    # stick point
+    # requires more data and filtering: "--num_train_tasks 500 --min_data_for_nsrt 50"
+    python $FILE --experiment_id stick_point_oracle --env stick_point --approach oracle --seed $SEED --num_train_tasks 0
+    python $FILE --experiment_id stick_point_nsrt_learning --env stick_point --approach nsrt_learning --seed $SEED --num_train_tasks 500 --min_data_for_nsrt 50
+
 done

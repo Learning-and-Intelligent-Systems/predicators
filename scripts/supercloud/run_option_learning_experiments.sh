@@ -6,58 +6,32 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
-    COMMON_ARGS="--approach nsrt_learning --implicit_mlp_regressor_num_samples_per_inference 16384 --implicit_mlp_regressor_grid_num_ticks_per_dim 50 --num_train_tasks 1000 --num_test_tasks 100 --seed $SEED"
+    ## all in the stick point environment
+    ## all with oracle operators and segmentation for now!
+    COMMON_ARGS="--env stick_point --approach nsrt_learning --strips_learner oracle --segmenter oracle --seed $SEED"
 
-    ## touch point
-    # oracle
-    python $FILE $COMMON_ARGS --experiment_id touch_point_oracle --env touch_point
+    # nsrt learning (oracle options) 500, default test time
+    python $FILE $COMMON_ARGS --experiment_id given_500 --num_train_tasks 500
 
-    # direct BC
-    python $FILE $COMMON_ARGS --experiment_id touch_point_direct --env touch_point --option_learner direct_bc
+    # nsrt learning (oracle options) 5000, default test time
+    python $FILE $COMMON_ARGS --experiment_id given_5000 --num_train_tasks 5000
 
-    # implicit BC: derivative_free
-    python $FILE $COMMON_ARGS --experiment_id touch_point_implicit_df --env touch_point --option_learner implicit_bc --implicit_mlp_regressor_inference_method derivative_free
+    # nsrt learning (oracle options) 500, long test time
+    python $FILE $COMMON_ARGS --experiment_id given_500_long --num_train_tasks 500 --timeout 300
 
-    # implicit BC: grid
-    python $FILE $COMMON_ARGS --experiment_id touch_point_implicit_grid --env touch_point --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
+    # nsrt learning (oracle options) 5000, long test time
+    python $FILE $COMMON_ARGS --experiment_id given_5000_long --num_train_tasks 5000 --timeout 300
 
-    ## cover_multistep_options
-    # oracle
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_oracle --env cover_multistep_options
+    # direct BC 500, default test time
+    python $FILE $COMMON_ARGS --experiment_id direct_bc_500 --option_learner direct_bc --num_train_tasks 500
 
-    # direct BC
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_direct --env cover_multistep_options --option_learner direct_bc
+    # direct BC 5000, default test time
+    python $FILE $COMMON_ARGS --experiment_id direct_bc_5000 --option_learner direct_bc --num_train_tasks 5000
 
-    # implicit BC: derivative_free
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_implicit_df --env cover_multistep_options --option_learner implicit_bc --implicit_mlp_regressor_inference_method derivative_free
+    # direct BC 500, long test time
+    python $FILE $COMMON_ARGS --experiment_id direct_bc_500_long --option_learner direct_bc --num_train_tasks 500 --timeout 300
 
-    # implicit BC: grid
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_implicit_grid --env cover_multistep_options --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
-
-    ## cover_multistep_options_holding
-    # oracle
-    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_oracle --env cover_multistep_options_holding
-
-    # direct BC
-    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_direct --env cover_multistep_options_holding --option_learner direct_bc
-
-    # implicit BC: derivative_free
-    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_implicit_df --env cover_multistep_options_holding --option_learner implicit_bc --implicit_mlp_regressor_inference_method derivative_free
-
-    # implicit BC: grid
-    python $FILE $COMMON_ARGS --experiment_id cover_holding_multi_implicit_grid --env cover_multistep_options_holding --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
-
-    ## cover_multistep_options single block
-    # oracle
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_single_oracle --env cover_multistep_options --cover_num_targets 1 --cover_num_blocks 1
-
-    # direct BC
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_single_direct --env cover_multistep_options --cover_num_targets 1 --cover_num_blocks 1 --option_learner direct_bc
-
-    # implicit BC: derivative_free
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_single_implicit_df --env cover_multistep_options --cover_num_targets 1 --cover_num_blocks 1 --option_learner implicit_bc --implicit_mlp_regressor_inference_method derivative_free
-
-    # implicit BC: grid
-    python $FILE $COMMON_ARGS --experiment_id cover_multi_single_implicit_grid --env cover_multistep_options --cover_num_targets 1 --cover_num_blocks 1 --option_learner implicit_bc --implicit_mlp_regressor_inference_method grid
+    # direct BC 5000, long test time
+    python $FILE $COMMON_ARGS --experiment_id direct_bc_5000_long --option_learner direct_bc --num_train_tasks 5000 --timeout 300
 
 done
