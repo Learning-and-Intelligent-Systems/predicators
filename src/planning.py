@@ -313,8 +313,16 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
                 can_continue_on = False
-                # Remember only the most recent failure.
-                discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
+                # If there is an environment failure with no offending objects,
+                # there is nothing clever we can do to try to resolve the
+                # failure in skeleton search. So rather than recording a
+                # discovered failure, we just don't continue on here.
+                if not e.info.get("offending_objects"):
+                    discovered_failures[cur_idx - 1] = None
+                else:
+                    # Remember only the most recent failure.
+                    discovered_failures[cur_idx - 1] = _DiscoveredFailure(
+                        e, nsrt)
             else:  # an EnvironmentFailure was not raised
                 discovered_failures[cur_idx - 1] = None
                 num_actions_per_option[cur_idx - 1] = num_actions
