@@ -43,14 +43,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 termination_function=lambda s: False,
                 max_num_steps=CFG.horizon,
                 exceptions_to_break_on={utils.OptionExecutionFailure})
-            # Even though we're running the full plan, we should still check
-            # that the goal holds at the end.
-            assert task.goal_holds(traj.states[-1]), \
-                "Oracle failed on training task"
-        except (ApproachTimeout, ApproachFailure, utils.EnvironmentFailure,
-                AssertionError) as e:
+        except (ApproachTimeout, ApproachFailure,
+                utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
+            continue
+        # Even though we're running the full plan, we should still check
+        # that the goal holds at the end.
+        if not task.goal_holds(traj.states[-1]):  # pragma: no cover
+            logging.warning("WARNING: Oracle failed on training task.")
             continue
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
