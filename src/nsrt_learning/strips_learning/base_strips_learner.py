@@ -200,9 +200,10 @@ class BaseSTRIPSLearner(abc.ABC):
         for seg_traj in self._segmented_trajs:
             objects = set(seg_traj[0].states[0])
             for segment in seg_traj:
-                segment_option = DummyOption
                 if segment.has_option():
                     segment_option = segment.get_option()
+                else:
+                    segment_option = DummyOption
                 segment_param_option = segment_option.parent
                 segment_option_objs = tuple(segment_option.objects)
                 # Get ground operators given these objects and option objs.
