@@ -24,8 +24,6 @@ class GlobalSettings:
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
-    # Maximum number of steps to roll out an option policy.
-    max_num_steps_option_rollout = 1000
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -278,6 +276,15 @@ class GlobalSettings:
                     # the horizon to be shorter.
                     "touch_point": 15,
                 })[args.get("env", "")],
+
+            # Maximum number of steps to roll out an option policy.
+            max_num_steps_option_rollout=defaultdict(
+                lambda: 1000,
+                {
+                    # For stick point, limit the per-option horizon.
+                    "stick_point": 50,
+                })[args.get("env", "")],
+
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
