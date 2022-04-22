@@ -317,9 +317,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         add_effects=add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
         del pnad  # unused from here
-        # Recompute datastore using the add_effects semantics.
-        self._recompute_datastores_from_segments([new_pnad],
-                                                 semantics="add_effects")
+        # Recompute datastore.
+        self._recompute_datastores_from_segments([new_pnad])
         # Determine the preconditions.
         preconditions = self._induce_preconditions_via_intersection(new_pnad)
         # Update the preconditions of the new PNAD's operator.
