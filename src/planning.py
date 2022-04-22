@@ -72,6 +72,7 @@ def sesame_plan(
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
+    failed_skeleton_prefixes = set()
     while True:
         # Optionally exclude NSRTs with empty effects, because they can slow
         # the search significantly, so we may want to exclude them. Note however
@@ -98,9 +99,23 @@ def sesame_plan(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
                     max_skeletons_optimized):
+                skip_skeleton = False
+                for i in range(len(skeleton)):
+                    if tuple(skeleton[:i]) in failed_skeleton_prefixes:
+                        # print("\nSkipping skeleton because of failed prefix!")
+                        # for act in skeleton:
+                        #     logging.info(f"{act.name} {act.objects}")
+                        skip_skeleton = True
+                        break
+                if skip_skeleton:
+                    continue
+                # print("\nTrying to refine skeleton...")
+                # for act in skeleton:
+                #     logging.info(f"{act.name} {act.objects}")
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.time() - start_time), max_horizon)
+                    timeout - (time.time() - start_time), max_horizon,
+                    failed_skeleton_prefixes)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -258,7 +273,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                           skeleton: List[_GroundNSRT],
                           atoms_sequence: List[Set[GroundAtom]], seed: int,
                           timeout: float,
-                          max_horizon: int) -> Tuple[List[_Option], bool]:
+                          max_horizon: int,
+                          failed_skeleton_prefixes) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -383,6 +399,10 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                                     "longest_failed_refinement":
                                     longest_failed_refinement
                                 })
+
+                    failure_step = len(longest_failed_refinement)
+                    failed_skeleton_prefixes.add(tuple(skeleton[:failure_step]))
+
                     return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
     assert not skeleton
