@@ -360,8 +360,6 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 raise NotImplementedError(
                     f"{weight_init} weight initialization"
                     " unknown")
-        else:
-            raise NotImplementedError(f"Module type {type(m)} not supported")
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
