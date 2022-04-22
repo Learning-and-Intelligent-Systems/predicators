@@ -189,13 +189,15 @@ def test_backchaining_strips_learner_order_dependence():
     task3 = Task(not_on_light_blue, goal2)
     # Define the 3 demos to backchain over.
     segment1 = Segment(
-        traj1, {NotLightOn([light]), LightColorRed([light])}, goal1,
+        traj1,
+        {NotLightOn([light]), LightColorRed([light])}, goal1,
         MoveAndMessWithLights)
     segment2 = Segment(
         traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
         MoveAndMessWithLights)
     segment3 = Segment(
-        traj3, {NotLightOn([light]), LightColorBlue([light])}, goal2,
+        traj3,
+        {NotLightOn([light]), LightColorBlue([light])}, goal2,
         MoveAndMessWithLights)
 
     # Create and run the learner with the 3 demos in the natural order.
