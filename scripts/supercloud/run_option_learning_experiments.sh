@@ -8,7 +8,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
     ## all in the stick point environment
     ## all with oracle operators and segmentation for now!
-    COMMON_ARGS="--env stick_point --approach nsrt_learning --strips_learner oracle --segmenter oracle --seed $SEED"
+    COMMON_ARGS="--env stick_point --approach nsrt_learning --strips_learner oracle --segmenter oracle --seed $SEED --load_a --load_d"
 
     # nsrt learning (oracle options) 500, default test time
     python $FILE $COMMON_ARGS --experiment_id given_500 --num_train_tasks 500
