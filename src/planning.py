@@ -205,7 +205,7 @@ def _skeleton_generator(
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
-    # Figure out the reachable and unreachable points (y < 2.8).
+    # Figure out the reachable and unreachable points (y < 2.9).
     robot, stick = None, None
     reachable_points, unreachable_points = [], []
     for obj in task.init:
@@ -213,7 +213,7 @@ def _skeleton_generator(
             robot = obj
         elif "stick" in obj.name:
             stick = obj
-        elif task.init.get(obj, "y") < 2.8:
+        elif task.init.get(obj, "y") < 2.9:
             reachable_points.append(obj)
         else:
             unreachable_points.append(obj)
