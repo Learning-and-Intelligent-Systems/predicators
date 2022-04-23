@@ -862,6 +862,7 @@ def test_oracle_approach_stick_point():
         "num_test_tasks": 2,
         "stick_point_num_points_train": [1],
         "stick_point_num_points_test": [2],
+        "stick_point_disable_angles": False,
     })
     env = StickPointEnv()
     train_tasks = env.get_train_tasks()
