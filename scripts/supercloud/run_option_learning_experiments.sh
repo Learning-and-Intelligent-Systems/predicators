@@ -18,4 +18,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # GNN BC with shooting baseline
     python $FILE $COMMON_ARGS --experiment_id gnn_shooting --approach gnn_policy
 
+    # GNN BC model-free
+    python $FILE $COMMON_ARGS --experiment_id gnn_modelfree --approach gnn_policy --gnn_policy_solve_with_shooting False
+
 done
