@@ -1,5 +1,7 @@
 """Test cases for the interactive learning approach."""
 
+from typing import Dict, Sequence
+
 import numpy as np
 import pytest
 
@@ -11,7 +13,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset
+from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
 from predicators.src.teacher import Teacher
 
 
@@ -32,6 +34,10 @@ def test_interactive_learning_approach():
         "num_test_tasks": 5,
         "interactive_num_ensemble_members": 1,
         "interactive_num_requests_per_cycle": 1,
+        # old default settings, for test coverage
+        "interactive_action_strategy": "glib",
+        "interactive_query_policy": "strict_best_seen",
+        "interactive_score_function": "frequency",
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -115,6 +121,41 @@ def test_interactive_learning_approach():
     utils.update_config({
         "interactive_score_function": "BALD",
     })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
+    # Test with greedy lookahead action strategy.
+    utils.update_config({
+        "interactive_action_strategy": "greedy_lookahead",
+        "interactive_max_num_trajectories": 1,
+        "interactive_max_trajectory_length": 1,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
+
+    # Cover greedy lookahead edge cases.
+    def _policy(s: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del s, memory, objects, params  # unused
+        raise utils.OptionExecutionFailure("Mock error")
+
+    # Force 0 actions in trajectory
+    new_nsrts = set()
+    for nsrt in approach._nsrts:  # pylint: disable=protected-access
+        new_option = utils.SingletonParameterizedOption(
+            "LearnedMockOption",
+            _policy,
+            types=nsrt.option.types,
+            params_space=nsrt.option.params_space,
+            initiable=nsrt.option.initiable)
+        new_nsrt = NSRT(nsrt.name, nsrt.parameters, nsrt.preconditions,
+                        nsrt.add_effects, nsrt.delete_effects, set(),
+                        new_option, nsrt.option_vars, nsrt._sampler)  # pylint: disable=protected-access
+        new_nsrts.add(new_nsrt)
+    approach._nsrts = new_nsrts  # pylint: disable=protected-access
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
+    # Force no applicable NSRTs
+    approach._nsrts = set()  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
     # Cover unrecognized interactive_action_strategy.

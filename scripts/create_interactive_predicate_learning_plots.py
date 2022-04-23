@@ -28,10 +28,17 @@ COLUMN_NAMES_AND_KEYS = [
     ("PERC_SOLVED", "perc_solved"),
     ("NUM_TRANSITIONS", "num_transitions"),
     ("QUERY_COST", "query_cost"),
+    ("PERC_EXEC_FAIL", "perc_exec_fail"),
+    ("PERC_PLAN_FAIL", "perc_plan_fail"),
 ]
 
-DERIVED_KEYS = [("perc_solved",
-                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
+DERIVED_KEYS = [
+    ("perc_solved", lambda r: 100 * r["num_solved"] / r["num_test_tasks"]),
+    ("perc_exec_fail",
+     lambda r: 100 * r["num_execution_failures"] / r["num_test_tasks"]),
+    ("perc_plan_fail",
+     lambda r: 100 * r["num_solve_failures"] / r["num_test_tasks"]),
+]
 
 # The first element is the name of the metric that will be plotted on the
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
@@ -44,6 +51,8 @@ X_KEY_AND_LABEL = [
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     ("QUERY_COST", "Cumulative Query Cost"),
+    ("PERC_EXEC_FAIL", "% Execution Failures"),
+    ("PERC_PLAN_FAIL", "% Planning Failures"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -163,6 +172,8 @@ def _main() -> None:
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
+                if y_key.startswith("PERC"):
+                    ax.set_ylim((-5, 105))
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()

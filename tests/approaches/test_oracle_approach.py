@@ -21,6 +21,7 @@ from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.stick_point import StickPointEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
@@ -127,6 +128,7 @@ def test_check_nsrt_parameters():
         "repeated_nextto_single_option": RepeatedNextToSingleOptionEnv(),
         "repeated_nextto_painting": RepeatedNextToPaintingEnv(),
         "pddl_blocks_procedural_tasks": ProceduralTasksBlocksPDDLEnv(),
+        "stick_point": StickPointEnv(),
     }
     for name, env in envs.items():
         utils.reset_config({"env": name})
@@ -840,6 +842,28 @@ def test_oracle_approach_touch_point():
         "num_test_tasks": 2
     })
     env = TouchPointEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_stick_point():
+    """Tests for OracleApproach class with StickPointEnv."""
+    utils.reset_config({
+        "env": "stick_point",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
+        "stick_point_num_points_train": [1],
+        "stick_point_num_points_test": [2],
+    })
+    env = StickPointEnv()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)

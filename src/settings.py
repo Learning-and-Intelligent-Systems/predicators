@@ -24,8 +24,6 @@ class GlobalSettings:
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
-    # Maximum number of steps to roll out an option policy.
-    max_num_steps_option_rollout = 1000
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -124,20 +122,29 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
+    # stick point env parameters
+    stick_point_num_points_train = [1, 2]
+    stick_point_num_points_test = [3, 4]
+
     # parameters for random options approach
     random_options_max_tries = 100
+
+    # parameters for abstract GNN approach
+    gnn_num_message_passing = 3
+    gnn_layer_size = 16
+    gnn_learning_rate = 1e-3
+    gnn_num_epochs = 25000
+    gnn_batch_size = 128
+    gnn_do_normalization = False  # performs worse in Cover when True
+    gnn_use_validation_set = True
 
     # parameters for GNN policy approach
     gnn_policy_solve_with_shooting = True
     gnn_policy_shooting_variance = 0.1
-    gnn_policy_shooting_num_samples = 100
-    gnn_policy_num_message_passing = 3
-    gnn_policy_layer_size = 16
-    gnn_policy_learning_rate = 1e-3
-    gnn_policy_num_epochs = 25000
-    gnn_policy_batch_size = 128
-    gnn_policy_do_normalization = False  # performs worse in Cover when True
-    gnn_policy_use_validation_set = True
+    gnn_policy_shooting_max_samples = 100
+
+    # parameters for GNN metacontroller approach
+    gnn_metacontroller_max_samples = 100
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
@@ -166,8 +173,15 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    # Side predicate learning strategy. See nsrt_learning_main.py for options.
-    side_predicate_learner = "no_learning"
+    # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
+    # for valid settings.
+    strips_learner = "cluster_and_intersect"
+    disable_harmlessness_check = False  # some methods may want this to be True
+    clustering_learner_true_pos_weight = 10
+    clustering_learner_false_pos_weight = 1
+    cluster_and_search_inner_search_max_expansions = 10000
+    cluster_and_search_var_count_weight = 0.1
+    cluster_and_search_precon_size_weight = 0.01
 
     # torch model parameters
     learning_rate = 1e-3
@@ -199,12 +213,16 @@ class GlobalSettings:
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
-    interactive_action_strategy = "glib"
-    interactive_query_policy = "strict_best_seen"
-    interactive_score_function = "frequency"
-    interactive_score_threshold = 0.5
+    interactive_action_strategy = "greedy_lookahead"
+    interactive_query_policy = "threshold"
+    interactive_score_function = "entropy"
+    interactive_score_threshold = 0.1
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    # for action strategy greedy_lookahead
+    interactive_max_num_trajectories = 100
+    # for action strategy greedy_lookahead
+    interactive_max_trajectory_length = 2
     interactive_num_requests_per_cycle = 10
     predicate_mlp_classifier_max_itr = 1000
 
@@ -252,11 +270,21 @@ class GlobalSettings:
                     # For BEHAVIOR and PyBullet environments, actions are
                     # lower level, so tasks take more actions to complete.
                     "behavior": 1000,
+                    "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     # For the very simple TouchPoint environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
                 })[args.get("env", "")],
+
+            # Maximum number of steps to roll out an option policy.
+            max_num_steps_option_rollout=defaultdict(
+                lambda: 1000,
+                {
+                    # For stick point, limit the per-option horizon.
+                    "stick_point": 50,
+                })[args.get("env", "")],
+
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
@@ -268,6 +296,10 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
+                    # For the stick point environment, the only environment
+                    # failure is one that involves no objects, which we want
+                    # to be treated like a terminal environment state.
+                    "stick_point": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
@@ -296,6 +328,7 @@ class GlobalSettings:
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "oracle_behavior",
                     # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
@@ -304,8 +337,10 @@ class GlobalSettings:
             sesame_max_skeletons_optimized=defaultdict(
                 lambda: 8,
                 {
-                    # For the tools environment, allow many more skeletons.
+                    # For the tools environment, allow more skeletons.
                     "tools": 1000,
+                    # For the stick point environment, allow more skeletons.
+                    "stick_point": 1000,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into sampling a single skeleton.
