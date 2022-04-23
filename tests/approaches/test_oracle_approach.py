@@ -874,3 +874,23 @@ def test_oracle_approach_stick_point():
     for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=500)
         assert policy_solves_task(policy, test_task, env.simulate)
+    # Test with angles disabled.
+    utils.reset_config({
+        "env": "stick_point",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "stick_point_num_points_train": [1],
+        "stick_point_num_points_test": [2],
+        "stick_point_disable_angles": True,
+    })
+    env = StickPointEnv()
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=500)
+        assert policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=500)
+        assert policy_solves_task(policy, test_task, env.simulate)
