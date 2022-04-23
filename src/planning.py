@@ -205,53 +205,103 @@ def _skeleton_generator(
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
-    start_time = time.time()
-    queue: List[Tuple[float, float, _Node]] = []
-    root_node = _Node(atoms=init_atoms,
-                      skeleton=[],
-                      atoms_sequence=[init_atoms],
-                      parent=None)
-    metrics["num_nodes_created"] += 1
-    rng_prio = np.random.default_rng(seed)
-    hq.heappush(queue,
-                (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
-    # Start search.
-    while queue and (time.time() - start_time < timeout):
-        if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
-            raise _MaxSkeletonsFailure(
-                "Planning reached max_skeletons_optimized!")
-        _, _, node = hq.heappop(queue)
-        # Good debug point #1: print out the skeleton here to see what
-        # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
-        if task.goal.issubset(node.atoms):
-            # If this skeleton satisfies the goal, yield it.
-            metrics["num_skeletons_optimized"] += 1
-            yield node.skeleton, node.atoms_sequence
+    # Figure out the reachable and unreachable points (y < 2.8).
+    robot, stick = None, None
+    reachable_points, unreachable_points = [], []
+    for obj in task.init:
+        if "rob" in obj.name:
+            robot = obj
+        elif "stick" in obj.name:
+            stick = obj
+        elif task.init.get(obj, "y") < 2.8:
+            reachable_points.append(obj)
         else:
-            # Generate successors.
-            metrics["num_nodes_expanded"] += 1
-            for nsrt in utils.get_applicable_operators(ground_nsrts,
-                                                       node.atoms):
-                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
-                child_node = _Node(atoms=child_atoms,
-                                   skeleton=node.skeleton + [nsrt],
-                                   atoms_sequence=node.atoms_sequence +
-                                   [child_atoms],
-                                   parent=node)
-                metrics["num_nodes_created"] += 1
-                # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton) +
-                            heuristic(child_node.atoms))
-                hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
-                if time.time() - start_time >= timeout:
-                    break
-    if not queue:
-        raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
-    assert time.time() - start_time >= timeout
-    raise _SkeletonSearchTimeout
+            unreachable_points.append(obj)
+    assert robot is not None
+    assert stick is not None
+    lifted_nsrts = {n.parent for n in ground_nsrts}
+    PickStickFromNothing, PickStickFromPoint, RobotTouchPointFromNothing, \
+        RobotTouchPointFromPoint, StickTouchPointFromNothing, \
+        StickTouchPointFromPoint = sorted(lifted_nsrts)
+
+    plan = []
+    # Start the skeleton with getting the first reachable point directly.
+    if len(reachable_points) > 0:
+        point = reachable_points[0]
+        plan.append(RobotTouchPointFromNothing.ground([robot, point]))
+    # Get the other reachable points.
+    if len(reachable_points) > 1:
+        for from_point, point in zip(reachable_points[:-1], reachable_points[1:]):
+            plan.append(RobotTouchPointFromPoint.ground([robot, point, from_point]))
+    # If there are unreachable points, next pick up the stick.
+    if len(reachable_points) > 0:
+        from_point = reachable_points[-1]
+        plan.append(PickStickFromPoint.ground([robot, stick, from_point]))
+    else:
+        plan.append(PickStickFromNothing.ground([robot, stick]))
+    # Touch the first unreachable point.
+    if len(unreachable_points) > 0:
+        point = unreachable_points[0]
+        plan.append(StickTouchPointFromNothing.ground([robot, stick, point]))
+    # Touch the other unreachable points.
+    if len(unreachable_points) > 1:
+        for from_point, point in zip(unreachable_points[:-1], unreachable_points[1:]):
+            plan.append(StickTouchPointFromPoint.ground([robot, stick, point, from_point]))
+
+    # Construct the atoms sequence.
+    atoms_sequence = [init_atoms]
+    for nsrt in plan:
+        atoms_sequence.append(utils.apply_operator(nsrt, set(atoms_sequence[-1])))
+
+    yield plan, atoms_sequence
+
+    # start_time = time.time()
+    # queue: List[Tuple[float, float, _Node]] = []
+    # root_node = _Node(atoms=init_atoms,
+    #                   skeleton=[],
+    #                   atoms_sequence=[init_atoms],
+    #                   parent=None)
+    # metrics["num_nodes_created"] += 1
+    # rng_prio = np.random.default_rng(seed)
+    # hq.heappush(queue,
+    #             (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
+    # # Start search.
+    # while queue and (time.time() - start_time < timeout):
+    #     if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
+    #         raise _MaxSkeletonsFailure(
+    #             "Planning reached max_skeletons_optimized!")
+    #     _, _, node = hq.heappop(queue)
+    #     # Good debug point #1: print out the skeleton here to see what
+    #     # the high-level search is doing. You can accomplish this via:
+    #     # for act in node.skeleton:
+    #     #     logging.info(f"{act.name} {act.objects}")
+    #     # logging.info("")
+    #     if task.goal.issubset(node.atoms):
+    #         # If this skeleton satisfies the goal, yield it.
+    #         metrics["num_skeletons_optimized"] += 1
+    #         yield node.skeleton, node.atoms_sequence
+    #     else:
+    #         # Generate successors.
+    #         metrics["num_nodes_expanded"] += 1
+    #         for nsrt in utils.get_applicable_operators(ground_nsrts,
+    #                                                    node.atoms):
+    #             child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+    #             child_node = _Node(atoms=child_atoms,
+    #                                skeleton=node.skeleton + [nsrt],
+    #                                atoms_sequence=node.atoms_sequence +
+    #                                [child_atoms],
+    #                                parent=node)
+    #             metrics["num_nodes_created"] += 1
+    #             # priority is g [plan length] plus h [heuristic]
+    #             priority = (len(child_node.skeleton) +
+    #                         heuristic(child_node.atoms))
+    #             hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
+    #             if time.time() - start_time >= timeout:
+    #                 break
+    # if not queue:
+    #     raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
+    # assert time.time() - start_time >= timeout
+    # raise _SkeletonSearchTimeout
 
 
 def _run_low_level_search(task: Task, option_model: _OptionModelBase,
