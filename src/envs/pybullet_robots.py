@@ -12,6 +12,10 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Object, \
     ParameterizedOption, Pose3D, State, Type
 
+# Must update path!
+from pybullet_tools.ikfast.utils import IKFastInfo
+from pybullet_tools.ikfast.ikfast import ikfast_inverse_kinematics
+
 
 class _SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper.
@@ -495,6 +499,14 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     def _initialize(self) -> None:
 
+
+        self._ikfast_info = IKFastInfo(
+            module_name="franka_panda.ikfast_panda_arm",
+            base_link="panda_link0",
+            ee_link="panda_link8",
+            free_joints=["panda_joint7"],
+        )
+
         # TODO!!! fix this
         self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
 
@@ -675,13 +687,31 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
                                 validate: bool) -> List[float]:
-        return inverse_kinematics(self._panda_id,
-                                  self._ee_id,
-                                  end_effector_pose,
-                                  self._ee_orientation,
-                                  self._arm_joints,
-                                  physics_client_id=self._physics_client_id,
-                                  validate=validate)
+
+        for candidate in ikfast_inverse_kinematics(
+            self._panda_id, self._ikfast_info, self._ee_id,
+            (end_effector_pose, self._ee_orientation),
+            max_attempts=CFG.pybullet_max_ik_iters,
+            physicsClientId=self._physics_client_id):
+
+            # Add fingers. # TODO is this right?
+            action = list(candidate) + [self.open_fingers, self.open_fingers]
+
+            # TODO: there's some transform that we need? waiting for Aidan
+
+            result_pose = self.forward_kinematics(action)
+            import ipdb; ipdb.set_trace()
+            while True:
+                p.stepSimulation(physicsClientId=self._physics_client_id)
+            import ipdb; ipdb.set_trace()
+
+        # return inverse_kinematics(self._panda_id,
+        #                           self._ee_id,
+        #                           end_effector_pose,
+        #                           self._ee_orientation,
+        #                           self._arm_joints,
+        #                           physics_client_id=self._physics_client_id,
+        #                           validate=validate)
 
     def create_move_end_effector_to_pose_option(
         self,
