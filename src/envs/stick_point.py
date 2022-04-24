@@ -237,10 +237,15 @@ class StickPointEnv(BaseEnv):
         assert isinstance(circ, utils.Circle)
         circ.plot(ax, facecolor="red", edgecolor="black")
         # Show the direction that the robot is facing.
-        theta = state.get(robot, "theta")
-        l = 1.5 * self.robot_radius  # arrow length
-        w = 0.1 * self.robot_radius  # arrow width
-        ax.arrow(circ.x, circ.y, l * np.cos(theta), l * np.sin(theta), width=w)
+        if not CFG.stick_point_disable_angles:
+            theta = state.get(robot, "theta")
+            l = 1.5 * self.robot_radius  # arrow length
+            w = 0.1 * self.robot_radius  # arrow width
+            ax.arrow(circ.x,
+                     circ.y,
+                     l * np.cos(theta),
+                     l * np.sin(theta),
+                     width=w)
         ax.set_xlim(self.x_lb, self.x_ub)
         ax.set_ylim(self.y_lb, self.y_ub)
         ax.axis("off")
