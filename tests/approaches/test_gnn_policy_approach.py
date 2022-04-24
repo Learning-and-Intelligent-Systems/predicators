@@ -171,11 +171,11 @@ def test_gnn_policy_approach_special_cases():
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
         "gnn_policy_solve_with_shooting": True,
-        "timeout": 0.25,
+        "timeout": 0.1,
         "horizon": 10
     })
     approach._option_model = _MockOptionModel1(_simulator)  # pylint: disable=protected-access
-    policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    policy = approach.solve(train_tasks[0], timeout=0.5)
     traj = utils.run_policy_with_simulator(policy,
                                            _simulator,
                                            train_tasks[0].init,
@@ -190,7 +190,7 @@ def test_gnn_policy_approach_special_cases():
         policy = approach.solve(test_task, timeout=CFG.timeout)
     assert "Shooting timed out" in str(e)
     trivial_task = Task(test_task.init, set())
-    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    policy = approach.solve(trivial_task, timeout=0.5)
     traj = utils.run_policy_with_simulator(policy,
                                            _simulator,
                                            trivial_task.init,
@@ -201,7 +201,7 @@ def test_gnn_policy_approach_special_cases():
     # Now test what happens if we solve the trivial task but roll out
     # in a non-trivial task. We should get an ApproachFailure because
     # the option plan should get exhausted.
-    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    policy = approach.solve(trivial_task, timeout=0.5)
     with pytest.raises(ApproachFailure) as e:
         utils.run_policy_with_simulator(policy,
                                         _simulator,
