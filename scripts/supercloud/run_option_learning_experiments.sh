@@ -19,10 +19,15 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
         # NOTE: segmenter is oracle
-        COMMON_ARGS="--env stick_point --min_data_for_nsrt 10 --segmenter oracle \
-            --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 --seed $SEED"
+        COMMON_ARGS="--env stick_point --min_perc_data_for_nsrt 1 \
+            --segmenter oracle --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
+            --seed $SEED"
 
         if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then
+
+            # TODO: can't launch this part yet.
+            # See https://github.com/Learning-and-Intelligent-Systems/predicators/issues/783
+
             # direct BC max skeletons 1
             python $FILE $COMMON_ARGS --experiment_id direct_bc_max_skel1_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sesame_max_skeletons_optimized 1 --load_a --load_d
 
