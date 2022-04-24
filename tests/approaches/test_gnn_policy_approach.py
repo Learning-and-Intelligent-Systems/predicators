@@ -171,7 +171,7 @@ def test_gnn_policy_approach_special_cases():
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
         "gnn_policy_solve_with_shooting": True,
-        "timeout": 0.1,
+        "timeout": 0.25,
         "horizon": 10
     })
     approach._option_model = _MockOptionModel1(_simulator)  # pylint: disable=protected-access
