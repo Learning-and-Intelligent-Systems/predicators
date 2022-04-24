@@ -188,7 +188,7 @@ def test_entropy():
     """Tests for entropy()."""
     assert np.allclose(utils.entropy(0.0), 0.0)
     assert np.allclose(utils.entropy(1.0), 0.0)
-    assert np.allclose(utils.entropy(0.5), 0.693, atol=0.001)
+    assert np.allclose(utils.entropy(0.5), 1.0, atol=0.001)
 
 
 def test_create_state_from_dict():
