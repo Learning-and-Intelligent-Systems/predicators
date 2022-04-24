@@ -123,6 +123,12 @@ def test_interactive_learning_approach():
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
+    # Test with variance score function and score threshold.
+    utils.update_config({
+        "interactive_score_function": "variance",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test with greedy lookahead action strategy.
     utils.update_config({
         "interactive_action_strategy": "greedy_lookahead",

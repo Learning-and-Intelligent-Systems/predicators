@@ -201,7 +201,7 @@ def entropy(p: float) -> float:
     assert 0.0 <= p <= 1.0
     if p in {0.0, 1.0}:
         return 0.0
-    return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+    return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
 def create_state_from_dict(data: Dict[Object, Dict[str, float]],
