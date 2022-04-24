@@ -184,6 +184,9 @@ class GNNPolicyApproach(GNNApproach):
             plan: List[_Option] = []
             # A single shooting try goes up to the environment's horizon.
             while total_num_act < CFG.horizon:
+                # Break early if we have timed out.
+                if time.time() - start_time < timeout:
+                    break
                 if task.goal_holds(state):
                     # We found a plan that achieves the goal under the
                     # option model, so return it.
@@ -219,6 +222,10 @@ class GNNPolicyApproach(GNNApproach):
                         self._option_model.get_next_state_and_num_actions(
                             state, opt)
                 except utils.EnvironmentFailure:
+                    break
+                # If num_act is zero, that means that the option is stuck in
+                # the state, so we should break to avoid infinite loops.
+                if num_act == 0:
                     break
                 total_num_act += num_act
         raise ApproachTimeout("Shooting timed out!")

@@ -200,3 +200,5 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
     assert "Option plan exhausted" in str(e)
+    # TODO: test that shooting does not infinitely hang in the case where the
+    # option model noops. (TODO because I can't figure out an easy way...)
