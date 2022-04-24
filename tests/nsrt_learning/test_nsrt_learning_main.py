@@ -14,6 +14,7 @@ def test_nsrt_learning_specific_nsrts():
     """Tests with a specific desired set of NSRTs."""
     utils.reset_config({
         "min_data_for_nsrt": 0,
+        "min_perc_data_for_nsrt": 0,
         "sampler_mlp_classifier_max_itr": 1000,
         "neural_gaus_regressor_max_itr": 1000
     })
@@ -195,14 +196,20 @@ def test_nsrt_learning_specific_nsrts():
     for nsrt in nsrts:
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
-    utils.update_config({"min_data_for_nsrt": 3})
+    utils.update_config({
+        "min_data_for_nsrt": 3,
+        "min_perc_data_for_nsrt": 0,
+    })
     nsrts = learn_nsrts_from_data(dataset, [],
                                   preds,
                                   action_space,
                                   sampler_learner="random")
     assert len(nsrts) == 0
     # Test minimum percent of examples parameter
-    utils.update_config({"min_perc_data_for_nsrt": 50})
+    utils.update_config({
+        "min_data_for_nsrt": 0,
+        "min_perc_data_for_nsrt": 90,
+    })
     nsrts = learn_nsrts_from_data(dataset, [],
                                   preds,
                                   action_space,
@@ -211,6 +218,7 @@ def test_nsrt_learning_specific_nsrts():
     # Test max_rejection_sampling_tries = 0
     utils.update_config({
         "min_data_for_nsrt": 0,
+        "min_perc_data_for_nsrt": 0,
         "max_rejection_sampling_tries": 0,
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
