@@ -201,6 +201,13 @@ def test_nsrt_learning_specific_nsrts():
                                   action_space,
                                   sampler_learner="random")
     assert len(nsrts) == 0
+    # Test minimum percent of examples parameter
+    utils.update_config({"min_perc_data_for_nsrt": 50})
+    nsrts = learn_nsrts_from_data(dataset, [],
+                                  preds,
+                                  action_space,
+                                  sampler_learner="random")
+    assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
     utils.update_config({
         "min_data_for_nsrt": 0,
