@@ -30,6 +30,9 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
         return _DirectBehaviorCloningOptionLearner(action_space)
     if CFG.option_learner == "implicit_bc":
         return _ImplicitBehaviorCloningOptionLearner(action_space)
+    if CFG.option_learner == "direct_bc_nonparameterized":
+        return _DirectBehaviorCloningOptionLearner(action_space,
+                                                   parameterized=False)
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -267,11 +270,18 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     it was in the initial state. To handle this, we save the *absolute* desired
     state in the memory of the option during initialization, and compute the
     updated delta on each call to the policy.
+
+    The parameterized kwarg is for a baseline that learns a policy without
+    continuous parameters. If it is False, the parameter space is null.
     """
 
-    def __init__(self, name: str, operator: STRIPSOperator,
-                 regressor: Regressor, changing_parameters: Sequence[Variable],
-                 action_space: Box) -> None:
+    def __init__(self,
+                 name: str,
+                 operator: STRIPSOperator,
+                 regressor: Regressor,
+                 changing_parameters: Sequence[Variable],
+                 action_space: Box,
+                 parameterized: bool = True) -> None:
         assert set(changing_parameters).issubset(set(operator.parameters))
         changing_parameter_idxs = [
             i for i, v in enumerate(operator.parameters)
@@ -279,14 +289,18 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         ]
         types = [v.type for v in operator.parameters]
         option_param_dim = sum(v.type.dim for v in changing_parameters)
-        params_space = Box(low=-np.inf,
-                           high=np.inf,
-                           shape=(option_param_dim, ),
-                           dtype=np.float32)
+        if parameterized:
+            params_space = Box(low=-np.inf,
+                               high=np.inf,
+                               shape=(option_param_dim, ),
+                               dtype=np.float32)
+        else:
+            params_space = Box(0, 1, (0, ), dtype=np.float32)
         self._operator = operator
         self._regressor = regressor
         self._changing_parameter_idxs = changing_parameter_idxs
         self._action_space = action_space
+        self._parameterized = parameterized
         super().__init__(name,
                          types,
                          params_space,
@@ -297,11 +311,14 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
                                       params: Array) -> bool:
-        # The memory here is used to store the absolute params, based on
-        # the relative params and the object states.
-        memory["params"] = params  # store for sanity checking in policy
-        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        memory["absolute_params"] = state.vec(changing_objects) + params
+        if self._parameterized:
+            # The memory here is used to store the absolute params, based on
+            # the relative params and the object states.
+            memory["params"] = params  # store for sanity checking in policy
+            changing_objects = [
+                objects[i] for i in self._changing_parameter_idxs
+            ]
+            memory["absolute_params"] = state.vec(changing_objects) + params
         # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
         return all(pre.holds(state) for pre in grounded_op.preconditions)
@@ -309,12 +326,15 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     def _regressor_based_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
-        # Compute the updated relative goal.
-        assert np.allclose(params, memory["params"])
-        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        relative_goal_vec = memory["absolute_params"] - state.vec(
-            changing_objects)
-        x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
+        if self._parameterized:
+            # Compute the updated relative goal.
+            assert np.allclose(params, memory["params"])
+            changing_objs = [objects[i] for i in self._changing_parameter_idxs]
+            relative_goal_vec = memory["absolute_params"] - state.vec(
+                changing_objs)
+            x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
+        else:
+            x = np.hstack(([1.0], state.vec(objects)))
         action_arr = self._regressor.predict(x)
         if np.isnan(action_arr).any():
             raise OptionExecutionFailure("Option policy returned nan.")
@@ -325,7 +345,8 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     def _effect_based_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        assert np.allclose(params, memory["params"])
+        if self._parameterized:
+            assert np.allclose(params, memory["params"])
         # The hope is that we terminate in the effects.
         grounded_op = self._operator.ground(tuple(objects))
         if all(e.holds(state) for e in grounded_op.add_effects) and \
@@ -350,12 +371,17 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     the operators, so the main thing that needs to be learned is the option
     policy. We learn this policy by behavior cloning (fitting a regressor
     via supervised learning) in learn_option_specs().
+
+    The parameterized kwarg is for a baseline that learns a policy without
+    continuous parameters. If it is False, the parameter space is null.
     """
 
-    def __init__(self, action_space: Box) -> None:
+    def __init__(self, action_space: Box, parameterized: bool = True) -> None:
         super().__init__()
         # Actions are clipped to stay within the action space.
         self._action_space = action_space
+        # See class docstring.
+        self._parameterized = parameterized
         # While learning the policy, we record the map from each segment to
         # the option parameterization, so we don't need to recompute it in
         # update_segment_from_option_spec.
@@ -400,12 +426,17 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                 ]
 
                 # First, determine the absolute goal vector for this segment.
-                changing_objects = [var_to_obj[v] for v in changing_parameters]
-                initial_state = segment.states[0]
-                final_state = segment.states[-1]
-                absolute_params = final_state.vec(changing_objects)
-                option_param = absolute_params - initial_state.vec(
-                    changing_objects)
+                if self._parameterized:
+                    changing_objects = [
+                        var_to_obj[v] for v in changing_parameters
+                    ]
+                    initial_state = segment.states[0]
+                    final_state = segment.states[-1]
+                    absolute_params = final_state.vec(changing_objects)
+                    option_param = absolute_params - initial_state.vec(
+                        changing_objects)
+                else:
+                    option_param = np.zeros((0, ), dtype=np.float32)
 
                 # Store the option parameterization for this segment so we can
                 # use it in update_segment_from_option_spec.
@@ -420,11 +451,14 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                 assert len(segment.states) == len(segment.actions) + 1
                 for state, action in zip(segment.states, segment.actions):
                     state_features = state.vec(all_objects_in_operator)
-                    # Compute the relative goal vector for this segment.
-                    relative_goal_vec = absolute_params - state.vec(
-                        changing_objects)
-                    # Add a bias term for regression.
-                    x = np.hstack(([1.0], state_features, relative_goal_vec))
+                    if self._parameterized:
+                        # Compute the relative goal vector for this segment.
+                        rel_goal_vec = absolute_params - state.vec(
+                            changing_objects)
+                        # Add a bias term for regression.
+                        x = np.hstack(([1.0], state_features, rel_goal_vec))
+                    else:
+                        x = np.hstack(([1.0], state_features))
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
 
@@ -442,7 +476,12 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
             # Construct the ParameterizedOption for this operator.
             name = f"{op.name}LearnedOption"
             parameterized_option = _LearnedNeuralParameterizedOption(
-                name, op, regressor, changing_parameters, self._action_space)
+                name,
+                op,
+                regressor,
+                changing_parameters,
+                self._action_space,
+                parameterized=self._parameterized)
             option_specs.append((parameterized_option, list(op.parameters)))
 
         return option_specs
