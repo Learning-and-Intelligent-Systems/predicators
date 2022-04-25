@@ -60,7 +60,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             pkl.dump(self._nsrts, f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        save_path = utils.get_approach_save_path_str()
+        save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
         if CFG.pretty_print_when_loading:

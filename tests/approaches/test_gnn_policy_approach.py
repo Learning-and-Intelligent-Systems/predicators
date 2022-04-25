@@ -213,5 +213,5 @@ def test_gnn_policy_approach_special_cases():
     # option model noops.
     approach._option_model = _MockOptionModel3(_simulator)  # pylint: disable=protected-access
     with pytest.raises(ApproachTimeout) as e:
-        policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+        policy = approach.solve(train_tasks[0], timeout=0.5)
     assert "Shooting timed out" in str(e)
