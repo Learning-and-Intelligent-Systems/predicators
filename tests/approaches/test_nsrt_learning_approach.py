@@ -16,7 +16,7 @@ def _test_approach(env_name,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
-                   side_predicate_learner="no_learning",
+                   strips_learner="cluster_and_intersect",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    additional_settings=None):
@@ -37,7 +37,7 @@ def _test_approach(env_name,
         "sesame_allow_noops": False,
         "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
-        "side_predicate_learner": side_predicate_learner,
+        "strips_learner": strips_learner,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
@@ -92,33 +92,37 @@ def test_nsrt_learning_approach():
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    try_solving=False)
-    for side_predicate_learner in [
-            "prediction_error_hill_climbing",
-            "preserve_skeletons_hill_climbing",
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
+                   strips_learner="cluster_and_search",
+                   try_solving=False)
+    for strips_learner in [
+            "cluster_and_intersect_sideline_prederror",
+            "cluster_and_intersect_sideline_harmlessness",
             "backchaining",
     ]:
         _test_approach(env_name="repeated_nextto",
                        approach_name="nsrt_learning",
                        try_solving=False,
                        sampler_learner="random",
-                       side_predicate_learner=side_predicate_learner)
-        if side_predicate_learner == "backchaining":
+                       strips_learner=strips_learner)
+        if strips_learner == "backchaining":
             _test_approach(env_name="repeated_nextto_single_option",
                            approach_name="nsrt_learning",
                            try_solving=False,
                            sampler_learner="random",
-                           side_predicate_learner=side_predicate_learner)
+                           strips_learner=strips_learner)
 
 
-def test_unknown_side_predicate_learner():
-    """Test that arbitrary sidelining approach throws an error."""
+def test_unknown_strips_learner():
+    """Test that arbitrary STRIPS learning approach throws an error."""
     with pytest.raises(ValueError) as e:
         _test_approach(env_name="repeated_nextto",
                        approach_name="nsrt_learning",
                        try_solving=False,
                        sampler_learner="random",
-                       side_predicate_learner="not_a_real_sidelining_strat")
-    assert "not implemented" in str(e)
+                       strips_learner="not a real strips learner")
+    assert "Unrecognized STRIPS learner" in str(e)
 
 
 def test_neural_option_learning():
@@ -235,3 +239,28 @@ def test_sampler_learning_with_goals():
                    sampler_learner="neural",
                    offline_data_method="demo",
                    additional_settings={"sampler_learning_use_goals": True})
+
+
+def test_oracle_strips_and_segmenter_learning():
+    """Test for oracle strips and segmenter learning in the stick point env
+    with direct BC option learning."""
+    additional_settings = {
+        "stick_point_num_points_train": [1],
+        "stick_point_num_points_test": [1],
+        "segmenter": "oracle",
+    }
+    # The expected behavior is that segmentation and STRIPS learning will go
+    # through, but then because there is such a limited number of demos, we
+    # will not see data for all operators, which will lead to a crash
+    # during option learning. This test still covers an important case, which
+    # is recomputing datastores in STRIPS learning when options are unknown.
+    with pytest.raises(Exception) as e:
+        _test_approach(env_name="stick_point",
+                       approach_name="nsrt_learning",
+                       strips_learner="oracle",
+                       option_learner="direct_bc",
+                       offline_data_method="demo",
+                       num_train_tasks=1,
+                       try_solving=False,
+                       additional_settings=additional_settings)
+    assert "No data found for learning an option." in str(e)

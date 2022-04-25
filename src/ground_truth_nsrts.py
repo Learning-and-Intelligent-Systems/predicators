@@ -26,7 +26,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
     """Create ground truth NSRTs for an env."""
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
                    "cover_regrasp", "cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding", "pybullet_cover"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -50,6 +51,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
+    elif CFG.env == "stick_point":
+        nsrts = _get_stick_point_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -109,13 +112,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                                            "HandEmpty", "Holding"])
 
     # Options
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
@@ -126,28 +132,33 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     parameters = [block]
     holding_predicate_args = [block]
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding"):
         parameters.append(robot)
         holding_predicate_args.append(robot)
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks") and \
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         option = Pick
         option_vars = [block]
 
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
@@ -205,21 +216,23 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 assert len(objs) == 2
             else:
                 assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 lb = -1.0
                 ub = 1.0
             elif CFG.env == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
-            elif CFG.env in ("cover", "cover_hierarchical_types",
-                             "cover_regrasp"):
+            elif CFG.env in ("cover", "pybullet_cover",
+                             "cover_hierarchical_types", "cover_regrasp"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -234,7 +247,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     parameters = [block, target]
     holding_predicate_args = [block]
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks"):
+                   "cover_multistep_options_fixed_tasks",
+                   "cover_multistep_options_holding"):
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
     preconditions = {
@@ -252,21 +266,25 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         preconditions.add(LiftedAtom(Clear, [target]))
         delete_effects.add(LiftedAtom(Clear, [target]))
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
+    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                   "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks"):
+                     "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding"):
         option = Place
         option_vars = [target]
         if CFG.env in ("cover_multistep_options",
-                       "cover_multistep_options_fixed_tasks") and \
+                       "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
             CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
     if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks") and \
+                   "cover_multistep_options_fixed_tasks",
+                     "cover_multistep_options_holding") and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, goal: Set[GroundAtom],
@@ -332,14 +350,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 assert len(objs) == 3
             else:
                 assert len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
             if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks"):
+                           "cover_multistep_options_fixed_tasks",
+                           "cover_multistep_options_holding"):
                 lb = -1.0
                 ub = 1.0
             else:
@@ -1941,6 +1961,169 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
                      delete_effects, side_predicates, option, option_vars,
                      null_sampler)
     nsrts.add(move_nsrt)
+
+    return nsrts
+
+
+def _get_stick_point_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for StickPointEnv."""
+    robot_type, point_type, stick_type = _get_types_by_names(
+        CFG.env, ["robot", "point", "stick"])
+    Touched, InContactRobotPoint, InContactRobotStick, InContactStickPoint, \
+        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(
+            CFG.env, ["Touched", "InContactRobotPoint", "InContactRobotStick",
+            "InContactStickPoint", "Grasped", "HandEmpty", "NoPointInContact"])
+    RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
+        CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
+
+    nsrts = set()
+
+    # RobotTouchPointFromNothing
+    robot = Variable("?robot", robot_type)
+    point = Variable("?point", point_type)
+    parameters = [robot, point]
+    option_vars = [robot, point]
+    option = RobotTouchPoint
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NoPointInContact, []),
+    }
+    add_effects = {
+        LiftedAtom(Touched, [point]),
+        LiftedAtom(InContactRobotPoint, [robot, point])
+    }
+    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    side_predicates: Set[Predicate] = set()
+    robot_touch_point_nsrt = NSRT("RobotTouchPointFromNothing", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  side_predicates, option, option_vars,
+                                  null_sampler)
+    nsrts.add(robot_touch_point_nsrt)
+
+    # RobotTouchPointFromPoint
+    robot = Variable("?robot", robot_type)
+    point = Variable("?point", point_type)
+    from_point = Variable("?from-point", point_type)
+    parameters = [robot, point, from_point]
+    option_vars = [robot, point]
+    option = RobotTouchPoint
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(InContactRobotPoint, [robot, from_point]),
+    }
+    add_effects = {
+        LiftedAtom(Touched, [point]),
+        LiftedAtom(InContactRobotPoint, [robot, point])
+    }
+    delete_effects = {LiftedAtom(InContactRobotPoint, [robot, from_point])}
+    side_predicates = set()
+    robot_touch_point_nsrt = NSRT("RobotTouchPointFromPoint", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  side_predicates, option, option_vars,
+                                  null_sampler)
+    nsrts.add(robot_touch_point_nsrt)
+
+    # PickStickFromNothing
+    robot = Variable("?robot", robot_type)
+    stick = Variable("?stick", stick_type)
+    parameters = [robot, stick]
+    option_vars = [robot, stick]
+    option = PickStick
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NoPointInContact, []),
+    }
+    add_effects = {
+        LiftedAtom(Grasped, [robot, stick]),
+        LiftedAtom(InContactRobotStick, [robot, stick])
+    }
+    delete_effects = {LiftedAtom(HandEmpty, [robot])}
+    side_predicates = set()
+
+    def pick_stick_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        # Normalized x position along the long dimension of the stick, in the
+        # center of the short dimension.
+        pick_pos = rng.uniform(0, 1)
+        return np.array([pick_pos], dtype=np.float32)
+
+    pick_stick_nsrt = NSRT("PickStickFromNothing", parameters, preconditions,
+                           add_effects, delete_effects, side_predicates,
+                           option, option_vars, pick_stick_sampler)
+    nsrts.add(pick_stick_nsrt)
+
+    # PickStickFromPoint
+    robot = Variable("?robot", robot_type)
+    stick = Variable("?stick", stick_type)
+    point = Variable("?from-point", point_type)
+    parameters = [robot, stick, point]
+    option_vars = [robot, stick]
+    option = PickStick
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(InContactRobotPoint, [robot, point])
+    }
+    add_effects = {
+        LiftedAtom(Grasped, [robot, stick]),
+        LiftedAtom(InContactRobotStick, [robot, stick]),
+        LiftedAtom(NoPointInContact, [])
+    }
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(InContactRobotPoint, [robot, point]),
+    }
+    side_predicates = set()
+    pick_stick_nsrt = NSRT("PickStickFromPoint", parameters, preconditions,
+                           add_effects, delete_effects, side_predicates,
+                           option, option_vars, pick_stick_sampler)
+    nsrts.add(pick_stick_nsrt)
+
+    # StickTouchPointFromNothing
+    robot = Variable("?robot", robot_type)
+    stick = Variable("?stick", stick_type)
+    point = Variable("?point", point_type)
+    parameters = [robot, stick, point]
+    option_vars = [robot, stick, point]
+    option = StickTouchPoint
+    preconditions = {
+        LiftedAtom(Grasped, [robot, stick]),
+        LiftedAtom(NoPointInContact, []),
+    }
+    add_effects = {
+        LiftedAtom(InContactStickPoint, [stick, point]),
+        LiftedAtom(Touched, [point])
+    }
+    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    side_predicates = set()
+    stick_point_nsrt = NSRT("StickTouchPointFromNothing", parameters,
+                            preconditions, add_effects, delete_effects,
+                            side_predicates, option, option_vars, null_sampler)
+    nsrts.add(stick_point_nsrt)
+
+    # StickTouchPointFromPoint
+    robot = Variable("?robot", robot_type)
+    stick = Variable("?stick", stick_type)
+    point = Variable("?point", point_type)
+    from_point = Variable("?from-point", point_type)
+    parameters = [robot, stick, point, from_point]
+    option_vars = [robot, stick, point]
+    option = StickTouchPoint
+    preconditions = {
+        LiftedAtom(Grasped, [robot, stick]),
+        LiftedAtom(InContactStickPoint, [stick, from_point])
+    }
+    add_effects = {
+        LiftedAtom(InContactStickPoint, [stick, point]),
+        LiftedAtom(Touched, [point])
+    }
+    delete_effects = {LiftedAtom(InContactStickPoint, [stick, from_point])}
+    side_predicates = set()
+    stick_point_nsrt = NSRT("StickTouchPointFromPoint", parameters,
+                            preconditions, add_effects, delete_effects,
+                            side_predicates, option, option_vars, null_sampler)
+    nsrts.add(stick_point_nsrt)
 
     return nsrts
 

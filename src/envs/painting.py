@@ -53,6 +53,7 @@ class PaintingEnv(BaseEnv):
     side_grasp_thresh: ClassVar[float] = 0.5 - 1e-2
     robot_x: ClassVar[float] = table_x - 0.5
     nextto_thresh: ClassVar[float] = 1.0
+    on_table_height_tol: ClassVar[float] = 5e-02
 
     def __init__(self) -> None:
         super().__init__()
@@ -101,30 +102,26 @@ class PaintingEnv(BaseEnv):
             self._Pick_policy,
             types=[self._robot_type, self._obj_type],
             params_space=Box(np.array([-0.01], dtype=np.float32),
-                             np.array([1.01], dtype=np.float32)),
-            initiable=self._handempty_initiable)
+                             np.array([1.01], dtype=np.float32)))
         self._Wash = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "Wash",
             self._Wash_policy,
-            types=[self._robot_type],
-            initiable=self._holding_initiable)
+            types=[self._robot_type])
         self._Dry = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "Dry",
             self._Dry_policy,
-            types=[self._robot_type],
-            initiable=self._holding_initiable)
+            types=[self._robot_type])
         self._Paint = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [new color]
             "Paint",
             self._Paint_policy,
             types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )),
-            initiable=self._holding_initiable)
+            params_space=Box(-0.01, 1.01, (1, )))
         self._Place = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
@@ -135,15 +132,13 @@ class PaintingEnv(BaseEnv):
                 np.array([self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2],
                          dtype=np.float32),
                 np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
-                         dtype=np.float32)),
-            initiable=self._holding_initiable)
+                         dtype=np.float32)))
         self._OpenLid = utils.SingletonParameterizedOption(
             # variables: [robot, lid]
             # params: []
             "OpenLid",
             self._OpenLid_policy,
-            types=[self._robot_type, self._lid_type],
-            initiable=self._handempty_initiable)
+            types=[self._robot_type, self._lid_type])
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -285,7 +280,19 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
         if self._update_z_poses:
-            next_state.set(held_obj, "pose_z", z)
+            if receptacle == "table" and np.allclose(
+                    z,
+                    self.table_height + self.obj_height / 2,
+                    rtol=self.on_table_height_tol):
+                # If placing on table, snap the object to the correct z
+                # position as long as the place location is close enough
+                # (measured by rtol) to the correct table height. This
+                # is necessary for learned samplers to have any hope of
+                # placing objects on the table.
+                next_state.set(held_obj, "pose_z",
+                               self.table_height + self.obj_height / 2)
+            else:
+                next_state.set(held_obj, "pose_z", z)
         next_state.set(held_obj, "grasp", 0.5)
         next_state.set(held_obj, "held", 0.0)
         return next_state
@@ -613,18 +620,6 @@ class PaintingEnv(BaseEnv):
         x, y, z = params
         arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
-
-    def _holding_initiable(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        # An initiation function for an option that requires holding an object.
-        del objects, params, memory  # unused
-        return self._get_held_object(state) is not None
-
-    def _handempty_initiable(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        # An initiation function for an option that requires holding nothing.
-        del objects, params, memory  # unused
-        return self._get_held_object(state) is None
 
     def _OpenLid_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:

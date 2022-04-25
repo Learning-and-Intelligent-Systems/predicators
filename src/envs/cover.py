@@ -23,6 +23,9 @@ class CoverEnv(BaseEnv):
     _allow_free_space_placing: ClassVar[bool] = False
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
+    _workspace_x: ClassVar[float] = 1.35
+    _workspace_z: ClassVar[float] = 0.75
+
     def __init__(self) -> None:
         super().__init__()
         # Types
@@ -30,7 +33,7 @@ class CoverEnv(BaseEnv):
             "block", ["is_block", "is_target", "width", "pose", "grasp"])
         self._target_type = Type("target",
                                  ["is_block", "is_target", "width", "pose"])
-        self._robot_type = Type("robot", ["hand"])
+        self._robot_type = Type("robot", ["hand", "pose_x", "pose_z"])
         # Predicates
         self._IsBlock = Predicate("IsBlock", [self._block_type],
                                   self._IsBlock_holds)
@@ -43,8 +46,10 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         # Options
-        self._PickPlace = utils.SingletonParameterizedOption(
-            "PickPlace", self._PickPlace_policy, params_space=Box(0, 1, (1, )))
+        self._PickPlace: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
+                "PickPlace", self._PickPlace_policy,
+                params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -277,21 +282,23 @@ class CoverEnv(BaseEnv):
                     break
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
-        # [hand]
-        data[self._robot] = np.array([0.0])
+        # [hand, pose_x, pose_z]
+        # For the non-PyBullet environments, pose_x and pose_z are constant.
+        data[self._robot] = np.array(
+            [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
             block = blocks[rng.choice(len(blocks))]
-            pick_pose = state.get(block, "pose")
+            block_pose = state.get(block, "pose")
+            pick_pose = block_pose
             if self._initial_pick_offsets:
                 offset = rng.choice(self._initial_pick_offsets)
                 assert -1.0 < offset < 1.0, \
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
-            action = Action(np.array([pick_pose], dtype=np.float32))
-            state = self.simulate(state, action)
-            assert self._Holding_holds(state, [block])
+            state.set(self._robot, "hand", pick_pose)
+            state.set(block, "grasp", pick_pose - block_pose)
         return state
 
     @staticmethod
@@ -312,7 +319,8 @@ class CoverEnv(BaseEnv):
         target_pose = state.get(target, "pose")
         target_width = state.get(target, "width")
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
-               (block_pose+block_width/2 >= target_pose+target_width/2)
+               (block_pose+block_width/2 >= target_pose+target_width/2) and \
+               state.get(block, "grasp") == -1
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -614,6 +622,25 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                            state.get(held_block, "y")
                 hw, hh = state.get(held_block, "width"), \
                          state.get(held_block, "height")
+                # Note: the block (x, y) is the middle-top of the block. The
+                # Rectangle expects the lower left corner as (x, y).
+                held_rect = utils.Rectangle(x=(hx - hw / 2),
+                                            y=(hy - hh),
+                                            width=hw,
+                                            height=hh,
+                                            theta=0)
+                next_held_rect = utils.Rectangle(x=(held_rect.x + dx),
+                                                 y=(held_rect.y + dy),
+                                                 width=held_rect.width,
+                                                 height=held_rect.height,
+                                                 theta=held_rect.theta)
+                # Compute line segments corresponding to the movement of each
+                # of the held object vertices.
+                held_move_segs = [
+                    utils.LineSegment(x1, y1, x2, y2) for (x1, y1), (
+                        x2,
+                        y2) in zip(held_rect.vertices, next_held_rect.vertices)
+                ]
 
         # Ensure neither the gripper nor the possible held block go below the
         # y-axis.
@@ -625,47 +652,34 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Ensure neither the gripper nor the possible held block collide with
         # another block during the trajectory defined by dx, dy.
-        p1 = (x, y)
-        p2 = (x + dx, y + dy)
+        grip_move_seg = utils.LineSegment(x, y, x + dx, y + dy)
         for block in blocks:
+            if held_block is not None and block == held_block:
+                continue
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
             ct = self.collision_threshold
-            # These segments defines a slightly smaller rectangle to prevent
+            # These segments define a slightly smaller rectangle to prevent
             # floating point arithmetic making us declare a false positive.
-            segments = [
-                ((bx - bw / 2 + ct, by - ct), (bx + bw / 2 - ct,
-                                               by - ct)),  # top
-                ((bx + bw / 2 - ct, by - ct), (bx + bw / 2 - ct,
-                                               by - bh)),  # right
-                ((bx - bw / 2 + ct, by - ct), (bx - bw / 2 + ct, by - bh)
-                 )  # left
-            ]
-            # Check if the robot collides with a block.
-            if held_block is not None and block == held_block:
-                continue
-            if any(utils.intersects(p1, p2, p3, p4) for p3, p4 in segments):
+            # Note: the block (x, y) is the middle-top of the block. The
+            # Rectangle expects the lower left corner as (x, y).
+            rect = utils.Rectangle(x=(bx - bw / 2 + ct),
+                                   y=(by - bh + ct),
+                                   width=(bw - 2 * ct),
+                                   height=(bh - 2 * ct),
+                                   theta=0)
+            # Check if the robot would collide with this block during moving.
+            if rect.intersects(grip_move_seg):
                 return state.copy()
             # Check if the held_block collides with a block.
-            # For each of the four vertices of our held block, construct the
-            # line segment from its old location to its new location, and check
-            # if this line segment intersects any segment of the block. Also
-            # check if the blocks overlap.
             if held_block is None:
                 continue
-            # Check translations.
-            vertices = [(hx-hw/2, hy), (hx+hw/2, hy), \
-                        (hx-hw/2, hy-hh), (hx+hw/2, hy-hh)]
-            translations = [((vx, vy), (vx+dx, vy+dy)) \
-                            for vx, vy in vertices]
-            if any(utils.intersects(p1, p2, p3, p4) \
-                for p1, p2 in translations for p3, p4 in segments):
+            # Check the line segments corresponding to the movement of each
+            # of the held object vertices.
+            if any(seg.intersects(rect) for seg in held_move_segs):
                 return state.copy()
-            # Check overlap
-            l1, r1 = (hx - hw / 2 + dx, hy + dy), (hx + hw / 2 + dx,
-                                                   hy - hh + dy)
-            l2, r2 = (bx - bw / 2, by), (bx + bw / 2, by - bh)
-            if utils.overlap(l1, r1, l2, r2):
+            # Check for overlap between the held object and this block.
+            if rect.intersects(next_held_rect):
                 return state.copy()
 
         # No collisions; update robot and possible held block state based on
@@ -1255,3 +1269,32 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
         del rng
         zero_rng = np.random.default_rng(0)
         return super()._create_initial_state(blocks, targets, zero_rng)
+
+
+class CoverMultistepOptionsHolding(CoverMultistepOptions):
+    """A variation of CoverMultistepOptions where the goals only involve
+    Holding.
+
+    This environment is useful for debugging option learning.
+    """
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_multistep_options_holding"
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Holding}
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        blocks, targets = self._create_blocks_and_targets()
+        for _ in range(num):
+            init = self._create_initial_state(blocks, targets, rng)
+            assert init.get_objects(self._block_type) == blocks
+            assert init.get_objects(self._target_type) == targets
+            goal_block_idx = rng.choice(len(blocks))
+            goal_block = blocks[goal_block_idx]
+            goal = {GroundAtom(self._Holding, [goal_block, self._robot])}
+            tasks.append(Task(init, goal))
+        return tasks

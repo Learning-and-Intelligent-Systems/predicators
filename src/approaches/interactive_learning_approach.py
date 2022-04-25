@@ -13,13 +13,13 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
+from predicators.src.ml_models import LearnedPredicateClassifier, \
+    MLPBinaryClassifierEnsemble
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Query, State, Task, Type
-from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPBinaryClassifierEnsemble
+    Query, State, Task, Type, _GroundNSRT
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -170,6 +170,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._score_atom_set_entropy(atom_set, state)
         if CFG.interactive_score_function == "BALD":
             return self._score_atom_set_bald(atom_set, state)
+        if CFG.interactive_score_function == "variance":
+            return self._score_atom_set_variance(atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -186,6 +188,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns an action policy and a termination function."""
         if CFG.interactive_action_strategy == "glib":
             return self._create_glib_interaction_strategy(train_task_idx)
+        if CFG.interactive_action_strategy == "greedy_lookahead":
+            return self._create_greedy_lookahead_interaction_strategy(
+                train_task_idx)
         if CFG.interactive_action_strategy == "random":
             return self._create_random_interaction_strategy(train_task_idx)
         raise NotImplementedError("Unrecognized interactive_action_strategy:"
@@ -254,6 +259,77 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Stop the episode if we reach the goal that we babbled.
         termination_function = task.goal_holds
         return act_policy, termination_function
+
+    def _create_greedy_lookahead_interaction_strategy(
+        self, train_task_idx: int
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Sample a certain number of max-length trajectories and pick the one
+        that has the highest cumulative score."""
+        init = self._train_tasks[train_task_idx].init
+        # Create all applicable ground NSRTs
+        ground_nsrts: List[_GroundNSRT] = []
+        for nsrt in sorted(self._get_current_nsrts()):
+            ground_nsrts.extend(utils.all_ground_nsrts(nsrt, list(init)))
+        # Sample trajectories by sampling random sequences of NSRTs.
+        best_score = -np.inf
+        best_options = []
+        for _ in range(CFG.interactive_max_num_trajectories):
+            state = init.copy()
+            options = []
+            trajectory_length = 0
+            total_score = 0.0
+            while trajectory_length < CFG.interactive_max_trajectory_length:
+                # Sample an NSRT that has preconditions satisfied in the
+                # current state.
+                ground_nsrt = self._sample_applicable_ground_nsrt(
+                    state, ground_nsrts)
+                if ground_nsrt is None:  # No applicable NSRTs
+                    break
+                assert all(a.holds for a in ground_nsrt.preconditions)
+                # Sample an option. Note that goal is assumed not used.
+                assert not CFG.sampler_learning_use_goals
+                option = ground_nsrt.sample_option(state,
+                                                   goal=set(),
+                                                   rng=self._rng)
+                # Assume for now that options will be initiable when the
+                # preconditions of the NSRT are satisfied.
+                assert option.initiable(state)
+                state, num_actions = \
+                    self._option_model.get_next_state_and_num_actions(state,
+                                                                      option)
+                # Special case: if the num actions is 0, something went wrong,
+                # and we don't want to use this option after all. To prevent
+                # possible infinite loops, just break immediately in this case.
+                if num_actions == 0:
+                    break
+                options.append(option)
+                trajectory_length += num_actions
+                # Update the total score.
+                atoms = utils.abstract(state, self._predicates_to_learn)
+                total_score += self._score_atom_set(atoms, state)
+            if total_score > best_score:
+                best_score = total_score
+                best_options = options
+        assert not np.isinf(best_score)
+        act_policy = utils.option_plan_to_policy(best_options)
+        # When the act policy finishes, an OptionExecutionFailure is raised
+        # and caught, terminating the episode.
+        termination_function = lambda s: False
+
+        return act_policy, termination_function
+
+    def _sample_applicable_ground_nsrt(
+            self, state: State,
+            ground_nsrts: Sequence[_GroundNSRT]) -> Optional[_GroundNSRT]:
+        """Choose uniformly among the ground NSRTs that are applicable in the
+        state."""
+        atoms = utils.abstract(state, self._get_current_predicates())
+        applicable_nsrts = sorted(
+            utils.get_applicable_operators(ground_nsrts, atoms))
+        if len(applicable_nsrts) == 0:
+            return None
+        idx = self._rng.choice(len(applicable_nsrts))
+        return applicable_nsrts[idx]
 
     def _create_random_interaction_strategy(
         self, train_task_idx: int
@@ -351,7 +427,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_entropy(self, atom_set: Set[GroundAtom],
                                 state: State) -> float:
         """Score an atom set as the sum of the entropies of each atom's
-        predicate."""
+        predicate classifier."""
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -363,7 +439,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
                              state: State) -> float:
         """Score an atom set as the sum of the BALD objectives of each atom's
-        predicate."""
+        predicate classifier."""
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -371,4 +447,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 atom.predicate.name].predict_member_probas(x)
             entropy = utils.entropy(np.mean(ps))
             objective += entropy - np.mean([utils.entropy(p) for p in ps])
+        return objective
+
+    def _score_atom_set_variance(self, atom_set: Set[GroundAtom],
+                                 state: State) -> float:
+        """Score an atom set as the sum of the variances of the ensemble
+        predictions for each atom's classifier."""
+        objective = 0.0
+        for atom in atom_set:
+            x = state.vec(atom.objects)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
+            objective += np.var(ps)
         return objective

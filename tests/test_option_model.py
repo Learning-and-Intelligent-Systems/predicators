@@ -4,8 +4,8 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.option_model import _OracleOptionModel, \
-    create_option_model
+from predicators.src.option_model import _BehaviorOptionModel, \
+    _OracleOptionModel, create_option_model
 from predicators.src.structs import Action, ParameterizedOption, State, Type
 
 
@@ -130,6 +130,33 @@ def test_default_option_model():
     assert num_act == 0
     assert state.allclose(next_state)
 
+    # Test case where an option gets stuck in a state.
+    never_terminate = lambda s, o, m, p: False
+    infinite_param_opt = ParameterizedOption("InfiniteLearnedOption", [],
+                                             params_space, policy, initiable,
+                                             never_terminate)
+
+    class _NoopMockEnv:
+
+        @staticmethod
+        def simulate(state, action):
+            """A mock simulate method."""
+            del action  # unused
+            return state.copy()
+
+        @property
+        def options(self):
+            """Mock options."""
+            return {infinite_param_opt}
+
+    infinite_option = infinite_param_opt.ground([], params1)
+    env = _NoopMockEnv()
+    model = _OracleOptionModel(env)
+    next_state, num_act = model.get_next_state_and_num_actions(
+        state, infinite_option)
+    assert next_state.allclose(state)
+    assert num_act == 0
+
 
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors."""
@@ -155,3 +182,5 @@ def test_create_option_model():
     })
     model = create_option_model("oracle_blocks")
     assert isinstance(model, _OracleOptionModel)
+    model = create_option_model("oracle_behavior")
+    assert isinstance(model, _BehaviorOptionModel)

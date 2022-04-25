@@ -40,15 +40,6 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
-    # ("MIN_SKELETONS", "min_skeletons_optimized"),
-    # ("MAX_SKELETONS", "max_skeletons_optimized"),
-    # ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
-    # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
-    # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
-    # ("AVG_PLAN_LEN", "avg_plan_length"),
-    # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
-    # ("NUM_TRANSITIONS", "num_transitions"),
 ]
 
 DERIVED_KEYS = [("perc_solved",

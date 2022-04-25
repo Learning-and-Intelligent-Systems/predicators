@@ -142,8 +142,12 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
-        segments = [seg for traj in segmented_trajs for seg in traj]
-        pnads = learn_strips_operators(segments, verbose=False)
+        pnads = learn_strips_operators(low_level_trajs,
+                                       self._train_tasks,
+                                       set(candidate_predicates
+                                           | self._initial_predicates),
+                                       segmented_trajs,
+                                       verbose=False)
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
@@ -191,7 +195,7 @@ class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
         del candidate_predicates, low_level_trajs  # unused
         segments = [seg for traj in segmented_trajs for seg in traj]
         num_true_positives, num_false_positives, _, _ = \
-            _count_positives_for_ops(strips_ops, option_specs, segments)
+            utils.count_positives_for_ops(strips_ops, option_specs, segments)
         return CFG.grammar_search_false_pos_weight * num_false_positives + \
                CFG.grammar_search_true_pos_weight * (-num_true_positives)
 
@@ -209,7 +213,8 @@ class _BranchingFactorScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         del candidate_predicates, low_level_trajs, option_specs  # unused
         segments = [seg for traj in segmented_trajs for seg in traj]
-        total_branching_factor = _count_branching_factor(strips_ops, segments)
+        total_branching_factor = utils.count_branching_factor(
+            strips_ops, segments)
         return CFG.grammar_search_bf_weight * total_branching_factor
 
 
@@ -750,74 +755,3 @@ class _ExactHeuristicCountBasedScoreFunction(_ExactHeuristicBasedScoreFunction,
                                              ):
     """Implement _generate_heuristic() with exact planning and
     _evaluate_atom_trajectory() with counting-based lookahead."""
-
-
-def _count_positives_for_ops(
-    strips_ops: List[STRIPSOperator],
-    option_specs: List[OptionSpec],
-    segments: List[Segment],
-) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
-    """Returns num true positives, num false positives, and for each strips op,
-    lists of segment indices that contribute true or false positives.
-
-    The lists of segment indices are useful only for debugging; they are
-    otherwise redundant with num_true_positives/num_false_positives.
-    """
-    assert len(strips_ops) == len(option_specs)
-    num_true_positives = 0
-    num_false_positives = 0
-    # The following two lists are just useful for debugging.
-    true_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
-    false_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
-    for idx, segment in enumerate(segments):
-        objects = set(segment.states[0])
-        segment_option = segment.get_option()
-        option_objects = segment_option.objects
-        covered_by_some_op = False
-        # Ground only the operators with a matching option spec.
-        for op_idx, (op,
-                     option_spec) in enumerate(zip(strips_ops, option_specs)):
-            # If the parameterized options are different, not relevant.
-            if option_spec[0] != segment_option.parent:
-                continue
-            option_vars = option_spec[1]
-            assert len(option_vars) == len(option_objects)
-            option_var_to_obj = dict(zip(option_vars, option_objects))
-            # We want to get all ground operators whose corresponding
-            # substitution is consistent with the option vars for this
-            # segment. So, determine all of the operator variables
-            # that are not in the option vars, and consider all
-            # groundings of them.
-            for ground_op in utils.all_ground_operators_given_partial(
-                    op, objects, option_var_to_obj):
-                # Check the ground_op against the segment.
-                if not ground_op.preconditions.issubset(segment.init_atoms):
-                    continue
-                if ground_op.add_effects == segment.add_effects and \
-                   ground_op.delete_effects == segment.delete_effects:
-                    covered_by_some_op = True
-                    true_positive_idxs[op_idx].add(idx)
-                else:
-                    false_positive_idxs[op_idx].add(idx)
-                    num_false_positives += 1
-        if covered_by_some_op:
-            num_true_positives += 1
-    return num_true_positives, num_false_positives, \
-        true_positive_idxs, false_positive_idxs
-
-
-def _count_branching_factor(strips_ops: List[STRIPSOperator],
-                            segments: List[Segment]) -> int:
-    """Returns the total branching factor for all states in the segments."""
-    total_branching_factor = 0
-    for segment in segments:
-        atoms = segment.init_atoms
-        objects = set(segment.states[0])
-        ground_ops = {
-            ground_op
-            for op in strips_ops
-            for ground_op in utils.all_ground_operators(op, objects)
-        }
-        for _ in utils.get_applicable_operators(ground_ops, atoms):
-            total_branching_factor += 1
-    return total_branching_factor

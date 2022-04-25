@@ -1,7 +1,6 @@
 """Create offline datasets by collecting demonstrations."""
 
 import logging
-import os
 from typing import List
 
 from predicators.src import utils
@@ -44,18 +43,16 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 termination_function=lambda s: False,
                 max_num_steps=CFG.horizon,
                 exceptions_to_break_on={utils.OptionExecutionFailure})
-            # Even though we're running the full plan, we should still check
-            # that the goal holds at the end.
-            assert task.goal_holds(traj.states[-1]), \
-                "Oracle failed on training task"
-        except (ApproachTimeout, ApproachFailure, AssertionError) as e:
-            # This should be extremely rare, so we only allow the script
-            # to continue on supercloud, when running batch experiments.
+        except (ApproachTimeout, ApproachFailure,
+                utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
-            if not os.getcwd().startswith("/home/gridsan"):
-                raise e
-            continue  # pragma: no cover
+            continue
+        # Even though we're running the full plan, we should still check
+        # that the goal holds at the end.
+        if not task.goal_holds(traj.states[-1]):  # pragma: no cover
+            logging.warning("WARNING: Oracle failed on training task.")
+            continue
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
                                   traj.actions,

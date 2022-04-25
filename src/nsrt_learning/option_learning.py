@@ -7,15 +7,16 @@ import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
+from gym.spaces import Box
 
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.ml_models import ImplicitMLPRegressor, MLPRegressor, \
+    Regressor
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Box, Datastore, Object, \
+from predicators.src.structs import Action, Array, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable
-from predicators.src.torch_models import ImplicitMLPRegressor, MLPRegressor, \
-    Regressor
 from predicators.src.utils import OptionExecutionFailure
 
 
@@ -117,7 +118,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
-            assert len(strips_ops) == 3
+            assert len(strips_ops) == 4
             PickPlace = [
                 option for option in env.options if option.name == "PickPlace"
             ][0]
@@ -426,6 +427,9 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     x = np.hstack(([1.0], state_features, relative_goal_vec))
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
+
+            if not X_regressor:
+                raise Exception("No data found for learning an option.")
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)

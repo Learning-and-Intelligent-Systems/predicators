@@ -58,6 +58,7 @@ class BilevelPlanningApproach(BaseApproach):
                                         seed,
                                         self._task_planning_heuristic,
                                         self._max_skeletons_optimized,
+                                        max_horizon=CFG.horizon,
                                         allow_noops=CFG.sesame_allow_noops)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
