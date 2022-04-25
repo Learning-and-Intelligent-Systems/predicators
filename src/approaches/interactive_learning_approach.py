@@ -193,6 +193,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 train_task_idx)
         if CFG.interactive_action_strategy == "random":
             return self._create_random_interaction_strategy(train_task_idx)
+        if CFG.interactive_action_strategy == "do_nothing":
+            return self._create_do_nothing_interaction_strategy(train_task_idx)
         raise NotImplementedError("Unrecognized interactive_action_strategy:"
                                   f" {CFG.interactive_action_strategy}")
 
@@ -342,6 +344,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         task = self._train_tasks[train_task_idx]
         act_policy = random_options_approach.solve(task, CFG.timeout)
 
+        # Termination is left to the environment, as in
+        # CFG.max_num_steps_interaction_request.
+        termination_function = lambda _: False
+        return act_policy, termination_function
+
+    def _create_do_nothing_interaction_strategy(
+        self, train_task_idx: int
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Do nothing until timeout."""
+        act_policy = lambda s: None  # TODO
         # Termination is left to the environment, as in
         # CFG.max_num_steps_interaction_request.
         termination_function = lambda _: False
