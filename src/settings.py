@@ -217,6 +217,7 @@ class GlobalSettings:
     interactive_query_policy = "threshold"
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
+    interactive_random_query_prob = 0.5  # for query policy random
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
     # for action strategy greedy_lookahead
