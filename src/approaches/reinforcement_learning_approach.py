@@ -29,7 +29,6 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         self._online_learning_cycle = 0
         self._initial_trajectories: List[LowLevelTrajectory] = []
         self._online_trajectories: List[LowLevelTrajectory] = []
-        # TODO: initialize option learner
 
     @classmethod
     def get_name(cls) -> str:
