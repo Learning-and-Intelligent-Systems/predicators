@@ -30,13 +30,14 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # Silent kid
     python $FILE $COMMON_ARGS --experiment_id silent_kid --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function trivial
     # Random kid
-    # TODO
+    # TODO: set query probability to match main approach
+    python $FILE $COMMON_ARGS --experiment_id random_kid --interactive_query_policy random --interactive_random_query_prob 0.8 --interactive_score_function trivial
 
     ## Action baselines
     # GLIB
     python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy glib
     # Random actions
-    # TODO
+    python $FILE $COMMON_ARGS --experiment_id random_actions --interactive_action_strategy random
     # No actions
     # TODO
 
