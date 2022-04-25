@@ -226,7 +226,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             pkl.dump(info, f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        save_path = utils.get_approach_save_path_str()
+        save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.gnn", "rb") as f:
             info = pkl.load(f)
         # Initialize fields from loaded dictionary.

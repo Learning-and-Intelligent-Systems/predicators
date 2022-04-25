@@ -87,13 +87,29 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
-        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3"
+        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--experiment_id", "foobar"
     ]
     main()
     # Try loading approaches.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--load_approach", "--cover_initial_holding_prob", "0.0"
+    ]
+    main()
+    # Try loading with a bad experiment id.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--experiment_id", "baz"
+    ]
+    with pytest.raises(FileNotFoundError):
+        main()
+    # Try loading with load experiment id.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--load_experiment_id", "foobar", "--experiment_id", "baz"
     ]
     main()
     # Try remaking data (this is the default).
