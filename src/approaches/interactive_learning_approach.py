@@ -47,7 +47,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         super().load(online_learning_cycle)
-        save_path = utils.get_approach_save_path_str()
+        save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
         self._dataset = save_dict["dataset"]
