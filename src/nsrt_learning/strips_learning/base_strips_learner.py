@@ -30,6 +30,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._segmented_trajs = segmented_trajs
         self._verify_harmlessness = verify_harmlessness
         self._verbose = verbose
+        self._num_segments = sum(len(t) for t in segmented_trajs)
         assert len(self._trajectories) == len(self._segmented_trajs)
 
     def learn(self) -> List[PartialNSRTAndDatastore]:
@@ -43,9 +44,10 @@ class BaseSTRIPSLearner(abc.ABC):
         learned_pnads = self._learn()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
             assert self._check_harmlessness(learned_pnads)
+        min_data = max(CFG.min_data_for_nsrt,
+                       self._num_segments * CFG.min_perc_data_for_nsrt / 100)
         learned_pnads = [
-            pnad for pnad in learned_pnads
-            if len(pnad.datastore) >= CFG.min_data_for_nsrt
+            pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
         ]
         return learned_pnads
 

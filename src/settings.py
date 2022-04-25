@@ -125,6 +125,7 @@ class GlobalSettings:
     # stick point env parameters
     stick_point_num_points_train = [1, 2]
     stick_point_num_points_test = [3, 4]
+    stick_point_disable_angles = True
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -173,6 +174,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
+    min_perc_data_for_nsrt = 0
     # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
     # for valid settings.
     strips_learner = "cluster_and_intersect"
