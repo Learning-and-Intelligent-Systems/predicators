@@ -75,6 +75,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         while nec_pnad_set_changed:
             nec_pnad_set_changed = self._backchain_once(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
+
+        # Finish learning by adding in the delete effects and side predicates.
         all_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
         # Assert that every datapoint appears in exactly one datastore.
