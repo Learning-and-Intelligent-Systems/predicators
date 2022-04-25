@@ -196,9 +196,6 @@ class GNNPolicyApproach(GNNApproach):
                             raise ApproachFailure(e.args[0], e.info)
 
                     return _policy
-                # Break early if we have timed out.
-                if time.time() - start_time < timeout:
-                    break
                 atoms = utils.abstract(state, self._initial_predicates)
                 param_opt, objects, params_mean = self._predict(
                     state, atoms, task.goal)
@@ -228,4 +225,7 @@ class GNNPolicyApproach(GNNApproach):
                 if num_act == 0:
                     break
                 total_num_act += num_act
+                # Break early if we have timed out.
+                if time.time() - start_time < timeout:
+                    break
         raise ApproachTimeout("Shooting timed out!")
