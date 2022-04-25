@@ -47,7 +47,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         super().load(online_learning_cycle)
-        save_path = utils.get_approach_save_path_str()
+        save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
             save_dict = pkl.load(f)
         self._dataset = save_dict["dataset"]
@@ -170,6 +170,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._score_atom_set_entropy(atom_set, state)
         if CFG.interactive_score_function == "BALD":
             return self._score_atom_set_bald(atom_set, state)
+        if CFG.interactive_score_function == "variance":
+            return self._score_atom_set_variance(atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -204,6 +206,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._create_best_seen_query_policy(strict=False)
         if CFG.interactive_query_policy == "threshold":
             return self._create_threshold_query_policy()
+        if CFG.interactive_query_policy == "random":
+            return self._create_random_query_policy()
         raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
 
@@ -381,6 +385,21 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return _query_policy
 
+    def _create_random_query_policy(
+            self) -> Callable[[State], Optional[Query]]:
+        """Query each possible atom with a certain probability."""
+
+        def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
+            ground_atoms = utils.all_possible_ground_atoms(
+                s, self._predicates_to_learn)
+            atoms_to_query = set()
+            for atom in ground_atoms:
+                if self._rng.random() < CFG.interactive_random_query_prob:
+                    atoms_to_query.add(atom)
+            return GroundAtomsHoldQuery(atoms_to_query)
+
+        return _query_policy
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         for result in results:
@@ -425,7 +444,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_entropy(self, atom_set: Set[GroundAtom],
                                 state: State) -> float:
         """Score an atom set as the sum of the entropies of each atom's
-        predicate."""
+        predicate classifier."""
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -437,7 +456,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
                              state: State) -> float:
         """Score an atom set as the sum of the BALD objectives of each atom's
-        predicate."""
+        predicate classifier."""
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -445,4 +464,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 atom.predicate.name].predict_member_probas(x)
             entropy = utils.entropy(np.mean(ps))
             objective += entropy - np.mean([utils.entropy(p) for p in ps])
+        return objective
+
+    def _score_atom_set_variance(self, atom_set: Set[GroundAtom],
+                                 state: State) -> float:
+        """Score an atom set as the sum of the variances of the ensemble
+        predictions for each atom's classifier."""
+        objective = 0.0
+        for atom in atom_set:
+            x = state.vec(atom.objects)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
+            objective += np.var(ps)
         return objective

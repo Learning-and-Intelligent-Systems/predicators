@@ -125,6 +125,7 @@ class GlobalSettings:
     # stick point env parameters
     stick_point_num_points_train = [1, 2]
     stick_point_num_points_test = [3, 4]
+    stick_point_disable_angles = True
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -173,6 +174,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
+    min_perc_data_for_nsrt = 0
     # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
     # for valid settings.
     strips_learner = "cluster_and_intersect"
@@ -217,6 +219,7 @@ class GlobalSettings:
     interactive_query_policy = "threshold"
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
+    interactive_random_query_prob = 0.5  # for query policy random
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
     # for action strategy greedy_lookahead

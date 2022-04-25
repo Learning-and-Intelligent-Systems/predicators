@@ -111,7 +111,10 @@ class StickPointEnv(BaseEnv):
         # Actions are normalized to [-1, 1]. Denormalize them here.
         dx = norm_dx * self.max_speed
         dy = norm_dy * self.max_speed
-        dtheta = norm_dtheta * self.max_angular_speed
+        if CFG.stick_point_disable_angles:
+            dtheta = 0.0
+        else:
+            dtheta = norm_dtheta * self.max_angular_speed
         # Update the robot state.
         rx = state.get(self._robot, "x")
         ry = state.get(self._robot, "y")
@@ -135,7 +138,8 @@ class StickPointEnv(BaseEnv):
         stick_rect = self._object_to_geom(self._stick, state)
         assert isinstance(stick_rect, utils.Rectangle)
         if state.get(self._stick, "held") > 0.5:
-            stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
+            if not CFG.stick_point_disable_angles:
+                stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
             stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
                                          y=(stick_rect.y + dy),
                                          width=stick_rect.width,
@@ -233,10 +237,15 @@ class StickPointEnv(BaseEnv):
         assert isinstance(circ, utils.Circle)
         circ.plot(ax, facecolor="red", edgecolor="black")
         # Show the direction that the robot is facing.
-        theta = state.get(robot, "theta")
-        l = 1.5 * self.robot_radius  # arrow length
-        w = 0.1 * self.robot_radius  # arrow width
-        ax.arrow(circ.x, circ.y, l * np.cos(theta), l * np.sin(theta), width=w)
+        if not CFG.stick_point_disable_angles:
+            theta = state.get(robot, "theta")
+            l = 1.5 * self.robot_radius  # arrow length
+            w = 0.1 * self.robot_radius  # arrow width
+            ax.arrow(circ.x,
+                     circ.y,
+                     l * np.cos(theta),
+                     l * np.sin(theta),
+                     width=w)
         ax.set_xlim(self.x_lb, self.x_ub)
         ax.set_ylim(self.y_lb, self.y_ub)
         ax.axis("off")
@@ -283,7 +292,10 @@ class StickPointEnv(BaseEnv):
                 if not any(geom.intersects(g) for g in collision_geoms):
                     break
             collision_geoms.add(geom)
-            theta = rng.uniform(self.theta_lb, self.theta_ub)
+            if CFG.stick_point_disable_angles:
+                theta = np.pi / 2
+            else:
+                theta = rng.uniform(self.theta_lb, self.theta_ub)
             state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
             # Finally, sample the stick, making sure that the origin is in the
             # reachable zone, and that the stick doesn't collide with anything.
@@ -293,7 +305,10 @@ class StickPointEnv(BaseEnv):
                 # slightly in the reachable zone, but not grabbable.
                 x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
                 y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
-                theta = rng.uniform(self.theta_lb, self.theta_ub)
+                if CFG.stick_point_disable_angles:
+                    theta = np.pi / 2
+                else:
+                    theta = rng.uniform(self.theta_lb, self.theta_ub)
                 rect = utils.Rectangle(x, y, self.stick_width,
                                        self.stick_height, theta)
                 # Keep only if no intersections with existing objects.
@@ -430,6 +445,7 @@ class StickPointEnv(BaseEnv):
             dy = dy / self.max_speed
             # No need to rotate or press.
             return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
+        assert not CFG.stick_point_disable_angles
         # Otherwise, rotate the stick.
         dtheta = np.clip(desired_theta - stheta, -self.max_angular_speed,
                          self.max_angular_speed)

@@ -34,6 +34,15 @@ class _MockOptionModel2(_OptionModelBase):
         raise utils.EnvironmentFailure("Mock env failure")
 
 
+class _MockOptionModel3(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        return state.copy(), 0
+
+
 @pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
 def test_gnn_policy_approach_with_envs(env_name):
     """Tests for GNNPolicyApproach class on environments."""
@@ -162,6 +171,7 @@ def test_gnn_policy_approach_special_cases():
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
         "gnn_policy_solve_with_shooting": True,
+        "gnn_policy_shooting_max_samples": 1,
         "timeout": 0.1,
         "horizon": 10
     })
@@ -200,3 +210,9 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
     assert "Option plan exhausted" in str(e)
+    # Test that shooting does not infinitely hang in the case where the
+    # option model noops.
+    approach._option_model = _MockOptionModel3(_simulator)  # pylint: disable=protected-access
+    with pytest.raises(ApproachTimeout) as e:
+        policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    assert "Shooting timed out" in str(e)
