@@ -2032,7 +2032,11 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
 
 
 def get_config_path_str(experiment_id: Optional[str] = None) -> str:
-    """Get a filename prefix for configuration based on the current CFG."""
+    """Get a filename prefix for configuration based on the current CFG.
+
+    If experiment_id is supplied, it is used in place of
+    CFG.experiment_id.
+    """
     if experiment_id is None:
         experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
