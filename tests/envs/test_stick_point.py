@@ -13,6 +13,7 @@ def test_stick_point():
     utils.reset_config({
         "env": "stick_point",
         "stick_point_num_points_train": [2],
+        "stick_point_disable_angles": False,
     })
     env = StickPointEnv()
     for task in env.get_train_tasks():
