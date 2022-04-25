@@ -94,7 +94,8 @@ def test_main():
     # Try loading approaches.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_approach", "--cover_initial_holding_prob", "0.0"
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--experiment_id", "foobar"
     ]
     main()
     # Try loading with a bad experiment id.
