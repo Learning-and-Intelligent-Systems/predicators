@@ -326,7 +326,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         }
 
         # Create a new PNAD with the given parameters and add effects. Set
-        # the preconditions to be trivial. They will be recomputed next.
+        # the preconditions to be trivial. They will be recomputed later.
         new_pnad_op = pnad.op.copy_with(parameters=updated_params,
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
