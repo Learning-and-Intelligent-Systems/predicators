@@ -11,10 +11,7 @@ from predicators.src.utils import SingletonParameterizedOption
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self,
-                              necessary_add_effects,
-                              pnad,
-                              segment):
+    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
         """Exposed for testing."""
         return self._try_specializing_pnad(necessary_add_effects, pnad,
                                            segment)
@@ -69,7 +66,8 @@ def test_backchaining_strips_learner():
     task2 = Task(state_awake_and_sad, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
     learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             {Asleep}, [[segment1], [segment2]])
+                                             {Asleep},
+                                             [[segment1], [segment2]])
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -193,8 +191,8 @@ def test_backchaining_strips_learner_order_dependence():
     # Define the 3 demos to backchain over.
     segment1 = Segment(
         traj1,
-        {NotLightOn([light]), LightColorRed([light])}, goal1 | {NotLightOn([light])},
-        MoveAndMessWithLights)
+        {NotLightOn([light]), LightColorRed([light])},
+        goal1 | {NotLightOn([light])}, MoveAndMessWithLights)
     segment2 = Segment(
         traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
         MoveAndMessWithLights)
@@ -228,8 +226,7 @@ def test_backchaining_strips_learner_order_dependence():
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
         """NotLightOn(?x1:light_type)]
     Side Predicates: []
-    Option Spec: MoveAndMessWithLights()""", 
-    """STRIPS-MoveAndMessWithLights:
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
     Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
     Add Effects: [LightOn(?x2:light_type), """ +
@@ -237,8 +234,7 @@ def test_backchaining_strips_learner_order_dependence():
     Delete Effects: [LightColorBlue(?x2:light_type), """ +
         """NotLightOn(?x2:light_type)]
     Side Predicates: []
-    Option Spec: MoveAndMessWithLights()""",    
-    """STRIPS-MoveAndMessWithLights:
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type]
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
@@ -277,7 +273,8 @@ def test_find_unification_and_try_specializing_pnad():
     task = Task(state, set())
     Move = opt.ground([], [])
     traj = LowLevelTrajectory([state], [])
-    segment = Segment(traj, {Happy([bob])}, {Asleep([bob]), Happy([bob])}, Move)
+    segment = Segment(traj, {Happy([bob])},
+                      {Asleep([bob]), Happy([bob])}, Move)
     # Create the sidelining approach.
     learner = _MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
                                              [[segment]])
@@ -326,6 +323,6 @@ def test_find_unification_and_try_specializing_pnad():
     new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
                                              Segment(traj, {Happy([bob])},
                                                      set(), Move))
-    
+
     learner.recompute_datastores_from_segments([new_pnad])
-    assert len(new_pnad.datastore) == 1    
+    assert len(new_pnad.datastore) == 1

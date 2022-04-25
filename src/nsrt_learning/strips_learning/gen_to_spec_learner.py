@@ -84,18 +84,20 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         return all_pnads
 
-    def _backchain_once(self, param_opt_to_nec_pnads: Dict[
-            ParameterizedOption, List[PartialNSRTAndDatastore]],
-                        param_opt_to_general_pnad: Dict[
-                            ParameterizedOption, PartialNSRTAndDatastore]
-                        ) -> bool:
-        """Go through each demonstration from the end back to the start,
-        making the PNADs more specific whenever needed. Return whether
-        any PNAD was changed.
+    def _backchain_once(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]],
+        param_opt_to_general_pnad: Dict[ParameterizedOption,
+                                        PartialNSRTAndDatastore]
+    ) -> bool:
+        """Go through each demonstration from the end back to the start, making
+        the PNADs more specific whenever needed.
+
+        Return whether any PNAD was changed.
         """
         nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
-                                    self._segmented_trajs):
+                                     self._segmented_trajs):
             if not ll_traj.is_demo:
                 continue
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
@@ -128,7 +130,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # demonstrated option are able to match this transition.
                 for pnad in pnads_for_option:
                     ground_op = self._find_unification(necessary_add_effects,
-                                                    pnad, segment)
+                                                       pnad, segment)
                     if ground_op is not None:
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
@@ -156,8 +158,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     else:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent],
-                            segment)
+                            param_opt_to_general_pnad[option.parent], segment)
                         assert new_pnad is not None
 
                     pnad = new_pnad
@@ -199,12 +200,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 }
         return nec_pnad_set_changed
 
-    def _finish_learning(self, param_opt_to_nec_pnads: Dict[
-            ParameterizedOption, List[PartialNSRTAndDatastore]]
-                         ) -> List[PartialNSRTAndDatastore]:
-        """Given the current PNADs where add effects and preconditions
-        are correct, learn the remaining components.
-        """
+    def _finish_learning(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
+        """Given the current PNADs where add effects and preconditions are
+        correct, learn the remaining components."""
         # Make a list of all final PNADs. Note
         # that these final PNADs only come from the
         # param_opt_to_nec_pnads dict, since we can be assured
