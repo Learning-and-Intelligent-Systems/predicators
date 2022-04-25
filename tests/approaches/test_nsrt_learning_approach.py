@@ -150,7 +150,7 @@ def test_neural_option_learning():
                    })
     _test_approach(env_name="touch_point",
                    approach_name="nsrt_learning",
-                   try_solving=False,
+                   try_solving=True,
                    sampler_learner="random",
                    option_learner="direct_bc_nonparameterized",
                    check_solution=False)
