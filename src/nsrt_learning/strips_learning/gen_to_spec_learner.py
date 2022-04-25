@@ -73,28 +73,38 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
-            nec_pnad_set_changed = self._backchain_once(
+            nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
         # Finish learning by adding in the delete effects and side predicates.
         all_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
-        # Assert that every datapoint appears in exactly one datastore.
-        assert sum(len(pnad.datastore) for pnad in all_pnads) == sum(
-            len(seg_traj) for seg_traj in self._segmented_trajs)
+        # Assert that every demo datapoint appears in exactly one datastore.
+        num_demo_data = 0
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            num_demo_data += len(seg_traj)
+        # We need a >= here rather than a == because of replay data. An
+        # arbitrary number of replay transitions could match our PNADs,
+        # depending on how often non-noop transitions occurred in that data.
+        # In the case where we have no replay data, >= is equivalent to ==.
+        assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
 
         return all_pnads
 
-    def _backchain_once(
+    def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                            List[PartialNSRTAndDatastore]],
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
     ) -> bool:
-        """Go through each demonstration from the end back to the start, making
-        the PNADs more specific whenever needed.
+        """Take one pass through the demonstrations.
 
-        Return whether any PNAD was changed.
+        Go through each one from the end back to the start, making the
+        PNADs more specific whenever needed. Return whether any PNAD was
+        changed.
         """
         nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,

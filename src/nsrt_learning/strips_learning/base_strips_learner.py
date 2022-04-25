@@ -185,9 +185,7 @@ class BaseSTRIPSLearner(abc.ABC):
         Uses a "rationality" heuristic, where for each segment, we
         select, among the ground PNADs covering it, the one whose add
         and delete effects match the segment's most closely (breaking
-        ties arbitrarily). The intuition is that larger effect sets mean
-        that the PNAD is more specific, and therefore more likely to be
-        the best match. At the end of this procedure, each segment is
+        ties arbitrarily). At the end of this procedure, each segment is
         guaranteed to be in at most one PNAD's datastore.
         """
         for pnad in pnads:
