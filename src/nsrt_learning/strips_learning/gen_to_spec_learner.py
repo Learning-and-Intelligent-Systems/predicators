@@ -5,9 +5,8 @@ from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
-from predicators.src.structs import GroundAtom, LiftedAtom, \
-    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator, \
-    Variable, _GroundSTRIPSOperator
+from predicators.src.structs import GroundAtom, ParameterizedOption, \
+    PartialNSRTAndDatastore, Segment, STRIPSOperator, _GroundSTRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
