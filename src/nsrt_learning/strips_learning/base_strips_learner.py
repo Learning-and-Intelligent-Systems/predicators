@@ -9,7 +9,7 @@ from predicators.src.planning import task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, OptionSpec, PartialNSRTAndDatastore, Predicate, \
-    Segment, State, STRIPSOperator, Task, _GroundNSRT
+    Segment, State, STRIPSOperator, Task, _GroundNSRT, _GroundSTRIPSOperator
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -227,7 +227,8 @@ class BaseSTRIPSLearner(abc.ABC):
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
                         # This ground PNAD covers this segment. Score it!
-                        score = len(segment.add_effects - ground_op.add_effects) + len(ground_op.add_effects - segment.add_effects) + len(segment.delete_effects - ground_op.delete_effects) + len(ground_op.delete_effects - segment.delete_effects)
+                        score = self._score_segment_ground_op_match(
+                            segment, ground_op)
                         if score < best_score:  # we want a closer match
                             best_score = score
                             best_pnad = pnad
@@ -237,6 +238,18 @@ class BaseSTRIPSLearner(abc.ABC):
                     assert best_sub is not None
                     best_pnad.add_to_datastore((segment, best_sub),
                                                check_effect_equality=False)
+
+    @staticmethod
+    def _score_segment_ground_op_match(
+            segment: Segment, ground_op: _GroundSTRIPSOperator) -> float:
+        """Return a score for how well the given segment matches the given
+        ground operator, used in recompute_datastores_from_segments().
+        A lower score is a CLOSER match.
+        """
+        return len(segment.add_effects - ground_op.add_effects) + \
+            len(ground_op.add_effects - segment.add_effects) + \
+            len(segment.delete_effects - ground_op.delete_effects) + \
+            len(ground_op.delete_effects - segment.delete_effects)
 
     @staticmethod
     def _induce_preconditions_via_intersection(

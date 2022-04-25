@@ -70,118 +70,142 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         assert total_datastore_len == sum(
             len(seg_traj) for seg_traj in self._segmented_trajs)
 
-        # Iterate over the demonstrations and learn PNADs until
-        # a fixed point is reached in terms of the number of the
-        # necessary PNAD set.
+        # Iterate over the demonstrations and backchain to learn PNADs.
+        # Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
-            nec_pnad_set_changed = False
+            nec_pnad_set_changed = self._backchain_once(
+                param_opt_to_nec_pnads, param_opt_to_general_pnad)
+        all_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
-            # Go through each demonstration from the end back to the start,
-            # making the PNADs more specific whenever needed.
-            for ll_traj, seg_traj in zip(self._trajectories,
-                                        self._segmented_trajs):
-                if not ll_traj.is_demo:
-                    continue
-                traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-                atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-                assert traj_goal.issubset(atoms_seq[-1])
-                # This variable, necessary_image, gets updated as we
-                # backchain. It always holds the set of ground atoms that
-                # are necessary for the remainder of the plan to reach the
-                # goal. At the start, necessary_image is simply the goal.
-                necessary_image = set(traj_goal)
-                for t in range(len(atoms_seq) - 2, -1, -1):
-                    segment = seg_traj[t]
-                    option = segment.get_option()
-                    # Find the necessary PNADs associated with this option.
-                    # If there are none, then use the general PNAD
-                    # associated with this option.
-                    if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                        pnads_for_option = [
-                            param_opt_to_general_pnad[option.parent]
-                        ]
-                    else:
-                        pnads_for_option = param_opt_to_nec_pnads[option.parent]
+        # Assert that every datapoint appears in exactly one datastore.
+        assert sum(len(pnad.datastore) for pnad in all_pnads) == sum(
+            len(seg_traj) for seg_traj in self._segmented_trajs)
 
-                    # Compute the ground atoms that must be added on this timestep.
-                    # They must be a subset of the current PNAD's add effects.
-                    necessary_add_effects = necessary_image - atoms_seq[t]
-                    assert necessary_add_effects.issubset(segment.add_effects)
+        return all_pnads
 
-                    # We start by checking if any of the PNADs associated with the
-                    # demonstrated option are able to match this transition.
-                    for pnad in pnads_for_option:
-                        ground_op = self._find_unification(necessary_add_effects,
-                                                        pnad, segment)
-                        if ground_op is not None:
-                            obj_to_var = dict(
-                                zip(ground_op.objects, pnad.op.parameters))
-                            if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                                param_opt_to_nec_pnads[option.parent].append(pnad)
-                            break
-                    # If we weren't able to find a substitution (i.e, the above
-                    # for loop did not break), we need to try specializing each
-                    # of our PNADs.
-                    else:
-                        nec_pnad_set_changed = True
-                        for pnad in pnads_for_option:
-                            new_pnad = self._try_specializing_pnad(
-                                necessary_add_effects, pnad, segment)
-                            if new_pnad is not None:
-                                assert new_pnad.option_spec == pnad.option_spec
-                                if len(param_opt_to_nec_pnads[option.parent]) > 0:
-                                    param_opt_to_nec_pnads[option.parent].remove(
-                                        pnad)
-                                del pnad
-                                break
-                        # If we were unable to specialize any of the PNADs, we need
-                        # to spawn from the most general PNAD and make a new PNAD
-                        # to cover these necessary add effects.
-                        else:
-                            new_pnad = self._try_specializing_pnad(
-                                necessary_add_effects,
-                                param_opt_to_general_pnad[option.parent],
-                                segment)
-                            assert new_pnad is not None
+    def _backchain_once(self, param_opt_to_nec_pnads: Dict[
+            ParameterizedOption, List[PartialNSRTAndDatastore]],
+                        param_opt_to_general_pnad: Dict[
+                            ParameterizedOption, PartialNSRTAndDatastore]
+                        ) -> bool:
+        """Go through each demonstration from the end back to the start,
+        making the PNADs more specific whenever needed. Return whether
+        any PNAD was changed.
+        """
+        nec_pnad_set_changed = False
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                    self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            assert traj_goal.issubset(atoms_seq[-1])
+            # This variable, necessary_image, gets updated as we
+            # backchain. It always holds the set of ground atoms that
+            # are necessary for the remainder of the plan to reach the
+            # goal. At the start, necessary_image is simply the goal.
+            necessary_image = set(traj_goal)
+            for t in range(len(atoms_seq) - 2, -1, -1):
+                segment = seg_traj[t]
+                option = segment.get_option()
+                # Find the necessary PNADs associated with this option.
+                # If there are none, then use the general PNAD
+                # associated with this option.
+                if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                    pnads_for_option = [
+                        param_opt_to_general_pnad[option.parent]
+                    ]
+                else:
+                    pnads_for_option = param_opt_to_nec_pnads[option.parent]
 
-                        pnad = new_pnad
-                        del new_pnad  # unused from here
-                        param_opt_to_nec_pnads[option.parent].append(pnad)
+                # Compute the ground atoms that must be added on this timestep.
+                # They must be a subset of the current PNAD's add effects.
+                necessary_add_effects = necessary_image - atoms_seq[t]
+                assert necessary_add_effects.issubset(segment.add_effects)
 
-                        # Recompute datastores for all PNADs associated with this
-                        # option.
-                        self._recompute_datastores_from_segments(param_opt_to_nec_pnads[option.parent])
-                        # Recompute all preconditions given that we have recomputed
-                        # the datastores.
-                        for nec_pnad in param_opt_to_nec_pnads[option.parent]:
-                            preconditions = self._induce_preconditions_via_intersection(nec_pnad)
-                            nec_pnad.op = nec_pnad.op.copy_with(preconditions=preconditions)
-                            
-                        # After all this, the unification call that failed earlier
-                        # (leading us into the current if statement) should work.
-                        ground_op = self._find_unification(necessary_add_effects,
-                                                        pnad, segment)
-                        assert ground_op is not None
+                # We start by checking if any of the PNADs associated with the
+                # demonstrated option are able to match this transition.
+                for pnad in pnads_for_option:
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                    pnad, segment)
+                    if ground_op is not None:
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
+                        if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                            param_opt_to_nec_pnads[option.parent].append(pnad)
+                        break
+                # If we weren't able to find a substitution (i.e, the above
+                # for loop did not break), we need to try specializing each
+                # of our PNADs.
+                else:
+                    nec_pnad_set_changed = True
+                    for pnad in pnads_for_option:
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects, pnad, segment)
+                        if new_pnad is not None:
+                            assert new_pnad.option_spec == pnad.option_spec
+                            if len(param_opt_to_nec_pnads[option.parent]) > 0:
+                                param_opt_to_nec_pnads[option.parent].remove(
+                                    pnad)
+                            del pnad
+                            break
+                    # If we were unable to specialize any of the PNADs, we need
+                    # to spawn from the most general PNAD and make a new PNAD
+                    # to cover these necessary add effects.
+                    else:
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects,
+                            param_opt_to_general_pnad[option.parent],
+                            segment)
+                        assert new_pnad is not None
 
-                    # Update necessary_image for this timestep. It no longer
-                    # needs to include the ground add effects of this PNAD, but
-                    # must now include its ground preconditions.
-                    var_to_obj = {v: k for k, v in obj_to_var.items()}
-                    assert len(var_to_obj) == len(obj_to_var)
-                    necessary_image -= {
-                        a.ground(var_to_obj)
-                        for a in pnad.op.add_effects
-                    }
-                    necessary_image |= {
-                        a.ground(var_to_obj)
-                        for a in pnad.op.preconditions
-                    }
+                    pnad = new_pnad
+                    del new_pnad  # unused from here
+                    param_opt_to_nec_pnads[option.parent].append(pnad)
 
-        # Now that the add effects and preconditions are correct,
-        # make a list of all final PNADs. Note
+                    # Recompute datastores for ALL PNADs associated with this
+                    # option. We need to do this because we want to
+                    # redistribute the data across the PNADs for this option.
+                    self._recompute_datastores_from_segments(
+                        param_opt_to_nec_pnads[option.parent])
+                    # Recompute all preconditions, now that we have recomputed
+                    # the datastores.
+                    for nec_pnad in param_opt_to_nec_pnads[option.parent]:
+                        pre = self._induce_preconditions_via_intersection(
+                            nec_pnad)
+                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+
+                    # After all this, the unification call that failed earlier
+                    # (leading us into the current else statement) should work.
+                    ground_op = self._find_unification(necessary_add_effects,
+                                                       pnad, segment)
+                    assert ground_op is not None
+                    obj_to_var = dict(
+                        zip(ground_op.objects, pnad.op.parameters))
+
+                # Update necessary_image for this timestep. It no longer
+                # needs to include the ground add effects of this PNAD, but
+                # must now include its ground preconditions.
+                var_to_obj = {v: k for k, v in obj_to_var.items()}
+                assert len(var_to_obj) == len(obj_to_var)
+                necessary_image -= {
+                    a.ground(var_to_obj)
+                    for a in pnad.op.add_effects
+                }
+                necessary_image |= {
+                    a.ground(var_to_obj)
+                    for a in pnad.op.preconditions
+                }
+        return nec_pnad_set_changed
+
+    def _finish_learning(self, param_opt_to_nec_pnads: Dict[
+            ParameterizedOption, List[PartialNSRTAndDatastore]]
+                         ) -> List[PartialNSRTAndDatastore]:
+        """Given the current PNADs where add effects and preconditions
+        are correct, learn the remaining components.
+        """
+        # Make a list of all final PNADs. Note
         # that these final PNADs only come from the
         # param_opt_to_nec_pnads dict, since we can be assured
         # that our backchaining process ensured that the
@@ -189,7 +213,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         all_pnads = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
+                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
@@ -199,24 +223,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for pnad in all_pnads:
             self._finalize_pnad_delete_effects(pnad)
             self._finalize_pnad_side_predicates(pnad)
-
-        # for pnad in all_pnads:
-        #     print(pnad)
-        #     print(f"PNAD datastore length: {len(pnad.datastore)}")
-        # import ipdb; ipdb.set_trace()
-
-        # Finally, recompute the datastores.
-        self._recompute_datastores_from_segments(all_pnads)
-
-        # for pnad in all_pnads:
-        #     print(pnad)
-        #     print(f"PNAD datastore length: {len(pnad.datastore)}")
-        # import ipdb; ipdb.set_trace()
-
-        # Assert that the every datapoint appears in exactly one PNAD's
-        # datastore with only one possible substitution. 
-        assert total_datastore_len == sum(
-            len(seg_traj) for seg_traj in self._segmented_trajs)
 
         return all_pnads
 
