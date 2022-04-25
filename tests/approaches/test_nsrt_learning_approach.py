@@ -105,13 +105,15 @@ def test_nsrt_learning_approach():
                        approach_name="nsrt_learning",
                        try_solving=False,
                        sampler_learner="random",
-                       strips_learner=strips_learner)
+                       strips_learner=strips_learner,
+                       offline_data_method="demo")
         if strips_learner == "backchaining":
             _test_approach(env_name="repeated_nextto_single_option",
                            approach_name="nsrt_learning",
                            try_solving=False,
                            sampler_learner="random",
-                           strips_learner=strips_learner)
+                           strips_learner=strips_learner,
+                           offline_data_method="demo")
 
 
 def test_unknown_strips_learner():
