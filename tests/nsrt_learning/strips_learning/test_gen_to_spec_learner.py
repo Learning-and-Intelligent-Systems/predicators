@@ -14,11 +14,14 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     def try_specializing_pnad(self,
                               necessary_add_effects,
                               pnad,
-                              segment,
-                              check_datastore_change=True):
+                              segment):
         """Exposed for testing."""
         return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           segment, check_datastore_change)
+                                           segment)
+
+    def recompute_datastores_from_segments(self, pnads):
+        """Exposed for testing."""
+        return self._recompute_datastores_from_segments(pnads)
 
     @staticmethod
     def find_unification(necessary_add_effects,
@@ -190,7 +193,7 @@ def test_backchaining_strips_learner_order_dependence():
     # Define the 3 demos to backchain over.
     segment1 = Segment(
         traj1,
-        {NotLightOn([light]), LightColorRed([light])}, goal1,
+        {NotLightOn([light]), LightColorRed([light])}, goal1 | {NotLightOn([light])},
         MoveAndMessWithLights)
     segment2 = Segment(
         traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
@@ -219,7 +222,7 @@ def test_backchaining_strips_learner_order_dependence():
     correct_pnads = {
         """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
-    Preconditions: [LightColorBlue(?x1:light_type)]
+    Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
     Add Effects: [LightOn(?x1:light_type), """ +
         """RobotAt(?x2:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
@@ -230,7 +233,7 @@ def test_backchaining_strips_learner_order_dependence():
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
     Delete Effects: []
-    Side Predicates: [LightColorBlue, LightColorRed, LightOn, NotLightOn]
+    Side Predicates: [LightColorBlue, LightColorRed]
     Option Spec: MoveAndMessWithLights()"""
     }
     # Edit the names of all the returned PNADs to match the correct ones for
@@ -240,6 +243,7 @@ def test_backchaining_strips_learner_order_dependence():
             name="MoveAndMessWithLights")
         reverse_order_pnads[i].op = reverse_order_pnads[i].op.copy_with(
             name="MoveAndMessWithLights")
+
         # Check that the two sets of PNADs are both correct.
         assert str(natural_order_pnads[i]) in correct_pnads
         assert str(reverse_order_pnads[i]) in correct_pnads
@@ -311,11 +315,7 @@ def test_find_unification_and_try_specializing_pnad():
     Side Predicates: []"""
     new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
                                              Segment(traj, {Happy([bob])},
-                                                     set(), Move), False)
-    assert str(new_pnad) == repr(new_pnad) == """STRIPS-MoveOp:
-    Parameters: [?x0:human_type]
-    Preconditions: [Happy(?x0:human_type)]
-    Add Effects: [Asleep(?x0:human_type)]
-    Delete Effects: []
-    Side Predicates: []
-    Option Spec: Move()"""
+                                                     set(), Move))
+    
+    learner.recompute_datastores_from_segments([new_pnad])
+    assert len(new_pnad.datastore) == 1    

@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import FrozenSet, Iterator, List, Set, Tuple
+from typing import FrozenSet, Iterator, List, Set, Tuple, Dict
 
 from predicators.src import utils
 from predicators.src.planning import task_plan_grounding
