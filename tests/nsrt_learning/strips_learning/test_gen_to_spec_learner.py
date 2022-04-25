@@ -228,7 +228,17 @@ def test_backchaining_strips_learner_order_dependence():
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
         """NotLightOn(?x1:light_type)]
     Side Predicates: []
-    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
+    Option Spec: MoveAndMessWithLights()""", 
+    """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
+    Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
+    Add Effects: [LightOn(?x2:light_type), """ +
+        """RobotAt(?x1:robot_type, ?x0:fridge_type)]
+    Delete Effects: [LightColorBlue(?x2:light_type), """ +
+        """NotLightOn(?x2:light_type)]
+    Side Predicates: []
+    Option Spec: MoveAndMessWithLights()""",    
+    """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type]
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
@@ -238,7 +248,7 @@ def test_backchaining_strips_learner_order_dependence():
     }
     # Edit the names of all the returned PNADs to match the correct ones for
     # easy checking.
-    for i in range(len(correct_pnads)):
+    for i in range(len(natural_order_pnads)):
         natural_order_pnads[i].op = natural_order_pnads[i].op.copy_with(
             name="MoveAndMessWithLights")
         reverse_order_pnads[i].op = reverse_order_pnads[i].op.copy_with(
