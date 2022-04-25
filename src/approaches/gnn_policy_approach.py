@@ -184,9 +184,6 @@ class GNNPolicyApproach(GNNApproach):
             plan: List[_Option] = []
             # A single shooting try goes up to the environment's horizon.
             while total_num_act < CFG.horizon:
-                # Break early if we have timed out.
-                if time.time() - start_time < timeout:
-                    break
                 if task.goal_holds(state):
                     # We found a plan that achieves the goal under the
                     # option model, so return it.
@@ -199,6 +196,9 @@ class GNNPolicyApproach(GNNApproach):
                             raise ApproachFailure(e.args[0], e.info)
 
                     return _policy
+                # Break early if we have timed out.
+                if time.time() - start_time < timeout:
+                    break
                 atoms = utils.abstract(state, self._initial_predicates)
                 param_opt, objects, params_mean = self._predict(
                     state, atoms, task.goal)

@@ -34,6 +34,15 @@ class _MockOptionModel2(_OptionModelBase):
         raise utils.EnvironmentFailure("Mock env failure")
 
 
+class _MockOptionModel3(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        return state.copy(), 0
+
+
 @pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
 def test_gnn_policy_approach_with_envs(env_name):
     """Tests for GNNPolicyApproach class on environments."""
@@ -166,7 +175,7 @@ def test_gnn_policy_approach_special_cases():
         "horizon": 10
     })
     approach._option_model = _MockOptionModel1(_simulator)  # pylint: disable=protected-access
-    policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    policy = approach.solve(train_tasks[0], timeout=0.5)
     traj = utils.run_policy_with_simulator(policy,
                                            _simulator,
                                            train_tasks[0].init,
@@ -181,7 +190,7 @@ def test_gnn_policy_approach_special_cases():
         policy = approach.solve(test_task, timeout=CFG.timeout)
     assert "Shooting timed out" in str(e)
     trivial_task = Task(test_task.init, set())
-    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    policy = approach.solve(trivial_task, timeout=0.5)
     traj = utils.run_policy_with_simulator(policy,
                                            _simulator,
                                            trivial_task.init,
@@ -192,7 +201,7 @@ def test_gnn_policy_approach_special_cases():
     # Now test what happens if we solve the trivial task but roll out
     # in a non-trivial task. We should get an ApproachFailure because
     # the option plan should get exhausted.
-    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    policy = approach.solve(trivial_task, timeout=0.5)
     with pytest.raises(ApproachFailure) as e:
         utils.run_policy_with_simulator(policy,
                                         _simulator,
@@ -200,5 +209,9 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
     assert "Option plan exhausted" in str(e)
-    # TODO: test that shooting does not infinitely hang in the case where the
-    # option model noops. (TODO because I can't figure out an easy way...)
+    # Test that shooting does not infinitely hang in the case where the
+    # option model noops.
+    approach._option_model = _MockOptionModel3(_simulator)  # pylint: disable=protected-access
+    with pytest.raises(ApproachTimeout) as e:
+        policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    assert "Shooting timed out" in str(e)
