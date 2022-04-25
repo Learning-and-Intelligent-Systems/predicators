@@ -82,7 +82,7 @@ class BaseApproach(abc.ABC):
         """
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        """Load anything from CFG.get_approach_save_path_str().
+        """Load anything from CFG.get_approach_load_path_str().
 
         Only called if self.is_learning_based. If online_learning_cycle
         is None, then load the results of learn_from_offline_dataset().
