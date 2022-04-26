@@ -2172,6 +2172,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     op_name_count_pick = itertools.count()
     op_name_count_place = itertools.count()
 
+    assert CFG.option_learner == "no_learning"
     for option in env.options:
         split_name = option.name.split("-")
         base_option_name = split_name[0]
@@ -2304,6 +2305,7 @@ def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
     env = get_or_create_env(name)
     assert isinstance(env, _PDDLEnv)
 
+    assert CFG.option_learner == "no_learning"
     nsrts = set()
     option_name_to_option = {o.name: o for o in env.options}
 

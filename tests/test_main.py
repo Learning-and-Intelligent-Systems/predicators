@@ -113,7 +113,12 @@ def test_main():
         "--load_experiment_id", "foobar", "--experiment_id", "baz"
     ]
     main()
-    # Try remaking data (this is the default).
+    # Run actual main approach, but with option learning (oracle method).
+    sys.argv = [
+        "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
+        "123", "--sampler_learner", "random", "--num_train_tasks", "1",
+        "--num_test_tasks", "1", "--option_learner", "oracle"
+    ]  # Try remaking data (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--cover_initial_holding_prob", "0.0", "--num_train_tasks", "3",
