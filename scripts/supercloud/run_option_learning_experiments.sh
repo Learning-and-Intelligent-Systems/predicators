@@ -44,8 +44,9 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             # direct BC with nonparameterized options
             python $FILE $COMMON_ARGS --experiment_id direct_bc_nonparam_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc_nonparameterized
 
+            # TODO fix this crash (https://github.com/Learning-and-Intelligent-Systems/predicators/issues/792)
             # GNN metacontroller with nonparameterized options
-            python $FILE $COMMON_ARGS --experiment_id gnn_metacontroller_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
+            # python $FILE $COMMON_ARGS --experiment_id gnn_metacontroller_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
         fi
 
     done
