@@ -22,10 +22,10 @@ from predicators.src.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.src.gnn.gnn_utils import GraphDictDataset, \
     compute_normalizers, get_single_model_prediction, graph_batch_collate, \
     normalize_graph, train_model
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, GroundAtom, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.src.structs import Dataset, GroundAtom, \
+    GroundAtomTrajectory, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Segment, State, Task, Type
 
 _Output = TypeVar("_Output")  # a generic type for the output of this GNN
 
@@ -48,6 +48,18 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         self._data_exemplar: Tuple[Dict, Dict] = ({}, {})
         # Seed torch.
         torch.manual_seed(self._seed)
+
+    @abc.abstractmethod
+    def _get_segmented_trajectories(
+        self, ground_atom_dataset: List[GroundAtomTrajectory]
+    ) -> List[List[Segment]]:
+        """Segment the given dataset into a list of segment trajectories.
+
+        While we could just call segment_trajectory() to do this, some
+        subclasses might have performed NSRT learning, which returns the
+        segmented trajectories with any learned options properly set.
+        """
+        raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def _extract_target_from_data(self, segment: Segment,
@@ -122,12 +134,11 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Organize data into (state, atoms, goal, target) tuples.
+        data = []
         ground_atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, self._initial_predicates)
-        segmented_trajs = [
-            segment_trajectory(traj) for traj in ground_atom_dataset
-        ]
-        data = []
+        segmented_trajs = self._get_segmented_trajectories(ground_atom_dataset)
+        assert len(segmented_trajs) == len(ground_atom_dataset)
         for segment_traj, (ll_traj, _) in zip(segmented_trajs,
                                               ground_atom_dataset):
             if not ll_traj.is_demo:

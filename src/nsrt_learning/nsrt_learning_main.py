@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -15,13 +15,13 @@ from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Task
+    PartialNSRTAndDatastore, Predicate, Segment, Task
 
 
-def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
-                          train_tasks: List[Task], predicates: Set[Predicate],
-                          action_space: Box,
-                          sampler_learner: str) -> Set[NSRT]:
+def learn_nsrts_from_data(
+        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate], action_space: Box,
+        sampler_learner: str) -> Tuple[Set[NSRT], List[List[Segment]]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
@@ -78,7 +78,11 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     for nsrt in nsrts:
         logging.info(nsrt)
     logging.info("")
-    return set(nsrts)
+
+    # We return both the completed NSRTs themselves and the segmented
+    # trajectories. The latter is returned because any options that
+    # were learned will be contained properly in these segments.
+    return set(nsrts), segmented_trajs
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
