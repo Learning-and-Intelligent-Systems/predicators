@@ -177,8 +177,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     param_opt_to_nec_pnads[option.parent].append(pnad)
 
                     # Recompute datastores for ALL PNADs associated with this
-                    # option. We need to do this because we want to
-                    # redistribute the data across the PNADs for this option.
+                    # option. We need to do this because the new PNAD may now
+                    # be a better match for some transition that we previously
+                    # matched to another PNAD.
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
                     # Recompute all preconditions, now that we have recomputed
