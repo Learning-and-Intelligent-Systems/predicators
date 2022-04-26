@@ -21,9 +21,8 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Dataset, DummyOption, \
-    GroundAtom, GroundAtomTrajectory, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type, _GroundNSRT, \
-    _Option
+    GroundAtom, ParameterizedOption, Predicate, Segment, State, Task, Type, \
+    _GroundNSRT, _Option
 
 
 class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
@@ -42,16 +41,32 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         self._bce_loss = torch.nn.BCEWithLogitsLoss()
         self._crossent_loss = torch.nn.CrossEntropyLoss()
 
-    def _get_segmented_trajectories(
-        self, ground_atom_dataset: List[GroundAtomTrajectory]
-    ) -> List[List[Segment]]:
-        """In this approach, we learned NSRTs, so we just return the segmented
-        trajectories that NSRT learning returned to us."""
-        return self._segmented_trajs
+    def _generate_data_from_dataset(
+        self, dataset: Dataset
+    ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _GroundNSRT]]:
+        data = []
+        ground_atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories, self._initial_predicates)
+        # In this approach, we learned NSRTs, so we just return the segmented
+        # trajectories that NSRT learning returned to us.
+        assert len(self._segmented_trajs) == len(ground_atom_dataset)
+        for segment_traj, (ll_traj, _) in zip(self._segmented_trajs,
+                                              ground_atom_dataset):
+            if not ll_traj.is_demo:
+                continue
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
+            for segment in segment_traj:
+                state = segment.states[0]  # the segment's initial state
+                atoms = segment.init_atoms  # the segment's initial atoms
+                target = self._extract_target_from_segment(segment)
+                data.append((state, atoms, goal, target))
+        return data
 
-    def _extract_target_from_data(self, segment: Segment,
-                                  segment_traj: List[Segment],
-                                  ll_traj: LowLevelTrajectory) -> _GroundNSRT:
+    def _extract_target_from_segment(self, segment: Segment) -> _GroundNSRT:
+        """Helper method for _generate_data_from_dataset().
+
+        Finds the ground NSRT that matches the given segment.
+        """
         # Note: it should ALWAYS be the case that the segment has
         # an option here. If options are learned, then the segment
         # is one that was returned by learn_nsrts_from_data, and so
@@ -59,7 +74,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         seg_option = segment.get_option()
         objects = list(segment.states[0])
         poss_ground_nsrts = []
-        # Find the ground NSRT that matches the given segment.
+        # Loop over all groundings of all learned NSRTs.
         for nsrt in self._sorted_nsrts:
             if nsrt.option != seg_option.parent:
                 continue
@@ -82,6 +97,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
                                _GroundNSRT]]
     ) -> None:
+        # Go through the data, identifying the maximum number of NSRT objects.
         max_nsrt_objects = 0
         for _, _, _, ground_nsrt in data:
             max_nsrt_objects = max(max_nsrt_objects, len(ground_nsrt.objects))

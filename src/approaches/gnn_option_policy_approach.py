@@ -17,9 +17,9 @@ from predicators.src.approaches.gnn_approach import GNNApproach
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, DummyOption, GroundAtom, \
-    GroundAtomTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, Segment, State, Task, Type, _Option
+from predicators.src.structs import Action, Array, Dataset, DummyOption, \
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    _Option
 
 
 class GNNOptionPolicyApproach(GNNApproach):
@@ -39,17 +39,28 @@ class GNNOptionPolicyApproach(GNNApproach):
         self._crossent_loss = torch.nn.CrossEntropyLoss()
         self._mse_loss = torch.nn.MSELoss()
 
-    def _get_segmented_trajectories(
-        self, ground_atom_dataset: List[GroundAtomTrajectory]
-    ) -> List[List[Segment]]:
-        """In this approach, we never learned any NSRTs, so we just call
-        segment_trajectory() to segment the given dataset."""
-        return [segment_trajectory(traj) for traj in ground_atom_dataset]
-
-    def _extract_target_from_data(self, segment: Segment,
-                                  segment_traj: List[Segment],
-                                  ll_traj: LowLevelTrajectory) -> _Option:
-        return segment.get_option()
+    def _generate_data_from_dataset(
+        self, dataset: Dataset
+    ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _Option]]:
+        data = []
+        ground_atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories, self._initial_predicates)
+        # In this approach, we never learned any NSRTs, so we just call
+        # segment_trajectory() to segment the given dataset.
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in ground_atom_dataset
+        ]
+        for segment_traj, (ll_traj, _) in zip(segmented_trajs,
+                                              ground_atom_dataset):
+            if not ll_traj.is_demo:
+                continue
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
+            for segment in segment_traj:
+                state = segment.states[0]  # the segment's initial state
+                atoms = segment.init_atoms  # the segment's initial atoms
+                target = segment.get_option()  # the segment's option
+                data.append((state, atoms, goal, target))
+        return data
 
     def _setup_output_specific_fields(
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
