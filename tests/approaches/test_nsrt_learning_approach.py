@@ -148,6 +148,12 @@ def test_neural_option_learning():
                        "implicit_mlp_regressor_num_negative_data_per_input": 1,
                        "implicit_mlp_regressor_num_samples_per_inference": 1,
                    })
+    _test_approach(env_name="touch_point",
+                   approach_name="nsrt_learning",
+                   try_solving=True,
+                   sampler_learner="random",
+                   option_learner="direct_bc_nonparameterized",
+                   check_solution=False)
 
 
 def test_oracle_samplers():
