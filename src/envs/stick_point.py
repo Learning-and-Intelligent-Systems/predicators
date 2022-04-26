@@ -37,6 +37,8 @@ class StickPointEnv(BaseEnv):
     stick_height: ClassVar[float] = 0.05
     stick_tip_width: ClassVar[float] = 0.05
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    stick_init_lb: ClassVar[float] = 0.6
+    stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
     pick_grasp_tol: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
@@ -48,8 +50,11 @@ class StickPointEnv(BaseEnv):
         # The (x, y) is the center of the point.
         self._point_type = Type("point", ["x", "y", "touched"])
         # The (x, y) is the bottom left-hand corner of the stick, and theta
-        # is CCW angle in radians, consistent with utils.Rectangle.
-        self._stick_type = Type("stick", ["x", "y", "theta", "held"])
+        # is CCW angle in radians, consistent with utils.Rectangle. The com
+        # is the center of mass along the long dimesion of the stick. The
+        # stick can only be picked if the distance between the robot center
+        # and the stick com is less than a threshold.
+        self._stick_type = Type("stick", ["x", "y", "theta", "held", "com"])
         # Predicates
         self._Touched = Predicate("Touched", [self._point_type],
                                   self._Touched_holds)
@@ -101,6 +106,9 @@ class StickPointEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
 
+        # Radius aroud the stick center of mass where picking succeeds.
+        self._stick_com_thresh = CFG.stick_point_com_thresh
+
     @classmethod
     def get_name(cls) -> str:
         return "stick_point"
@@ -151,9 +159,11 @@ class StickPointEnv(BaseEnv):
 
         if press > 0:
             # Check if the stick is now held for the first time.
-            if state.get(self._stick, "held") <= 0.5 and \
-                stick_rect.intersects(robot_circ):
-                next_state.set(self._stick, "held", 1.0)
+            if state.get(self._stick, "held") <= 0.5:
+                stick_graspable_geom = self._get_stick_graspable_geom(
+                    state, self._stick)
+                if stick_graspable_geom.intersects(robot_circ):
+                    next_state.set(self._stick, "held", 1.0)
 
             # Check if any point is now touched.
             tip_rect = self._stick_rect_to_tip_rect(stick_rect)
@@ -227,6 +237,9 @@ class StickPointEnv(BaseEnv):
         rect.plot(ax, facecolor="firebrick", edgecolor=color)
         rect = self._stick_rect_to_tip_rect(rect)
         rect.plot(ax, facecolor="saddlebrown", edgecolor=color)
+        # Render the graspable area for the stick.
+        geom = self._get_stick_graspable_geom(state, stick)
+        geom.plot(ax, linestyle="dashed", facecolor="none", edgecolor="gray")
         # Uncomment for debugging.
         # tx, ty = self._get_stick_grasp_loc(state, stick, np.array([0.1]))
         # circ = utils.Circle(tx, ty, radius=0.025)
@@ -304,7 +317,8 @@ class StickPointEnv(BaseEnv):
                 # The radius here is to prevent the stick from being very
                 # slightly in the reachable zone, but not grabbable.
                 x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
-                y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
+                y = rng.uniform(self.stick_init_lb, self.stick_init_ub)
+                assert self.rz_y_lb + radius <= y <= self.rz_y_ub - radius
                 if CFG.stick_point_disable_angles:
                     theta = np.pi / 2
                 else:
@@ -314,11 +328,30 @@ class StickPointEnv(BaseEnv):
                 # Keep only if no intersections with existing objects.
                 if not any(rect.intersects(g) for g in collision_geoms):
                     break
+            # To ensure that the problem is solvable, the center of mass should
+            # never be so high up that grasping the stick at that point would
+            # prevent subsequently touching all of the points. Also, the
+            # center of mass itself should be inside the reachable zone.
+            max_point_y = max(state_dict[p]["y"] for p in points)
+            # If all of the points are in the reachable zone, there is no
+            # bound on where to pick the stick.
+            if max_point_y < self.rz_y_ub:
+                max_com = self.stick_width
+            # If the stick is grasped any higher than this, touching will not
+            # be possible.
+            else:
+                dist_to_reach = max_point_y - self.rz_y_ub
+                assert dist_to_reach < self.stick_width
+                max_com = self.stick_width - dist_to_reach
+            # Clip the com to be inside the reachable zone.
+            max_com = min(self.rz_y_ub - y, max_com)
+            com = rng.uniform(0, max_com)
             state_dict[self._stick] = {
                 "x": x,
                 "y": y,
                 "theta": theta,
-                "held": 0.0
+                "held": 0.0,
+                "com": com,
             }
             init_state = utils.create_state_from_dict(state_dict)
             task = Task(init_state, goal)
@@ -365,6 +398,19 @@ class StickPointEnv(BaseEnv):
         tx = sx + scale * np.cos(stheta)
         ty = sy + scale * np.sin(stheta)
         return (tx, ty)
+
+    def _get_stick_graspable_geom(self, state: State,
+                                  stick: Object) -> _Geom2D:
+        stheta = state.get(stick, "theta")
+        h = self.stick_height
+        sx = state.get(stick, "x") + (h / 2) * np.cos(stheta + np.pi / 2)
+        sy = state.get(stick, "y") + (h / 2) * np.sin(stheta + np.pi / 2)
+        com = state.get(stick, "com")
+        assert 0 <= com <= self.stick_width
+        tx = sx + com * np.cos(stheta)
+        ty = sy + com * np.sin(stheta)
+        radius = self._stick_com_thresh
+        return utils.Circle(tx, ty, radius)
 
     def _RobotTouchPoint_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],

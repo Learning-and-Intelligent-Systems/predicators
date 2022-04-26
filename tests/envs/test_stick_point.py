@@ -14,6 +14,7 @@ def test_stick_point():
         "env": "stick_point",
         "stick_point_num_points_train": [2],
         "stick_point_disable_angles": False,
+        "stick_point_com_thresh": 1.5,
     })
     env = StickPointEnv()
     for task in env.get_train_tasks():
