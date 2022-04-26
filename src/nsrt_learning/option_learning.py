@@ -332,7 +332,6 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             changing_objs = [objects[i] for i in self._changing_parameter_idxs]
             relative_goal_vec = memory["absolute_params"] - state.vec(
                 changing_objs)
-            x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
         else:
             relative_goal_vec = []
         x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
