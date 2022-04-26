@@ -21,8 +21,9 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Dataset, DummyOption, \
-    GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _GroundNSRT, _Option
+    GroundAtom, GroundAtomTrajectory, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, State, Task, Type, _GroundNSRT, \
+    _Option
 
 
 class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
@@ -41,9 +42,20 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         self._bce_loss = torch.nn.BCEWithLogitsLoss()
         self._crossent_loss = torch.nn.CrossEntropyLoss()
 
+    def _get_segmented_trajectories(
+        self, ground_atom_dataset: List[GroundAtomTrajectory]
+    ) -> List[List[Segment]]:
+        """In this approach, we learned NSRTs, so we just return the segmented
+        trajectories that NSRT learning returned to us."""
+        return self._segmented_trajs
+
     def _extract_target_from_data(self, segment: Segment,
                                   segment_traj: List[Segment],
                                   ll_traj: LowLevelTrajectory) -> _GroundNSRT:
+        # Note: it should ALWAYS be the case that the segment has
+        # an option here. If options are learned, then the segment
+        # is one that was returned by learn_nsrts_from_data, and so
+        # its option should have been set correctly to a learned one.
         seg_option = segment.get_option()
         objects = list(segment.states[0])
         poss_ground_nsrts = []
