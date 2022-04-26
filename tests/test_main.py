@@ -83,7 +83,7 @@ def test_main():
     main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
-    # Run actual main approach, but without sampler learning.
+    # Run NSRT learning, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
@@ -113,7 +113,7 @@ def test_main():
         "--load_experiment_id", "foobar", "--experiment_id", "baz"
     ]
     main()
-    # Run actual main approach, but with option learning.
+    # Run NSRT learning with option learning.
     sys.argv = [
         "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--num_train_tasks", "1",
