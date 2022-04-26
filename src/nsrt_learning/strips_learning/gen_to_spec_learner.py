@@ -77,7 +77,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
         # Finish learning by adding in the delete effects and side predicates.
-        all_pnads = self._finish_learning(param_opt_to_nec_pnads)
+        # all_pnads = self._finish_learning(param_opt_to_nec_pnads)
+        self._compute_del_effs_and_side_preds(param_opt_to_nec_pnads)
 
         # Assert that every demo datapoint appears in exactly one datastore.
         num_demo_data = 0
@@ -90,7 +91,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # arbitrary number of replay transitions could match our PNADs,
         # depending on how often non-noop transitions occurred in that data.
         # In the case where we have no replay data, >= is equivalent to ==.
-        assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
+        # assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
+        assert sum(len(pnad.datastore) for pnad in param_opt_to_nec_pnads.values()) >= num_demo_data
+
+
 
         return all_pnads
 
@@ -212,6 +216,83 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 }
         return nec_pnad_set_changed
 
+    def _induce_keep_effects(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]]
+    ) -> None:
+        """Take one pass through the demonstrations and induce keep effects.
+
+        TODO: Describe in more detail what's going on.
+        """
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            assert traj_goal.issubset(atoms_seq[-1])
+            # This variable, necessary_image, gets updated as we
+            # backchain. It always holds the set of ground atoms that
+            # are necessary for the remainder of the plan to reach the
+            # goal. At the start, necessary_image is simply the goal.
+            necessary_image = set(traj_goal)
+            for t in range(len(atoms_seq) - 2, -1, -1):
+                segment = seg_traj[t]
+                option = segment.get_option()
+                # Find the necessary PNADs associated with this option.
+                pnads_for_option = param_opt_to_nec_pnads[option.parent]
+                # Assert that there is at least one PNAD associated with this
+                # option.
+                assert len(pnads_for_option) > 0
+
+                # Compute the ground atoms that must be added on this timestep.
+                # They must be a subset of the current PNAD's add effects.
+                necessary_add_effects = necessary_image - atoms_seq[t]
+                assert necessary_add_effects.issubset(segment.add_effects)
+
+                # Find the PNAD that matches this transition by checking
+                # whose datastore it is in. Note that we are guaranteed after
+                # having completed the original backchaining that this will
+                # be the case for exactly one PNAD.
+                found_associated_pnad = False
+                for pnad in pnads_for_option:
+                    for pnad_segment, var_to_obj in pnad.datastore:
+                        if pnad_segment == segment:
+                            found_associated_pnad = True
+                            break
+                    if found_associated_pnad:
+                        break
+                else:
+                    raise AssertionError(f"Segment {segment} is not assigned to any PNAD.")
+                
+                # Ground this PNAD's operator.
+                objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
+                ground_op = pnad.op.ground(objs)
+
+                # Check whether there is a violation of the necessary image due to
+                # side predicates, which signals that we will need to induce a
+                # keep effect.
+                harmful_atoms = []
+                for atom in necessary_image:
+                    if atom.predicate in ground_op.side_predicates and atom not in ground_op.add_effects:
+                        harmful_atoms.append(atom)
+                
+                if len(harmful_atoms) > 0:
+                    import ipdb; ipdb.set_trace()
+
+                # Update necessary_image for this timestep. It no longer
+                # needs to include the ground add effects of this PNAD, but
+                # must now include its ground preconditions.
+                necessary_image -= {
+                    a.ground(var_to_obj)
+                    for a in pnad.op.add_effects
+                }
+                necessary_image |= {
+                    a.ground(var_to_obj)
+                    for a in pnad.op.preconditions
+                }
+
+
     def _finish_learning(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                            List[PartialNSRTAndDatastore]]
@@ -238,6 +319,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._finalize_pnad_side_predicates(pnad)
 
         return all_pnads
+
+    def _compute_del_effs_and_side_preds(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]]
+    ) -> None:
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
+            for i, pnad in enumerate(pnad_list):
+                self._finalize_pnad_delete_effects(pnad)
+                self._finalize_pnad_side_predicates(pnad)
 
     @classmethod
     def get_name(cls) -> str:
