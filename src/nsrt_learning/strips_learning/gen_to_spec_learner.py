@@ -276,13 +276,27 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Check whether there is a violation of the necessary image due to
                 # side predicates, which signals that we will need to induce a
                 # keep effect.
-                harmful_atoms = []
+                harmful_atoms = set()
                 for atom in necessary_image:
                     if atom.predicate in ground_op.side_predicates and atom not in ground_op.add_effects:
-                        harmful_atoms.append(atom)
+                        harmful_atoms.add(atom)
                 
                 if len(harmful_atoms) > 0:
+                    new_pnad = self._try_specializing_pnad(necessary_add_effects | harmful_atoms, pnad, segment)
+                    # This specialization must succeed since we are strictly adding to the
+                    # necessary add effects. Moreover, the new PNAD must have more add
+                    # effects than the old one.
+                    assert new_pnad is not None
+                    assert len(new_pnad.op.add_effects) > len(pnad.op.add_effects)
+                    # The difference between pnad's add effects and new_pnad's add
+                    # effects must be the keep effects, so add these to the preconditions
+                    # of new_pnad (in addition to pnad's preconditions).
+                    keep_effects = new_pnad.op.add_effects - pnad.op.add_effects
+                    new_pnad.op = new_pnad.op.copy_with(preconditions = pnad.op.preconditions | keep_effects)
+                    self._recompute_datastores_from_segments([pnad, new_pnad])
                     import ipdb; ipdb.set_trace()
+                    # TODO: Problem: partitioning the data via this recompute_datastores call
+                    # fails because it always partitions all data into the old pnad.
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
