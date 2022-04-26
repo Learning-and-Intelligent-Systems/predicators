@@ -56,8 +56,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         """Given a Dataset object, organize it into tuples of (state, atoms,
         goal, target).
 
-        The inputs to the GNN are (state, atoms, goal). The target can be of
-        any type.
+        The inputs to the GNN are (state, atoms, goal). The target can
+        be of any type.
         """
         raise NotImplementedError("Override me!")
 
