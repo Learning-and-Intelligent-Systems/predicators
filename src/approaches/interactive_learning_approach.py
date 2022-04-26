@@ -206,6 +206,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._create_best_seen_query_policy(strict=False)
         if CFG.interactive_query_policy == "threshold":
             return self._create_threshold_query_policy()
+        if CFG.interactive_query_policy == "random":
+            return self._create_random_query_policy()
         raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
 
@@ -378,6 +380,21 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             for atom in ground_atoms:
                 score = self._score_atom_set({atom}, s)
                 if score > CFG.interactive_score_threshold:
+                    atoms_to_query.add(atom)
+            return GroundAtomsHoldQuery(atoms_to_query)
+
+        return _query_policy
+
+    def _create_random_query_policy(
+            self) -> Callable[[State], Optional[Query]]:
+        """Query each possible atom with a certain probability."""
+
+        def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
+            ground_atoms = utils.all_possible_ground_atoms(
+                s, self._predicates_to_learn)
+            atoms_to_query = set()
+            for atom in ground_atoms:
+                if self._rng.random() < CFG.interactive_random_query_prob:
                     atoms_to_query.add(atom)
             return GroundAtomsHoldQuery(atoms_to_query)
 
