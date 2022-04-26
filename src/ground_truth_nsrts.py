@@ -658,9 +658,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
 
     if CFG.env == "repeated_nextto_painting":
-        (NextTo, NextToBox, NextToShelf, NextToTable) = \
+        (NextTo, NextToBox, NextToShelf, NextToTable, NotOnTable) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
+             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable",
+                       "NotOnTable"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
             CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
@@ -678,7 +679,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     }
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
-
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
@@ -830,7 +830,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextToBox, [robot, box]))
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
-
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot]),
@@ -940,6 +939,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         add_effects = {
             LiftedAtom(GripperOpen, [robot]),
         }
+        delete_effects = {
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(HoldingTop, [obj]),
+            LiftedAtom(HoldingSide, [obj]),
+        }
     elif CFG.env == "repeated_nextto_painting":
         preconditions = {
             LiftedAtom(Holding, [obj]),
@@ -950,11 +954,12 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj]),
         }
-    delete_effects = {
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingTop, [obj]),
-        LiftedAtom(HoldingSide, [obj]),
-    }
+        delete_effects = {
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(HoldingTop, [obj]),
+            LiftedAtom(HoldingSide, [obj]),
+            LiftedAtom(NotOnTable, [obj]),
+        }
 
     def placeontable_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
@@ -1002,13 +1007,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         option = MoveToObj
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
+            LiftedAtom(OnTable, [targetobj]),
         }
         add_effects = {
             LiftedAtom(NextTo, [robot, targetobj]),
             LiftedAtom(NextToTable, [robot])
         }
         delete_effects = set()
-        # Moving could have us end up NextTo other objects.
+        # Moving could have us end up NextTo other objects, and
+        # can turn off being next to the box or the shelf.
         side_predicates = {NextTo, NextToBox, NextToShelf}
 
         movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions,
@@ -1029,14 +1036,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         add_effects = {
             LiftedAtom(NextToBox, [robot, targetbox]),
-            LiftedAtom(NextTo, [robot, obj])
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(NotOnTable, [obj])
         }
         delete_effects = {
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo, NextToBox, NextToShelf}
+        side_predicates = {NextTo}
         movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
                               add_effects, delete_effects, side_predicates,
                               option, option_vars, moveto_sampler)
@@ -1055,14 +1063,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         add_effects = {
             LiftedAtom(NextToShelf, [robot, targetshelf]),
-            LiftedAtom(NextTo, [robot, obj])
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(NotOnTable, [obj])
         }
         delete_effects = {
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo, NextToBox, NextToShelf}
+        side_predicates = {NextTo}
         movetoshelf_nsrt = NSRT("MoveToShelf", parameters, preconditions,
                                 add_effects, delete_effects, side_predicates,
                                 option, option_vars, moveto_sampler)
