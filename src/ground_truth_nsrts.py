@@ -1993,10 +1993,9 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(NoPointInContact, [])}
     side_predicates: Set[Predicate] = {InContactRobotPoint}
-    robot_touch_point_nsrt = NSRT("RobotTouchPoint", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
-                                  null_sampler)
+    robot_touch_point_nsrt = NSRT("RobotTouchPoint", parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates,
+                                  option, option_vars, null_sampler)
     nsrts.add(robot_touch_point_nsrt)
 
     # PickStick
@@ -2024,9 +2023,9 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
         pick_pos = rng.uniform(0, 1)
         return np.array([pick_pos], dtype=np.float32)
 
-    pick_stick_nsrt = NSRT("PickStick", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates,
-                           option, option_vars, pick_stick_sampler)
+    pick_stick_nsrt = NSRT("PickStick", parameters, preconditions, add_effects,
+                           delete_effects, side_predicates, option,
+                           option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
     # StickTouchPoint
@@ -2045,9 +2044,9 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(NoPointInContact, [])}
     side_predicates = {InContactStickPoint}
-    stick_point_nsrt = NSRT("StickTouchPoint", parameters,
-                            preconditions, add_effects, delete_effects,
-                            side_predicates, option, option_vars, null_sampler)
+    stick_point_nsrt = NSRT("StickTouchPoint", parameters, preconditions,
+                            add_effects, delete_effects, side_predicates,
+                            option, option_vars, null_sampler)
     nsrts.add(stick_point_nsrt)
 
     return nsrts
