@@ -92,11 +92,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # depending on how often non-noop transitions occurred in that data.
         # In the case where we have no replay data, >= is equivalent to ==.
         # assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
-        assert sum(len(pnad.datastore) for pnad in param_opt_to_nec_pnads.values()) >= num_demo_data
+        assert sum(len(pnad.datastore) for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list) >= num_demo_data
 
+        # Induce keep effects to preserve harmlessness after delete effect
+        # and side predicate inductino.
+        self._induce_keep_effects(param_opt_to_nec_pnads)
 
-
-        return all_pnads
+        # TODO: get a list of all the final PNADs and return this.
+        import ipdb; ipdb.set_trace()
+        return list(param_opt_to_nec_pnads.values())
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
