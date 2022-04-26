@@ -57,8 +57,9 @@ def test_gnn_option_policy_approach_with_envs(env_name):
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = create_approach("gnn_option_policy", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
+    approach = create_approach("gnn_option_policy", env.predicates,
+                               env.options, env.types, env.action_space,
+                               train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
@@ -73,8 +74,9 @@ def test_gnn_option_policy_approach_with_envs(env_name):
                                     task.goal_holds,
                                     max_num_steps=CFG.horizon)
     # Test loading.
-    approach2 = create_approach("gnn_option_policy", env.predicates, env.options,
-                                env.types, env.action_space, train_tasks)
+    approach2 = create_approach("gnn_option_policy", env.predicates,
+                                env.options, env.types, env.action_space,
+                                train_tasks)
     approach2.load(online_learning_cycle=None)
 
 
