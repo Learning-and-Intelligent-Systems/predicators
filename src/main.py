@@ -90,8 +90,13 @@ def main() -> None:
     stripped_train_tasks = [
         utils.strip_task(task, preds) for task in train_tasks
     ]
+    # Don't pass in options if we are learning them.
+    if CFG.option_learner == "no_learning":
+        options = env.options
+    else:
+        options = set()
     # Create the agent (approach).
-    approach = create_approach(CFG.approach, preds, env.options, env.types,
+    approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
     if approach.is_learning_based:
         # Create the offline dataset. Note that this needs to be done using
