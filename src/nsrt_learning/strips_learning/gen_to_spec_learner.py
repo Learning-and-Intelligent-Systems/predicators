@@ -59,15 +59,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 continue
             for segment in seg_traj:
                 parameterized_options.add(segment.get_option().parent)
-        total_datastore_len = 0
+
+        # Set up the param_opt_to_general_pnad and param_opt_to_nec_pnads
+        # dictionaries.
         for param_opt in parameterized_options:
             pnad = self._initialize_general_pnad_for_option(param_opt)
             param_opt_to_general_pnad[param_opt] = pnad
             param_opt_to_nec_pnads[param_opt] = []
-            total_datastore_len += len(pnad.datastore)
-        # Assert that all data is in some PNAD's datastore.
-        assert total_datastore_len == sum(
-            len(seg_traj) for seg_traj in self._segmented_trajs)
+        self._assert_all_data_in_exactly_one_datastore(
+            list(param_opt_to_general_pnad.values()))
 
         # Iterate over the demonstrations and backchain to learn PNADs.
         # Repeat until a fixed point is reached.
@@ -78,19 +78,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Finish learning by adding in the delete effects and side predicates.
         all_pnads = self._finish_learning(param_opt_to_nec_pnads)
-
-        # Assert that every demo datapoint appears in exactly one datastore.
-        num_demo_data = 0
-        for ll_traj, seg_traj in zip(self._trajectories,
-                                     self._segmented_trajs):
-            if not ll_traj.is_demo:
-                continue
-            num_demo_data += len(seg_traj)
-        # We need a >= here rather than a == because of replay data. An
-        # arbitrary number of replay transitions could match our PNADs,
-        # depending on how often non-noop transitions occurred in that data.
-        # In the case where we have no replay data, >= is equivalent to ==.
-        assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
+        self._assert_all_data_in_exactly_one_datastore(all_pnads)
 
         return all_pnads
 
@@ -390,3 +378,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for atom in next_atoms - segment.final_atoms:
                 side_predicates.add(atom.predicate)
         pnad.op = pnad.op.copy_with(side_predicates=side_predicates)
+
+    def _assert_all_data_in_exactly_one_datastore(
+            self, pnads: List[PartialNSRTAndDatastore]) -> None:
+        """Assert that every demo datapoint appears in exactly one datastore
+        among the given PNADs' datastores."""
+        all_segs_in_data_lst = [
+            seg for pnad in pnads for seg, _ in pnad.datastore
+        ]
+        all_segs_in_data = set(all_segs_in_data_lst)
+        assert len(all_segs_in_data_lst) == len(all_segs_in_data)
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:  # ignore non-demo data
+                continue
+            for segment in seg_traj:
+                assert segment in all_segs_in_data
