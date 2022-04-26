@@ -127,6 +127,8 @@ def test_gnn_metacontroller_approach_special_cases():
             LowLevelTrajectory([state, next_state3], [action3],
                                _is_demo=True,
                                _train_task_idx=0),
+            # For coverage, this is not a demo, so it will be ignored.
+            LowLevelTrajectory([state, next_state1], [action1]),
         ]))
 
     # Cover the case where the approach can't sample an initiable option.
