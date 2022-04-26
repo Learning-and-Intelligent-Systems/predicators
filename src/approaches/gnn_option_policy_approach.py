@@ -22,8 +22,8 @@ from predicators.src.structs import Action, Array, DummyOption, GroundAtom, \
     Predicate, Segment, State, Task, Type, _Option
 
 
-class GNNPolicyApproach(GNNApproach):
-    """Trains and uses a goal-conditioned GNN policy."""
+class GNNOptionPolicyApproach(GNNApproach):
+    """Trains and uses a goal-conditioned GNN policy that produces options."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -149,17 +149,18 @@ class GNNPolicyApproach(GNNApproach):
                     scores[j] = float("-inf")  # set its score to be really bad
             if np.max(scores) == float("-inf"):  # type: ignore
                 # If all scores are -inf, we failed to select an object.
-                raise ApproachFailure("GNN policy could not select an object")
+                raise ApproachFailure(
+                    "GNN option policy could not select an object")
             objects.append(node_to_object[np.argmax(scores)])
         return param_opt, objects, params
 
     @classmethod
     def get_name(cls) -> str:
-        return "gnn_policy"
+        return "gnn_option_policy"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         assert self._gnn is not None, "Learning hasn't happened yet!"
-        if CFG.gnn_policy_solve_with_shooting:
+        if CFG.gnn_option_policy_solve_with_shooting:
             return self._solve_with_shooting(task, timeout)
         return self._solve_without_shooting(task)
 
@@ -175,8 +176,8 @@ class GNNPolicyApproach(GNNApproach):
                 # Just use the mean parameters to ground the option.
                 cur_option = param_opt.ground(objects, params_mean)
                 if not cur_option.initiable(state):
-                    raise ApproachFailure("GNN policy chose a non-initiable "
-                                          "option")
+                    raise ApproachFailure(
+                        "GNN option policy chose a non-initiable option")
             act = cur_option.policy(state)
             return act
 
@@ -210,9 +211,9 @@ class GNNPolicyApproach(GNNApproach):
                 low = param_opt.params_space.low
                 high = param_opt.params_space.high
                 # Sample an initiable option.
-                for _ in range(CFG.gnn_policy_shooting_max_samples):
+                for _ in range(CFG.gnn_option_policy_shooting_max_samples):
                     params = np.array(self._rng.normal(
-                        params_mean, CFG.gnn_policy_shooting_variance),
+                        params_mean, CFG.gnn_option_policy_shooting_variance),
                                       dtype=np.float32)
                     params = np.clip(params, low, high)
                     opt = param_opt.ground(objects, params)

@@ -88,7 +88,7 @@ def test_create_approach():
     for name in [
             "random_actions",
             "random_options",
-            "gnn_policy",
+            "gnn_option_policy",
             "gnn_metacontroller",
             "oracle",
             "nsrt_learning",

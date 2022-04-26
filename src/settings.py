@@ -139,10 +139,10 @@ class GlobalSettings:
     gnn_do_normalization = False  # performs worse in Cover when True
     gnn_use_validation_set = True
 
-    # parameters for GNN policy approach
-    gnn_policy_solve_with_shooting = True
-    gnn_policy_shooting_variance = 0.1
-    gnn_policy_shooting_max_samples = 100
+    # parameters for GNN option policy approach
+    gnn_option_policy_solve_with_shooting = True
+    gnn_option_policy_shooting_variance = 0.1
+    gnn_option_policy_shooting_max_samples = 100
 
     # parameters for GNN metacontroller approach
     gnn_metacontroller_max_samples = 100
