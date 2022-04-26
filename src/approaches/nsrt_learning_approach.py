@@ -17,7 +17,7 @@ from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Task, Type
+    ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -29,6 +29,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
+        self._segmented_trajs: List[List[Segment]] = []
 
     @classmethod
     def get_name(cls) -> str:
@@ -49,7 +50,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
-        self._nsrts = learn_nsrts_from_data(
+        self._nsrts, self._segmented_trajs = learn_nsrts_from_data(
             trajectories,
             self._train_tasks,
             self._get_current_predicates(),

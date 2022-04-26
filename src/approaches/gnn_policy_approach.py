@@ -14,11 +14,12 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.gnn_approach import GNNApproach
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, DummyOption, GroundAtom, \
-    LowLevelTrajectory, Object, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _Option
+    GroundAtomTrajectory, LowLevelTrajectory, Object, ParameterizedOption, \
+    Predicate, Segment, State, Task, Type, _Option
 
 
 class GNNPolicyApproach(GNNApproach):
@@ -37,6 +38,13 @@ class GNNPolicyApproach(GNNApproach):
         self._bce_loss = torch.nn.BCEWithLogitsLoss()
         self._crossent_loss = torch.nn.CrossEntropyLoss()
         self._mse_loss = torch.nn.MSELoss()
+
+    def _get_segmented_trajectories(
+        self, ground_atom_dataset: List[GroundAtomTrajectory]
+    ) -> List[List[Segment]]:
+        """In this approach, we never learned any NSRTs, so we just call
+        segment_trajectory() to segment the given dataset."""
+        return [segment_trajectory(traj) for traj in ground_atom_dataset]
 
     def _extract_target_from_data(self, segment: Segment,
                                   segment_traj: List[Segment],
