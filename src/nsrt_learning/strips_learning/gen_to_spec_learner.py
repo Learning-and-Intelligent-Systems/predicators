@@ -94,6 +94,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
         assert sum(len(pnad.datastore) for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list) >= num_demo_data
 
+        # Assertion to check if all segments in our pnads have necessary_images,
+        # which we will need when computing keep effects
+        assert None not in [data[0].get_necessary_image() for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list for data in pnad.datastore]
+
         # Induce keep effects to preserve harmlessness after delete effect
         # and side predicate inductino.
         self._induce_keep_effects(param_opt_to_nec_pnads)
@@ -129,6 +133,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             necessary_image = set(traj_goal)
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
+                segment.set_necessary_image(necessary_image)
                 option = segment.get_option()
                 # Find the necessary PNADs associated with this option.
                 # If there are none, then use the general PNAD
@@ -293,7 +298,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # of new_pnad (in addition to pnad's preconditions).
                     keep_effects = new_pnad.op.add_effects - pnad.op.add_effects
                     new_pnad.op = new_pnad.op.copy_with(preconditions = pnad.op.preconditions | keep_effects)
-                    self._recompute_datastores_from_segments([pnad, new_pnad])
+                    self._recompute_datastores_from_segments([pnad, new_pnad], with_keep_effects=True)
                     import ipdb; ipdb.set_trace()
                     # TODO: Problem: partitioning the data via this recompute_datastores call
                     # fails because it always partitions all data into the old pnad.

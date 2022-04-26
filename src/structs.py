@@ -1068,6 +1068,7 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DummyOption)
     _goal: Optional[Set[GroundAtom]] = field(default=None)
+    _necessary_image: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1123,6 +1124,19 @@ class Segment:
     def set_goal(self, goal: Set[GroundAtom]) -> None:
         """Set the goal associated with this segment."""
         self._goal = goal
+
+    def has_necessary_image(self) -> bool:
+        """Whether this segment has a non-default necessary_image."""
+        return self._necessary_image is not None
+
+    def get_necessary_image(self) -> Set[GroundAtom]:
+        """Get the necessary_image associated with this segment."""
+        assert self._necessary_image is not None
+        return self._necessary_image
+
+    def set_necessary_image(self, necessary_image: Set[GroundAtom]) -> None:
+        """Set the necessary_image associated with this segment."""
+        self._necessary_image = necessary_image.copy()
 
 
 @dataclass(eq=False, repr=False)
