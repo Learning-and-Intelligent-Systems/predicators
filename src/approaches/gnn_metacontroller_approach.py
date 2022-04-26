@@ -47,7 +47,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         data = []
         ground_atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, self._initial_predicates)
-        # In this approach, we learned NSRTs, so we just return the segmented
+        # In this approach, we learned NSRTs, so we just use the segmented
         # trajectories that NSRT learning returned to us.
         assert len(self._segmented_trajs) == len(ground_atom_dataset)
         for segment_traj, (ll_traj, _) in zip(self._segmented_trajs,
