@@ -25,7 +25,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
         echo python $FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS --sesame_max_skeletons_optimized 1 --load_approach --load_data
 
         # GNN model-free baseline.
-        echo python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS --gnn_policy_solve_with_shooting False --load_approach --load_data
+        echo python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_option_policy --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS --gnn_option_policy_solve_with_shooting False --load_approach --load_data
     done
 done
 
