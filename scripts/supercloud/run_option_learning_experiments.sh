@@ -29,8 +29,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             # direct BC max samples 1
             python $FILE $COMMON_ARGS --load_experiment_id direct_bc_${NUM_TRAIN_TASKS} --experiment_id direct_bc_max_samp1_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sesame_max_samples_per_step 1 --load_a --load_d
 
-            # GNN BC model-free
-            python $FILE $COMMON_ARGS --load_experiment_id gnn_shooting_${NUM_TRAIN_TASKS} --experiment_id gnn_modelfree_${NUM_TRAIN_TASKS} --approach gnn_policy --gnn_policy_solve_with_shooting False --load_a --load_d
+            # GNN BC model-free (TODO)
+            # python $FILE $COMMON_ARGS --load_experiment_id gnn_shooting_${NUM_TRAIN_TASKS} --experiment_id gnn_modelfree_${NUM_TRAIN_TASKS} --approach gnn_policy --gnn_policy_solve_with_shooting False --load_a --load_d
         else
             # nsrt learning (oracle operators and options)
             python $FILE $COMMON_ARGS --experiment_id oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
@@ -38,8 +38,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             # direct BC (main approach)
             python $FILE $COMMON_ARGS --experiment_id direct_bc_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
 
-            # GNN BC with shooting baseline
-            python $FILE $COMMON_ARGS --experiment_id gnn_shooting_${NUM_TRAIN_TASKS} --approach gnn_policy
+            # GNN BC with shooting baseline (TODO)
+            # python $FILE $COMMON_ARGS --experiment_id gnn_shooting_${NUM_TRAIN_TASKS} --approach gnn_policy
         fi
 
     done
