@@ -5,9 +5,8 @@ from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
-from predicators.src.structs import GroundAtom, LiftedAtom, \
-    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator, \
-    Variable, _GroundSTRIPSOperator
+from predicators.src.structs import GroundAtom, ParameterizedOption, \
+    PartialNSRTAndDatastore, Segment, STRIPSOperator, _GroundSTRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -70,8 +69,44 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         assert total_datastore_len == sum(
             len(seg_traj) for seg_traj in self._segmented_trajs)
 
-        # Go through each demonstration from the end back to the start,
-        # making the PNADs more specific whenever needed.
+        # Iterate over the demonstrations and backchain to learn PNADs.
+        # Repeat until a fixed point is reached.
+        nec_pnad_set_changed = True
+        while nec_pnad_set_changed:
+            nec_pnad_set_changed = self._backchain_one_pass(
+                param_opt_to_nec_pnads, param_opt_to_general_pnad)
+
+        # Finish learning by adding in the delete effects and side predicates.
+        all_pnads = self._finish_learning(param_opt_to_nec_pnads)
+
+        # Assert that every demo datapoint appears in exactly one datastore.
+        num_demo_data = 0
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            num_demo_data += len(seg_traj)
+        # We need a >= here rather than a == because of replay data. An
+        # arbitrary number of replay transitions could match our PNADs,
+        # depending on how often non-noop transitions occurred in that data.
+        # In the case where we have no replay data, >= is equivalent to ==.
+        assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
+
+        return all_pnads
+
+    def _backchain_one_pass(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]],
+        param_opt_to_general_pnad: Dict[ParameterizedOption,
+                                        PartialNSRTAndDatastore]
+    ) -> bool:
+        """Take one pass through the demonstrations.
+
+        Go through each one from the end back to the start, making the
+        PNADs more specific whenever needed. Return whether any PNAD was
+        changed.
+        """
+        nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
@@ -117,6 +152,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # for loop did not break), we need to try specializing each
                 # of our PNADs.
                 else:
+                    nec_pnad_set_changed = True
                     for pnad in pnads_for_option:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects, pnad, segment)
@@ -133,16 +169,28 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     else:
                         new_pnad = self._try_specializing_pnad(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent],
-                            segment,
-                            check_datastore_change=False)
+                            param_opt_to_general_pnad[option.parent], segment)
                         assert new_pnad is not None
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
                     param_opt_to_nec_pnads[option.parent].append(pnad)
+
+                    # Recompute datastores for ALL PNADs associated with this
+                    # option. We need to do this because the new PNAD may now
+                    # be a better match for some transition that we previously
+                    # matched to another PNAD.
+                    self._recompute_datastores_from_segments(
+                        param_opt_to_nec_pnads[option.parent])
+                    # Recompute all preconditions, now that we have recomputed
+                    # the datastores.
+                    for nec_pnad in param_opt_to_nec_pnads[option.parent]:
+                        pre = self._induce_preconditions_via_intersection(
+                            nec_pnad)
+                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+
                     # After all this, the unification call that failed earlier
-                    # (leading us into the current if statement) should work.
+                    # (leading us into the current else statement) should work.
                     ground_op = self._find_unification(necessary_add_effects,
                                                        pnad, segment)
                     assert ground_op is not None
@@ -162,9 +210,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
+        return nec_pnad_set_changed
 
-        # Now that the add effects and preconditions are correct,
-        # make a list of all final PNADs. Note
+    def _finish_learning(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
+        """Given the current PNADs where add effects and preconditions are
+        correct, learn the remaining components."""
+        # Make a list of all final PNADs. Note
         # that these final PNADs only come from the
         # param_opt_to_nec_pnads dict, since we can be assured
         # that our backchaining process ensured that the
@@ -172,7 +226,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         all_pnads = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
+                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
@@ -182,9 +236,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for pnad in all_pnads:
             self._finalize_pnad_delete_effects(pnad)
             self._finalize_pnad_side_predicates(pnad)
-
-        # Finally, recompute the datastores.
-        self._recompute_datastores_from_segments(all_pnads)
 
         return all_pnads
 
@@ -239,7 +290,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         necessary_add_effects: Set[GroundAtom],
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
-        check_datastore_change: bool = True
     ) -> Optional[PartialNSRTAndDatastore]:
         """Given a PNAD and some necessary add effects that the PNAD must
         achieve, try to make the PNAD's add effects more specific
@@ -285,45 +335,14 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             a.lift(obj_to_var)
             for a in missing_effects
         }
-        # Create a new PNAD with the updated parameters and add effects.
-        new_pnad = self._create_new_pnad_with_params_and_add_effects(
-            pnad, updated_params, updated_add_effects)
 
-        if check_datastore_change:
-            # If the new PNAD has a datastore size that's not the same
-            # as that of the original PNAD, then we've potentially lost some
-            # data by specializing, which might do harm!
-            assert len(new_pnad.datastore) <= len(pnad.datastore)
-            if len(new_pnad.datastore) < len(pnad.datastore):
-                return None
-
-        return new_pnad
-
-    def _create_new_pnad_with_params_and_add_effects(
-            self, pnad: PartialNSRTAndDatastore, parameters: List[Variable],
-            add_effects: Set[LiftedAtom]) -> PartialNSRTAndDatastore:
-        """Create a new PNAD that is the given PNAD with parameters and add
-        effects changed to the given ones, and preconditions recomputed.
-
-        Note that in general, changing the parameters means that we need
-        to recompute all datastores, otherwise the precondition learning
-        will not work correctly (since it relies on the substitution
-        dictionaries in the datastores being correct).
-        """
         # Create a new PNAD with the given parameters and add effects. Set
-        # the preconditions to be trivial. They will be recomputed next.
-        new_pnad_op = pnad.op.copy_with(parameters=parameters,
+        # the preconditions to be trivial. They will be recomputed later.
+        new_pnad_op = pnad.op.copy_with(parameters=updated_params,
                                         preconditions=set(),
-                                        add_effects=add_effects)
+                                        add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
-        del pnad  # unused from here
-        # Recompute datastore using the add_effects semantics.
-        self._recompute_datastores_from_segments([new_pnad],
-                                                 semantics="add_effects")
-        # Determine the preconditions.
-        preconditions = self._induce_preconditions_via_intersection(new_pnad)
-        # Update the preconditions of the new PNAD's operator.
-        new_pnad.op = new_pnad.op.copy_with(preconditions=preconditions)
+
         return new_pnad
 
     @staticmethod
