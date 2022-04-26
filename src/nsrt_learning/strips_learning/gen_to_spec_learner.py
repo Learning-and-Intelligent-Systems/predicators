@@ -102,9 +102,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # and side predicate inductino.
         self._induce_keep_effects(param_opt_to_nec_pnads)
 
-        # TODO: get a list of all the final PNADs and return this.
-        import ipdb; ipdb.set_trace()
-        return list(param_opt_to_nec_pnads.values())
+        all_pnads = []
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
+            for i, pnad in enumerate(pnad_list):
+                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
+                all_pnads.append(pnad)
+
+        return all_pnads
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -298,10 +302,17 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # of new_pnad (in addition to pnad's preconditions).
                     keep_effects = new_pnad.op.add_effects - pnad.op.add_effects
                     new_pnad.op = new_pnad.op.copy_with(preconditions = pnad.op.preconditions | keep_effects)
+                    # Reassign data between the new and old PNADs.
                     self._recompute_datastores_from_segments([pnad, new_pnad], with_keep_effects=True)
-                    import ipdb; ipdb.set_trace()
-                    # TODO: Problem: partitioning the data via this recompute_datastores call
-                    # fails because it always partitions all data into the old pnad.
+                    # Recompute delete effects and side predicates for this new PNAD.
+                    self._finalize_pnad_delete_effects(new_pnad)
+                    self._finalize_pnad_side_predicates(new_pnad)
+                    # If the old PNAD no longer has anything in its datastore,
+                    # we can safely remove it without affecting harmlessness.
+                    if len(pnad.datastore) == 0:
+                        param_opt_to_nec_pnads[option.parent].remove(pnad)
+                    # Finally, add the new pnad to the datastore.
+                    param_opt_to_nec_pnads[option.parent].append(new_pnad)
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
