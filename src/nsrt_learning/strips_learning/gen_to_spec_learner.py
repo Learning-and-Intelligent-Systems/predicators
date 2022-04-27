@@ -1,6 +1,7 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
+import itertools
 from typing import Dict, List, Optional, Set
 
 from predicators.src import utils
@@ -85,8 +86,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Finish learning by adding in the delete effects and side predicates.
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
-
-        import ipdb; ipdb.set_trace()
 
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
         return final_pnads
@@ -527,13 +526,20 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         if not keep_effects:
             return set()
         
-        preconditions = pnad.op.preconditions | keep_effects
-        add_effects = pnad.op.add_effects | keep_effects
-        new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP",
-                                        preconditions=preconditions,
-                                        add_effects=add_effects)
-        new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
-        return {new_pnad}
+        new_pnad_with_keep_effects = set()
+        i = 0
+        for r in range(1, len(keep_effects) + 1):
+            for curr_keep_effects in itertools.combinations(keep_effects, r):
+                preconditions = pnad.op.preconditions | set(curr_keep_effects)
+                add_effects = pnad.op.add_effects | set(curr_keep_effects)
+                new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
+                                                preconditions=preconditions,
+                                                add_effects=add_effects)
+                new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+                new_pnad_with_keep_effects.add(new_pnad)
+                i += 1
+
+        return new_pnad_with_keep_effects
 
     def _assert_all_data_in_exactly_one_datastore(
             self, pnads: List[PartialNSRTAndDatastore]) -> None:

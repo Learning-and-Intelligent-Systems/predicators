@@ -590,8 +590,6 @@ def test_combinatorial_keep_effect_data_partitioning():
     Fix = fix.ground([], [])
     fix_act = Action([], Fix)
 
-    # TODO fix the rest of the trajectories + add states
-
     # Create the trajectories, goals, and tasks.
     traj1 = LowLevelTrajectory([
         all_off_not_configed, m1_fix, m1_fix_m1_off_configed_m2_on, m1_fix_m1_on_configed_m2_on,
@@ -626,49 +624,49 @@ def test_combinatorial_keep_effect_data_partitioning():
         segmented_trajs,
         verify_harmlessness=True)
     output_pnads = learner.learn()
-    # TODO: add comment here about the pnads.
+    # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
     assert len(output_pnads) == 7
     correct_pnads = set([
-        """STRIPS-Run:
+        """STRIPS-Run0:
     Parameters: [?x0:machine_type]
-    Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Preconditions: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn:
+    Option Spec: Run()""", """STRIPS-TurnOn0:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Fix:
+    Option Spec: TurnOn()""", """STRIPS-Fix0:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Configure0:
-    Parameters: [?x0:machine_type]
-    Preconditions: [MachineWorking(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
-    Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure1:
-    Parameters: [?x0:machine_type]
-    Preconditions: [MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
-    Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure2:
+    Option Spec: Fix()""", """STRIPS-Configure0:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure3:
+    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()""", """STRIPS-Configure0-KEEP1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()""", """STRIPS-Configure0-KEEP2:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
@@ -676,4 +674,4 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
-        assert pnad in correct_pnads
+        assert str(pnad) in correct_pnads
