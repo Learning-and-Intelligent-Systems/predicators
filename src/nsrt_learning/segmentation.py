@@ -48,20 +48,18 @@ def _segment_with_contact_changes(
     all_preds = {a.predicate for atoms in all_atoms for a in atoms}
 
     if CFG.env == "stick_point":
-        relevant_pred_names = {"Grasped", "Touched"}
+        keep_pred_names = {"Grasped", "Touched"}
     else:
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")
 
-    relevant_preds = {p for p in all_preds if p.name in relevant_pred_names}
-    all_relevant_atoms = []
+    keep_preds = {p for p in all_preds if p.name in keep_pred_names}
+    all_keep_atoms = []
     for atoms in all_atoms:
-        all_relevant_atoms.append(
-            {a
-             for a in atoms if a.predicate in relevant_preds})
+        all_keep_atoms.append({a for a in atoms if a.predicate in keep_preds})
 
     def _switch_fn(t: int) -> bool:
-        return all_relevant_atoms[t] != all_relevant_atoms[t + 1]
+        return all_keep_atoms[t] != all_keep_atoms[t + 1]
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
