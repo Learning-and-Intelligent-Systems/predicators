@@ -399,10 +399,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
             and eff.predicate in side_predicates
         }
-        params = set(pnad.op.parameters)
-        for eff in keep_effects:
-            for var in eff.variables:
-                params.add(var)
+        params = ({var
+                   for eff in keep_effects
+                   for var in eff.variables} | set(pnad.op.parameters))
         preconditions = pnad.op.preconditions | keep_effects
         add_effects = pnad.op.add_effects | keep_effects
         pnad.op = pnad.op.copy_with(parameters=sorted(params),
