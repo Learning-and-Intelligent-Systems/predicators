@@ -72,13 +72,15 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     approach2.load(online_learning_cycle=None)
 
 
-def test_gnn_metacontroller_approach_special_cases():
+@pytest.mark.parametrize("min_data_for_nsrt", [0, 2])
+def test_gnn_metacontroller_approach_special_cases(min_data_for_nsrt):
     """Tests for special cases of the GNNMetacontrollerApproach class."""
     utils.reset_config({
         "env": "cover",
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
-        "horizon": 10
+        "horizon": 10,
+        "min_data_for_nsrt": min_data_for_nsrt,
     })
     cup_type = Type("cup_type", ["feat1"])
     bowl_type = Type("bowl_type", ["feat1"])
