@@ -56,6 +56,13 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                 continue
             goal = self._train_tasks[ll_traj.train_task_idx].goal
             for segment in segment_traj:
+                if segment not in self._seg_to_nsrt:
+                    # If a segment in self._segmented_trajs is NOT in
+                    # self._seg_to_nsrt, this means the NSRT that covered
+                    # this segment was filtered out by a min_data check.
+                    # This segment thus won't have an option, so we skip it.
+                    assert not segment.has_option()
+                    continue
                 state = segment.states[0]  # the segment's initial state
                 atoms = segment.init_atoms  # the segment's initial atoms
                 target = self._extract_target_from_segment(segment)
@@ -69,8 +76,9 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
         """
         # Note: it should ALWAYS be the case that the segment has
         # an option here. If options are learned, then the segment
-        # is one that was returned by learn_nsrts_from_data, and so
-        # its option should have been set correctly to a learned one.
+        # is one that was returned by learn_nsrts_from_data, and we've
+        # checked above that it is in self._seg_to_nsrt. So its
+        # option should have been set correctly to a learned one.
         seg_option = segment.get_option()
         objects = list(segment.states[0])
         poss_ground_nsrts = []
