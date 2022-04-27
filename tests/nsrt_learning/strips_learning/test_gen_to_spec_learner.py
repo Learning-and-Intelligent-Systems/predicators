@@ -341,15 +341,21 @@ def test_keep_effect_data_partitioning():
 
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
-    machine_type = Type("machine_type", ["on", "configuration", "run", "configurable_while_off"])
+    machine_type = Type(
+        "machine_type",
+        ["on", "configuration", "run", "configurable_while_off"])
     MachineOn = Predicate("MachineOn", [machine_type],
                           lambda s, o: s[o[0]][0] > 0.5)
-    MachineConfigurableWhileOff = Predicate("MachineConfigurableWhileOff", [machine_type], lambda s, o: s[o[0]][3] > 0.5)
+    MachineConfigurableWhileOff = Predicate("MachineConfigurableWhileOff",
+                                            [machine_type],
+                                            lambda s, o: s[o[0]][3] > 0.5)
     MachineConfigured = Predicate("MachineConfigured", [machine_type],
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
-    predicates = set([MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun])
+    predicates = set([
+        MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun
+    ])
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -429,11 +435,10 @@ def test_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the two demos.
-    learner = _MockBackchainingSTRIPSLearner(
-        [traj1, traj2], [task1, task2],
-        predicates,
-        segmented_trajs,
-        verify_harmlessness=True)
+    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
     output_pnads = learner.learn()
     # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
     # each of TurningOn and Running.
@@ -441,7 +446,8 @@ def test_keep_effect_data_partitioning():
     correct_pnads = set([
         """STRIPS-Run0:
     Parameters: [?x0:machine_type]
-    Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type)]
+    Preconditions: [MachineConfigured(?x0:machine_type), """ + \
+        """MachineOn(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
@@ -457,10 +463,11 @@ def test_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn]
-    Option Spec: Configure()""", """STRIPS-Configure1:
+    Option Spec: Configure()""", """STRIPS-Configure0-KEEP:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ + \
+        """MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn]
     Option Spec: Configure()"""
@@ -468,4 +475,4 @@ def test_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
-        assert pnad in correct_pnads
+        assert str(pnad) in correct_pnads
