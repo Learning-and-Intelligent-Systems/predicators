@@ -1145,6 +1145,8 @@ class PartialNSRTAndDatastore:
     option_spec: OptionSpec
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
+    # A container for the possible keep effects for this PNAD.
+    poss_keep_effects: Set[LiftedAtom] = field(init=False, default_factory=set)
 
     def add_to_datastore(self,
                          member: Tuple[Segment, VarToObjSub],
