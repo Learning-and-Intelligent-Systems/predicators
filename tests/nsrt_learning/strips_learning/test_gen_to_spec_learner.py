@@ -336,16 +336,15 @@ def test_keep_effect_data_partitioning():
 
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
-    machine_type = Type("machine_type", ["on", "configuration", "run"])
+    machine_type = Type("machine_type", ["on", "configuration", "run", "configurable_while_off"])
     MachineOn = Predicate("MachineOn", [machine_type],
                           lambda s, o: s[o[0]][0] > 0.5)
-    NotMachineOn = Predicate("NotMachineOn", [machine_type],
-                             lambda s, o: s[o[0]][0] <= 0.5)
+    MachineConfigurableWhileOff = Predicate("MachineConfigurableWhileOff", [machine_type], lambda s, o: s[o[0]][3] > 0.5)
     MachineConfigured = Predicate("MachineConfigured", [machine_type],
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
-    predicates = set([MachineOn, NotMachineOn, MachineConfigured, MachineRun])
+    predicates = set([MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun])
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -353,44 +352,44 @@ def test_keep_effect_data_partitioning():
 
     # Create states to be used as part of trajectories.
     all_off_not_configed = State({
-        m1: [0.0, 0.0, 0.0],
-        m2: [0.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0]
+        m1: [0.0, 0.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
     })
     m1_off_configed_m2_on = State({
-        m1: [0.0, 1.0, 0.0],
-        m2: [1.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0]
+        m1: [0.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
     })
     m1_on_configed_m2_on = State({
-        m1: [1.0, 1.0, 0.0],
-        m2: [1.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0]
+        m1: [1.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
     })
     m1_on_configed_run_m2_on = State({
-        m1: [1.0, 1.0, 1.0],
-        m2: [1.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0]
+        m1: [1.0, 1.0, 1.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
     })
     m3_on = State({
-        m1: [0.0, 0.0, 0.0],
-        m2: [0.0, 0.0, 0.0],
-        m3: [1.0, 0.0, 0.0],
+        m1: [0.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
     })
     m1_on_m3_on = State({
-        m1: [1.0, 0.0, 0.0],
-        m2: [0.0, 0.0, 0.0],
-        m3: [1.0, 0.0, 0.0],
+        m1: [1.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
     })
     m1_on_configed = State({
-        m1: [1.0, 1.0, 0.0],
-        m2: [0.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0],
+        m1: [1.0, 1.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
     })
     m1_on_configed_run = State({
-        m1: [1.0, 1.0, 1.0],
-        m2: [0.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0],
+        m1: [1.0, 1.0, 1.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
     })
 
     # Create the necessary options and actions.
@@ -427,7 +426,7 @@ def test_keep_effect_data_partitioning():
     # Now, run the learner on the two demos.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2], [task1, task2],
-        set([MachineOn, NotMachineOn, MachineConfigured, MachineRun]),
+        predicates,
         segmented_trajs,
         verify_harmlessness=True)
     output_pnads = learner.learn()
@@ -435,13 +434,13 @@ def test_keep_effect_data_partitioning():
     # each of TurningOn and Running.
     assert len(output_pnads) == 4
     correct_pnads = set([
-        """STRIPS-Run:
+        """STRIPS-Run0:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn:
+    Option Spec: Run()""", """STRIPS-TurnOn0:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
@@ -449,16 +448,16 @@ def test_keep_effect_data_partitioning():
     Side Predicates: []
     Option Spec: TurnOn()""", """STRIPS-Configure0:
     Parameters: [?x0:machine_type]
-    Preconditions: [NotMachineOn(?x0:machine_type)]
+    Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn]
     Option Spec: Configure()"""
     ])
 
