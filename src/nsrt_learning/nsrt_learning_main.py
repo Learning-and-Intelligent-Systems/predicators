@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -19,11 +19,20 @@ from predicators.src.structs import NSRT, LowLevelTrajectory, \
 
 
 def learn_nsrts_from_data(
-        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
-        predicates: Set[Predicate], action_space: Box,
-        sampler_learner: str) -> Tuple[Set[NSRT], List[List[Segment]]]:
+    trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+    predicates: Set[Predicate], action_space: Box, sampler_learner: str
+) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
-    given set of predicates."""
+    given set of predicates.
+
+    There are three return values: (1) The final set of NSRTs. (2) The
+    segmented trajectories. These are returned because any options that
+    were learned will be contained properly in these segments. (3) A
+    mapping from segment to NSRT. This is returned because not all
+    segments in return value (2) are necessarily covered by an NSRT, in
+    the case that we are enforcing a min_data (see
+    base_strips_learner.py).
+    """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
@@ -73,16 +82,20 @@ def learn_nsrts_from_data(
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
     # STEP 6: Make, log, and return the NSRTs.
-    nsrts = [pnad.make_nsrt() for pnad in pnads]
+    nsrts = []
+    seg_to_nsrt = {}
+    for pnad in pnads:
+        nsrt = pnad.make_nsrt()
+        nsrts.append(nsrt)
+        for (seg, _) in pnad.datastore:
+            assert seg not in seg_to_nsrt
+            seg_to_nsrt[seg] = nsrt
     logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:
         logging.info(nsrt)
     logging.info("")
 
-    # We return both the completed NSRTs themselves and the segmented
-    # trajectories. The latter is returned because any options that
-    # were learned will be contained properly in these segments.
-    return set(nsrts), segmented_trajs
+    return set(nsrts), segmented_trajs, seg_to_nsrt
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
