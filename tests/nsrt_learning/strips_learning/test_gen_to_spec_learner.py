@@ -1,12 +1,13 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
+from predicators.src import utils
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
-from predicators.src import utils
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
+
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
@@ -38,7 +39,8 @@ def test_backchaining_strips_learner():
     Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
     opt_name_to_opt = {}
     for opt_name in ["Cry", "Eat"]:
-        opt = utils.SingletonParameterizedOption(opt_name, lambda s, m, o, p: None)
+        opt = utils.SingletonParameterizedOption(opt_name,
+                                                 lambda s, m, o, p: None)
         opt_name_to_opt[opt_name] = opt
     # Set up the data.
     bob = human_type("bob")
@@ -332,7 +334,7 @@ def test_keep_effect_data_partitioning():
     operators with keep effects in a case where a naive procedure that always
     induces potential keep effects would fail."""
 
-    utils.reset_config({"segmenter": "option_changes"})
+    utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
     machine_type = Type("machine_type", ["on", "configuration", "run"])
     MachineOn = Predicate("MachineOn", [machine_type],
@@ -392,18 +394,19 @@ def test_keep_effect_data_partitioning():
     })
 
     # Create the necessary options and actions.
-    turn_on = utils.SingletonParameterizedOption("TurnOn", lambda s, m, o, p: None)
+    turn_on = utils.SingletonParameterizedOption("TurnOn",
+                                                 lambda s, m, o, p: None)
     TurnOn = turn_on.ground([], [])
     turn_on_act = Action([], TurnOn)
     configure = utils.SingletonParameterizedOption("Configure",
-                                             lambda s, m, o, p: None)
+                                                   lambda s, m, o, p: None)
     Configure = configure.ground([], [])
     configure_act = Action([], Configure)
     run = utils.SingletonParameterizedOption("Run", lambda s, m, o, p: None)
     Run = run.ground([], [])
     run_act = Action([], Run)
 
-    # Now create the trajectories, goals and tasks.
+    # Create the trajectories, goals, and tasks.
     traj1 = LowLevelTrajectory([
         all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on,
         m1_on_configed_run_m2_on
@@ -417,110 +420,40 @@ def test_keep_effect_data_partitioning():
     task1 = Task(all_off_not_configed, goal)
     task2 = Task(m3_on, goal)
 
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], predicates)
-    segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_trajs
-    ]
-    import ipdb; ipdb.set_trace()
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
+                                                         predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
-    # Define the 2 demos (each with 3 segments) to backchain over.
-    segment1_1 = Segment(
-        traj1, {NotMachineOn([m1]),
-                NotMachineOn([m2]),
-                NotMachineOn([m3])}, {
-                    NotMachineOn([m1]),
-                    MachineConfigured([m1]),
-                    MachineOn([m2]),
-                    NotMachineOn([m3])
-                }, configure, goal)
-    segment1_2 = Segment(
-        traj1, {
-            NotMachineOn([m1]),
-            MachineConfigured([m1]),
-            MachineOn([m2]),
-            NotMachineOn([m3])
-        }, {
-            MachineOn([m1]),
-            MachineConfigured([m1]),
-            MachineOn([m2]),
-            NotMachineOn([m3])
-        }, turn_on, goal)
-    segment1_3 = Segment(
-        traj1, {
-            MachineOn([m1]),
-            MachineConfigured([m1]),
-            MachineOn([m2]),
-            NotMachineOn([m3])
-        }, {
-            MachineOn([m1]),
-            MachineConfigured([m1]),
-            MachineRun([m1]),
-            MachineOn([m2]),
-            NotMachineOn([m3])
-        }, run, goal)
-
-    segment2_1 = Segment(
-        traj2, {NotMachineOn([m1]),
-                NotMachineOn([m2]),
-                MachineOn([m3])},
-        {MachineOn([m1]), NotMachineOn([m2]),
-         MachineOn([m3])}, turn_on, goal)
-    segment2_2 = Segment(
-        traj2,
-        {MachineOn([m1]), NotMachineOn([m2]),
-         MachineOn([m3])}, {
-             MachineOn([m1]),
-             MachineConfigured([m1]),
-             NotMachineOn([m2]),
-             NotMachineOn([m3])
-         }, configure, goal)
-    segment2_3 = Segment(
-        traj2, {
-            MachineOn([m1]),
-            MachineConfigured([m1]),
-            NotMachineOn([m2]),
-            NotMachineOn([m3])
-        }, {
-            MachineOn([m1]),
-            MachineConfigured([m1]),
-            MachineRun([m1]),
-            NotMachineOn([m2]),
-            NotMachineOn([m3])
-        }, run, goal)
-    # Now, run the learner on the two demos and make sure verify_harmlessness
-    # is set to True.
+    # Now, run the learner on the two demos.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2], [task1, task2],
-        set([MachineOn, NotMachineOn, MachineConfigured,
-             MachineRun]), [[segment1_1, segment1_2, segment1_3],
-                            [segment2_1, segment2_2, segment2_3]], verify_harmlessness=True)
+        set([MachineOn, NotMachineOn, MachineConfigured, MachineRun]),
+        segmented_trajs,
+        verify_harmlessness=True)
     output_pnads = learner.learn()
     # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
     # each of TurningOn and Running.
     assert len(output_pnads) == 4
-
-    correct_pnads = set(["""STRIPS-Run:
+    correct_pnads = set([
+        """STRIPS-Run:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""",
-    """STRIPS-TurnOn:
+    Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TuenOn()""",
-    """STRIPS-Configure0:
+    Option Spec: TurnOn()""", """STRIPS-Configure0:
     Parameters: [?x0:machine_type]
     Preconditions: [NotMachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, NotMachineOn]
-    Option Spec: Configure()""",
-    """STRIPS-Configure1:
+    Option Spec: Configure()""", """STRIPS-Configure1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
