@@ -164,10 +164,10 @@ class StickPointEnv(BaseEnv):
             if state.get(self._stick, "held") <= 0.5 and \
                 stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
-                # we only check for a collision here, as opposed to every time
-                # step, is that we imagine the robot moving down in the z
+                # we only check for a collision here, as opposed to every
+                # timestep, is that we imagine the robot moving down in the z
                 # direction to pick up the stick, at which point it may
-                # collide with the stick holder. On other time steps, the robot
+                # collide with the stick holder. On other timesteps, the robot
                 # would be high enough above the holder to avoid collisions.
                 holder_rect = self._object_to_geom(self._holder, state)
                 if robot_circ.intersects(holder_rect):
