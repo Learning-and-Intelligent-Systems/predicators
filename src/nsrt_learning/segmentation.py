@@ -18,6 +18,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_option_changes(trajectory)
     if CFG.segmenter == "oracle":
         return _segment_with_oracle(trajectory)
+    if CFG.segmenter == "contacts":
+        return _segment_with_contact_changes(trajectory)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -29,6 +31,29 @@ def _segment_with_atom_changes(
 
     def _switch_fn(t: int) -> bool:
         return all_atoms[t] != all_atoms[t + 1]
+
+    return _segment_with_switch_function(trajectory, _switch_fn)
+
+
+def _segment_with_contact_changes(
+        trajectory: GroundAtomTrajectory) -> List[Segment]:
+    """TODO"""
+
+    _, all_atoms = trajectory
+    all_preds = {a.predicate for atoms in all_atoms for a in atoms}
+
+    if CFG.env == "stick_point":
+        relevant_pred_names = {"Grasped", "Touched"}
+    else:
+        raise NotImplementedError("Contact-based segmentation not implemented "
+                                  f"for environment {CFG.env}.")
+
+    relevant_preds = {p for p in all_preds if p.name in relevant_pred_names}
+    all_relevant_atoms = [{a for a in atoms if a.predicate in relevant_preds}
+                          for atoms in all_atoms]
+
+    def _switch_fn(t: int) -> bool:
+        return all_relevant_atoms[t] != all_relevant_atoms[t + 1]
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
