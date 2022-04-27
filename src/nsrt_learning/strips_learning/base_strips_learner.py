@@ -21,7 +21,7 @@ class BaseSTRIPSLearner(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
-        verify_harmlessness: bool = False,
+        verify_harmlessness: bool,
         verbose: bool = True,
     ) -> None:
         self._trajectories = trajectories
@@ -254,16 +254,20 @@ class BaseSTRIPSLearner(abc.ABC):
         """Return a score for how well the given segment matches the given
         ground operator, used in recompute_datastores_from_segments().
 
-        A lower score is a CLOSER match.
+        A lower score is a CLOSER match. We use a heuristic to estimate
+        the quality of the match, where we check how many ground atoms
+        are different between the segment's add/delete effects and the
+        operator's add/delete effects. However, we must be careful to
+        treat keep effects specially, since they will not appear in
+        segment.add_effects. In general, we favor more keep effects
+        (hence we subtract len(keep_effects)), since we can only ever
+        call this function on ground operators whose preconditions are
+        satisfied in segment.init_atoms.
         """
-
-        # Compute the score on effects that are not keep effects
-        # and then given bonus for every keep effects
         keep_effects = ground_op.preconditions & ground_op.add_effects
-        non_keep_effects = ground_op.add_effects - keep_effects
-
-        return len(segment.add_effects - non_keep_effects) + \
-            len(non_keep_effects - segment.add_effects) + \
+        nonkeep_add_effects = ground_op.add_effects - keep_effects
+        return len(segment.add_effects - nonkeep_add_effects) + \
+            len(nonkeep_add_effects - segment.add_effects) + \
             len(segment.delete_effects - ground_op.delete_effects) + \
             len(ground_op.delete_effects - segment.delete_effects) - \
             len(keep_effects)

@@ -615,9 +615,6 @@ def test_oracle_approach_repeated_nextto_painting():
         "env": "repeated_nextto_painting",
         "num_test_tasks": 1,
         "painting_num_objs_test": [1],
-        # NOTE: We found hff to make planning for this problem significantly
-        # faster, and thus use it here so that the tests run quickly!
-        "sesame_task_planning_heuristic": "hff"
     })
     env = RepeatedNextToPaintingEnv()
     train_tasks = env.get_train_tasks()

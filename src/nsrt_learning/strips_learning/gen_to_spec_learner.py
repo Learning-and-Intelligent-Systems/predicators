@@ -69,42 +69,25 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        # Iterate over the demonstrations and backchain to learn PNADs.
-        # Repeat until a fixed point is reached.
+        # Pass over the demonstrations multiple times. Each time, backchain
+        # to learn PNADs. Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
+            # Before each pass, clear the poss_keep_effects of all the
+            # PNADs. We do this because we only want the poss_keep_effects
+            # of the final pass, where the PNADs did not change.
+            for pnads in param_opt_to_nec_pnads.values():
+                for pnad in pnads:
+                    pnad.poss_keep_effects = set()
+            # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
         # Finish learning by adding in the delete effects and side predicates.
-        # all_pnads = self._finish_learning(param_opt_to_nec_pnads)
-        self._compute_del_effs_and_side_preds(param_opt_to_nec_pnads)
+        final_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
-        # Assert that every demo datapoint appears in exactly one datastore.
-        num_demo_data = 0
-        for ll_traj, seg_traj in zip(self._trajectories,
-                                     self._segmented_trajs):
-            if not ll_traj.is_demo:
-                continue
-            num_demo_data += len(seg_traj)
-        # We need a >= here rather than a == because of replay data. An
-        # arbitrary number of replay transitions could match our PNADs,
-        # depending on how often non-noop transitions occurred in that data.
-        # In the case where we have no replay data, >= is equivalent to ==.
-        # assert sum(len(pnad.datastore) for pnad in all_pnads) >= num_demo_data
-        assert sum(len(pnad.datastore) for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list) >= num_demo_data
-
-        # Assertion to check if all segments in our pnads have necessary_images,
-        # which we will need when computing keep effects
-        assert None not in [data[0].get_necessary_image() for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list for data in pnad.datastore]
-
-        # Induce keep effects to preserve harmlessness after delete effect
-        # and side predicate inductino.
-        self._induce_keep_effects(param_opt_to_nec_pnads)
-
-        # TODO: get a list of all the final PNADs and return this.
-        import ipdb; ipdb.set_trace()
-        return list(param_opt_to_nec_pnads.values())
+        self._assert_all_data_in_exactly_one_datastore(final_pnads)
+        return final_pnads
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -209,6 +192,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     assert ground_op is not None
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
+
+                # For every atom in the necessary_image that wasn't in the
+                # necessary_add_effects, if it only contains objects
+                # already in obj_to_var, then it's a possible keep effect.
+                for atom in necessary_image - necessary_add_effects:
+                    if all(obj in obj_to_var for obj in atom.objects):
+                        pnad.poss_keep_effects.add(atom.lift(obj_to_var))
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -327,21 +317,35 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # param_opt_to_nec_pnads dict, since we can be assured
         # that our backchaining process ensured that the
         # PNADs in this dict cover all of the data!
-        all_pnads = []
+        nec_pnads = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
                 pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                all_pnads.append(pnad)
+                nec_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
-        # and add effects. We now finalize the delete effects and side
-        # predicates. Note that we have to do delete effects first, and
-        # then side predicates, because the latter rely on the former.
-        for pnad in all_pnads:
-            self._finalize_pnad_delete_effects(pnad)
-            self._finalize_pnad_side_predicates(pnad)
+        # and add effects. We now compute the delete effects, side
+        # predicates, and keep effects. The order is important: each
+        # of these depends on the previous one.
+        pnads_with_keep_effects = set()
+        for pnad in nec_pnads:
+            self._compute_pnad_delete_effects(pnad)
+            self._compute_pnad_side_predicates(pnad)
+            pnads_with_keep_effects |= self._get_pnads_with_keep_effects(pnad)
+        for pnad in pnads_with_keep_effects:
+            nec_pnads.append(pnad)
 
-        return all_pnads
+        # Recompute datastores and induce preconditions one final time.
+        # Filter out PNADs that have an empty datastore.
+        self._recompute_datastores_from_segments(nec_pnads)
+        final_pnads = []
+        for pnad in nec_pnads:
+            if pnad.datastore:
+                pre = self._induce_preconditions_via_intersection(pnad)
+                pnad.op = pnad.op.copy_with(preconditions=pre)
+                final_pnads.append(pnad)
+
+        return final_pnads
 
     def _compute_del_effs_and_side_preds(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -455,11 +459,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        new_pnad.poss_keep_effects = pnad.poss_keep_effects.copy()
 
         return new_pnad
 
     @staticmethod
-    def _finalize_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
         """Update the given PNAD to change the delete effects to ones obtained
         by unioning all lifted images in the datastore.
 
@@ -487,7 +492,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad.op = pnad.op.copy_with(delete_effects=delete_effects)
 
     @staticmethod
-    def _finalize_pnad_side_predicates(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_side_predicates(pnad: PartialNSRTAndDatastore) -> None:
         """Update the given PNAD to change the side predicates to ones that
         include every unmodeled add or delete effect seen in the data."""
         # First, strip out any existing side predicates so that the call
@@ -503,6 +508,29 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for atom in next_atoms - segment.final_atoms:
                 side_predicates.add(atom.predicate)
         pnad.op = pnad.op.copy_with(side_predicates=side_predicates)
+
+    @staticmethod
+    def _get_pnads_with_keep_effects(
+            pnad: PartialNSRTAndDatastore) -> Set[PartialNSRTAndDatastore]:
+        """Return a new set of PNADs that include keep effects into the given
+        PNAD."""
+        # The keep effects that we want are the subset of possible keep
+        # effects which are not already in the PNAD's add effects, and
+        # whose predicates were determined to be side predicates.
+        keep_effects = {
+            eff
+            for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
+            and eff.predicate in pnad.op.side_predicates
+        }
+        if not keep_effects:
+            return set()
+        preconditions = pnad.op.preconditions | keep_effects
+        add_effects = pnad.op.add_effects | keep_effects
+        new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP",
+                                        preconditions=preconditions,
+                                        add_effects=add_effects)
+        new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        return {new_pnad}
 
     def _assert_all_data_in_exactly_one_datastore(
             self, pnads: List[PartialNSRTAndDatastore]) -> None:
