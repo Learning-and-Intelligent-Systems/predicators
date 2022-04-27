@@ -648,20 +648,21 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         _get_types_by_names(CFG.env, ["obj", "box", "lid", "shelf", "robot"])
 
     (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable, \
-        HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
+        NotOnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, \
+        IsClean) = \
         _get_predicates_by_names(
             CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
-                        "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                        "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+                        "GripperOpen", "OnTable", "NotOnTable", "HoldingTop",
+                        "HoldingSide", "Holding", "IsWet", "IsDry", "IsDirty",
+                        "IsClean"])
 
     Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
         CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
 
     if CFG.env == "repeated_nextto_painting":
-        (NextTo, NextToBox, NextToShelf, NextToTable, NotOnTable) = \
+        (NextTo, NextToBox, NextToShelf, NextToTable) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable",
-                       "NotOnTable"])
+             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
             CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
@@ -833,6 +834,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotOnTable, [obj]),
     }
     delete_effects = {
         LiftedAtom(HoldingTop, [obj]),
@@ -840,8 +842,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj]),
     }
     if CFG.env == "repeated_nextto_painting":
-        # OnTable is removed by moving in rnt_painting, so we don't
-        # want it to be a delete effect here.
+        # (Not)OnTable is affected by moving, not placing, in rnt_painting.
+        # So we remove it from the add and delete effects here.
+        add_effects.remove(LiftedAtom(NotOnTable, [obj]))
         delete_effects.remove(LiftedAtom(OnTable, [obj]))
 
     def placeinbox_sampler(state: State, goal: Set[GroundAtom],
@@ -880,6 +883,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {
         LiftedAtom(InShelf, [obj, shelf]),
         LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotOnTable, [obj]),
     }
     delete_effects = {
         LiftedAtom(HoldingSide, [obj]),
@@ -887,8 +891,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj]),
     }
     if CFG.env == "repeated_nextto_painting":
-        # OnTable is removed by moving in rnt_painting, so we don't
-        # want it to be a delete effect here.
+        # (Not)OnTable is affected by moving, not placing, in rnt_painting.
+        # So we remove it from the add and delete effects here.
+        add_effects.remove(LiftedAtom(NotOnTable, [obj]))
         delete_effects.remove(LiftedAtom(OnTable, [obj]))
 
     def placeinshelf_sampler(state: State, goal: Set[GroundAtom],
@@ -932,6 +937,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = Place
     if CFG.env == "painting":
+        # The environment is a little weird: the object is technically
+        # already OnTable when we go to place it on the table, because
+        # of how the classifier is implemented.
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(OnTable, [obj]),
