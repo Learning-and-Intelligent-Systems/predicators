@@ -5,7 +5,7 @@ from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
-from predicators.src.utils import SingletonParameterizedOption
+from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -38,7 +38,7 @@ def test_backchaining_strips_learner():
     Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
     opt_name_to_opt = {}
     for opt_name in ["Cry", "Eat"]:
-        opt = SingletonParameterizedOption(opt_name, lambda s, m, o, p: None)
+        opt = utils.SingletonParameterizedOption(opt_name, lambda s, m, o, p: None)
         opt_name_to_opt[opt_name] = opt
     # Set up the data.
     bob = human_type("bob")
@@ -170,7 +170,7 @@ def test_backchaining_strips_learner_order_dependence():
         fridge: [1.03, 1.03]
     })
     # Create the single necessary option and action.
-    move_and_mess_with_lights = SingletonParameterizedOption(
+    move_and_mess_with_lights = utils.SingletonParameterizedOption(
         "MoveAndMessWithLights", lambda s, m, o, p: None)
     MoveAndMessWithLights = move_and_mess_with_lights.ground([], [])
     act = Action([], MoveAndMessWithLights)
@@ -261,7 +261,7 @@ def test_find_unification_and_try_specializing_pnad():
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
-    opt = SingletonParameterizedOption("Move", lambda s, m, o, p: None)
+    opt = utils.SingletonParameterizedOption("Move", lambda s, m, o, p: None)
     human_var = human_type("?x0")
     params = [human_var]
     add_effects = {Asleep([human_var])}
@@ -332,6 +332,7 @@ def test_keep_effect_data_partitioning():
     operators with keep effects in a case where a naive procedure that always
     induces potential keep effects would fail."""
 
+    utils.reset_config({"segmenter": "option_changes"})
     # Set up the types and predicates.
     machine_type = Type("machine_type", ["on", "configuration", "run"])
     MachineOn = Predicate("MachineOn", [machine_type],
@@ -342,6 +343,8 @@ def test_keep_effect_data_partitioning():
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
+    predicates = set([MachineOn, NotMachineOn, MachineConfigured, MachineRun])
+
     m1 = machine_type("m1")
     m2 = machine_type("m2")
     m3 = machine_type("m3")
@@ -389,14 +392,14 @@ def test_keep_effect_data_partitioning():
     })
 
     # Create the necessary options and actions.
-    turn_on = SingletonParameterizedOption("TurnOn", lambda s, m, o, p: None)
+    turn_on = utils.SingletonParameterizedOption("TurnOn", lambda s, m, o, p: None)
     TurnOn = turn_on.ground([], [])
     turn_on_act = Action([], TurnOn)
-    configure = SingletonParameterizedOption("Configure",
+    configure = utils.SingletonParameterizedOption("Configure",
                                              lambda s, m, o, p: None)
     Configure = configure.ground([], [])
     configure_act = Action([], Configure)
-    run = SingletonParameterizedOption("Run", lambda s, m, o, p: None)
+    run = utils.SingletonParameterizedOption("Run", lambda s, m, o, p: None)
     Run = run.ground([], [])
     run_act = Action([], Run)
 
@@ -414,8 +417,11 @@ def test_keep_effect_data_partitioning():
     task1 = Task(all_off_not_configed, goal)
     task2 = Task(m3_on, goal)
 
-    # import ipdb; ipdb.set_trace()
-    # segment_trajectory(traj1)
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], predicates)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_trajs
+    ]
+    import ipdb; ipdb.set_trace()
 
     # Define the 2 demos (each with 3 segments) to backchain over.
     segment1_1 = Segment(
