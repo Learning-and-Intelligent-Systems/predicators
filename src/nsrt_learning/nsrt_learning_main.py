@@ -26,9 +26,9 @@ def learn_nsrts_from_data(
     given set of predicates.
 
     There are three return values: (1) The final set of NSRTs. (2) The
-    segmented trajectories. These are returned because any options
-    that were learned will be contained properly in these segments. (3)
-    A mapping from segment to NSRT. This is returned because not all
+    segmented trajectories. These are returned because any options that
+    were learned will be contained properly in these segments. (3) A
+    mapping from segment to NSRT. This is returned because not all
     segments in return value (2) are necessarily covered by an NSRT, in
     the case that we are enforcing a min_data (see
     base_strips_learner.py).

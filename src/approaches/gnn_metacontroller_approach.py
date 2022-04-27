@@ -60,8 +60,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
                     # If a segment in self._segmented_trajs is NOT in
                     # self._seg_to_nsrt, this means the NSRT that covered
                     # this segment was filtered out by a min_data check.
-                    # This segment thus won't have an option, so we skip it.
-                    assert not segment.has_option()
+                    # So, we skip it.
                     continue
                 state = segment.states[0]  # the segment's initial state
                 atoms = segment.init_atoms  # the segment's initial atoms
