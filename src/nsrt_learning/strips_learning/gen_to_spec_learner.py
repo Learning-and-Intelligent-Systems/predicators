@@ -408,7 +408,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         PNAD."""
         # The keep effects that we want are the subset of possible keep
         # effects which are not already in the PNAD's add effects, and
-        # whose predicates were just determined to be side predicates.
+        # whose predicates were determined to be side predicates.
         keep_effects = {
             eff
             for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
