@@ -476,17 +476,13 @@ def test_combinatorial_keep_effect_data_partitioning():
     machine_type = Type("machine_type", ["on", "configuration", "run", "working"])
     MachineOn = Predicate("MachineOn", [machine_type],
                           lambda s, o: s[o[0]][0] > 0.5)
-    NotMachineOn = Predicate("NotMachineOn", [machine_type],
-                             lambda s, o: s[o[0]][0] <= 0.5)
     MachineConfigured = Predicate("MachineConfigured", [machine_type],
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
     MachineWorking = Predicate("MachineWorking", [machine_type],
                           lambda s, o: s[o[0]][3] > 0.5)
-    NotMachineWorking = Predicate("NotMachineWorking", [machine_type],
-                             lambda s, o: s[o[0]][3] <= 0.5)
-    predicates = set([MachineOn, NotMachineOn, MachineConfigured, MachineRun, MachineWorking, NotMachineWorking])
+    predicates = set([MachineOn, MachineConfigured, MachineRun, MachineWorking])
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -615,17 +611,17 @@ def test_combinatorial_keep_effect_data_partitioning():
     traj3 = LowLevelTrajectory([
         all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on, 
         m1_fix_m1_on_configed_m2_on, m1_fix_m1_on_configed_run_m2_on
-    ], [configure_act, turn_on_act, fix_act, run_act], True, 0)
+    ], [configure_act, turn_on_act, fix_act, run_act], True, 2)
     traj4 = LowLevelTrajectory(
         [m3_fix_m3_on, m1_on_m3_fix_m3_on, m1_on_configed, m1_fix_m1_on_configed, m1_fix_m1_on_configed_run],
-        [turn_on_act, configure_act, fix_act, run_act], True, 1)
+        [turn_on_act, configure_act, fix_act, run_act], True, 3)
     goal = {
         MachineRun([m1]),
     }
     task1 = Task(all_off_not_configed, goal)
-    task2 = Task(m3_on, goal)
+    task2 = Task(m3_fix_m3_on, goal)
     task3 = Task(all_off_not_configed, goal)
-    task4 = Task(m3_on, goal)
+    task4 = Task(m3_fix_m3_on, goal)
 
     ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2, traj3, traj4],
                                                          predicates)
@@ -634,7 +630,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     # Now, run the learner on the two demos.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
-        set([MachineOn, NotMachineOn, MachineConfigured, MachineRun, MachineWorking, NotMachineWorking]),
+        set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
         segmented_trajs,
         verify_harmlessness=True)
     output_pnads = learner.learn()
@@ -662,28 +658,28 @@ def test_combinatorial_keep_effect_data_partitioning():
     Side Predicates: []
     Option Spec: TurnOn()""", """STRIPS-Configure0:
     Parameters: [?x0:machine_type]
-    Preconditions: [NotMachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure2:
     Parameters: [?x0:machine_type]
-    Preconditions: [NotMachineOn(?x0:machine_type), NotMachineWorking(?x0:machine_type)]
+    Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure3:
     Parameters: [?x0:machine_type]
-    Preconditions: [MachineOn(?x0:machine_type), NotMachineWorking(?x0:machine_type)]
+    Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, NotMachineOn]
+    Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
 
