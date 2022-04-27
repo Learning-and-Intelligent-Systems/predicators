@@ -59,22 +59,19 @@ class StickPointEnv(BaseEnv):
         # Predicates
         self._Touched = Predicate("Touched", [self._point_type],
                                   self._Touched_holds)
-        self._InContactStickPoint = Predicate(
-            "InContactStickPoint", [self._stick_type, self._point_type],
-            self._InContact_holds)
-        self._InContactRobotPoint = Predicate(
-            "InContactRobotPoint", [self._robot_type, self._point_type],
-            self._InContact_holds)
-        self._InContactRobotStick = Predicate(
-            "InContactRobotStick", [self._robot_type, self._stick_type],
-            self._InContact_holds)
+        self._StickAbovePoint = Predicate("StickAbovePoint",
+                                          [self._stick_type, self._point_type],
+                                          self._Above_holds)
+        self._RobotAbovePoint = Predicate("RobotAbovePoint",
+                                          [self._robot_type, self._point_type],
+                                          self._Above_holds)
         self._Grasped = Predicate("Grasped",
                                   [self._robot_type, self._stick_type],
                                   self._Grasped_holds)
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
-        self._NoPointInContact = Predicate("NoPointInContact", [],
-                                           self._NoPointInContact_holds)
+        self._AboveNoPoint = Predicate("AboveNoPoint", [],
+                                       self._AboveNoPoint_holds)
         # Options
         self._RobotTouchPoint = ParameterizedOption(
             "RobotTouchPoint",
@@ -200,9 +197,8 @@ class StickPointEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._Touched, self._InContactRobotPoint,
-            self._InContactRobotStick, self._InContactStickPoint,
-            self._Grasped, self._HandEmpty, self._NoPointInContact
+            self._Touched, self._RobotAbovePoint, self._StickAbovePoint,
+            self._Grasped, self._HandEmpty, self._AboveNoPoint
         }
 
     @property
@@ -453,7 +449,7 @@ class StickPointEnv(BaseEnv):
                                 params: Array) -> Action:
         del memory, params  # unused
         # If the robot and point are already touching, press.
-        if self._InContact_holds(state, objects):
+        if self._Above_holds(state, objects):
             return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # Otherwise, move toward the point.
         robot, point = objects
@@ -547,8 +543,7 @@ class StickPointEnv(BaseEnv):
         point, = objects
         return state.get(point, "touched") > 0.5
 
-    def _InContact_holds(self, state: State,
-                         objects: Sequence[Object]) -> bool:
+    def _Above_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
         geom1 = self._object_to_geom(obj1, state)
         geom2 = self._object_to_geom(obj2, state)
@@ -565,14 +560,14 @@ class StickPointEnv(BaseEnv):
         stick, = state.get_objects(self._stick_type)
         return not self._Grasped_holds(state, [robot, stick])
 
-    def _NoPointInContact_holds(self, state: State,
-                                objects: Sequence[Object]) -> bool:
+    def _AboveNoPoint_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
         assert not objects
         robot, = state.get_objects(self._robot_type)
         stick, = state.get_objects(self._stick_type)
         for point in state.get_objects(self._point_type):
-            if self._InContact_holds(state, [robot, point]):
+            if self._Above_holds(state, [robot, point]):
                 return False
-            if self._InContact_holds(state, [stick, point]):
+            if self._Above_holds(state, [stick, point]):
                 return False
         return True

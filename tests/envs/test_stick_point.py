@@ -23,11 +23,9 @@ def test_stick_point():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 7
+    assert len(env.predicates) == 6
     assert len(env.goal_predicates) == 1
-    NoPointInContact = [
-        p for p in env.predicates if p.name == "NoPointInContact"
-    ][0]
+    AboveNoPoint = [p for p in env.predicates if p.name == "AboveNoPoint"][0]
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
     assert len(env.options) == 3
     assert len(env.types) == 4
@@ -64,7 +62,7 @@ def test_stick_point():
     state.set(stick, "theta", np.pi / 4)
     task = Task(state, task.goal)
     env.render_state(state, task)
-    assert GroundAtom(NoPointInContact, []).holds(state)
+    assert GroundAtom(AboveNoPoint, []).holds(state)
 
     ## Test simulate ##
 
@@ -91,7 +89,7 @@ def test_stick_point():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(reachable_point, "touched") < 0.5
     assert traj.states[-1].get(reachable_point, "touched") > 0.5
-    assert not GroundAtom(NoPointInContact, []).holds(traj.states[-1])
+    assert not GroundAtom(AboveNoPoint, []).holds(traj.states[-1])
 
     # Test for going to pick up the stick.
     num_steps_to_right = 11
@@ -149,7 +147,7 @@ def test_stick_point():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(unreachable_point, "touched") < 0.5
     assert traj.states[-1].get(unreachable_point, "touched") > 0.5
-    assert not GroundAtom(NoPointInContact, []).holds(traj.states[-1])
+    assert not GroundAtom(AboveNoPoint, []).holds(traj.states[-1])
 
     # Uncomment for debugging.
     # policy = utils.action_arrs_to_policy(action_arrs)
