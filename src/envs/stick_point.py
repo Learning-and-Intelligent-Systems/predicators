@@ -132,7 +132,6 @@ class StickPointEnv(BaseEnv):
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
-
         # The robot cannot leave the reachable zone. If it tries to, raise
         # an EnvironmentFailure, which represents a terminal state.
         rad = self.robot_radius
