@@ -617,7 +617,7 @@ def test_combinatorial_keep_effect_data_partitioning():
                                                          predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
-    # Now, run the learner on the two demos.
+    # Now, run the learner on the four demos.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
         set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
@@ -671,6 +671,28 @@ def test_combinatorial_keep_effect_data_partitioning():
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
+
+    # Verify that all the output PNADs are correct.
+    for pnad in output_pnads:
+        assert str(pnad) in correct_pnads
+
+    # Now, run the learner on 3/4 of the demos and verify that it produces only
+    # 3 PNADs for the Configure action.
+    learner = _MockBackchainingSTRIPSLearner(
+        [traj1, traj2, traj3], [task1, task2, task3],
+        set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
+        segmented_trajs[:-1],
+        verify_harmlessness=True)
+    output_pnads = learner.learn()
+    assert len(output_pnads) == 6
+
+    correct_pnads = correct_pnads - set(["""STRIPS-Configure0-KEEP1:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()"""])
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
