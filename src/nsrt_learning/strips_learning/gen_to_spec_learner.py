@@ -69,13 +69,17 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        # Iterate over the demonstrations and backchain to learn PNADs.
-        # Repeat until a fixed point is reached.
+        # Pass over the demonstrations multiple times. Each time, backchain
+        # to learn PNADs. Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
+            # Before each pass, clear the poss_keep_effects of all the
+            # PNADs. We do this because we only want the poss_keep_effects
+            # of the final pass, where the PNADs did not change.
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
                     pnad.poss_keep_effects = set()
+            # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
