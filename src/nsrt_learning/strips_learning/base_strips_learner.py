@@ -181,7 +181,9 @@ class BaseSTRIPSLearner(abc.ABC):
         return _check_goal(state_seq[-1])
 
     def _recompute_datastores_from_segments(
-            self, pnads: List[PartialNSRTAndDatastore], with_keep_effects: bool = False) -> None:
+            self,
+            pnads: List[PartialNSRTAndDatastore],
+            with_keep_effects: bool = False) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
         Uses a "rationality" heuristic, where for each segment, we

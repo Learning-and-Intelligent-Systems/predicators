@@ -263,8 +263,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     if found_associated_pnad:
                         break
                 else:
-                    raise AssertionError(f"Segment {segment} is not assigned to any PNAD.")
-                
+                    raise AssertionError(
+                        f"Segment {segment} is not assigned to any PNAD.")
+
                 # Ground this PNAD's operator.
                 objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
                 ground_op = pnad.op.ground(objs)
@@ -276,21 +277,26 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 for atom in necessary_image:
                     if atom.predicate in ground_op.side_predicates and atom not in ground_op.add_effects:
                         harmful_atoms.add(atom)
-                
+
                 if len(harmful_atoms) > 0:
-                    new_pnad = self._try_specializing_pnad(necessary_add_effects | harmful_atoms, pnad, segment)
+                    new_pnad = self._try_specializing_pnad(
+                        necessary_add_effects | harmful_atoms, pnad, segment)
                     # This specialization must succeed since we are strictly adding to the
                     # necessary add effects. Moreover, the new PNAD must have more add
                     # effects than the old one.
                     assert new_pnad is not None
-                    assert len(new_pnad.op.add_effects) > len(pnad.op.add_effects)
+                    assert len(new_pnad.op.add_effects) > len(
+                        pnad.op.add_effects)
                     # The difference between pnad's add effects and new_pnad's add
                     # effects must be the keep effects, so add these to the preconditions
                     # of new_pnad (in addition to pnad's preconditions).
                     keep_effects = new_pnad.op.add_effects - pnad.op.add_effects
-                    new_pnad.op = new_pnad.op.copy_with(preconditions = pnad.op.preconditions | keep_effects)
-                    self._recompute_datastores_from_segments([pnad, new_pnad], with_keep_effects=True)
-                    import ipdb; ipdb.set_trace()
+                    new_pnad.op = new_pnad.op.copy_with(
+                        preconditions=pnad.op.preconditions | keep_effects)
+                    self._recompute_datastores_from_segments(
+                        [pnad, new_pnad], with_keep_effects=True)
+                    import ipdb
+                    ipdb.set_trace()
                     # TODO: Problem: partitioning the data via this recompute_datastores call
                     # fails because it always partitions all data into the old pnad.
 
@@ -305,7 +311,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
-
 
     def _finish_learning(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -525,7 +530,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         }
         if not keep_effects:
             return set()
-        
+
         new_pnad_with_keep_effects = set()
         i = 0
         for r in range(1, len(keep_effects) + 1):
@@ -535,7 +540,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
-                new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+                new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
+                                                   pnad.option_spec)
                 new_pnad_with_keep_effects.add(new_pnad)
                 i += 1
 
