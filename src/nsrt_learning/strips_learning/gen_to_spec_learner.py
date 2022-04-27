@@ -304,15 +304,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     new_pnad.op = new_pnad.op.copy_with(preconditions = pnad.op.preconditions | keep_effects)
                     # Reassign data between the new and old PNADs.
                     self._recompute_datastores_from_segments([pnad, new_pnad], with_keep_effects=True)
-                    # Recompute delete effects and side predicates for this new PNAD.
-                    self._finalize_pnad_delete_effects(new_pnad)
-                    self._finalize_pnad_side_predicates(new_pnad)
+                    
+                    # # Recompute delete effects and side predicates for this new PNAD.
+                    # self._finalize_pnad_delete_effects(new_pnad)
+                    # self._finalize_pnad_side_predicates(new_pnad)
+
                     # If the old PNAD no longer has anything in its datastore,
                     # we can safely remove it without affecting harmlessness.
                     if len(pnad.datastore) == 0:
                         param_opt_to_nec_pnads[option.parent].remove(pnad)
                     # Finally, add the new pnad to the datastore.
                     param_opt_to_nec_pnads[option.parent].append(new_pnad)
+                    if pnad.op.name == "MoveToBox":
+                        import ipdb; ipdb.set_trace()
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
