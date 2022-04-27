@@ -27,7 +27,7 @@ def learn_strips_operators(
     train_tasks: List[Task],
     predicates: Set[Predicate],
     segmented_trajs: List[List[Segment]],
-    verify_harmlessness: bool = False,
+    verify_harmlessness: bool,
     verbose: bool = True,
 ) -> List[PartialNSRTAndDatastore]:
     """Learn strips operators on the given data segments.

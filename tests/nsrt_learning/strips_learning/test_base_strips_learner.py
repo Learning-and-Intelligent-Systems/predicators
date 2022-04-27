@@ -43,7 +43,8 @@ def test_recompute_datastores_from_segments():
     traj = LowLevelTrajectory([state, state], [act], True, 0)
     task = Task(state, set())
     segment = Segment(traj, {Pred([obj])}, {Pred([obj])}, act)
-    learner = _MockBaseSTRIPSLearner([traj], [task], {Pred}, [[segment]])
+    learner = _MockBaseSTRIPSLearner([traj], [task], {Pred}, [[segment]],
+                                     verify_harmlessness=True)
     with pytest.raises(Exception) as e:
         learner.learn()
     assert "Can't use this" in str(e)
