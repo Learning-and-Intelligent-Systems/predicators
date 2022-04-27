@@ -35,8 +35,12 @@ class StickPointEnv(BaseEnv):
     # Note that the stick_width is the longer dimension.
     stick_width: ClassVar[float] = 3.0
     stick_height: ClassVar[float] = 0.05
+    # Note that the holder width is set in the class because it uses CFG.
+    holder_height: ClassVar[float] = 2.5 * stick_height
     stick_tip_width: ClassVar[float] = 0.05
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    stick_init_lb: ClassVar[float] = 0.6
+    stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
     pick_grasp_tol: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
@@ -50,6 +54,8 @@ class StickPointEnv(BaseEnv):
         # The (x, y) is the bottom left-hand corner of the stick, and theta
         # is CCW angle in radians, consistent with utils.Rectangle.
         self._stick_type = Type("stick", ["x", "y", "theta", "held"])
+        # Holds the stick up so that it can be grasped by the robot.
+        self._holder_type = Type("holder", ["x", "y", "theta"])
         # Predicates
         self._Touched = Predicate("Touched", [self._point_type],
                                   self._Touched_holds)
@@ -100,6 +106,10 @@ class StickPointEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._stick = Object("stick", self._stick_type)
+        self._holder = Object("holder", self._holder_type)
+
+        assert 0 < CFG.stick_point_holder_scale < 1
+        self._holder_width = self.stick_width * CFG.stick_point_holder_scale
 
     @classmethod
     def get_name(cls) -> str:
@@ -122,6 +132,7 @@ class StickPointEnv(BaseEnv):
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
+
         # The robot cannot leave the reachable zone. If it tries to, raise
         # an EnvironmentFailure, which represents a terminal state.
         rad = self.robot_radius
@@ -153,6 +164,17 @@ class StickPointEnv(BaseEnv):
             # Check if the stick is now held for the first time.
             if state.get(self._stick, "held") <= 0.5 and \
                 stick_rect.intersects(robot_circ):
+                # Check for a collision with the stick holder. The reason that
+                # we only check for a collision here, as opposed to every time
+                # step, is that we imagine the robot moving down in the z
+                # direction to pick up the stick, at which point it may
+                # collide with the stick holder. Otherwise, the robot would
+                # be high enough above the stick holder to avoid collisions.
+                holder_rect = self._object_to_geom(self._holder, state)
+                if robot_circ.intersects(holder_rect):
+                    # Immediately fail in case of collision.
+                    raise utils.EnvironmentFailure("Collided with holder.")
+
                 next_state.set(self._stick, "held", 1.0)
 
             # Check if any point is now touched.
@@ -219,6 +241,11 @@ class StickPointEnv(BaseEnv):
             color = "blue" if state.get(point, "touched") > 0.5 else "yellow"
             circ = self._object_to_geom(point, state)
             circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
+        # Draw the holder.
+        holder, = state.get_objects(self._holder_type)
+        rect = self._object_to_geom(holder, state)
+        assert isinstance(rect, utils.Rectangle)
+        rect.plot(ax, color="gray")
         # Draw the stick.
         stick, = state.get_objects(self._stick_type)
         rect = self._object_to_geom(stick, state)
@@ -297,14 +324,15 @@ class StickPointEnv(BaseEnv):
             else:
                 theta = rng.uniform(self.theta_lb, self.theta_ub)
             state_dict[self._robot] = {"x": x, "y": y, "theta": theta}
-            # Finally, sample the stick, making sure that the origin is in the
+            # Sample the stick, making sure that the origin is in the
             # reachable zone, and that the stick doesn't collide with anything.
             radius = self.robot_radius + self.init_padding
             while True:
                 # The radius here is to prevent the stick from being very
                 # slightly in the reachable zone, but not grabbable.
                 x = rng.uniform(self.rz_x_lb + radius, self.rz_x_ub - radius)
-                y = rng.uniform(self.rz_y_lb + radius, self.rz_y_ub - radius)
+                y = rng.uniform(self.stick_init_lb, self.stick_init_ub)
+                assert self.rz_y_lb + radius <= y <= self.rz_y_ub - radius
                 if CFG.stick_point_disable_angles:
                     theta = np.pi / 2
                 else:
@@ -320,6 +348,47 @@ class StickPointEnv(BaseEnv):
                 "theta": theta,
                 "held": 0.0
             }
+            # Create the holder for the stick, sampling the position so that it
+            # is somewhere along the long dimension of the stick. To make sure
+            # that the problem is solvable, check that if the stick were
+            # grasped at the lowest reachable position, it would still be
+            # able to touch the highest point.
+            max_point_y = max(state_dict[p]["y"] for p in points)
+            necessary_reach = max_point_y - self.rz_y_ub
+            while True:
+                # Allow the stick to start in the middle of the holder.
+                x_offset = rng.uniform(-self._holder_width,
+                                       self.stick_width / 2)
+                # Check solvability.
+                # Case 0: If all points are within reach, we're all set.
+                if necessary_reach < 0:
+                    break
+                # Case 1: we can grasp the stick from the bottom.
+                if x_offset > 2 * self.robot_radius:
+                    break
+                # Case 2: we can grasp the stick above the holder, but we can
+                # still reach the highest point.
+                min_rel_grasp = x_offset + self._holder_width
+                grasp_to_top = self.stick_width - min_rel_grasp
+                if grasp_to_top > necessary_reach:
+                    break
+            # First orient the rectangle at 0 and then rotate it.
+            # Displace the y because the holder is bigger.
+            assert self.holder_height > self.stick_height
+            height_diff = self.holder_height - self.stick_height
+            holder_rect = utils.Rectangle(
+                x=x + x_offset,
+                y=(y - height_diff / 2),
+                width=self._holder_width,
+                height=self.holder_height,
+                theta=0,
+            )
+            holder_rect = holder_rect.rotate_about_point(x, y, theta)
+            state_dict[self._holder] = {
+                "x": holder_rect.x,
+                "y": holder_rect.y,
+                "theta": holder_rect.theta,
+            }
             init_state = utils.create_state_from_dict(state_dict)
             task = Task(init_state, goal)
             tasks.append(task)
@@ -332,6 +401,13 @@ class StickPointEnv(BaseEnv):
             return utils.Circle(x, y, self.robot_radius)
         if obj.is_instance(self._point_type):
             return utils.Circle(x, y, self.point_radius)
+        if obj.is_instance(self._holder_type):
+            theta = state.get(obj, "theta")
+            return utils.Rectangle(x=x,
+                                   y=y,
+                                   width=self._holder_width,
+                                   height=self.holder_height,
+                                   theta=theta)
         assert obj.is_instance(self._stick_type)
         theta = state.get(obj, "theta")
         return utils.Rectangle(x=x,
