@@ -6,7 +6,7 @@ from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
 from predicators.src.utils import SingletonParameterizedOption
-
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
@@ -409,12 +409,13 @@ def test_keep_effect_data_partitioning():
         [m3_on, m1_on_m3_on, m1_on_configed, m1_on_configed_run],
         [turn_on_act, configure_act, run_act], True, 1)
     goal = {
-        MachineOn([m1]),
-        MachineConfigured([m1]),
         MachineRun([m1]),
     }
     task1 = Task(all_off_not_configed, goal)
     task2 = Task(m3_on, goal)
+
+    # import ipdb; ipdb.set_trace()
+    # segment_trajectory(traj1)
 
     # Define the 2 demos (each with 3 segments) to backchain over.
     segment1_1 = Segment(
@@ -480,14 +481,48 @@ def test_keep_effect_data_partitioning():
             NotMachineOn([m2]),
             NotMachineOn([m3])
         }, run, goal)
-    # Now, run the learner on the two demos and make sure check_harmlessness
+    # Now, run the learner on the two demos and make sure verify_harmlessness
     # is set to True.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2], [task1, task2],
         set([MachineOn, NotMachineOn, MachineConfigured,
              MachineRun]), [[segment1_1, segment1_2, segment1_3],
-                            [segment2_1, segment2_2, segment2_3]], True)
+                            [segment2_1, segment2_2, segment2_3]], verify_harmlessness=True)
     output_pnads = learner.learn()
-    # There should be exactly 3 output PNADs: 2 for Configuring, and 1 for
+    # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
     # each of TurningOn and Running.
     assert len(output_pnads) == 4
+
+    correct_pnads = set(["""STRIPS-Run:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type)]
+    Add Effects: [MachineRun(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Run()""",
+    """STRIPS-TurnOn:
+    Parameters: [?x0:machine_type]
+    Preconditions: []
+    Add Effects: [MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: TuenOn()""",
+    """STRIPS-Configure0:
+    Parameters: [?x0:machine_type]
+    Preconditions: [NotMachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, NotMachineOn]
+    Option Spec: Configure()""",
+    """STRIPS-Configure1:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, NotMachineOn]
+    Option Spec: Configure()"""
+    ])
+
+    # Verify that all the output PNADs are correct.
+    for pnad in output_pnads:
+        assert pnad in correct_pnads
