@@ -336,8 +336,8 @@ def test_find_unification_and_try_specializing_pnad():
 
 def test_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
-    operators with keep effects in a case where a naive procedure that always
-    induces potential keep effects would fail."""
+    operators with keep effects in a case where a naive procedure that does not
+    keep the original operators (without keep effects) would fail."""
 
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
@@ -417,6 +417,8 @@ def test_keep_effect_data_partitioning():
     run_act = Action([], Run)
 
     # Create the trajectories, goals, and tasks.
+    # The first trajectory is: [Configure, TurnOn, Run].
+    # The second trajectory is: [TurnOn, Configure, Run].
     traj1 = LowLevelTrajectory([
         all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on,
         m1_on_configed_run_m2_on
@@ -440,8 +442,9 @@ def test_keep_effect_data_partitioning():
                                              segmented_trajs,
                                              verify_harmlessness=True)
     output_pnads = learner.learn()
-    # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
-    # each of TurningOn and Running.
+    # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
+    # each of TurnOn and Run. One of the Configure operators should have
+    # a keep effect, while the other shouldn't.
     assert len(output_pnads) == 4
     correct_pnads = set([
         """STRIPS-Run0:
