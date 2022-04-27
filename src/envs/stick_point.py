@@ -168,12 +168,14 @@ class StickPointEnv(BaseEnv):
                 # we only check for a collision here, as opposed to every time
                 # step, is that we imagine the robot moving down in the z
                 # direction to pick up the stick, at which point it may
-                # collide with the stick holder. Otherwise, the robot would
-                # be high enough above the stick holder to avoid collisions.
+                # collide with the stick holder. On other time steps, the robot
+                # would be high enough above the holder to avoid collisions.
                 holder_rect = self._object_to_geom(self._holder, state)
                 if robot_circ.intersects(holder_rect):
                     # Immediately fail in case of collision.
-                    raise utils.EnvironmentFailure("Collided with holder.")
+                    raise utils.EnvironmentFailure(
+                        "Collided with holder.",
+                        {"offending_objects": {self._holder}})
 
                 next_state.set(self._stick, "held", 1.0)
 
@@ -210,7 +212,10 @@ class StickPointEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._robot_type, self._stick_type, self._point_type}
+        return {
+            self._holder_type, self._robot_type, self._stick_type,
+            self._point_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -373,7 +378,9 @@ class StickPointEnv(BaseEnv):
                 if grasp_to_top > necessary_reach:
                     break
             # First orient the rectangle at 0 and then rotate it.
-            # Displace the y because the holder is bigger.
+            # Along the shorter dimension, we want the stick to be in the
+            # center of the holder, so we need to translate the holder's y
+            # position relative to the stick's y position.
             assert self.holder_height > self.stick_height
             height_diff = self.holder_height - self.stick_height
             holder_rect = utils.Rectangle(

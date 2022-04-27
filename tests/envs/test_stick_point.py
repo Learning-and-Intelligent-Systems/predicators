@@ -30,8 +30,9 @@ def test_stick_point():
     ][0]
     assert {pred.name for pred in env.goal_predicates} == {"Touched"}
     assert len(env.options) == 3
-    assert len(env.types) == 3
-    point_type, robot_type, stick_type = sorted(env.types)
+    assert len(env.types) == 4
+    holder_type, point_type, robot_type, stick_type = sorted(env.types)
+    assert holder_type.name == "holder"
     assert point_type.name == "point"
     assert robot_type.name == "robot"
     assert stick_type.name == "stick"
@@ -229,3 +230,33 @@ def test_stick_point():
     # video = monitor.get_video()
     # outfile = "hardcoded_options_stick_point.mp4"
     # utils.save_video(outfile, video)
+
+    # Test that an EnviromentFailure is raised if the robot tries to pick
+    # when colliding with the stick holder.
+    utils.reset_config({
+        "env": "stick_point",
+        "stick_point_num_points_train": [1],
+        "stick_point_disable_angles": True,
+        "stick_point_holder_scale": 0.1,
+    })
+    env = StickPointEnv()
+    # Create a custom initial state, with the robot right on top of the stick
+    # and stick holder.
+    state = env.get_train_tasks()[0].init.copy()
+    holder, = state.get_objects(holder_type)
+    robot, = state.get_objects(robot_type)
+    stick, = state.get_objects(stick_type)
+    x = (env.rz_x_ub + env.rz_x_lb) / 2
+    y = (env.rz_y_ub + env.rz_y_lb) / 2
+    state.set(robot, "x", x)
+    state.set(robot, "y", y)
+    state.set(stick, "x", x)
+    state.set(stick, "y", y)
+    state.set(holder, "x", x - (env.holder_height - env.stick_height) / 2)
+    state.set(holder, "y", y)
+    # Press to pick up the stick.
+    action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
+    with pytest.raises(utils.EnvironmentFailure) as e:
+        env.simulate(state, action)
+        assert "Collided with holder" in str(e)
+        assert e.info["offending_objects"] == {holder}
