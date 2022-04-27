@@ -176,8 +176,8 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     min_perc_data_for_nsrt = 0
-    # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
-    # for valid settings.
+    # STRIPS learning algorithm. See get_name() functions in the directory
+    # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     clustering_learner_true_pos_weight = 10
