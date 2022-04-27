@@ -86,6 +86,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Finish learning by adding in the delete effects and side predicates.
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
+        import ipdb; ipdb.set_trace()
+
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
         return final_pnads
 
@@ -524,6 +526,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         }
         if not keep_effects:
             return set()
+        
         preconditions = pnad.op.preconditions | keep_effects
         add_effects = pnad.op.add_effects | keep_effects
         new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP",

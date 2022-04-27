@@ -517,32 +517,11 @@ def test_combinatorial_keep_effect_data_partitioning():
         m2: [1.0, 0.0, 0.0, 0.0],
         m3: [0.0, 0.0, 0.0, 0.0]
     })
-    m1_on_configed_run_m2_on = State({
-        m1: [1.0, 1.0, 1.0, 0.0],
-        m2: [1.0, 0.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0, 0.0]
-    })
-    m3_on = State({
-        m1: [0.0, 0.0, 0.0, 0.0],
-        m2: [0.0, 0.0, 0.0, 0.0],
-        m3: [1.0, 0.0, 0.0, 0.0],
-    })
-    m1_on_m3_on = State({
-        m1: [1.0, 0.0, 0.0, 0.0],
-        m2: [0.0, 0.0, 0.0, 0.0],
-        m3: [1.0, 0.0, 0.0, 0.0],
-    })
     m1_on_configed = State({
         m1: [1.0, 1.0, 0.0, 0.0],
         m2: [0.0, 0.0, 0.0, 0.0],
         m3: [0.0, 0.0, 0.0, 0.0],
     })
-    m1_on_configed_run = State({
-        m1: [1.0, 1.0, 1.0, 0.0],
-        m2: [0.0, 0.0, 0.0, 0.0],
-        m3: [0.0, 0.0, 0.0, 0.0],
-    })
-
     m1_fix = State({
         m1: [0.0, 0.0, 0.0, 1.0],
         m2: [0.0, 0.0, 0.0, 0.0],
@@ -647,9 +626,8 @@ def test_combinatorial_keep_effect_data_partitioning():
         segmented_trajs,
         verify_harmlessness=True)
     output_pnads = learner.learn()
-    # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
-    # each of TurningOn and Running.
-    assert len(output_pnads) == 4
+    # TODO: add comment here about the pnads.
+    assert len(output_pnads) == 7
     correct_pnads = set([
         """STRIPS-Run:
     Parameters: [?x0:machine_type]
