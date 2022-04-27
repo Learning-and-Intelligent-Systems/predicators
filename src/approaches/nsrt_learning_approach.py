@@ -5,7 +5,7 @@ or options.
 """
 
 import logging
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import dill as pkl
 from gym.spaces import Box
@@ -30,6 +30,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self._segmented_trajs: List[List[Segment]] = []
+        self._seg_to_nsrt: Dict[Segment, NSRT] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -50,12 +51,12 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
-        self._nsrts, self._segmented_trajs = learn_nsrts_from_data(
-            trajectories,
-            self._train_tasks,
-            self._get_current_predicates(),
-            self._action_space,
-            sampler_learner=CFG.sampler_learner)
+        self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
+            learn_nsrts_from_data(trajectories,
+                                  self._train_tasks,
+                                  self._get_current_predicates(),
+                                  self._action_space,
+                                  sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
