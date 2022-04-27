@@ -256,7 +256,8 @@ def test_stick_point():
     state.set(holder, "y", y)
     # Press to pick up the stick.
     action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
-    with pytest.raises(utils.EnvironmentFailure) as e:
+    try:
         env.simulate(state, action)
+    except utils.EnvironmentFailure as e:
         assert "Collided with holder" in str(e)
         assert e.info["offending_objects"] == {holder}
