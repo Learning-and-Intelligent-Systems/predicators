@@ -333,7 +333,6 @@ def test_find_unification_and_try_specializing_pnad():
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
 
-
 def test_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that does not
@@ -479,3 +478,224 @@ def test_keep_effect_data_partitioning():
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
         assert str(pnad) in correct_pnads
+
+def test_combinatorial_keep_effect_data_partitioning():
+    """Test that the BackchainingSTRIPSLearner is able to correctly induce
+    operators with keep effects in a case where a naive procedure that always
+    induces potential keep effects would fail."""
+
+    utils.reset_config({"segmenter": "atom_changes"})
+    # Set up the types and predicates.
+    machine_type = Type("machine_type", ["on", "configuration", "run", "working"])
+    MachineOn = Predicate("MachineOn", [machine_type],
+                          lambda s, o: s[o[0]][0] > 0.5)
+    MachineConfigured = Predicate("MachineConfigured", [machine_type],
+                                  lambda s, o: s[o[0]][1] > 0.5)
+    MachineRun = Predicate("MachineRun", [machine_type],
+                           lambda s, o: s[o[0]][2] > 0.5)
+    MachineWorking = Predicate("MachineWorking", [machine_type],
+                          lambda s, o: s[o[0]][3] > 0.5)
+    predicates = set([MachineOn, MachineConfigured, MachineRun, MachineWorking])
+
+    m1 = machine_type("m1")
+    m2 = machine_type("m2")
+    m3 = machine_type("m3")
+
+    # Create states to be used as part of trajectories.
+    all_off_not_configed = State({
+        m1: [0.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_off_configed_m2_on = State({
+        m1: [0.0, 1.0, 0.0, 0.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_on_configed_m2_on = State({
+        m1: [1.0, 1.0, 0.0, 0.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_on_configed_run_m2_on = State({
+        m1: [1.0, 1.0, 1.0, 0.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m3_on = State({
+        m1: [0.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_m3_on = State({
+        m1: [1.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_configed = State({
+        m1: [1.0, 1.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_configed_run = State({
+        m1: [1.0, 1.0, 1.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
+
+    m1_fix = State({
+        m1: [0.0, 0.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_fix_m1_off_configed_m2_on = State({
+        m1: [0.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_fix_m1_on_configed_m2_on = State({
+        m1: [1.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_fix_m1_on_configed_run_m2_on = State({
+        m1: [1.0, 1.0, 1.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m3_fix_m3_on = State({
+        m1: [0.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 1.0],
+    })
+    m1_on_m3_fix_m3_on = State({
+        m1: [1.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 1.0],
+    })
+    m1_fix_m1_on_configed = State({
+        m1: [1.0, 1.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
+    m1_fix_m1_on_configed_run = State({
+        m1: [1.0, 1.0, 1.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
+    m1_fix_m3_fix_m3_on = State({
+        m1: [0.0, 0.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 1.0],
+    })
+    m1_fix_m1_on_m3_fix_m3_on = State({
+        m1: [1.0, 0.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 1.0],
+    })
+
+    # Create the necessary options and actions.
+    turn_on = utils.SingletonParameterizedOption("TurnOn",
+                                                 lambda s, m, o, p: None)
+    TurnOn = turn_on.ground([], [])
+    turn_on_act = Action([], TurnOn)
+    configure = utils.SingletonParameterizedOption("Configure",
+                                                   lambda s, m, o, p: None)
+    Configure = configure.ground([], [])
+    configure_act = Action([], Configure)
+    run = utils.SingletonParameterizedOption("Run", lambda s, m, o, p: None)
+    Run = run.ground([], [])
+    run_act = Action([], Run)
+    fix = utils.SingletonParameterizedOption("Fix",
+                                                   lambda s, m, o, p: None)
+    Fix = fix.ground([], [])
+    fix_act = Action([], Fix)
+
+    # TODO fix the rest of the trajectories + add states
+
+    # Create the trajectories, goals, and tasks.
+    traj1 = LowLevelTrajectory([
+        all_off_not_configed, m1_fix, m1_fix_m1_off_configed_m2_on, m1_fix_m1_on_configed_m2_on,
+        m1_fix_m1_on_configed_run_m2_on
+    ], [fix_act, configure_act, turn_on_act, run_act], True, 0)
+    traj2 = LowLevelTrajectory(
+        [m3_fix_m3_on, m1_fix_m3_fix_m3_on, m1_fix_m1_on_m3_fix_m3_on, m1_fix_m1_on_configed, m1_fix_m1_on_configed_run],
+        [fix_act, turn_on_act, configure_act, run_act], True, 1)
+    traj3 = LowLevelTrajectory([
+        all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on, 
+        m1_fix_m1_on_configed_m2_on, m1_fix_m1_on_configed_run_m2_on
+    ], [configure_act, turn_on_act, fix_act, run_act], True, 2)
+    traj4 = LowLevelTrajectory(
+        [m3_fix_m3_on, m1_on_m3_fix_m3_on, m1_on_configed, m1_fix_m1_on_configed, m1_fix_m1_on_configed_run],
+        [turn_on_act, configure_act, fix_act, run_act], True, 3)
+    goal = {
+        MachineRun([m1]),
+    }
+    task1 = Task(all_off_not_configed, goal)
+    task2 = Task(m3_fix_m3_on, goal)
+    task3 = Task(all_off_not_configed, goal)
+    task4 = Task(m3_fix_m3_on, goal)
+
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2, traj3, traj4],
+                                                         predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+
+    # Now, run the learner on the two demos.
+    learner = _MockBackchainingSTRIPSLearner(
+        [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
+        set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
+        segmented_trajs,
+        verify_harmlessness=True)
+    output_pnads = learner.learn()
+    # There should be exactly 4 output PNADs: 2 for Configuring, and 1 for
+    # each of TurningOn and Running.
+    assert len(output_pnads) == 4
+    correct_pnads = set([
+        """STRIPS-Run:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type), MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineRun(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Run()""", """STRIPS-TurnOn:
+    Parameters: [?x0:machine_type]
+    Preconditions: []
+    Add Effects: [MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: TurnOn()""", """STRIPS-Fix:
+    Parameters: [?x0:machine_type]
+    Preconditions: []
+    Add Effects: [MachineWorking(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: TurnOn()""", """STRIPS-Configure0:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()""", """STRIPS-Configure1:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()""", """STRIPS-Configure2:
+    Parameters: [?x0:machine_type]
+    Preconditions: []
+    Add Effects: [MachineConfigured(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()""", """STRIPS-Configure3:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Side Predicates: [MachineOn, MachineWorking]
+    Option Spec: Configure()"""
+    ])
+
+    # Verify that all the output PNADs are correct.
+    for pnad in output_pnads:
+        assert pnad in correct_pnads
