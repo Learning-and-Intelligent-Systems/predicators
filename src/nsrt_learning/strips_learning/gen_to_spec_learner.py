@@ -232,12 +232,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 all_pnads.append(pnad)
 
         # At this point, all PNADs have correct parameters, preconditions,
-        # and add effects. We now finalize the delete effects and side
-        # predicates. Note that we have to do delete effects first, and
-        # then side predicates, because the latter rely on the former.
+        # and add effects. We now compute the delete effects, side
+        # predicates, and keep effects. Note that we have to do delete
+        # effects first because the side predicates rely on it.
         for pnad in all_pnads:
-            self._finalize_pnad_delete_effects(pnad)
-            self._finalize_pnad_side_predicates(pnad)
+            self._compute_pnad_delete_effects(pnad)
+            self._compute_pnad_side_predicates_and_keep_effects(pnad)
 
         return all_pnads
 
@@ -344,11 +344,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        # TODO: is this necessary?
+        new_pnad.poss_keep_effects = pnad.poss_keep_effects.copy()
 
         return new_pnad
 
     @staticmethod
-    def _finalize_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
         """Update the given PNAD to change the delete effects to ones obtained
         by unioning all lifted images in the datastore.
 
@@ -376,7 +378,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad.op = pnad.op.copy_with(delete_effects=delete_effects)
 
     @staticmethod
-    def _finalize_pnad_side_predicates(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_side_predicates_and_keep_effects(
+            pnad: PartialNSRTAndDatastore) -> None:
         """Update the given PNAD to change the side predicates to ones that
         include every unmodeled add or delete effect seen in the data."""
         # First, strip out any existing side predicates so that the call
