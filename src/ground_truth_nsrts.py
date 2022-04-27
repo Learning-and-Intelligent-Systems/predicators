@@ -1986,10 +1986,10 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for StickPointEnv."""
     robot_type, point_type, stick_type = _get_types_by_names(
         CFG.env, ["robot", "point", "stick"])
-    Touched, InContactRobotPoint, InContactRobotStick, InContactStickPoint, \
-        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(
-            CFG.env, ["Touched", "InContactRobotPoint", "InContactRobotStick",
-            "InContactStickPoint", "Grasped", "HandEmpty", "NoPointInContact"])
+    Touched, RobotAbovePoint, StickAbovePoint, \
+        Grasped, HandEmpty, AboveNoPoint = _get_predicates_by_names(
+            CFG.env, ["Touched", "RobotAbovePoint",
+            "StickAbovePoint", "Grasped", "HandEmpty", "AboveNoPoint"])
     RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
         CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
 
@@ -2003,13 +2003,13 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = RobotTouchPoint
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoPoint, []),
     }
     add_effects = {
         LiftedAtom(Touched, [point]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(RobotAbovePoint, [robot, point])
     }
-    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    delete_effects = {LiftedAtom(AboveNoPoint, [])}
     side_predicates: Set[Predicate] = set()
     robot_touch_point_nsrt = NSRT("RobotTouchPointFromNothing", parameters,
                                   preconditions, add_effects, delete_effects,
@@ -2026,13 +2026,13 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = RobotTouchPoint
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, from_point]),
+        LiftedAtom(RobotAbovePoint, [robot, from_point]),
     }
     add_effects = {
         LiftedAtom(Touched, [point]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(RobotAbovePoint, [robot, point])
     }
-    delete_effects = {LiftedAtom(InContactRobotPoint, [robot, from_point])}
+    delete_effects = {LiftedAtom(RobotAbovePoint, [robot, from_point])}
     side_predicates = set()
     robot_touch_point_nsrt = NSRT("RobotTouchPointFromPoint", parameters,
                                   preconditions, add_effects, delete_effects,
@@ -2048,11 +2048,10 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoPoint, []),
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactRobotStick, [robot, stick])
     }
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
     side_predicates = set()
@@ -2080,16 +2079,15 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(RobotAbovePoint, [robot, point])
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactRobotStick, [robot, stick]),
-        LiftedAtom(NoPointInContact, [])
+        LiftedAtom(AboveNoPoint, [])
     }
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, point]),
+        LiftedAtom(RobotAbovePoint, [robot, point]),
     }
     side_predicates = set()
     pick_stick_nsrt = NSRT("PickStickFromPoint", parameters, preconditions,
@@ -2106,13 +2104,13 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = StickTouchPoint
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoPoint, []),
     }
     add_effects = {
-        LiftedAtom(InContactStickPoint, [stick, point]),
+        LiftedAtom(StickAbovePoint, [stick, point]),
         LiftedAtom(Touched, [point])
     }
-    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    delete_effects = {LiftedAtom(AboveNoPoint, [])}
     side_predicates = set()
     stick_point_nsrt = NSRT("StickTouchPointFromNothing", parameters,
                             preconditions, add_effects, delete_effects,
@@ -2129,13 +2127,13 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = StickTouchPoint
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactStickPoint, [stick, from_point])
+        LiftedAtom(StickAbovePoint, [stick, from_point])
     }
     add_effects = {
-        LiftedAtom(InContactStickPoint, [stick, point]),
+        LiftedAtom(StickAbovePoint, [stick, point]),
         LiftedAtom(Touched, [point])
     }
-    delete_effects = {LiftedAtom(InContactStickPoint, [stick, from_point])}
+    delete_effects = {LiftedAtom(StickAbovePoint, [stick, from_point])}
     side_predicates = set()
     stick_point_nsrt = NSRT("StickTouchPointFromPoint", parameters,
                             preconditions, add_effects, delete_effects,
