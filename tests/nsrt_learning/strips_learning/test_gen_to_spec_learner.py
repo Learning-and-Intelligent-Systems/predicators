@@ -67,7 +67,8 @@ def test_backchaining_strips_learner():
     segment2 = Segment(traj2, set(), goal2, Eat)
     learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
                                              {Asleep},
-                                             [[segment1], [segment2]])
+                                             [[segment1], [segment2]],
+                                             verify_harmlessness=True)
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -105,7 +106,8 @@ def test_backchaining_strips_learner():
     # Create and run the sidelining approach.
     learner = _MockBackchainingSTRIPSLearner([traj3, traj4], [task3, task4],
                                              {Asleep, Sad},
-                                             [[segment3], [segment4]])
+                                             [[segment3], [segment4]],
+                                             verify_harmlessness=True)
     pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
@@ -205,13 +207,15 @@ def test_backchaining_strips_learner_order_dependence():
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2, traj3], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
-        [[segment1], [segment2], [segment3]])
+        [[segment1], [segment2], [segment3]],
+        verify_harmlessness=True)
     natural_order_pnads = learner.learn()
     # Now, create and run the learner with the 3 demos in the reverse order.
     learner = _MockBackchainingSTRIPSLearner(
         [traj3, traj2, traj1], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
-        [[segment3], [segment2], [segment1]])
+        [[segment3], [segment2], [segment1]],
+        verify_harmlessness=True)
     reverse_order_pnads = learner.learn()
 
     # First, check that the two sets of PNADs have the same number of PNADs.
@@ -277,7 +281,8 @@ def test_find_unification_and_try_specializing_pnad():
                       {Asleep([bob]), Happy([bob])}, Move)
     # Create the sidelining approach.
     learner = _MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
-                                             [[segment]])
+                                             [[segment]],
+                                             verify_harmlessness=True)
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
     ground_op = learner.find_unification(

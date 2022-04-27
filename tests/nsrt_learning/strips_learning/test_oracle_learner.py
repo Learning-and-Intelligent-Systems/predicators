@@ -8,7 +8,10 @@ from predicators.src.nsrt_learning.strips_learning import \
 def test_oracle_strips_learner():
     """Tests for OracleSTRIPSLearner."""
     utils.reset_config({"env": "blocks", "strips_learner": "oracle"})
-    pnads = learn_strips_operators([], None, None, [])
+    pnads = learn_strips_operators([],
+                                   None,
+                                   None, [],
+                                   verify_harmlessness=True)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
     Preconditions: [Clear(?block:block), GripperOpen(?robot:robot), OnTable(?block:block)]
@@ -41,7 +44,10 @@ def test_oracle_strips_learner():
         "strips_learner": "oracle",
         "option_learner": "oracle"
     })
-    pnads = learn_strips_operators([], None, None, [])
+    pnads = learn_strips_operators([],
+                                   None,
+                                   None, [],
+                                   verify_harmlessness=True)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
     Preconditions: [Clear(?block:block), GripperOpen(?robot:robot), OnTable(?block:block)]

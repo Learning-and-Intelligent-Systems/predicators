@@ -21,7 +21,7 @@ class BaseSTRIPSLearner(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
-        verify_harmlessness: bool = False,
+        verify_harmlessness: bool,
         verbose: bool = True,
     ) -> None:
         self._trajectories = trajectories
