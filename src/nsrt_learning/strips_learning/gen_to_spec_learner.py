@@ -73,6 +73,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
+            for pnads in param_opt_to_nec_pnads.values():
+                for pnad in pnads:
+                    pnad.poss_keep_effects = set()
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
