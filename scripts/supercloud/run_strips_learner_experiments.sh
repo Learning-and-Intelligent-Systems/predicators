@@ -23,5 +23,4 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
     # repeated_nextto_painting
     python $FILE --experiment_id rnt_painting_oracle --env repeated_nextto_painting --approach oracle --seed $SEED --num_train_tasks 0
-    python $FILE --experiment_id rnt_painting_backchain --env repeated_nextto_painting --approach nsrt_learning --strips_learner backchaining --seed $SEED --num_train_tasks 50
 done

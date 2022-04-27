@@ -660,10 +660,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
 
     if CFG.env == "repeated_nextto_painting":
-        (NextTo, NextToBox, NextToShelf, NextToTable, NotOnTable) = \
+        (NextTo, NextToBox, NextToShelf, NextToTable) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable",
-                       "NotOnTable"])
+             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
             CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
