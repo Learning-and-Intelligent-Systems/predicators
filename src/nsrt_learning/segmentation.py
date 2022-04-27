@@ -37,7 +37,12 @@ def _segment_with_atom_changes(
 
 def _segment_with_contact_changes(
         trajectory: GroundAtomTrajectory) -> List[Segment]:
-    """TODO"""
+    """Segment a trajectory based on contact changes.
+
+    Since environments do not expose contacts, this is implemented in an
+    environment-specific way. We assume that some predicates represent
+    contacts and we look for changes in those contact predicates.
+    """
 
     _, all_atoms = trajectory
     all_preds = {a.predicate for atoms in all_atoms for a in atoms}
@@ -49,7 +54,8 @@ def _segment_with_contact_changes(
                                   f"for environment {CFG.env}.")
 
     relevant_preds = {p for p in all_preds if p.name in relevant_pred_names}
-    all_relevant_atoms = [{a for a in atoms if a.predicate in relevant_preds}
+    all_relevant_atoms = [{a
+                           for a in atoms if a.predicate in relevant_preds}
                           for atoms in all_atoms]
 
     def _switch_fn(t: int) -> bool:
