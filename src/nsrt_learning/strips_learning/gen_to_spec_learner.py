@@ -79,6 +79,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Finish learning by adding in the delete effects and side predicates.
         all_pnads = self._finish_learning(param_opt_to_nec_pnads)
 
+        import ipdb; ipdb.set_trace()
+
         # Recompute datastores one final time.
         self._recompute_datastores_from_segments(all_pnads)
         for pnad in all_pnads:
