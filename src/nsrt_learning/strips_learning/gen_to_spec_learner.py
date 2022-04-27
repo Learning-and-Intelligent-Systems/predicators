@@ -83,9 +83,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
-        # Finish learning by adding in the delete effects and side predicates.
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
-
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
         return final_pnads
 
