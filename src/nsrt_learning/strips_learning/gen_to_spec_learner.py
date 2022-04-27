@@ -381,7 +381,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def _compute_pnad_side_predicates_and_keep_effects(
             pnad: PartialNSRTAndDatastore) -> None:
         """Update the given PNAD to change the side predicates to ones that
-        include every unmodeled add or delete effect seen in the data."""
+        include every unmodeled add or delete effect seen in the data.
+
+        Then, use these side predicates to compute keep effects.
+        """
         # First, strip out any existing side predicates so that the call
         # to apply_operator() cannot use them, which would defeat the purpose.
         pnad.op = pnad.op.copy_with(side_predicates=set())
