@@ -147,6 +147,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                                        set(candidate_predicates
                                            | self._initial_predicates),
                                        segmented_trajs,
+                                       verify_harmlessness=False,
                                        verbose=False)
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]

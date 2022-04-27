@@ -152,6 +152,7 @@ def _skeleton_based_score_function(
                                    train_tasks,
                                    current_predicate_set,
                                    segmented_trajs,
+                                   verify_harmlessness=False,
                                    verbose=False)
     strips_ops = [pnad.op for pnad in pnads]
     option_specs = [pnad.option_spec for pnad in pnads]
