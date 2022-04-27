@@ -54,9 +54,11 @@ def _segment_with_contact_changes(
                                   f"for environment {CFG.env}.")
 
     relevant_preds = {p for p in all_preds if p.name in relevant_pred_names}
-    all_relevant_atoms = [{a
-                           for a in atoms if a.predicate in relevant_preds}
-                          for atoms in all_atoms]
+    all_relevant_atoms = []
+    for atoms in all_atoms:
+        all_relevant_atoms.append(
+            {a
+             for a in atoms if a.predicate in relevant_preds})
 
     def _switch_fn(t: int) -> bool:
         return all_relevant_atoms[t] != all_relevant_atoms[t + 1]
