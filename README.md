@@ -7,7 +7,7 @@ This codebase implements a framework for *bilevel planning with learned neuro-sy
 ### Code Structure
 
 In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core [NSRT learning algorithm](https://arxiv.org/abs/2105.14074) happens in `src/nsrt_learning/nsrt_learning_main.py`, which has the following steps:
-* Segment data based on changes in predicates.
+* Segment data.
 * Learn how many NSRTs we need, along with the symbolic operator components of each (parameters, preconditions, and effects).
 * Learn options and annotate data with them.
 * Learn samplers.
