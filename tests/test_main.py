@@ -83,17 +83,42 @@ def test_main():
     main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
-    # Run actual main approach, but without sampler learning.
+    # Run NSRT learning, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
-        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3"
+        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--experiment_id", "foobar"
     ]
     main()
     # Try loading approaches.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_approach", "--cover_initial_holding_prob", "0.0"
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--experiment_id", "foobar"
+    ]
+    main()
+    # Try loading with a bad experiment id.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--experiment_id", "baz"
+    ]
+    with pytest.raises(FileNotFoundError):
+        main()
+    # Try loading with load experiment id.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
+        "--load_experiment_id", "foobar", "--experiment_id", "baz"
+    ]
+    main()
+    # Run NSRT learning with option learning.
+    sys.argv = [
+        "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
+        "123", "--sampler_learner", "random", "--num_train_tasks", "1",
+        "--num_test_tasks", "1", "--option_learner", "direct_bc",
+        "--mlp_regressor_max_itr", "1"
     ]
     main()
     # Try remaking data (this is the default).

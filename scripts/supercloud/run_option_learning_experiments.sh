@@ -3,35 +3,51 @@
 START_SEED=456
 NUM_SEEDS=10
 FILE="scripts/supercloud/submit_supercloud_job.py"
+# Note: this script is meant to be run first, to completion, with
+# RUN_LOAD_EXPERIMENTS=false, then rerun with RUN_LOAD_EXPERIMENTS=true.
+RUN_LOAD_EXPERIMENTS=false
+ALL_NUM_TRAIN_TASKS=(
+    "50"
+    "100"
+    "250"
+    "500"
+    "1000"
+)
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
+    for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
-    ## all in the stick point environment
-    ## all with oracle operators and segmentation for now!
-    COMMON_ARGS="--env stick_point --approach nsrt_learning --strips_learner oracle --segmenter oracle --seed $SEED"
+        COMMON_ARGS="--env stick_button --min_perc_data_for_nsrt 1 \
+            --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
+            --seed $SEED --gnn_num_epochs 10000"
 
-    # nsrt learning (oracle options) 500, default test time
-    python $FILE $COMMON_ARGS --experiment_id given_500 --num_train_tasks 500
+        if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then
+            # direct BC max skeletons 1
+            python $FILE $COMMON_ARGS --load_experiment_id main_${NUM_TRAIN_TASKS} --experiment_id direct_bc_max_skel1_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sesame_max_skeletons_optimized 1 --load_a --load_d
 
-    # nsrt learning (oracle options) 5000, default test time
-    python $FILE $COMMON_ARGS --experiment_id given_5000 --num_train_tasks 5000
+            # direct BC max samples 1
+            python $FILE $COMMON_ARGS --load_experiment_id main_${NUM_TRAIN_TASKS} --experiment_id direct_bc_max_samp1_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sesame_max_samples_per_step 1 --load_a --load_d
 
-    # nsrt learning (oracle options) 500, long test time
-    python $FILE $COMMON_ARGS --experiment_id given_500_long --num_train_tasks 500 --timeout 300
+        else
+            # nsrt learning (oracle operators and options)
+            python $FILE $COMMON_ARGS --experiment_id oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
-    # nsrt learning (oracle options) 5000, long test time
-    python $FILE $COMMON_ARGS --experiment_id given_5000_long --num_train_tasks 5000 --timeout 300
+            # direct BC (main approach)
+            python $FILE $COMMON_ARGS --experiment_id main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
 
-    # direct BC 500, default test time
-    python $FILE $COMMON_ARGS --experiment_id direct_bc_500 --option_learner direct_bc --num_train_tasks 500
+            # GNN metacontroller with direct BC options
+            python $FILE $COMMON_ARGS --experiment_id gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
 
-    # direct BC 5000, default test time
-    python $FILE $COMMON_ARGS --experiment_id direct_bc_5000 --option_learner direct_bc --num_train_tasks 5000
+            # GNN action policy BC
+            python $FILE $COMMON_ARGS --experiment_id gnn_action_policy_${NUM_TRAIN_TASKS} --approach gnn_action_policy
 
-    # direct BC 500, long test time
-    python $FILE $COMMON_ARGS --experiment_id direct_bc_500_long --option_learner direct_bc --num_train_tasks 500 --timeout 300
+            # direct BC with nonparameterized options
+            python $FILE $COMMON_ARGS --experiment_id direct_bc_nonparam_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc_nonparameterized
 
-    # direct BC 5000, long test time
-    python $FILE $COMMON_ARGS --experiment_id direct_bc_5000_long --option_learner direct_bc --num_train_tasks 5000 --timeout 300
+            # GNN metacontroller with nonparameterized options
+            python $FILE $COMMON_ARGS --experiment_id gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
 
+        fi
+
+    done
 done

@@ -313,6 +313,8 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
         pnads = list(path[-1])
         # Because the PNADs have been modified, recompute the datastores.
         self._recompute_datastores_from_segments(pnads)
+        # Filter out PNADs that have an empty datastore.
+        pnads = [pnad for pnad in pnads if pnad.datastore]
         return pnads
 
     @abc.abstractmethod

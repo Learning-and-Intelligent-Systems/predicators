@@ -29,7 +29,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
         # Other baselines.
         python $FILE --experiment_id ${ENV}_random --env $ENV --approach random_options --seed $SEED --num_train_tasks 0
-        python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
+        python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_option_policy --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
 
         # Blocks-specific experiments.
         if [ $ENV = "blocks" ] || [ $ENV = "pybullet_blocks" ]; then

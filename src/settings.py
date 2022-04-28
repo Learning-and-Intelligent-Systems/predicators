@@ -122,10 +122,11 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
-    # stick point env parameters
-    stick_point_num_points_train = [1, 2]
-    stick_point_num_points_test = [3, 4]
-    stick_point_disable_angles = True
+    # stick button env parameters
+    stick_button_num_buttons_train = [1, 2]
+    stick_button_num_buttons_test = [3, 4]
+    stick_button_disable_angles = True
+    stick_button_holder_scale = 0.1
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -139,10 +140,10 @@ class GlobalSettings:
     gnn_do_normalization = False  # performs worse in Cover when True
     gnn_use_validation_set = True
 
-    # parameters for GNN policy approach
-    gnn_policy_solve_with_shooting = True
-    gnn_policy_shooting_variance = 0.1
-    gnn_policy_shooting_max_samples = 100
+    # parameters for GNN option policy approach
+    gnn_option_policy_solve_with_shooting = True
+    gnn_option_policy_shooting_variance = 0.1
+    gnn_option_policy_shooting_max_samples = 100
 
     # parameters for GNN metacontroller approach
     gnn_metacontroller_max_samples = 100
@@ -175,8 +176,8 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     min_perc_data_for_nsrt = 0
-    # STRIPS learning algorithm. See nsrt_learning/strips_learning/__init__.py
-    # for valid settings.
+    # STRIPS learning algorithm. See get_name() functions in the directory
+    # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
     clustering_learner_true_pos_weight = 10
@@ -219,6 +220,7 @@ class GlobalSettings:
     interactive_query_policy = "threshold"
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
+    interactive_random_query_prob = 0.5  # for query policy random
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
     # for action strategy greedy_lookahead
@@ -284,7 +286,7 @@ class GlobalSettings:
                 lambda: 1000,
                 {
                     # For stick point, limit the per-option horizon.
-                    "stick_point": 50,
+                    "stick_button": 50,
                 })[args.get("env", "")],
 
             # In SeSamE, when to propagate failures back up to the high level
@@ -301,7 +303,7 @@ class GlobalSettings:
                     # For the stick point environment, the only environment
                     # failure is one that involves no objects, which we want
                     # to be treated like a terminal environment state.
-                    "stick_point": "never",
+                    "stick_button": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
@@ -342,7 +344,7 @@ class GlobalSettings:
                     # For the tools environment, allow more skeletons.
                     "tools": 1000,
                     # For the stick point environment, allow more skeletons.
-                    "stick_point": 1000,
+                    "stick_button": 1000,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into sampling a single skeleton.

@@ -82,6 +82,8 @@ class PaintingEnv(BaseEnv):
                                       self._GripperOpen_holds)
         self._OnTable = Predicate("OnTable", [self._obj_type],
                                   self._OnTable_holds)
+        self._NotOnTable = Predicate("NotOnTable", [self._obj_type],
+                                     self._NotOnTable_holds)
         self._HoldingTop = Predicate("HoldingTop", [self._obj_type],
                                      self._HoldingTop_holds)
         self._HoldingSide = Predicate("HoldingSide", [self._obj_type],
@@ -319,9 +321,9 @@ class PaintingEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._InBox, self._InShelf, self._IsBoxColor, self._IsShelfColor,
-            self._GripperOpen, self._OnTable, self._HoldingTop,
-            self._HoldingSide, self._Holding, self._IsWet, self._IsDry,
-            self._IsDirty, self._IsClean
+            self._GripperOpen, self._OnTable, self._NotOnTable,
+            self._HoldingTop, self._HoldingSide, self._Holding, self._IsWet,
+            self._IsDry, self._IsDirty, self._IsClean
         }
 
     @property
@@ -679,6 +681,10 @@ class PaintingEnv(BaseEnv):
             assert self._update_z_poses
             return False
         return True
+
+    def _NotOnTable_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        return not self._OnTable_holds(state, objects)
 
     def _HoldingTop_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
