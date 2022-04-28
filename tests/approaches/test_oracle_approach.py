@@ -26,7 +26,6 @@ from predicators.src.envs.touch_point import TouchPointEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Variable
-from predicators.tests.conftest import longrun
 
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv),
