@@ -74,7 +74,7 @@ def test_stick_button():
         for _ in range(20):
             s = env.simulate(s, up_action)
 
-    # Test for going to touch the reachable button.
+    # Test for going to press the reachable button.
     num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
     action_arrs = [
         np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
@@ -87,8 +87,8 @@ def test_stick_button():
                                            task.init,
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
-    assert traj.states[-2].get(reachable_button, "touched") < 0.5
-    assert traj.states[-1].get(reachable_button, "touched") > 0.5
+    assert traj.states[-2].get(reachable_button, "pressed") < 0.5
+    assert traj.states[-1].get(reachable_button, "pressed") > 0.5
     assert not GroundAtom(AboveNoButton, []).holds(traj.states[-1])
 
     # Test for going to pick up the stick.
@@ -138,15 +138,15 @@ def test_stick_button():
         np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32),
     ])
 
-    # The unreachable button should now be touched.
+    # The unreachable button should now be pressed.
     policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
-    assert traj.states[-2].get(unreachable_button, "touched") < 0.5
-    assert traj.states[-1].get(unreachable_button, "touched") > 0.5
+    assert traj.states[-2].get(unreachable_button, "pressed") < 0.5
+    assert traj.states[-1].get(unreachable_button, "pressed") > 0.5
     assert not GroundAtom(AboveNoButton, []).holds(traj.states[-1])
 
     # Uncomment for debugging.
@@ -181,8 +181,8 @@ def test_stick_button():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
-    assert traj.states[-2].get(reachable_button, "touched") < 0.5
-    assert traj.states[-1].get(reachable_button, "touched") > 0.5
+    assert traj.states[-2].get(reachable_button, "pressed") < 0.5
+    assert traj.states[-1].get(reachable_button, "pressed") > 0.5
 
     # Test PickStick.
     option = PickStick.ground([robot, stick], [0.1])
@@ -211,8 +211,8 @@ def test_stick_button():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
-    assert traj.states[-2].get(unreachable_button, "touched") < 0.5
-    assert traj.states[-1].get(unreachable_button, "touched") > 0.5
+    assert traj.states[-2].get(unreachable_button, "pressed") < 0.5
+    assert traj.states[-1].get(unreachable_button, "pressed") > 0.5
 
     # Uncomment for debugging.
     # policy = utils.option_plan_to_policy(option_plan)
