@@ -495,7 +495,25 @@ def test_keep_effect_data_partitioning():
 def test_combinatorial_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that always
-    induces potential keep effects would fail."""
+    induces potential keep effects would fail.
+    
+    The domain here is identical to the domain in the above test, except that
+    there is no MachineConfigurableWhileOff predicate and thus the Configure
+    action can be run on any machine regardless of if it is on or off.
+    There are four demonstrations here:
+    1. Fix, Configure, Turn On, Run
+    2. Fix, Turn On, Configure, Run
+    3. Configure, Turn On, Fix, Run
+    4. Turn On, Configure, Fix, Run
+    The goal is always to run machine 1, which requires it being working,
+    on, and configured. The main idea of this test is that configuring a
+    machine may turn off other machines or render them not working. Thus,
+    given these four demos, the learner should induce 4 different Configure
+    PNADs with keep effects for MachineWorking, MachineOn, both and neither
+    in order to preserve harmlessness. Additionally, if demo 4 is removed, then
+    the learner no longer needs a Configure PNAD with a keep effect for
+    MachineOn and thus only needs 3 Configure PNADs.
+    """
 
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
