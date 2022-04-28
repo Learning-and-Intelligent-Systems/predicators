@@ -634,7 +634,8 @@ def test_combinatorial_keep_effect_data_partitioning():
     correct_pnads = set([
         """STRIPS-Run0:
     Parameters: [?x0:machine_type]
-    Preconditions: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Preconditions: [MachineConfigured(?x0:machine_type), """ +
+        """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
@@ -659,19 +660,23 @@ def test_combinatorial_keep_effect_data_partitioning():
     Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ +
+        """MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure0-KEEP1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ +
+        """MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure0-KEEP2:
     Parameters: [?x0:machine_type]
-    Preconditions: [MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
+    Preconditions: [MachineOn(?x0:machine_type), """ +
+        """MachineWorking(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ +
+        """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
@@ -695,7 +700,8 @@ def test_combinatorial_keep_effect_data_partitioning():
         """STRIPS-Configure0-KEEP1:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
-    Add Effects: [MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ +
+        """MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
     Option Spec: Configure()"""

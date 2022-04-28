@@ -181,9 +181,7 @@ class BaseSTRIPSLearner(abc.ABC):
         return _check_goal(state_seq[-1])
 
     def _recompute_datastores_from_segments(
-            self,
-            pnads: List[PartialNSRTAndDatastore],
-            with_keep_effects: bool = False) -> None:
+            self, pnads: List[PartialNSRTAndDatastore]) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
         Uses a "rationality" heuristic, where for each segment, we
@@ -222,21 +220,12 @@ class BaseSTRIPSLearner(abc.ABC):
                         if not ground_op.preconditions.issubset(
                                 segment.init_atoms):
                             continue
-
-                        # TODO For keep effect check. If the grounded add effects
-                        # don't hold in the segment's necessary_image, skip.
-                        if with_keep_effects:
-                            if not ground_op.add_effects.issubset(
-                                    segment.get_necessary_image()):
-                                continue
-
                         # If the atoms resulting from apply_operator() don't
                         # all hold in the segment's final atoms, skip.
                         next_atoms = utils.apply_operator(
                             ground_op, segment.init_atoms)
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
-
                         # This ground PNAD covers this segment. Score it!
                         score = self._score_segment_ground_op_match(
                             segment, ground_op)
