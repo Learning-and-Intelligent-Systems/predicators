@@ -251,8 +251,8 @@ def test_oracle_strips_and_segmenter_learning():
     """Test for oracle strips and segmenter learning in the stick point env
     with direct BC option learning."""
     additional_settings = {
-        "stick_point_num_points_train": [1],
-        "stick_point_num_points_test": [1],
+        "stick_button_num_buttons_train": [1],
+        "stick_button_num_buttons_test": [1],
         "segmenter": "oracle",
     }
     # The expected behavior is that segmentation and STRIPS learning will go
@@ -261,7 +261,7 @@ def test_oracle_strips_and_segmenter_learning():
     # during option learning. This test still covers an important case, which
     # is recomputing datastores in STRIPS learning when options are unknown.
     with pytest.raises(Exception) as e:
-        _test_approach(env_name="stick_point",
+        _test_approach(env_name="stick_button",
                        approach_name="nsrt_learning",
                        strips_learner="oracle",
                        option_learner="direct_bc",

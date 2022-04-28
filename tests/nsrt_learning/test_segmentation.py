@@ -202,11 +202,11 @@ def test_contact_based_segmentation():
     """Tests for contact-based segmentation."""
     utils.reset_config({
         "segmenter": "contacts",
-        "env": "stick_point",
+        "env": "stick_button",
         "num_train_tasks": 1,
         "offline_data_method": "demo",
     })
-    env = create_new_env("stick_point", do_cache=False)
+    env = create_new_env("stick_button", do_cache=False)
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks)
