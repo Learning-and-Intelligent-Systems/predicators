@@ -19,8 +19,10 @@ def test_cluster_and_intersect_strips_learner():
     known_option_ll_traj, known_option_segments, unknown_option_ll_traj, \
         unknown_option_segments = test_segment_trajectory()
     utils.reset_config({"strips_learner": "cluster_and_intersect"})
-    known_option_pnads = learn_strips_operators([known_option_ll_traj], None,
-                                                None, [known_option_segments])
+    known_option_pnads = learn_strips_operators([known_option_ll_traj],
+                                                None,
+                                                None, [known_option_segments],
+                                                verify_harmlessness=True)
     known_option_ops = [pnad.op for pnad in known_option_pnads]
     assert len(known_option_ops) == 1
     assert str((known_option_ops[0])) == """STRIPS-Op0:
@@ -30,8 +32,10 @@ def test_cluster_and_intersect_strips_learner():
     Delete Effects: []
     Side Predicates: []"""
     unknown_option_pnads = learn_strips_operators([unknown_option_ll_traj],
-                                                  None, None,
-                                                  [unknown_option_segments])
+                                                  None,
+                                                  None,
+                                                  [unknown_option_segments],
+                                                  verify_harmlessness=True)
     unknown_option_ops = [pnad.op for pnad in unknown_option_pnads]
     assert len(unknown_option_ops) == 1
     assert str(unknown_option_ops[0]) == """STRIPS-Op0:
@@ -105,6 +109,7 @@ def test_cluster_and_search_strips_learner():
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
+    assert len(op0.datastore) == 2
     assert str(op1) == """STRIPS-Op1:
     Parameters: [?x0:obj_type]
     Preconditions: [IsBlue(?x0:obj_type)]
@@ -112,6 +117,7 @@ def test_cluster_and_search_strips_learner():
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
+    assert len(op1.datastore) == 1
 
     # Run cluster_and_search. This should produce the desired operators.
     # For this test, we make false positives very costly.
@@ -132,6 +138,7 @@ def test_cluster_and_search_strips_learner():
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
+    assert len(op0.datastore) == 1
     assert str(op1) == """STRIPS-Op0-1:
     Parameters: [?x0:obj_type]
     Preconditions: [IsGreen(?x0:obj_type)]
@@ -139,6 +146,7 @@ def test_cluster_and_search_strips_learner():
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
+    assert len(op1.datastore) == 1
     assert str(op2) == """STRIPS-Op1-0:
     Parameters: [?x0:obj_type]
     Preconditions: [IsBlue(?x0:obj_type)]
@@ -146,3 +154,4 @@ def test_cluster_and_search_strips_learner():
     Delete Effects: []
     Side Predicates: []
     Option Spec: Interact()"""
+    assert len(op2.datastore) == 1

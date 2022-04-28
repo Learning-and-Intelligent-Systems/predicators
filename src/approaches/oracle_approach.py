@@ -8,14 +8,31 @@ generated at all.
 
 from typing import List, Set
 
+from gym.spaces import Box
+
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.structs import NSRT, _Option
+from predicators.src.structs import NSRT, ParameterizedOption, Predicate, \
+    Task, Type, _Option
 
 
 class OracleApproach(BilevelPlanningApproach):
     """A bilevel planning approach that uses hand-specified NSRTs."""
+
+    def __init__(self,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
+                 action_space: Box,
+                 train_tasks: List[Task],
+                 task_planning_heuristic: str = "default",
+                 max_skeletons_optimized: int = -1) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks, task_planning_heuristic,
+                         max_skeletons_optimized)
+        self._nsrts = get_gt_nsrts(self._initial_predicates,
+                                   self._initial_options)
 
     def get_last_plan(self) -> List[_Option]:
         """For ONLY an oracle approach, we allow the user to get the plan that
@@ -37,4 +54,4 @@ class OracleApproach(BilevelPlanningApproach):
         return False
 
     def _get_current_nsrts(self) -> Set[NSRT]:
-        return get_gt_nsrts(self._initial_predicates, self._initial_options)
+        return self._nsrts

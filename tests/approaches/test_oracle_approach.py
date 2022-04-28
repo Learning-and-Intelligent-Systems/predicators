@@ -21,7 +21,7 @@ from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
-from predicators.src.envs.stick_point import StickPointEnv
+from predicators.src.envs.stick_button import StickButtonEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
@@ -128,7 +128,7 @@ def test_check_nsrt_parameters():
         "repeated_nextto_single_option": RepeatedNextToSingleOptionEnv(),
         "repeated_nextto_painting": RepeatedNextToPaintingEnv(),
         "pddl_blocks_procedural_tasks": ProceduralTasksBlocksPDDLEnv(),
-        "stick_point": StickPointEnv(),
+        "stick_button": StickButtonEnv(),
     }
     for name, env in envs.items():
         utils.reset_config({"env": name})
@@ -615,9 +615,6 @@ def test_oracle_approach_repeated_nextto_painting():
         "env": "repeated_nextto_painting",
         "num_test_tasks": 1,
         "painting_num_objs_test": [1],
-        # NOTE: We found hff to make planning for this problem significantly
-        # faster, and thus use it here so that the tests run quickly!
-        "sesame_task_planning_heuristic": "hff"
     })
     env = RepeatedNextToPaintingEnv()
     train_tasks = env.get_train_tasks()
@@ -854,17 +851,17 @@ def test_oracle_approach_touch_point():
         assert policy_solves_task(policy, test_task, env.simulate)
 
 
-def test_oracle_approach_stick_point():
-    """Tests for OracleApproach class with StickPointEnv."""
+def test_oracle_approach_stick_button():
+    """Tests for OracleApproach class with StickButtonEnv."""
     utils.reset_config({
-        "env": "stick_point",
+        "env": "stick_button",
         "num_train_tasks": 2,
         "num_test_tasks": 2,
-        "stick_point_num_points_train": [1],
-        "stick_point_num_points_test": [2],
-        "stick_point_disable_angles": False,
+        "stick_button_num_buttons_train": [1],
+        "stick_button_num_buttons_test": [2],
+        "stick_button_disable_angles": False,
     })
-    env = StickPointEnv()
+    env = StickButtonEnv()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
@@ -877,14 +874,14 @@ def test_oracle_approach_stick_point():
         assert policy_solves_task(policy, test_task, env.simulate)
     # Test with angles disabled.
     utils.reset_config({
-        "env": "stick_point",
+        "env": "stick_button",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
-        "stick_point_num_points_train": [1],
-        "stick_point_num_points_test": [2],
-        "stick_point_disable_angles": True,
+        "stick_button_num_buttons_train": [1],
+        "stick_button_num_buttons_test": [2],
+        "stick_button_disable_angles": True,
     })
-    env = StickPointEnv()
+    env = StickButtonEnv()
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)

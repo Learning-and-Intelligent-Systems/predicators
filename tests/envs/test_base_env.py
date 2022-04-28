@@ -30,7 +30,7 @@ def test_env_creation():
             "pddl_blocks_fixed_tasks",
             "pddl_blocks_procedural_tasks",
             "touch_point",
-            "stick_point",
+            "stick_button",
     ]:
         env = create_new_env(name, do_cache=True)
         assert isinstance(env, BaseEnv)

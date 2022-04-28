@@ -211,7 +211,10 @@ def _create_sampler_data(
     negative_data = []
     for idx, datastore in enumerate(datastores):
         for (segment, var_to_obj) in datastore:
-            assert segment.has_option()
+            # Note: it should ALWAYS be the case that the segment has
+            # an option here. If options are learned, then earlier calls
+            # to update_segment_from_option_spec() should have set the
+            # option correctly to a learned one.
             option = segment.get_option()
             state = segment.states[0]
             if CFG.sampler_learning_use_goals:
