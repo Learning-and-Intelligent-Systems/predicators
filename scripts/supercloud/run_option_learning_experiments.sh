@@ -30,7 +30,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
         else
             # nsrt learning (oracle operators and options)
-            python $FILE $COMMON_ARGS --experiment_id oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
+            python $FILE $COMMON_ARGS --experiment_id oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle --disable_harmlessness_check True
 
             # direct BC (main approach)
             python $FILE $COMMON_ARGS --experiment_id main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
