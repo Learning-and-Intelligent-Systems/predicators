@@ -497,7 +497,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that always
     induces potential keep effects would fail.
-    
+
     The domain here is identical to the domain in the above test, except that
     there is no MachineConfigurableWhileOff predicate and thus the Configure
     action can be run on any machine regardless of if it is on or off.
