@@ -422,23 +422,26 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
             and eff.predicate in pnad.op.side_predicates
         }
-        if not keep_effects:
-            return set()
-        new_pnad_with_keep_effects = set()
+        new_pnads_with_keep_effects = set()
+        # Given these keep effects, we need to create a combinatorial number of
+        # PNADs, one for each unique combination of keep effects. Moreover, we
+        # need to ensure that they are named differently from each other. Some of
+        # these PNADs will be filtered out later if they are not useful to cover
+        # any datapoints.
         i = 0
         for r in range(1, len(keep_effects) + 1):
-            for curr_keep_effects in itertools.combinations(keep_effects, r):
-                preconditions = pnad.op.preconditions | set(curr_keep_effects)
-                add_effects = pnad.op.add_effects | set(curr_keep_effects)
+            for keep_effects_subset in itertools.combinations(keep_effects, r):
+                preconditions = pnad.op.preconditions | set(keep_effects_subset)
+                add_effects = pnad.op.add_effects | set(keep_effects_subset)
                 new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
                                                    pnad.option_spec)
-                new_pnad_with_keep_effects.add(new_pnad)
+                new_pnads_with_keep_effects.add(new_pnad)
                 i += 1
 
-        return new_pnad_with_keep_effects
+        return new_pnads_with_keep_effects
 
     def _assert_all_data_in_exactly_one_datastore(
             self, pnads: List[PartialNSRTAndDatastore]) -> None:
