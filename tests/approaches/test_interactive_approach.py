@@ -76,6 +76,13 @@ def test_interactive_learning_approach():
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
+    # Test interactive_action_strategy do nothing.
+    utils.update_config({
+        "interactive_action_strategy": "do_nothing",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    assert interaction_requests
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib falls back to random if no solvable task can be found.
     utils.update_config({
         "interactive_action_strategy": "glib",

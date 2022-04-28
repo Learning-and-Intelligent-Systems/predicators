@@ -353,10 +353,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self, train_task_idx: int
     ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
         """Do nothing until timeout."""
-        act_policy = lambda s: None  # TODO
-        # Termination is left to the environment, as in
-        # CFG.max_num_steps_interaction_request.
-        termination_function = lambda _: False
+        del train_task_idx  # unused
+        # Action policy is practically unused because we terminate immediately.
+        act_policy = lambda s: Action(self._action_space.sample())
+        termination_function = lambda _: True
         return act_policy, termination_function
 
     def _create_best_seen_query_policy(
