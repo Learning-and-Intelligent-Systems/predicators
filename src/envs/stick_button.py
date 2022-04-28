@@ -1,4 +1,4 @@
-"""An environment where a robot must touch buttons with its hand or a stick."""
+"""An environment where a robot must press buttons with its hand or a stick."""
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -15,7 +15,7 @@ from predicators.src.utils import _Geom2D
 
 
 class StickButtonEnv(BaseEnv):
-    """An environment where a robot must touch buttons with its hand or a
+    """An environment where a robot must press buttons with its hand or a
     stick."""
     x_lb: ClassVar[float] = 0.0
     y_lb: ClassVar[float] = 0.0
@@ -50,7 +50,7 @@ class StickButtonEnv(BaseEnv):
         # the robot is holding the stick.
         self._robot_type = Type("robot", ["x", "y", "theta"])
         # The (x, y) is the center of the button.
-        self._button_type = Type("button", ["x", "y", "touched"])
+        self._button_type = Type("button", ["x", "y", "pressed"])
         # The (x, y) is the bottom left-hand corner of the stick, and theta
         # is CCW angle in radians, consistent with utils.Rectangle.
         self._stick_type = Type("stick", ["x", "y", "theta", "held"])
@@ -175,12 +175,12 @@ class StickButtonEnv(BaseEnv):
 
                 next_state.set(self._stick, "held", 1.0)
 
-            # Check if any button is now touched.
+            # Check if any button is now pressed.
             tip_rect = self._stick_rect_to_tip_rect(stick_rect)
             for button in state.get_objects(self._button_type):
                 circ = self._object_to_geom(button, state)
                 if circ.intersects(robot_circ) or circ.intersects(tip_rect):
-                    next_state.set(button, "touched", 1.0)
+                    next_state.set(button, "pressed", 1.0)
 
         return next_state
 
@@ -242,7 +242,7 @@ class StickButtonEnv(BaseEnv):
         reachable_zone.plot(ax, color="lightgreen", alpha=0.25)
         # Draw the buttons.
         for button in state.get_objects(self._button_type):
-            color = "blue" if state.get(button, "touched") > 0.5 else "yellow"
+            color = "blue" if state.get(button, "pressed") > 0.5 else "yellow"
             circ = self._object_to_geom(button, state)
             circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
         # Draw the holder.
@@ -311,7 +311,7 @@ class StickButtonEnv(BaseEnv):
                     if not any(geom.intersects(g) for g in collision_geoms):
                         break
                 collision_geoms.add(geom)
-                state_dict[button] = {"x": x, "y": y, "touched": 0.0}
+                state_dict[button] = {"x": x, "y": y, "pressed": 0.0}
             # Sample an initial position for the robot, making sure that it
             # doesn't collide with buttons and that it's in the reachable zone.
             radius = self.robot_radius + self.init_padding
@@ -356,7 +356,7 @@ class StickButtonEnv(BaseEnv):
             # is somewhere along the long dimension of the stick. To make sure
             # that the problem is solvable, check that if the stick were
             # grasped at the lowest reachable position, it would still be
-            # able to touch the highest button.
+            # able to press the highest button.
             max_button_y = max(state_dict[p]["y"] for p in buttons)
             necessary_reach = max_button_y - self.rz_y_ub
             while True:
@@ -452,7 +452,7 @@ class StickButtonEnv(BaseEnv):
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
         del memory, params  # unused
-        # If the robot and button are already touching, press.
+        # If the robot and button are already pressing, press.
         if self._Above_holds(state, objects):
             return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # Otherwise, move toward the button.
@@ -509,7 +509,7 @@ class StickButtonEnv(BaseEnv):
         stick_rect = self._object_to_geom(self._stick, state)
         assert isinstance(stick_rect, utils.Rectangle)
         tip_rect = self._stick_rect_to_tip_rect(stick_rect)
-        # If the stick tip is touching the button, press.
+        # If the stick tip is pressing the button, press.
         if tip_rect.intersects(button_circ):
             return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # If the stick is vertical, move the tip toward the button.
@@ -545,7 +545,7 @@ class StickButtonEnv(BaseEnv):
     @staticmethod
     def _Pressed_holds(state: State, objects: Sequence[Object]) -> bool:
         button, = objects
-        return state.get(button, "touched") > 0.5
+        return state.get(button, "pressed") > 0.5
 
     def _Above_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj1, obj2 = objects
