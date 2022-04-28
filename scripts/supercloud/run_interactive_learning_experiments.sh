@@ -14,11 +14,13 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
-    COMMON_ARGS="--env $ENV --approach interactive_learning --seed $SEED --excluded_predicates Covers,Holding \
-    --interactive_query_policy threshold --interactive_score_function entropy --interactive_score_threshold $THRESH \
-    --num_online_learning_cycles $CYCLES --online_learning_max_transitions $MAX_TRANSITIONS \
-    --interactive_num_requests_per_cycle $REQUESTS --max_num_steps_interaction_request $MAX_STEPS \
-    --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False \
+    COMMON_ARGS="--env $ENV --approach interactive_learning --seed $SEED \
+    --excluded_predicates Covers,Holding --interactive_score_function entropy \
+    --interactive_score_threshold $THRESH --num_online_learning_cycles $CYCLES \
+    --online_learning_max_transitions $MAX_TRANSITIONS \
+    --interactive_num_requests_per_cycle $REQUESTS \
+    --max_num_steps_interaction_request $MAX_STEPS --min_data_for_nsrt $MIN_DATA \
+    --sampler_disable_classifier True --mlp_classifier_balance_data False \
     --predicate_mlp_classifier_max_itr $MAX_ITR"
 
     ## Main approach
@@ -39,6 +41,6 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # Random actions
     python $FILE $COMMON_ARGS --experiment_id random_actions --interactive_action_strategy random
     # No actions
-    # TODO
+    python $FILE $COMMON_ARGS --experiment_id no_actions --interactive_action_strategy do_nothing
 
 done
