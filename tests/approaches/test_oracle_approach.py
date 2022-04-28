@@ -59,6 +59,10 @@ EXTRA_ARGS_ORACLE_APPROACH: Dict[str, List[Dict[str, Any]]] = {
 }
 EXTRA_ARGS_ORACLE_APPROACH["cover_multistep_options"] = [
     {
+        # planning with default parameters
+        "cover_multistep_use_learned_equivalents": True,
+    },
+    {
         "cover_multistep_use_learned_equivalents": False,
         "cover_multistep_degenerate_oracle_samplers": False,
         "cover_multistep_thr_percent": 0.99,
@@ -141,13 +145,12 @@ def _policy_solves_task(policy, task, simulator):
 def test_oracle_approach(env_name, env_cls):
     """Tests for OracleApproach class with all environments."""
     for extra_args in EXTRA_ARGS_ORACLE_APPROACH[env_name]:
-        common_cfg_dict = {
+        utils.reset_config({
             "env": env_name,
             "num_train_tasks": 2,
             "num_test_tasks": 2,
-        }
-        cfg_dict = dict(common_cfg_dict, **extra_args)
-        utils.reset_config(cfg_dict)
+            **extra_args,
+        })
         env = env_cls()
         train_tasks = env.get_train_tasks()
         approach = OracleApproach(env.predicates, env.options, env.types,
@@ -159,32 +162,6 @@ def test_oracle_approach(env_name, env_cls):
         for task in env.get_test_tasks():
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
-
-
-@longrun
-def test_longrun_oracle_approach_cover_multistep_options():
-    """Tests for OracleApproach class with CoverMultistepOptions.
-
-    This is a separate, longrun test because planning with default
-    parameters is hard in this environment.
-    """
-    utils.reset_config({
-        "env": "cover_multistep_options",
-        "cover_multistep_use_learned_equivalents": True,
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
-    })
-    env = CoverMultistepOptions()
-    train_tasks = env.get_train_tasks()
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
-    assert not approach.is_learning_based
-    for task in train_tasks:
-        policy = approach.solve(task, timeout=500)
-        assert _policy_solves_task(policy, task, env.simulate)
-    for task in env.get_test_tasks():
-        policy = approach.solve(task, timeout=500)
-        assert _policy_solves_task(policy, task, env.simulate)
 
 
 def test_get_gt_nsrts():
