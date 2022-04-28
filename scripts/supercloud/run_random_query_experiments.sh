@@ -31,4 +31,6 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
         # Random kid with different query probabilities
         python $FILE $COMMON_ARGS --experiment_id random_kid_$PROB --interactive_query_policy random --interactive_random_query_prob $PROB --interactive_score_function trivial
 
+    done
+
 done
