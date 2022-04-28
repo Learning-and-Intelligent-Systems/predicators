@@ -142,9 +142,10 @@ class StickPointEnv(BaseEnv):
         robot_circ = self._object_to_geom(self._robot, next_state)
 
         # Check if the stick is held. If so, we need to move and rotate it.
+        stick_held = state.get(self._stick, "held") > 0.5
         stick_rect = self._object_to_geom(self._stick, state)
         assert isinstance(stick_rect, utils.Rectangle)
-        if state.get(self._stick, "held") > 0.5:
+        if stick_held:
             if not CFG.stick_point_disable_angles:
                 stick_rect = stick_rect.rotate_about_point(rx, ry, dtheta)
             stick_rect = utils.Rectangle(x=(stick_rect.x + dx),
@@ -158,8 +159,7 @@ class StickPointEnv(BaseEnv):
 
         if press > 0:
             # Check if the stick is now held for the first time.
-            if state.get(self._stick, "held") <= 0.5 and \
-                stick_rect.intersects(robot_circ):
+            if not stick_held and stick_rect.intersects(robot_circ):
                 # Check for a collision with the stick holder. The reason that
                 # we only check for a collision here, as opposed to every
                 # timestep, is that we imagine the robot moving down in the z
@@ -179,7 +179,8 @@ class StickPointEnv(BaseEnv):
             tip_rect = self._stick_rect_to_tip_rect(stick_rect)
             for point in state.get_objects(self._point_type):
                 circ = self._object_to_geom(point, state)
-                if circ.intersects(robot_circ) or circ.intersects(tip_rect):
+                if (circ.intersects(tip_rect) and stick_held) or \
+                   (circ.intersects(robot_circ) and not stick_held):
                     next_state.set(point, "touched", 1.0)
 
         return next_state
