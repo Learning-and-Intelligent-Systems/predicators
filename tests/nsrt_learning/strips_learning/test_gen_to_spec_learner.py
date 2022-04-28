@@ -466,7 +466,7 @@ def test_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP:
+    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
