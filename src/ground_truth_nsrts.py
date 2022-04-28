@@ -2011,11 +2011,11 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(AboveNoButton, [])}
     side_predicates: Set[Predicate] = set()
-    robot_touch_button_nsrt = NSRT("RobotPressButtonFromNothing", parameters,
+    robot_press_button_nsrt = NSRT("RobotPressButtonFromNothing", parameters,
                                    preconditions, add_effects, delete_effects,
                                    side_predicates, option, option_vars,
                                    null_sampler)
-    nsrts.add(robot_touch_button_nsrt)
+    nsrts.add(robot_press_button_nsrt)
 
     # RobotPressButtonFromButton
     robot = Variable("?robot", robot_type)
@@ -2034,11 +2034,11 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
     side_predicates = set()
-    robot_touch_button_nsrt = NSRT("RobotPressButtonFromButton", parameters,
+    robot_press_button_nsrt = NSRT("RobotPressButtonFromButton", parameters,
                                    preconditions, add_effects, delete_effects,
                                    side_predicates, option, option_vars,
                                    null_sampler)
-    nsrts.add(robot_touch_button_nsrt)
+    nsrts.add(robot_press_button_nsrt)
 
     # PickStickFromNothing
     robot = Variable("?robot", robot_type)
