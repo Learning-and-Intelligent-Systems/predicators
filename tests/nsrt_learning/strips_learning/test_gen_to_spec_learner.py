@@ -492,6 +492,7 @@ def test_keep_effect_data_partitioning():
     for pnad in output_pnads:
         assert str(pnad) in correct_pnads
 
+
 def test_combinatorial_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that always
