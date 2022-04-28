@@ -47,8 +47,8 @@ def _segment_with_contact_changes(
     _, all_atoms = trajectory
     all_preds = {a.predicate for atoms in all_atoms for a in atoms}
 
-    if CFG.env == "stick_point":
-        keep_pred_names = {"Grasped", "Touched"}
+    if CFG.env == "stick_button":
+        keep_pred_names = {"Grasped", "Pressed"}
     else:
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")
