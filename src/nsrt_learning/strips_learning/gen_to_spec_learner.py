@@ -424,7 +424,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         }
         if not keep_effects:
             return set()
-
         new_pnad_with_keep_effects = set()
         i = 0
         for r in range(1, len(keep_effects) + 1):

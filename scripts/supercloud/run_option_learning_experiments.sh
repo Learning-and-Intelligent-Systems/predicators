@@ -17,9 +17,8 @@ ALL_NUM_TRAIN_TASKS=(
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
-        # NOTE: segmenter is oracle
-        COMMON_ARGS="--env stick_point --min_perc_data_for_nsrt 1 \
-            --segmenter oracle --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
+        COMMON_ARGS="--env stick_button --min_perc_data_for_nsrt 1 \
+            --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
             --seed $SEED --gnn_num_epochs 10000"
 
         if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then

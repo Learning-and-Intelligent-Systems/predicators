@@ -337,7 +337,19 @@ def test_find_unification_and_try_specializing_pnad():
 def test_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that does not
-    keep the original operators (without keep effects) would fail."""
+    keep the original operators (without keep effects) would fail.
+
+    There are two demonstrations: [Configure, TurnOn, Run] and [TurnOn,
+    Configure, Run]. TurnOn always just turns on a machine, while
+    Configure makes it configured but may turn on/off arbitrary other
+    machines. You are allowed to Configure when the machine is either
+    off or on (but MachineConfigurableWhileOff must be true in order to
+    Configure when it's off). Our algorithm will say that MachineOn is a
+    keep effect of Configure, but it's important to keep around the
+    original (non-KEEP) operator for Configure, otherwise we will be
+    harmful to the second demonstration, where the machine was off when
+    it was configured.
+    """
 
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
@@ -479,7 +491,6 @@ def test_keep_effect_data_partitioning():
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
         assert str(pnad) in correct_pnads
-
 
 def test_combinatorial_keep_effect_data_partitioning():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
