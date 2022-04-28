@@ -425,9 +425,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         new_pnads_with_keep_effects = set()
         # Given these keep effects, we need to create a combinatorial number of
         # PNADs, one for each unique combination of keep effects. Moreover, we
-        # need to ensure that they are named differently from each other. Some of
-        # these PNADs will be filtered out later if they are not useful to cover
-        # any datapoints.
+        # need to ensure that they are named differently from each other. Some
+        # of these PNADs will be filtered out later if they are not useful to
+        # cover any datapoints.
         i = 0
         for r in range(1, len(keep_effects) + 1):
             for keep_effects_subset in itertools.combinations(keep_effects, r):
