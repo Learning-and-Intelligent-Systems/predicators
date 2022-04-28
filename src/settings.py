@@ -122,11 +122,11 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
-    # stick point env parameters
-    stick_point_num_points_train = [1, 2]
-    stick_point_num_points_test = [3, 4]
-    stick_point_disable_angles = True
-    stick_point_holder_scale = 0.1
+    # stick button env parameters
+    stick_button_num_buttons_train = [1, 2]
+    stick_button_num_buttons_test = [3, 4]
+    stick_button_disable_angles = True
+    stick_button_holder_scale = 0.1
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -286,7 +286,7 @@ class GlobalSettings:
                 lambda: 1000,
                 {
                     # For stick point, limit the per-option horizon.
-                    "stick_point": 50,
+                    "stick_button": 50,
                 })[args.get("env", "")],
 
             # In SeSamE, when to propagate failures back up to the high level
@@ -303,7 +303,7 @@ class GlobalSettings:
                     # For the stick point environment, the only environment
                     # failure is one that involves no objects, which we want
                     # to be treated like a terminal environment state.
-                    "stick_point": "never",
+                    "stick_button": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
@@ -344,7 +344,7 @@ class GlobalSettings:
                     # For the tools environment, allow more skeletons.
                     "tools": 1000,
                     # For the stick point environment, allow more skeletons.
-                    "stick_point": 1000,
+                    "stick_button": 1000,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into sampling a single skeleton.

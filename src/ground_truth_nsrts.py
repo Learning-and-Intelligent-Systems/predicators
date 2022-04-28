@@ -51,8 +51,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
-    elif CFG.env == "stick_point":
-        nsrts = _get_stick_point_gt_nsrts()
+    elif CFG.env == "stick_button":
+        nsrts = _get_stick_button_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -1982,63 +1982,63 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_stick_point_gt_nsrts() -> Set[NSRT]:
-    """Create ground truth NSRTs for StickPointEnv."""
-    robot_type, point_type, stick_type = _get_types_by_names(
-        CFG.env, ["robot", "point", "stick"])
-    Touched, RobotAbovePoint, StickAbovePoint, \
-        Grasped, HandEmpty, AboveNoPoint = _get_predicates_by_names(
-            CFG.env, ["Touched", "RobotAbovePoint",
-            "StickAbovePoint", "Grasped", "HandEmpty", "AboveNoPoint"])
-    RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
-        CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
+def _get_stick_button_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for StickButtonEnv."""
+    robot_type, button_type, stick_type = _get_types_by_names(
+        CFG.env, ["robot", "button", "stick"])
+    Pressed, RobotAboveButton, StickAboveButton, \
+        Grasped, HandEmpty, AboveNoButton = _get_predicates_by_names(
+            CFG.env, ["Pressed", "RobotAboveButton",
+            "StickAboveButton", "Grasped", "HandEmpty", "AboveNoButton"])
+    RobotPressButton, PickStick, StickPressButton = _get_options_by_names(
+        CFG.env, ["RobotPressButton", "PickStick", "StickPressButton"])
 
     nsrts = set()
 
-    # RobotTouchPointFromNothing
+    # RobotPressButtonFromNothing
     robot = Variable("?robot", robot_type)
-    point = Variable("?point", point_type)
-    parameters = [robot, point]
-    option_vars = [robot, point]
-    option = RobotTouchPoint
+    button = Variable("?button", button_type)
+    parameters = [robot, button]
+    option_vars = [robot, button]
+    option = RobotPressButton
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(AboveNoPoint, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
-        LiftedAtom(Touched, [point]),
-        LiftedAtom(RobotAbovePoint, [robot, point])
+        LiftedAtom(Pressed, [button]),
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
-    delete_effects = {LiftedAtom(AboveNoPoint, [])}
+    delete_effects = {LiftedAtom(AboveNoButton, [])}
     side_predicates: Set[Predicate] = set()
-    robot_touch_point_nsrt = NSRT("RobotTouchPointFromNothing", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
-                                  null_sampler)
-    nsrts.add(robot_touch_point_nsrt)
+    robot_touch_button_nsrt = NSRT("RobotPressButtonFromNothing", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   side_predicates, option, option_vars,
+                                   null_sampler)
+    nsrts.add(robot_touch_button_nsrt)
 
-    # RobotTouchPointFromPoint
+    # RobotPressButtonFromButton
     robot = Variable("?robot", robot_type)
-    point = Variable("?point", point_type)
-    from_point = Variable("?from-point", point_type)
-    parameters = [robot, point, from_point]
-    option_vars = [robot, point]
-    option = RobotTouchPoint
+    button = Variable("?button", button_type)
+    from_button = Variable("?from-button", button_type)
+    parameters = [robot, button, from_button]
+    option_vars = [robot, button]
+    option = RobotPressButton
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(RobotAbovePoint, [robot, from_point]),
+        LiftedAtom(RobotAboveButton, [robot, from_button]),
     }
     add_effects = {
-        LiftedAtom(Touched, [point]),
-        LiftedAtom(RobotAbovePoint, [robot, point])
+        LiftedAtom(Pressed, [button]),
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
-    delete_effects = {LiftedAtom(RobotAbovePoint, [robot, from_point])}
+    delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
     side_predicates = set()
-    robot_touch_point_nsrt = NSRT("RobotTouchPointFromPoint", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
-                                  null_sampler)
-    nsrts.add(robot_touch_point_nsrt)
+    robot_touch_button_nsrt = NSRT("RobotPressButtonFromButton", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   side_predicates, option, option_vars,
+                                   null_sampler)
+    nsrts.add(robot_touch_button_nsrt)
 
     # PickStickFromNothing
     robot = Variable("?robot", robot_type)
@@ -2048,7 +2048,7 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(AboveNoPoint, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
@@ -2070,75 +2070,77 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
                            option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # PickStickFromPoint
+    # PickStickFromButton
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?from-point", point_type)
-    parameters = [robot, stick, point]
+    button = Variable("?from-button", button_type)
+    parameters = [robot, stick, button]
     option_vars = [robot, stick]
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(RobotAbovePoint, [robot, point])
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(AboveNoPoint, [])
+        LiftedAtom(AboveNoButton, [])
     }
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(RobotAbovePoint, [robot, point]),
+        LiftedAtom(RobotAboveButton, [robot, button]),
     }
     side_predicates = set()
-    pick_stick_nsrt = NSRT("PickStickFromPoint", parameters, preconditions,
+    pick_stick_nsrt = NSRT("PickStickFromButton", parameters, preconditions,
                            add_effects, delete_effects, side_predicates,
                            option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # StickTouchPointFromNothing
+    # StickPressButtonFromNothing
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?point", point_type)
-    parameters = [robot, stick, point]
-    option_vars = [robot, stick, point]
-    option = StickTouchPoint
+    button = Variable("?button", button_type)
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick, button]
+    option = StickPressButton
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(AboveNoPoint, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
-        LiftedAtom(StickAbovePoint, [stick, point]),
-        LiftedAtom(Touched, [point])
+        LiftedAtom(StickAboveButton, [stick, button]),
+        LiftedAtom(Pressed, [button])
     }
-    delete_effects = {LiftedAtom(AboveNoPoint, [])}
+    delete_effects = {LiftedAtom(AboveNoButton, [])}
     side_predicates = set()
-    stick_point_nsrt = NSRT("StickTouchPointFromNothing", parameters,
-                            preconditions, add_effects, delete_effects,
-                            side_predicates, option, option_vars, null_sampler)
-    nsrts.add(stick_point_nsrt)
+    stick_button_nsrt = NSRT("StickPressButtonFromNothing", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(stick_button_nsrt)
 
-    # StickTouchPointFromPoint
+    # StickPressButtonFromButton
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?point", point_type)
-    from_point = Variable("?from-point", point_type)
-    parameters = [robot, stick, point, from_point]
-    option_vars = [robot, stick, point]
-    option = StickTouchPoint
+    button = Variable("?button", button_type)
+    from_button = Variable("?from-button", button_type)
+    parameters = [robot, stick, button, from_button]
+    option_vars = [robot, stick, button]
+    option = StickPressButton
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(StickAbovePoint, [stick, from_point])
+        LiftedAtom(StickAboveButton, [stick, from_button])
     }
     add_effects = {
-        LiftedAtom(StickAbovePoint, [stick, point]),
-        LiftedAtom(Touched, [point])
+        LiftedAtom(StickAboveButton, [stick, button]),
+        LiftedAtom(Pressed, [button])
     }
-    delete_effects = {LiftedAtom(StickAbovePoint, [stick, from_point])}
+    delete_effects = {LiftedAtom(StickAboveButton, [stick, from_button])}
     side_predicates = set()
-    stick_point_nsrt = NSRT("StickTouchPointFromPoint", parameters,
-                            preconditions, add_effects, delete_effects,
-                            side_predicates, option, option_vars, null_sampler)
-    nsrts.add(stick_point_nsrt)
+    stick_button_nsrt = NSRT("StickPressButtonFromButton", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(stick_button_nsrt)
 
     return nsrts
 
