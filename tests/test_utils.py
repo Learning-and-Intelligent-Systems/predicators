@@ -566,6 +566,33 @@ def test_run_policy():
                                 exceptions_to_break_on={ValueError})
     assert len(traj4.states) == 1
 
+    class _MockEnv:
+
+        @staticmethod
+        def reset(train_or_test, task_idx):
+            """Reset the mock environment."""
+            del train_or_test, task_idx  # unused
+            return DefaultState
+
+        @staticmethod
+        def step(action):
+            """Step the mock environment."""
+            del action  # unused
+            raise utils.EnvironmentFailure("mock failure")
+
+    mock_env = _MockEnv()
+    policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    traj5, _ = utils.run_policy(
+        policy,
+        mock_env,
+        "test",
+        0,
+        lambda s: False,
+        max_num_steps=5,
+        exceptions_to_break_on={utils.EnvironmentFailure})
+    assert len(traj5.states) == 1
+    assert len(traj5.actions) == 0
+
     # Test policy call time.
     def _policy(_):
         time.sleep(0.1)
@@ -707,6 +734,20 @@ def test_run_policy_with_simulator():
                                            max_num_steps=5,
                                            exceptions_to_break_on={ValueError})
     assert len(traj.states) == 1
+
+    def _simulator(state, action):
+        raise utils.EnvironmentFailure("mock failure")
+
+    _policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    traj = utils.run_policy_with_simulator(
+        _policy,
+        _simulator,
+        state,
+        _terminal,
+        max_num_steps=5,
+        exceptions_to_break_on={utils.EnvironmentFailure})
+    assert len(traj.states) == 1
+    assert len(traj.actions) == 0
 
 
 def test_option_plan_to_policy():
