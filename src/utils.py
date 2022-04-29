@@ -843,7 +843,7 @@ def run_policy(
 
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
-    the trajectory states are always one more than the actions.
+    the trajectory states are of length one greater than the actions.
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
@@ -903,7 +903,7 @@ def run_policy_with_simulator(
 
     Note that in the case where the exception is raised in step, we exclude the
     last action from the returned trajectory to maintain the invariant that
-    the trajectory states are always one more than the actions.
+    the trajectory states are of length one greater than the actions.
     """
     state = init_state
     states = [state]
