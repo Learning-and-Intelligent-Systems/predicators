@@ -248,7 +248,7 @@ def test_sampler_learning_with_goals():
 
 
 def test_oracle_strips_and_segmenter_learning():
-    """Test for oracle strips and segmenter learning in the stick point env
+    """Test for oracle strips and segmenter learning in the stick button env
     with direct BC option learning."""
     additional_settings = {
         "stick_button_num_buttons_train": [1],

@@ -285,7 +285,8 @@ class GlobalSettings:
             max_num_steps_option_rollout=defaultdict(
                 lambda: 1000,
                 {
-                    # For stick point, limit the per-option horizon.
+                    # For the stick button environment, limit the per-option
+                    # horizon.
                     "stick_button": 50,
                 })[args.get("env", "")],
 
@@ -300,7 +301,7 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For the stick point environment, the only environment
+                    # For the stick button environment, the only environment
                     # failure is one that involves no objects, which we want
                     # to be treated like a terminal environment state.
                     "stick_button": "never",
@@ -343,7 +344,7 @@ class GlobalSettings:
                 {
                     # For the tools environment, allow more skeletons.
                     "tools": 1000,
-                    # For the stick point environment, allow more skeletons.
+                    # For the stick button environment, allow more skeletons.
                     "stick_button": 1000,
                 })[args.get("env", "")],
 
