@@ -18,6 +18,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         return _segment_with_option_changes(trajectory)
     if CFG.segmenter == "oracle":
         return _segment_with_oracle(trajectory)
+    if CFG.segmenter == "contacts":
+        return _segment_with_contact_changes(trajectory)
     raise NotImplementedError(f"Unrecognized segmenter: {CFG.segmenter}.")
 
 
@@ -29,6 +31,35 @@ def _segment_with_atom_changes(
 
     def _switch_fn(t: int) -> bool:
         return all_atoms[t] != all_atoms[t + 1]
+
+    return _segment_with_switch_function(trajectory, _switch_fn)
+
+
+def _segment_with_contact_changes(
+        trajectory: GroundAtomTrajectory) -> List[Segment]:
+    """Segment a trajectory based on contact changes.
+
+    Since environments do not expose contacts, this is implemented in an
+    environment-specific way. We assume that some predicates represent
+    contacts and we look for changes in those contact predicates.
+    """
+
+    _, all_atoms = trajectory
+    all_preds = {a.predicate for atoms in all_atoms for a in atoms}
+
+    if CFG.env == "stick_button":
+        keep_pred_names = {"Grasped", "Pressed"}
+    else:
+        raise NotImplementedError("Contact-based segmentation not implemented "
+                                  f"for environment {CFG.env}.")
+
+    keep_preds = {p for p in all_preds if p.name in keep_pred_names}
+    all_keep_atoms = []
+    for atoms in all_atoms:
+        all_keep_atoms.append({a for a in atoms if a.predicate in keep_preds})
+
+    def _switch_fn(t: int) -> bool:
+        return all_keep_atoms[t] != all_keep_atoms[t + 1]
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 

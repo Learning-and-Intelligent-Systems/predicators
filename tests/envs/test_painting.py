@@ -20,7 +20,7 @@ def test_painting():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 13
+    assert len(env.predicates) == 14
     assert {pred.name for pred in env.goal_predicates} == \
         {"InBox", "IsBoxColor", "InShelf", "IsShelfColor"}
     assert len(env.options) == 6

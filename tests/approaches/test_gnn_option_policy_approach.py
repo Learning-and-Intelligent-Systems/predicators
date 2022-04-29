@@ -1,4 +1,4 @@
-"""Test cases for the GNN policy approach."""
+"""Test cases for the GNN option policy approach."""
 
 import numpy as np
 import pytest
@@ -34,22 +34,32 @@ class _MockOptionModel2(_OptionModelBase):
         raise utils.EnvironmentFailure("Mock env failure")
 
 
+class _MockOptionModel3(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        return state.copy(), 0
+
+
 @pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
-def test_gnn_policy_approach_with_envs(env_name):
-    """Tests for GNNPolicyApproach class on environments."""
+def test_gnn_option_policy_approach_with_envs(env_name):
+    """Tests for GNNOptionPolicyApproach class on environments."""
     utils.reset_config({
         "env": env_name,
         "num_train_tasks": 3,
         "num_test_tasks": 3,
-        "gnn_policy_solve_with_shooting": False,
+        "gnn_option_policy_solve_with_shooting": False,
         "gnn_num_epochs": 20,
         "gnn_do_normalization": True,
         "horizon": 10
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = create_approach("gnn_policy", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
+    approach = create_approach("gnn_option_policy", env.predicates,
+                               env.options, env.types, env.action_space,
+                               train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
@@ -64,18 +74,19 @@ def test_gnn_policy_approach_with_envs(env_name):
                                     task.goal_holds,
                                     max_num_steps=CFG.horizon)
     # Test loading.
-    approach2 = create_approach("gnn_policy", env.predicates, env.options,
-                                env.types, env.action_space, train_tasks)
+    approach2 = create_approach("gnn_option_policy", env.predicates,
+                                env.options, env.types, env.action_space,
+                                train_tasks)
     approach2.load(online_learning_cycle=None)
 
 
-def test_gnn_policy_approach_special_cases():
-    """Tests for special cases of the GNNPolicyApproach class."""
+def test_gnn_option_policy_approach_special_cases():
+    """Tests for special cases of the GNNOptionPolicyApproach class."""
     utils.reset_config({
         "env": "cover",
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
-        "gnn_policy_solve_with_shooting": False,
+        "gnn_option_policy_solve_with_shooting": False,
         "horizon": 10
     })
     cup_type = Type("cup_type", ["feat1"])
@@ -118,7 +129,7 @@ def test_gnn_policy_approach_special_cases():
     # Note: from test_task.init, both Move and Dump are always non-initiable.
     test_task = Task(State({cup: [0.0]}), train_tasks[0].goal)
 
-    approach = create_approach("gnn_policy", {Solved}, {Move, Dump},
+    approach = create_approach("gnn_option_policy", {Solved}, {Move, Dump},
                                {cup_type}, action_space, train_tasks)
     # Test a dataset where max_option_params is 0.
     approach.learn_from_offline_dataset(
@@ -144,7 +155,7 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.init,
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
-    assert "GNN policy chose a non-initiable option" in str(e)
+    assert "GNN option policy chose a non-initiable option" in str(e)
     # Hackily change the type of the option so that the policy fails.
     Move.types[0] = bowl_type
     policy = approach.solve(test_task, timeout=CFG.timeout)
@@ -154,14 +165,15 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.init,
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
-    assert "GNN policy could not select an object" in str(e)
+    assert "GNN option policy could not select an object" in str(e)
     Move.types[0] = cup_type  # revert
     # Now test shooting.
     utils.reset_config({
         "env": "cover",
         "gnn_num_epochs": 20,
         "gnn_use_validation_set": False,
-        "gnn_policy_solve_with_shooting": True,
+        "gnn_option_policy_solve_with_shooting": True,
+        "gnn_option_policy_shooting_max_samples": 1,
         "timeout": 0.1,
         "horizon": 10
     })
@@ -200,3 +212,9 @@ def test_gnn_policy_approach_special_cases():
                                         test_task.goal_holds,
                                         max_num_steps=CFG.horizon)
     assert "Option plan exhausted" in str(e)
+    # Test that shooting does not infinitely hang in the case where the
+    # option model noops.
+    approach._option_model = _MockOptionModel3(_simulator)  # pylint: disable=protected-access
+    with pytest.raises(ApproachTimeout) as e:
+        policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    assert "Shooting timed out" in str(e)

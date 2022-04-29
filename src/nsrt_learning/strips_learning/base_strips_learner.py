@@ -9,7 +9,7 @@ from predicators.src.planning import task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, OptionSpec, PartialNSRTAndDatastore, Predicate, \
-    Segment, State, STRIPSOperator, Task, _GroundNSRT
+    Segment, State, STRIPSOperator, Task, _GroundNSRT, _GroundSTRIPSOperator
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -21,7 +21,7 @@ class BaseSTRIPSLearner(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
-        verify_harmlessness: bool = False,
+        verify_harmlessness: bool,
         verbose: bool = True,
     ) -> None:
         self._trajectories = trajectories
@@ -181,20 +181,15 @@ class BaseSTRIPSLearner(abc.ABC):
         return _check_goal(state_seq[-1])
 
     def _recompute_datastores_from_segments(
-            self,
-            pnads: List[PartialNSRTAndDatastore],
-            semantics: str = "apply_operator") -> None:
+            self, pnads: List[PartialNSRTAndDatastore]) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
-        If semantics is "apply_operator", then a segment is included in
-        a datastore if, for some ground PNAD, the preconditions are
-        satisfied and apply_operator() results in an abstract next state
-        that is a subset of the segment's final_atoms. If semantics is
-        "add_effects", then rather than using apply_operator(), we
-        simply check that the add effects are a subset of the segment's
-        add effects.
+        Uses a "rationality" heuristic, where for each segment, we
+        select, among the ground PNADs covering it, the one whose add
+        and delete effects match the segment's most closely (breaking
+        ties arbitrarily). At the end of this procedure, each segment is
+        guaranteed to be in at most one PNAD's datastore.
         """
-        assert semantics in ("apply_operator", "add_effects")
         for pnad in pnads:
             pnad.datastore = []  # reset all PNAD datastores
         # Note: we want to loop over all segments, NOT just the ones
@@ -208,38 +203,65 @@ class BaseSTRIPSLearner(abc.ABC):
                     segment_option = DummyOption
                 segment_param_option = segment_option.parent
                 segment_option_objs = tuple(segment_option.objects)
-                # Get ground operators given these objects and option objs.
+                # Loop over all ground operators, looking for the most
+                # rational match for this segment.
+                best_score = float("inf")
+                best_pnad = None
+                best_sub = None
                 for pnad in pnads:
                     param_opt, opt_vars = pnad.option_spec
                     if param_opt != segment_param_option:
                         continue
                     isub = dict(zip(opt_vars, segment_option_objs))
-                    # Consider adding this segment to each datastore.
                     for ground_op in utils.all_ground_operators_given_partial(
                             pnad.op, objects, isub):
-                        # Check if preconditions hold.
+                        # If the preconditions don't hold in the segment's
+                        # initial atoms, skip.
                         if not ground_op.preconditions.issubset(
                                 segment.init_atoms):
                             continue
-                        # Check if effects match.
-                        if semantics == "apply_operator":
-                            atoms = utils.apply_operator(
-                                ground_op, segment.init_atoms)
-                            if not atoms.issubset(segment.final_atoms):
-                                continue
-                        elif semantics == "add_effects":
-                            if not ground_op.add_effects.issubset(
-                                    segment.add_effects):
-                                continue
-                        # Skip over segments that have multiple possible
-                        # bindings.
-                        if (len(set(ground_op.objects)) != len(
-                                ground_op.objects)):
+                        # If the atoms resulting from apply_operator() don't
+                        # all hold in the segment's final atoms, skip.
+                        next_atoms = utils.apply_operator(
+                            ground_op, segment.init_atoms)
+                        if not next_atoms.issubset(segment.final_atoms):
                             continue
-                        # This segment belongs in this datastore, so add it.
-                        sub = dict(zip(pnad.op.parameters, ground_op.objects))
-                        pnad.add_to_datastore((segment, sub),
-                                              check_effect_equality=False)
+                        # This ground PNAD covers this segment. Score it!
+                        score = self._score_segment_ground_op_match(
+                            segment, ground_op)
+                        if score < best_score:  # we want a closer match
+                            best_score = score
+                            best_pnad = pnad
+                            best_sub = dict(
+                                zip(pnad.op.parameters, ground_op.objects))
+                if best_pnad is not None:
+                    assert best_sub is not None
+                    best_pnad.add_to_datastore((segment, best_sub),
+                                               check_effect_equality=False)
+
+    @staticmethod
+    def _score_segment_ground_op_match(
+            segment: Segment, ground_op: _GroundSTRIPSOperator) -> float:
+        """Return a score for how well the given segment matches the given
+        ground operator, used in recompute_datastores_from_segments().
+
+        A lower score is a CLOSER match. We use a heuristic to estimate
+        the quality of the match, where we check how many ground atoms
+        are different between the segment's add/delete effects and the
+        operator's add/delete effects. However, we must be careful to
+        treat keep effects specially, since they will not appear in
+        segment.add_effects. In general, we favor more keep effects
+        (hence we subtract len(keep_effects)), since we can only ever
+        call this function on ground operators whose preconditions are
+        satisfied in segment.init_atoms.
+        """
+        keep_effects = ground_op.preconditions & ground_op.add_effects
+        nonkeep_add_effects = ground_op.add_effects - keep_effects
+        return len(segment.add_effects - nonkeep_add_effects) + \
+            len(nonkeep_add_effects - segment.add_effects) + \
+            len(segment.delete_effects - ground_op.delete_effects) + \
+            len(ground_op.delete_effects - segment.delete_effects) - \
+            len(keep_effects)
 
     @staticmethod
     def _induce_preconditions_via_intersection(

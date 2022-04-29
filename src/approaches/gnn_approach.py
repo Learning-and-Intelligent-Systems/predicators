@@ -6,6 +6,7 @@ The input is always the same.
 
 import abc
 import functools
+import logging
 from typing import Any, Dict, Generic, List, Optional, Set, Tuple, TypeVar
 
 import dill as pkl
@@ -22,10 +23,9 @@ from predicators.src.gnn.gnn import EncodeProcessDecode, setup_graph_net
 from predicators.src.gnn.gnn_utils import GraphDictDataset, \
     compute_normalizers, get_single_model_prediction, graph_batch_collate, \
     normalize_graph, train_model
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, GroundAtom, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.src.structs import Dataset, GroundAtom, ParameterizedOption, \
+    Predicate, State, Task, Type
 
 _Output = TypeVar("_Output")  # a generic type for the output of this GNN
 
@@ -50,17 +50,14 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         torch.manual_seed(self._seed)
 
     @abc.abstractmethod
-    def _extract_target_from_data(self, segment: Segment,
-                                  segment_traj: List[Segment],
-                                  ll_traj: LowLevelTrajectory) -> _Output:
-        """Given a segment in the data, which was part of the given segment
-        trajectory associated with the given low-level trajectory, extract the
-        target output for the GNN.
+    def _generate_data_from_dataset(
+        self, dataset: Dataset
+    ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _Output]]:
+        """Given a Dataset object, organize it into tuples of (state, atoms,
+        goal, target).
 
-        The input corresponding to this target is
-        a tuple (state, atoms, goal), where state = segment.states[0],
-        atoms = segment.init_atoms, and
-        goal = self._train_tasks[ll_traj.train_task_idx].goal.
+        The inputs to the GNN are (state, atoms, goal). The target can
+        be of any type.
         """
         raise NotImplementedError("Override me!")
 
@@ -69,7 +66,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
                                _Output]]
     ) -> None:
-        """Given the dataset of inputs and outputs, set up any necessary
+        """Given the dataset of inputs and targets, set up any necessary
         output-specific fields."""
         raise NotImplementedError("Override me!")
 
@@ -121,24 +118,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         return True
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Organize data into (state, atoms, goal, target) tuples.
-        ground_atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories, self._initial_predicates)
-        segmented_trajs = [
-            segment_trajectory(traj) for traj in ground_atom_dataset
-        ]
-        data = []
-        for segment_traj, (ll_traj, _) in zip(segmented_trajs,
-                                              ground_atom_dataset):
-            if not ll_traj.is_demo:
-                continue
-            goal = self._train_tasks[ll_traj.train_task_idx].goal
-            for segment in segment_traj:
-                state = segment.states[0]  # the segment's initial state
-                atoms = segment.init_atoms  # the segment's initial atoms
-                target: _Output = self._extract_target_from_data(
-                    segment, segment_traj, ll_traj)
-                data.append((state, atoms, goal, target))
+        data = self._generate_data_from_dataset(dataset)
         self._setup_fields(data)
         # Set up exemplar, which is just the first tuple in the data.
         example_input, example_object_to_node = self._graphify_single_input(
@@ -203,6 +183,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
                                     collate_fn=graph_batch_collate)
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
         ## Launch training code.
+        logging.info(f"Training GNN on {len(train_inputs)} examples")
         best_model_dict = train_model(self._gnn,
                                       dataloaders,
                                       optimizer=optimizer,
@@ -226,7 +207,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             pkl.dump(info, f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        save_path = utils.get_approach_save_path_str()
+        save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.gnn", "rb") as f:
             info = pkl.load(f)
         # Initialize fields from loaded dictionary.

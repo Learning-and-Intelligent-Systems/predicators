@@ -76,6 +76,13 @@ def test_interactive_learning_approach():
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
+    # Test interactive_action_strategy do nothing.
+    utils.update_config({
+        "interactive_action_strategy": "do_nothing",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    assert interaction_requests
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib falls back to random if no solvable task can be found.
     utils.update_config({
         "interactive_action_strategy": "glib",
@@ -109,6 +116,13 @@ def test_interactive_learning_approach():
         ground_atoms = utils.all_possible_ground_atoms(s, predicates_to_learn)
         expected_query_cost += len(ground_atoms)
     assert query_cost == expected_query_cost
+    # Cover random query policy
+    utils.update_config({
+        "interactive_query_policy": "random",
+        "interactive_random_query_prob": 0.1,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test with entropy score function and score threshold.
     utils.update_config({
         "interactive_query_policy": "threshold",

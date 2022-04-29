@@ -196,3 +196,39 @@ def test_segment_trajectory():
     # Return for use elsewhere.
     return (known_option_ll_traj, known_option_segments,
             unknown_option_ll_traj, unknown_option_segments)
+
+
+def test_contact_based_segmentation():
+    """Tests for contact-based segmentation."""
+    utils.reset_config({
+        "segmenter": "contacts",
+        "env": "stick_button",
+        "num_train_tasks": 1,
+        "offline_data_method": "demo",
+    })
+    env = create_new_env("stick_button", do_cache=False)
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 1
+    dataset = create_dataset(env, train_tasks)
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    assert len(ground_atom_dataset) == 1
+    trajectory = ground_atom_dataset[0]
+    ll_traj, atoms = trajectory
+    assert train_tasks[0].goal.issubset(atoms[-1])
+    assert len(ll_traj.actions) > 0
+    assert ll_traj.actions[0].has_option()
+    segments = segment_trajectory(trajectory)
+    # The options should be grouped together.
+    for segment in segments:
+        assert len(segment.actions) > 0
+        segment_option = segment.get_option()
+        for action in segment.actions:
+            assert action.get_option() is segment_option
+    utils.reset_config({
+        "segmenter": "contacts",
+        "env": "not a real env",
+    })
+    with pytest.raises(NotImplementedError) as e:
+        segment_trajectory(([], []))
+    assert "Contact-based segmentation not implemented" in str(e)

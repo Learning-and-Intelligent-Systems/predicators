@@ -2031,16 +2031,31 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     update_config(arg_dict)
 
 
-def get_config_path_str() -> str:
-    """Get a filename prefix for configuration based on the current CFG."""
+def get_config_path_str(experiment_id: Optional[str] = None) -> str:
+    """Get a filename prefix for configuration based on the current CFG.
+
+    If experiment_id is supplied, it is used in place of
+    CFG.experiment_id.
+    """
+    if experiment_id is None:
+        experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{CFG.experiment_id}")
+            f"__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
-    """Get a path for saving and loading approaches."""
+    """Get a path for saving approaches."""
     os.makedirs(CFG.approach_dir, exist_ok=True)
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
+
+
+def get_approach_load_path_str() -> str:
+    """Get a path for loading approaches."""
+    if not CFG.load_experiment_id:
+        experiment_id = CFG.experiment_id
+    else:
+        experiment_id = CFG.load_experiment_id
+    return f"{CFG.approach_dir}/{get_config_path_str(experiment_id)}.saved"
 
 
 def parse_args(env_required: bool = True,
