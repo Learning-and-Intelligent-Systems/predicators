@@ -839,7 +839,11 @@ def run_policy(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) policy() raises any exception of type in exceptions_to_break_on
+    (3) policy() or step() raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are always one more than the actions.
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
@@ -852,6 +856,11 @@ def run_policy(
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
+                state = env.step(act)
+                if monitor is not None:
+                    monitor.observe(state, act)
+                actions.append(act)
+                states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -859,11 +868,6 @@ def run_policy(
                 if monitor is not None:
                     monitor.observe(state, None)
                 raise e
-            if monitor is not None:
-                monitor.observe(state, act)
-            state = env.step(act)
-            actions.append(act)
-            states.append(state)
             if termination_function(state):
                 break
     if monitor is not None:
@@ -895,7 +899,11 @@ def run_policy_with_simulator(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) policy() raises any exception of type in exceptions_to_break_on
+    (3) policy() or step() raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are always one more than the actions.
     """
     state = init_state
     states = [state]
@@ -904,6 +912,11 @@ def run_policy_with_simulator(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
+                state = simulator(state, act)
+                if monitor is not None:
+                    monitor.observe(state, act)
+                actions.append(act)
+                states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -911,11 +924,6 @@ def run_policy_with_simulator(
                 if monitor is not None:
                     monitor.observe(state, None)
                 raise e
-            if monitor is not None:
-                monitor.observe(state, act)
-            state = simulator(state, act)
-            actions.append(act)
-            states.append(state)
             if termination_function(state):
                 break
     if monitor is not None:
