@@ -4,8 +4,8 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.reinforcement_learning_approach import \
-    ReinforcementLearningApproach
+from predicators.src.approaches.nsrt_rl_approach import \
+    NSRTReinforcementLearningApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverMultistepOptions
 from predicators.src.main import _generate_interaction_results
@@ -13,8 +13,8 @@ from predicators.src.settings import CFG
 from predicators.src.teacher import Teacher
 
 
-def test_reinforcement_learning_approach():
-    """Test for ReinforcementLearningApproach class, entire pipeline."""
+def test_nsrt_reinforcement_learning_approach():
+    """Test for NSRTReinforcementLearningApproach class, entire pipeline."""
 
     utils.reset_config({
         "env": "cover_multistep_options",
@@ -27,9 +27,9 @@ def test_reinforcement_learning_approach():
     })
     env = CoverMultistepOptions()
     train_tasks = env.get_train_tasks()
-    approach = ReinforcementLearningApproach(env.predicates, env.options,
-                                             env.types, env.action_space,
-                                             train_tasks)
+    approach = NSRTReinforcementLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space,
+                                                 train_tasks)
     teacher = Teacher(train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
@@ -42,10 +42,10 @@ def test_reinforcement_learning_approach():
     approach.load(online_learning_cycle=1)
     with pytest.raises(FileNotFoundError):
         approach.load(online_learning_cycle=2)
+    # We won't check the policy here because we don't want unit tests to
+    # have to train very good models, since that would be slow.
     for task in env.get_test_tasks():
         try:
             approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure):  # pragma: no cover
             pass
-        # We won't check the policy here because we don't want unit tests to
-        # have to train very good models, since that would be slow.

@@ -1,7 +1,7 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import Callable, List, Sequence, Set
+from typing import List, Sequence, Set
 
 from gym.spaces import Box
 
@@ -11,12 +11,12 @@ from predicators.src.approaches.base_approach import ApproachFailure, \
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Dataset, GroundAtom, \
-    InteractionRequest, InteractionResult, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Task, Type
 
 
-class ReinforcementLearningApproach(NSRTLearningApproach):
+class NSRTReinforcementLearningApproach(NSRTLearningApproach):
     """A bilevel planning approach that learns NSRTs from an offline dataset,
     and continues learning options through reinforcement learning."""
 
@@ -38,21 +38,12 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
         self._initial_trajectories = dataset.trajectories
         super().learn_from_offline_dataset(dataset)
 
-    @classmethod
-    def _make_termination_fn(cls, goal: Set[GroundAtom]) \
-            -> Callable[[State], bool]:
-
-        def _termination_fn(s: State) -> bool:
-            return all(goal_atom.holds(s) for goal_atom in goal)
-
-        return _termination_fn
-
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # For each training task, try to solve the task to get a policy. If the
-        # task can't be solved, construct a policy from the sequence of _Options
-        # that achieves the longest partial refinement of a valid plan skeleton.
-        # The teacher will collect a trajectory on the training task using this
-        # policy.
+        # task can't be solved, construct a policy from the sequence of _Option
+        # objects that achieves the longest partial refinement of a valid plan
+        # skeleton. The teacher will collect a trajectory on the training task
+        # using this policy.
         requests = []
         for i in range(len(self._train_tasks)):
             task = self._train_tasks[i]
@@ -63,11 +54,10 @@ class ReinforcementLearningApproach(NSRTLearningApproach):
                 assert partial_refinements is not None
                 _, plan = max(partial_refinements, key=lambda x: len(x[1]))
                 _act_policy = utils.option_plan_to_policy(plan)
-            request = InteractionRequest(
-                train_task_idx=i,
-                act_policy=_act_policy,
-                query_policy=lambda s: None,
-                termination_function=self._make_termination_fn(task.goal))
+            request = InteractionRequest(train_task_idx=i,
+                                         act_policy=_act_policy,
+                                         query_policy=lambda s: None,
+                                         termination_function=task.goal_holds)
             requests.append(request)
         return requests
 
