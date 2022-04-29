@@ -26,6 +26,9 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     ## Main approach
     python $FILE $COMMON_ARGS --experiment_id main
 
+    ## MLP baseline
+    python $FILE $COMMON_ARGS --experiment_id main_mlp --interactive_num_ensemble_members 1
+
     ## Query baselines
     # Section kid
     python $FILE $COMMON_ARGS --experiment_id section_kid --interactive_query_policy nonstrict_best_seen --interactive_score_function trivial
