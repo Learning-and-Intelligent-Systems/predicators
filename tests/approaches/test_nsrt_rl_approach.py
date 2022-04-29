@@ -18,12 +18,15 @@ def test_nsrt_reinforcement_learning_approach():
 
     utils.reset_config({
         "env": "cover_multistep_options",
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
         "approach": "nsrt_rl",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
         "option_learner": "direct_bc",
-        "sampler_learner": "oracle",
-        "num_online_learning_cycles": 1
+        "sampler_learner": "random",
+        "num_online_learning_cycles": 1,
+        "mlp_regressor_max_itr": 1,
     })
     env = CoverMultistepOptions()
     train_tasks = env.get_train_tasks()
