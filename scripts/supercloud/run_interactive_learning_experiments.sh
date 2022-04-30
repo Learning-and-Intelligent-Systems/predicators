@@ -10,6 +10,7 @@ MAX_STEPS=3
 MIN_DATA=10
 THRESH="0.05"
 MAX_ITR=100000
+QUERY_PROB=0.03
 FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
@@ -35,8 +36,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # Silent kid
     python $FILE $COMMON_ARGS --experiment_id silent_kid --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function trivial
     # Random kid
-    # TODO: set query probability to match main approach
-    python $FILE $COMMON_ARGS --experiment_id random_kid --interactive_query_policy random --interactive_random_query_prob 0.8 --interactive_score_function trivial
+    python $FILE $COMMON_ARGS --experiment_id random_kid --interactive_query_policy random --interactive_random_query_prob $QUERY_PROB --interactive_score_function trivial
 
     ## Action baselines
     # GLIB
