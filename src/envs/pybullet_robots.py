@@ -1,7 +1,8 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-from typing import Callable, ClassVar, Collection, Dict, List, Sequence, Tuple, Optional, cast
+from typing import Callable, ClassVar, Collection, Dict, List, Optional, \
+    Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -150,7 +151,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         stepSimulation(); it should only be used for motion planning,
         collision checks, etc., in a robot that does not maintain state.
         """
-        raise NotImplementedError("Override me!")        
+        raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def set_motors(self, action_arr: Array) -> None:
@@ -612,11 +613,18 @@ def inverse_kinematics(
     return joint_vals
 
 
-
 class _BiRRT:
     """Bidirectional rapidly-exploring random tree."""
-    def __init__(self, sample_fn, extend_fn, collision_fn, distance_fn,
-                 rng, num_attempts=10, num_iters=100, smooth_amt=50):
+
+    def __init__(self,
+                 sample_fn,
+                 extend_fn,
+                 collision_fn,
+                 distance_fn,
+                 rng,
+                 num_attempts=10,
+                 num_iters=100,
+                 smooth_amt=50):
         self._sample_fn = sample_fn
         self._extend_fn = extend_fn
         self._collision_fn = collision_fn
@@ -627,8 +635,7 @@ class _BiRRT:
         self._smooth_amt = smooth_amt
 
     def query(self, pt1, pt2):
-        """Query the BiRRT, to get a collision-free path from pt1 to pt2.
-        """
+        """Query the BiRRT, to get a collision-free path from pt1 to pt2."""
         if self._collision_fn(pt1) is not None or \
            self._collision_fn(pt2) is not None:
             return None
@@ -656,15 +663,17 @@ class _BiRRT:
             if len(nodes1) > len(nodes2):
                 nodes1, nodes2 = nodes2, nodes1
             samp = self._sample_fn(pt1)
-            nearest1 = min(nodes1, key=lambda n, samp=samp:
-                           self._distance_fn(n.data, samp))
+            nearest1 = min(
+                nodes1,
+                key=lambda n, samp=samp: self._distance_fn(n.data, samp))
             for newpt in self._extend_fn(nearest1.data, samp):
                 if self._collision_fn(newpt) is not None:
                     break
                 nearest1 = _BiRRTTreeNode(newpt, parent=nearest1)
                 nodes1.append(nearest1)
-            nearest2 = min(nodes2, key=lambda n, nearest1=nearest1:
-                           self._distance_fn(n.data, nearest1.data))
+            nearest2 = min(nodes2,
+                           key=lambda n, nearest1=nearest1: self._distance_fn(
+                               n.data, nearest1.data))
             for newpt in self._extend_fn(nearest2.data, nearest1.data):
                 if self._collision_fn(newpt) is not None:
                     break
@@ -675,7 +684,7 @@ class _BiRRT:
                 path2 = nearest2.path_from_root()
                 if path1[0] != root1:
                     path1, path2 = path2, path1
-                path = path1[:-1]+path2[::-1]
+                path = path1[:-1] + path2[::-1]
                 return [node.data for node in path]
         return None
 
@@ -683,28 +692,28 @@ class _BiRRT:
         for _ in range(self._smooth_amt):
             if len(path) <= 2:
                 return path
-            i = self._rng.integers(0, len(path)-1)
-            j = self._rng.integers(0, len(path)-1)
-            if abs(i-j) <= 1:
+            i = self._rng.integers(0, len(path) - 1)
+            j = self._rng.integers(0, len(path) - 1)
+            if abs(i - j) <= 1:
                 continue
             if j < i:
                 i, j = j, i
             shortcut = list(self._extend_fn(path[i], path[j]))
             if len(shortcut) < j-i and \
                all(self._collision_fn(pt) is None for pt in shortcut):
-                path = path[:i+1]+shortcut+path[j+1:]
+                path = path[:i + 1] + shortcut + path[j + 1:]
         return path
 
 
 class _BiRRTTreeNode:
     """A node for _BiRRT."""
+
     def __init__(self, data, parent=None):
         self.data = data
         self.parent = parent
 
     def path_from_root(self):
-        """Return the path from the root to this node.
-        """
+        """Return the path from the root to this node."""
         sequence = []
         node = self
         while node is not None:
@@ -713,13 +722,11 @@ class _BiRRTTreeNode:
         return sequence[::-1]
 
 
-def run_motion_planning(robot: _SingleArmPyBulletRobot,
-                        initial_state: Sequence[float],
-                        target_state: Sequence[float],
-                        collision_bodies: Collection[int],
-                        seed: int,
-                        physics_client_id: int
-                        ) -> Optional[Sequence[Sequence[float]]]:
+def run_motion_planning(
+        robot: _SingleArmPyBulletRobot, initial_state: Sequence[float],
+        target_state: Sequence[float], collision_bodies: Collection[int],
+        seed: int,
+        physics_client_id: int) -> Optional[Sequence[Sequence[float]]]:
     """Run BiRRT to find a collision-free sequence of joint states.
 
     Note that this function changes the state of the robot.
@@ -733,27 +740,35 @@ def run_motion_planning(robot: _SingleArmPyBulletRobot,
         pt1 = np.array(pt1)
         pt2 = np.array(pt2)
         # TODO: justify constants... make in terms of max movement or something
-        num = int(np.ceil(max(abs(pt1-pt2))))*10
+        num = int(np.ceil(max(abs(pt1 - pt2)))) * 10
         if num == 0:
             yield pt2
-        for i in range(1, num+1):
-            yield np.r_[pt1*(1-i/num)+pt2*i/num]
+        for i in range(1, num + 1):
+            yield np.r_[pt1 * (1 - i / num) + pt2 * i / num]
 
     def collision_fn(pt):
         robot.set_joints(pt)
         p.performCollisionDetection(physicsClientId=physics_client_id)
         for body in collision_bodies:
-            if p.getContactPoints(robot.robot_id, body, physicsClientId=physics_client_id):
+            if p.getContactPoints(robot.robot_id,
+                                  body,
+                                  physicsClientId=physics_client_id):
                 return "collision"
         return None
 
     def distance_fn(from_pt, to_pt):
-        # TODO: do forward kinematics here?
-        return sum(np.subtract(from_pt, to_pt)**2)
+        from_ee = robot.forward_kinematics(from_pt)
+        to_ee = robot.forward_kinematics(to_pt)
+        return sum(np.subtract(from_ee, to_ee)**2)
 
     # TODO: deal with hyperparameters.
-    birrt = _BiRRT(sample_fn, extend_fn, collision_fn, distance_fn,
-                   rng, num_attempts=10, num_iters=100, smooth_amt=50)
+    birrt = _BiRRT(sample_fn,
+                   extend_fn,
+                   collision_fn,
+                   distance_fn,
+                   rng,
+                   num_attempts=10,
+                   num_iters=100,
+                   smooth_amt=50)
 
     return birrt.query(initial_state, target_state)
-
