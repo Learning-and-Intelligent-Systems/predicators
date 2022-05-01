@@ -363,6 +363,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
+
     def forward_kinematics(self, action_arr: Array) -> Pose3D:
         assert len(action_arr) == len(self._arm_joints)
         for joint_id, joint_val in zip(self._arm_joints, action_arr):
@@ -671,12 +672,20 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         assert len(action_arr) == len(self._arm_joints)
 
         # Set arm joint motors.
-        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-            p.setJointMotorControl2(bodyIndex=self._panda_id,
-                                    jointIndex=joint_idx,
-                                    controlMode=p.POSITION_CONTROL,
-                                    targetPosition=joint_val,
-                                    physicsClientId=self._physics_client_id)
+        # for joint_idx, joint_val in zip(self._arm_joints, action_arr):
+        #     p.setJointMotorControl2(bodyIndex=self._panda_id,
+        #                             jointIndex=joint_idx,
+        #                             controlMode=p.POSITION_CONTROL,
+        #                             targetPosition=joint_val,
+        #                             physicsClientId=self._physics_client_id)
+
+        # TODO stop cheating
+        for joint_id, joint_val in zip(self._arm_joints, action_arr):
+            p.resetJointState(self._panda_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        import ipdb; ipdb.set_trace()
 
     def forward_kinematics(self, action_arr: Array) -> Pose3D:
         assert len(action_arr) == len(self._arm_joints)
@@ -712,7 +721,6 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
             # Add fingers. # TODO is this right?
             action = list(candidate) + [self.open_fingers, self.open_fingers]
-            print("action:", action)
             return action
 
             # result_pose = self.forward_kinematics(action)
@@ -742,7 +750,31 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del memory  # unused
+            current, target, finger_status = \
+                get_current_and_target_pose_and_finger_status(
+                    state, objects, params)
+            if "waypoints" not in memory:
+                # First handle the main arm joints.
+                joint_state = self._run_inverse_kinematics(target, validate=False)
+                # TODO: legitimate motion planning.
+                # TODO: do we need to nudge?
+                finger_state = state.joint_state[self.left_finger_joint_idx]
+                f_action = finger_state
+                # Extract the current finger state.
+                state = cast(utils.PyBulletState, state)
+                # Override the meaningless finger values in joint_action.
+                joint_state[self.left_finger_joint_idx] = f_action
+                joint_state[self.right_finger_joint_idx] = f_action
+                action_arr = np.array(joint_state, dtype=np.float32)
+                # This clipping is needed sometimes for the joint limits.
+                action_arr = np.clip(action_arr, self.action_space.low,
+                                     self.action_space.high)
+                assert self.action_space.contains(action_arr)
+                return Action(action_arr)
+            # TODO memory
+            import ipdb; ipdb.set_trace()
+
+
             # First handle the main arm joints.
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
@@ -809,14 +841,14 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             del memory  # unused
             current_val, target_val = get_current_and_target_val(
                 state, objects, params)
-            f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
-            f_action = current_val + f_delta
-            # Don't change the rest of the joints.
-            state = cast(utils.PyBulletState, state)
+            # f_delta = target_val - current_val
+            # f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
+            # f_action = current_val + f_delta
+            # # Don't change the rest of the joints.
+            # state = cast(utils.PyBulletState, state)
             target = np.array(state.joint_state, dtype=np.float32)
-            target[self.left_finger_joint_idx] = f_action
-            target[self.right_finger_joint_idx] = f_action
+            target[self.left_finger_joint_idx] = target_val
+            target[self.right_finger_joint_idx] = target_val
             # This clipping is needed sometimes for the joint limits.
             target = np.clip(target, self.action_space.low,
                              self.action_space.high)
