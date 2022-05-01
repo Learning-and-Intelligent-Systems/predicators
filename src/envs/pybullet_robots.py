@@ -500,7 +500,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
 
     # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: Pose3D = (0.75, 0.7441, 0.2)
+    _base_pose: Pose3D = (0.75, 0.7441, 0.25)
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _finger_action_nudge_magnitude: float = 1e-3
 
@@ -745,6 +745,9 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             current, target, finger_status = \
                 get_current_and_target_pose_and_finger_status(
                     state, objects, params)
+            # p.addUserDebugText("*", target,
+            #                    [1.0, 0.0, 0.0],
+            #                    physicsClientId=self._physics_client_id)
             if "waypoints" not in memory:
                 # First handle the main arm joints.
                 joint_state = self._run_inverse_kinematics(target, validate=False)

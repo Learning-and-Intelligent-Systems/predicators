@@ -170,6 +170,7 @@ class PyBulletEnv(BaseEnv):
                                   "arbitrary states.")
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
+        p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
         state = super().reset(train_or_test, task_idx)
         self._reset_state(state)
         # Converts the State into a PyBulletState.
