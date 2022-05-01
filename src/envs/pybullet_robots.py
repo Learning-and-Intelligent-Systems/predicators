@@ -14,7 +14,13 @@ from predicators.src.structs import Action, Array, Object, \
 
 # Must update path!
 from pybullet_tools.ikfast.utils import IKFastInfo
+# TODO: note that ikfast_inverse_kinematics has randomize inside. Should we
+# reimplement to try to make deterministic?
 from pybullet_tools.ikfast.ikfast import ikfast_inverse_kinematics
+# TODO remove
+np.random.seed(0)
+import random
+random.seed(0)
 
 
 class _SingleArmPyBulletRobot(abc.ABC):
@@ -540,17 +546,12 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             self._panda_id,
             self._ee_id,
             physics_client_id=self._physics_client_id)
+        # NOTE: pybullet tools assumes sorted arm joints.
+        self._arm_joints = sorted(self._arm_joints)
         self._left_finger_id = joint_names.index("panda_finger_joint1")
         self._right_finger_id = joint_names.index("panda_finger_joint2")
         self._arm_joints.append(self._left_finger_id)
         self._arm_joints.append(self._right_finger_id)
-
-        self._initial_joint_values = self._run_inverse_kinematics(
-            self._ee_home_pose, validate=True)
-        # The initial joint values for the fingers should be open. IK may
-        # return anything for them.
-        self._initial_joint_values[-2] = self.open_fingers
-        self._initial_joint_values[-1] = self.open_fingers
         # Establish the lower and upper limits for the arm joints.
         self._joint_lower_limits = []
         self._joint_upper_limits = []
@@ -567,6 +568,12 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             else:
                 self._joint_lower_limits.append(lower_limit)
                 self._joint_upper_limits.append(upper_limit)
+        self._initial_joint_values = self._run_inverse_kinematics(
+            self._ee_home_pose, validate=True)
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        self._initial_joint_values[-2] = self.open_fingers
+        self._initial_joint_values[-1] = self.open_fingers
 
     @property
     def robot_id(self) -> int:
@@ -688,6 +695,15 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
                                 validate: bool) -> List[float]:
 
+        # action1 = inverse_kinematics(self._panda_id,
+        #                               self._ee_id,
+        #                               end_effector_pose,
+        #                               self._ee_orientation,
+        #                               self._arm_joints,
+        #                               physics_client_id=self._physics_client_id,
+        #                               validate=validate)
+        # result1 = self.forward_kinematics(action1)
+
         for candidate in ikfast_inverse_kinematics(
             self._panda_id, self._ikfast_info, self._ee_id,
             (end_effector_pose, self._ee_orientation),
@@ -696,14 +712,16 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
             # Add fingers. # TODO is this right?
             action = list(candidate) + [self.open_fingers, self.open_fingers]
+            print("action:", action)
+            return action
 
-            # TODO: there's some transform that we need? waiting for Aidan
+            # result_pose = self.forward_kinematics(action)
+            # import ipdb; ipdb.set_trace()
+            # while True:
+            #     p.stepSimulation(physicsClientId=self._physics_client_id)
+            # import ipdb; ipdb.set_trace()
 
-            result_pose = self.forward_kinematics(action)
-            import ipdb; ipdb.set_trace()
-            while True:
-                p.stepSimulation(physicsClientId=self._physics_client_id)
-            import ipdb; ipdb.set_trace()
+        import ipdb; ipdb.set_trace()
 
         # return inverse_kinematics(self._panda_id,
         #                           self._ee_id,
