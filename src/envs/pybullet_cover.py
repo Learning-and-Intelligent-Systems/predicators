@@ -228,7 +228,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # constraint before we can call PyBullet.
         # Use self._pybullet_robot2 to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
-        _, ry, rz = self._pybullet_robot2.forward_kinematics(action.arr)
+        _, ry, rz = self._pybullet_robot2.forward_kinematics(list(action.arr))
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.

@@ -151,13 +151,23 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def forward_kinematics(self, action_arr: Array) -> Pose3D:
-        """Compute the end effector pose that would result from executing the
-        given action in PyBullet. The action_arr is an array of desired arm
-        joint values.
+    def forward_kinematics(self, joint_state: JointState) -> Pose3D:
+        """Compute the end effector pose that if the robot arm joint states
+        were equal to the input joint_state.
 
         WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def inverse_kinematics(self, end_effector_pose: Pose3D,
+                           validate: bool) -> JointState:
+        """Compute a joint state from an end effector pose.
+
+        If validate is True, guarantee that the returned joint state
+        would result in end_effector_pose if run through
+        forward_kinematics.
         """
         raise NotImplementedError("Override me!")
 
@@ -352,9 +362,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-    def forward_kinematics(self, action_arr: Array) -> Pose3D:
-        assert len(action_arr) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, action_arr):
+    def forward_kinematics(self, joint_state: JointState) -> Pose3D:
+        assert len(joint_state) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joint_state):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
