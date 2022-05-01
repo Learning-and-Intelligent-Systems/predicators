@@ -34,11 +34,11 @@ from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
-    LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, Object, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, \
-    _Option, _TypedEntity
+    GroundNSRTOrSTRIPSOperator, Image, JointState, LiftedAtom, \
+    LiftedOrGroundAtom, LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, \
+    Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -794,7 +794,7 @@ class PyBulletState(State):
     features that are exposed in the object-centric state."""
 
     @property
-    def joint_state(self) -> Sequence[float]:
+    def joint_state(self) -> JointState:
         """Expose the current joint state in the simulator_state."""
         return cast(Sequence[float], self.simulator_state)
 

@@ -9,7 +9,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Object, \
+from predicators.src.structs import Action, Array, JointState, Object, \
     ParameterizedOption, Pose3D, State, Type
 
 
@@ -38,11 +38,11 @@ class _SingleArmPyBulletRobot(abc.ABC):
         self._physics_client_id = physics_client_id
         # These get overridden in initialize(), but type checking needs to be
         # aware that it exists.
-        self._initial_joint_values: List[float] = []
+        self._initial_joint_values: JointState = []
         self._initialize()
 
     @property
-    def initial_joint_values(self) -> List[float]:
+    def initial_joint_values(self) -> JointState:
         """The joint values for the robot in its home pose."""
         return self._initial_joint_values
 
@@ -98,13 +98,13 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def joint_lower_limits(self) -> List[float]:
+    def joint_lower_limits(self) -> JointState:
         """Lower bound on the arm joint limits."""
         raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
-    def joint_upper_limits(self) -> List[float]:
+    def joint_upper_limits(self) -> JointState:
         """Upper bound on the arm joint limits."""
         raise NotImplementedError("Override me!")
 
@@ -138,7 +138,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_joints(self) -> Sequence[float]:
+    def get_joints(self) -> JointState:
         """Get the joint states from the current PyBullet state."""
         raise NotImplementedError("Override me!")
 
@@ -275,11 +275,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         return len(self._arm_joints) - 1
 
     @property
-    def joint_lower_limits(self) -> List[float]:
+    def joint_lower_limits(self) -> JointState:
         return self._joint_lower_limits
 
     @property
-    def joint_upper_limits(self) -> List[float]:
+    def joint_upper_limits(self) -> JointState:
         return self._joint_upper_limits
 
     @property
@@ -332,7 +332,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
 
-    def get_joints(self) -> Sequence[float]:
+    def get_joints(self) -> JointState:
         joint_state = []
         for joint_idx in self._arm_joints:
             joint_val = p.getJointState(
@@ -368,7 +368,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         return position
 
     def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
-                                validate: bool) -> List[float]:
+                                validate: bool) -> JointState:
         return inverse_kinematics(self._fetch_id,
                                   self._ee_id,
                                   end_effector_pose,
@@ -522,7 +522,7 @@ def inverse_kinematics(
     joints: Sequence[int],
     physics_client_id: int,
     validate: bool = True,
-) -> List[float]:
+) -> JointState:
     """Runs IK and returns joint values for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple
