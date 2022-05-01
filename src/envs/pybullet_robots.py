@@ -614,7 +614,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     @property
     def closed_fingers(self) -> float:
-        return 0.01
+        return 0.03
 
     def reset_state(self, robot_state: Array) -> None:
         rx, ry, rz, rf = robot_state
@@ -672,20 +672,12 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         assert len(action_arr) == len(self._arm_joints)
 
         # Set arm joint motors.
-        # for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-        #     p.setJointMotorControl2(bodyIndex=self._panda_id,
-        #                             jointIndex=joint_idx,
-        #                             controlMode=p.POSITION_CONTROL,
-        #                             targetPosition=joint_val,
-        #                             physicsClientId=self._physics_client_id)
-
-        # TODO stop cheating
-        for joint_id, joint_val in zip(self._arm_joints, action_arr):
-            p.resetJointState(self._panda_id,
-                              joint_id,
-                              joint_val,
-                              physicsClientId=self._physics_client_id)
-        import ipdb; ipdb.set_trace()
+        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
+            p.setJointMotorControl2(bodyIndex=self._panda_id,
+                                    jointIndex=joint_idx,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=joint_val,
+                                    physicsClientId=self._physics_client_id)
 
     def forward_kinematics(self, action_arr: Array) -> Pose3D:
         assert len(action_arr) == len(self._arm_joints)
@@ -765,52 +757,15 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                 # Override the meaningless finger values in joint_action.
                 joint_state[self.left_finger_joint_idx] = f_action
                 joint_state[self.right_finger_joint_idx] = f_action
-                action_arr = np.array(joint_state, dtype=np.float32)
-                # This clipping is needed sometimes for the joint limits.
-                action_arr = np.clip(action_arr, self.action_space.low,
-                                     self.action_space.high)
-                assert self.action_space.contains(action_arr)
-                return Action(action_arr)
-            # TODO memory
-            import ipdb; ipdb.set_trace()
-
-
-            # First handle the main arm joints.
-            current, target, finger_status = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            # Run IK to determine the target joint positions.
-            ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
-            ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            if ee_norm > self._max_vel_norm:
-                ee_delta = ee_delta * self._max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # Keep validate as False because validate=True would update the
-            # state of the robot during simulation, which overrides physics.
-            joint_state = self._run_inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-            # Handle the fingers. Fingers drift if left alone.
-            # When the fingers are not explicitly being opened or closed, we
-            # nudge the fingers toward being open or closed according to the
-            # finger status.
-            if finger_status == "open":
-                finger_delta = self._finger_action_nudge_magnitude
-            else:
-                assert finger_status == "closed"
-                finger_delta = -self._finger_action_nudge_magnitude
-            # Extract the current finger state.
-            state = cast(utils.PyBulletState, state)
-            finger_state = state.joint_state[self.left_finger_joint_idx]
-            # The finger action is an absolute joint position for the fingers.
-            f_action = finger_state + finger_delta
-            # Override the meaningless finger values in joint_action.
-            joint_state[self.left_finger_joint_idx] = f_action
-            joint_state[self.right_finger_joint_idx] = f_action
-            action_arr = np.array(joint_state, dtype=np.float32)
+                final_waypoint = np.array(joint_state, dtype=np.float32)
+                current_waypoint = np.array(state.joint_state, dtype=np.float32)
+                num_waypoints = 10  # TODO
+                memory["waypoints"] = np.linspace(current_waypoint, final_waypoint, num=num_waypoints).tolist()
+            action = memory["waypoints"].pop(0)
             # This clipping is needed sometimes for the joint limits.
-            action_arr = np.clip(action_arr, self.action_space.low,
+            action = np.clip(action, self.action_space.low,
                                  self.action_space.high)
+            action_arr = np.array(action, dtype=np.float32)
             assert self.action_space.contains(action_arr)
             return Action(action_arr)
 
