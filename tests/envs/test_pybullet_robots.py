@@ -7,7 +7,8 @@ import pytest
 from predicators.src import utils
 from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
     create_single_arm_pybullet_robot, get_kinematic_chain, \
-    inverse_kinematics
+    inverse_kinematics, run_motion_planning
+from predicators.src.envs.pybullet_env import create_pybullet_block
 from predicators.src.settings import CFG
 
 
@@ -213,3 +214,74 @@ def test_create_single_arm_pybullet_robot():
                                          ee_orn, move_to_pose_tol,
                                          max_vel_norm, grasp_tol,
                                          physics_client_id)
+
+
+def test_run_motion_planning():
+    """Tests for run_motion_planning()."""
+    physics_client_id = p.connect(p.DIRECT)
+    ee_home_pose = (1.35, 0.75, 0.75)
+    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    move_to_pose_tol = 1e-4
+    max_vel_norm = 0.05
+    grasp_tol = 0.05
+    seed = 123
+    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
+                                             move_to_pose_tol, max_vel_norm,
+                                             grasp_tol, physics_client_id)
+    robot_init_state = tuple(ee_home_pose) + (robot.open_fingers,)
+    robot.reset_state(robot_init_state)
+    joint_initial = robot.get_joints()
+    # Should succeed, no collisions.
+    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    path = run_motion_planning(robot, joint_initial, joint_target,
+                               collision_bodies=set(),
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert np.allclose(path[0], joint_initial)
+    assert np.allclose(path[-1], joint_target)
+    # Should fail because the target collides with the table.
+    table_pose = (1.35, 0.75, 0.0)
+    table_orientation = [0., 0., 0., 1.]
+    table_id = p.loadURDF(
+        utils.get_env_asset_path("urdf/table.urdf"),
+        useFixedBase=True,
+        physicsClientId=physics_client_id)
+    p.resetBasePositionAndOrientation(
+        table_id,
+        table_pose,
+        table_orientation,
+        physicsClientId=physics_client_id)
+    ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.6))
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    path = run_motion_planning(robot, joint_initial, joint_target,
+                               collision_bodies={table_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
+    # Should succeed, but will need to move the arm up to avoid the obstacle.
+    robot.reset_state(robot_init_state)
+    block_pose = (1.35, 0.6, 0.5)
+    block_orientation = [0., 0., 0., 1.]
+    block_id = create_pybullet_block(
+        color=(1.0, 0.0, 0.0, 1.0),
+        half_extents=(0.2, 0.01, 0.3),
+        mass=0,  # immoveable
+        friction=1,
+        orientation=block_orientation,
+        physics_client_id=physics_client_id)
+    p.resetBasePositionAndOrientation(
+        block_id,
+        block_pose,
+        block_orientation,
+        physicsClientId=physics_client_id)
+    ee_target = (1.35, 0.4, 0.6)
+    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    path = run_motion_planning(robot, joint_initial, joint_target,
+                               collision_bodies={table_id, block_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    # for action in path:
+    #     robot.set_joints(action)
+    #     import time; time.sleep(0.1)
+
