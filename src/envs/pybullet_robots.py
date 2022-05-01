@@ -227,8 +227,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         self._arm_joints.append(self._left_finger_id)
         self._arm_joints.append(self._right_finger_id)
 
-        self._initial_joint_state = self._run_inverse_kinematics(
-            self._ee_home_pose, validate=True)
+        self._initial_joint_state = self.inverse_kinematics(self._ee_home_pose,
+                                                            validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
         self._initial_joint_state[-2] = self.open_fingers
@@ -299,17 +299,16 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             physicsClientId=self._physics_client_id)
         # First, reset the joint values to self._initial_joint_state,
         # so that IK is consistent (less sensitive to initialization).
-        joint_values = self._initial_joint_state
-        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+        joint_state = self._initial_joint_state
+        for joint_id, joint_val in zip(self._arm_joints, joint_state):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
                               physicsClientId=self._physics_client_id)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joint_values = self._run_inverse_kinematics((rx, ry, rz),
-                                                    validate=True)
-        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+        joint_state = self.inverse_kinematics((rx, ry, rz), validate=True)
+        for joint_id, joint_val in zip(self._arm_joints, joint_state):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
@@ -367,8 +366,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         position = ee_link_state[4]
         return position
 
-    def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
-                                validate: bool) -> JointState:
+    def inverse_kinematics(self, end_effector_pose: Pose3D,
+                           validate: bool) -> JointState:
         return inverse_kinematics(self._fetch_id,
                                   self._ee_id,
                                   end_effector_pose,
@@ -402,7 +401,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             ee_action = np.add(current, ee_delta)
             # Keep validate as False because validate=True would update the
             # state of the robot during simulation, which overrides physics.
-            joint_state = self._run_inverse_kinematics(
+            joint_state = self.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Handle the fingers. Fingers drift if left alone.
             # When the fingers are not explicitly being opened or closed, we

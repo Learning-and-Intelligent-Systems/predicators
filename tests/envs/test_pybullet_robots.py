@@ -97,11 +97,11 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
-    for joint, value in zip(arm_joints, joint_state):
+    for joint, joint_val in zip(arm_joints, joint_state):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
-            targetValue=value,
+            targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
     ee_link_state = p.getLinkState(
         scene_attributes["fetch_id"],
@@ -120,11 +120,11 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
-    for joint, value in zip(arm_joints, joint_state):
+    for joint, joint_val in zip(arm_joints, joint_state):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
-            targetValue=value,
+            targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
     ee_link_state = p.getLinkState(
         scene_attributes["fetch_id"],
@@ -179,7 +179,7 @@ def test_fetch_pybullet_robot():
 
     ee_delta = (-0.01, 0.0, 0.01)
     ee_target = np.add(ee_home_pose, ee_delta)
-    joint_target = robot._run_inverse_kinematics(ee_target, validate=False)  # pylint: disable=protected-access
+    joint_target = robot.inverse_kinematics(ee_target, validate=False)
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
