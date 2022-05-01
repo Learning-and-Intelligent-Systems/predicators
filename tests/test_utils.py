@@ -188,7 +188,7 @@ def test_entropy():
     """Tests for entropy()."""
     assert np.allclose(utils.entropy(0.0), 0.0)
     assert np.allclose(utils.entropy(1.0), 0.0)
-    assert np.allclose(utils.entropy(0.5), 0.693, atol=0.001)
+    assert np.allclose(utils.entropy(0.5), 1.0, atol=0.001)
 
 
 def test_create_state_from_dict():
@@ -566,6 +566,33 @@ def test_run_policy():
                                 exceptions_to_break_on={ValueError})
     assert len(traj4.states) == 1
 
+    class _MockEnv:
+
+        @staticmethod
+        def reset(train_or_test, task_idx):
+            """Reset the mock environment."""
+            del train_or_test, task_idx  # unused
+            return DefaultState
+
+        @staticmethod
+        def step(action):
+            """Step the mock environment."""
+            del action  # unused
+            raise utils.EnvironmentFailure("mock failure")
+
+    mock_env = _MockEnv()
+    policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    traj5, _ = utils.run_policy(
+        policy,
+        mock_env,
+        "test",
+        0,
+        lambda s: False,
+        max_num_steps=5,
+        exceptions_to_break_on={utils.EnvironmentFailure})
+    assert len(traj5.states) == 1
+    assert len(traj5.actions) == 0
+
     # Test policy call time.
     def _policy(_):
         time.sleep(0.1)
@@ -707,6 +734,20 @@ def test_run_policy_with_simulator():
                                            max_num_steps=5,
                                            exceptions_to_break_on={ValueError})
     assert len(traj.states) == 1
+
+    def _simulator(state, action):
+        raise utils.EnvironmentFailure("mock failure")
+
+    _policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    traj = utils.run_policy_with_simulator(
+        _policy,
+        _simulator,
+        state,
+        _terminal,
+        max_num_steps=5,
+        exceptions_to_break_on={utils.EnvironmentFailure})
+    assert len(traj.states) == 1
+    assert len(traj.actions) == 0
 
 
 def test_option_plan_to_policy():
@@ -2163,6 +2204,8 @@ def test_get_config_path_str():
     })
     s = utils.get_config_path_str()
     assert s == "dummyenv__dummyapproach__321__all__foobar"
+    s = utils.get_config_path_str("override_id")
+    assert s == "dummyenv__dummyapproach__321__all__override_id"
 
 
 def test_get_approach_save_path_str():
@@ -2190,6 +2233,43 @@ def test_get_approach_save_path_str():
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + "/test_env__test_approach__123____.saved"
+    os.rmdir(dirname)
+    utils.reset_config({"approach_dir": old_approach_dir})
+
+
+def test_get_approach_load_path_str():
+    """Tests for get_approach_load_path_str()."""
+    dirname = "_fake_tmp_approach_dir"
+    old_approach_dir = CFG.approach_dir
+    utils.reset_config({
+        "env": "test_env",
+        "approach": "test_approach",
+        "seed": 123,
+        "approach_dir": dirname,
+        "excluded_predicates": "test_pred1,test_pred2",
+        "experiment_id": "baz",
+        "load_experiment_id": "foo",
+    })
+    save_path = utils.get_approach_save_path_str()
+    assert save_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2__baz.saved")
+    load_path = utils.get_approach_load_path_str()
+    assert load_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2__foo.saved")
+    utils.reset_config({
+        "env": "test_env",
+        "approach": "test_approach",
+        "seed": 123,
+        "approach_dir": dirname,
+        "excluded_predicates": "test_pred1,test_pred2",
+        "experiment_id": "baz",
+    })
+    save_path = utils.get_approach_save_path_str()
+    assert save_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2__baz.saved")
+    load_path = utils.get_approach_load_path_str()
+    assert load_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2__baz.saved")
     os.rmdir(dirname)
     utils.reset_config({"approach_dir": old_approach_dir})
 

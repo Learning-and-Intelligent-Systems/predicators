@@ -14,15 +14,16 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.gnn_approach import GNNApproach
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, DummyOption, GroundAtom, \
-    LowLevelTrajectory, Object, ParameterizedOption, Predicate, Segment, \
-    State, Task, Type, _Option
+from predicators.src.structs import Action, Array, Dataset, DummyOption, \
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    _Option
 
 
-class GNNPolicyApproach(GNNApproach):
-    """Trains and uses a goal-conditioned GNN policy."""
+class GNNOptionPolicyApproach(GNNApproach):
+    """Trains and uses a goal-conditioned GNN policy that produces options."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -38,10 +39,28 @@ class GNNPolicyApproach(GNNApproach):
         self._crossent_loss = torch.nn.CrossEntropyLoss()
         self._mse_loss = torch.nn.MSELoss()
 
-    def _extract_target_from_data(self, segment: Segment,
-                                  segment_traj: List[Segment],
-                                  ll_traj: LowLevelTrajectory) -> _Option:
-        return segment.get_option()
+    def _generate_data_from_dataset(
+        self, dataset: Dataset
+    ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _Option]]:
+        data = []
+        ground_atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories, self._initial_predicates)
+        # In this approach, we never learned any NSRTs, so we just call
+        # segment_trajectory() to segment the given dataset.
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in ground_atom_dataset
+        ]
+        for segment_traj, (ll_traj, _) in zip(segmented_trajs,
+                                              ground_atom_dataset):
+            if not ll_traj.is_demo:
+                continue
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
+            for segment in segment_traj:
+                state = segment.states[0]  # the segment's initial state
+                atoms = segment.init_atoms  # the segment's initial atoms
+                target = segment.get_option()  # the segment's option
+                data.append((state, atoms, goal, target))
+        return data
 
     def _setup_output_specific_fields(
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
@@ -141,17 +160,18 @@ class GNNPolicyApproach(GNNApproach):
                     scores[j] = float("-inf")  # set its score to be really bad
             if np.max(scores) == float("-inf"):  # type: ignore
                 # If all scores are -inf, we failed to select an object.
-                raise ApproachFailure("GNN policy could not select an object")
+                raise ApproachFailure(
+                    "GNN option policy could not select an object")
             objects.append(node_to_object[np.argmax(scores)])
         return param_opt, objects, params
 
     @classmethod
     def get_name(cls) -> str:
-        return "gnn_policy"
+        return "gnn_option_policy"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         assert self._gnn is not None, "Learning hasn't happened yet!"
-        if CFG.gnn_policy_solve_with_shooting:
+        if CFG.gnn_option_policy_solve_with_shooting:
             return self._solve_with_shooting(task, timeout)
         return self._solve_without_shooting(task)
 
@@ -167,8 +187,8 @@ class GNNPolicyApproach(GNNApproach):
                 # Just use the mean parameters to ground the option.
                 cur_option = param_opt.ground(objects, params_mean)
                 if not cur_option.initiable(state):
-                    raise ApproachFailure("GNN policy chose a non-initiable "
-                                          "option")
+                    raise ApproachFailure(
+                        "GNN option policy chose a non-initiable option")
             act = cur_option.policy(state)
             return act
 
@@ -202,9 +222,9 @@ class GNNPolicyApproach(GNNApproach):
                 low = param_opt.params_space.low
                 high = param_opt.params_space.high
                 # Sample an initiable option.
-                for _ in range(CFG.gnn_policy_shooting_max_samples):
+                for _ in range(CFG.gnn_option_policy_shooting_max_samples):
                     params = np.array(self._rng.normal(
-                        params_mean, CFG.gnn_policy_shooting_variance),
+                        params_mean, CFG.gnn_option_policy_shooting_variance),
                                       dtype=np.float32)
                     params = np.clip(params, low, high)
                     opt = param_opt.ground(objects, params)
@@ -220,5 +240,12 @@ class GNNPolicyApproach(GNNApproach):
                             state, opt)
                 except utils.EnvironmentFailure:
                     break
+                # If num_act is zero, that means that the option is stuck in
+                # the state, so we should break to avoid infinite loops.
+                if num_act == 0:
+                    break
                 total_num_act += num_act
+                # Break early if we have timed out.
+                if time.time() - start_time < timeout:
+                    break
         raise ApproachTimeout("Shooting timed out!")

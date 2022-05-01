@@ -726,6 +726,7 @@ def _select_predicates_to_keep(candidates: Dict[Predicate, float],
                                        set(kept_predicates
                                            | initial_predicates),
                                        segmented_trajs,
+                                       verify_harmlessness=False,
                                        verbose=False):
         for atom in pnad.op.preconditions:
             preds_in_preconds.add(atom.predicate)

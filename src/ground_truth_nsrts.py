@@ -26,8 +26,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
     """Create ground truth NSRTs for an env."""
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
                    "cover_regrasp", "cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                   "cover_multistep_options_holding", "pybullet_cover"):
+                   "pybullet_cover"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -51,8 +50,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
-    elif CFG.env == "stick_point":
-        nsrts = _get_stick_point_gt_nsrts()
+    elif CFG.env == "stick_button":
+        nsrts = _get_stick_button_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -115,14 +114,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
                    "cover_regrasp"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding"):
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding") and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and \
+       CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
 
@@ -131,9 +126,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     # Pick
     parameters = [block]
     holding_predicate_args = [block]
-    if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                   "cover_multistep_options_holding"):
+    if CFG.env == "cover_multistep_options":
         parameters.append(robot)
         holding_predicate_args.append(robot)
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
@@ -144,21 +137,15 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env in ("cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding") and \
-        CFG.cover_multistep_use_learned_equivalents:
+    elif CFG.env == "cover_multistep_options" and \
+         CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding"):
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Pick
         option_vars = [block]
 
-    if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding") and \
+    if CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
@@ -215,17 +202,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks",
-                           "cover_multistep_options_holding"):
+            if CFG.env == "cover_multistep_options":
                 assert len(objs) == 2
             else:
                 assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
-            if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks",
-                           "cover_multistep_options_holding"):
+            if CFG.env == "cover_multistep_options":
                 lb = -1.0
                 ub = 1.0
             elif CFG.env == "cover_typed_options":
@@ -246,9 +229,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     # Place (to Cover)
     parameters = [block, target]
     holding_predicate_args = [block]
-    if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                   "cover_multistep_options_holding"):
+    if CFG.env == "cover_multistep_options":
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
     preconditions = {
@@ -270,22 +251,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options",
-                     "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding"):
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Place
         option_vars = [target]
-        if CFG.env in ("cover_multistep_options",
-                       "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding") and \
-            CFG.cover_multistep_use_learned_equivalents:
+        if CFG.env == "cover_multistep_options" and \
+           CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
-    if CFG.env in ("cover_multistep_options",
-                   "cover_multistep_options_fixed_tasks",
-                     "cover_multistep_options_holding") and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and \
+       CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -349,17 +324,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
-            if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks",
-                           "cover_multistep_options_holding"):
+            if CFG.env == "cover_multistep_options":
                 assert len(objs) == 3
             else:
                 assert len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
-            if CFG.env in ("cover_multistep_options",
-                           "cover_multistep_options_fixed_tasks",
-                           "cover_multistep_options_holding"):
+            if CFG.env == "cover_multistep_options":
                 lb = -1.0
                 ub = 1.0
             else:
@@ -648,11 +619,13 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         _get_types_by_names(CFG.env, ["obj", "box", "lid", "shelf", "robot"])
 
     (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable, \
-        HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
+        NotOnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, \
+        IsClean) = \
         _get_predicates_by_names(
             CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
-                        "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                        "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+                        "GripperOpen", "OnTable", "NotOnTable", "HoldingTop",
+                        "HoldingSide", "Holding", "IsWet", "IsDry", "IsDirty",
+                        "IsClean"])
 
     Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
         CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
@@ -678,7 +651,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     }
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
-
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
@@ -830,10 +802,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     if CFG.env == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextToBox, [robot, box]))
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
-
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotOnTable, [obj]),
     }
     delete_effects = {
         LiftedAtom(HoldingTop, [obj]),
@@ -841,8 +813,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj]),
     }
     if CFG.env == "repeated_nextto_painting":
-        # OnTable is removed by moving in rnt_painting, so we don't
-        # want it to be a delete effect here.
+        # (Not)OnTable is affected by moving, not placing, in rnt_painting.
+        # So we remove it from the add and delete effects here.
+        add_effects.remove(LiftedAtom(NotOnTable, [obj]))
         delete_effects.remove(LiftedAtom(OnTable, [obj]))
 
     def placeinbox_sampler(state: State, goal: Set[GroundAtom],
@@ -881,6 +854,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {
         LiftedAtom(InShelf, [obj, shelf]),
         LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotOnTable, [obj]),
     }
     delete_effects = {
         LiftedAtom(HoldingSide, [obj]),
@@ -888,8 +862,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj]),
     }
     if CFG.env == "repeated_nextto_painting":
-        # OnTable is removed by moving in rnt_painting, so we don't
-        # want it to be a delete effect here.
+        # (Not)OnTable is affected by moving, not placing, in rnt_painting.
+        # So we remove it from the add and delete effects here.
+        add_effects.remove(LiftedAtom(NotOnTable, [obj]))
         delete_effects.remove(LiftedAtom(OnTable, [obj]))
 
     def placeinshelf_sampler(state: State, goal: Set[GroundAtom],
@@ -933,12 +908,20 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = Place
     if CFG.env == "painting":
+        # The environment is a little weird: the object is technically
+        # already OnTable when we go to place it on the table, because
+        # of how the classifier is implemented.
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(OnTable, [obj]),
         }
         add_effects = {
             LiftedAtom(GripperOpen, [robot]),
+        }
+        delete_effects = {
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(HoldingTop, [obj]),
+            LiftedAtom(HoldingSide, [obj]),
         }
     elif CFG.env == "repeated_nextto_painting":
         preconditions = {
@@ -950,11 +933,12 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(GripperOpen, [robot]),
             LiftedAtom(OnTable, [obj]),
         }
-    delete_effects = {
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingTop, [obj]),
-        LiftedAtom(HoldingSide, [obj]),
-    }
+        delete_effects = {
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(HoldingTop, [obj]),
+            LiftedAtom(HoldingSide, [obj]),
+            LiftedAtom(NotOnTable, [obj]),
+        }
 
     def placeontable_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
@@ -1002,13 +986,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         option = MoveToObj
         preconditions = {
             LiftedAtom(GripperOpen, [robot]),
+            LiftedAtom(OnTable, [targetobj]),
         }
         add_effects = {
             LiftedAtom(NextTo, [robot, targetobj]),
             LiftedAtom(NextToTable, [robot])
         }
         delete_effects = set()
-        # Moving could have us end up NextTo other objects.
+        # Moving could have us end up NextTo other objects, and
+        # can turn off being next to the box or the shelf.
         side_predicates = {NextTo, NextToBox, NextToShelf}
 
         movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions,
@@ -1029,14 +1015,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         add_effects = {
             LiftedAtom(NextToBox, [robot, targetbox]),
-            LiftedAtom(NextTo, [robot, obj])
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(NotOnTable, [obj])
         }
         delete_effects = {
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo, NextToBox, NextToShelf}
+        side_predicates = {NextTo}
         movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
                               add_effects, delete_effects, side_predicates,
                               option, option_vars, moveto_sampler)
@@ -1055,14 +1042,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         add_effects = {
             LiftedAtom(NextToShelf, [robot, targetshelf]),
-            LiftedAtom(NextTo, [robot, obj])
+            LiftedAtom(NextTo, [robot, obj]),
+            LiftedAtom(NotOnTable, [obj])
         }
         delete_effects = {
             LiftedAtom(NextToTable, [robot]),
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo, NextToBox, NextToShelf}
+        side_predicates = {NextTo}
         movetoshelf_nsrt = NSRT("MoveToShelf", parameters, preconditions,
                                 add_effects, delete_effects, side_predicates,
                                 option, option_vars, moveto_sampler)
@@ -1965,63 +1953,63 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_stick_point_gt_nsrts() -> Set[NSRT]:
-    """Create ground truth NSRTs for StickPointEnv."""
-    robot_type, point_type, stick_type = _get_types_by_names(
-        CFG.env, ["robot", "point", "stick"])
-    Touched, InContactRobotPoint, InContactRobotStick, InContactStickPoint, \
-        Grasped, HandEmpty, NoPointInContact = _get_predicates_by_names(
-            CFG.env, ["Touched", "InContactRobotPoint", "InContactRobotStick",
-            "InContactStickPoint", "Grasped", "HandEmpty", "NoPointInContact"])
-    RobotTouchPoint, PickStick, StickTouchPoint = _get_options_by_names(
-        CFG.env, ["RobotTouchPoint", "PickStick", "StickTouchPoint"])
+def _get_stick_button_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for StickButtonEnv."""
+    robot_type, button_type, stick_type = _get_types_by_names(
+        CFG.env, ["robot", "button", "stick"])
+    Pressed, RobotAboveButton, StickAboveButton, \
+        Grasped, HandEmpty, AboveNoButton = _get_predicates_by_names(
+            CFG.env, ["Pressed", "RobotAboveButton",
+            "StickAboveButton", "Grasped", "HandEmpty", "AboveNoButton"])
+    RobotPressButton, PickStick, StickPressButton = _get_options_by_names(
+        CFG.env, ["RobotPressButton", "PickStick", "StickPressButton"])
 
     nsrts = set()
 
-    # RobotTouchPointFromNothing
+    # RobotPressButtonFromNothing
     robot = Variable("?robot", robot_type)
-    point = Variable("?point", point_type)
-    parameters = [robot, point]
-    option_vars = [robot, point]
-    option = RobotTouchPoint
+    button = Variable("?button", button_type)
+    parameters = [robot, button]
+    option_vars = [robot, button]
+    option = RobotPressButton
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
-        LiftedAtom(Touched, [point]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(Pressed, [button]),
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
-    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    delete_effects = {LiftedAtom(AboveNoButton, [])}
     side_predicates: Set[Predicate] = set()
-    robot_touch_point_nsrt = NSRT("RobotTouchPointFromNothing", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
-                                  null_sampler)
-    nsrts.add(robot_touch_point_nsrt)
+    robot_press_button_nsrt = NSRT("RobotPressButtonFromNothing", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   side_predicates, option, option_vars,
+                                   null_sampler)
+    nsrts.add(robot_press_button_nsrt)
 
-    # RobotTouchPointFromPoint
+    # RobotPressButtonFromButton
     robot = Variable("?robot", robot_type)
-    point = Variable("?point", point_type)
-    from_point = Variable("?from-point", point_type)
-    parameters = [robot, point, from_point]
-    option_vars = [robot, point]
-    option = RobotTouchPoint
+    button = Variable("?button", button_type)
+    from_button = Variable("?from-button", button_type)
+    parameters = [robot, button, from_button]
+    option_vars = [robot, button]
+    option = RobotPressButton
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, from_point]),
+        LiftedAtom(RobotAboveButton, [robot, from_button]),
     }
     add_effects = {
-        LiftedAtom(Touched, [point]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(Pressed, [button]),
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
-    delete_effects = {LiftedAtom(InContactRobotPoint, [robot, from_point])}
+    delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
     side_predicates = set()
-    robot_touch_point_nsrt = NSRT("RobotTouchPointFromPoint", parameters,
-                                  preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
-                                  null_sampler)
-    nsrts.add(robot_touch_point_nsrt)
+    robot_press_button_nsrt = NSRT("RobotPressButtonFromButton", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   side_predicates, option, option_vars,
+                                   null_sampler)
+    nsrts.add(robot_press_button_nsrt)
 
     # PickStickFromNothing
     robot = Variable("?robot", robot_type)
@@ -2031,11 +2019,10 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactRobotStick, [robot, stick])
     }
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
     side_predicates = set()
@@ -2054,76 +2041,77 @@ def _get_stick_point_gt_nsrts() -> Set[NSRT]:
                            option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # PickStickFromPoint
+    # PickStickFromButton
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?from-point", point_type)
-    parameters = [robot, stick, point]
+    button = Variable("?from-button", button_type)
+    parameters = [robot, stick, button]
     option_vars = [robot, stick]
     option = PickStick
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, point])
+        LiftedAtom(RobotAboveButton, [robot, button])
     }
     add_effects = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactRobotStick, [robot, stick]),
-        LiftedAtom(NoPointInContact, [])
+        LiftedAtom(AboveNoButton, [])
     }
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InContactRobotPoint, [robot, point]),
+        LiftedAtom(RobotAboveButton, [robot, button]),
     }
     side_predicates = set()
-    pick_stick_nsrt = NSRT("PickStickFromPoint", parameters, preconditions,
+    pick_stick_nsrt = NSRT("PickStickFromButton", parameters, preconditions,
                            add_effects, delete_effects, side_predicates,
                            option, option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
-    # StickTouchPointFromNothing
+    # StickPressButtonFromNothing
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?point", point_type)
-    parameters = [robot, stick, point]
-    option_vars = [robot, stick, point]
-    option = StickTouchPoint
+    button = Variable("?button", button_type)
+    parameters = [robot, stick, button]
+    option_vars = [robot, stick, button]
+    option = StickPressButton
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(NoPointInContact, []),
+        LiftedAtom(AboveNoButton, []),
     }
     add_effects = {
-        LiftedAtom(InContactStickPoint, [stick, point]),
-        LiftedAtom(Touched, [point])
+        LiftedAtom(StickAboveButton, [stick, button]),
+        LiftedAtom(Pressed, [button])
     }
-    delete_effects = {LiftedAtom(NoPointInContact, [])}
+    delete_effects = {LiftedAtom(AboveNoButton, [])}
     side_predicates = set()
-    stick_point_nsrt = NSRT("StickTouchPointFromNothing", parameters,
-                            preconditions, add_effects, delete_effects,
-                            side_predicates, option, option_vars, null_sampler)
-    nsrts.add(stick_point_nsrt)
+    stick_button_nsrt = NSRT("StickPressButtonFromNothing", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(stick_button_nsrt)
 
-    # StickTouchPointFromPoint
+    # StickPressButtonFromButton
     robot = Variable("?robot", robot_type)
     stick = Variable("?stick", stick_type)
-    point = Variable("?point", point_type)
-    from_point = Variable("?from-point", point_type)
-    parameters = [robot, stick, point, from_point]
-    option_vars = [robot, stick, point]
-    option = StickTouchPoint
+    button = Variable("?button", button_type)
+    from_button = Variable("?from-button", button_type)
+    parameters = [robot, stick, button, from_button]
+    option_vars = [robot, stick, button]
+    option = StickPressButton
     preconditions = {
         LiftedAtom(Grasped, [robot, stick]),
-        LiftedAtom(InContactStickPoint, [stick, from_point])
+        LiftedAtom(StickAboveButton, [stick, from_button])
     }
     add_effects = {
-        LiftedAtom(InContactStickPoint, [stick, point]),
-        LiftedAtom(Touched, [point])
+        LiftedAtom(StickAboveButton, [stick, button]),
+        LiftedAtom(Pressed, [button])
     }
-    delete_effects = {LiftedAtom(InContactStickPoint, [stick, from_point])}
+    delete_effects = {LiftedAtom(StickAboveButton, [stick, from_button])}
     side_predicates = set()
-    stick_point_nsrt = NSRT("StickTouchPointFromPoint", parameters,
-                            preconditions, add_effects, delete_effects,
-                            side_predicates, option, option_vars, null_sampler)
-    nsrts.add(stick_point_nsrt)
+    stick_button_nsrt = NSRT("StickPressButtonFromButton", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(stick_button_nsrt)
 
     return nsrts
 

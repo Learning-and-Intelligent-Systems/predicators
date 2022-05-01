@@ -201,7 +201,7 @@ def entropy(p: float) -> float:
     assert 0.0 <= p <= 1.0
     if p in {0.0, 1.0}:
         return 0.0
-    return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+    return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
 def create_state_from_dict(data: Dict[Object, Dict[str, float]],
@@ -839,7 +839,11 @@ def run_policy(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) policy() raises any exception of type in exceptions_to_break_on
+    (3) policy() or step() raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are of length one greater than the actions.
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
@@ -852,6 +856,11 @@ def run_policy(
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
+                state = env.step(act)
+                if monitor is not None:
+                    monitor.observe(state, act)
+                actions.append(act)
+                states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -859,11 +868,6 @@ def run_policy(
                 if monitor is not None:
                     monitor.observe(state, None)
                 raise e
-            if monitor is not None:
-                monitor.observe(state, act)
-            state = env.step(act)
-            actions.append(act)
-            states.append(state)
             if termination_function(state):
                 break
     if monitor is not None:
@@ -895,7 +899,11 @@ def run_policy_with_simulator(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) policy() raises any exception of type in exceptions_to_break_on
+    (3) policy() or step() raise an exception of type in exceptions_to_break_on
+
+    Note that in the case where the exception is raised in step, we exclude the
+    last action from the returned trajectory to maintain the invariant that
+    the trajectory states are of length one greater than the actions.
     """
     state = init_state
     states = [state]
@@ -904,6 +912,11 @@ def run_policy_with_simulator(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
+                state = simulator(state, act)
+                if monitor is not None:
+                    monitor.observe(state, act)
+                actions.append(act)
+                states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -911,11 +924,6 @@ def run_policy_with_simulator(
                 if monitor is not None:
                     monitor.observe(state, None)
                 raise e
-            if monitor is not None:
-                monitor.observe(state, act)
-            state = simulator(state, act)
-            actions.append(act)
-            states.append(state)
             if termination_function(state):
                 break
     if monitor is not None:
@@ -2031,16 +2039,31 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     update_config(arg_dict)
 
 
-def get_config_path_str() -> str:
-    """Get a filename prefix for configuration based on the current CFG."""
+def get_config_path_str(experiment_id: Optional[str] = None) -> str:
+    """Get a filename prefix for configuration based on the current CFG.
+
+    If experiment_id is supplied, it is used in place of
+    CFG.experiment_id.
+    """
+    if experiment_id is None:
+        experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{CFG.experiment_id}")
+            f"__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
-    """Get a path for saving and loading approaches."""
+    """Get a path for saving approaches."""
     os.makedirs(CFG.approach_dir, exist_ok=True)
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
+
+
+def get_approach_load_path_str() -> str:
+    """Get a path for loading approaches."""
+    if not CFG.load_experiment_id:
+        experiment_id = CFG.experiment_id
+    else:
+        experiment_id = CFG.load_experiment_id
+    return f"{CFG.approach_dir}/{get_config_path_str(experiment_id)}.saved"
 
 
 def parse_args(env_required: bool = True,
