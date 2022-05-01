@@ -796,7 +796,7 @@ class PyBulletState(State):
     @property
     def joint_state(self) -> JointState:
         """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
+        return cast(JointState, self.simulator_state)
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.

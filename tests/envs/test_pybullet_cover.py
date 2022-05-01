@@ -42,7 +42,7 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
 
     def set_state(self, state):
         """Forcibly reset the state."""
-        joint_state = list(self._pybullet_robot.initial_joint_values)
+        joint_state = list(self._pybullet_robot.initial_joint_state)
         state_with_sim = utils.PyBulletState(state.data,
                                              simulator_state=joint_state)
         self._current_state = state_with_sim

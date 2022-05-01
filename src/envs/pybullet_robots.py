@@ -38,13 +38,13 @@ class _SingleArmPyBulletRobot(abc.ABC):
         self._physics_client_id = physics_client_id
         # These get overridden in initialize(), but type checking needs to be
         # aware that it exists.
-        self._initial_joint_values: JointState = []
+        self._initial_joint_state: JointState = []
         self._initialize()
 
     @property
-    def initial_joint_values(self) -> JointState:
+    def initial_joint_state(self) -> JointState:
         """The joint values for the robot in its home pose."""
-        return self._initial_joint_values
+        return self._initial_joint_state
 
     @property
     def action_space(self) -> Box:
@@ -227,12 +227,12 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         self._arm_joints.append(self._left_finger_id)
         self._arm_joints.append(self._right_finger_id)
 
-        self._initial_joint_values = self._run_inverse_kinematics(
+        self._initial_joint_state = self._run_inverse_kinematics(
             self._ee_home_pose, validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
-        self._initial_joint_values[-2] = self.open_fingers
-        self._initial_joint_values[-1] = self.open_fingers
+        self._initial_joint_state[-2] = self.open_fingers
+        self._initial_joint_state[-1] = self.open_fingers
         # Establish the lower and upper limits for the arm joints.
         self._joint_lower_limits = []
         self._joint_upper_limits = []
@@ -297,9 +297,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
-        # First, reset the joint values to self._initial_joint_values,
+        # First, reset the joint values to self._initial_joint_state,
         # so that IK is consistent (less sensitive to initialization).
-        joint_values = self._initial_joint_values
+        joint_values = self._initial_joint_state
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
@@ -523,7 +523,7 @@ def inverse_kinematics(
     physics_client_id: int,
     validate: bool = True,
 ) -> JointState:
-    """Runs IK and returns joint values for the given (free) joints.
+    """Runs IK and returns joint state for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple
     times, resetting the robot state each time, until the target
