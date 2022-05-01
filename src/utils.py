@@ -1394,6 +1394,116 @@ def run_hill_climbing(
     return states, actions, heuristics
 
 
+class BiRRT(Generic[_S]):
+    """Bidirectional rapidly-exploring random tree."""
+
+    def __init__(self, sample_fn: Callable[[_S], _S],
+                 extend_fn: Callable[[_S, _S], Iterator[_S]],
+                 collision_fn: Callable[[_S], bool],
+                 distance_fn: Callable[[_S, _S],
+                                       float], rng: np.random.Generator,
+                 num_attempts: int, num_iters: int, smooth_amt: int):
+        self._sample_fn = sample_fn
+        self._extend_fn = extend_fn
+        self._collision_fn = collision_fn
+        self._distance_fn = distance_fn
+        self._rng = rng
+        self._num_attempts = num_attempts
+        self._num_iters = num_iters
+        self._smooth_amt = smooth_amt
+
+    def query(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        """Query the BiRRT, to get a collision-free path from pt1 to pt2.
+
+        If none is found, returns None.
+        """
+        if self._collision_fn(pt1) or self._collision_fn(pt2):
+            return None
+        direct_path = self._try_direct_path(pt1, pt2)
+        if direct_path is not None:
+            return direct_path
+        for _ in range(self._num_attempts):
+            path = self._rrt_connect(pt1, pt2)
+            if path is not None:
+                return self._smooth_path(path)
+        return None
+
+    def _try_direct_path(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        path = [pt1]
+        for newpt in self._extend_fn(pt1, pt2):
+            if self._collision_fn(newpt):
+                return None
+            path.append(newpt)
+        return path
+
+    def _rrt_connect(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
+        nodes1, nodes2 = [root1], [root2]
+        for _ in range(self._num_iters):
+            if len(nodes1) > len(nodes2):
+                nodes1, nodes2 = nodes2, nodes1
+            samp = self._sample_fn(pt1)
+            min_key1: Callable[[_BiRRTNode[_S]], float] = \
+                lambda n: self._distance_fn(n.data, samp)
+            nearest1 = min(nodes1, key=min_key1)
+            for newpt in self._extend_fn(nearest1.data, samp):
+                if self._collision_fn(newpt):
+                    break
+                nearest1 = _BiRRTNode(newpt, parent=nearest1)
+                nodes1.append(nearest1)
+            min_key2: Callable[[_BiRRTNode[_S]], float] = \
+                lambda n: self._distance_fn(n.data, nearest1.data)
+            nearest2 = min(nodes2, key=min_key2)
+            for newpt in self._extend_fn(nearest2.data, nearest1.data):
+                if self._collision_fn(newpt):
+                    break
+                nearest2 = _BiRRTNode(newpt, parent=nearest2)
+                nodes2.append(nearest2)
+            else:
+                path1 = nearest1.path_from_root()
+                path2 = nearest2.path_from_root()
+                if path1[0] != root1:
+                    path1, path2 = path2, path1
+                path = path1[:-1] + path2[::-1]
+                return [node.data for node in path]
+        return None
+
+    def _smooth_path(self, path: List[_S]) -> List[_S]:
+        for _ in range(self._smooth_amt):
+            if len(path) <= 2:
+                return path
+            i = self._rng.integers(0, len(path) - 1)
+            j = self._rng.integers(0, len(path) - 1)
+            if abs(i - j) <= 1:
+                continue
+            if j < i:
+                i, j = j, i
+            shortcut = list(self._extend_fn(path[i], path[j]))
+            if len(shortcut) < j-i and \
+               all(not self._collision_fn(pt) for pt in shortcut):
+                path = path[:i + 1] + shortcut + path[j + 1:]
+        return path
+
+
+class _BiRRTNode(Generic[_S]):
+    """A node for _BiRRT."""
+
+    def __init__(self,
+                 data: _S,
+                 parent: Optional[_BiRRTNode[_S]] = None) -> None:
+        self.data = data
+        self.parent = parent
+
+    def path_from_root(self) -> List[_BiRRTNode[_S]]:
+        """Return the path from the root to this node."""
+        sequence = []
+        node: Optional[_BiRRTNode[_S]] = self
+        while node is not None:
+            sequence.append(node)
+            node = node.parent
+        return sequence[::-1]
+
+
 def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate."""
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
