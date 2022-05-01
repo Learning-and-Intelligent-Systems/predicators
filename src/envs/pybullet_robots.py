@@ -346,12 +346,26 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         assert len(action_arr) == len(self._arm_joints)
 
         # Set arm joint motors.
-        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-            p.setJointMotorControl2(bodyIndex=self._fetch_id,
-                                    jointIndex=joint_idx,
-                                    controlMode=p.POSITION_CONTROL,
-                                    targetPosition=joint_val,
-                                    physicsClientId=self._physics_client_id)
+        if CFG.pybullet_control_mode == "position":
+            for joint_idx, joint_val in zip(self._arm_joints, action_arr):
+                p.setJointMotorControl2(
+                    bodyIndex=self._fetch_id,
+                    jointIndex=joint_idx,
+                    controlMode=p.POSITION_CONTROL,
+                    targetPosition=joint_val,
+                    physicsClientId=self._physics_client_id)
+
+        elif CFG.pybullet_control_mode == "reset":
+            for joint_id, joint_val in zip(self._arm_joints, action_arr):
+                p.resetJointState(self._fetch_id,
+                                  joint_id,
+                                  targetValue=joint_val,
+                                  targetVelocity=0,
+                                  physicsClientId=self._physics_client_id)
+
+        else:
+            raise NotImplementedError("Unrecognized pybullet_control_mode: "
+                                      f"{CFG.pybullet_control_mode}")
 
     def forward_kinematics(self, action_arr: Array) -> Pose3D:
         assert len(action_arr) == len(self._arm_joints)

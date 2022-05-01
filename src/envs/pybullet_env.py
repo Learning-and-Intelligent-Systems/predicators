@@ -236,10 +236,31 @@ class PyBulletEnv(BaseEnv):
         # Send the action to the robot.
         self._pybullet_robot.set_motors(action.arr)
 
+        # If we are setting the robot joints directly, and if there is a held
+        # object, we need to reset the pose of the held object directly. This
+        # is because the PyBullet constraints don't seem to play nicely with
+        # resetJointState (the robot will sometimes drop the object).
+        if CFG.pybullet_control_mode == "reset" and \
+            self._held_obj_id is not None:
+            # TODO: this is not correct. Can't figure it out! :(
+            world_to_base_link = p.getLinkState(
+                self._pybullet_robot.robot_id,
+                self._pybullet_robot.end_effector_id,
+                physicsClientId=self._physics_client_id)[:2]
+            world_to_held_obj = p.invertTransform(*p.multiplyTransforms(
+                world_to_base_link[0], world_to_base_link[1], self.
+                _base_link_to_held_obj[0], self._base_link_to_held_obj[1]))
+            p.resetBasePositionAndOrientation(
+                self._held_obj_id,
+                world_to_held_obj[0],
+                world_to_held_obj[1],
+                physicsClientId=self._physics_client_id)
+
         # Step the simulation here before adding or removing constraints
         # because detect_held_object() should use the updated state.
-        for _ in range(CFG.pybullet_sim_steps_per_action):
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        if CFG.pybullet_control_mode != "reset":
+            for _ in range(CFG.pybullet_sim_steps_per_action):
+                p.stepSimulation(physicsClientId=self._physics_client_id)
 
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.
@@ -313,7 +334,7 @@ class PyBulletEnv(BaseEnv):
                             physicsClientId=self._physics_client_id)[:2])]
         world_to_obj = np.r_[p.getBasePositionAndOrientation(
             self._held_obj_id, physicsClientId=self._physics_client_id)]
-        base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+        self._base_link_to_held_obj = p.invertTransform(*p.multiplyTransforms(
             base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
             world_to_obj[3:]))
         self._held_constraint_id = p.createConstraint(
@@ -324,9 +345,9 @@ class PyBulletEnv(BaseEnv):
             jointType=p.JOINT_FIXED,
             jointAxis=[0, 0, 0],
             parentFramePosition=[0, 0, 0],
-            childFramePosition=base_link_to_obj[0],
+            childFramePosition=self._base_link_to_held_obj[0],
             parentFrameOrientation=[0, 0, 0, 1],
-            childFrameOrientation=base_link_to_obj[1],
+            childFrameOrientation=self._base_link_to_held_obj[1],
             physicsClientId=self._physics_client_id)
 
     def _fingers_closing(self, action: Action) -> bool:
