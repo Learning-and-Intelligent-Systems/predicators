@@ -1,7 +1,8 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-from typing import Callable, ClassVar, Dict, List, Sequence, Tuple, cast
+from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
+    Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -140,6 +141,17 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def get_joints(self) -> JointsState:
         """Get the joints state from the current PyBullet state."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def set_joints(self, joints_state: JointsState) -> None:
+        """Directly set the joint states.
+
+        Outside of resetting to an initial state, this should not be
+        used with the robot that uses stepSimulation(); it should only
+        be used for motion planning, collision checks, etc., in a robot
+        that does not maintain state.
+        """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -309,20 +321,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             physicsClientId=self._physics_client_id)
         # First, reset the joint values to self._initial_joints_state,
         # so that IK is consistent (less sensitive to initialization).
-        joints_state = self._initial_joints_state
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(self._fetch_id,
-                              joint_id,
-                              joint_val,
-                              physicsClientId=self._physics_client_id)
+        self.set_joints(self._initial_joints_state)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
         joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(self._fetch_id,
-                              joint_id,
-                              joint_val,
-                              physicsClientId=self._physics_client_id)
+        self.set_joints(joints_state)
         # Handle setting the robot finger joints.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
             p.resetJointState(self._fetch_id,
@@ -351,6 +354,15 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joints_state.append(joint_val)
         return joints_state
 
+    def set_joints(self, joints_state: JointsState) -> None:
+        assert len(joints_state) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joints_state):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              targetValue=joint_val,
+                              targetVelocity=0,
+                              physicsClientId=self._physics_client_id)
+
     def set_motors(self, joints_state: JointsState) -> None:
         assert len(joints_state) == len(self._arm_joints)
 
@@ -363,23 +375,13 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                 targetPositions=joints_state,
                 physicsClientId=self._physics_client_id)
         elif CFG.pybullet_control_mode == "reset":
-            for joint_id, joint_val in zip(self._arm_joints, joints_state):
-                p.resetJointState(self._fetch_id,
-                                  joint_id,
-                                  targetValue=joint_val,
-                                  targetVelocity=0,
-                                  physicsClientId=self._physics_client_id)
+            self.set_joints(joints_state)
         else:
             raise NotImplementedError("Unrecognized pybullet_control_mode: "
                                       f"{CFG.pybullet_control_mode}")
 
     def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        assert len(joints_state) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(self._fetch_id,
-                              joint_id,
-                              joint_val,
-                              physicsClientId=self._physics_client_id)
+        self.set_joints(joints_state)
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        computeForwardKinematics=True,
@@ -607,7 +609,6 @@ def inverse_kinematics(
                               targetValue=pos,
                               targetVelocity=vel,
                               physicsClientId=physics_client_id)
-
     # Order the found free_joint_vals based on the requested joints.
     joint_vals = []
     for joint in joints:
@@ -616,3 +617,54 @@ def inverse_kinematics(
         joint_vals.append(joint_val)
 
     return joint_vals
+
+
+def run_motion_planning(
+        robot: _SingleArmPyBulletRobot, initial_state: JointsState,
+        target_state: JointsState, collision_bodies: Collection[int],
+        seed: int, physics_client_id: int) -> Optional[Sequence[JointsState]]:
+    """Run BiRRT to find a collision-free sequence of joint states.
+
+    Note that this function changes the state of the robot.
+    """
+    rng = np.random.default_rng(seed)
+    joint_space = robot.action_space
+    joint_space.seed(seed)
+    _sample_fn = lambda _: joint_space.sample()
+    num_interp = CFG.pybullet_birrt_extend_num_interp
+
+    def _extend_fn(pt1: JointsState,
+                   pt2: JointsState) -> Iterator[JointsState]:
+        pt1_arr = np.array(pt1)
+        pt2_arr = np.array(pt2)
+        num = int(np.ceil(max(abs(pt1_arr - pt2_arr)))) * num_interp
+        if num == 0:
+            yield pt2
+        for i in range(1, num + 1):
+            yield list(pt1_arr * (1 - i / num) + pt2_arr * i / num)
+
+    def _collision_fn(pt: JointsState) -> bool:
+        robot.set_joints(pt)
+        p.performCollisionDetection(physicsClientId=physics_client_id)
+        for body in collision_bodies:
+            if p.getContactPoints(robot.robot_id,
+                                  body,
+                                  physicsClientId=physics_client_id):
+                return True
+        return False
+
+    def _distance_fn(from_pt: JointsState, to_pt: JointsState) -> float:
+        from_ee = robot.forward_kinematics(from_pt)
+        to_ee = robot.forward_kinematics(to_pt)
+        return sum(np.subtract(from_ee, to_ee)**2)
+
+    birrt = utils.BiRRT(_sample_fn,
+                        _extend_fn,
+                        _collision_fn,
+                        _distance_fn,
+                        rng,
+                        num_attempts=CFG.pybullet_birrt_num_attempts,
+                        num_iters=CFG.pybullet_birrt_num_iters,
+                        smooth_amt=CFG.pybullet_birrt_smooth_amt)
+
+    return birrt.query(initial_state, target_state)
