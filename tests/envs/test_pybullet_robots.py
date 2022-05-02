@@ -280,6 +280,14 @@ def test_run_motion_planning():
                                seed=seed,
                                physics_client_id=physics_client_id)
     assert path is None
+    # Should fail because the initial state collides with the table.
+    path = run_motion_planning(robot,
+                               joint_target,
+                               joint_initial,
+                               collision_bodies={table_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
     # Should succeed, but will need to move the arm up to avoid the obstacle.
     block_pose = (1.35, 0.6, 0.5)
     block_orientation = [0., 0., 0., 1.]

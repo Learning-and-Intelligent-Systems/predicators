@@ -1473,10 +1473,7 @@ class BiRRT(Generic[_S]):
         return None
 
     def _smooth_path(self, path: List[_S]) -> List[_S]:
-        # This is a tricky case to cover and may not ever happen in practice,
-        # but leaving it here just in case.
-        if len(path) <= 2:  # pragma: no cover
-            return path
+        assert len(path) > 2
         for _ in range(self._smooth_amt):
             i = self._rng.integers(0, len(path) - 1)
             j = self._rng.integers(0, len(path) - 1)
