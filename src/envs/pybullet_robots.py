@@ -144,12 +144,13 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def set_joints(self, joint_state: Sequence[float]) -> None:
+    def set_joints(self, joints_state: JointsState) -> None:
         """Directly set the joint states.
 
-        This should not be used with the robot that is being used with
-        stepSimulation(); it should only be used for motion planning,
-        collision checks, etc., in a robot that does not maintain state.
+        Outside of resetting to an initial state, this should not be
+        used with the robot that uses stepSimulation(); it should only
+        be used for motion planning, collision checks, etc., in a robot
+        that does not maintain state.
         """
         raise NotImplementedError("Override me!")
 
@@ -353,9 +354,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joints_state.append(joint_val)
         return joints_state
 
-    def set_joints(self, joint_state: Sequence[float]) -> None:
-        assert len(joint_state) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joint_state):
+    def set_joints(self, joint_states: JointsState) -> None:
+        assert len(joint_states) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joint_states):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               targetValue=joint_val,
