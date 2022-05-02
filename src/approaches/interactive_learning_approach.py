@@ -391,7 +391,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             atoms_to_query = set()
             for atom in ground_atoms:
                 score = self._score_atom_set({atom}, s)
-                if score > float(CFG.interactive_score_threshold):
+                if score > CFG.interactive_score_threshold:
                     atoms_to_query.add(atom)
             return GroundAtomsHoldQuery(atoms_to_query)
 
