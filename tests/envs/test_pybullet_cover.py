@@ -42,9 +42,9 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
 
     def set_state(self, state):
         """Forcibly reset the state."""
-        joint_state = list(self._pybullet_robot.initial_joint_values)
+        joints_state = list(self._pybullet_robot.initial_joints_state)
         state_with_sim = utils.PyBulletState(state.data,
-                                             simulator_state=joint_state)
+                                             simulator_state=joints_state)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
@@ -78,7 +78,9 @@ def _create_exposed_pybullet_cover_env():
     utils.reset_config({
         "env": "pybullet_cover",
         "pybullet_use_gui": _GUI_ON,
-        "cover_initial_holding_prob": 0.0
+        "cover_initial_holding_prob": 0.0,
+        # We run this test using the RESET control mode.
+        "pybullet_control_mode": "reset",
     })
     return _ExposedPyBulletCoverEnv()
 

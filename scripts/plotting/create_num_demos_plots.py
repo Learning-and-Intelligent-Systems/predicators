@@ -1,4 +1,4 @@
-"""Create plots for online learning."""
+"""Create plots for learning from varying numbers of demonstrations."""
 
 import os
 

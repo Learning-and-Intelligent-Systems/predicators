@@ -507,6 +507,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         float] = 0.1  # A block's base must be below this to be placed.
     initial_robot_y: ClassVar[float] = 0.4
     collision_threshold: ClassVar[float] = 1e-5
+    grip_lb: ClassVar[float] = -1.0
+    grip_ub: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -597,9 +599,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # env. The action space now is (dx, dy, dgrip). The
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
-        # multi-step options.
+        # multi-step options. The action limits are for dx, dy only;
+        # dgrip is constrained separately based on the grip limits.
         lb, ub = CFG.cover_multistep_action_limits
-        return Box(lb, ub, (3, ))
+        return Box(np.array([lb, lb, self.grip_lb], dtype=np.float32),
+                   np.array([ub, ub, self.grip_ub], dtype=np.float32))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
@@ -686,7 +690,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # action.
         x += dx
         y += dy
-        grip = dgrip  # desired grip; set directly
+        # Set desired grip directly and clip it.
+        grip = np.clip(dgrip, self.grip_lb, self.grip_ub)
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "grip", grip)
@@ -1245,56 +1250,3 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
                (by - bh == 0)
-
-
-class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
-    """A variation of CoverMultistepOptions where there is only one possible
-    initial state.
-
-    This environment is useful for debugging option learning.
-
-    Note that like the parent env, there are three possible goals:
-    Cover(block0, target0), Cover(block1, target1), or both.
-    """
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "cover_multistep_options_fixed_tasks"
-
-    def _create_initial_state(self, blocks: List[Object],
-                              targets: List[Object],
-                              rng: np.random.Generator) -> State:
-        # Force one initial state by overriding the rng and using an identical
-        # one on every call, so this method becomes deterministic.
-        del rng
-        zero_rng = np.random.default_rng(0)
-        return super()._create_initial_state(blocks, targets, zero_rng)
-
-
-class CoverMultistepOptionsHolding(CoverMultistepOptions):
-    """A variation of CoverMultistepOptions where the goals only involve
-    Holding.
-
-    This environment is useful for debugging option learning.
-    """
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "cover_multistep_options_holding"
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {self._Holding}
-
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
-        tasks = []
-        blocks, targets = self._create_blocks_and_targets()
-        for _ in range(num):
-            init = self._create_initial_state(blocks, targets, rng)
-            assert init.get_objects(self._block_type) == blocks
-            assert init.get_objects(self._target_type) == targets
-            goal_block_idx = rng.choice(len(blocks))
-            goal_block = blocks[goal_block_idx]
-            goal = {GroundAtom(self._Holding, [goal_block, self._robot])}
-            tasks.append(Task(init, goal))
-        return tasks
