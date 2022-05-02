@@ -198,15 +198,16 @@ def test_segment_trajectory():
             unknown_option_ll_traj, unknown_option_segments)
 
 
-def test_contact_based_segmentation():
+@pytest.mark.parametrize("env", ["stick_button", "cover_multistep_options"])
+def test_contact_based_segmentation(env):
     """Tests for contact-based segmentation."""
     utils.reset_config({
         "segmenter": "contacts",
-        "env": "stick_button",
+        "env": env,
         "num_train_tasks": 1,
         "offline_data_method": "demo",
     })
-    env = create_new_env("stick_button", do_cache=False)
+    env = create_new_env(env, do_cache=False)
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
     dataset = create_dataset(env, train_tasks)
@@ -225,6 +226,10 @@ def test_contact_based_segmentation():
         segment_option = segment.get_option()
         for action in segment.actions:
             assert action.get_option() is segment_option
+
+
+def test_contact_based_segmentation_failure_case():
+    """Failure case tests for contact-based segmentation."""
     utils.reset_config({
         "segmenter": "contacts",
         "env": "not a real env",
