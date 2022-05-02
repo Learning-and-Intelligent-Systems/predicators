@@ -628,6 +628,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y_floor = 0
         if y + dy < y_floor:
             dy = y_floor - y
+        # If the robot is close to the initial robot y position and moving up,
+        # snap it into place vertically.
+        if abs(y + dy - self.initial_robot_y) < self.snap_tol and dy > 0:
+            dy = self.initial_robot_y - y
         # If the robot is holding a block that is close to the floor, and if
         # the robot is moving down to place, snap the robot so that the block
         # is exactly on the floor.
@@ -644,18 +648,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # the robot is exactly on top of the block.
         block_to_be_picked = None
         if held_block is None and dy < 0:
-            above_block = None
             for block in blocks:
                 bx_lb = state.get(block, "x") - state.get(block, "width") / 2
                 bx_ub = state.get(block, "x") + state.get(block, "width") / 2
                 if bx_lb <= x <= bx_ub:
-                    assert above_block is None
-                    above_block = block
-            if above_block is not None:
-                above_block_top = state.get(above_block, "y")
-                if abs(y + dy - above_block_top) < self.snap_tol:
-                    block_to_be_picked = above_block
-                    dy = above_block_top - y
+                    above_block_top = state.get(block, "y")
+                    if abs(y + dy - above_block_top) < self.snap_tol:
+                        block_to_be_picked = block
+                        dy = above_block_top - y
+                        break
 
         # Update the robot state.
         x += dx
