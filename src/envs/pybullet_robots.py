@@ -347,14 +347,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Set arm joint motors.
         if CFG.pybullet_control_mode == "position":
-            for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-                p.setJointMotorControl2(
-                    bodyIndex=self._fetch_id,
-                    jointIndex=joint_idx,
-                    controlMode=p.POSITION_CONTROL,
-                    targetPosition=joint_val,
-                    physicsClientId=self._physics_client_id)
-
+            p.setJointMotorControlArray(bodyUniqueId=self._fetch_id,
+                                    jointIndices=self._arm_joints,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPositions=action_arr,
+                                    physicsClientId=self._physics_client_id)
         elif CFG.pybullet_control_mode == "reset":
             for joint_id, joint_val in zip(self._arm_joints, action_arr):
                 p.resetJointState(self._fetch_id,
@@ -362,7 +359,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                   targetValue=joint_val,
                                   targetVelocity=0,
                                   physicsClientId=self._physics_client_id)
-
         else:
             raise NotImplementedError("Unrecognized pybullet_control_mode: "
                                       f"{CFG.pybullet_control_mode}")
