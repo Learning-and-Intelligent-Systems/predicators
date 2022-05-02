@@ -243,14 +243,15 @@ class PyBulletEnv(BaseEnv):
         # resetJointState (the robot will sometimes drop the object).
         if CFG.pybullet_control_mode == "reset" and \
             self._held_obj_id is not None:
-            # TODO: this is not correct. Can't figure it out! :(
             world_to_base_link = p.getLinkState(
                 self._pybullet_robot.robot_id,
                 self._pybullet_robot.end_effector_id,
                 physicsClientId=self._physics_client_id)[:2]
-            world_to_held_obj = p.invertTransform(*p.multiplyTransforms(
-                world_to_base_link[0], world_to_base_link[1], self.
-                _base_link_to_held_obj[0], self._base_link_to_held_obj[1]))
+            base_link_to_held_obj = p.invertTransform(
+                *self._held_obj_to_base_link)
+            world_to_held_obj = p.multiplyTransforms(
+                world_to_base_link[0], world_to_base_link[1],
+                base_link_to_held_obj[0], base_link_to_held_obj[1])
             p.resetBasePositionAndOrientation(
                 self._held_obj_id,
                 world_to_held_obj[0],
@@ -335,7 +336,7 @@ class PyBulletEnv(BaseEnv):
                             physicsClientId=self._physics_client_id)[:2])]
         world_to_obj = np.r_[p.getBasePositionAndOrientation(
             self._held_obj_id, physicsClientId=self._physics_client_id)]
-       self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+        self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
             base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
             world_to_obj[3:]))
         self._held_constraint_id = p.createConstraint(
