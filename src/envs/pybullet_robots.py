@@ -346,11 +346,10 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         assert len(action_arr) == len(self._arm_joints)
 
         # Set arm joint motors.
-        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-            p.setJointMotorControl2(bodyIndex=self._fetch_id,
-                                    jointIndex=joint_idx,
+        p.setJointMotorControlArray(bodyUniqueId=self._fetch_id,
+                                    jointIndices=self._arm_joints,
                                     controlMode=p.POSITION_CONTROL,
-                                    targetPosition=joint_val,
+                                    targetPositions=action_arr,
                                     physicsClientId=self._physics_client_id)
 
     def forward_kinematics(self, action_arr: Array) -> Pose3D:
