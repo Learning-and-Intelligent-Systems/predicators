@@ -111,6 +111,7 @@ class GlobalSettings:
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
+    pybullet_birrt_extend_num_interp = 10
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3

@@ -634,12 +634,12 @@ def run_motion_planning(
     joint_space = robot.action_space
     joint_space.seed(seed)
     _sample_fn = lambda _: joint_space.sample()
+    num_interp = CFG.pybullet_birrt_extend_num_interp
 
     def _extend_fn(pt1: JointState, pt2: JointState) -> Iterator[JointState]:
         pt1_arr = np.array(pt1)
         pt2_arr = np.array(pt2)
-        # TODO: justify constants... make in terms of max movement or something
-        num = int(np.ceil(max(abs(pt1_arr - pt2_arr)))) * 10
+        num = int(np.ceil(max(abs(pt1_arr - pt2_arr)))) * num_interp
         if num == 0:
             yield pt2
         for i in range(1, num + 1):

@@ -218,7 +218,7 @@ def test_create_single_arm_pybullet_robot():
 
 def test_run_motion_planning():
     """Tests for run_motion_planning()."""
-    physics_client_id = p.connect(p.GUI)
+    physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     move_to_pose_tol = 1e-4
