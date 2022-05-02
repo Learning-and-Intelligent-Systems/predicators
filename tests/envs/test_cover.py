@@ -338,25 +338,6 @@ def test_cover_multistep_options():
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
 
-    # Run through a specific plan of options.
-    pick_option = [o for o in env.options if o.name == "Pick"][0]
-    place_option = [o for o in env.options if o.name == "Place"][0]
-    plan = [
-        pick_option.ground([block1], [0.0]),
-        place_option.ground([target1], [0.0]),
-        pick_option.ground([block0], [0.0]),
-        place_option.ground([target0], [0.0]),
-    ]
-    assert plan[0].initiable(state)
-    policy = utils.option_plan_to_policy(plan)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           task.goal_holds,
-                                           max_num_steps=100)
-    final_atoms = utils.abstract(traj.states[-1], env.predicates)
-    assert Covers([block0, target0]) in final_atoms
-    assert Covers([block1, target1]) in final_atoms
     # Test moving into a forbidden zone
     state = task.init
     for _ in range(10):
