@@ -163,7 +163,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """Compute the end effector pose that would result if the robot arm
         joints state was equal to the input joints_state.
 
-        WARNING: This method will make use of resetJointsState(), and so it
+        WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
         """
         raise NotImplementedError("Override me!")
@@ -320,42 +320,33 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             physicsClientId=self._physics_client_id)
         # First, reset the joint values to self._initial_joints_state,
         # so that IK is consistent (less sensitive to initialization).
-        joints_state = self._initial_joints_state
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointsState(self._fetch_id,
-                               joint_id,
-                               joint_val,
-                               physicsClientId=self._physics_client_id)
+        self.set_joints(self._initial_joints_state)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
         joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointsState(self._fetch_id,
-                               joint_id,
-                               joint_val,
-                               physicsClientId=self._physics_client_id)
+        self.set_joints(joints_state)
         # Handle setting the robot finger joints.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
-            p.resetJointsState(self._fetch_id,
-                               finger_id,
-                               rf,
-                               physicsClientId=self._physics_client_id)
+            p.resetJointState(self._fetch_id,
+                              finger_id,
+                              rf,
+                              physicsClientId=self._physics_client_id)
 
     def get_state(self) -> Array:
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
         rx, ry, rz = ee_link_state[4]
-        rf = p.getJointsState(self._fetch_id,
-                              self._left_finger_id,
-                              physicsClientId=self._physics_client_id)[0]
+        rf = p.getJointState(self._fetch_id,
+                             self._left_finger_id,
+                             physicsClientId=self._physics_client_id)[0]
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
 
     def get_joints(self) -> JointsState:
         joints_state = []
         for joint_idx in self._arm_joints:
-            joint_val = p.getJointsState(
+            joint_val = p.getJointState(
                 self._fetch_id,
                 joint_idx,
                 physicsClientId=self._physics_client_id)[0]
@@ -365,11 +356,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     def set_joints(self, joint_state: Sequence[float]) -> None:
         assert len(joint_state) == len(self._arm_joints)
         for joint_id, joint_val in zip(self._arm_joints, joint_state):
-            p.resetJointsState(self._fetch_id,
-                               joint_id,
-                               targetPosition=joint_val,
-                               targetVelocity=0,
-                               physicsClientId=self._physics_client_id)
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              targetValue=joint_val,
+                              targetVelocity=0,
+                              physicsClientId=self._physics_client_id)
 
     def set_motors(self, joints_state: JointsState) -> None:
         assert len(joints_state) == len(self._arm_joints)
@@ -388,8 +379,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             raise NotImplementedError("Unrecognized pybullet_control_mode: "
                                       f"{CFG.pybullet_control_mode}")
 
-    def forward_kinematics(self, joint_state: JointsState) -> Pose3D:
-        self.set_joints(joint_state)
+    def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
+        self.set_joints(joints_state)
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        computeForwardKinematics=True,
@@ -573,7 +564,7 @@ def inverse_kinematics(
 
     # Record the initial state of the joints so that we can reset them after.
     if validate:
-        initial_joints_states = p.getJointsStates(
+        initial_joints_states = p.getJointStates(
             robot, free_joints, physicsClientId=physics_client_id)
         assert len(initial_joints_states) == len(free_joints)
 
@@ -593,10 +584,10 @@ def inverse_kinematics(
         # Update the robot state and check if the desired position and
         # orientation are reached.
         for joint, joint_val in zip(free_joints, free_joint_vals):
-            p.resetJointsState(robot,
-                               joint,
-                               targetValue=joint_val,
-                               physicsClientId=physics_client_id)
+            p.resetJointState(robot,
+                              joint,
+                              targetValue=joint_val,
+                              physicsClientId=physics_client_id)
         ee_link_state = p.getLinkState(robot,
                                        end_effector,
                                        computeForwardKinematics=True,
@@ -612,12 +603,11 @@ def inverse_kinematics(
     # PyBullet internal state.
     if validate:
         for joint, (pos, vel, _, _) in zip(free_joints, initial_joints_states):
-            p.resetJointsState(robot,
-                               joint,
-                               targetValue=pos,
-                               targetVelocity=vel,
-                               physicsClientId=physics_client_id)
-
+            p.resetJointState(robot,
+                              joint,
+                              targetValue=pos,
+                              targetVelocity=vel,
+                              physicsClientId=physics_client_id)
     # Order the found free_joint_vals based on the requested joints.
     joint_vals = []
     for joint in joints:

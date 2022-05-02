@@ -240,7 +240,7 @@ class PyBulletEnv(BaseEnv):
         # If we are setting the robot joints directly, and if there is a held
         # object, we need to reset the pose of the held object directly. This
         # is because the PyBullet constraints don't seem to play nicely with
-        # resetJointsState (the robot will sometimes drop the object).
+        # resetJointState (the robot will sometimes drop the object).
         if CFG.pybullet_control_mode == "reset" and \
             self._held_obj_id is not None:
             world_to_base_link = p.getLinkState(

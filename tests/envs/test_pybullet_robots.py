@@ -52,7 +52,7 @@ def _setup_pybullet_test_scene():
     arm_joints = get_kinematic_chain(fetch_id,
                                      ee_id,
                                      physics_client_id=physics_client_id)
-    scene["initial_joints_states"] = p.getJointsStates(
+    scene["initial_joints_states"] = p.getJointStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
     return scene
@@ -80,7 +80,7 @@ def test_inverse_kinematics(scene_attributes):
         for joint, joints_state in zip(
                 arm_joints, scene_attributes["initial_joints_states"]):
             position, velocity, _, _ = joints_state
-            p.resetJointsState(
+            p.resetJointState(
                 scene_attributes["fetch_id"],
                 joint,
                 targetValue=position,
@@ -99,7 +99,7 @@ def test_inverse_kinematics(scene_attributes):
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
     for joint, joint_val in zip(arm_joints, joints_state):
-        p.resetJointsState(
+        p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
@@ -122,7 +122,7 @@ def test_inverse_kinematics(scene_attributes):
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
     for joint, joint_val in zip(arm_joints, joints_state):
-        p.resetJointsState(
+        p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
