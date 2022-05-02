@@ -231,6 +231,17 @@ def test_run_motion_planning():
     robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()
+    # Should succeed with a path of length 2.
+    joint_target = list(joint_initial)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies=set(),
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert len(path) == 2
+    assert np.allclose(path[0], joint_initial)
+    assert np.allclose(path[-1], joint_target)
     # Should succeed, no collisions.
     ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
     joint_target = robot.inverse_kinematics(ee_target, validate=True)
@@ -262,7 +273,6 @@ def test_run_motion_planning():
                                physics_client_id=physics_client_id)
     assert path is None
     # Should succeed, but will need to move the arm up to avoid the obstacle.
-    robot.reset_state(robot_init_state)
     block_pose = (1.35, 0.6, 0.5)
     block_orientation = [0., 0., 0., 1.]
     block_id = create_pybullet_block(
@@ -285,3 +295,28 @@ def test_run_motion_planning():
                                seed=seed,
                                physics_client_id=physics_client_id)
     assert path is not None
+    p.removeBody(block_id, physicsClientId=physics_client_id)
+    # Should fail because the hyperparameters are too limited.
+    utils.reset_config({
+        "pybullet_birrt_num_iters": 1,
+        "pybullet_birrt_num_attempts": 1,
+    })
+    block_id = create_pybullet_block(
+        color=(1.0, 0.0, 0.0, 1.0),
+        half_extents=(0.2, 0.01, 0.3),
+        mass=0,  # immoveable
+        friction=1,
+        orientation=block_orientation,
+        physics_client_id=physics_client_id)
+    p.resetBasePositionAndOrientation(block_id,
+                                      block_pose,
+                                      block_orientation,
+                                      physicsClientId=physics_client_id)
+    path = run_motion_planning(robot,
+                               joint_initial,
+                               joint_target,
+                               collision_bodies={table_id, block_id},
+                               seed=seed,
+                               physics_client_id=physics_client_id)
+    assert path is None
+    p.removeBody(block_id, physicsClientId=physics_client_id)

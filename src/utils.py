@@ -1464,16 +1464,20 @@ class BiRRT(Generic[_S]):
             else:
                 path1 = nearest1.path_from_root()
                 path2 = nearest2.path_from_root()
-                if path1[0] != root1:
+                # This is a tricky case to cover.
+                if path1[0] != root1:  # pragma: no cover
                     path1, path2 = path2, path1
+                assert path1[0] == root1
                 path = path1[:-1] + path2[::-1]
                 return [node.data for node in path]
         return None
 
     def _smooth_path(self, path: List[_S]) -> List[_S]:
+        # This is a tricky case to cover and may not ever happen in practice,
+        # but leaving it here just in case.
+        if len(path) <= 2:  # pragma: no cover
+            return path
         for _ in range(self._smooth_amt):
-            if len(path) <= 2:
-                return path
             i = self._rng.integers(0, len(path) - 1)
             j = self._rng.integers(0, len(path) - 1)
             if abs(i - j) <= 1:
