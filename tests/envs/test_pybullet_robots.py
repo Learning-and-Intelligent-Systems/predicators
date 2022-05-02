@@ -51,7 +51,7 @@ def _setup_pybullet_test_scene():
     arm_joints = get_kinematic_chain(fetch_id,
                                      ee_id,
                                      physics_client_id=physics_client_id)
-    scene["initial_joint_states"] = p.getJointStates(
+    scene["initial_joints_states"] = p.getJointStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
     return scene
@@ -76,9 +76,9 @@ def test_inverse_kinematics(scene_attributes):
 
     # Reset the joint states to their initial values.
     def _reset_joints():
-        for joint, joint_state in zip(
-                arm_joints, scene_attributes["initial_joint_states"]):
-            position, velocity, _, _ = joint_state
+        for joint, joints_state in zip(
+                arm_joints, scene_attributes["initial_joints_states"]):
+            position, velocity, _, _ = joints_state
             p.resetJointState(
                 scene_attributes["fetch_id"],
                 joint,
@@ -89,7 +89,7 @@ def test_inverse_kinematics(scene_attributes):
     target_position = scene_attributes["robot_home"]
     # With validate = False, one call to IK is not good enough.
     _reset_joints()
-    joint_state = inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -97,7 +97,7 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
-    for joint, joint_val in zip(arm_joints, joint_state):
+    for joint, joint_val in zip(arm_joints, joints_state):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
@@ -112,7 +112,7 @@ def test_inverse_kinematics(scene_attributes):
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
     _reset_joints()
-    joint_state = inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -120,7 +120,7 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
-    for joint, joint_val in zip(arm_joints, joint_state):
+    for joint, joint_val in zip(arm_joints, joints_state):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
@@ -174,7 +174,7 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
-                       robot.initial_joint_state,
+                       robot.initial_joints_state,
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)

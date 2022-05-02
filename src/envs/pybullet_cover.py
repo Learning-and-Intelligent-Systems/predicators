@@ -252,7 +252,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         rx, ry, rz, _ = self._pybullet_robot.get_state()
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
-        joint_state = self._pybullet_robot.get_joints()
+        joints_state = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -284,7 +284,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[target] = np.array([0.0, 1.0, width, pose],
                                           dtype=np.float32)
 
-        state = utils.PyBulletState(state_dict, simulator_state=joint_state)
+        state = utils.PyBulletState(state_dict, simulator_state=joints_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
