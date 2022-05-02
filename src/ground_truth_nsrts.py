@@ -116,10 +116,6 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    if CFG.env == "cover_multistep_options" and \
-       CFG.cover_multistep_use_learned_equivalents:
-        LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
-            CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
 
     nsrts = set()
 
@@ -137,16 +133,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_multistep_options" and \
-         CFG.cover_multistep_use_learned_equivalents:
-        option = LearnedEquivalentPick
-        option_vars = [block, robot]
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+    elif CFG.env == "cover_typed_options":
         option = Pick
         option_vars = [block]
+    elif CFG.env == "cover_multistep_options":
+        option = Pick
+        option_vars = [block, robot]
 
-    if CFG.env == "cover_multistep_options" and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options":
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
@@ -183,8 +177,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(bx)
             elif CFG.cover_multistep_goal_conditioned_sampling:
-                desired_x = bx + (
-                    tm - tx)  # block position adjusted by target/ thr offset
+                # Block position adjusted by target/ thr offset
+                desired_x = bx + (tm - tx)
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
             # is_block, is_target, width, x, grasp, y, height
@@ -202,16 +196,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            if CFG.env == "cover_multistep_options":
-                assert len(objs) == 2
-            else:
-                assert len(objs) == 1
+            assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
-            if CFG.env == "cover_multistep_options":
-                lb = -1.0
-                ub = 1.0
-            elif CFG.env == "cover_typed_options":
+            if CFG.env == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
             elif CFG.env in ("cover", "pybullet_cover",
@@ -251,16 +239,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+    elif CFG.env == "cover_typed_options":
         option = Place
         option_vars = [target]
-        if CFG.env == "cover_multistep_options" and \
-           CFG.cover_multistep_use_learned_equivalents:
-            option = LearnedEquivalentPlace
-            option_vars = [block, robot, target]
+    elif CFG.env == "cover_multistep_options":
+        option = Place
+        option_vars = [block, robot, target]
 
-    if CFG.env == "cover_multistep_options" and \
-       CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options":
 
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -324,20 +310,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
-            if CFG.env == "cover_multistep_options":
-                assert len(objs) == 3
-            else:
-                assert len(objs) == 2
+            assert len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
-            if CFG.env == "cover_multistep_options":
-                lb = -1.0
-                ub = 1.0
-            else:
-                lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
-                lb = max(lb, 0.0)
-                ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
-                ub = min(ub, 1.0)
+            lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
+            lb = max(lb, 0.0)
+            ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
+            ub = min(ub, 1.0)
             return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
     place_nsrt = NSRT("Place",
