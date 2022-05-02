@@ -40,7 +40,6 @@ class GlobalSettings:
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
-    cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
     cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
     cover_multistep_max_hr_placements = 100  # max placements of hand regions
@@ -108,6 +107,10 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
     pybullet_robot = "fetch"
+    pybullet_birrt_num_attempts = 10
+    pybullet_birrt_num_iters = 100
+    pybullet_birrt_smooth_amt = 50
+    pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
 
     # pddl blocks env parameters

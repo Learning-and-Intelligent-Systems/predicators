@@ -103,7 +103,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         ## PutOnTable option
         types = self._PutOnTable.types
         params_space = self._PutOnTable.params_space
-        place_z = self.table_height + self.block_size + self._offset_z
+        place_z = self.table_height + self.block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
             [
