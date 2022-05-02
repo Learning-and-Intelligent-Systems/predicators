@@ -139,7 +139,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def get_joints(self) -> JointsState:
-        """Get the joint states from the current PyBullet state."""
+        """Get the joints state from the current PyBullet state."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
@@ -149,8 +149,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        """Compute the end effector pose that if the robot arm joint states
-        were equal to the input joints_state.
+        """Compute the end effector pose that if the robot arm joints state
+        was equal to the input joints_state.
 
         WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
@@ -160,9 +160,9 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointsState:
-        """Compute a joint state from an end effector pose.
+        """Compute a joints state from an end effector pose.
 
-        If validate is True, guarantee that the returned joint state
+        If validate is True, guarantee that the returned joints state
         would result in end_effector_pose if run through
         forward_kinematics.
         """
@@ -528,7 +528,7 @@ def inverse_kinematics(
     physics_client_id: int,
     validate: bool = True,
 ) -> JointsState:
-    """Runs IK and returns joint state for the given (free) joints.
+    """Runs IK and returns a joints state for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple
     times, resetting the robot state each time, until the target
