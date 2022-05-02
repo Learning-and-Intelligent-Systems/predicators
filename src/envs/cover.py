@@ -597,9 +597,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # env. The action space now is (dx, dy, dgrip). The
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
-        # multi-step options.
+        # multi-step options. The action limits are for dx, dy only;
+        # dgrip is unconstrained.
         lb, ub = CFG.cover_multistep_action_limits
-        return Box(lb, ub, (3, ))
+        return Box(np.array([lb, lb, -np.inf], dtype=np.float32),
+                   np.array([ub, ub, np.inf], dtype=np.float32))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
