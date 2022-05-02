@@ -52,7 +52,7 @@ def _setup_pybullet_test_scene():
     arm_joints = get_kinematic_chain(fetch_id,
                                      ee_id,
                                      physics_client_id=physics_client_id)
-    scene["initial_joint_states"] = p.getJointStates(
+    scene["initial_joints_states"] = p.getJointsStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
     return scene
@@ -77,10 +77,10 @@ def test_inverse_kinematics(scene_attributes):
 
     # Reset the joint states to their initial values.
     def _reset_joints():
-        for joint, joint_state in zip(
-                arm_joints, scene_attributes["initial_joint_states"]):
-            position, velocity, _, _ = joint_state
-            p.resetJointState(
+        for joint, joints_state in zip(
+                arm_joints, scene_attributes["initial_joints_states"]):
+            position, velocity, _, _ = joints_state
+            p.resetJointsState(
                 scene_attributes["fetch_id"],
                 joint,
                 targetValue=position,
@@ -90,7 +90,7 @@ def test_inverse_kinematics(scene_attributes):
     target_position = scene_attributes["robot_home"]
     # With validate = False, one call to IK is not good enough.
     _reset_joints()
-    joint_state = inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -98,8 +98,8 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
-    for joint, joint_val in zip(arm_joints, joint_state):
-        p.resetJointState(
+    for joint, joint_val in zip(arm_joints, joints_state):
+        p.resetJointsState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
@@ -113,7 +113,7 @@ def test_inverse_kinematics(scene_attributes):
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
     _reset_joints()
-    joint_state = inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -121,8 +121,8 @@ def test_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
-    for joint, joint_val in zip(arm_joints, joint_state):
-        p.resetJointState(
+    for joint, joint_val in zip(arm_joints, joints_state):
+        p.resetJointsState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
@@ -154,6 +154,7 @@ def test_inverse_kinematics(scene_attributes):
 
 def test_fetch_pybullet_robot():
     """Tests for FetchPyBulletRobot()."""
+    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
     physics_client_id = p.connect(p.DIRECT)
 
     ee_home_pose = (1.35, 0.75, 0.75)
@@ -175,7 +176,7 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
-                       robot.initial_joint_state,
+                       robot.initial_joints_state,
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
@@ -185,6 +186,12 @@ def test_fetch_pybullet_robot():
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
     action_arr = np.array(joint_target, dtype=np.float32)
+    with pytest.raises(NotImplementedError) as e:
+        robot.set_motors(action_arr)
+    assert "Unrecognized pybullet_control_mode" in str(e)
+    utils.reset_config({"pybullet_control_mode": "reset"})
+    robot.set_motors(action_arr)  # just make sure it doesn't crash
+    utils.reset_config({"pybullet_control_mode": "position"})
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
@@ -209,11 +216,12 @@ def test_create_single_arm_pybullet_robot():
                                              move_to_pose_tol, max_vel_norm,
                                              grasp_tol, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, move_to_pose_tol,
                                          max_vel_norm, grasp_tol,
                                          physics_client_id)
+    assert "Unrecognized robot name" in str(e)
 
 
 def test_run_motion_planning():

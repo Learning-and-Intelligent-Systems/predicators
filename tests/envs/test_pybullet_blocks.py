@@ -50,9 +50,9 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         robot's initial joint values rather than rerunning inverse
         kinematics here.
         """
-        joint_state = list(self._pybullet_robot.initial_joint_state)
+        joints_state = list(self._pybullet_robot.initial_joints_state)
         state_with_sim = utils.PyBulletState(state.data,
-                                             simulator_state=joint_state)
+                                             simulator_state=joints_state)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)
@@ -78,7 +78,12 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
 @pytest.fixture(scope="module", name="env")
 def _create_exposed_pybullet_blocks_env():
     """Only create once and share among all tests, for efficiency."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    utils.reset_config({
+        "env": "pybullet_blocks",
+        "pybullet_use_gui": _GUI_ON,
+        # We run this test using the POSITION control mode.
+        "pybullet_control_mode": "position",
+    })
     return _ExposedPyBulletBlocksEnv()
 
 
