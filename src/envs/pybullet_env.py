@@ -4,7 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
