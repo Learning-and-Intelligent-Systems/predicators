@@ -354,9 +354,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             joints_state.append(joint_val)
         return joints_state
 
-    def set_joints(self, joint_states: JointsState) -> None:
-        assert len(joint_states) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joint_states):
+    def set_joints(self, joints_state: JointsState) -> None:
+        assert len(joints_state) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joints_state):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               targetValue=joint_val,
