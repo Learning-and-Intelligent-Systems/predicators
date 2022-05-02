@@ -4,7 +4,7 @@ Contains useful common code.
 """
 
 import abc
-from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pybullet as p
@@ -55,6 +55,7 @@ class PyBulletEnv(BaseEnv):
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
+        self._held_obj_to_base_link: Optional[Any] = None
         self._held_obj_id: Optional[int] = None
 
         # Set up all the static PyBullet content.
@@ -313,7 +314,7 @@ class PyBulletEnv(BaseEnv):
                             physicsClientId=self._physics_client_id)[:2])]
         world_to_obj = np.r_[p.getBasePositionAndOrientation(
             self._held_obj_id, physicsClientId=self._physics_client_id)]
-        base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+        self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
             base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
             world_to_obj[3:]))
         self._held_constraint_id = p.createConstraint(
@@ -324,9 +325,9 @@ class PyBulletEnv(BaseEnv):
             jointType=p.JOINT_FIXED,
             jointAxis=[0, 0, 0],
             parentFramePosition=[0, 0, 0],
-            childFramePosition=base_link_to_obj[0],
+            childFramePosition=self._held_obj_to_base_link[0],
             parentFrameOrientation=[0, 0, 0, 1],
-            childFrameOrientation=base_link_to_obj[1],
+            childFrameOrientation=self._held_obj_to_base_link[1],
             physicsClientId=self._physics_client_id)
 
     def _fingers_closing(self, action: Action) -> bool:
