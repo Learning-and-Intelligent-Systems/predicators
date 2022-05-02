@@ -543,41 +543,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Need to override static object creation because the types are now
         # different (in terms of equality).
         self._robot = Object("robby", self._robot_type)
-        # Override the original options to make them multi-step.
-        self._Pick = ParameterizedOption("Pick",
-                                         types=[self._block_type],
-                                         params_space=Box(-1.0, 1.0, (1, )),
-                                         policy=self._Pick_policy,
-                                         initiable=self._Pick_initiable,
-                                         terminal=self._Pick_terminal)
-        # Note: there is a change here -- the parameter space is now
-        # relative to the target. In the parent env, the parameter
-        # space is absolute, and the state of the target is not used.
-        self._Place = ParameterizedOption("Place",
-                                          types=[self._target_type],
-                                          params_space=Box(-1.0, 1.0, (1, )),
-                                          policy=self._Place_policy,
-                                          initiable=self._Place_initiable,
-                                          terminal=self._Place_terminal)
-        # We also add two ground truth options that correspond to the options
-        # learned by the _SimpleOptionLearner. The parameter for these options
-        # is a concatenation of several vectors, where each vector corresponds
-        # to a sampled state vector in the option's terminal state for an object
-        # whose state changes after executing the option.
-        self._LearnedEquivalentPick = ParameterizedOption(
-            "LearnedEquivalentPick",
+        # Override the original options to make them multi-step. Note that
+        # the parameter spaces are designed to match what would be learned
+        # by the neural option learners.
+        self._Pick = ParameterizedOption(
+            "Pick",
             types=[self._block_type, self._robot_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Pick_learned_equivalent_policy,
-            initiable=self._Pick_learned_equivalent_initiable,
-            terminal=self._Pick_learned_equivalent_terminal)
-        self._LearnedEquivalentPlace = ParameterizedOption(
-            "LearnedEquivalentPlace",
+            policy=self._Pick_policy,
+            initiable=self._Pick_initiable,
+            terminal=self._Pick_terminal)
+        self._Place = ParameterizedOption(
+            "Place",
             types=[self._block_type, self._robot_type, self._target_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Place_learned_equivalent_policy,
-            initiable=self._Place_learned_equivalent_initiable,
-            terminal=self._Place_learned_equivalent_terminal)
+            policy=self._Place_policy,
+            initiable=self._Place_initiable,
+            terminal=self._Place_terminal)
 
     @classmethod
     def get_name(cls) -> str:
@@ -585,10 +567,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Place, self._LearnedEquivalentPick,
-            self._LearnedEquivalentPlace
-        }
+        return {self._Pick, self._Place}
 
     @property
     def action_space(self) -> Box:
@@ -971,21 +950,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Pick_learned_equivalent_initiable(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
         m["absolute_params"] = s.vec(o) + p
-        return True
+        return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Pick_learned_equivalent_policy(
+    def _Pick_policy(
             self,
             s: State,
             m: Dict,  # type: ignore
@@ -1029,22 +999,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
                        p: Array) -> bool:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Pick_learned_equivalent_terminal(self, s: State, m: Dict,
-                                          o: Sequence[Object],
-                                          p: Array) -> bool:
         assert np.allclose(p, m["params"])
         # Pick is done when we're holding the desired object.
         return self._Holding_holds(s, o)
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
-                                            o: Sequence[Object],
-                                            p: Array) -> bool:
         block, robot, _ = o
         assert block.is_instance(self._block_type)
         assert robot.is_instance(self._robot_type)
@@ -1057,14 +1017,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> Action:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Place_learned_equivalent_policy(
-            self,
-            s: State,  # type: ignore
-            m: Dict,
-            o: Sequence[Object],
-            p: Array) -> Action:
         assert np.allclose(p, m["params"])
         del p
         absolute_params = m["absolute_params"]
@@ -1104,11 +1056,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        raise NotImplementedError("TODO: deprecate")
-
-    def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         del o  # unused
         assert np.allclose(p, m["params"])
         # Place is done when the hand is empty.

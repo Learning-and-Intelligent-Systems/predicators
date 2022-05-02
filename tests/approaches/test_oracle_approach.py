@@ -58,23 +58,16 @@ EXTRA_ARGS_ORACLE_APPROACH: Dict[str, List[Dict[str, Any]]] = {
 }
 EXTRA_ARGS_ORACLE_APPROACH["cover_multistep_options"] = [
     {
-        # planning with default parameters
-        "cover_multistep_use_learned_equivalents": True,
-    },
-    {
-        "cover_multistep_use_learned_equivalents": False,
         "cover_multistep_degenerate_oracle_samplers": False,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99
     },
     {
-        "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": False,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99
     },
     {
-        "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": True,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99
