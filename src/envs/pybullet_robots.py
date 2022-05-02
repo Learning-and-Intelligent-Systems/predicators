@@ -160,7 +160,7 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        """Compute the end effector pose that would result if the robot arm
+        """Compute the end effector position that would result if the robot arm
         joints state was equal to the input joints_state.
 
         WARNING: This method will make use of resetJointState(), and so it
@@ -171,7 +171,9 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointsState:
-        """Compute a joints state from a target end effector pose.
+        """Compute a joints state from a target end effector position.
+
+        The target orientation is always self._ee_orientation.
 
         If validate is True, guarantee that the returned joints state
         would result in end_effector_pose if run through
@@ -390,13 +392,14 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointsState:
-        return inverse_kinematics(self._fetch_id,
-                                  self._ee_id,
-                                  end_effector_pose,
-                                  self._ee_orientation,
-                                  self._arm_joints,
-                                  physics_client_id=self._physics_client_id,
-                                  validate=validate)
+        return pybullet_inverse_kinematics(
+            self._fetch_id,
+            self._ee_id,
+            end_effector_pose,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id,
+            validate=validate)
 
     def create_move_end_effector_to_pose_option(
         self,
@@ -535,10 +538,10 @@ def get_kinematic_chain(robot: int, end_effector: int,
     return kinematic_chain
 
 
-def inverse_kinematics(
+def pybullet_inverse_kinematics(
     robot: int,
     end_effector: int,
-    target_position: Sequence[float],
+    target_position: Pose3D,
     target_orientation: Sequence[float],
     joints: Sequence[int],
     physics_client_id: int,
