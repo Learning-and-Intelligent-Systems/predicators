@@ -34,11 +34,11 @@ from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
-    LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, Object, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, \
-    _Option, _TypedEntity
+    GroundNSRTOrSTRIPSOperator, Image, JointsState, LiftedAtom, \
+    LiftedOrGroundAtom, LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, \
+    Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -794,9 +794,9 @@ class PyBulletState(State):
     features that are exposed in the object-centric state."""
 
     @property
-    def joint_state(self) -> Sequence[float]:
-        """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
+    def joints_state(self) -> JointsState:
+        """Expose the current joints state in the simulator_state."""
+        return cast(JointsState, self.simulator_state)
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
@@ -804,7 +804,7 @@ class PyBulletState(State):
 
     def copy(self) -> State:
         state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_state)
+        simulator_state_copy = list(self.joints_state)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 

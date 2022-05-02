@@ -50,9 +50,9 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         robot's initial joint values rather than rerunning inverse
         kinematics here.
         """
-        joint_state = list(self._pybullet_robot.initial_joint_values)
+        joints_state = list(self._pybullet_robot.initial_joints_state)
         state_with_sim = utils.PyBulletState(state.data,
-                                             simulator_state=joint_state)
+                                             simulator_state=joints_state)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)

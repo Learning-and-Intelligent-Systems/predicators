@@ -235,7 +235,7 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        self._pybullet_robot.set_motors(action.arr)
+        self._pybullet_robot.set_motors(action.arr.tolist())
 
         # If we are setting the robot joints directly, and if there is a held
         # object, we need to reset the pose of the held object directly. This
@@ -367,7 +367,7 @@ class PyBulletEnv(BaseEnv):
         # Arbitrarily use the left finger as reference.
         state = cast(utils.PyBulletState, state)
         joint_idx = self._pybullet_robot.left_finger_joint_idx
-        return state.joint_state[joint_idx]
+        return state.joints_state[joint_idx]
 
     def _action_to_finger_delta(self, action: Action) -> float:
         finger_state = self._get_finger_state(self._current_state)
