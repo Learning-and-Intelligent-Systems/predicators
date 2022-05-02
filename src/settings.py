@@ -40,7 +40,6 @@ class GlobalSettings:
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
-    cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
     cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
     cover_multistep_max_hr_placements = 100  # max placements of hand regions

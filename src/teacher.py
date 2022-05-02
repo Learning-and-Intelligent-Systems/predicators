@@ -97,12 +97,10 @@ class Teacher:
         null_response = PathToStateResponse(query, teacher_traj=None)
         goal_state = query.goal_state
         if CFG.env == "cover_multistep_options":
-            assert CFG.cover_multistep_use_learned_equivalents
             # Setup.
             block_type, target_type, robot_type = _get_types_by_names(
                 CFG.env, ["block", "target", "robot"])
-            Pick, Place = _get_options_by_names(
-                CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
+            Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
             robot = state.get_objects(robot_type)[0]
             blocks = state.get_objects(block_type)
             targets = state.get_objects(target_type)

@@ -546,41 +546,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Need to override static object creation because the types are now
         # different (in terms of equality).
         self._robot = Object("robby", self._robot_type)
-        # Override the original options to make them multi-step.
-        self._Pick = ParameterizedOption("Pick",
-                                         types=[self._block_type],
-                                         params_space=Box(-1.0, 1.0, (1, )),
-                                         policy=self._Pick_policy,
-                                         initiable=self._Pick_initiable,
-                                         terminal=self._Pick_terminal)
-        # Note: there is a change here -- the parameter space is now
-        # relative to the target. In the parent env, the parameter
-        # space is absolute, and the state of the target is not used.
-        self._Place = ParameterizedOption("Place",
-                                          types=[self._target_type],
-                                          params_space=Box(-1.0, 1.0, (1, )),
-                                          policy=self._Place_policy,
-                                          initiable=self._Place_initiable,
-                                          terminal=self._Place_terminal)
-        # We also add two ground truth options that correspond to the options
-        # learned by the _SimpleOptionLearner. The parameter for these options
-        # is a concatenation of several vectors, where each vector corresponds
-        # to a sampled state vector in the option's terminal state for an object
-        # whose state changes after executing the option.
-        self._LearnedEquivalentPick = ParameterizedOption(
-            "LearnedEquivalentPick",
+        # Override the original options to make them multi-step. Note that
+        # the parameter spaces are designed to match what would be learned
+        # by the neural option learners.
+        self._Pick = ParameterizedOption(
+            "Pick",
             types=[self._block_type, self._robot_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Pick_learned_equivalent_policy,
-            initiable=self._Pick_learned_equivalent_initiable,
-            terminal=self._Pick_learned_equivalent_terminal)
-        self._LearnedEquivalentPlace = ParameterizedOption(
-            "LearnedEquivalentPlace",
+            policy=self._Pick_policy,
+            initiable=self._Pick_initiable,
+            terminal=self._Pick_terminal)
+        self._Place = ParameterizedOption(
+            "Place",
             types=[self._block_type, self._robot_type, self._target_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Place_learned_equivalent_policy,
-            initiable=self._Place_learned_equivalent_initiable,
-            terminal=self._Place_learned_equivalent_terminal)
+            policy=self._Place_policy,
+            initiable=self._Place_initiable,
+            terminal=self._Place_terminal)
 
     @classmethod
     def get_name(cls) -> str:
@@ -588,10 +570,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Place, self._LearnedEquivalentPick,
-            self._LearnedEquivalentPlace
-        }
+        return {self._Pick, self._Place}
 
     @property
     def action_space(self) -> Box:
@@ -1014,54 +993,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        # Pick is initiable if the hand is empty.
-        del m, o, p  # unused
-        return self._HandEmpty_holds(s, [])
-
-    def _Pick_learned_equivalent_initiable(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
         m["absolute_params"] = s.vec(o) + p
-        return self._Pick_initiable(s, m, o, p)
+        return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        del m  # unused
-        # The object is the one we want to pick.
-        assert len(o) == 1
-        obj = o[0]
-        # The parameter is a relative x position to pick at.
-        assert len(p) == 1
-        rel_x = p.item()
-        assert obj.type == self._block_type
-        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width") / 2.
-        x = s.get(self._robot, "x")
-        at_desired_x = abs(desired_x - x) < 1e-5
-        y = s.get(self._robot, "y")
-        desired_y = s.get(obj, "y")
-        at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to pick,
-        # then execute the pick (turn up the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., 0.1], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, 0.], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 0.], dtype=np.float32))
-
-    def _Pick_learned_equivalent_policy(
+    def _Pick_policy(
             self,
             s: State,
             m: Dict,  # type: ignore
@@ -1105,28 +1042,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
                        p: Array) -> bool:
-        del m, p  # unused
-        block, = o
-        # Pick is done when we're holding the desired object.
-        return self._Holding_holds(s, [block, self._robot])
-
-    def _Pick_learned_equivalent_terminal(self, s: State, m: Dict,
-                                          o: Sequence[Object],
-                                          p: Array) -> bool:
         assert np.allclose(p, m["params"])
         # Pick is done when we're holding the desired object.
         return self._Holding_holds(s, o)
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
-        # Place is initiable if we're holding something.
-        # Also may want to eventually check that the target is clear.
-        del m, o, p  # unused
-        return not self._HandEmpty_holds(s, [])
-
-    def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
-                                            o: Sequence[Object],
-                                            p: Array) -> bool:
         block, robot, _ = o
         assert block.is_instance(self._block_type)
         assert robot.is_instance(self._robot_type)
@@ -1137,42 +1058,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Place is initiable if we're holding the object.
         return self._Holding_holds(s, [block, robot])
 
-    def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
-                      p: Array) -> Action:
-        del m  # unused
-        # The object is the one we want to place at.
-        assert len(o) == 1
-        obj = o[0]
-        # The parameter is a relative x position to place at.
-        assert len(p) == 1
-        rel_x = p.item()
-        assert obj.type == self._target_type
-        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width") / 2.
-        x = s.get(self._robot, "x")
-        at_desired_x = abs(desired_x - x) < 1e-5
-        y = s.get(self._robot, "y")
-        desired_y = self.block_height + 1e-3
-        at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to place,
-        # then execute the place (turn down the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., -0.1], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 0.1], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
-
-    def _Place_learned_equivalent_policy(
+    def _Place_policy(
             self,
             s: State,  # type: ignore
             m: Dict,
@@ -1217,13 +1103,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        del m, o, p  # unused
-        # Place is done when the hand is empty.
-        return self._HandEmpty_holds(s, [])
-
-    def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         del o  # unused
         assert np.allclose(p, m["params"])
         # Place is done when the hand is empty.
