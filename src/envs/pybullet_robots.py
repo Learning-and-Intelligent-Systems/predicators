@@ -347,11 +347,12 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Set arm joint motors.
         if CFG.pybullet_control_mode == "position":
-            p.setJointMotorControlArray(bodyUniqueId=self._fetch_id,
-                                        jointIndices=self._arm_joints,
-                                        controlMode=p.POSITION_CONTROL,
-                                        targetPositions=action_arr,
-                                        physicsClientId=self._physics_client_id)
+            p.setJointMotorControlArray(
+                bodyUniqueId=self._fetch_id,
+                jointIndices=self._arm_joints,
+                controlMode=p.POSITION_CONTROL,
+                targetPositions=action_arr,
+                physicsClientId=self._physics_client_id)
         elif CFG.pybullet_control_mode == "reset":
             for joint_id, joint_val in zip(self._arm_joints, action_arr):
                 p.resetJointState(self._fetch_id,

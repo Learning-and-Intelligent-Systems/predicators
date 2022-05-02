@@ -249,9 +249,10 @@ class PyBulletEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)[:2]
             base_link_to_held_obj = p.invertTransform(
                 *self._held_obj_to_base_link)
-            world_to_held_obj = p.multiplyTransforms(
-                world_to_base_link[0], world_to_base_link[1],
-                base_link_to_held_obj[0], base_link_to_held_obj[1])
+            world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                     world_to_base_link[1],
+                                                     base_link_to_held_obj[0],
+                                                     base_link_to_held_obj[1])
             p.resetBasePositionAndOrientation(
                 self._held_obj_id,
                 world_to_held_obj[0],
