@@ -10,7 +10,7 @@ MAX_STEPS=3
 MIN_DATA=10
 THRESH="0.05"
 MAX_ITR=100000
-QUERY_PROB=0.03
+QUERY_PROB="0.03"  # so random kid queries about the same amount as main
 FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
