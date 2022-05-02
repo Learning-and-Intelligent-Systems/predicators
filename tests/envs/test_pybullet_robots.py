@@ -233,7 +233,7 @@ def test_run_motion_planning():
     joint_initial = robot.get_joints()
     # Should succeed, no collisions.
     ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
-    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
@@ -253,7 +253,7 @@ def test_run_motion_planning():
                                       table_orientation,
                                       physicsClientId=physics_client_id)
     ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.6))
-    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
@@ -277,7 +277,7 @@ def test_run_motion_planning():
                                       block_orientation,
                                       physicsClientId=physics_client_id)
     ee_target = (1.35, 0.4, 0.6)
-    joint_target = robot._run_inverse_kinematics(ee_target, validate=True)  # pylint: disable=protected-access
+    joint_target = robot.inverse_kinematics(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
@@ -285,7 +285,3 @@ def test_run_motion_planning():
                                seed=seed,
                                physics_client_id=physics_client_id)
     assert path is not None
-    for action in path:
-        robot.set_joints(action)
-        import time
-        time.sleep(0.1)

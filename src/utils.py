@@ -1443,16 +1443,16 @@ class BiRRT(Generic[_S]):
             if len(nodes1) > len(nodes2):
                 nodes1, nodes2 = nodes2, nodes1
             samp = self._sample_fn(pt1)
-            min_key1: Callable[[_BiRRTNode[_S]], float] = \
-                lambda n: self._distance_fn(n.data, samp)
+            min_key1: Callable[[_BiRRTNode[_S], _S], float] = \
+                lambda n, s=samp: self._distance_fn(n.data, s)
             nearest1 = min(nodes1, key=min_key1)
             for newpt in self._extend_fn(nearest1.data, samp):
                 if self._collision_fn(newpt):
                     break
                 nearest1 = _BiRRTNode(newpt, parent=nearest1)
                 nodes1.append(nearest1)
-            min_key2: Callable[[_BiRRTNode[_S]], float] = \
-                lambda n: self._distance_fn(n.data, nearest1.data)
+            min_key2: Callable[[_BiRRTNode[_S], _S], float] = \
+                lambda n, s=nearest1.data: self._distance_fn(n.data, s)
             nearest2 = min(nodes2, key=min_key2)
             for newpt in self._extend_fn(nearest2.data, nearest1.data):
                 if self._collision_fn(newpt):
@@ -1486,7 +1486,7 @@ class BiRRT(Generic[_S]):
 
 
 class _BiRRTNode(Generic[_S]):
-    """A node for _BiRRT."""
+    """A node for BiRRT."""
 
     def __init__(self,
                  data: _S,

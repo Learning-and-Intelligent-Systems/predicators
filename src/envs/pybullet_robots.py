@@ -381,8 +381,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-    def forward_kinematics(self, action_arr: Array) -> Pose3D:
-        self.set_joints(list(action_arr))
+    def forward_kinematics(self, joint_state: JointState) -> Pose3D:
+        self.set_joints(joint_state)
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        computeForwardKinematics=True,
@@ -622,9 +622,6 @@ def inverse_kinematics(
     return joint_vals
 
 
-JointState = Sequence[float]
-
-
 def run_motion_planning(
         robot: _SingleArmPyBulletRobot, initial_state: JointState,
         target_state: JointState, collision_bodies: Collection[int], seed: int,
@@ -636,9 +633,9 @@ def run_motion_planning(
     rng = np.random.default_rng(seed)
     joint_space = robot.action_space
     joint_space.seed(seed)
-    sample_fn = lambda _: joint_space.sample()
+    _sample_fn = lambda _: joint_space.sample()
 
-    def extend_fn(pt1: JointState, pt2: JointState) -> Iterator[JointState]:
+    def _extend_fn(pt1: JointState, pt2: JointState) -> Iterator[JointState]:
         pt1_arr = np.array(pt1)
         pt2_arr = np.array(pt2)
         # TODO: justify constants... make in terms of max movement or something
@@ -648,7 +645,7 @@ def run_motion_planning(
         for i in range(1, num + 1):
             yield list(pt1_arr * (1 - i / num) + pt2_arr * i / num)
 
-    def collision_fn(pt: JointState) -> bool:
+    def _collision_fn(pt: JointState) -> bool:
         robot.set_joints(pt)
         p.performCollisionDetection(physicsClientId=physics_client_id)
         for body in collision_bodies:
@@ -658,19 +655,18 @@ def run_motion_planning(
                 return True
         return False
 
-    def distance_fn(from_pt: JointState, to_pt: JointState) -> float:
-        from_ee = robot.forward_kinematics(np.array(from_pt))
-        to_ee = robot.forward_kinematics(np.array(to_pt))
+    def _distance_fn(from_pt: JointState, to_pt: JointState) -> float:
+        from_ee = robot.forward_kinematics(from_pt)
+        to_ee = robot.forward_kinematics(to_pt)
         return sum(np.subtract(from_ee, to_ee)**2)
 
-    # TODO: deal with hyperparameters.
-    birrt = utils.BiRRT(sample_fn,
-                        extend_fn,
-                        collision_fn,
-                        distance_fn,
+    birrt = utils.BiRRT(_sample_fn,
+                        _extend_fn,
+                        _collision_fn,
+                        _distance_fn,
                         rng,
-                        num_attempts=10,
-                        num_iters=100,
-                        smooth_amt=50)
+                        num_attempts=CFG.pybullet_birrt_num_attempts,
+                        num_iters=CFG.pybullet_birrt_num_iters,
+                        smooth_amt=CFG.pybullet_birrt_smooth_amt)
 
     return birrt.query(initial_state, target_state)
