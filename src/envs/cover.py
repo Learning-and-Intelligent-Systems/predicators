@@ -507,6 +507,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         float] = 0.1  # A block's base must be below this to be placed.
     initial_robot_y: ClassVar[float] = 0.4
     collision_threshold: ClassVar[float] = 1e-5
+    grip_lb: ClassVar[float] = -1.0
+    grip_ub: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -597,9 +599,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # env. The action space now is (dx, dy, dgrip). The
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
-        # multi-step options.
+        # multi-step options. The action limits are for dx, dy only;
+        # dgrip is constrained separately based on the grip limits.
         lb, ub = CFG.cover_multistep_action_limits
-        return Box(lb, ub, (3, ))
+        return Box(np.array([lb, lb, self.grip_lb], dtype=np.float32),
+                   np.array([ub, ub, self.grip_ub], dtype=np.float32))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
@@ -686,7 +690,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # action.
         x += dx
         y += dy
-        grip = dgrip  # desired grip; set directly
+        # Set desired grip directly and clip it.
+        grip = np.clip(dgrip, self.grip_lb, self.grip_ub)
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "grip", grip)
