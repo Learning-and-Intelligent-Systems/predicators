@@ -235,7 +235,7 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        self._pybullet_robot.set_motors(list(action.arr))
+        self._pybullet_robot.set_motors(action.arr.tolist())
 
         # Step the simulation here before adding or removing constraints
         # because detect_held_object() should use the updated state.

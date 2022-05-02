@@ -149,8 +149,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @abc.abstractmethod
     def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        """Compute the end effector pose that if the robot arm joints state
-        was equal to the input joints_state.
+        """Compute the end effector pose that would result if the robot arm
+        joints state was equal to the input joints_state.
 
         WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
@@ -160,11 +160,14 @@ class _SingleArmPyBulletRobot(abc.ABC):
     @abc.abstractmethod
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointsState:
-        """Compute a joints state from an end effector pose.
+        """Compute a joints state from a target end effector pose.
 
         If validate is True, guarantee that the returned joints state
         would result in end_effector_pose if run through
         forward_kinematics.
+
+        WARNING: if validate is True, physics may be overridden, and so it
+        should not be used within simulation.
         """
         raise NotImplementedError("Override me!")
 
