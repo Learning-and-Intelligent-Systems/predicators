@@ -108,6 +108,10 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
     pybullet_robot = "fetch"
+    pybullet_birrt_num_attempts = 10
+    pybullet_birrt_num_iters = 100
+    pybullet_birrt_smooth_amt = 50
+    pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
 
     # pddl blocks env parameters
