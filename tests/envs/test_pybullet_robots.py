@@ -8,7 +8,7 @@ from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
 from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
     create_single_arm_pybullet_robot, get_kinematic_chain, \
-    pybullet_inverse_kinematics, run_motion_planning
+    inverse_kinematics, run_motion_planning
 from predicators.src.settings import CFG
 
 
@@ -68,8 +68,8 @@ def test_get_kinematic_chain(scene_attributes):
     assert len(arm_joints) == 7
 
 
-def test_pybullet_inverse_kinematics(scene_attributes):
-    """Tests for pybullet_inverse_kinematics()."""
+def test_inverse_kinematics(scene_attributes):
+    """Tests for inverse_kinematics()."""
     arm_joints = get_kinematic_chain(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
@@ -90,7 +90,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
     target_position = scene_attributes["robot_home"]
     # With validate = False, one call to IK is not good enough.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -113,7 +113,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joints_state = inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -141,7 +141,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         target_position[0], target_position[1], target_position[2] + 100.0
     ]
     with pytest.raises(Exception) as e:
-        pybullet_inverse_kinematics(
+        inverse_kinematics(
             scene_attributes["fetch_id"],
             scene_attributes["ee_id"],
             target_position,
