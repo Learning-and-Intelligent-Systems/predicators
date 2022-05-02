@@ -1439,20 +1439,22 @@ class BiRRT(Generic[_S]):
     def _rrt_connect(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
         root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
         nodes1, nodes2 = [root1], [root2]
+
+        def _get_pt_dist_to_node(pt: _S, node: _BiRRTNode[_S]) -> float:
+            return self._distance_fn(pt, node.data)
+
         for _ in range(self._num_iters):
             if len(nodes1) > len(nodes2):
                 nodes1, nodes2 = nodes2, nodes1
             samp = self._sample_fn(pt1)
-            dist_to_samp = functools.partial(self._distance_fn, samp)
-            min_key1 = lambda n: dist_to_samp(n.data)
+            min_key1 = functools.partial(_get_pt_dist_to_node, samp)
             nearest1 = min(nodes1, key=min_key1)
             for newpt in self._extend_fn(nearest1.data, samp):
                 if self._collision_fn(newpt):
                     break
                 nearest1 = _BiRRTNode(newpt, parent=nearest1)
                 nodes1.append(nearest1)
-            dist_to_near1 = functools.partial(self._distance_fn, nearest1.data)
-            min_key2 = lambda n: dist_to_near1(n.data)
+            min_key2 = functools.partial(_get_pt_dist_to_node, nearest1.data)
             nearest2 = min(nodes2, key=min_key2)
             for newpt in self._extend_fn(nearest2.data, nearest1.data):
                 if self._collision_fn(newpt):
