@@ -237,10 +237,33 @@ class PyBulletEnv(BaseEnv):
         # Send the action to the robot.
         self._pybullet_robot.set_motors(action.arr.tolist())
 
+        # If we are setting the robot joints directly, and if there is a held
+        # object, we need to reset the pose of the held object directly. This
+        # is because the PyBullet constraints don't seem to play nicely with
+        # resetJointState (the robot will sometimes drop the object).
+        if CFG.pybullet_control_mode == "reset" and \
+            self._held_obj_id is not None:
+            world_to_base_link = p.getLinkState(
+                self._pybullet_robot.robot_id,
+                self._pybullet_robot.end_effector_id,
+                physicsClientId=self._physics_client_id)[:2]
+            base_link_to_held_obj = p.invertTransform(
+                *self._held_obj_to_base_link)
+            world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                     world_to_base_link[1],
+                                                     base_link_to_held_obj[0],
+                                                     base_link_to_held_obj[1])
+            p.resetBasePositionAndOrientation(
+                self._held_obj_id,
+                world_to_held_obj[0],
+                world_to_held_obj[1],
+                physicsClientId=self._physics_client_id)
+
         # Step the simulation here before adding or removing constraints
         # because detect_held_object() should use the updated state.
-        for _ in range(CFG.pybullet_sim_steps_per_action):
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        if CFG.pybullet_control_mode != "reset":
+            for _ in range(CFG.pybullet_sim_steps_per_action):
+                p.stepSimulation(physicsClientId=self._physics_client_id)
 
         # If not currently holding something, and fingers are closing, check
         # for a new grasp.

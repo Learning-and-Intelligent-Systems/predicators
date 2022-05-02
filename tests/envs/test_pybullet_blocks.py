@@ -78,7 +78,12 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
 @pytest.fixture(scope="module", name="env")
 def _create_exposed_pybullet_blocks_env():
     """Only create once and share among all tests, for efficiency."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    utils.reset_config({
+        "env": "pybullet_blocks",
+        "pybullet_use_gui": _GUI_ON,
+        # We run this test using the POSITION control mode.
+        "pybullet_control_mode": "position",
+    })
     return _ExposedPyBulletBlocksEnv()
 
 

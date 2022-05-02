@@ -78,7 +78,9 @@ def _create_exposed_pybullet_cover_env():
     utils.reset_config({
         "env": "pybullet_cover",
         "pybullet_use_gui": _GUI_ON,
-        "cover_initial_holding_prob": 0.0
+        "cover_initial_holding_prob": 0.0,
+        # We run this test using the RESET control mode.
+        "pybullet_control_mode": "reset",
     })
     return _ExposedPyBulletCoverEnv()
 
