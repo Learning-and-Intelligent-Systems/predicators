@@ -7,7 +7,6 @@ from predicators.src import utils
 from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Object, State
-from predicators.tests.conftest import longrun
 
 _GUI_ON = False  # toggle for debugging
 
@@ -81,8 +80,8 @@ def _create_exposed_pybullet_blocks_env():
     utils.reset_config({
         "env": "pybullet_blocks",
         "pybullet_use_gui": _GUI_ON,
-        # We run this test using the POSITION control mode.
-        "pybullet_control_mode": "position",
+        # We run this test using the RESET control mode.
+        "pybullet_control_mode": "reset",
     })
     return _ExposedPyBulletBlocksEnv()
 
@@ -148,7 +147,6 @@ def test_pybullet_blocks_picking(env):
     assert state.get(robot, "fingers") == 0.0
 
 
-@longrun
 def test_pybullet_blocks_picking_corners(env):
     """Test that the block can be picked at the extremes of the workspace."""
     block = Object("block0", env.block_type)
@@ -219,7 +217,6 @@ def test_pybullet_blocks_stacking(env):
     assert On([block0, block1]).holds(state)
 
 
-@longrun
 def test_pybullet_blocks_stacking_corners(env):
     """Test stacking a block on the tallest possible tower at each of the
     possible corners."""
@@ -301,7 +298,6 @@ def test_pybullet_blocks_putontable(env):
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
 
 
-@longrun
 def test_pybullet_blocks_putontable_corners(env):
     """Test that the block can be placed at the extremes of the workspace."""
     OnTable, = _get_predicates_by_names(env, ["OnTable"])
@@ -347,7 +343,6 @@ def test_pybullet_blocks_putontable_corners(env):
         assert abs(state.get(block, "pose_y") - by) < 1e-2
 
 
-@longrun
 def test_pybullet_blocks_close_pick_place(env):
     """Test a tricky case where we attempt to pick and place immediately next
     to a pile of blocks.
@@ -406,7 +401,6 @@ def test_pybullet_blocks_close_pick_place(env):
     assert initial_pile_state.allclose(pile_state)
 
 
-@longrun
 def test_pybullet_blocks_abstract_states(env):
     """Tests abstract states during option execution in PyBulletBlocksEnv."""
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
