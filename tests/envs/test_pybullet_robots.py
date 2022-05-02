@@ -153,6 +153,7 @@ def test_inverse_kinematics(scene_attributes):
 
 def test_fetch_pybullet_robot():
     """Tests for FetchPyBulletRobot()."""
+    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
     physics_client_id = p.connect(p.DIRECT)
 
     ee_home_pose = (1.35, 0.75, 0.75)
@@ -184,6 +185,12 @@ def test_fetch_pybullet_robot():
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
     action_arr = np.array(joint_target, dtype=np.float32)
+    with pytest.raises(NotImplementedError) as e:
+        robot.set_motors(action_arr)
+    assert "Unrecognized pybullet_control_mode" in str(e)
+    utils.reset_config({"pybullet_control_mode": "reset"})
+    robot.set_motors(action_arr)  # just make sure it doesn't crash
+    utils.reset_config({"pybullet_control_mode": "position"})
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
@@ -208,8 +215,9 @@ def test_create_single_arm_pybullet_robot():
                                              move_to_pose_tol, max_vel_norm,
                                              grasp_tol, physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, move_to_pose_tol,
                                          max_vel_norm, grasp_tol,
                                          physics_client_id)
+    assert "Unrecognized robot name" in str(e)
