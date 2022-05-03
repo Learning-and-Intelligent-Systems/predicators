@@ -61,24 +61,26 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Stick Button": [
+    "Cover": [
         ("Oracle Options", "*",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "oracle_options_" in v)
+         lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "cover_multistep_options_oracle_options_" in v)
          ),
         ("Ours", "o",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main_" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "cover_multistep_options_main_" in v)),
         ("Ours (Nonparam)", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "direct_bc_nonparam_" in v)),
+            lambda v: "cover_multistep_options_direct_bc_nonparam_" in v)),
         ("GNN Metacontroller (Param)", "o", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "gnn_metacontroller_param_" in v)),
+         apply(lambda v: "cover_multistep_options_gnn_metacontroller_param_" in v)),
         ("GNN Metacontroller (Nonparam)", "o", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "gnn_metacontroller_nonparam_" in v)),
+         apply(lambda v: "cover_multistep_options_gnn_metacontroller_nonparam_" in v)),
         ("GNN Action Policy", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "gnn_action_policy_" in v)),
+            lambda v: "cover_multistep_options_gnn_action_policy_" in v)),
         ("Max Skeletons=1", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "direct_bc_max_skel1_" in v)),
+            lambda v: "cover_multistep_options_direct_bc_max_skel1_" in v)),
         ("Max Samples=1", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "direct_bc_max_samp1_" in v)),
+            lambda v: "cover_multistep_options_direct_bc_max_samp1_" in v)),
     ],
 }
 
