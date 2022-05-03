@@ -215,7 +215,7 @@ def _generate_interaction_results(
     if CFG.make_interaction_videos:
         video = []
     for request in requests:
-        if request.train_task_idx >= CFG.max_initial_demos and \
+        if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
