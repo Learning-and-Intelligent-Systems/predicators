@@ -135,3 +135,21 @@ def test_interaction():
         "max_num_steps_interaction_request": 3,
     })
     _run_pipeline(env, approach, train_tasks, dataset)
+    # Tests for CFG.allow_interaction_in_demo_tasks. An error should be raised
+    # if the agent makes a request about a task where a demonstration was
+    # generated.
+    utils.reset_config({
+        "max_initial_demos": 1,
+        "allow_interaction_in_demo_tasks": False,
+        "num_online_learning_cycles": 1,
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 2,
+        "num_test_tasks": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
+    })
+    with pytest.raises(RuntimeError):
+        _run_pipeline(env, approach, train_tasks, dataset)
