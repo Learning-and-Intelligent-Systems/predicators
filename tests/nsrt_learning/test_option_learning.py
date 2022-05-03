@@ -182,7 +182,10 @@ def test_learned_neural_parameterized_option():
                                    pick_nsrt.delete_effects,
                                    pick_nsrt.side_predicates)
     # In this example, both of the parameters (block and robot) are changing.
-    changing_parameters = pick_operator.parameters
+    changing_var_to_feat = {
+        p: set(range(p.type.dim))
+        for p in pick_operator.parameters
+    }
     # Create a dummy regressor but with the right shapes.
     regressor = MLPRegressor(seed=123,
                              hid_sizes=[32, 32],
@@ -190,7 +193,7 @@ def test_learned_neural_parameterized_option():
                              clip_gradients=False,
                              clip_value=5,
                              learning_rate=1e-3)
-    param_dim = sum([p.type.dim for p in changing_parameters])
+    param_dim = sum([len(v) for v in changing_var_to_feat.values()])
     input_dim = sum([p.type.dim for p in pick_operator.parameters]) + param_dim
     # The plus 1 is for the bias term.
     X_arr_regressor = np.zeros((1, 1 + input_dim), dtype=np.float32)
@@ -199,7 +202,7 @@ def test_learned_neural_parameterized_option():
     regressor.fit(X_arr_regressor, Y_arr_regressor)
     param_option = _LearnedNeuralParameterizedOption("LearnedOption1",
                                                      pick_operator, regressor,
-                                                     changing_parameters,
+                                                     changing_var_to_feat,
                                                      env.action_space)
     assert param_option.name == "LearnedOption1"
     assert param_option.types == [p.type for p in pick_operator.parameters]
