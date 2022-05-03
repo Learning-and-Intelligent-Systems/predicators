@@ -211,6 +211,8 @@ class GNNPolicyApproach(BaseApproach):
                               target: torch.Tensor) -> torch.Tensor:
             # Combine losses from the one-hot option selection and
             # the continuous parameters.
+            import pdb; pdb.set_trace()
+
             onehot_output, params_output = torch.split(  # type: ignore
                 output, [len(self._sorted_options), self._max_option_params],
                 dim=1)
@@ -443,12 +445,19 @@ class GNNPolicyApproach(BaseApproach):
 
     def _graphify_single_input(self, state: State, atoms: Set[GroundAtom],
                                goal: Set[GroundAtom]) -> Tuple[Dict, Dict]:
+        # state is the concatenation of the affected objects in the operator
+        # only pass in goal groundatoms
+        # then pass in set of object states (for goal objects) 
+        ## state is currently only used for its objs, so we can probably just pass in goal objs and 
+        ## their states
         all_objects = list(state)
         node_to_object = dict(enumerate(all_objects))
         object_to_node = {v: k for k, v in node_to_object.items()}
         num_objects = len(all_objects)
         num_node_features = len(self._node_feature_to_index)
         num_edge_features = len(self._edge_feature_to_index)
+
+        # import pdb; pdb.set_trace()
 
         G = functools.partial(utils.wrap_predicate, prefix="GOAL-")
         R = functools.partial(utils.wrap_predicate, prefix="REV-")
@@ -468,6 +477,8 @@ class GNNPolicyApproach(BaseApproach):
             goal_globals[self._nullary_predicates.index(atom.predicate)] = 1
         graph["globals"] = np.r_[atoms_globals, goal_globals]
 
+        # import pdb; pdb.set_trace()
+
         # Add nodes (one per object) and node features.
         graph["n_node"] = np.array(num_objects)
         node_features = np.zeros((num_objects, num_node_features))
@@ -477,6 +488,8 @@ class GNNPolicyApproach(BaseApproach):
             obj_index = object_to_node[obj]
             type_index = self._node_feature_to_index[f"type_{obj.type.name}"]
             node_features[obj_index, type_index] = 1
+        
+        # import pdb; pdb.set_trace()
 
         ## Add node features for unary atoms.
         for atom in atoms:

@@ -14,7 +14,8 @@ from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
 from predicators.src.torch_models import Classifier, MLPClassifier, \
-    NeuralGaussianRegressor
+    NeuralGaussianRegressor, GNNRegressor
+from predicators.src.nsrt_learning.sampler_learning_utils import graphify_single_input
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -145,9 +146,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         # methods to come.
         if CFG.sampler_learning_use_goals:
             assert goal is not None
-            assert len(goal) == 1
+            # assert len(goal) == 1
             goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
+            # assert len(goal_atom.objects) == 1
             goal_obj = goal_atom.objects[0]
             X_classifier[-1].extend(state[goal_obj])
     X_arr_classifier = np.array(X_classifier)
@@ -158,34 +159,71 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                                CFG.sampler_mlp_classifier_max_itr)
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
-    # Fit regressor to data
-    logging.info("Fitting regressor...")
-    X_regressor: List[List[Array]] = []
-    Y_regressor = []
-    for state, sub, option, goal in positive_data:  # don't use negative data!
-        # input is state features
-        X_regressor.append([np.array(1.0)])  # start with bias term
-        for var in variables:
-            X_regressor[-1].extend(state[sub[var]])
-        # Above, we made the assumption that there is one goal atom with one
-        # goal object, which must also be used when assembling data for the
-        # regressor.
-        if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_regressor[-1].extend(state[goal_obj])
-        # output is option parameters
-        Y_regressor.append(option.params)
-    X_arr_regressor = np.array(X_regressor)
-    Y_arr_regressor = np.array(Y_regressor)
-    regressor = NeuralGaussianRegressor()
-    regressor.fit(X_arr_regressor, Y_arr_regressor)
+    gnn_model = None
+    regressor = None
+    if CFG.sampler_use_gnn: 
+        # Fit GNN to data 
+        logging.info("Fitting GNN...")    
+        gnn_model = GNNRegressor({param_option}) 
+
+        # import pdb; pdb.set_trace()
+        gnn_model.setup_fields(positive_data)
+
+        X = [] 
+        Y = []
+        for state, sub, option, goal in positive_data: 
+
+            # state features for global vector 
+            state_feature = np.array([1.0])
+            for var in variables: 
+                state_feature = np.concatenate((state_feature, state[sub[var]]))
+
+            # goal objects and their states
+            goal_objs_to_states = {} 
+            for atom in goal: 
+                for obj in atom.objects:
+                    goal_objs_to_states[obj] = state[obj]
+
+            X.append((state_feature, goal, goal_objs_to_states))
+            Y.append(option)
+
+        graph_data = gnn_model.graphify_data(X,Y)
+        gnn_model.learn_from_graph_data(graph_data)
+
+        import pdb; pdb.set_trace()
+
+    else: 
+        # Fit regressor to data
+        logging.info("Fitting regressor...")
+        X_regressor: List[List[Array]] = []
+        Y_regressor = []
+
+        # original regressor data stuff 
+        for state, sub, option, goal in positive_data:  # don't use negative data!
+            # import pdb; pdb.set_trace() 
+            # input is state features
+            X_regressor.append([np.array(1.0)])  # start with bias term
+            for var in variables:
+                X_regressor[-1].extend(state[sub[var]])
+            # Above, we made the assumption that there is one goal atom with one
+            # goal object, which must also be used when assembling data for the
+            # regressor.
+            if CFG.sampler_learning_use_goals:
+                assert goal is not None
+                # assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                # assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                X_regressor[-1].extend(state[goal_obj])
+            # output is option parameters
+            Y_regressor.append(option.params)
+        X_arr_regressor = np.array(X_regressor)
+        Y_arr_regressor = np.array(Y_regressor)
+        regressor = NeuralGaussianRegressor()
+        regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
-    return _LearnedSampler(classifier, regressor, variables,
+    return _LearnedSampler(classifier, regressor, gnn_model, variables,
                            param_option).sampler
 
 
@@ -259,6 +297,7 @@ class _LearnedSampler:
     sampler."""
     _classifier: Classifier
     _regressor: NeuralGaussianRegressor
+    _gnnregressor: GNNRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
@@ -277,16 +316,35 @@ class _LearnedSampler:
         # will not be true in most cases. This is a placeholder for better
         # methods to come.
         if CFG.sampler_learning_use_goals:
-            assert len(goal) == 1
+            # assert len(goal) == 1
             goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
+            # assert len(goal_atom.objects) == 1
             goal_obj = goal_atom.objects[0]
             x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
         if CFG.sampler_disable_classifier:
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
+            if CFG.sampler_use_gnn: 
+                # state features for global vector 
+                state_feature = np.array([1.0])
+                for var in self._variables: 
+                    state_feature = np.concatenate((state_feature, state[sub[var]]))
+
+                # goal objects and their states
+                goal_objs_to_states = {} 
+                for atom in goal: 
+                    for obj in atom.objects:
+                        goal_objs_to_states[obj] = state[obj]
+
+                sample = self._gnnregressor.predict_sample(state_feature, goal, goal_objs_to_states)
+                params = np.array(sample, dtype=self._param_option.params_space.dtype)
+                low = self._param_option.params_space.low
+                high = self._param_option.params_space.high
+                params = np.clip(params, low, high)
+                return params
+            else: 
+                params = np.array(self._regressor.predict_sample(x, rng),
+                                  dtype=self._param_option.params_space.dtype)
             low = self._param_option.params_space.low
             high = self._param_option.params_space.high
             params = np.clip(params, low, high)

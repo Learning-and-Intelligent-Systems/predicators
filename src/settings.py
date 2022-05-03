@@ -134,7 +134,7 @@ class GlobalSettings:
     gnn_policy_num_message_passing = 3
     gnn_policy_layer_size = 16
     gnn_policy_learning_rate = 1e-3
-    gnn_policy_num_epochs = 25000
+    gnn_policy_num_epochs = 10000 #25000
     gnn_policy_batch_size = 128
     gnn_policy_do_normalization = False  # performs worse in Cover when True
     gnn_policy_use_validation_set = True
@@ -179,7 +179,7 @@ class GlobalSettings:
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
     neural_gaus_regressor_hid_sizes = [32, 32]
-    neural_gaus_regressor_max_itr = 1000
+    neural_gaus_regressor_max_itr = 10000
     mlp_classifier_n_iter_no_change = 5000
     implicit_mlp_regressor_max_itr = 10000
     implicit_mlp_regressor_num_negative_data_per_input = 5
@@ -190,7 +190,8 @@ class GlobalSettings:
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
-    sampler_disable_classifier = False
+    sampler_disable_classifier = True #False
+    sampler_use_gnn = True
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
