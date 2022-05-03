@@ -41,11 +41,11 @@ class _MockApproach(BaseApproach):
         hand_empty_atom = GroundAtom(HandEmpty, [])
         query_policy1 = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
         termination_function1 = lambda s: True  # terminate immediately
-        request1 = InteractionRequest(0, act_policy, query_policy1,
+        request1 = InteractionRequest(1, act_policy, query_policy1,
                                       termination_function1)
         query_policy2 = lambda s: None  # no queries
         termination_function2 = lambda s: False  # go until max steps
-        request2 = InteractionRequest(1, act_policy, query_policy2,
+        request2 = InteractionRequest(2, act_policy, query_policy2,
                                       termination_function2)
         return [request1, request2]
 
@@ -83,7 +83,7 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 2,
+        "num_train_tasks": 3,
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1,
         "make_interaction_videos": True,
@@ -129,7 +129,41 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 2,
+        "num_train_tasks": 3,
+        "num_test_tasks": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
+    })
+    _run_pipeline(env, approach, train_tasks, dataset)
+    # Tests for CFG.allow_interaction_in_demo_tasks. An error should be raised
+    # if the agent makes a request about a task where a demonstration was
+    # generated.
+    utils.reset_config({
+        "max_initial_demos": 2,
+        "allow_interaction_in_demo_tasks": False,
+        "num_online_learning_cycles": 1,
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 3,
+        "num_test_tasks": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
+    })
+    with pytest.raises(RuntimeError) as e:
+        _run_pipeline(env, approach, train_tasks, dataset)
+    assert "Interaction requests cannot be on demo tasks" in str(e)
+    # This should succeed because the requests are about train tasks 1 and 2.
+    utils.reset_config({
+        "max_initial_demos": 1,
+        "allow_interaction_in_demo_tasks": False,
+        "num_online_learning_cycles": 1,
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 3,
         "num_test_tasks": 1,
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
