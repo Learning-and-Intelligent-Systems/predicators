@@ -244,9 +244,11 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
       below), all concatenated into a 1D vector, and outputs an action.
 
     The continuous parameters of the option are the main thing to note: they
-    correspond to a desired change in state for a subset of the option objects.
-    The objects that are changing correspond to changing_parameters; all other
-    objects are assumed to have no change in their state.
+    correspond to a desired change in state for a subset of the option objects
+    and a subset of those object features. The objects that are changing are
+    changing_var_order, and also the keys of changing_var_to_feat. The feature
+    indices that are changing are the values in changing_var_to_feat. All other
+    objects and features are assumed to have no change in their state.
 
     Note that the option terminal, which corresponds to the operator effects,
     already describes how we want the objects to change. But these effects only
@@ -279,7 +281,8 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                  name: str,
                  operator: STRIPSOperator,
                  regressor: Regressor,
-                 changing_var_to_feat: Dict[Variable, Set[int]],
+                 changing_var_to_feat: Dict[Variable, List[int]],
+                 changing_var_order: List[Variable],
                  action_space: Box,
                  is_parameterized: bool = True) -> None:
         assert set(changing_var_to_feat).issubset(set(operator.parameters))
@@ -296,9 +299,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         self._operator = operator
         self._regressor = regressor
         self._changing_var_to_feat = changing_var_to_feat
-        self._changing_vars = [
-            v for v in operator.parameters if v in changing_var_to_feat
-        ]
+        self._changing_var_order = changing_var_order
         self._action_space = action_space
         self._is_parameterized = is_parameterized
         super().__init__(name,
@@ -317,7 +318,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             memory["params"] = params  # store for sanity checking in policy
             var_to_obj = dict(zip(self._operator.parameters, objects))
             state_params = _create_absolute_option_param(
-                state, self._changing_var_to_feat, self._changing_vars,
+                state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
             memory["absolute_params"] = state_params + params
         # Check if initiable based on preconditions.
@@ -332,7 +333,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             assert np.allclose(params, memory["params"])
             var_to_obj = dict(zip(self._operator.parameters, objects))
             state_params = _create_absolute_option_param(
-                state, self._changing_var_to_feat, self._changing_vars,
+                state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
             relative_goal_vec = memory["absolute_params"] - state_params
         else:
@@ -420,11 +421,8 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
             changing_var_to_feat = self._get_changing_features(datastore)
             # Just to avoid confusion, we will insist that the order of the
             # changing parameters is consistent with the order of the original.
-            changing_parameters = sorted(changing_var_to_feat,
-                                         key=op.parameters.index)
-            assert changing_parameters == [
-                v for v in op.parameters if v in changing_parameters
-            ]
+            changing_var_order = sorted(changing_var_to_feat,
+                                        key=op.parameters.index)
             for segment, var_to_obj in datastore:
                 all_objects_in_operator = [
                     var_to_obj[v] for v in op.parameters
@@ -435,10 +433,10 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     init_state = segment.states[0]
                     final_state = segment.states[-1]
                     init_param = _create_absolute_option_param(
-                        init_state, changing_var_to_feat, changing_parameters,
+                        init_state, changing_var_to_feat, changing_var_order,
                         var_to_obj)
                     final_param = _create_absolute_option_param(
-                        final_state, changing_var_to_feat, changing_parameters,
+                        final_state, changing_var_to_feat, changing_var_order,
                         var_to_obj)
                     option_param = final_param - init_param
                 else:
@@ -460,7 +458,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     if self._is_parameterized:
                         # Compute the relative goal vector for this segment.
                         state_param = _create_absolute_option_param(
-                            state, changing_var_to_feat, changing_parameters,
+                            state, changing_var_to_feat, changing_var_order,
                             var_to_obj)
                         rel_goal_vec = (final_param - state_param).tolist()
                     else:
@@ -488,6 +486,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                 op,
                 regressor,
                 changing_var_to_feat,
+                changing_var_order,
                 self._action_space,
                 is_parameterized=self._is_parameterized)
             option_specs.append((parameterized_option, list(op.parameters)))
@@ -496,27 +495,33 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
 
     @staticmethod
     def _get_changing_features(
-            datastore: Datastore) -> Dict[Variable, Set[int]]:
+            datastore: Datastore) -> Dict[Variable, List[int]]:
         """Returns a dict from variables to changing feature indices.
 
         If a variable has no changing feature indices, it is not
         included in the returned dict.
         """
-        changing_var_to_feat: Dict[Variable, Set[int]] = {}
+        # Create sets of features first, because we want to use set update,
+        # but then convert the features to a sorted list at the end.
+        changing_var_to_feat_set: Dict[Variable, Set[int]] = {}
         for segment, var_to_obj in datastore:
             start = segment.states[0]
             end = segment.states[-1]
             for v, o in var_to_obj.items():
                 if np.allclose(start[o], end[o]):
                     continue
-                if v not in changing_var_to_feat:
-                    changing_var_to_feat[v] = set()
+                if v not in changing_var_to_feat_set:
+                    changing_var_to_feat_set[v] = set()
                 changed_indices = {
                     i
                     for i in range(len(start[o]))
                     if abs(start[o][i] - end[o][i]) > 1e-7
                 }
-                changing_var_to_feat[v].update(changed_indices)
+                changing_var_to_feat_set[v].update(changed_indices)
+        changing_var_to_feat = {
+            v: sorted(f)
+            for v, f in changing_var_to_feat_set.items()
+        }
         return changing_var_to_feat
 
     def update_segment_from_option_spec(self, segment: Segment,
@@ -570,7 +575,7 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
 
 def _create_absolute_option_param(state: State,
                                   changing_var_to_feat: Dict[Variable,
-                                                             Set[int]],
+                                                             List[int]],
                                   var_order: Sequence[Variable],
                                   var_to_obj: VarToObjSub) -> Array:
 
@@ -578,6 +583,6 @@ def _create_absolute_option_param(state: State,
     for v in var_order:
         obj = var_to_obj[v]
         obj_vec = state[obj]
-        for idx in sorted(changing_var_to_feat[v]):
+        for idx in changing_var_to_feat[v]:
             vec.append(obj_vec[idx])
     return np.array(vec, dtype=np.float32)
