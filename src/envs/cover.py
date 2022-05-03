@@ -603,10 +603,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 hw, hh = state.get(held_block, "width"), \
                          state.get(held_block, "height")
 
-        # Prevent the robot from going below the floor.
-        y_floor = 0
-        if y + dy < y_floor:
-            dy = y_floor - y
+        # Prevent the robot from going below the top of the blocks.
+        y_min_robot = self.block_height
+        if y + dy < y_min_robot:
+            dy = y_min_robot - y
         # If the robot is close to the initial robot y position and moving up,
         # snap it into place vertically.
         if abs(y + dy - self.initial_robot_y) < self.snap_tol and dy > 0:
@@ -618,6 +618,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if held_block is not None and dy < 0:
             held_block_bottom = hy - hh
             # Always snap if below the floor.
+            y_floor = 0
             if held_block_bottom + dy < y_floor or \
                 abs(held_block_bottom + dy - y_floor) < self.snap_tol:
                 dy = y_floor - held_block_bottom
