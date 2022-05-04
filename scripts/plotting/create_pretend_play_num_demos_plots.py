@@ -22,7 +22,7 @@ FONT_SIZE = 18
 # Groups over which to take mean/std.
 GROUPS = [
     "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
-    "NUM_TRAIN_TASKS", "CYCLE"
+    "NUM_TRAIN_TASKS", "CYCLE", "NUM_DEMOS"
 ]
 
 # All column names and keys to load into the pandas tables before plotting.
