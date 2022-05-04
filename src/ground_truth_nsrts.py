@@ -34,6 +34,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
     elif CFG.env in ("blocks", "pybullet_blocks"):
         nsrts = _get_blocks_gt_nsrts()
+    elif CFG.env == "play_blocks":
+        nsrts = _get_play_blocks_gt_nsrts()
     elif CFG.env == "behavior":
         nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
     elif CFG.env in ("painting", "repeated_nextto_painting"):
@@ -477,6 +479,123 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
 
 def _get_blocks_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for BlocksEnv."""
+    block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
+
+    On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
+        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+
+    Pick, Stack, PutOnTable = _get_options_by_names(
+        CFG.env, ["Pick", "Stack", "PutOnTable"])
+
+    nsrts = set()
+
+    # PickFromTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {
+        LiftedAtom(OnTable, [block]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {
+        LiftedAtom(OnTable, [block]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+
+    pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, null_sampler)
+    nsrts.add(pickfromtable_nsrt)
+
+    # Unstack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    add_effects = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock])
+    }
+    delete_effects = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    unstack_nsrt = NSRT("Unstack",
+                        parameters, preconditions, add_effects, delete_effects,
+                        set(), option, option_vars, null_sampler)
+    nsrts.add(unstack_nsrt)
+
+    # Stack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, otherblock]
+    option = Stack
+    preconditions = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock])
+    }
+    add_effects = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock])
+    }
+
+    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
+    nsrts.add(stack_nsrt)
+
+    # PutOnTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = [robot]
+    option = PutOnTable
+    preconditions = {LiftedAtom(Holding, [block])}
+    add_effects = {
+        LiftedAtom(OnTable, [block]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot])
+    }
+    delete_effects = {LiftedAtom(Holding, [block])}
+
+    def putontable_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        # Note: normalized coordinates w.r.t. workspace.
+        x = rng.uniform()
+        y = rng.uniform()
+        return np.array([x, y], dtype=np.float32)
+
+    putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, putontable_sampler)
+    nsrts.add(putontable_nsrt)
+
+    return nsrts
+
+
+def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
+    """Create ground trurth NSRTs for PlayBlocksEnv."""
     block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
 
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
