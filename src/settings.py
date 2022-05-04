@@ -24,6 +24,9 @@ class GlobalSettings:
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
+    # If this is False, then environment interactions can only take place
+    # on tasks that have no demonstrations.
+    allow_interaction_in_demo_tasks = True
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -40,7 +43,6 @@ class GlobalSettings:
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
-    cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
     cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
     cover_multistep_max_hr_placements = 100  # max placements of hand regions
