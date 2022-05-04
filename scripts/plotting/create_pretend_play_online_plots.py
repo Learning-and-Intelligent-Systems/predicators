@@ -46,7 +46,7 @@ DERIVED_KEYS = [
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("CYCLE", "Online Learning Cycle"),
+    ("NUM_TRANSITIONS", "Number of Play Transitions"),
 ]
 
 # Same as above, but for the y axis.
@@ -182,7 +182,7 @@ def _create_errorbar_plot(ax: plt.Axes, df: pd.DataFrame,
         # Create the line.
         ax.errorbar(new_xs, mean_ys, yerr=std_ys, label=label, marker="o")
     # Add a legend.
-    plt.legend()
+    # plt.legend()
 
 
 def _main() -> None:
