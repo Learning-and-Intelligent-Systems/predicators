@@ -286,11 +286,11 @@ class _LearnedSampler:
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
-        # For sampler learning, we currently make the extremely limiting
-        # assumption that there is one goal atom, with one goal object. This
-        # will not be true in most cases. This is a placeholder for better
-        # methods to come.
         if CFG.sampler_learning_use_goals:
+            # For goal-conditioned sampler learning, we currently make the
+            # extremely limiting assumption that there is one goal atom, with
+            # one goal object. This will not be true in most cases. This is a
+            # placeholder for better methods to come.
             assert len(goal) == 1
             goal_atom = next(iter(goal))
             assert len(goal_atom.objects) == 1
@@ -301,9 +301,6 @@ class _LearnedSampler:
         if CFG.sampler_disable_classifier:
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
-            low = self._param_option.params_space.low
-            high = self._param_option.params_space.high
-            params = np.clip(params, low, high)
             return params
         while num_rejections <= CFG.max_rejection_sampling_tries:
             params = np.array(self._regressor.predict_sample(x, rng),
@@ -312,12 +309,6 @@ class _LearnedSampler:
                self._classifier.classify(np.r_[x, params]):
                 break
             num_rejections += 1
-        else:
-            # Edge case: we exceeded the number of sampling tries
-            # and we might be left with a params that is not in
-            # bounds. If so, fall back to sampling from the space.
-            if not self._param_option.params_space.contains(params):
-                params = self._param_option.params_space.sample()
         return params
 
 
