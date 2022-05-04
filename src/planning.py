@@ -322,7 +322,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
-                else:
+                elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
                     assert len(traj) == len(atoms_sequence)
                     # The expected atoms are ones that we definitely expect to
@@ -341,6 +341,14 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
+                        can_continue_on = False
+                else:
+                    # If we're not checking expected_atoms, we need to
+                    # explicitly check the goal on the final timestep.
+                    can_continue_on = True
+                    if cur_idx == len(skeleton):
+                        if task.goal_holds(traj[cur_idx]):
+                            return plan, True  # success!
                         can_continue_on = False
         else:
             # The option is not initiable.
