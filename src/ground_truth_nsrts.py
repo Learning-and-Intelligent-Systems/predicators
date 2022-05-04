@@ -598,8 +598,11 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
     """Create ground trurth NSRTs for PlayBlocksEnv."""
     block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
 
-    On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+    On, OnTable, GripperOpen, Holding, Clear, NotBroken, \
+        IsBlue, IsNotBlue, CoveredByBlue = _get_predicates_by_names(
+        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear",
+                  "NotBroken",
+                  "IsBlue", "IsNotBlue", "CoveredByBlue"])
 
     Pick, Stack, PutOnTable = _get_options_by_names(
         CFG.env, ["Pick", "Stack", "PutOnTable"])
@@ -615,7 +618,8 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(OnTable, [block]),
         LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot])
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotBroken, [block])
     }
     add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {
@@ -629,7 +633,7 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
                               option_vars, null_sampler)
     nsrts.add(pickfromtable_nsrt)
 
-    # Unstack
+    # Unstack (not blue)
     block = Variable("?block", block_type)
     otherblock = Variable("?otherblock", block_type)
     robot = Variable("?robot", robot_type)
@@ -639,7 +643,9 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(On, [block, otherblock]),
         LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot])
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotBroken, [block]),
+        LiftedAtom(IsNotBlue, [block]),
     }
     add_effects = {
         LiftedAtom(Holding, [block]),
@@ -650,12 +656,41 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [block]),
         LiftedAtom(GripperOpen, [robot])
     }
-    unstack_nsrt = NSRT("Unstack",
+    unstack_nsrt = NSRT("UnstackBlue",
                         parameters, preconditions, add_effects, delete_effects,
                         set(), option, option_vars, null_sampler)
     nsrts.add(unstack_nsrt)
 
-    # Stack
+    # Unstack (blue)
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(NotBroken, [block]),
+        LiftedAtom(IsBlue, [block]),
+    }
+    add_effects = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock])
+    }
+    delete_effects = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(CoveredByBlue, [otherblock])
+    }
+    unstack_nsrt = NSRT("UnstackNotBlue",
+                        parameters, preconditions, add_effects, delete_effects,
+                        set(), option, option_vars, null_sampler)
+    nsrts.add(unstack_nsrt)
+
+    # Stack (not blue)
     block = Variable("?block", block_type)
     otherblock = Variable("?otherblock", block_type)
     robot = Variable("?robot", robot_type)
@@ -664,19 +699,47 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
     option = Stack
     preconditions = {
         LiftedAtom(Holding, [block]),
-        LiftedAtom(Clear, [otherblock])
+        LiftedAtom(Clear, [otherblock]),
+        LiftedAtom(IsNotBlue, [block]),
     }
     add_effects = {
         LiftedAtom(On, [block, otherblock]),
         LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot])
+        LiftedAtom(GripperOpen, [robot]),
     }
     delete_effects = {
         LiftedAtom(Holding, [block]),
         LiftedAtom(Clear, [otherblock])
     }
 
-    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+    stack_nsrt = NSRT("StackNotBlue", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
+    nsrts.add(stack_nsrt)
+
+    # Stack (blue)
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, otherblock]
+    option = Stack
+    preconditions = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock]),
+        LiftedAtom(IsBlue, [block]),
+    }
+    add_effects = {
+        LiftedAtom(On, [block, otherblock]),
+        LiftedAtom(Clear, [block]),
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(CoveredByBlue, [block])
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [block]),
+        LiftedAtom(Clear, [otherblock])
+    }
+
+    stack_nsrt = NSRT("StackBlue", parameters, preconditions, add_effects,
                       delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(stack_nsrt)
 

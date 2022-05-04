@@ -72,6 +72,8 @@ class PlayBlocksEnv(BaseEnv):
                                     self._NotBroken_holds)
         self._IsBlue = Predicate("IsBlue", [self._block_type],
                                  self._IsBlue_holds)
+        self._IsNotBlue = Predicate("IsNotBlue", [self._block_type],
+                                    self._IsNotBlue_holds)
         self._CoveredByBlue = Predicate("CoveredByBlue", [self._block_type],
                                         self._CoveredByBlue_holds)
         # Options
@@ -228,6 +230,7 @@ class PlayBlocksEnv(BaseEnv):
             self._NotBroken,
             self._CoveredByBlue,
             self._IsBlue,
+            self._IsNotBlue,
         }
 
     @property
@@ -486,6 +489,10 @@ class PlayBlocksEnv(BaseEnv):
     def _IsBlue_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return self._get_block_color(block, state) == "blue"
+
+    def _IsNotBlue_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        return not self._IsBlue_holds(state, objects)
 
     def _CoveredByBlue_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
