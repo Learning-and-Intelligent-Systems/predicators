@@ -277,7 +277,7 @@ class PlayBlocksEnv(BaseEnv):
 
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
-        for i, block in enumerate(sorted(blocks)):
+        for block in sorted(blocks):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
@@ -322,7 +322,7 @@ class PlayBlocksEnv(BaseEnv):
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
         color_idxs = [self.colors.index(c) for c in colors]
-        for task_num in range(num_tasks):
+        for _ in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks)
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, color_idxs,
@@ -478,8 +478,8 @@ class PlayBlocksEnv(BaseEnv):
                 return False
         return True
 
-    def _NotBroken_holds(self, state: State,
-                         objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _NotBroken_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state.get(block, "broken") < 0.5
 

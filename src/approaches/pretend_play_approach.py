@@ -5,9 +5,6 @@ from typing import Callable, List, Sequence, Set, Tuple
 
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches.base_approach import ApproachFailure, \
-    ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.approaches.random_options_approach import \
@@ -56,7 +53,7 @@ class PretendPlayLearningApproach(NSRTLearningApproach):
             self, results: Sequence[InteractionResult]) -> None:
         self._online_learning_cycle += 1
         # We get one result per training task.
-        for i, result in enumerate(results):
+        for result in results:
             states = result.states
             actions = result.actions
             traj = LowLevelTrajectory(states, actions)
@@ -90,7 +87,6 @@ class PretendPlayLearningApproach(NSRTLearningApproach):
     ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
         """Sample and execute random initiable options until timeout."""
 
-        # TODO make current options
         random_options_approach = RandomOptionsApproach(
             self._get_current_predicates(), self._initial_options, self._types,
             self._action_space, self._train_tasks)
