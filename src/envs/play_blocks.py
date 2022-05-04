@@ -54,9 +54,8 @@ class PlayBlocksEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._block_type = Type("block",
-                                ["pose_x", "pose_y", "pose_z", "held",
-                                 "color", "broken"])
+        self._block_type = Type(
+            "block", ["pose_x", "pose_y", "pose_z", "held", "color", "broken"])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
@@ -190,10 +189,11 @@ class PlayBlocksEnv(BaseEnv):
                                      rng=self._train_rng)
         # Generate interaction tasks from the train distribution.
         num_interaction_tasks = CFG.num_train_tasks - num_demo_tasks
-        interaction_tasks = self._get_tasks(num_tasks=num_interaction_tasks,
-                                            possible_num_blocks=self.num_blocks_train,
-                                            colors=self.train_colors,
-                                            rng=self._train_rng)
+        interaction_tasks = self._get_tasks(
+            num_tasks=num_interaction_tasks,
+            possible_num_blocks=self.num_blocks_train,
+            colors=self.train_colors,
+            rng=self._train_rng)
         # Important that demo tasks are first!
         tasks = demo_tasks + interaction_tasks
         assert len(tasks) == CFG.num_train_tasks
@@ -304,8 +304,7 @@ class PlayBlocksEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   colors: List[str],
-                   rng: np.random.Generator) -> List[Task]:
+                   colors: List[str], rng: np.random.Generator) -> List[Task]:
         tasks = []
         color_idxs = [self.colors.index(c) for c in colors]
         for task_num in range(num_tasks):

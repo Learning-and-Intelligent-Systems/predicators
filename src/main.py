@@ -214,13 +214,14 @@ def _generate_interaction_results(
     query_cost = 0.0
     if CFG.make_interaction_videos:
         video = []
-    for request in requests:
+    for i, request in enumerate(requests):
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
                                "if allow_interaction_in_demo_tasks is False.")
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
+        print(f"Running interaction episode {i+1} / {len(requests)}")
         traj, _ = utils.run_policy(
             request.act_policy,
             env,
