@@ -637,40 +637,40 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                         dy = above_block_top - y
                         break
         # Ensure that blocks do not collide with other blocks.
-        if held_block is not None:
-            held_rect = utils.Rectangle(x=(hx - hw / 2),
-                                        y=(hy - hh),
-                                        width=hw,
-                                        height=hh,
-                                        theta=0)
-            next_held_rect = utils.Rectangle(x=(held_rect.x + dx),
-                                             y=(held_rect.y + dy),
-                                             width=held_rect.width,
-                                             height=held_rect.height,
-                                             theta=held_rect.theta)
-            # Compute line segments corresponding to the movement of each
-            # of the held object vertices.
-            held_move_segs = [
-                utils.LineSegment(x1, y1, x2, y2) for (x1, y1), (x2,y2) in \
-                zip(held_rect.vertices, next_held_rect.vertices)
-            ]
-            for block in blocks:
-                if block == held_block:
-                    continue
-                bx, by = state.get(block, "x"), state.get(block, "y")
-                bw, bh = state.get(block, "width"), state.get(block, "height")
-                rect = utils.Rectangle(x=(bx - bw / 2),
-                                       y=(by - bh),
-                                       width=bw,
-                                       height=bh,
-                                       theta=0)
-                # Check the line segments corresponding to the movement of each
-                # of the held object vertices.
-                if any(seg.intersects(rect) for seg in held_move_segs):
-                    return state.copy()
-                # Check for overlap between the held object and this block.
-                if rect.intersects(next_held_rect):
-                    return state.copy()
+        # if held_block is not None:
+        #     held_rect = utils.Rectangle(x=(hx - hw / 2),
+        #                                 y=(hy - hh),
+        #                                 width=hw,
+        #                                 height=hh,
+        #                                 theta=0)
+        #     next_held_rect = utils.Rectangle(x=(held_rect.x + dx),
+        #                                      y=(held_rect.y + dy),
+        #                                      width=held_rect.width,
+        #                                      height=held_rect.height,
+        #                                      theta=held_rect.theta)
+        #     # Compute line segments corresponding to the movement of each
+        #     # of the held object vertices.
+        #     held_move_segs = [
+        #         utils.LineSegment(x1, y1, x2, y2) for (x1, y1), (x2,y2) in \
+        #         zip(held_rect.vertices, next_held_rect.vertices)
+        #     ]
+        #     for block in blocks:
+        #         if block == held_block:
+        #             continue
+        #         bx, by = state.get(block, "x"), state.get(block, "y")
+        #         bw, bh = state.get(block, "width"), state.get(block, "height")
+        #         rect = utils.Rectangle(x=(bx - bw / 2),
+        #                                y=(by - bh),
+        #                                width=bw,
+        #                                height=bh,
+        #                                theta=0)
+        #         # Check the line segments corresponding to the movement of each
+        #         # of the held object vertices.
+        #         if any(seg.intersects(rect) for seg in held_move_segs):
+        #             return state.copy()
+        #         # Check for overlap between the held object and this block.
+        #         if rect.intersects(next_held_rect):
+        #             return state.copy()
 
         # Update the robot state.
         x += dx
