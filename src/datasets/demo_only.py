@@ -38,6 +38,10 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # Stop run_policy() when OptionExecutionFailure() is hit, which
             # should only happen when the goal has been reached, as verified
             # by the assertion below.
+            if CFG.make_demo_videos:
+                monitor = utils.VideoMonitor(env.render)
+            else:
+                monitor = None
             traj, _ = utils.run_policy(
                 utils.option_plan_to_policy(plan),
                 env,
@@ -45,7 +49,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 idx,
                 termination_function=lambda s: False,
                 max_num_steps=CFG.horizon,
-                exceptions_to_break_on={utils.OptionExecutionFailure})
+                exceptions_to_break_on={utils.OptionExecutionFailure},
+                monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
@@ -65,4 +70,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             for act in traj.actions:
                 act.unset_option()
         trajectories.append(traj)
+        if CFG.make_demo_videos:
+            assert monitor is not None
+            video = monitor.get_video()
+            outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
+            utils.save_video(outfile, video)
     return Dataset(trajectories)
