@@ -18,12 +18,17 @@ from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 
-def test_sesame_plan():
+@pytest.mark.parametrize("sesame_check_expected_atoms", [True, False])
+def test_sesame_plan(sesame_check_expected_atoms):
     """Tests for sesame_plan()."""
-    utils.reset_config({"env": "cover"})
+    utils.reset_config({
+        "env": "cover",
+        "sesame_check_expected_atoms": sesame_check_expected_atoms,
+        "num_test_tasks": 1,
+    })
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = env.get_train_tasks()[0]
+    task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
     plan, metrics = sesame_plan(
         task,
@@ -36,9 +41,8 @@ def test_sesame_plan():
         CFG.sesame_max_skeletons_optimized,
         max_horizon=CFG.horizon,
     )
-    assert len(plan) == 2
-    assert isinstance(plan[0], _Option)
-    assert isinstance(plan[1], _Option)
+    assert len(plan) == 3
+    assert all(isinstance(act, _Option) for act in plan)
     assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
 
 
