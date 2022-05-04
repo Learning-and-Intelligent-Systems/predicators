@@ -1011,14 +1011,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         desired_x = absolute_params[7]
         desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
-        at_desired_y = abs(desired_y - y) < 1e-5
 
         lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to pick,
-        # then execute the pick (turn up the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., 1.0], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
+        # If we're above the object, move down and turn on the gripper.
         if at_desired_x:
             delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
@@ -1068,14 +1063,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         desired_y = bh + 1e-3
 
         at_desired_x = abs(desired_x - x) < 1e-5
-        at_desired_y = abs(desired_y - y) < 1e-5
 
         lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to place,
-        # then execute the place (turn down the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., -1.0], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
+        # If we're already above the object, move down and turn off the magnet.
         if at_desired_x:
             delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
