@@ -608,7 +608,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if y + dy < y_min_robot:
             dy = y_min_robot - y
         # Prevent the robot from going above the initial robot position.
-        if y + dy > self.initial_robot_y:
+        # if y + dy > self.initial_robot_y:
+        if abs(y + dy - self.initial_robot_y) < self.snap_tol and dy > 0:
             dy = self.initial_robot_y - y
         # If the robot is holding a block that is close to the floor, and if
         # the robot is moving down to place, snap the robot so that the block
