@@ -184,7 +184,7 @@ def test_learned_neural_parameterized_option():
     # In this example, both of the parameters (block and robot) are changing.
     # For simplicity, assume that the first and third features for the
     # block and the robot are changing.
-    changing_var_to_feat = {p: {0, 2} for p in pick_operator.parameters}
+    changing_var_to_feat = {p: [0, 2] for p in pick_operator.parameters}
     changing_var_order = list(pick_operator.parameters)
     # Create a dummy regressor but with the right shapes.
     regressor = MLPRegressor(seed=123,

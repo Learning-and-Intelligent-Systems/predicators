@@ -246,9 +246,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     The continuous parameters of the option are the main thing to note: they
     correspond to a desired change in state for a subset of the option objects
     and a subset of those object features. The objects that are changing are
-    changing_var_order, and also the keys of changing_var_to_feat. The feature
-    indices that are changing are the values in changing_var_to_feat. All other
-    objects and features are assumed to have no change in their state.
+    changing_var_order, which are the same as the keys of changing_var_to_feat.
+    The feature indices that change are the values in changing_var_to_feat. All
+    other objects and features are assumed to have no change in their state.
 
     Note that the option terminal, which corresponds to the operator effects,
     already describes how we want the objects to change. But these effects only
@@ -420,7 +420,8 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
             # that exhibit some change in the data.
             changing_var_to_feat = self._get_changing_features(datastore)
             # Just to avoid confusion, we will insist that the order of the
-            # changing parameters is consistent with the order of the original.
+            # changing parameters is consistent with the order of the operator
+            # parameters.
             changing_var_order = sorted(changing_var_to_feat,
                                         key=op.parameters.index)
             for segment, var_to_obj in datastore:
@@ -428,7 +429,11 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     var_to_obj[v] for v in op.parameters
                 ]
 
-                # First, determine the absolute goal vector for this segment.
+                # We're accomplishing two things here: (1) computing
+                # option_param so it can later be stored into the segment, and
+                # (2) computing final_param which is the absolute goal vector
+                # so we can later compute relative goal vectors when we iterate
+                # through the segment's states (below).
                 if self._is_parameterized:
                     init_state = segment.states[0]
                     final_state = segment.states[-1]

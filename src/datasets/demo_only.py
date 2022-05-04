@@ -23,6 +23,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
     trajectories = []
     for idx, task in enumerate(train_tasks):
+        # Note: we assume in main.py that demonstrations are only generated
+        # for train tasks whose index is less than CFG.max_initial_demos. If
+        # you modify code around here, make sure that this invariant holds.
         if idx >= CFG.max_initial_demos:
             break
         try:
