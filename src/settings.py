@@ -158,6 +158,7 @@ class GlobalSettings:
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
+    sesame_check_expected_atoms = True
 
     # evaluation parameters
     log_dir = "logs"
