@@ -290,7 +290,8 @@ class PlayBlocksEnv(BaseEnv):
             c = self._get_block_color(block, state)
             if self._block_is_broken(block, state):
                 c = "black"
-            if state.get(block, "held") > self.held_tol:
+            block_is_held = state.get(block, "held") > self.held_tol
+            if block_is_held:
                 assert held == "None"
                 held = f"{block.name} ({c})"
 
@@ -313,8 +314,16 @@ class PlayBlocksEnv(BaseEnv):
                                         edgecolor='black',
                                         facecolor=c)
             yz_ax.add_patch(yz_rect)
+            if not block_is_held:
+                yz_ax.text(y,
+                           z,
+                           block.name,
+                           color="white",
+                           fontsize=24,
+                           ha="center",
+                           va="center")
 
-        title = f"Held: {held}"
+        title = f"Held: {held}. Goal: {task.goal}"
         if caption is not None:
             title += f"; {caption}"
         plt.suptitle(title, fontsize=24, wrap=True)
@@ -338,7 +347,7 @@ class PlayBlocksEnv(BaseEnv):
             if use_trivial_goal:
                 goal = set()
             else:
-                # The goal is to cover a certain number of blocks by blue.
+                # The goal is to cover all of the non-blue objects by blue.
                 all_blocks = init_state.get_objects(self._block_type)
                 cover_candidates = [
                     b for b in all_blocks
@@ -352,19 +361,15 @@ class PlayBlocksEnv(BaseEnv):
                 candidates_for_lid = [b for b in all_blocks if
                                       self._IsBlue_holds(init_state, [b]) and \
                                       not self._block_is_broken(b, init_state)]
-                num_lid_cands = len(candidates_for_lid)
-                if num_lid_cands == 0:
+                if len(candidates_for_lid) < num_cover_cands:
                     continue
-                # Sample the blocks that we will want to cover.
-                max_goal_num = min(num_lid_cands, num_cover_cands)
-                goal_num = rng.integers(1, max_goal_num + 1)
-                candidate_idxs = rng.choice(num_cover_cands,
-                                            size=goal_num,
-                                            replace=False)
                 goal = {
                     GroundAtom(self._CoveredByBlue, [cover_candidates[i]])
-                    for i in candidate_idxs
+                    for i in range(num_cover_cands)
                 }
+                # If the goal already holds, continue.
+                if all(goal_atom.holds(init_state) for goal_atom in goal):
+                    continue
             tasks.append(Task(init_state, goal))
         return tasks
 
@@ -372,7 +377,7 @@ class PlayBlocksEnv(BaseEnv):
                               rng: np.random.Generator) -> List[List[Object]]:
         piles: List[List[Object]] = []
         for block_num in range(num_blocks):
-            block = Object(f"block{block_num}", self._block_type)
+            block = Object(f"b{block_num}", self._block_type)
             # If coin flip, start new pile
             if block_num == 0 or rng.uniform() < 0.2:
                 piles.append([])
