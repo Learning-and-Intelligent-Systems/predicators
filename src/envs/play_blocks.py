@@ -68,6 +68,12 @@ class PlayBlocksEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        self._NotBroken = Predicate("NotBroken", [self._block_type],
+                                    self._NotBroken_holds)
+        self._IsBlue = Predicate("IsBlue", [self._block_type],
+                                 self._IsBlue_holds)
+        self._CoveredByBlue = Predicate("CoveredByBlue", [self._block_type],
+                                        self._CoveredByBlue_holds)
         # Options
         self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
@@ -114,6 +120,9 @@ class PlayBlocksEnv(BaseEnv):
             return next_state
         block = self._get_block_at_xyz(state, x, y, z)
         if block is None:  # no block at this pose
+            return next_state
+        # Can't pick a broken block
+        if self._block_is_broken(block, state):
             return next_state
         # Can only pick if object is clear
         if not self._block_is_clear(block, state):
@@ -185,6 +194,7 @@ class PlayBlocksEnv(BaseEnv):
         num_demo_tasks = min(CFG.num_train_tasks, CFG.max_initial_demos)
         demo_tasks = self._get_tasks(num_tasks=num_demo_tasks,
                                      possible_num_blocks=self.num_blocks_test,
+                                     allow_broken_blocks=True,
                                      colors=self.test_colors,
                                      rng=self._train_rng)
         # Generate interaction tasks from the train distribution.
@@ -192,6 +202,7 @@ class PlayBlocksEnv(BaseEnv):
         interaction_tasks = self._get_tasks(
             num_tasks=num_interaction_tasks,
             possible_num_blocks=self.num_blocks_train,
+            allow_broken_blocks=False,
             colors=self.train_colors,
             rng=self._train_rng)
         # Important that demo tasks are first!
@@ -202,14 +213,21 @@ class PlayBlocksEnv(BaseEnv):
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self.num_blocks_test,
+                               allow_broken_blocks=True,
                                colors=self.test_colors,
                                rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._On, self._OnTable, self._GripperOpen, self._Holding,
-            self._Clear
+            self._On,
+            self._OnTable,
+            self._GripperOpen,
+            self._Holding,
+            self._Clear,
+            self._NotBroken,
+            self._CoveredByBlue,
+            self._IsBlue,
         }
 
     @property
@@ -263,11 +281,9 @@ class PlayBlocksEnv(BaseEnv):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
-            c_idx = state.get(block, "color")
-            broken = state.get(block, "broken") > 0.5
-            linestyle = "dotted" if broken else "solid"
-            assert c_idx in [0.0, 1.0, 2.0]
-            c = self.colors[int(c_idx)]
+            c = self._get_block_color(block, state)
+            if self._block_is_broken(block, state):
+                c = "black"
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
                 held = f"{block.name} ({c})"
@@ -278,7 +294,6 @@ class PlayBlocksEnv(BaseEnv):
                                         2 * r,
                                         zorder=-y,
                                         linewidth=1,
-                                        linestyle=linestyle,
                                         edgecolor='black',
                                         facecolor=c)
             xz_ax.add_patch(xz_rect)
@@ -289,7 +304,6 @@ class PlayBlocksEnv(BaseEnv):
                                         2 * r,
                                         zorder=-x,
                                         linewidth=1,
-                                        linestyle=linestyle,
                                         edgecolor='black',
                                         facecolor=c)
             yz_ax.add_patch(yz_rect)
@@ -304,13 +318,16 @@ class PlayBlocksEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
-                   colors: List[str], rng: np.random.Generator) -> List[Task]:
+                   allow_broken_blocks: bool, colors: List[str],
+                   rng: np.random.Generator) -> List[Task]:
         tasks = []
         color_idxs = [self.colors.index(c) for c in colors]
         for task_num in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks)
             piles = self._sample_initial_piles(num_blocks, rng)
-            init_state = self._sample_state_from_piles(piles, color_idxs, rng)
+            init_state = self._sample_state_from_piles(piles, color_idxs,
+                                                       allow_broken_blocks,
+                                                       rng)
             while True:  # repeat until goal is not satisfied
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
                 if not all(goal_atom.holds(init_state) for goal_atom in goal):
@@ -332,6 +349,7 @@ class PlayBlocksEnv(BaseEnv):
 
     def _sample_state_from_piles(self, piles: List[List[Object]],
                                  color_idxs: List[int],
+                                 allow_broken_blocks: bool,
                                  rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
         # Create objects
@@ -351,8 +369,14 @@ class PlayBlocksEnv(BaseEnv):
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
             c_idx = rng.choice(color_idxs)
-            # [pose_x, pose_y, pose_z, held]
-            data[block] = np.array([x, y, z, 0.0, c_idx, 0.0])
+            # [pose_x, pose_y, pose_z, held, color_idx, broke]
+            # Only allow broken if on the table and otherwise blue.
+            if allow_broken_blocks and self.colors[c_idx] == "blue" and \
+                pile_j == 0:
+                broke = rng.choice([0.0, 1.0])
+            else:
+                broke = 0.0
+            data[block] = np.array([x, y, z, 0.0, c_idx, broke])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
@@ -403,6 +427,14 @@ class PlayBlocksEnv(BaseEnv):
     def _block_is_clear(self, block: Object, state: State) -> bool:
         return self._Clear_holds(state, [block])
 
+    def _block_is_broken(self, block: Object, state: State) -> bool:
+        return not self._NotBroken_holds(state, [block])
+
+    def _get_block_color(self, block: Object, state: State) -> str:
+        c_idx = state.get(block, "color")
+        assert c_idx in [float(i) for i in range(len(self.colors))]
+        return self.colors[int(c_idx)]
+
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
         if state.get(block1, "held") >= self.held_tol or \
@@ -445,6 +477,29 @@ class PlayBlocksEnv(BaseEnv):
             if self._On_holds(state, [other_block, block]):
                 return False
         return True
+
+    def _NotBroken_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        block, = objects
+        return state.get(block, "broken") < 0.5
+
+    def _IsBlue_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        return self._get_block_color(block, state) == "blue"
+
+    def _CoveredByBlue_holds(self, state: State,
+                             objects: Sequence[Object]) -> bool:
+        if self._Holding_holds(state, objects):
+            return False
+        block, = objects
+        for other_block in state:
+            if other_block.type != self._block_type:
+                continue
+            if not self._IsBlue_holds(state, [other_block]):
+                continue
+            if self._On_holds(state, [other_block, block]):
+                return True
+        return False
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
