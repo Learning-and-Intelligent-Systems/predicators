@@ -198,6 +198,7 @@ class PlayBlocksEnv(BaseEnv):
                                      possible_num_blocks=self.num_blocks_test,
                                      allow_broken_blocks=True,
                                      colors=self.test_colors,
+                                     use_trivial_goal=False,
                                      rng=self._train_rng)
         # Generate interaction tasks from the train distribution.
         num_interaction_tasks = CFG.num_train_tasks - num_demo_tasks
@@ -206,6 +207,7 @@ class PlayBlocksEnv(BaseEnv):
             possible_num_blocks=self.num_blocks_train,
             allow_broken_blocks=False,
             colors=self.train_colors,
+            use_trivial_goal=True,
             rng=self._train_rng)
         # Important that demo tasks are first!
         tasks = demo_tasks + interaction_tasks
@@ -217,6 +219,7 @@ class PlayBlocksEnv(BaseEnv):
                                possible_num_blocks=self.num_blocks_test,
                                allow_broken_blocks=True,
                                colors=self.test_colors,
+                               use_trivial_goal=False,
                                rng=self._test_rng)
 
     @property
@@ -235,7 +238,7 @@ class PlayBlocksEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._On, self._OnTable}
+        return {self._CoveredByBlue}
 
     @property
     def types(self) -> Set[Type]:
@@ -322,19 +325,46 @@ class PlayBlocksEnv(BaseEnv):
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    allow_broken_blocks: bool, colors: List[str],
+                   use_trivial_goal: bool,
                    rng: np.random.Generator) -> List[Task]:
-        tasks = []
+        tasks: List[Task] = []
         color_idxs = [self.colors.index(c) for c in colors]
-        for _ in range(num_tasks):
+        while len(tasks) < num_tasks:
             num_blocks = rng.choice(possible_num_blocks)
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, color_idxs,
                                                        allow_broken_blocks,
                                                        rng)
-            while True:  # repeat until goal is not satisfied
-                goal = self._sample_goal_from_piles(num_blocks, piles, rng)
-                if not all(goal_atom.holds(init_state) for goal_atom in goal):
-                    break
+            if use_trivial_goal:
+                goal = set()
+            else:
+                # The goal is to cover a certain number of blocks by blue.
+                all_blocks = init_state.get_objects(self._block_type)
+                cover_candidates = [
+                    b for b in all_blocks
+                    if self._IsNotBlue_holds(init_state, [b])
+                ]
+                num_cover_cands = len(cover_candidates)
+                # If there are no candidates to cover, resample.
+                if num_cover_cands == 0:
+                    continue
+                # Make sure there are enough blue, unbroken blocks to cover.
+                candidates_for_lid = [b for b in all_blocks if
+                                      self._IsBlue_holds(init_state, [b]) and \
+                                      not self._block_is_broken(b, init_state)]
+                num_lid_cands = len(candidates_for_lid)
+                if num_lid_cands == 0:
+                    continue
+                # Sample the blocks that we will want to cover.
+                max_goal_num = min(num_lid_cands, num_cover_cands)
+                goal_num = rng.integers(1, max_goal_num + 1)
+                candidate_idxs = rng.choice(num_cover_cands,
+                                            size=goal_num,
+                                            replace=False)
+                goal = {
+                    GroundAtom(self._CoveredByBlue, [cover_candidates[i]])
+                    for i in candidate_idxs
+                }
             tasks.append(Task(init_state, goal))
         return tasks
 
@@ -387,24 +417,6 @@ class PlayBlocksEnv(BaseEnv):
         rf = 1.0  # fingers start out open
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
         return State(data)
-
-    def _sample_goal_from_piles(self, num_blocks: int,
-                                piles: List[List[Object]],
-                                rng: np.random.Generator) -> Set[GroundAtom]:
-        # Sample goal pile that is different from initial
-        while True:
-            goal_piles = self._sample_initial_piles(num_blocks, rng)
-            if goal_piles != piles:
-                break
-        # Create goal from piles
-        goal_atoms = set()
-        for pile in goal_piles:
-            goal_atoms.add(GroundAtom(self._OnTable, [pile[0]]))
-            if len(pile) == 1:
-                continue
-            for block1, block2 in zip(pile[1:], pile[:-1]):
-                goal_atoms.add(GroundAtom(self._On, [block1, block2]))
-        return goal_atoms
 
     def _sample_initial_pile_xy(
             self, rng: np.random.Generator,
