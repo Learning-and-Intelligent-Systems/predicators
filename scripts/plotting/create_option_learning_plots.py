@@ -1,6 +1,7 @@
 """Create plots for option learning."""
 
 import os
+from functools import partial
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -60,27 +61,32 @@ Y_KEY_AND_LABEL = [
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
+TITLE_ENVS = [("PickPlace1D", "cover_multistep_options"),
+              ("Stick Button", "stick_button")]
+
+
+def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
+    return df["EXPERIMENT_ID"].apply(lambda v: f"{env}_{approach}_" in v)
+
+
 PLOT_GROUPS = {
-    "Cover": [
-        ("Oracle Options", "*", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_oracle_options_" in v)),
-        ("Ours", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_main_" in v)),
-        ("Ours (Nonparam)", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_direct_bc_nonparam_" in v)),
-        ("GNN Metacontroller (Param)", "o", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "cover_multistep_options_gnn_metacontroller_param_" in
-               v)),
-        ("GNN Metacontroller (Nonparam)", "o", lambda df: df["EXPERIMENT_ID"].
-         apply(lambda v: "cover_multistep_options_gnn_metacontroller_nonparam_"
-               in v)),
-        ("GNN Action Policy", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_gnn_action_policy_" in v)),
-        ("Max Skeletons=1", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_direct_bc_max_skel1_" in v)),
-        ("Max Samples=1", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_multistep_options_direct_bc_max_samp1_" in v)),
-    ],
+    title: [
+        ("Oracle Options", "*", partial(_select_data, env, "oracle_options")),
+        ("Ours", "o", partial(_select_data, env, "main")),
+        ("Ours (Nonparam)", "o",
+         partial(_select_data, env, "direct_bc_nonparam")),
+        ("GNN Metacontroller (Param)", "o",
+         partial(_select_data, env, "gnn_metacontroller_param")),
+        ("GNN Metacontroller (Nonparam)", "o",
+         partial(_select_data, env, "gnn_metacontroller_nonparam")),
+        ("GNN Action Policy", "o",
+         partial(_select_data, env, "gnn_action_policy")),
+        ("Max Skeletons=1", "o",
+         partial(_select_data, env, "direct_bc_max_skel1")),
+        ("Max Samples=1", "o", partial(_select_data, env,
+                                       "direct_bc_max_samp1")),
+    ]
+    for (title, env) in TITLE_ENVS
 }
 
 # If True, add (0, 0) to every plot
