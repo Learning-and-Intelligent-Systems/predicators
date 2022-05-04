@@ -1,5 +1,8 @@
 """Test cases for dataset generation."""
 
+import os
+import shutil
+
 import pytest
 
 from predicators.src import utils
@@ -96,6 +99,28 @@ def test_demo_dataset():
     })
     with pytest.raises(ValueError):
         create_dataset(env, train_tasks)
+    # Test demo video generation.
+    video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "demo",
+        "num_train_tasks": 1,
+        "make_demo_videos": True,
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1,
+        "cover_block_widths": [0.1],
+        "cover_target_widths": [0.05],
+        "cover_initial_holding_prob": 1.0,
+        "video_dir": video_dir,
+    })
+    video_file = os.path.join(video_dir, "cover__123__demo__task0.mp4")
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 1
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset.trajectories) == 1
+    assert os.path.exists(video_file)
+    shutil.rmtree(video_dir)
 
 
 def test_demo_replay_dataset():
