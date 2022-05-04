@@ -70,7 +70,9 @@ EXTRA_ARGS_ORACLE_APPROACH["cover_multistep_options"] = [
     {
         "cover_multistep_degenerate_oracle_samplers": True,
         "cover_multistep_thr_percent": 0.99,
-        "cover_multistep_bhr_percent": 0.99
+        "cover_multistep_bhr_percent": 0.99,
+        "num_train_tasks": 3,  # the third task has two goal atoms
+        "num_test_tasks": 3,
     },
     {
         "cover_multistep_bimodal_goal": True,
@@ -137,12 +139,17 @@ def _policy_solves_task(policy, task, simulator):
 def test_oracle_approach(env_name, env_cls):
     """Tests for OracleApproach class with all environments."""
     for extra_args in EXTRA_ARGS_ORACLE_APPROACH[env_name]:
-        utils.reset_config({
+        args = {
             "env": env_name,
-            "num_train_tasks": 2,
-            "num_test_tasks": 2,
             **extra_args,
-        })
+        }
+        # Default to 2 train and test tasks, but allow them to be specified in
+        # the extra args too.
+        if "num_train_tasks" not in args:
+            args["num_train_tasks"] = 2
+        if "num_test_tasks" not in args:
+            args["num_test_tasks"] = 2
+        utils.reset_config(args)
         env = env_cls()
         train_tasks = env.get_train_tasks()
         approach = OracleApproach(env.predicates, env.options, env.types,
