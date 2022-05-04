@@ -732,7 +732,7 @@ def _get_play_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(On, [block, otherblock]),
         LiftedAtom(Clear, [block]),
         LiftedAtom(GripperOpen, [robot]),
-        LiftedAtom(CoveredByBlue, [block])
+        LiftedAtom(CoveredByBlue, [otherblock])
     }
     delete_effects = {
         LiftedAtom(Holding, [block]),
