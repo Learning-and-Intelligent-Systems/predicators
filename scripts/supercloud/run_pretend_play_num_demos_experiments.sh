@@ -2,8 +2,7 @@
 
 START_SEED=456
 NUM_SEEDS=10
-FILE="src/main.py"
-#FILE="scripts/supercloud/submit_supercloud_job.py"
+FILE="scripts/supercloud/submit_supercloud_job.py"
 ALL_NUM_DEMOS=(
     "1"
     "5"
