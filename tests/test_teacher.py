@@ -128,8 +128,8 @@ def test_PathToStateQuery():
     assert isinstance(response, PathToStateResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
-    assert len(response.teacher_traj.states) == 4
-    assert len(response.teacher_traj.actions) == 3
+    assert len(response.teacher_traj.states) == 3
+    assert len(response.teacher_traj.actions) == 2
     final_state = response.teacher_traj.states[-1]
     assert final_state.allclose(goal_state)
     # Although this is a good trajectory, demonstrations are expected to reach
@@ -154,8 +154,8 @@ def test_PathToStateQuery():
     assert isinstance(response, PathToStateResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
-    assert len(response.teacher_traj.states) == 5
-    assert len(response.teacher_traj.actions) == 4
+    assert len(response.teacher_traj.states) == 4
+    assert len(response.teacher_traj.actions) == 3
     final_state = response.teacher_traj.states[-1]
     assert final_state.allclose(goal_state)
     # Test that no trajectory is returned when the query goal state cannot
