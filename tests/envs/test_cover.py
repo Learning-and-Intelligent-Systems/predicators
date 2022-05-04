@@ -344,7 +344,8 @@ def test_cover_multistep_options():
         act = Action(np.array([0., -0.05, 0], dtype=np.float32))
         state = env.simulate(state, act)
 
-    # Check collision of the robot with a block.
+    # Check collision of the robot with a block. The expected behavior is that
+    # the robot should be exactly at the block's height, because it snaps.
     action_arrs = [
         np.array([0.05, 0., 0.], dtype=np.float32),
         np.array([0.05, 0., 0.], dtype=np.float32),
@@ -370,31 +371,8 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
-
-    # Check collision of the robot with the floor.
-    action_arrs = [
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0.05, 0., 0.], dtype=np.float32),
-        np.array([0., -0.1, 0], dtype=np.float32),
-        np.array([0., -0.1, 0], dtype=np.float32),
-        np.array([0., -0.1, 0], dtype=np.float32),
-        np.array([0., -0.05, 0], dtype=np.float32),
-        np.array([0., -0.1, 0], dtype=np.float32),
-    ]
-
-    policy = utils.action_arrs_to_policy(action_arrs)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           task.init,
-                                           lambda _: False,
-                                           max_num_steps=len(action_arrs))
-    robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1].get(robot, "y"),
+                       traj.states[-1].get(block0, "y"))
 
     # Check collision of held block with a block via overlap.
     action_arrs = [
@@ -479,7 +457,8 @@ def test_cover_multistep_options():
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
 
-    # Check collision of held block with the floor.
+    # Check collision of held block with the floor. The expected behavior is
+    # that the block will be exactly on the floor because it snaps.
     action_arrs = [
         np.array([0.05, 0., 0.], dtype=np.float32),
         np.array([0.05, 0., 0.], dtype=np.float32),
@@ -517,8 +496,10 @@ def test_cover_multistep_options():
                                            task.init,
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
-    robot = [r for r in traj.states[0] if r.name == "robby"][0]
-    assert np.allclose(traj.states[-1][robot], traj.states[-2][robot])
+    assert np.allclose(traj.states[-1].get(block0, "y"),
+                       traj.states[-1].get(block0, "height"))
+    assert np.allclose(traj.states[-1].get(block1, "y"),
+                       traj.states[-1].get(block1, "height"))
 
     # Cover the case where a place is attempted outside of a hand region.
     action_arrs = [
