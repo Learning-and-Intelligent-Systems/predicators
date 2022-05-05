@@ -29,6 +29,7 @@ class DoorsEnv(BaseEnv):
     obstacle_initial_position_radius: ClassVar[float] = 0.1
     obstacle_size_lb: ClassVar[float] = 0.05
     obstacle_size_ub: ClassVar[float] = 0.2
+    doorway_size: ClassVar[float] = 0.025
     # This can be very small because we are not learning the move option.
     move_sq_dist_tol: ClassVar[float] = 1e-5
 
@@ -161,6 +162,7 @@ class DoorsEnv(BaseEnv):
         # Draw doors.
         closed_door_color = "orangered"
         open_door_color = "lightgreen"
+        doorway_color = "darkviolet"
         for door in state.get_objects(self._door_type):
             if self._DoorIsOpen_holds(state, [door]):
                 color = open_door_color
@@ -168,9 +170,12 @@ class DoorsEnv(BaseEnv):
                 color = closed_door_color
             door_geom = self._object_to_geom(door, state)
             door_geom.plot(ax, color=color)
+            # Uncomment to also draw the doorway for the door.
+            doorway_geom = self._door_to_doorway_geom(door, state)
+            doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
 
         # Uncomment for debugging motion planning.
-        if action is not None:
+        if action is not None and action.has_option():
             option = action.get_option()
             if "plan" in option.memory:
                 xs, ys = zip(*option.memory["plan"])
@@ -432,7 +437,13 @@ class DoorsEnv(BaseEnv):
         # Once the door is open, the robot is no longer touching it.
         if self._DoorIsOpen_holds(state, [door]):
             return False
-        return self._robot_at_door(robot, door, state)
+        # The robot is considered to be touching the door if it's in the
+        # doorway for that door. Note that we don't want to check if the
+        # robot is literally touching the door, because collision checking
+        # will forbid that from ever happening.
+        doorway_geom = self._door_to_doorway_geom(door, state)
+        robot_geom = self._object_to_geom(robot, state)
+        return robot_geom.intersects(doorway_geom)
 
     def _DoorIsOpen_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
@@ -449,7 +460,10 @@ class DoorsEnv(BaseEnv):
                 return True
         # Check for collisions with closed doors.
         for door in state.get_objects(self._door_type):
-            if self._TouchingDoor_holds(state, [robot, door]):
+            if self._DoorIsOpen_holds(state, [door]):
+                continue
+            door_geom = self._object_to_geom(door, state)
+            if robot_geom.intersects(door_geom):
                 return True
         return False
 
@@ -642,8 +656,25 @@ class DoorsEnv(BaseEnv):
         assert len(rooms) == 2
         return rooms
 
-    def _robot_at_door(self, robot: Object, door: Object,
-                       state: State) -> bool:
-        robot_geom = self._object_to_geom(robot, state)
-        door_geom = self._object_to_geom(door, state)
-        return robot_geom.intersects(door_geom)
+    def _door_to_doorway_geom(self, door: Object, state: State) -> _Geom2D:
+        x = state.get(door, "x")
+        y = state.get(door, "y")
+        theta = state.get(door, "theta")
+        # Top or bottom door.
+        if abs(theta) < 1e-6:
+            return utils.Rectangle(
+                x=x,
+                y=(y - self.doorway_size),
+                width=self.hallway_width,
+                height=(self.wall_depth + 2 * self.doorway_size),
+                theta=0
+            )
+        # Left or right door.
+        assert abs(theta - np.pi / 2) < 1e-6
+        return utils.Rectangle(
+            x=(x - self.wall_depth - self.doorway_size),
+            y=y,
+            width=(self.wall_depth + 2 * self.doorway_size),
+            height=self.hallway_width,
+            theta=0
+        )
