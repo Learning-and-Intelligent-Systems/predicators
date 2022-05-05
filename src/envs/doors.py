@@ -195,6 +195,10 @@ class DoorsEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        # TODO!! Make the robot start out at a door, and revisit whether this
+        # simplifies the implementation of Move.
+        import ipdb; ipdb.set_trace()
+
         tasks: List[Task] = []
         # Create the common parts of the initial state.
         common_state_dict = {}
@@ -321,7 +325,9 @@ class DoorsEnv(BaseEnv):
         robot, start_door, end_door = objects
         if start_door == end_door:
             return False
-        # TODO: add check that the start door is open.
+        # The start door must be open.
+        if not self._DoorIsOpen_holds(state, [start_door]):
+            return False
         # The doors should share a room, but the robot should not already
         # be in that room.
         start_rooms = self._door_to_rooms(start_door, state)
@@ -642,8 +648,7 @@ class DoorsEnv(BaseEnv):
         # TODO randomize
         target = 0.0
 
-        # TODO close the doors
-        return {"x": x, "y": y, "theta": theta, "target": target, "open": 1.0}
+        return {"x": x, "y": y, "theta": theta, "target": target, "open": 0.0}
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
         rooms = set()
