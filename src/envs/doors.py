@@ -58,9 +58,8 @@ class DoorsEnv(BaseEnv):
             # room for the second door; this also means that the two doors
             # should share a room.
             types=[self._robot_type, self._door_type, self._door_type],
-            # The parameter space represents the absolute position of the robot
-            # when the option terminates.
-            params_space=Box(-np.inf, np.inf, (2, )),
+            # The parameter represents a relative position on the second door.
+            params_space=Box(0.0, 1.0, (1, ), dtype=np.float32),
             # The policy is a motion planner.
             policy=self._Move_policy,
             initiable=self._Move_initiable,
@@ -169,6 +168,13 @@ class DoorsEnv(BaseEnv):
                 color = closed_door_color
             door_geom = self._object_to_geom(door, state)
             door_geom.plot(ax, color=color)
+
+        # Uncomment for debugging motion planning.
+        if action is not None:
+            option = action.get_option()
+            if "plan" in option.memory:
+                xs, ys = zip(*option.memory["plan"])
+                plt.scatter(xs, ys, s=3, alpha=0.5, color=robot_color)
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
@@ -353,7 +359,8 @@ class DoorsEnv(BaseEnv):
 
         def _extend_fn(pt1: Array, pt2: Array) -> Iterator[Array]:
             # Make sure that we obey the bounds on actions.
-            num = int(np.ceil(max(abs(pt1 - pt2) / self.action_magnitude)))
+            distance = np.linalg.norm(pt2 - pt1)
+            num = int(distance / self.action_magnitude) + 1
             if num == 0:
                 yield pt2
             for i in range(1, num + 1):
@@ -383,21 +390,24 @@ class DoorsEnv(BaseEnv):
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         initial_state = np.array([robot_x, robot_y])
-        target_state = params.copy()
+        target_state = self._move_param_to_target_position(params,
+            end_door, state)
         position_plan = birrt.query(initial_state, target_state)
+        memory["plan"] = position_plan  # for debugging only
         assert position_plan is not None
         # Convert the plan from position space to action space.
-        action_arrs = np.subtract(position_plan[1:], position_plan[:-1])
-        action_plan = [Action(np.array(a, dtype=np.float32))
-                       for a in action_arrs]
-        memory["plan"] = action_plan
+        deltas = np.subtract(position_plan[1:], position_plan[:-1])
+        action_plan = [Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+                       for (dx, dy) in deltas]
+        memory["action_plan"] = action_plan
         return True
 
     def _Move_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
         del memory  # unused
-        robot, _, _ = objects
-        desired_x, desired_y = params
+        robot, _, end_door = objects
+        desired_x, desired_y = self._move_param_to_target_position(params,
+            end_door, state)
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
@@ -405,8 +415,8 @@ class DoorsEnv(BaseEnv):
 
     def _Move_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        assert memory["plan"], "Motion plan did not reach its goal"
-        return memory["plan"].pop(0)
+        assert memory["action_plan"], "Motion plan did not reach its goal"
+        return memory["action_plan"].pop(0)
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # The robot is in the room if its center is in the room.
