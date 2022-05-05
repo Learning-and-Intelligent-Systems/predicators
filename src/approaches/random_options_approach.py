@@ -38,6 +38,7 @@ class RandomOptionsApproach(BaseApproach):
                         cur_option = opt
                         break
                 else:  # fall back to a random action
+                    cur_option = DummyOption
                     return Action(self._action_space.sample())
             act = cur_option.policy(state)
             return act
