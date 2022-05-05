@@ -195,16 +195,22 @@ class DoorsEnv(BaseEnv):
             room_cy = room_y + self.room_size / 2
             rad = self.obstacle_initial_position_radius
             num_obstacles = rng.choice(4)
-            obstacle_rects_for_room = []
+            obstacle_rects_for_room: List[utils.Rectangle] = []
             for i in range(num_obstacles):
                 obstacle = Object(f"obstacle{r}-{c}-{i}", self._obstacle_type)
                 while True:
                     x = rng.uniform(room_cx - rad, room_cx + rad)
                     y = rng.uniform(room_cy - rad, room_cy + rad)
-                    w = rng.uniform(self.obstacle_size_lb, self.obstacle_size_ub)
-                    h = rng.uniform(self.obstacle_size_lb, self.obstacle_size_ub)
+                    w = rng.uniform(self.obstacle_size_lb,
+                                    self.obstacle_size_ub)
+                    h = rng.uniform(self.obstacle_size_lb,
+                                    self.obstacle_size_ub)
                     theta = rng.uniform(-np.pi, np.pi)
-                    rect = utils.Rectangle(x=x, y=y, width=w, height=h, theta=theta)
+                    rect = utils.Rectangle(x=x,
+                                           y=y,
+                                           width=w,
+                                           height=h,
+                                           theta=theta)
                     # Prevent collisions just for aesthetic reasons.
                     collision_free = True
                     for existing_rect in obstacle_rects_for_room:
@@ -221,7 +227,6 @@ class DoorsEnv(BaseEnv):
                     "width": w,
                     "theta": theta
                 }
-
         init_state = utils.create_state_from_dict({
             **static_state_dict,
             # Will get overridden.
