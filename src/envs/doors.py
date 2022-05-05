@@ -41,7 +41,12 @@ class DoorsEnv(BaseEnv):
         # Predicates
         self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
                                  self._InRoom_holds)
-        # TODO
+        self._TouchingDoor = Predicate("TouchingDoor",
+                                       [self._robot_type, self._door_type],
+                                       self._TouchingDoor_holds)
+        self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
+                                     self._DoorIsOpen_holds)
+        # TODO others
         # Options
         # TODO
         # Static objects (always exist no matter the settings).
@@ -138,10 +143,15 @@ class DoorsEnv(BaseEnv):
             obstacle_geom.plot(ax, color=obstacle_color)
 
         # Draw doors.
-        door_color = "orangered"
+        closed_door_color = "orangered"
+        open_door_color = "lightgreen"
         for door in state.get_objects(self._door_type):
+            if self._DoorIsOpen_holds(state, [door]):
+                color = open_door_color
+            else:
+                color = closed_door_color
             door_geom = self._object_to_geom(door, state)
-            door_geom.plot(ax, color=door_color)
+            door_geom.plot(ax, color=color)
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
@@ -281,12 +291,31 @@ class DoorsEnv(BaseEnv):
         room_geom = self._object_to_geom(room, state)
         return room_geom.contains_point(robot_geom.x, robot_geom.y)
 
+    def _TouchingDoor_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        robot, door = objects
+        robot_geom = self._object_to_geom(robot, state)
+        door_geom = self._object_to_geom(door, state)
+        return robot_geom.intersects(door_geom)
+
+    def _DoorIsOpen_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        door, = objects
+        return state.get(door, "open") > 0.5
+
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)
         robot_geom = self._object_to_geom(robot, state)
+        # Check for collisions with obstacles.
         for obstacle in state.get_objects(self._obstacle_type):
             obstacle_geom = self._object_to_geom(obstacle, state)
             if robot_geom.intersects(obstacle_geom):
+                return True
+        # Check for collisions with closed doors.
+        for door in state.get_objects(self._door_type):
+            if self._DoorIsOpen_holds(state, [door]):
+                continue
+            if self._TouchingDoor_holds(state, [robot, door]):
                 return True
         return False
 
