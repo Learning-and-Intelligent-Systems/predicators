@@ -14,6 +14,7 @@ import numpy as np
 
 class GlobalSettings:
     """Unchanging settings."""
+    test=123
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
