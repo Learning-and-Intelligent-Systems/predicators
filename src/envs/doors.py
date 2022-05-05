@@ -153,8 +153,8 @@ class DoorsEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
-        # Create the static parts of the initial state.
-        static_state_dict = {}
+        # Create the common parts of the initial state.
+        common_state_dict = {}
         # TODO randomize this.
         room_map = np.array([
             [1, 0, 0, 0, 1],
@@ -164,11 +164,13 @@ class DoorsEnv(BaseEnv):
             [1, 1, 1, 0, 1],
         ])
         num_rows, num_cols = room_map.shape
+        rooms = []
         for (r, c) in np.argwhere(room_map):
             room = Object(f"room{r}-{c}", self._room_type)
+            rooms.append(room)
             room_x = float(c * self.room_size)
             room_y = float((num_rows - 1 - r) * self.room_size)
-            static_state_dict[room] = {
+            common_state_dict[room] = {
                 "x": room_x,
                 "y": room_y,
             }
@@ -181,78 +183,74 @@ class DoorsEnv(BaseEnv):
                 room_x, room_y, hall_top, hall_bottom, hall_left, hall_right)
             for i, rect in enumerate(wall_rects):
                 wall = Object(f"wall{r}-{c}-{i}", self._obstacle_type)
-                static_state_dict[wall] = {
+                common_state_dict[wall] = {
                     "x": rect.x,
                     "y": rect.y,
                     "height": rect.height,
                     "width": rect.width,
                     "theta": rect.theta,
                 }
-            # Add other obstacles for this room. Choose between 0 and 3, and
+            # TODO: Create doors for this room.
+        while len(tasks) < num:
+            state_dict = {k: v.copy() for k, v in common_state_dict.items()}
+            # Sample obstacles for each room. Choose between 0 and 3, and
             # make them small and centered enough that the robot should always
             # be able to find a collision-free path through the room.
-            room_cx = room_x + self.room_size / 2
-            room_cy = room_y + self.room_size / 2
-            rad = self.obstacle_initial_position_radius
-            num_obstacles = rng.choice(4)
-            obstacle_rects_for_room: List[utils.Rectangle] = []
-            for i in range(num_obstacles):
-                obstacle = Object(f"obstacle{r}-{c}-{i}", self._obstacle_type)
-                while True:
-                    x = rng.uniform(room_cx - rad, room_cx + rad)
-                    y = rng.uniform(room_cy - rad, room_cy + rad)
-                    w = rng.uniform(self.obstacle_size_lb,
-                                    self.obstacle_size_ub)
-                    h = rng.uniform(self.obstacle_size_lb,
-                                    self.obstacle_size_ub)
-                    theta = rng.uniform(-np.pi, np.pi)
-                    rect = utils.Rectangle(x=x,
-                                           y=y,
-                                           width=w,
-                                           height=h,
-                                           theta=theta)
-                    # Prevent collisions just for aesthetic reasons.
-                    collision_free = True
-                    for existing_rect in obstacle_rects_for_room:
-                        if rect.intersects(existing_rect):
-                            collision_free = False
+            for room in rooms:
+                room_x = state_dict[room]["x"]
+                room_y = state_dict[room]["y"]
+                room_cx = room_x + self.room_size / 2
+                room_cy = room_y + self.room_size / 2
+                rad = self.obstacle_initial_position_radius
+                num_obstacles = rng.choice(4)
+                obstacle_rects_for_room: List[utils.Rectangle] = []
+                for i in range(num_obstacles):
+                    name = f"{room.name}-obstacle-{i}"
+                    obstacle = Object(name, self._obstacle_type)
+                    while True:
+                        x = rng.uniform(room_cx - rad, room_cx + rad)
+                        y = rng.uniform(room_cy - rad, room_cy + rad)
+                        w = rng.uniform(self.obstacle_size_lb,
+                                        self.obstacle_size_ub)
+                        h = rng.uniform(self.obstacle_size_lb,
+                                        self.obstacle_size_ub)
+                        theta = rng.uniform(-np.pi, np.pi)
+                        rect = utils.Rectangle(x=x,
+                                               y=y,
+                                               width=w,
+                                               height=h,
+                                               theta=theta)
+                        # Prevent collisions just for aesthetic reasons.
+                        collision_free = True
+                        for existing_rect in obstacle_rects_for_room:
+                            if rect.intersects(existing_rect):
+                                collision_free = False
+                                break
+                        if collision_free:
                             break
-                    if collision_free:
-                        break
-                obstacle_rects_for_room.append(rect)
-                static_state_dict[obstacle] = {
-                    "x": x,
-                    "y": y,
-                    "height": h,
-                    "width": w,
-                    "theta": theta
-                }
-        init_state = utils.create_state_from_dict({
-            **static_state_dict,
-            # Will get overridden.
-            self._robot: {
-                "x": np.inf,
-                "y": np.inf,
-            },
-        })
-        rooms = sorted(init_state.get_objects(self._room_type))
-        while len(tasks) < num:
+                    obstacle_rects_for_room.append(rect)
+                    state_dict[obstacle] = {
+                        "x": x,
+                        "y": y,
+                        "width": w,
+                        "height": h,
+                        "theta": theta
+                    }
             # Sample an initial and target room.
             start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
             start_room, goal_room = rooms[start_idx], rooms[goal_idx]
-            # Sample an initial state.
-            state = init_state.copy()
             # Always start out near the center of the room to avoid issues with
             # rotating in corners.
-            room_x = init_state.get(start_room, "x")
-            room_y = init_state.get(start_room, "y")
+            room_x = state_dict[start_room]["x"]
+            room_y = state_dict[start_room]["y"]
             room_cx = room_x + self.room_size / 2
             room_cy = room_y + self.room_size / 2
             rad = self.robot_initial_position_radius
             x = rng.uniform(room_cx - rad, room_cx + rad)
             y = rng.uniform(room_cy - rad, room_cy + rad)
-            state.set(self._robot, "x", x)
-            state.set(self._robot, "y", y)
+            state_dict[self._robot] = {"x": x, "y": y}
+            # Create the state.
+            state = utils.create_state_from_dict(state_dict)
             # Make sure the state is collision-free.
             if self._state_has_collision(state):
                 continue
