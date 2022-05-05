@@ -2,7 +2,8 @@
 
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, Iterator
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Sequence, \
+    Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -395,15 +396,17 @@ class DoorsEnv(BaseEnv):
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         initial_state = np.array([robot_x, robot_y])
-        target_state = self._move_param_to_target_position(params,
-            end_door, state)
+        target_state = self._move_param_to_target_position(
+            params, end_door, state)
         position_plan = birrt.query(initial_state, target_state)
         memory["plan"] = position_plan  # for debugging only
         assert position_plan is not None
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
-        action_plan = [Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
-                       for (dx, dy) in deltas]
+        action_plan = [
+            Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+            for (dx, dy) in deltas
+        ]
         memory["action_plan"] = action_plan
         return True
 
@@ -411,8 +414,8 @@ class DoorsEnv(BaseEnv):
                        objects: Sequence[Object], params: Array) -> bool:
         del memory  # unused
         robot, _, end_door = objects
-        desired_x, desired_y = self._move_param_to_target_position(params,
-            end_door, state)
+        desired_x, desired_y = self._move_param_to_target_position(
+            params, end_door, state)
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
@@ -662,19 +665,16 @@ class DoorsEnv(BaseEnv):
         theta = state.get(door, "theta")
         # Top or bottom door.
         if abs(theta) < 1e-6:
-            return utils.Rectangle(
-                x=x,
-                y=(y - self.doorway_size),
-                width=self.hallway_width,
-                height=(self.wall_depth + 2 * self.doorway_size),
-                theta=0
-            )
+            return utils.Rectangle(x=x,
+                                   y=(y - self.doorway_size),
+                                   width=self.hallway_width,
+                                   height=(self.wall_depth +
+                                           2 * self.doorway_size),
+                                   theta=0)
         # Left or right door.
         assert abs(theta - np.pi / 2) < 1e-6
-        return utils.Rectangle(
-            x=(x - self.wall_depth - self.doorway_size),
-            y=y,
-            width=(self.wall_depth + 2 * self.doorway_size),
-            height=self.hallway_width,
-            theta=0
-        )
+        return utils.Rectangle(x=(x - self.wall_depth - self.doorway_size),
+                               y=y,
+                               width=(self.wall_depth + 2 * self.doorway_size),
+                               height=self.hallway_width,
+                               theta=0)
