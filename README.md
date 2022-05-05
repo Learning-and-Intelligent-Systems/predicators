@@ -1,4 +1,4 @@
-# Bilevel Planning with Neuro-Symbolic Relational Abstractions
+# Bilevel Planning with Neuro-Symbolic Abstractions
 
 ## Repository Description
 
