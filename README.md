@@ -1,4 +1,4 @@
-# predicators
+# Bilevel Planning with Neuro-Symbolic Relational Abstractions
 
 ## Repository Description
 
