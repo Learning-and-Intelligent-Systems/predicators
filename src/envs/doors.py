@@ -131,13 +131,17 @@ class DoorsEnv(BaseEnv):
         robot_geom = self._object_to_geom(self._robot, state)
         robot_geom.plot(ax, color=robot_color)
 
-        # TODO draw doors
-
         # Draw obstacles (including room walls).
         obstacle_color = "black"
         for obstacle in state.get_objects(self._obstacle_type):
             obstacle_geom = self._object_to_geom(obstacle, state)
             obstacle_geom.plot(ax, color=obstacle_color)
+
+        # Draw doors.
+        door_color = "orangered"
+        for door in state.get_objects(self._door_type):
+            door_geom = self._object_to_geom(door, state)
+            door_geom.plot(ax, color=door_color)
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
@@ -190,7 +194,15 @@ class DoorsEnv(BaseEnv):
                     "width": rect.width,
                     "theta": rect.theta,
                 }
-            # TODO: Create doors for this room.
+            # Create doors for this room. Note that we only need to create
+            # bottom or left, because each door is on the bottom or left of
+            # some room (and top / right of another room).
+            for name, exists in [("bottom", hall_bottom), ("left", hall_left)]:
+                if not exists:
+                    continue
+                door = Object(f"{name}-door{r}-{c}", self._door_type)
+                feat_dict = self._get_door_for_room(room_x, room_y, name)
+                common_state_dict[door] = feat_dict
         while len(tasks) < num:
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
             # Sample obstacles for each room. Choose between 0 and 3, and
@@ -435,3 +447,23 @@ class DoorsEnv(BaseEnv):
             rectangles.append(rect)
 
         return rectangles
+
+    def _get_door_for_room(self, room_x: float, room_y: float,
+                           loc: str) -> Dict[str, float]:
+        # This is the length of the wall on one side of the door.
+        offset = (self.room_size + self.wall_depth - self.hallway_width) / 2
+
+        if loc == "bottom":
+            x = room_x + offset
+            y = room_y - self.wall_depth / 2
+            theta = 0.0
+        else:
+            assert loc == "left"
+            x = room_x + self.wall_depth / 2
+            y = room_y + offset
+            theta = np.pi / 2
+
+        # TODO randomize.
+        target = 0.0
+
+        return {"x": x, "y": y, "theta": theta, "target": target, "open": 0.0}
