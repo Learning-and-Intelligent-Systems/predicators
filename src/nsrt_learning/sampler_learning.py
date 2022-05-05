@@ -162,6 +162,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     regressor = None
     if CFG.sampler_use_gnn: 
         assert CFG.sampler_learning_use_goals # goals used for graph
+        assert CFG.sampler_disable_classifier # gnn with classifier isn't implemented
         # Fit GNN to data 
         logging.info("Fitting GNN...")    
         gnn_model = GNNRegressor({param_option}) 
@@ -319,7 +320,6 @@ class _LearnedSampler:
                 state_feature = np.array([1.0])
                 for var in self._variables: 
                     state_feature = np.concatenate((state_feature, state[sub[var]]))
-
                 # goal objects and their states
                 goal_objs_to_states = {} 
                 for atom in goal: 

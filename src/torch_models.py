@@ -644,9 +644,7 @@ class GNNRegressor():
             y.append(y_i)
         return np.array(y)
         
-    def learn_from_graph_data(self, graph_data) -> None:
-        
-        # do I need to do the examples (?) 
+    def learn_from_graph_data(self, graph_data) -> None: 
         inputs, targets = graph_data
         example_inputs = [inputs[0]]
         example_targets = [targets[0]]
@@ -740,9 +738,9 @@ class GNNRegressor():
 
         # Go through the data, identifying the maximum number of option
         # objects and parameters, and the types/predicates/attributes.
-        # For this version of setup_fields we don't use the state;
+        # For this version of setup_fields we don't use the full state;
         # only the objects in the goal. We don't use the objects in sub either
-        # which are implicitly used by being part of the globals vector. (?)
+        # which are implicitly used by being part of the globals vector.
         for state, sub, option, goal in data:
             assert len(option.params.shape) == 1
             max_option_objects = max(max_option_objects, len(option.objects))
