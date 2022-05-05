@@ -15,7 +15,6 @@ from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
 from predicators.src.torch_models import Classifier, MLPClassifier, \
     NeuralGaussianRegressor, GNNRegressor
-from predicators.src.nsrt_learning.sampler_learning_utils import graphify_single_input
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -162,35 +161,28 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     gnn_model = None
     regressor = None
     if CFG.sampler_use_gnn: 
+        assert CFG.sampler_learning_use_goals # goals used for graph
         # Fit GNN to data 
         logging.info("Fitting GNN...")    
         gnn_model = GNNRegressor({param_option}) 
-
-        # import pdb; pdb.set_trace()
         gnn_model.setup_fields(positive_data)
 
         X = [] 
         Y = []
         for state, sub, option, goal in positive_data: 
-
             # state features for global vector 
             state_feature = np.array([1.0])
             for var in variables: 
                 state_feature = np.concatenate((state_feature, state[sub[var]]))
-
             # goal objects and their states
             goal_objs_to_states = {} 
             for atom in goal: 
                 for obj in atom.objects:
                     goal_objs_to_states[obj] = state[obj]
-
             X.append((state_feature, goal, goal_objs_to_states))
             Y.append(option)
-
         graph_data = gnn_model.graphify_data(X,Y)
         gnn_model.learn_from_graph_data(graph_data)
-
-        import pdb; pdb.set_trace()
 
     else: 
         # Fit regressor to data
@@ -198,9 +190,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         X_regressor: List[List[Array]] = []
         Y_regressor = []
 
-        # original regressor data stuff 
         for state, sub, option, goal in positive_data:  # don't use negative data!
-            # import pdb; pdb.set_trace() 
             # input is state features
             X_regressor.append([np.array(1.0)])  # start with bias term
             for var in variables:
@@ -210,9 +200,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
             # regressor.
             if CFG.sampler_learning_use_goals:
                 assert goal is not None
-                # assert len(goal) == 1
+                assert len(goal) == 1
                 goal_atom = next(iter(goal))
-                # assert len(goal_atom.objects) == 1
+                assert len(goal_atom.objects) == 1
                 goal_obj = goal_atom.objects[0]
                 X_regressor[-1].extend(state[goal_obj])
             # output is option parameters

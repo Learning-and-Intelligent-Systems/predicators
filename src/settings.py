@@ -134,7 +134,7 @@ class GlobalSettings:
     gnn_policy_num_message_passing = 3
     gnn_policy_layer_size = 16
     gnn_policy_learning_rate = 1e-3
-    gnn_policy_num_epochs = 10000 #25000
+    gnn_policy_num_epochs = 25000
     gnn_policy_batch_size = 128
     gnn_policy_do_normalization = False  # performs worse in Cover when True
     gnn_policy_use_validation_set = True
@@ -190,8 +190,9 @@ class GlobalSettings:
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
-    sampler_disable_classifier = True #False
+    sampler_disable_classifier = True 
     sampler_use_gnn = True
+    sampler_gnn_use_mse_loss = False # Default to using GaussianNLLLoss
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10

@@ -621,7 +621,6 @@ class GNNRegressor():
         return torch.split(x, x.shape[-1] // 2, dim=-1)  # type: ignore
 
     def predict_sample(self, state_feature, goal, goal_objs_to_states):
-        print("input state_feature", state_feature)
         in_graph, object_to_node = self.graphify_single_input(
             state_feature, goal, goal_objs_to_states)
         node_to_object = {v: k for k, v in object_to_node.items()}
@@ -635,15 +634,14 @@ class GNNRegressor():
             out_graph = normalize_graph(out_graph,
                                         self._target_normalizers,
                                         invert=True)
+        if CFG.sampler_gnn_use_mse_loss: 
+            return torch.tensor(out_graph['globals'])
         mean, variance = self._split_prediction(torch.tensor(out_graph['globals']))
         variance = F.elu(variance) + 1
         y = []
         for mu, sigma_sq in zip(mean, variance):
             y_i = self._rng.normal(loc=mu, scale=np.sqrt(sigma_sq))
             y.append(y_i)
-        print("mu", mu)
-        print("sigma_sq", sigma_sq)
-        print("output y", y)
         return np.array(y)
         
     def learn_from_graph_data(self, graph_data) -> None:
@@ -826,21 +824,18 @@ class GNNRegressor():
                 "senders": graph_input["senders"],
                 "receivers": graph_input["receivers"],
             }
-            ## Next, set up the target node features.
+            ## Next, set up the target node features. 
             object_mask = np.zeros(
                 (len(object_to_node), self._max_option_objects),
                 dtype=np.int64)
-            # for i, obj in enumerate(option.objects):
-            #     object_mask[object_to_node[obj], i] = 1
             graph_target["nodes"] = object_mask
-            ## Finally, set up the target globals.
-            # option_index = self._sorted_options.index(option.parent)
-            # onehot_target = np.zeros(len(self._sorted_options))
-            # onehot_target[option_index] = 1
-            # assert len(option.params.shape) == 1
-            # params_target = np.zeros(self._max_option_params)
-            # params_target[:option.params.shape[0]] = option.params
-            graph_target["globals"] = torch.hstack((torch.tensor(option.params), torch.zeros(len(option.params)))) #np.r_[onehot_target, params_target] # correct for targets (?)
+            # Set up target globals.
+            if CFG.sampler_gnn_use_mse_loss: 
+                graph_target["globals"] = torch.tensor(option.params)
+            else:
+                # If using GaussianNLL loss, we change the globals to twice the 
+                # size to predict the standard deviation. 
+                graph_target["globals"] = torch.hstack((torch.tensor(option.params), torch.zeros(len(option.params)))) 
             graph_targets.append(graph_target)
 
         if CFG.gnn_policy_do_normalization:
@@ -860,14 +855,11 @@ class GNNRegressor():
         return graph_inputs, graph_targets
 
     def graphify_single_input(self, state_feature, goal, goal_objs_to_states) -> Tuple[Dict, Dict]:
-        # state is the concatenation of the affected objects in the operator
-        # only pass in goal groundatoms
-        # then pass in set of object states (for goal objects) 
-        ## state is currently only used for its objs, so we can probably just pass in goal objs and 
-        ## their states
-
-        # import pdb; pdb.set_trace() 
-
+        # state_feature is the concatenation of the features of objects in
+        # the operator. goal is the goal ground atoms, and goal_objs_to_states
+        # is a dictionary mapping objects in the goal to their state features. 
+        # We use state_feature in the input globals, and use goal and 
+        # goal_objs_to_states to construct the input graph. 
         all_objects = list(goal_objs_to_states.keys())
         node_to_object = dict(enumerate(all_objects))
         object_to_node = {v: k for k, v in node_to_object.items()}
@@ -886,26 +878,26 @@ class GNNRegressor():
         graph["n_node"] = np.array(num_objects)
         node_features = np.zeros((num_objects, num_node_features))
 
-        # ## Add node features for obj types.
-        # for obj in all_objects:
-        #     obj_index = object_to_node[obj]
-        #     type_index = self._node_feature_to_index[f"type_{obj.type.name}"]
-        #     node_features[obj_index, type_index] = 1
+        ## Add node features for obj types.
+        for obj in all_objects:
+            obj_index = object_to_node[obj]
+            type_index = self._node_feature_to_index[f"type_{obj.type.name}"]
+            node_features[obj_index, type_index] = 1
         
-        # ## Add node features for unary atoms in goal.
-        # for atom in goal:
-        #     if atom.predicate.arity != 1:
-        #         continue
-        #     obj_index = object_to_node[atom.objects[0]]
-        #     atom_index = self._node_feature_to_index[G(atom.predicate)]
-        #     node_features[obj_index, atom_index] = 1
+        ## Add node features for unary atoms in goal.
+        for atom in goal:
+            if atom.predicate.arity != 1:
+                continue
+            obj_index = object_to_node[atom.objects[0]]
+            atom_index = self._node_feature_to_index[G(atom.predicate)]
+            node_features[obj_index, atom_index] = 1
 
-        # ## Add node features for state.
-        # for obj in all_objects:
-        #     obj_index = object_to_node[obj]
-        #     for feat, val in zip(obj.type.feature_names, goal_objs_to_states[obj]):
-        #         feat_index = self._node_feature_to_index[f"feat_{feat}"]
-        #         node_features[obj_index, feat_index] = val
+        ## Add node features for state.
+        for obj in all_objects:
+            obj_index = object_to_node[obj]
+            for feat, val in zip(obj.type.feature_names, goal_objs_to_states[obj]):
+                feat_index = self._node_feature_to_index[f"feat_{feat}"]
+                node_features[obj_index, feat_index] = val
 
         graph["nodes"] = node_features
 
@@ -916,24 +908,24 @@ class GNNRegressor():
         all_edge_features = np.zeros(
             (num_objects, num_objects, num_edge_features))
 
-        # ## Add edge features for binary atoms in goal.
-        # for atom in goal:
-        #     if atom.predicate.arity != 2:
-        #         continue
-        #     pred_index = self._edge_feature_to_index[G(atom.predicate)]
-        #     obj0_index = object_to_node[atom.objects[0]]
-        #     obj1_index = object_to_node[atom.objects[1]]
-        #     all_edge_features[obj0_index, obj1_index, pred_index] = 1
+        ## Add edge features for binary atoms in goal.
+        for atom in goal:
+            if atom.predicate.arity != 2:
+                continue
+            pred_index = self._edge_feature_to_index[G(atom.predicate)]
+            obj0_index = object_to_node[atom.objects[0]]
+            obj1_index = object_to_node[atom.objects[1]]
+            all_edge_features[obj0_index, obj1_index, pred_index] = 1
 
-        # ## Add edge features for reversed binary atoms in goal.
-        # for atom in goal:
-        #     if atom.predicate.arity != 2:
-        #         continue
-        #     pred_index = self._edge_feature_to_index[G(R(atom.predicate))]
-        #     obj0_index = object_to_node[atom.objects[0]]
-        #     obj1_index = object_to_node[atom.objects[1]]
-        #     # Note: the next line is reversed on purpose!
-        #     all_edge_features[obj1_index, obj0_index, pred_index] = 1
+        ## Add edge features for reversed binary atoms in goal.
+        for atom in goal:
+            if atom.predicate.arity != 2:
+                continue
+            pred_index = self._edge_feature_to_index[G(R(atom.predicate))]
+            obj0_index = object_to_node[atom.objects[0]]
+            obj1_index = object_to_node[atom.objects[1]]
+            # Note: the next line is reversed on purpose!
+            all_edge_features[obj1_index, obj0_index, pred_index] = 1
 
         # Organize into expected representation.
         adjacency_mat = np.any(all_edge_features, axis=2)
@@ -949,8 +941,6 @@ class GNNRegressor():
         graph["receivers"] = np.reshape(receivers, [n_edge]).astype(np.int64)
         graph["senders"] = np.reshape(senders, [n_edge]).astype(np.int64)
         graph["n_edge"] = np.reshape(n_edge, [1]).astype(np.int64)
-
-        # import pdb; pdb.set_trace()
 
         return graph, object_to_node
 
