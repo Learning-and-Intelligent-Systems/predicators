@@ -26,6 +26,9 @@ class DoorsEnv(BaseEnv):
     robot_radius: ClassVar[float] = 0.05
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
+    obstacle_initial_position_radius: ClassVar[float] = 0.1
+    obstacle_size_lb: ClassVar[float] = 0.05
+    obstacle_size_ub: ClassVar[float] = 0.2
 
     def __init__(self) -> None:
         super().__init__()
@@ -185,7 +188,40 @@ class DoorsEnv(BaseEnv):
                     "width": rect.width,
                     "theta": rect.theta,
                 }
-        # TODO add other obstacles.
+            # Add other obstacles for this room. Choose between 0 and 3, and
+            # make them small and centered enough that the robot should always
+            # be able to find a collision-free path through the room.
+            room_cx = room_x + self.room_size / 2
+            room_cy = room_y + self.room_size / 2
+            rad = self.obstacle_initial_position_radius
+            num_obstacles = rng.choice(4)
+            obstacle_rects_for_room = []
+            for i in range(num_obstacles):
+                obstacle = Object(f"obstacle{r}-{c}-{i}", self._obstacle_type)
+                while True:
+                    x = rng.uniform(room_cx - rad, room_cx + rad)
+                    y = rng.uniform(room_cy - rad, room_cy + rad)
+                    w = rng.uniform(self.obstacle_size_lb, self.obstacle_size_ub)
+                    h = rng.uniform(self.obstacle_size_lb, self.obstacle_size_ub)
+                    theta = rng.uniform(-np.pi, np.pi)
+                    rect = utils.Rectangle(x=x, y=y, width=w, height=h, theta=theta)
+                    # Prevent collisions just for aesthetic reasons.
+                    collision_free = True
+                    for existing_rect in obstacle_rects_for_room:
+                        if rect.intersects(existing_rect):
+                            collision_free = False
+                            break
+                    if collision_free:
+                        break
+                obstacle_rects_for_room.append(rect)
+                static_state_dict[obstacle] = {
+                    "x": x,
+                    "y": y,
+                    "height": h,
+                    "width": w,
+                    "theta": theta
+                }
+
         init_state = utils.create_state_from_dict({
             **static_state_dict,
             # Will get overridden.
@@ -212,9 +248,9 @@ class DoorsEnv(BaseEnv):
             y = rng.uniform(room_cy - rad, room_cy + rad)
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
-            # Make sure the state is collision-free. Should be guaranteed
-            # because we're initializing the robot in the middle of the room.
-            assert not self._state_has_collision(state)
+            # Make sure the state is collision-free.
+            if self._state_has_collision(state):
+                continue
             # Set the goal.
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
@@ -231,7 +267,12 @@ class DoorsEnv(BaseEnv):
         return room_geom.contains_point(robot_geom.x, robot_geom.y)
 
     def _state_has_collision(self, state: State) -> bool:
-        # TODO
+        robot, = state.get_objects(self._robot_type)
+        robot_geom = self._object_to_geom(robot, state)
+        for obstacle in state.get_objects(self._obstacle_type):
+            obstacle_geom = self._object_to_geom(obstacle, state)
+            if robot_geom.intersects(obstacle_geom):
+                return True
         return False
 
     def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
