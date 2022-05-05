@@ -16,7 +16,7 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
     ParameterizedOption, Predicate, State, Task, Type
-from predicators.src.utils import _Geom2D
+from predicators.src.utils import Rectangle, _Geom2D
 
 
 class DoorsEnv(BaseEnv):
@@ -30,8 +30,7 @@ class DoorsEnv(BaseEnv):
     obstacle_initial_position_radius: ClassVar[float] = 0.1
     obstacle_size_lb: ClassVar[float] = 0.05
     obstacle_size_ub: ClassVar[float] = 0.2
-    doorway_size: ClassVar[float] = 0.025
-    # This can be very small because we are not learning the move option.
+    doorway_pad: ClassVar[float] = 1e-3
     move_sq_dist_tol: ClassVar[float] = 1e-5
 
     def __init__(self) -> None:
@@ -171,16 +170,17 @@ class DoorsEnv(BaseEnv):
                 color = closed_door_color
             door_geom = self._object_to_geom(door, state)
             door_geom.plot(ax, color=color)
-            # Uncomment to also draw the doorway for the door.
-            doorway_geom = self._door_to_doorway_geom(door, state)
-            doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
+            if CFG.doors_draw_debug:
+                doorway_geom = self._door_to_doorway_geom(door, state)
+                doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
 
-        # Uncomment for debugging motion planning.
-        if action is not None and action.has_option():
-            option = action.get_option()
-            if "plan" in option.memory:
-                xs, ys = zip(*option.memory["plan"])
-                plt.scatter(xs, ys, s=3, alpha=0.5, color=robot_color)
+        # Visualize the motion plan.
+        if CFG.doors_draw_debug:
+            if action is not None and action.has_option():
+                option = action.get_option()
+                if "position_plan" in option.memory:
+                    xs, ys = zip(*option.memory["position_plan"])
+                    plt.scatter(xs, ys, s=3, alpha=0.5, color=robot_color)
 
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
@@ -199,17 +199,17 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        # room_map = np.array([
-        #     [1, 0, 0, 0, 1],
-        #     [1, 0, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        #     [0, 1, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        # ])
         room_map = np.array([
-            [1, 1],
-            [1, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1],
+            [1, 1, 1, 0, 1],
+            [0, 1, 1, 1, 1],
+            [1, 1, 1, 0, 1],
         ])
+        # room_map = np.array([
+        #     [1, 1],
+        #     [1, 1],
+        # ])
         num_rows, num_cols = room_map.shape
         rooms = []
         for (r, c) in np.argwhere(room_map):
@@ -258,7 +258,7 @@ class DoorsEnv(BaseEnv):
                 room_cy = room_y + self.room_size / 2
                 rad = self.obstacle_initial_position_radius
                 num_obstacles = rng.choice(4)
-                obstacle_rects_for_room: List[utils.Rectangle] = []
+                obstacle_rects_for_room: List[Rectangle] = []
                 for i in range(num_obstacles):
                     name = f"{room.name}-obstacle-{i}"
                     obstacle = Object(name, self._obstacle_type)
@@ -270,11 +270,11 @@ class DoorsEnv(BaseEnv):
                         h = rng.uniform(self.obstacle_size_lb,
                                         self.obstacle_size_ub)
                         theta = rng.uniform(-np.pi, np.pi)
-                        rect = utils.Rectangle(x=x,
-                                               y=y,
-                                               width=w,
-                                               height=h,
-                                               theta=theta)
+                        rect = Rectangle(x=x,
+                                         y=y,
+                                         width=w,
+                                         height=h,
+                                         theta=theta)
                         # Prevent collisions just for aesthetic reasons.
                         collision_free = True
                         for existing_rect in obstacle_rects_for_room:
@@ -335,8 +335,8 @@ class DoorsEnv(BaseEnv):
             return False
         # The robot should be in the other room.
         assert len(start_rooms) == 2
-        noncommon_room = next(iter(start_rooms - common_rooms))
-        if not self._InRoom_holds(state, [robot, noncommon_room]):
+        uncommon_room = next(iter(start_rooms - common_rooms))
+        if not self._InRoom_holds(state, [robot, uncommon_room]):
             return False
         # The option is initiable, so we're going to make a plan now and store
         # it in memory for use in the policy. Note that policies are assumed
@@ -344,7 +344,7 @@ class DoorsEnv(BaseEnv):
         # by using a constant seed in RRT.
         rng = np.random.default_rng(CFG.seed)
 
-        start_room_rect = self._object_to_geom(noncommon_room, state)
+        start_room_rect = self._object_to_geom(uncommon_room, state)
         end_room_rect = self._object_to_geom(common_room, state)
         room_rects = [start_room_rect, end_room_rect]
 
@@ -352,7 +352,7 @@ class DoorsEnv(BaseEnv):
             # Only sample positions that are inside the two rooms that the
             # robot should stay in for this option.
             room_rect = room_rects[rng.choice(len(room_rects))]
-            assert isinstance(room_rect, utils.Rectangle)
+            assert isinstance(room_rect, Rectangle)
             # Sample a point in this room that is far enough away from the
             # wall (to save on collision checking).
             x_lb = room_rect.x + self.robot_radius
@@ -395,11 +395,12 @@ class DoorsEnv(BaseEnv):
 
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
+        target_x, target_y = self._move_param_to_target_position(
+            params, common_room, end_door, state)
         initial_state = np.array([robot_x, robot_y])
-        target_state = self._move_param_to_target_position(
-            params, end_door, state)
+        target_state = np.array([target_x, target_y])
         position_plan = birrt.query(initial_state, target_state)
-        memory["plan"] = position_plan  # for debugging only
+        memory["position_plan"] = position_plan
         assert position_plan is not None
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
@@ -412,10 +413,9 @@ class DoorsEnv(BaseEnv):
 
     def _Move_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
-        del memory  # unused
+        del params  # unused
         robot, _, end_door = objects
-        desired_x, desired_y = self._move_param_to_target_position(
-            params, end_door, state)
+        desired_x, desired_y = memory["position_plan"][-1]
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
@@ -488,11 +488,7 @@ class DoorsEnv(BaseEnv):
             width = state.get(obj, "width")
             height = state.get(obj, "height")
             theta = state.get(obj, "theta")
-        return utils.Rectangle(x=x,
-                               y=y,
-                               width=width,
-                               height=height,
-                               theta=theta)
+        return Rectangle(x=x, y=y, width=width, height=height, theta=theta)
 
     def _get_world_boundaries(
             self, state: State) -> Tuple[float, float, float, float]:
@@ -508,15 +504,15 @@ class DoorsEnv(BaseEnv):
         return x_lb, x_ub, y_lb, y_ub
 
     @lru_cache(maxsize=None)
-    def _get_rectangles_for_room_walls(
-            self, room_x: float, room_y: float, hall_top: bool,
-            hall_bottom: bool, hall_left: bool,
-            hall_right: bool) -> List[utils.Rectangle]:
+    def _get_rectangles_for_room_walls(self, room_x: float, room_y: float,
+                                       hall_top: bool, hall_bottom: bool,
+                                       hall_left: bool,
+                                       hall_right: bool) -> List[Rectangle]:
         rectangles = []
         s = (self.room_size + self.wall_depth - self.hallway_width) / 2
         # Top wall.
         if hall_top:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -524,7 +520,7 @@ class DoorsEnv(BaseEnv):
                 theta=0,
             )
             rectangles.append(rect)
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(s + self.hallway_width + room_x - self.wall_depth / 2),
                 y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -533,7 +529,7 @@ class DoorsEnv(BaseEnv):
             )
             rectangles.append(rect)
         else:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y + self.room_size - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -544,7 +540,7 @@ class DoorsEnv(BaseEnv):
 
         # Bottom wall.
         if hall_bottom:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -552,7 +548,7 @@ class DoorsEnv(BaseEnv):
                 theta=0,
             )
             rectangles.append(rect)
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(s + self.hallway_width + room_x - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -561,7 +557,7 @@ class DoorsEnv(BaseEnv):
             )
             rectangles.append(rect)
         else:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=self.wall_depth,
@@ -572,7 +568,7 @@ class DoorsEnv(BaseEnv):
 
         # Left wall.
         if hall_left:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=s,
@@ -580,7 +576,7 @@ class DoorsEnv(BaseEnv):
                 theta=0,
             )
             rectangles.append(rect)
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y + s + self.hallway_width - self.wall_depth / 2),
                 height=s,
@@ -589,7 +585,7 @@ class DoorsEnv(BaseEnv):
             )
             rectangles.append(rect)
         else:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=(self.room_size + self.wall_depth),
@@ -600,7 +596,7 @@ class DoorsEnv(BaseEnv):
 
         # Right wall.
         if hall_right:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x + self.room_size - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=s,
@@ -608,7 +604,7 @@ class DoorsEnv(BaseEnv):
                 theta=0,
             )
             rectangles.append(rect)
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x + self.room_size - self.wall_depth / 2),
                 y=(room_y + s + self.hallway_width - self.wall_depth / 2),
                 height=s,
@@ -617,7 +613,7 @@ class DoorsEnv(BaseEnv):
             )
             rectangles.append(rect)
         else:
-            rect = utils.Rectangle(
+            rect = Rectangle(
                 x=(room_x + self.room_size - self.wall_depth / 2),
                 y=(room_y - self.wall_depth / 2),
                 height=(self.room_size + self.wall_depth),
@@ -659,22 +655,51 @@ class DoorsEnv(BaseEnv):
         assert len(rooms) == 2
         return rooms
 
-    def _door_to_doorway_geom(self, door: Object, state: State) -> _Geom2D:
+    def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
         x = state.get(door, "x")
         y = state.get(door, "y")
         theta = state.get(door, "theta")
+        doorway_size = self.robot_radius + self.doorway_pad
         # Top or bottom door.
         if abs(theta) < 1e-6:
-            return utils.Rectangle(x=x,
-                                   y=(y - self.doorway_size),
-                                   width=self.hallway_width,
-                                   height=(self.wall_depth +
-                                           2 * self.doorway_size),
-                                   theta=0)
+            return Rectangle(x=x,
+                             y=(y - doorway_size),
+                             width=self.hallway_width,
+                             height=(self.wall_depth + 2 * doorway_size),
+                             theta=0)
         # Left or right door.
         assert abs(theta - np.pi / 2) < 1e-6
-        return utils.Rectangle(x=(x - self.wall_depth - self.doorway_size),
-                               y=y,
-                               width=(self.wall_depth + 2 * self.doorway_size),
-                               height=self.hallway_width,
-                               theta=0)
+        return Rectangle(x=(x - self.wall_depth - doorway_size),
+                         y=y,
+                         width=(self.wall_depth + 2 * doorway_size),
+                         height=self.hallway_width,
+                         theta=0)
+
+    def _move_param_to_target_position(self, params: Array, room: Object,
+                                       door: Object,
+                                       state: State) -> Tuple[float, float]:
+        # Find the two vertices of the doorway that are in the room.
+        doorway_geom = self._door_to_doorway_geom(door, state)
+        room_geom = self._object_to_geom(room, state)
+        vertices_in_room = []
+        for (x, y) in doorway_geom.vertices:
+            if room_geom.contains_point(x, y):
+                vertices_in_room.append((x, y))
+        assert len(vertices_in_room) == 2
+        (x0, y0), (x1, y1) = vertices_in_room
+        # Use the params to choose a point on the line between the vertices.
+        assert len(params) == 1
+        scale = params[0]
+        assert 0 <= scale <= 1
+        # We don't want to sample on the ends of the line, because that would
+        # lead to a collision between the robot and the walls next to the door.
+        passable_width = self.hallway_width - (2 * self.robot_radius)
+        assert passable_width > 0
+        passable_fraction = passable_width / self.hallway_width
+        # Shrink the scale.
+        scale *= passable_fraction
+        # Shift the scale.
+        scale += passable_fraction / 2
+        target_x = x0 + (x1 - x0) * scale
+        target_y = y0 + (y1 - y0) * scale
+        return (target_x, target_y)
