@@ -135,6 +135,11 @@ class GlobalSettings:
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
 
+    # doors env parameters
+    doors_birrt_num_attempts = 10
+    doors_birrt_num_iters = 100
+    doors_birrt_smooth_amt = 50
+
     # parameters for random options approach
     random_options_max_tries = 100
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, Iterator
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -306,10 +306,10 @@ class DoorsEnv(BaseEnv):
 
     def _Move_initiable(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
         robot, start_door, end_door = objects
         if start_door == end_door:
             return False
+        # TODO: add check that the start door is open.
         # The doors should share a room, but the robot should not already
         # be in that room.
         start_rooms = self._door_to_rooms(start_door, state)
@@ -324,7 +324,74 @@ class DoorsEnv(BaseEnv):
         # The robot should be in the other room.
         assert len(start_rooms) == 2
         noncommon_room = next(iter(start_rooms - common_rooms))
-        return self._InRoom_holds(state, [robot, noncommon_room])
+        if not self._InRoom_holds(state, [robot, noncommon_room]):
+            return False
+        # The option is initiable, so we're going to make a plan now and store
+        # it in memory for use in the policy. Note that policies are assumed
+        # to be deterministic, but RRT is stochastic. We enforce determinism
+        # by using a constant seed in RRT.
+        rng = np.random.default_rng(CFG.seed)
+
+        start_room_rect = self._object_to_geom(noncommon_room, state)
+        end_room_rect = self._object_to_geom(common_room, state)
+        room_rects = [start_room_rect, end_room_rect]
+
+        def _sample_fn(_: Array) -> Array:
+            # Only sample positions that are inside the two rooms that the
+            # robot should stay in for this option.
+            room_rect = room_rects[rng.choice(len(room_rects))]
+            assert isinstance(room_rect, utils.Rectangle)
+            # Sample a point in this room that is far enough away from the
+            # wall (to save on collision checking).
+            x_lb = room_rect.x + self.robot_radius
+            x_ub = room_rect.x + self.room_size - self.robot_radius
+            y_lb = room_rect.y + self.robot_radius
+            y_ub = room_rect.y + self.room_size - self.robot_radius
+            x = rng.uniform(x_lb, x_ub)
+            y = rng.uniform(y_lb, y_ub)
+            return np.array([x, y], dtype=np.float32)
+
+        def _extend_fn(pt1: Array, pt2: Array) -> Iterator[Array]:
+            # Make sure that we obey the bounds on actions.
+            num = int(np.ceil(max(abs(pt1 - pt2) / self.action_magnitude)))
+            if num == 0:
+                yield pt2
+            for i in range(1, num + 1):
+                yield pt1 * (1 - i / num) + pt2 * i / num
+
+        def _collision_fn(pt: Array) -> bool:
+            # Make a hypothetical state for the robot at this point and check
+            # if there would be collisions.
+            x, y = pt
+            s = state.copy()
+            s.set(robot, "x", x)
+            s.set(robot, "y", y)
+            return self._state_has_collision(s)
+
+        def _distance_fn(from_pt: Array, to_pt: Array) -> float:
+            return np.sum(np.subtract(from_pt, to_pt)**2)
+
+        birrt = utils.BiRRT(_sample_fn,
+                            _extend_fn,
+                            _collision_fn,
+                            _distance_fn,
+                            rng,
+                            num_attempts=CFG.doors_birrt_num_attempts,
+                            num_iters=CFG.doors_birrt_num_iters,
+                            smooth_amt=CFG.doors_birrt_smooth_amt)
+
+        robot_x = state.get(robot, "x")
+        robot_y = state.get(robot, "y")
+        initial_state = np.array([robot_x, robot_y])
+        target_state = params.copy()
+        position_plan = birrt.query(initial_state, target_state)
+        assert position_plan is not None
+        # Convert the plan from position space to action space.
+        action_arrs = np.subtract(position_plan[1:], position_plan[:-1])
+        action_plan = [Action(np.array(a, dtype=np.float32))
+                       for a in action_arrs]
+        memory["plan"] = action_plan
+        return True
 
     def _Move_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
@@ -338,8 +405,8 @@ class DoorsEnv(BaseEnv):
 
     def _Move_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        import ipdb
-        ipdb.set_trace()
+        assert memory["plan"], "Motion plan did not reach its goal"
+        return memory["plan"].pop(0)
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # The robot is in the room if its center is in the room.
@@ -549,10 +616,11 @@ class DoorsEnv(BaseEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        # TODO randomize.
+        # TODO randomize
         target = 0.0
 
-        return {"x": x, "y": y, "theta": theta, "target": target, "open": 0.0}
+        # TODO close the doors
+        return {"x": x, "y": y, "theta": theta, "target": target, "open": 1.0}
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
         rooms = set()
