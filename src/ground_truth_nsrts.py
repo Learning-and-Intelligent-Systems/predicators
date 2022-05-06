@@ -276,7 +276,6 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
             rx = state.get(robot, "x")
-            grasp_offset = 1e-3
             tx, tw = state.get(target, "x"), state.get(target, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(tx)
