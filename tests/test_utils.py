@@ -11,7 +11,7 @@ from gym.spaces import Box
 from matplotlib import pyplot as plt
 
 from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv
+from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
@@ -2143,7 +2143,7 @@ def test_create_pddl():
 
 def test_VideoMonitor():
     """Tests for VideoMonitor()."""
-    env = CoverEnv()
+    env = CoverMultistepOptions()
     monitor = utils.VideoMonitor(env.render)
     policy = lambda _: Action(env.action_space.sample())
     task = env.get_task("test", 0)
@@ -2159,11 +2159,13 @@ def test_VideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
+    first_state_rendered = env.render_state(task.init, task=None)
+    assert np.allclose(first_state_rendered, video[0])
 
 
 def test_SimulateVideoMonitor():
     """Tests for SimulateVideoMonitor()."""
-    env = CoverEnv()
+    env = CoverMultistepOptions()
     task = env.get_task("test", 0)
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     policy = lambda _: Action(env.action_space.sample())
@@ -2179,6 +2181,8 @@ def test_SimulateVideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
+    first_state_rendered = env.render_state(task.init, task=None)
+    assert np.allclose(first_state_rendered, video[0])
 
 
 def test_save_video():
