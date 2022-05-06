@@ -852,20 +852,25 @@ def run_policy(
     metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
-                state = env.step(act)
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = env.step(act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
@@ -910,18 +915,20 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 act = policy(state)
-                state = simulator(state, act)
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = simulator(state, act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
