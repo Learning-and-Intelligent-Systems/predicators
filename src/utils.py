@@ -852,21 +852,37 @@ def run_policy(
     metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
+            # Note: we previously tried to collapse these two try/catch cases
+            # into one, but that led to subtle bugs in the order of calls to
+            # monitor.observe(). This version is uglier but less bug-prone.
+
+            # Try/catch 1: an uncaught exception is raised in policy().
             try:
                 start_time = time.time()
                 act = policy(state)
-                metrics["policy_call_time"] += time.time() - start_time
-                state = env.step(act)
                 if monitor is not None:
                     monitor.observe(state, act)
-                actions.append(act)
-                states.append(state)
+                metrics["policy_call_time"] += time.time() - start_time
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
                 if monitor is not None:
                     monitor.observe(state, None)
+                raise e
+
+            # Try/catch 2: an uncaught exception is raised in step().
+            try:
+                state = env.step(act)
+                actions.append(act)
+                states.append(state)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                # Note: this is the important difference from try/catch 1;
+                # we do NOT call monitor.observe() here, because we already
+                # observed the most recent state in try/catch 1.
                 raise e
             if termination_function(state):
                 break
@@ -910,19 +926,36 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
+            # Note: we previously tried to collapse these two try/catch cases
+            # into one, but that led to subtle bugs in the order of calls to
+            # monitor.observe(). This version is uglier but less bug-prone.
+
+            # Try/catch 1: an uncaught exception is raised in policy().
             try:
+                start_time = time.time()
                 act = policy(state)
-                state = simulator(state, act)
                 if monitor is not None:
                     monitor.observe(state, act)
-                actions.append(act)
-                states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
                 if monitor is not None:
                     monitor.observe(state, None)
+                raise e
+
+            # Try/catch 2: an uncaught exception is raised in simulate().
+            try:
+                state = simulator(state, act)
+                actions.append(act)
+                states.append(state)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                # Note: this is the important difference from try/catch 1;
+                # we do NOT call monitor.observe() here, because we already
+                # observed the most recent state in try/catch 1.
                 raise e
             if termination_function(state):
                 break
