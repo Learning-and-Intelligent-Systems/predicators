@@ -13,7 +13,7 @@ from predicators.src.approaches.nsrt_learning_approach import \
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Task, Type
+    Task, Type, Object, Array
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -31,6 +31,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         self._train_task_to_online_traj: Dict[int, List[LowLevelTrajectory]] = {}
         self._train_task_to_option_plan: Dict[int, List[_Option]] = {}
         self._reward_epsilon = CFG.reward_epsilon
+        self._pos_reward = CFG.pos_reward
+        self._neg_reward = CFG.neg_reward
 
     @classmethod
     def get_name(cls) -> str:
@@ -67,6 +69,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             requests.append(request)
         return requests
 
+    def infer_subgoal(object: Object, states: List[State], features: List[str]) -> List[float]:
+        return [states[-1].get(object, feat) - states[0].get(object, feat) for feat in features]
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         self._online_learning_cycle += 1
@@ -93,12 +98,31 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             option_to_reward = {}
             curr_option_idx = 0
             curr_option = plan[curr_option_idx]
-            curr_traj = [] # List of (state, action) tuples
+            curr_states = []
+            curr_actions = []
+            actions = (a for a in traj.actions)
 
-            for i in range(len(traj.states)):
-                s = traj.states[i]
-                a = traj.actions[i]
+            for i, s in enumerate(traj.states):
                 if curr_option.terminal(s):
+                    curr_states.append(s)
+
+                    # Figure out reward.
+                    # TODO: inferring reward requires environment specific code?
+                    block = [b for b in curr_option.objects if b.type.name=='block'][0]
+                    robot = [r for r in curr_option.objects if r.type.name=='robot'][0]
+                    dblock = self.infer_subgoal(block, curr_states, ['x', 'grasp'])
+                    drobot = self.infer_subogoal(robot, curr_states, ['x', 'grip', 'holding'])
+                    subgoal = np.array(dblock + drobot)
+                    if np.allclose(curr_option.params, subgoal, atol=self._reward_epsilon):
+                        reward = self._pos_reward
+                    else:
+                        reward = self._neg_reward
+                    option_to_reward[curr_option_idx] = reward
+
+                    # Store trajectory.
+                    option_to_traj[curr_option_idx] = (list(curr_states), list(curr_actions))
+
+                    # Advance to next option.
                     curr_option_idx += 1
                     if curr_option_idx < len(plan):
                         curr_option = plan[curr_option_idx]
@@ -109,14 +133,19 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         # assigned to an _Option already.
                         # TODO: maybe add an assert to confirm the above ^
                         pass
-                    option_to_traj[curr_option_idx] = list(curr_traj)
-                    curr_traj = [(s, a)]
+
+                    # Initialize trajectory for next option.
+                    curr_states = [s]
+                    curr_actions = []
+
                 else:
-                    curr_traj.append((s, a))
+                    curr_states.append(s)
+                    a = next(actions)
+                    curr_actions.append(a)
                     # If this is the last state, then we haven't gotten the reward
                     # TODO: set reward to zero in this case
                     if i == len(traj.states) - 1:
-                        option_to_traj[curr_option_idx] = list(curr_traj)
+                        option_to_traj[curr_option_idx] = (list(curr_states), list(curr_actions))
 
             import pdb; pdb.set_trace()
 

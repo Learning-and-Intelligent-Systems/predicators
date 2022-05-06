@@ -157,6 +157,8 @@ class GlobalSettings:
 
     # parameters for NSRT reinforcement learning approach
     reward_epsilon = 1e-2 # reward if within epsilon-ball from sampled subgoal
+    pos_reward = 0
+    neg_reward = -1
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
