@@ -95,7 +95,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             curr_option = plan[curr_option_idx]
             curr_traj = [] # List of (state, action) tuples
 
-            for s, a in zip(traj.states, traj.actions):
+            for i in range(len(traj.states)):
+                s = traj.states[i]
+                a = traj.actions[i]
                 if curr_option.terminal(s):
                     curr_option_idx += 1
                     if curr_option_idx < len(plan):
@@ -111,6 +113,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_traj = [(s, a)]
                 else:
                     curr_traj.append((s, a))
+                    # If this is the last state, then we haven't gotten the reward
+                    # TODO: set reward to zero in this case
+                    if i == len(traj.states) - 1:
+                        option_to_traj[curr_option_idx] = list(curr_traj)
 
             import pdb; pdb.set_trace()
 
