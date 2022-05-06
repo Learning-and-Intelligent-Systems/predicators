@@ -856,10 +856,14 @@ def run_policy(
             # into one, but that led to subtle bugs in the order of calls to
             # monitor.observe(). This version is uglier but less bug-prone.
 
-            # Try/catch 1: an uncaught exception is raised in policy().
+            # Try/catch 1: an exception is raised in policy().
             try:
                 start_time = time.time()
                 act = policy(state)
+                # Note: it is important that we call observe(state, act) here
+                # before calling step(), because the monitor may assume that
+                # state is equal to the env current state. For example, the
+                # VideoMonitor makes this assumption implicitly.
                 if monitor is not None:
                     monitor.observe(state, act)
                 metrics["policy_call_time"] += time.time() - start_time
@@ -871,7 +875,7 @@ def run_policy(
                     monitor.observe(state, None)
                 raise e
 
-            # Try/catch 2: an uncaught exception is raised in step().
+            # Try/catch 2: an exception is raised in step().
             try:
                 state = env.step(act)
                 actions.append(act)
@@ -930,9 +934,8 @@ def run_policy_with_simulator(
             # into one, but that led to subtle bugs in the order of calls to
             # monitor.observe(). This version is uglier but less bug-prone.
 
-            # Try/catch 1: an uncaught exception is raised in policy().
+            # Try/catch 1: an exception is raised in policy().
             try:
-                start_time = time.time()
                 act = policy(state)
                 if monitor is not None:
                     monitor.observe(state, act)
@@ -944,7 +947,7 @@ def run_policy_with_simulator(
                     monitor.observe(state, None)
                 raise e
 
-            # Try/catch 2: an uncaught exception is raised in simulate().
+            # Try/catch 2: an exception is raised in simulate().
             try:
                 state = simulator(state, act)
                 actions.append(act)
