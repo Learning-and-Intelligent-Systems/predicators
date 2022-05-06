@@ -2159,8 +2159,9 @@ def test_VideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
-    first_state_rendered = env.render_state(task.init, task=None)
+    first_state_rendered = env.render_state(task.init, task)
     assert np.allclose(first_state_rendered, video[0])
+    assert not np.allclose(first_state_rendered, video[1])
 
 
 def test_SimulateVideoMonitor():
@@ -2181,8 +2182,9 @@ def test_SimulateVideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
-    first_state_rendered = env.render_state(task.init, task=None)
+    first_state_rendered = env.render_state(task.init, task)
     assert np.allclose(first_state_rendered, video[0])
+    assert not np.allclose(first_state_rendered, video[1])
 
 
 def test_save_video():
