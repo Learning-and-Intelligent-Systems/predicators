@@ -155,6 +155,9 @@ class GlobalSettings:
     # parameters for GNN metacontroller approach
     gnn_metacontroller_max_samples = 100
 
+    # parameters for NSRT reinforcement learning approach
+    reward_epsilon = 1e-2 # reward if within epsilon-ball from sampled subgoal
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays

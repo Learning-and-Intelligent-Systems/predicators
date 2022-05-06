@@ -28,7 +28,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         self._nsrts: Set[NSRT] = set()
         self._online_learning_cycle = 0
         self._initial_trajectories: List[LowLevelTrajectory] = []
-        self._online_trajectories: List[LowLevelTrajectory] = []
+        self._train_task_to_online_traj: Dict[int, List[LowLevelTrajectory]] = {}
+        self._train_task_to_option_plan: Dict[int, List[_Option]] = {}
+        self._reward_epsilon = CFG.reward_epsilon
 
     @classmethod
     def get_name(cls) -> str:
@@ -49,11 +51,15 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             task = self._train_tasks[i]
             try:
                 _act_policy = self.solve(task, CFG.timeout)
+                # Store the list of _Option objects corresponding to this policy.
+                self._train_task_to_option_plan[i] = self._last_plan
             except (ApproachTimeout, ApproachFailure) as e:
                 partial_refinements = e.info.get("partial_refinements")
                 assert partial_refinements is not None
                 _, plan = max(partial_refinements, key=lambda x: len(x[1]))
                 _act_policy = utils.option_plan_to_policy(plan)
+                # Store the list of _Option objects corresponding to this policy.
+                self._train_task_to_option_plan[i] = plan
             request = InteractionRequest(train_task_idx=i,
                                          act_policy=_act_policy,
                                          query_policy=lambda s: None,
@@ -72,10 +78,40 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                                       actions,
                                       _is_demo=False,
                                       _train_task_idx=i)
-            self._online_trajectories.append(traj)
+            self._train_task_to_online_traj[i] = traj
 
-        # Replace this with an _RLOptionLearner.
-        self._learn_nsrts(self._initial_trajectories + \
-            self._online_trajectories,
-            online_learning_cycle=self._online_learning_cycle
-        )
+        # for each task:
+        #    for each _Option involved in the trajectory:
+        #       1) get the trajectory that it took
+        #       2) get the sample subgoal, and determine if it was reached
+        for i in range(len(self._train_tasks)):
+            plan = self._train_task_to_option_plan[i]
+            traj = self._train_task_to_online_traj[i]
+
+            # map _Option to trajectory and reward it had
+            option_to_traj = {}
+            option_to_reward = {}
+            curr_option_idx = 0
+            curr_option = plan[curr_option_idx]
+            curr_traj = [] # List of (state, action) tuples
+
+            for s, a in zip(traj.states, traj.actions):
+                if curr_option.terminal(s):
+                    curr_option_idx += 1
+                    if curr_option_idx < len(plan):
+                        curr_option = plan[curr_option_idx]
+                    else:
+                        # If we run out of options in the plan, there should be
+                        # an _OptionPlanExhausted exception, and so there is
+                        # nothing more in the trajectory that we have not yet
+                        # assigned to an _Option already.
+                        # TODO: maybe add an assert to confirm the above ^
+                        pass
+                    option_to_traj[curr_option_idx] = list(curr_traj)
+                    curr_traj = [(s, a)]
+                else:
+                    curr_traj.append((s, a))
+
+            import pdb; pdb.set_trace()
+
+            # TODO: review how the params are used by the _Option's policy for nsrt_learning
