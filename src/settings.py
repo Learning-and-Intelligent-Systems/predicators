@@ -159,6 +159,7 @@ class GlobalSettings:
     reward_epsilon = 1e-2 # reward if within epsilon-ball from sampled subgoal
     pos_reward = 0
     neg_reward = -1
+    rl_option_learner = "dummy_rl"
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"

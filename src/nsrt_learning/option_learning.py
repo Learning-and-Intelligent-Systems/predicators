@@ -594,13 +594,15 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
     """Does not update the policy associated with a
     _LearnedNeuralParameterizedOption."""
 
-    def __init__() -> None:
+    def __init__(self) -> None:
         super().__init__()
 
-    def update(option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
+    def update(self, option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
-        # Update would be made to option._regressor.
-        return option
+        # Update would be made to option._regressor, which might require changing
+        # the code in ml_models.py so that you can train without re-initializing
+        # the network.
+        return option.copy()
 
 
 def _create_absolute_option_param(state: State,

@@ -6,7 +6,7 @@ from typing import List, Sequence, Set
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.nsrt_learning.option_learning import create_option_learner
+from predicators.src.nsrt_learning.option_learning import create_option_learner, _DummyRLOptionLearner
 from predicators.src.approaches.base_approach import ApproachFailure, \
     ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
@@ -29,16 +29,11 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self._online_learning_cycle = 0
-        self._initial_trajectories: List[LowLevelTrajectory] = []
         self._train_task_to_online_traj: Dict[int, List[LowLevelTrajectory]] = {}
         self._train_task_to_option_plan: Dict[int, List[_Option]] = {}
         self._reward_epsilon = CFG.reward_epsilon
         self._pos_reward = CFG.pos_reward
         self._neg_reward = CFG.neg_reward
-        # We need to create a separate RL option learner for each option because
-        # each one will maintain its own unique state associated with the
-        # learning process.
-        self._option_learners = {n.name: create_option_learner() for n in self._nsrts}
 
     @classmethod
     def get_name(cls) -> str:
@@ -47,6 +42,11 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._initial_trajectories = dataset.trajectories
         super().learn_from_offline_dataset(dataset)
+        # We need to create a separate RL option learner for each option because
+        # each one will maintain its own unique state associated with the
+        # learning process.
+        CFG.option_learner = CFG.rl_option_learner
+        self._option_learners = {n.name: create_option_learner(self._action_space) for n in self._nsrts}
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # For each training task, try to solve the task to get a policy. If the
@@ -95,9 +95,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
 
         option_to_data = {} # option_name -> online experience data
 
-        # for each task:
-        #    for each _Option involved in the trajectory:
-        #       compute (s, a, s', r) tuples
+        # For each task, for each _Option involved in the trajectory, compute
+        # and store (s, a, s', r, relative_param) data.
         for i in range(len(self._train_tasks)):
             plan = self._train_task_to_option_plan[i]
             traj = self._train_task_to_online_traj[i]
@@ -120,7 +119,26 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             for j, s in enumerate(traj.states[1:]):
                 curr_states.append(s)
                 curr_actions.append(next(actions))
-                curr_relative_params.append(curr_option.memory["absolute_params"] - s.vec(curr_option.objects))
+                # TODO: is there a better way to do this based on
+                # curr_option.parent._changing_obj_feats? Couldn't access this
+                # field, but could access curr_option.parent._changing_var_order
+                if curr_option.params[-1] > 0:  # if holding becomes true (pick)
+                    changing_obj_feats = np.array([
+                        s.get(block, 'grasp'),
+                        s.get(robot, 'x'),
+                        s.get(robot, 'y'),
+                        s.get(robot, 'grip'),
+                        s.get(robot, 'holding')
+                    ])
+                else:
+                    changing_obj_feats = np.array([
+                        s.get(block, 'x'),
+                        s.get(block, 'grasp'),
+                        s.get(robot, 'x'),
+                        s.get(robot, 'grip'),
+                        s.get(robot, 'holding')
+                    ])
+                curr_relative_params.append(curr_option.memory["absolute_params"] - changing_obj_feats)
 
                 if curr_option.terminal(s):
                     # TODO: make this not hardcoded to be environment specific,
@@ -145,12 +163,14 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_rewards.append(reward)
 
                     # Store transition data.
-                    option_to_data[curr_option.name].append(list(curr_states, curr_actions, curr_rewards, curr_relative_params))
+                    option_to_data[curr_option.name].append([curr_states, curr_actions, curr_rewards, curr_relative_params])
 
                     # Advance to next option.
                     curr_option_idx += 1
                     if curr_option_idx < len(plan):
                         curr_option = plan[curr_option_idx]
+                        if curr_option.name not in option_to_data:
+                            option_to_data[curr_option.name] = []
                     else:
                         # If we run out of options in the plan, there should be
                         # an _OptionPlanExhausted exception, and so there is
@@ -173,9 +193,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     # partial refinement.
                     if j+1 == len(traj.states) - 1:
                         # Store transition data.
-                        option_to_data[curr_option.name].append(list(curr_states, curr_actions, curr_rewards, curr_relative_params))
+                        option_to_data[curr_option.name].append([curr_states, curr_actions, curr_rewards, curr_relative_params])
 
-        # Call the RL option learner on each option. 
+        # Call the RL option learner on each option.
         for option_name, experience in option_to_data.items():
             corresponding_nsrt = [nsrt for nsrt in self._nsrts if nsrt.option.name == option_name][0]
             corresponding_parent_option = corresponding_nsrt.option
@@ -183,4 +203,15 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 corresponding_parent_option,
                 experience
             )
-            corresponding_nsrt.option = updated_option
+            replaced_nsrt = NSRT(
+                corresponding_nsrt.name,
+                corresponding_nsrt.parameters,
+                corresponding_nsrt.preconditions,
+                corresponding_nsrt.add_effects,
+                corresponding_nsrt.delete_effects,
+                corresponding_nsrt.side_predicates,
+                updated_option,
+                corresponding_nsrt.option_vars,
+                corresponding_nsrt.sampler)
+            self._nsrts.remove(corresponding_nsrt)
+            self._nsrts.add(replaced_nsrt)
