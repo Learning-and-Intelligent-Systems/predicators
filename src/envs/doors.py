@@ -29,7 +29,7 @@ class DoorsEnv(BaseEnv):
     robot_initial_position_radius: ClassVar[float] = 0.05
     obstacle_initial_position_radius: ClassVar[float] = 0.1
     obstacle_size_lb: ClassVar[float] = 0.05
-    obstacle_size_ub: ClassVar[float] = 0.2
+    obstacle_size_ub: ClassVar[float] = 0.15
     doorway_pad: ClassVar[float] = 1e-3
     move_sq_dist_tol: ClassVar[float] = 1e-5
 
@@ -59,8 +59,9 @@ class DoorsEnv(BaseEnv):
             # room for the second door; this also means that the two doors
             # should share a room.
             types=[self._robot_type, self._door_type, self._door_type],
-            # The parameter represents a relative position on the second door.
-            params_space=Box(0.0, 1.0, (1, ), dtype=np.float32),
+            # No parameters; the option always moves to the center of the
+            # doorway for the second door.
+            params_space=Box(0, 1, (0, )),
             # The policy is a motion planner.
             policy=self._Move_policy,
             initiable=self._Move_initiable,
@@ -195,10 +196,6 @@ class DoorsEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
-        # TODO!! Make the robot start out at a door, and revisit whether this
-        # simplifies the implementation of Move.
-        import ipdb; ipdb.set_trace()
-
         tasks: List[Task] = []
         # Create the common parts of the initial state.
         common_state_dict = {}
@@ -295,24 +292,26 @@ class DoorsEnv(BaseEnv):
                         "height": h,
                         "theta": theta
                     }
+            # Create the state with a temporary robot x and y that we will
+            # immediately override below. This is done so we can use the
+            # _get_position_in_doorway() helper function.
+            state_dict[self._robot] = {"x": x, "y": y}
+            state = utils.create_state_from_dict(state_dict)
             # Sample an initial and target room.
             start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
             start_room, goal_room = rooms[start_idx], rooms[goal_idx]
-            # Always start out near the center of the room to avoid issues with
-            # rotating in corners.
-            room_x = state_dict[start_room]["x"]
-            room_y = state_dict[start_room]["y"]
-            room_cx = room_x + self.room_size / 2
-            room_cy = room_y + self.room_size / 2
-            rad = self.robot_initial_position_radius
-            x = rng.uniform(room_cx - rad, room_cx + rad)
-            y = rng.uniform(room_cy - rad, room_cy + rad)
-            state_dict[self._robot] = {"x": x, "y": y}
-            # Create the state.
-            state = utils.create_state_from_dict(state_dict)
-            # Make sure the state is collision-free.
-            if self._state_has_collision(state):
-                continue
+            # Sample an initial door in the start room.
+            # TODO: sample a non-stupid initial door.
+            door_candidates = sorted(self._room_to_doors(start_room, state))
+            assert len(door_candidates) > 0
+            start_door = door_candidates[rng.choice(len(door_candidates))]
+            # Always start out in a doorway, so that all problems just require
+            # moving between doorways.
+            x, y = self._get_position_in_doorway(start_room, start_door, state)
+            state.set(self._robot, "x", x)
+            state.set(self._robot, "y", y)
+            # By construction, the state should be collision free.
+            assert not self._state_has_collision(state)
             # Set the goal.
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
@@ -401,8 +400,8 @@ class DoorsEnv(BaseEnv):
 
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
-        target_x, target_y = self._move_param_to_target_position(
-            params, common_room, end_door, state)
+        target_x, target_y = self._get_position_in_doorway(
+            common_room, end_door, state)
         initial_state = np.array([robot_x, robot_y])
         target_state = np.array([target_x, target_y])
         position_plan = birrt.query(initial_state, target_state)
@@ -648,7 +647,8 @@ class DoorsEnv(BaseEnv):
         # TODO randomize
         target = 0.0
 
-        return {"x": x, "y": y, "theta": theta, "target": target, "open": 0.0}
+        # TODO close doors
+        return {"x": x, "y": y, "theta": theta, "target": target, "open": 1.0}
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
         rooms = set()
@@ -659,6 +659,16 @@ class DoorsEnv(BaseEnv):
                 rooms.add(room)
         assert len(rooms) == 2
         return rooms
+
+    def _room_to_doors(self, room: Object, state: State) -> Set[Object]:
+        doors = set()
+        room_geom = self._object_to_geom(room, state)
+        for door in state.get_objects(self._door_type):
+            door_geom = self._object_to_geom(door, state)
+            if room_geom.intersects(door_geom):
+                doors.add(door)
+        assert 1 <= len(doors) <= 4
+        return doors
 
     def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
         x = state.get(door, "x")
@@ -680,9 +690,8 @@ class DoorsEnv(BaseEnv):
                          height=self.hallway_width,
                          theta=0)
 
-    def _move_param_to_target_position(self, params: Array, room: Object,
-                                       door: Object,
-                                       state: State) -> Tuple[float, float]:
+    def _get_position_in_doorway(self, room: Object, door: Object,
+                                 state: State) -> Tuple[float, float]:
         # Find the two vertices of the doorway that are in the room.
         doorway_geom = self._door_to_doorway_geom(door, state)
         room_geom = self._object_to_geom(room, state)
@@ -692,19 +701,6 @@ class DoorsEnv(BaseEnv):
                 vertices_in_room.append((x, y))
         assert len(vertices_in_room) == 2
         (x0, y0), (x1, y1) = vertices_in_room
-        # Use the params to choose a point on the line between the vertices.
-        assert len(params) == 1
-        scale = params[0]
-        assert 0 <= scale <= 1
-        # We don't want to sample on the ends of the line, because that would
-        # lead to a collision between the robot and the walls next to the door.
-        passable_width = self.hallway_width - (2 * self.robot_radius)
-        assert passable_width > 0
-        passable_fraction = passable_width / self.hallway_width
-        # Shrink the scale.
-        scale *= passable_fraction
-        # Shift the scale.
-        scale += passable_fraction / 2
-        target_x = x0 + (x1 - x0) * scale
-        target_y = y0 + (y1 - y0) * scale
+        target_x = (x0 + x1) / 2
+        target_y = (y0 + y1) / 2
         return (target_x, target_y)
