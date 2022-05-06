@@ -54,7 +54,8 @@ class DoorsEnv(BaseEnv):
         self._DoorInRoom = Predicate("DoorInRoom",
                                      [self._door_type, self._room_type],
                                      self._DoorInRoom_holds)
-        self._DoorsNEq = Predicate("DoorsNEq", [self._door_type, self._door_type],
+        self._DoorsNEq = Predicate("DoorsNEq",
+                                   [self._door_type, self._door_type],
                                    self._DoorsNEq_holds)
         # Options
         self._Move = ParameterizedOption(
@@ -325,7 +326,9 @@ class DoorsEnv(BaseEnv):
             start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
             start_room, goal_room = rooms[start_idx], rooms[goal_idx]
             # Sample an initial door in the start room.
-            # TODO: sample a non-stupid initial door.
+            # TODO: sample a non-stupid initial door. One way to do this would
+            # be to have the initial room contain one door only, where all
+            # other rooms should have two doors.
             door_candidates = sorted(self._room_to_doors(start_room, state))
             assert len(door_candidates) > 0
             start_door = door_candidates[rng.choice(len(door_candidates))]
@@ -561,6 +564,17 @@ class DoorsEnv(BaseEnv):
             width = state.get(obj, "width")
             height = state.get(obj, "height")
             theta = state.get(obj, "theta")
+        return self._get_or_create_rectangle(x=x,
+                                             y=y,
+                                             width=width,
+                                             height=height,
+                                             theta=theta)
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_or_create_rectangle(x: float, y: float, width: float,
+                                 height: float,
+                                 theta: float) -> utils.Rectangle:
         return Rectangle(x=x, y=y, width=width, height=height, theta=theta)
 
     def _get_world_boundaries(
