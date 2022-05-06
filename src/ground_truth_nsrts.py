@@ -181,11 +181,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 desired_x = bx + (tm - tx)
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
-            # grasp changes from -1.0 to 1.0
+            # This option changes the grasp for the block from -1.0 to 1.0, so
+            # the delta is 1.0 - (-1.0) = 2.0
             block_param = [2.0]
+            # The grip changes from -1.0 to 1.0.
+            # The holding changes from -1.0 to 1.0.
             # x, y, grip, holding
-            # grip changes from -1.0 to 1.0
-            # holding changes from -1.0 to 1.0
             robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
@@ -284,12 +285,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
-            # block x position changes
-            # grasp changes from 1.0 to -1.0
+            # This option changes the grasp for the block from 1.0 to -1.0, so
+            # the delta is -1.0 - 1.0 = -2.0.
+            # x, grasp
             block_param = [delta_x, -2.0]
+            # The grip changes from 1.0 to -1.0.
+            # The holding changes from 1.0 to -1.0.
             # x, grip, holding
-            # grip changes from 1.0 to -1.0
-            # holding changes from 1.0 to -1.0
             robot_param = [delta_x, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
