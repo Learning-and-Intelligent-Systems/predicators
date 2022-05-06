@@ -46,16 +46,17 @@ class DoorsEnv(BaseEnv):
         # Predicates
         self._InRoom = Predicate("InRoom", [self._robot_type, self._room_type],
                                  self._InRoom_holds)
+        self._InDoorway = Predicate("InDoorway",
+                                    [self._robot_type, self._door_type],
+                                    self._InDoorway_holds)
         self._TouchingDoor = Predicate("TouchingDoor",
                                        [self._robot_type, self._door_type],
                                        self._TouchingDoor_holds)
         self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
                                      self._DoorIsOpen_holds)
-        self._DoorConnects = Predicate(
-            "DoorConnects",
-            [self._door_type, self._room_type, self._room_type],
-            self._DoorConnects_holds)
-        # TODO others
+        self._DoorInRoom = Predicate("DoorInRoom",
+                                     [self._door_type, self._room_type],
+                                     self._DoorInRoom_holds)
         # Options
         self._Move = ParameterizedOption(
             "Move",
@@ -122,8 +123,8 @@ class DoorsEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._InRoom, self._TouchingDoor, self._DoorIsOpen,
-            self._DoorConnects
+            self._InRoom, self._InDoorway, self._TouchingDoor,
+            self._DoorIsOpen, self._DoorInRoom
         }
 
     @property
@@ -223,17 +224,17 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        room_map = np.array([
-            [1, 0, 0, 0, 1],
-            [1, 0, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-            [0, 1, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-        ])
         # room_map = np.array([
-        #     [1, 1],
-        #     [1, 1],
+        #     [1, 0, 0, 0, 1],
+        #     [1, 0, 1, 1, 1],
+        #     [1, 1, 1, 0, 1],
+        #     [0, 1, 1, 1, 1],
+        #     [1, 1, 1, 0, 1],
         # ])
+        room_map = np.array([
+            [1, 1],
+            [1, 1],
+        ])
         num_rows, num_cols = room_map.shape
         rooms = []
         for (r, c) in np.argwhere(room_map):
@@ -487,6 +488,13 @@ class DoorsEnv(BaseEnv):
         room_geom = self._object_to_geom(room, state)
         return room_geom.contains_point(robot_geom.x, robot_geom.y)
 
+    def _InDoorway_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        robot, door = objects
+        doorway_geom = self._door_to_doorway_geom(door, state)
+        robot_geom = self._object_to_geom(robot, state)
+        return robot_geom.intersects(doorway_geom)
+
     def _TouchingDoor_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
         robot, door = objects
@@ -497,21 +505,17 @@ class DoorsEnv(BaseEnv):
         # doorway for that door. Note that we don't want to check if the
         # robot is literally touching the door, because collision checking
         # will forbid that from ever happening.
-        doorway_geom = self._door_to_doorway_geom(door, state)
-        robot_geom = self._object_to_geom(robot, state)
-        return robot_geom.intersects(doorway_geom)
+        return self._InDoorway_holds(state, objects)
 
     def _DoorIsOpen_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "open") > 0.5
 
-    def _DoorConnects_holds(self, state: State,
-                            objects: Sequence[Object]) -> bool:
-        door, room1, room2 = objects
-        room1_doors = self._room_to_doors(room1, state)
-        room2_doors = self._room_to_doors(room2, state)
-        return door in room1_doors and door in room2_doors
+    def _DoorInRoom_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        door, room = objects
+        return door in self._room_to_doors(room, state)
 
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)

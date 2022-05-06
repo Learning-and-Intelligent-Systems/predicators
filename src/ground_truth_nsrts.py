@@ -52,6 +52,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_touch_point_gt_nsrts()
     elif CFG.env == "stick_button":
         nsrts = _get_stick_button_gt_nsrts()
+    elif CFG.env == "doors":
+        nsrts = _get_doors_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2091,6 +2093,72 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
                              side_predicates, option, option_vars,
                              null_sampler)
     nsrts.add(stick_button_nsrt)
+
+    return nsrts
+
+
+def _get_doors_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for DoorsEnv."""
+    robot_type, door_type, room_type = _get_types_by_names(
+        CFG.env, ["robot", "door", "room"])
+    InRoom, InDoorway, TouchingDoor, DoorIsOpen, DoorInRoom = \
+        _get_predicates_by_names(CFG.env, ["InRoom", "InDoorway",
+            "TouchingDoor", "DoorIsOpen", "DoorInRoom"])
+    Move, OpenDoor = _get_options_by_names(CFG.env, ["Move", "OpenDoor"])
+
+    nsrts = set()
+
+    # Move
+    robot = Variable("?robot", robot_type)
+    start_room = Variable("?start_room", room_type)
+    end_room = Variable("?end_room", room_type)
+    start_door = Variable("?start_door", door_type)
+    end_door = Variable("?end_door", door_type)
+    parameters = [robot, start_room, end_room, start_door, end_door]
+    option_vars = [robot, start_door, end_door]
+    option = Move
+    preconditions = {
+        LiftedAtom(InRoom, [robot, start_room]),
+        LiftedAtom(InDoorway, [robot, start_door]),
+        LiftedAtom(DoorIsOpen, [start_door]),
+        LiftedAtom(DoorInRoom, [start_door, start_room]),
+        LiftedAtom(DoorInRoom, [start_door, end_room]),
+        LiftedAtom(DoorInRoom, [end_door, end_room]),
+    }
+    add_effects = {
+        LiftedAtom(InRoom, [robot, end_room]),
+        LiftedAtom(TouchingDoor, [robot, end_door]),
+        LiftedAtom(InDoorway, [robot, end_door])
+    }
+    delete_effects = {
+        LiftedAtom(InRoom, [robot, start_room]),
+        LiftedAtom(InDoorway, [robot, start_door]),
+    }
+    side_predicates: Set[Predicate] = set()
+    move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
+                     delete_effects, side_predicates, option, option_vars,
+                     null_sampler)
+    nsrts.add(move_nsrt)
+
+    # OpenDoor
+    robot = Variable("?robot", robot_type)
+    door = Variable("?door", door_type)
+    parameters = [robot, door]
+    option_vars = [robot, door]
+    option = OpenDoor
+    preconditions = {
+        LiftedAtom(TouchingDoor, [robot, door]),
+        LiftedAtom(InDoorway, [robot, door]),
+    }
+    add_effects = {LiftedAtom(DoorIsOpen, [door])}
+    delete_effects = {
+        LiftedAtom(TouchingDoor, [robot, door]),
+    }
+    side_predicates = set()
+    open_door_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          null_sampler)
+    nsrts.add(open_door_nsrt)
 
     return nsrts
 
