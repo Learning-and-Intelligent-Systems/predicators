@@ -217,17 +217,17 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        # room_map = np.array([
-        #     [1, 0, 0, 0, 1],
-        #     [1, 0, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        #     [0, 1, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        # ])
         room_map = np.array([
-            [1, 1],
-            [1, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1],
+            [1, 1, 1, 0, 1],
+            [0, 1, 1, 1, 1],
+            [1, 1, 1, 0, 1],
         ])
+        # room_map = np.array([
+        #     [1, 1],
+        #     [1, 1],
+        # ])
         num_rows, num_cols = room_map.shape
         rooms = []
         for (r, c) in np.argwhere(room_map):
