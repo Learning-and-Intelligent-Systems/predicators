@@ -38,7 +38,8 @@ class DoorsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["x", "y"])
-        self._door_type = Type("door", ["x", "y", "theta", "current", "target", "open"])
+        self._door_type = Type(
+            "door", ["x", "y", "theta", "current", "target", "open"])
         self._room_type = Type("room", ["x", "y"])
         self._obstacle_type = Type("obstacle",
                                    ["x", "y", "width", "height", "theta"])
@@ -50,6 +51,10 @@ class DoorsEnv(BaseEnv):
                                        self._TouchingDoor_holds)
         self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
                                      self._DoorIsOpen_holds)
+        self._DoorConnects = Predicate(
+            "DoorConnects",
+            [self._door_type, self._room_type, self._room_type],
+            self._DoorConnects_holds)
         # TODO others
         # Options
         self._Move = ParameterizedOption(
@@ -116,7 +121,10 @@ class DoorsEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._InRoom}  # TODO add other predicates
+        return {
+            self._InRoom, self._TouchingDoor, self._DoorIsOpen,
+            self._DoorConnects
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -136,12 +144,10 @@ class DoorsEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dx, dy, drot
-        lb = np.array(
-            [-self.action_magnitude, -self.action_magnitude, -np.pi],
-            dtype=np.float32)
-        ub = np.array(
-            [self.action_magnitude, self.action_magnitude, np.pi],
-            dtype=np.float32)
+        lb = np.array([-self.action_magnitude, -self.action_magnitude, -np.pi],
+                      dtype=np.float32)
+        ub = np.array([self.action_magnitude, self.action_magnitude, np.pi],
+                      dtype=np.float32)
         return Box(lb, ub)
 
     def render_state(self,
@@ -465,7 +471,7 @@ class DoorsEnv(BaseEnv):
         return self._DoorIsOpen_holds(state, [door])
 
     def _OpenDoor_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> bool:
+                         objects: Sequence[Object], params: Array) -> Action:
         del memory, params  # unused
         # TODO make this more complicated.
         _, door = objects
@@ -499,6 +505,13 @@ class DoorsEnv(BaseEnv):
                           objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "open") > 0.5
+
+    def _DoorConnects_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        door, room1, room2 = objects
+        room1_doors = self._room_to_doors(room1, state)
+        room2_doors = self._room_to_doors(room2, state)
+        return door in room1_doors and door in room2_doors
 
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)
@@ -671,8 +684,8 @@ class DoorsEnv(BaseEnv):
 
         return rectangles
 
-    def _sample_door_feats(self, room_x: float, room_y: float,
-                        loc: str, rng: np.random.Generator) -> Dict[str, float]:
+    def _sample_door_feats(self, room_x: float, room_y: float, loc: str,
+                           rng: np.random.Generator) -> Dict[str, float]:
         # This is the length of the wall on one side of the door.
         offset = (self.room_size + self.wall_depth - self.hallway_width) / 2
 
@@ -692,8 +705,14 @@ class DoorsEnv(BaseEnv):
             if abs(current - target) > self.open_door_thresh:
                 break
 
-        return {"x": x, "y": y, "theta": theta,
-                "current": current, "target": target, "open": 0.0}
+        return {
+            "x": x,
+            "y": y,
+            "theta": theta,
+            "current": current,
+            "target": target,
+            "open": 0.0
+        }
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
         rooms = set()
