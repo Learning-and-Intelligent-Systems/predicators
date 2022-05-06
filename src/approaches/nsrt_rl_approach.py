@@ -175,17 +175,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         # Store transition data.
                         option_to_data[curr_option.name].append(list(curr_states, curr_actions, curr_rewards, curr_relative_params))
 
-        import pdb; pdb.set_trace()
-
-        # Associate each unique option we see in the data (that we
-        # identify by the option's name) with an nsrt's parameterized option. We
-        # need to do this because the RLOptionLearner updates the parameterized
-        # options. The RLOptionLearner will receive a parameterized option to
-        # update, and all the data associated with it from the online learning
-        # cycle that just happened.
-        option_to_parent_and_nsrt = {}
-        parameterized_options = [(nsrt.option, nsrt) for nsrt in self._nsrts]
-
+        # Call the RL option learner on each option. 
         for option_name, experience in option_to_data.items():
             corresponding_nsrt = [nsrt for nsrt in self._nsrts if nsrt.option.name == option_name][0]
             corresponding_parent_option = corresponding_nsrt.option
