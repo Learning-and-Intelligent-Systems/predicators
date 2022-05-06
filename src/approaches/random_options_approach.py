@@ -26,6 +26,7 @@ class RandomOptionsApproach(BaseApproach):
         def _policy(state: State) -> Action:
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
+                cur_option = DummyOption
                 for _ in range(CFG.random_options_max_tries):
                     param_opt = options[self._rng.choice(len(options))]
                     objs = utils.get_random_object_combination(
