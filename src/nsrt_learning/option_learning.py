@@ -33,6 +33,8 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     if CFG.option_learner == "direct_bc_nonparameterized":
         return _DirectBehaviorCloningOptionLearner(action_space,
                                                    is_parameterized=False)
+    if CFG.option_learner == "dummy_rl":
+        return _DummyRLOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -576,6 +578,29 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             derivative_free_sigma_init=sigma,
             derivative_free_shrink_scale=shrink_scale,
             grid_num_ticks_per_dim=num_ticks)
+
+
+class _RLOptionLearnerBase(abc.ABC):
+    """Struct defining an option learner that learns via reinforcement learning,
+    which has an abstract method for updating the policy associated with an
+    option."""
+
+    @abc.abstractmethod
+    def update(option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
+        raise NotImplementedError("Override me!")
+
+
+class _DummyRLOptionLearner(_RLOptionLearnerBase):
+    """Does not update the policy associated with a
+    _LearnedNeuralParameterizedOption."""
+
+    def __init__() -> None:
+        super().__init__()
+
+    def update(option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
+        # Don't actually update the option at all.
+        # Update would be made to option._regressor.
+        return option
 
 
 def _create_absolute_option_param(state: State,

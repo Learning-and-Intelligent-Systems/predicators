@@ -6,6 +6,7 @@ from typing import List, Sequence, Set
 from gym.spaces import Box
 
 from predicators.src import utils
+from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.approaches.base_approach import ApproachFailure, \
     ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
@@ -34,6 +35,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         self._reward_epsilon = CFG.reward_epsilon
         self._pos_reward = CFG.pos_reward
         self._neg_reward = CFG.neg_reward
+        # We need to create a separate RL option learner for each option because
+        # each one will maintain its own unique state associated with the
+        # learning process.
+        self._option_learners = {n.name: create_option_learner() for n in self._nsrts}
 
     @classmethod
     def get_name(cls) -> str:
@@ -179,9 +184,13 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # update, and all the data associated with it from the online learning
         # cycle that just happened.
         option_to_parent_and_nsrt = {}
-        parameterized_options = [(nsrt.option, nsrt.name) for nsrt in self._nsrts]
-        for option_name in option_to_data.keys():
+        parameterized_options = [(nsrt.option, nsrt) for nsrt in self._nsrts]
 
-
-        # TODO: call RL option learner's update method, passing in (s, a, s', r)
-        # TODO: replace the corresponding parameterized option
+        for option_name, experience in option_to_data.items():
+            corresponding_nsrt = [nsrt for nsrt in self._nsrts if nsrt.option.name == option_name][0]
+            corresponding_parent_option = corresponding_nsrt.option
+            updated_option = self._option_learners[corresponding_nsrt.name].update(
+                corresponding_parent_option,
+                experience
+            )
+            corresponding_nsrt.option = updated_option
