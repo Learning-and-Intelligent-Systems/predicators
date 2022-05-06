@@ -2101,9 +2101,9 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for DoorsEnv."""
     robot_type, door_type, room_type = _get_types_by_names(
         CFG.env, ["robot", "door", "room"])
-    InRoom, InDoorway, TouchingDoor, DoorIsOpen, DoorInRoom = \
+    InRoom, InDoorway, TouchingDoor, DoorIsOpen, DoorInRoom, DoorsNEq = \
         _get_predicates_by_names(CFG.env, ["InRoom", "InDoorway",
-            "TouchingDoor", "DoorIsOpen", "DoorInRoom"])
+            "TouchingDoor", "DoorIsOpen", "DoorInRoom", "DoorsNEq"])
     Move, OpenDoor = _get_options_by_names(CFG.env, ["Move", "OpenDoor"])
 
     nsrts = set()
@@ -2120,6 +2120,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(InRoom, [robot, start_room]),
         LiftedAtom(InDoorway, [robot, start_door]),
+        LiftedAtom(DoorsNEq, [start_door, end_door]),
         LiftedAtom(DoorIsOpen, [start_door]),
         LiftedAtom(DoorInRoom, [start_door, start_room]),
         LiftedAtom(DoorInRoom, [start_door, end_room]),

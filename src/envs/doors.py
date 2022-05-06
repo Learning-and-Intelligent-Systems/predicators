@@ -54,6 +54,8 @@ class DoorsEnv(BaseEnv):
         self._DoorInRoom = Predicate("DoorInRoom",
                                      [self._door_type, self._room_type],
                                      self._DoorInRoom_holds)
+        self._DoorsNEq = Predicate("DoorsNEq", [self._door_type, self._door_type],
+                                   self._DoorsNEq_holds)
         # Options
         self._Move = ParameterizedOption(
             "Move",
@@ -121,7 +123,7 @@ class DoorsEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._InRoom, self._InDoorway, self._TouchingDoor,
-            self._DoorIsOpen, self._DoorInRoom
+            self._DoorIsOpen, self._DoorInRoom, self._DoorsNEq
         }
 
     @property
@@ -221,17 +223,18 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        # room_map = np.array([
-        #     [1, 0, 0, 0, 1],
-        #     [1, 0, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        #     [0, 1, 1, 1, 1],
-        #     [1, 1, 1, 0, 1],
-        # ])
+        # NOTE: EACH ROOM MUST HAVE AT LEAST TWO DOORS
         room_map = np.array([
-            [1, 1],
-            [1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 0, 1, 1, 1],
+            [1, 1, 1, 0, 1],
+            [0, 1, 0, 1, 1],
+            [0, 1, 1, 1, 0],
         ])
+        # room_map = np.array([
+        #     [1, 1],
+        #     [1, 1],
+        # ])
         num_rows, num_cols = room_map.shape
         rooms = []
         for (r, c) in np.argwhere(room_map):
@@ -332,8 +335,9 @@ class DoorsEnv(BaseEnv):
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
             assert self._TouchingDoor_holds(state, [self._robot, start_door])
-            # By construction, the state should be collision free.
-            assert not self._state_has_collision(state)
+            # In rare cases, the state may have a collision.
+            if self._state_has_collision(state):
+                continue
             # Set the goal.
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
@@ -515,6 +519,12 @@ class DoorsEnv(BaseEnv):
                           objects: Sequence[Object]) -> bool:
         door, room = objects
         return door in self._room_to_doors(room, state)
+
+    @staticmethod
+    def _DoorsNEq_holds(state: State, objects: Sequence[Object]) -> bool:
+        del state  # unused
+        door1, door2 = objects
+        return door1 != door2
 
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)
@@ -734,7 +744,7 @@ class DoorsEnv(BaseEnv):
             door_geom = self._object_to_geom(door, state)
             if room_geom.intersects(door_geom):
                 doors.add(door)
-        assert 1 <= len(doors) <= 4
+        assert 2 <= len(doors) <= 4
         return doors
 
     def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:

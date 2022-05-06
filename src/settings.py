@@ -285,11 +285,12 @@ class GlobalSettings:
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For BEHAVIOR and PyBullet environments, actions are
-                    # lower level, so tasks take more actions to complete.
+                    # For certain environments, actions are lower level, so
+                    # tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "doors": 1000,
                     # For the very simple TouchPoint environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
