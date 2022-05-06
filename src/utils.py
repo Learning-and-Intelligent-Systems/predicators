@@ -860,13 +860,13 @@ def run_policy(
             try:
                 start_time = time.time()
                 act = policy(state)
+                metrics["policy_call_time"] += time.time() - start_time
                 # Note: it is important that we call observe(state, act) here
                 # before calling step(), because the monitor may assume that
                 # state is equal to the env current state. For example, the
                 # VideoMonitor makes this assumption implicitly.
                 if monitor is not None:
                     monitor.observe(state, act)
-                metrics["policy_call_time"] += time.time() - start_time
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
