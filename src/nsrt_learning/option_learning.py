@@ -602,6 +602,8 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
         # Update would be made to option._regressor, which might require changing
         # the code in ml_models.py so that you can train without re-initializing
         # the network.
+        # Update would also be made to the policy of the parameterized option
+        # itself, e.g. to perform both exploitation and exploration.
         return option.copy()
 
 
