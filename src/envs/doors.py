@@ -32,12 +32,13 @@ class DoorsEnv(BaseEnv):
     obstacle_size_ub: ClassVar[float] = 0.15
     doorway_pad: ClassVar[float] = 1e-3
     move_sq_dist_tol: ClassVar[float] = 1e-5
+    open_door_thresh: ClassVar[float] = 1e-2
 
     def __init__(self) -> None:
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["x", "y"])
-        self._door_type = Type("door", ["x", "y", "theta", "target", "open"])
+        self._door_type = Type("door", ["x", "y", "theta", "current", "target", "open"])
         self._room_type = Type("room", ["x", "y"])
         self._obstacle_type = Type("obstacle",
                                    ["x", "y", "width", "height", "theta"])
@@ -66,7 +67,15 @@ class DoorsEnv(BaseEnv):
             policy=self._Move_policy,
             initiable=self._Move_initiable,
             terminal=self._Move_terminal)
-        # TODO others
+        self._OpenDoor = ParameterizedOption(
+            "OpenDoor",
+            types=[self._robot_type, self._door_type],
+            # No parameters, since the right rotation is a deterministic
+            # function of the door state.
+            params_space=Box(0, 1, (0, )),
+            policy=self._OpenDoor_policy,
+            initiable=self._OpenDoor_initiable,
+            terminal=self._OpenDoor_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -76,7 +85,7 @@ class DoorsEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        dx, dy, drot, push = action.arr
+        dx, dy, new_door_val = action.arr
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         new_x = x + dx
@@ -89,6 +98,14 @@ class DoorsEnv(BaseEnv):
             # Revert the change to the robot position.
             next_state.set(self._robot, "x", x)
             next_state.set(self._robot, "y", y)
+        # If touching a door, change its value based on the action
+        for door in state.get_objects(self._door_type):
+            if self._TouchingDoor_holds(state, [self._robot, door]):
+                next_state.set(door, "current", new_door_val)
+                # Check if we should now open the door.
+                target = state.get(door, "target")
+                if abs(new_door_val - target) < self.open_door_thresh:
+                    next_state.set(door, "open", 1.0)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -99,7 +116,7 @@ class DoorsEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._InRoom}
+        return {self._InRoom}  # TODO add other predicates
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -114,16 +131,16 @@ class DoorsEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._Move}  # TODO add other option
+        return {self._Move, self._OpenDoor}
 
     @property
     def action_space(self) -> Box:
-        # dx, dy, drot, push
+        # dx, dy, drot
         lb = np.array(
-            [-self.action_magnitude, -self.action_magnitude, -np.pi, 0.0],
+            [-self.action_magnitude, -self.action_magnitude, -np.pi],
             dtype=np.float32)
         ub = np.array(
-            [self.action_magnitude, self.action_magnitude, np.pi, 1.0],
+            [self.action_magnitude, self.action_magnitude, np.pi],
             dtype=np.float32)
         return Box(lb, ub)
 
@@ -200,17 +217,17 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        room_map = np.array([
-            [1, 0, 0, 0, 1],
-            [1, 0, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-            [0, 1, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-        ])
         # room_map = np.array([
-        #     [1, 1],
-        #     [1, 1],
+        #     [1, 0, 0, 0, 1],
+        #     [1, 0, 1, 1, 1],
+        #     [1, 1, 1, 0, 1],
+        #     [0, 1, 1, 1, 1],
+        #     [1, 1, 1, 0, 1],
         # ])
+        room_map = np.array([
+            [1, 1],
+            [1, 1],
+        ])
         num_rows, num_cols = room_map.shape
         rooms = []
         for (r, c) in np.argwhere(room_map):
@@ -245,7 +262,7 @@ class DoorsEnv(BaseEnv):
                 if not exists:
                     continue
                 door = Object(f"{name}-door{r}-{c}", self._door_type)
-                feat_dict = self._get_door_feats(room_x, room_y, name)
+                feat_dict = self._sample_door_feats(room_x, room_y, name, rng)
                 common_state_dict[door] = feat_dict
         while len(tasks) < num:
             state_dict = {k: v.copy() for k, v in common_state_dict.items()}
@@ -310,6 +327,7 @@ class DoorsEnv(BaseEnv):
             x, y = self._get_position_in_doorway(start_room, start_door, state)
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
+            assert self._TouchingDoor_holds(state, [self._robot, start_door])
             # By construction, the state should be collision free.
             assert not self._state_has_collision(state)
             # Set the goal.
@@ -321,6 +339,7 @@ class DoorsEnv(BaseEnv):
 
     def _Move_initiable(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> bool:
+        del params  # unused
         robot, start_door, end_door = objects
         if start_door == end_door:
             return False
@@ -410,7 +429,7 @@ class DoorsEnv(BaseEnv):
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
         action_plan = [
-            Action(np.array([dx, dy, 0.0, 0.0], dtype=np.float32))
+            Action(np.array([dx, dy, 0.0], dtype=np.float32))
             for (dx, dy) in deltas
         ]
         memory["action_plan"] = action_plan
@@ -428,8 +447,31 @@ class DoorsEnv(BaseEnv):
 
     def _Move_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
+        del state, objects, params  # unused
         assert memory["action_plan"], "Motion plan did not reach its goal"
         return memory["action_plan"].pop(0)
+
+    def _OpenDoor_initiable(self, state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+        del memory, params  # unused
+        # Can only open the door if touching it.
+        return self._TouchingDoor_holds(state, objects)
+
+    def _OpenDoor_terminal(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> bool:
+        del memory, params  # unused
+        # Terminate when the door is open.
+        _, door = objects
+        return self._DoorIsOpen_holds(state, [door])
+
+    def _OpenDoor_policy(self, state: State, memory: Dict,
+                         objects: Sequence[Object], params: Array) -> bool:
+        del memory, params  # unused
+        # TODO make this more complicated.
+        _, door = objects
+        target = state.get(door, "target")
+        assert -np.pi <= target <= np.pi
+        return Action(np.array([0.0, 0.0, target], dtype=np.float32))
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # The robot is in the room if its center is in the room.
@@ -629,8 +671,8 @@ class DoorsEnv(BaseEnv):
 
         return rectangles
 
-    def _get_door_feats(self, room_x: float, room_y: float,
-                        loc: str) -> Dict[str, float]:
+    def _sample_door_feats(self, room_x: float, room_y: float,
+                        loc: str, rng: np.random.Generator) -> Dict[str, float]:
         # This is the length of the wall on one side of the door.
         offset = (self.room_size + self.wall_depth - self.hallway_width) / 2
 
@@ -644,11 +686,14 @@ class DoorsEnv(BaseEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        # TODO randomize
-        target = 0.0
+        current = rng.uniform(-np.pi, np.pi)
+        while True:
+            target = rng.uniform(-np.pi, np.pi)
+            if abs(current - target) > self.open_door_thresh:
+                break
 
-        # TODO close doors
-        return {"x": x, "y": y, "theta": theta, "target": target, "open": 1.0}
+        return {"x": x, "y": y, "theta": theta,
+                "current": current, "target": target, "open": 0.0}
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
         rooms = set()
