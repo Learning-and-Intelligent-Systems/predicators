@@ -503,6 +503,10 @@ def line_segment_intersects_rectangle(seg: LineSegment,
 
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     """Checks if a rectangle intersects a circle."""
+    # Optimization: if the circumscribed circle of the rectangle doesn't
+    # intersect with the circle, then there can't be an intersection.
+    if not circles_intersect(rect.circumscribed_circle, circ):
+        return False
     # Case 1: the circle's center is in the rectangle.
     if rect.contains_point(circ.x, circ.y):
         return True
