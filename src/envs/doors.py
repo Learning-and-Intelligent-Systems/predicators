@@ -1,15 +1,12 @@
 """A 2D navigation environment with obstacles, rooms, and doors."""
 
-from dataclasses import dataclass
-from functools import cached_property, lru_cache
-from typing import Any, ClassVar, Dict, Iterator, List, Optional, Sequence, \
-    Set, Tuple
+from functools import lru_cache
+from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from matplotlib import patches
-from numpy.typing import NDArray
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -445,15 +442,16 @@ class DoorsEnv(BaseEnv):
     def _Move_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
         del params  # unused
-        robot, _, end_door = objects
+        robot, _, _ = objects
         desired_x, desired_y = memory["position_plan"][-1]
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
         sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
         return sq_dist < self.move_sq_dist_tol
 
-    def _Move_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
+    @staticmethod
+    def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> Action:
         del state, objects, params  # unused
         assert memory["action_plan"], "Motion plan did not reach its goal"
         return memory["action_plan"].pop(0)
@@ -471,8 +469,9 @@ class DoorsEnv(BaseEnv):
         _, door = objects
         return self._DoorIsOpen_holds(state, [door])
 
-    def _OpenDoor_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> Action:
+    @staticmethod
+    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
+                         params: Array) -> Action:
         del memory, params  # unused
         # TODO make this more complicated.
         _, door = objects
@@ -497,7 +496,7 @@ class DoorsEnv(BaseEnv):
 
     def _TouchingDoor_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
-        robot, door = objects
+        _, door = objects
         # Once the door is open, the robot is no longer touching it.
         if self._DoorIsOpen_holds(state, [door]):
             return False
@@ -507,8 +506,8 @@ class DoorsEnv(BaseEnv):
         # will forbid that from ever happening.
         return self._InDoorway_holds(state, objects)
 
-    def _DoorIsOpen_holds(self, state: State,
-                          objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _DoorIsOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "open") > 0.5
 
