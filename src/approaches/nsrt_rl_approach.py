@@ -13,7 +13,8 @@ from predicators.src.approaches.nsrt_learning_approach import \
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Task, Type, Object, Array
+    Task, Type, Object, Array, State
+import numpy as np
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -69,7 +70,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             requests.append(request)
         return requests
 
-    def infer_subgoal(object: Object, states: List[State], features: List[str]) -> List[float]:
+    @classmethod
+    def infer_subgoal(cls, object: Object, states: List[State], features: List[str]) -> List[float]:
         return [states[-1].get(object, feat) - states[0].get(object, feat) for feat in features]
 
     def learn_from_interaction_results(
@@ -85,10 +87,11 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                                       _train_task_idx=i)
             self._train_task_to_online_traj[i] = traj
 
+
+        option_to_data = {i: [] for i in range(len(plan))} # idx -> list (s, a, s', r)
         # for each task:
         #    for each _Option involved in the trajectory:
-        #       1) get the trajectory that it took
-        #       2) get the sample subgoal, and determine if it was reached
+        #       compute (s, a, s', r) tuples
         for i in range(len(self._train_tasks)):
             plan = self._train_task_to_option_plan[i]
             traj = self._train_task_to_online_traj[i]
@@ -100,6 +103,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             curr_option = plan[curr_option_idx]
             curr_states = []
             curr_actions = []
+            curr_rewards = []
             actions = (a for a in traj.actions)
 
             for i, s in enumerate(traj.states):
@@ -110,16 +114,23 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     # TODO: inferring reward requires environment specific code?
                     block = [b for b in curr_option.objects if b.type.name=='block'][0]
                     robot = [r for r in curr_option.objects if r.type.name=='robot'][0]
-                    dblock = self.infer_subgoal(block, curr_states, ['x', 'grasp'])
-                    drobot = self.infer_subogoal(robot, curr_states, ['x', 'grip', 'holding'])
+                    if curr_option.params[-1] > 0: # if holding becomes true
+                        dblock = self.infer_subgoal(block, curr_states, ['grasp'])
+                        drobot = self.infer_subgoal(robot, curr_states, ['x', 'y', 'grip', 'holding'])
+                    else:
+                        dblock = self.infer_subgoal(block, curr_states, ['x', 'grasp'])
+                        drobot = self.infer_subgoal(robot, curr_states, ['x', 'grip', 'holding'])
                     subgoal = np.array(dblock + drobot)
+                    print("option params: ", curr_option.params)
+                    print("subgoal: ", subgoal)
                     if np.allclose(curr_option.params, subgoal, atol=self._reward_epsilon):
                         reward = self._pos_reward
                     else:
                         reward = self._neg_reward
-                    option_to_reward[curr_option_idx] = reward
+                    curr_rewards.append(reward)
 
-                    # Store trajectory.
+                    # Store trajectory and reward
+                    option_to_reward[curr_option_idx] = list(curr_rewards)
                     option_to_traj[curr_option_idx] = (list(curr_states), list(curr_actions))
 
                     # Advance to next option.
@@ -137,16 +148,19 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     # Initialize trajectory for next option.
                     curr_states = [s]
                     curr_actions = []
+                    curr_rewards = [-1]
 
                 else:
                     curr_states.append(s)
                     a = next(actions)
                     curr_actions.append(a)
                     # If this is the last state, then we haven't gotten the reward
-                    # TODO: set reward to zero in this case
                     if i == len(traj.states) - 1:
                         option_to_traj[curr_option_idx] = (list(curr_states), list(curr_actions))
+                    curr_rewards.append(self._neg_reward)
 
-            import pdb; pdb.set_trace()
-
-            # TODO: review how the params are used by the _Option's policy for nsrt_learning
+            # TODO: make a list of (s, a, s', r) for each option
+            
+            # TODO: associate each _Option we see with an nsrt's parameterized option
+            # TODO: call RL option learner's update method, passing in (s, a, s', r)
+            # TODO: replace the corresponding parameterized option
