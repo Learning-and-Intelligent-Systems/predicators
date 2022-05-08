@@ -25,6 +25,7 @@ class PyBulletEnv(BaseEnv):
     _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
+    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     # Object parameters.
     _obj_mass: ClassVar[float] = 0.5

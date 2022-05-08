@@ -159,11 +159,7 @@ def test_fetch_pybullet_robot():
 
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    move_to_pose_tol = 1e-4
-    max_vel_norm = 0.05
-    grasp_tol = 0.05
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, move_to_pose_tol,
-                               max_vel_norm, grasp_tol, physics_client_id)
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -209,18 +205,12 @@ def test_create_single_arm_pybullet_robot():
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    move_to_pose_tol = 1e-4
-    max_vel_norm = 0.05
-    grasp_tol = 0.05
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             move_to_pose_tol, max_vel_norm,
-                                             grasp_tol, physics_client_id)
+                                             physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         ee_orn, move_to_pose_tol,
-                                         max_vel_norm, grasp_tol,
-                                         physics_client_id)
+                                         ee_orn, physics_client_id)
     assert "Unrecognized robot name" in str(e)
 
 
@@ -229,13 +219,9 @@ def test_run_motion_planning():
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    move_to_pose_tol = 1e-4
-    max_vel_norm = 0.05
-    grasp_tol = 0.05
     seed = 123
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             move_to_pose_tol, max_vel_norm,
-                                             grasp_tol, physics_client_id)
+                                             physics_client_id)
     robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()
