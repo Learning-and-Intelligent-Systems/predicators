@@ -901,9 +901,10 @@ def ikfast_inverse_kinematics(
     sys.modules[module_name] = ikfast
     spec.loader.exec_module(ikfast)
     # Expects matrix representation of orientation.
-    matrix_target_orn = p.getMatrixFromQuaternion(target_orientation, physicsClientId=physics_client_id)
-    solutions = ikfast.get_ik(list(matrix_target_orn), list(target_position), free_positions)
-    import ipdb; ipdb.set_trace()
+    matrix_target_orn = np.array(p.getMatrixFromQuaternion(target_orientation, physicsClientId=physics_client_id)).reshape((3, 3)).tolist()
+    # TODO: understand third argument.
+    solutions = ikfast.get_ik(matrix_target_orn, list(target_position), [0])
+    
 
 
 def _install_ikfast_module(ikfast_dir: str) -> None:
