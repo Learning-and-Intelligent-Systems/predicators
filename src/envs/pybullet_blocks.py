@@ -103,7 +103,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         ## PutOnTable option
         types = self._PutOnTable.types
         params_space = self._PutOnTable.params_space
-        place_z = self.table_height + self.block_size + self._offset_z
+        place_z = self.table_height + self.block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
             [
@@ -283,7 +283,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         fingers = self._fingers_joint_to_state(rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
-        joint_state = self._pybullet_robot.get_joints()
+        joints_state = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -293,7 +293,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
 
-        state = utils.PyBulletState(state_dict, simulator_state=joint_state)
+        state = utils.PyBulletState(state_dict, simulator_state=joints_state)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")

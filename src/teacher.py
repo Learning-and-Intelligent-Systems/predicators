@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
+import numpy as np
+
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
@@ -97,12 +99,10 @@ class Teacher:
         null_response = PathToStateResponse(query, teacher_traj=None)
         goal_state = query.goal_state
         if CFG.env == "cover_multistep_options":
-            assert CFG.cover_multistep_use_learned_equivalents
             # Setup.
             block_type, target_type, robot_type = _get_types_by_names(
                 CFG.env, ["block", "target", "robot"])
-            Pick, Place = _get_options_by_names(
-                CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
+            Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
             robot = state.get_objects(robot_type)[0]
             blocks = state.get_objects(block_type)
             targets = state.get_objects(target_type)
@@ -121,7 +121,10 @@ class Teacher:
                 parameterized_option = Pick
                 block = goal_blocks_held[0]
                 arguments = [block, robot]
-                changing_objs = [block, robot]
+                # Parameters are non-static features only.
+                changing_obj_feats = [(block, "grasp"), (robot, "x"),
+                                      (robot, "y"), (robot, "grip"),
+                                      (robot, "holding")]
             # Case 2: Place. Note that we only know how to do two things in
             # this environment, Pick and Place. In this Case 2, we have already
             # established that we're not going to be picking, so we must be
@@ -140,11 +143,16 @@ class Teacher:
                 # target (it becomes covered).
                 target = targets[0]
                 arguments = [block, robot, target]
-                changing_objs = [block, robot]
+                # Parameters are non-static features only.
+                changing_obj_feats = [(block, "x"), (block, "grasp"),
+                                      (robot, "x"), (robot, "grip"),
+                                      (robot, "holding")]
             # Case 3: invalid or unsupported request.
             else:
                 return null_response
-            params = goal_state.vec(changing_objs) - state.vec(changing_objs)
+            goal_vec = [goal_state.get(o, f) for o, f in changing_obj_feats]
+            state_vec = [state.get(o, f) for o, f in changing_obj_feats]
+            params = np.subtract(goal_vec, state_vec)
             option = parameterized_option.ground(arguments, params)
             policy = utils.option_plan_to_policy([option])
             termination_function = lambda s: s.allclose(goal_state)

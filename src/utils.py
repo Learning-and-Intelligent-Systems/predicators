@@ -34,11 +34,11 @@ from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
-    LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, Object, OptionSpec, \
-    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, Variable, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, \
-    _Option, _TypedEntity
+    GroundNSRTOrSTRIPSOperator, Image, JointsState, LiftedAtom, \
+    LiftedOrGroundAtom, LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, \
+    Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -503,6 +503,10 @@ def line_segment_intersects_rectangle(seg: LineSegment,
 
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     """Checks if a rectangle intersects a circle."""
+    # Optimization: if the circumscribed circle of the rectangle doesn't
+    # intersect with the circle, then there can't be an intersection.
+    if not circles_intersect(rect.circumscribed_circle, circ):
+        return False
     # Case 1: the circle's center is in the rectangle.
     if rect.contains_point(circ.x, circ.y):
         return True
@@ -794,9 +798,9 @@ class PyBulletState(State):
     features that are exposed in the object-centric state."""
 
     @property
-    def joint_state(self) -> Sequence[float]:
-        """Expose the current joint state in the simulator_state."""
-        return cast(Sequence[float], self.simulator_state)
+    def joints_state(self) -> JointsState:
+        """Expose the current joints state in the simulator_state."""
+        return cast(JointsState, self.simulator_state)
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
@@ -804,7 +808,7 @@ class PyBulletState(State):
 
     def copy(self) -> State:
         state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joint_state)
+        simulator_state_copy = list(self.joints_state)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 
@@ -852,20 +856,25 @@ def run_policy(
     metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
-                state = env.step(act)
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = env.step(act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
@@ -910,18 +919,20 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 act = policy(state)
-                state = simulator(state, act)
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = simulator(state, act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
@@ -1392,6 +1403,119 @@ def run_hill_climbing(
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
+
+
+class BiRRT(Generic[_S]):
+    """Bidirectional rapidly-exploring random tree."""
+
+    def __init__(self, sample_fn: Callable[[_S], _S],
+                 extend_fn: Callable[[_S, _S], Iterator[_S]],
+                 collision_fn: Callable[[_S], bool],
+                 distance_fn: Callable[[_S, _S],
+                                       float], rng: np.random.Generator,
+                 num_attempts: int, num_iters: int, smooth_amt: int):
+        self._sample_fn = sample_fn
+        self._extend_fn = extend_fn
+        self._collision_fn = collision_fn
+        self._distance_fn = distance_fn
+        self._rng = rng
+        self._num_attempts = num_attempts
+        self._num_iters = num_iters
+        self._smooth_amt = smooth_amt
+
+    def query(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        """Query the BiRRT, to get a collision-free path from pt1 to pt2.
+
+        If none is found, returns None.
+        """
+        if self._collision_fn(pt1) or self._collision_fn(pt2):
+            return None
+        direct_path = self._try_direct_path(pt1, pt2)
+        if direct_path is not None:
+            return direct_path
+        for _ in range(self._num_attempts):
+            path = self._rrt_connect(pt1, pt2)
+            if path is not None:
+                return self._smooth_path(path)
+        return None
+
+    def _try_direct_path(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        path = [pt1]
+        for newpt in self._extend_fn(pt1, pt2):
+            if self._collision_fn(newpt):
+                return None
+            path.append(newpt)
+        return path
+
+    def _rrt_connect(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+        root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
+        nodes1, nodes2 = [root1], [root2]
+
+        def _get_pt_dist_to_node(pt: _S, node: _BiRRTNode[_S]) -> float:
+            return self._distance_fn(pt, node.data)
+
+        for _ in range(self._num_iters):
+            if len(nodes1) > len(nodes2):
+                nodes1, nodes2 = nodes2, nodes1
+            samp = self._sample_fn(pt1)
+            min_key1 = functools.partial(_get_pt_dist_to_node, samp)
+            nearest1 = min(nodes1, key=min_key1)
+            for newpt in self._extend_fn(nearest1.data, samp):
+                if self._collision_fn(newpt):
+                    break
+                nearest1 = _BiRRTNode(newpt, parent=nearest1)
+                nodes1.append(nearest1)
+            min_key2 = functools.partial(_get_pt_dist_to_node, nearest1.data)
+            nearest2 = min(nodes2, key=min_key2)
+            for newpt in self._extend_fn(nearest2.data, nearest1.data):
+                if self._collision_fn(newpt):
+                    break
+                nearest2 = _BiRRTNode(newpt, parent=nearest2)
+                nodes2.append(nearest2)
+            else:
+                path1 = nearest1.path_from_root()
+                path2 = nearest2.path_from_root()
+                # This is a tricky case to cover.
+                if path1[0] != root1:  # pragma: no cover
+                    path1, path2 = path2, path1
+                assert path1[0] == root1
+                path = path1[:-1] + path2[::-1]
+                return [node.data for node in path]
+        return None
+
+    def _smooth_path(self, path: List[_S]) -> List[_S]:
+        assert len(path) > 2
+        for _ in range(self._smooth_amt):
+            i = self._rng.integers(0, len(path) - 1)
+            j = self._rng.integers(0, len(path) - 1)
+            if abs(i - j) <= 1:
+                continue
+            if j < i:
+                i, j = j, i
+            shortcut = list(self._extend_fn(path[i], path[j]))
+            if len(shortcut) < j-i and \
+               all(not self._collision_fn(pt) for pt in shortcut):
+                path = path[:i + 1] + shortcut + path[j + 1:]
+        return path
+
+
+class _BiRRTNode(Generic[_S]):
+    """A node for BiRRT."""
+
+    def __init__(self,
+                 data: _S,
+                 parent: Optional[_BiRRTNode[_S]] = None) -> None:
+        self.data = data
+        self.parent = parent
+
+    def path_from_root(self) -> List[_BiRRTNode[_S]]:
+        """Return the path from the root to this node."""
+        sequence = []
+        node: Optional[_BiRRTNode[_S]] = self
+        while node is not None:
+            sequence.append(node)
+            node = node.parent
+        return sequence[::-1]
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:

@@ -498,15 +498,14 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     when the robot is sufficiently close to the block in the y-direction.
     Placing is allowed anywhere. Collisions are handled in simulate().
     """
-    grasp_height_tol: ClassVar[float] = 1e-2
     grasp_thresh: ClassVar[float] = 0.0
     initial_block_y: ClassVar[float] = 0.1
     block_height: ClassVar[float] = 0.1
     target_height: ClassVar[float] = 0.1  # Only for rendering purposes.
-    placing_height: ClassVar[
-        float] = 0.1  # A block's base must be below this to be placed.
     initial_robot_y: ClassVar[float] = 0.4
-    collision_threshold: ClassVar[float] = 1e-5
+    grip_lb: ClassVar[float] = -1.0
+    grip_ub: ClassVar[float] = 1.0
+    snap_tol: ClassVar[float] = 1e-2
 
     def __init__(self) -> None:
         super().__init__()
@@ -544,41 +543,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Need to override static object creation because the types are now
         # different (in terms of equality).
         self._robot = Object("robby", self._robot_type)
-        # Override the original options to make them multi-step.
-        self._Pick = ParameterizedOption("Pick",
-                                         types=[self._block_type],
-                                         params_space=Box(-1.0, 1.0, (1, )),
-                                         policy=self._Pick_policy,
-                                         initiable=self._Pick_initiable,
-                                         terminal=self._Pick_terminal)
-        # Note: there is a change here -- the parameter space is now
-        # relative to the target. In the parent env, the parameter
-        # space is absolute, and the state of the target is not used.
-        self._Place = ParameterizedOption("Place",
-                                          types=[self._target_type],
-                                          params_space=Box(-1.0, 1.0, (1, )),
-                                          policy=self._Place_policy,
-                                          initiable=self._Place_initiable,
-                                          terminal=self._Place_terminal)
-        # We also add two ground truth options that correspond to the options
-        # learned by the _SimpleOptionLearner. The parameter for these options
-        # is a concatenation of several vectors, where each vector corresponds
-        # to a sampled state vector in the option's terminal state for an object
-        # whose state changes after executing the option.
-        self._LearnedEquivalentPick = ParameterizedOption(
-            "LearnedEquivalentPick",
+        # Override the original options to make them multi-step. Note that
+        # the parameter spaces are designed to match what would be learned
+        # by the neural option learners.
+        self._Pick = ParameterizedOption(
+            "Pick",
             types=[self._block_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Pick_learned_equivalent_policy,
-            initiable=self._Pick_learned_equivalent_initiable,
-            terminal=self._Pick_learned_equivalent_terminal)
-        self._LearnedEquivalentPlace = ParameterizedOption(
-            "LearnedEquivalentPlace",
+            params_space=Box(-np.inf, np.inf, (5, )),
+            policy=self._Pick_policy,
+            initiable=self._Pick_initiable,
+            terminal=self._Pick_terminal)
+        self._Place = ParameterizedOption(
+            "Place",
             types=[self._block_type, self._robot_type, self._target_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
-            policy=self._Place_learned_equivalent_policy,
-            initiable=self._Place_learned_equivalent_initiable,
-            terminal=self._Place_learned_equivalent_terminal)
+            params_space=Box(-np.inf, np.inf, (5, )),
+            policy=self._Place_policy,
+            initiable=self._Place_initiable,
+            terminal=self._Place_terminal)
 
     @classmethod
     def get_name(cls) -> str:
@@ -586,10 +567,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {
-            self._Pick, self._Place, self._LearnedEquivalentPick,
-            self._LearnedEquivalentPlace
-        }
+        return {self._Pick, self._Place}
 
     @property
     def action_space(self) -> Box:
@@ -597,22 +575,24 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # env. The action space now is (dx, dy, dgrip). The
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
-        # multi-step options.
+        # multi-step options. The action limits are for dx, dy only;
+        # dgrip is constrained separately based on the grip limits.
         lb, ub = CFG.cover_multistep_action_limits
-        return Box(lb, ub, (3, ))
+        return Box(np.array([lb, lb, self.grip_lb], dtype=np.float32),
+                   np.array([ub, ub, self.grip_ub], dtype=np.float32))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
         # a lower level simulate function.
         assert self.action_space.contains(action.arr)
 
-        # Get data needed to collision check the trajectory.
         dx, dy, dgrip = action.arr
         next_state = state.copy()
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         grip = state.get(self._robot, "grip")
         blocks = state.get_objects(self._block_type)
+        # Detect if a block is held, and if so, record that block's features.
         held_block = None
         for block in blocks:
             if state.get(block, "grasp") != -1:
@@ -642,51 +622,64 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                         y2) in zip(held_rect.vertices, next_held_rect.vertices)
                 ]
 
-        # Ensure neither the gripper nor the possible held block go below the
-        # y-axis.
-        if y + dy < 0 - self.collision_threshold:
-            return state.copy()
+        # Prevent the robot from going below the top of the blocks.
+        y_min_robot = self.block_height
+        if y + dy < y_min_robot:
+            dy = y_min_robot - y
+        # Prevent the robot from going above the initial robot position.
+        if y + dy > self.initial_robot_y:
+            dy = self.initial_robot_y - y
+        # If the robot is holding a block that is close to the floor, and if
+        # the robot is moving down to place, snap the robot so that the block
+        # is exactly on the floor.
+        at_place_height = False
+        if held_block is not None and dy < 0:
+            held_block_bottom = hy - hh
+            # Always snap if below the floor.
+            y_floor = 0
+            if held_block_bottom + dy < y_floor or \
+                abs(held_block_bottom + dy - y_floor) < self.snap_tol:
+                dy = y_floor - held_block_bottom
+                at_place_height = True
+        # If the robot is not holding anything and is moving down, and if
+        # the robot is close enough to the top of the block, snap it so that
+        # the robot is exactly on top of the block.
+        block_to_be_picked = None
+        if held_block is None and dy < 0:
+            for block in blocks:
+                bx_lb = state.get(block, "x") - state.get(block, "width") / 2
+                bx_ub = state.get(block, "x") + state.get(block, "width") / 2
+                if bx_lb <= x <= bx_ub:
+                    above_block_top = state.get(block, "y")
+                    if abs(y + dy - above_block_top) < self.snap_tol:
+                        block_to_be_picked = block
+                        dy = above_block_top - y
+                        break
+        # Ensure that blocks do not collide with other blocks.
         if held_block is not None:
-            if hy - hh + dy < 0 - self.collision_threshold:
-                return state.copy()
+            for block in blocks:
+                if block == held_block:
+                    continue
+                bx, by = state.get(block, "x"), state.get(block, "y")
+                bw, bh = state.get(block, "width"), state.get(block, "height")
+                rect = utils.Rectangle(x=(bx - bw / 2),
+                                       y=(by - bh),
+                                       width=bw,
+                                       height=bh,
+                                       theta=0)
+                # Check the line segments corresponding to the movement of each
+                # of the held object vertices.
+                if any(seg.intersects(rect) for seg in held_move_segs):
+                    return state.copy()
+                # Check for overlap between the held object and this block.
+                if rect.intersects(next_held_rect):
+                    return state.copy()
 
-        # Ensure neither the gripper nor the possible held block collide with
-        # another block during the trajectory defined by dx, dy.
-        grip_move_seg = utils.LineSegment(x, y, x + dx, y + dy)
-        for block in blocks:
-            if held_block is not None and block == held_block:
-                continue
-            bx, by = state.get(block, "x"), state.get(block, "y")
-            bw, bh = state.get(block, "width"), state.get(block, "height")
-            ct = self.collision_threshold
-            # These segments define a slightly smaller rectangle to prevent
-            # floating point arithmetic making us declare a false positive.
-            # Note: the block (x, y) is the middle-top of the block. The
-            # Rectangle expects the lower left corner as (x, y).
-            rect = utils.Rectangle(x=(bx - bw / 2 + ct),
-                                   y=(by - bh + ct),
-                                   width=(bw - 2 * ct),
-                                   height=(bh - 2 * ct),
-                                   theta=0)
-            # Check if the robot would collide with this block during moving.
-            if rect.intersects(grip_move_seg):
-                return state.copy()
-            # Check if the held_block collides with a block.
-            if held_block is None:
-                continue
-            # Check the line segments corresponding to the movement of each
-            # of the held object vertices.
-            if any(seg.intersects(rect) for seg in held_move_segs):
-                return state.copy()
-            # Check for overlap between the held object and this block.
-            if rect.intersects(next_held_rect):
-                return state.copy()
-
-        # No collisions; update robot and possible held block state based on
-        # action.
+        # Update the robot state.
         x += dx
         y += dy
-        grip = dgrip  # desired grip; set directly
+        # Set desired grip directly and clip it.
+        grip = np.clip(dgrip, self.grip_lb, self.grip_ub)
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "grip", grip)
@@ -696,37 +689,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             next_state.set(held_block, "x", hx)
             next_state.set(held_block, "y", hy)
 
-        # Check if we are above a block.
-        above_block = None
-        for block in blocks:
-            block_x_lb = state.get(block, "x") - state.get(block, "width") / 2
-            block_x_ub = state.get(block, "x") + state.get(block, "width") / 2
-            if state.get(block, "grasp") == -1 and \
-               block_x_lb <= x <= block_x_ub:
-                assert above_block is None
-                above_block = block
-
         # If we're not holding anything and we're close enough to a block, grasp
         # it if the gripper is on and we are in the allowed grasping region.
         # Note: unlike parent env, we also need to check the grip.
-        if held_block is None and above_block is not None and \
-            grip > self.grasp_thresh and any(hand_lb <= x <= hand_rb for
-            hand_lb, hand_rb in self._get_hand_regions_block(state)):
-            by = state.get(above_block, "y")
-            by_ub = by + self.grasp_height_tol
-            by_lb = by - self.grasp_height_tol
-            if by_lb <= y <= by_ub:
-                next_state.set(self._robot, "y", by)
-                next_state.set(above_block, "grasp", 1)
-                next_state.set(self._robot, "holding", 1)
+        if block_to_be_picked is not None and grip > self.grasp_thresh and \
+            any(hand_lb <= x <= hand_rb
+                for hand_lb, hand_rb in self._get_hand_regions_block(state)):
+            by = state.get(block_to_be_picked, "y")
+            assert abs(y - by) < 1e-7  # due to snapping
+            next_state.set(block_to_be_picked, "grasp", 1)
+            next_state.set(self._robot, "holding", 1)
 
         # If we are holding something and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
-        # but if we are over a target, we must be in its hand region. Possible
-        # overlaps with other blocks is handled by the collision checker.
+        # but if we are over a target, we must be in its hand region.
         # Note: unlike parent env, we also need to check the grip.
-        if held_block is not None and above_block is None and \
-            grip < self.grasp_thresh and (hy-hh) < self.placing_height:
+        if held_block is not None and block_to_be_picked is None and \
+            grip < self.grasp_thresh and at_place_height:
             # Tentatively set the next state and check whether the placement
             # would cover some target.
             next_state.set(held_block, "y", self.initial_block_y)
@@ -1009,54 +988,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        # Pick is initiable if the hand is empty.
-        del m, o, p  # unused
-        return self._HandEmpty_holds(s, [])
-
-    def _Pick_learned_equivalent_initiable(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
-        m["absolute_params"] = s.vec(o) + p
-        return self._Pick_initiable(s, m, o, p)
+        # Get the non-static object features.
+        block, robot = o
+        vec = [
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "y"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
+        return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
-                     p: Array) -> Action:
-        del m  # unused
-        # The object is the one we want to pick.
-        assert len(o) == 1
-        obj = o[0]
-        # The parameter is a relative x position to pick at.
-        assert len(p) == 1
-        rel_x = p.item()
-        assert obj.type == self._block_type
-        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width") / 2.
-        x = s.get(self._robot, "x")
-        at_desired_x = abs(desired_x - x) < 1e-5
-        y = s.get(self._robot, "y")
-        desired_y = s.get(obj, "y")
-        at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to pick,
-        # then execute the pick (turn up the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., 0.1], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, 0.], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 0.], dtype=np.float32))
-
-    def _Pick_learned_equivalent_policy(
+    def _Pick_policy(
             self,
             s: State,
             m: Dict,  # type: ignore
@@ -1068,135 +1014,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to pick.
         assert len(o) == 2
         obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         by = s.get(obj, "y")
-        desired_x = absolute_params[7]
+        desired_x = absolute_params[1]
         desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
-        at_desired_y = abs(desired_y - y) < 1e-5
 
         lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to pick,
-        # then execute the pick (turn up the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., 1.0], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., -1.0], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
-
-    def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
-                       p: Array) -> bool:
-        del m, p  # unused
-        block, = o
-        # Pick is done when we're holding the desired object.
-        return self._Holding_holds(s, [block, self._robot])
-
-    def _Pick_learned_equivalent_terminal(self, s: State, m: Dict,
-                                          o: Sequence[Object],
-                                          p: Array) -> bool:
-        assert np.allclose(p, m["params"])
-        # Pick is done when we're holding the desired object.
-        return self._Holding_holds(s, o)
-
-    def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
-                         p: Array) -> bool:
-        # Place is initiable if we're holding something.
-        # Also may want to eventually check that the target is clear.
-        del m, o, p  # unused
-        return not self._HandEmpty_holds(s, [])
-
-    def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
-                                            o: Sequence[Object],
-                                            p: Array) -> bool:
-        block, robot, _ = o
-        assert block.is_instance(self._block_type)
-        assert robot.is_instance(self._robot_type)
-        # Convert the relative parameters into absolute parameters.
-        m["params"] = p
-        # Only the block and robot are changing.
-        m["absolute_params"] = s.vec([block, robot]) + p
-        # Place is initiable if we're holding the object.
-        return self._Holding_holds(s, [block, robot])
-
-    def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
-                      p: Array) -> Action:
-        del m  # unused
-        # The object is the one we want to place at.
-        assert len(o) == 1
-        obj = o[0]
-        # The parameter is a relative x position to place at.
-        assert len(p) == 1
-        rel_x = p.item()
-        assert obj.type == self._target_type
-        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width") / 2.
-        x = s.get(self._robot, "x")
-        at_desired_x = abs(desired_x - x) < 1e-5
-        y = s.get(self._robot, "y")
-        desired_y = self.block_height + 1e-3
-        at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to place,
-        # then execute the place (turn down the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., -0.1], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
-        if at_desired_x:
-            delta_y = np.clip(desired_y - y, lb, ub)
-            return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
-        # If we're not above the object, but we're at a safe height,
-        # then move left/right.
-        if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, lb, ub)
-            return Action(np.array([delta_x, 0., 0.1], dtype=np.float32))
-        # If we're not above the object, and we're not at a safe height,
-        # then move up.
-        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
-        return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
-
-    def _Place_learned_equivalent_policy(
-            self,
-            s: State,  # type: ignore
-            m: Dict,
-            o: Sequence[Object],
-            p: Array) -> Action:
-        assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        # The object is the one we want to place at.
-        assert len(o) == 3
-        obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
-        assert obj.type == self._block_type
-        x = s.get(self._robot, "x")
-        y = s.get(self._robot, "y")
-        bh = s.get(obj, "height")
-        desired_x = absolute_params[7]
-        desired_y = bh + 1e-3
-
-        at_desired_x = abs(desired_x - x) < 1e-5
-        at_desired_y = abs(desired_y - y) < 1e-5
-
-        lb, ub = CFG.cover_multistep_action_limits
-        # If we're already above the object and prepared to place,
-        # then execute the place (turn down the magnet).
-        if at_desired_x and at_desired_y:
-            return Action(np.array([0., 0., -1.0], dtype=np.float32))
-        # If we're above the object but not yet close enough, move down.
+        # If we're above the object, move down and turn on the gripper.
         if at_desired_x:
             delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
@@ -1210,15 +1037,65 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
 
+    def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
+                       p: Array) -> bool:
+        assert np.allclose(p, m["params"])
+        # Pick is done when we're holding the desired object.
+        return self._Holding_holds(s, o)
+
+    def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
+                         p: Array) -> bool:
+        block, robot, _ = o
+        assert block.is_instance(self._block_type)
+        assert robot.is_instance(self._robot_type)
+        # Convert the relative parameters into absolute parameters.
+        m["params"] = p
+        # Only the block and robot are changing. Get the non-static features.
+        vec = [
+            s.get(block, "x"),
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
+        # Place is initiable if we're holding the object.
+        return self._Holding_holds(s, [block, robot])
+
+    def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
+                      p: Array) -> Action:
+        assert np.allclose(p, m["params"])
+        del p
+        absolute_params = m["absolute_params"]
+        # The object is the one we want to place at.
+        assert len(o) == 3
+        obj = o[0]
+        assert obj.type == self._block_type
+        x = s.get(self._robot, "x")
+        y = s.get(self._robot, "y")
+        bh = s.get(obj, "height")
+        desired_x = absolute_params[2]
+        desired_y = bh + 1e-3
+
+        at_desired_x = abs(desired_x - x) < 1e-5
+
+        lb, ub = CFG.cover_multistep_action_limits
+        # If we're already above the object, move down and turn off the magnet.
+        if at_desired_x:
+            delta_y = np.clip(desired_y - y, lb, ub)
+            return Action(np.array([0., delta_y, -1.0], dtype=np.float32))
+        # If we're not above the object, but we're at a safe height,
+        # then move left/right.
+        if y >= self.initial_robot_y:
+            delta_x = np.clip(desired_x - x, lb, ub)
+            return Action(np.array([delta_x, 0., 1.0], dtype=np.float32))
+        # If we're not above the object, and we're not at a safe height,
+        # then move up.
+        delta_y = np.clip(self.initial_robot_y + 1e-2 - y, lb, ub)
+        return Action(np.array([0., delta_y, 1.0], dtype=np.float32))
+
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        del m, o, p  # unused
-        # Place is done when the hand is empty.
-        return self._HandEmpty_holds(s, [])
-
-    def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
-                                           o: Sequence[Object],
-                                           p: Array) -> bool:
         del o  # unused
         assert np.allclose(p, m["params"])
         # Place is done when the hand is empty.

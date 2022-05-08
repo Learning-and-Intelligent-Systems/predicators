@@ -24,6 +24,9 @@ class GlobalSettings:
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
+    # If this is False, then environment interactions can only take place
+    # on tasks that have no demonstrations.
+    allow_interaction_in_demo_tasks = True
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -40,12 +43,11 @@ class GlobalSettings:
 
     # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
-    cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
     cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
     cover_multistep_max_hr_placements = 100  # max placements of hand regions
-    cover_multistep_thr_percent = 0.5  # target hand region percent of width
-    cover_multistep_bhr_percent = 0.5  # block hand region percent of width
+    cover_multistep_thr_percent = 0.4  # target hand region percent of width
+    cover_multistep_bhr_percent = 0.4  # block hand region percent of width
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
@@ -108,6 +110,11 @@ class GlobalSettings:
     pybullet_max_ik_iters = 1000
     pybullet_ik_tol = 1e-3
     pybullet_robot = "fetch"
+    pybullet_birrt_num_attempts = 10
+    pybullet_birrt_num_iters = 100
+    pybullet_birrt_smooth_amt = 50
+    pybullet_birrt_extend_num_interp = 10
+    pybullet_control_mode = "position"
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
@@ -151,6 +158,7 @@ class GlobalSettings:
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
+    sesame_check_expected_atoms = True
 
     # evaluation parameters
     log_dir = "logs"
