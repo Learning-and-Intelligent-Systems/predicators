@@ -593,7 +593,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             else:
                 self._joint_lower_limits.append(lower_limit)
                 self._joint_upper_limits.append(upper_limit)
-        self._initial_joint_values = self._run_inverse_kinematics(
+        self._initial_joint_values = self.inverse_kinematics(
             self._ee_home_pose, validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
@@ -657,7 +657,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                               physicsClientId=self._physics_client_id)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joint_values = self._run_inverse_kinematics((rx, ry, rz),
+        joint_values = self.inverse_kinematics((rx, ry, rz),
                                                     validate=True)
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._panda_id,
@@ -692,6 +692,15 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             joint_state.append(joint_val)
         return joint_state
 
+    def set_joints(self, joints_state: JointsState) -> None:
+        assert len(joints_state) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joints_state):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              targetValue=joint_val,
+                              targetVelocity=0,
+                              physicsClientId=self._physics_client_id)
+
     def set_motors(self, action_arr: Array) -> None:
         assert len(action_arr) == len(self._arm_joints)
 
@@ -717,8 +726,8 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         position = ee_link_state[4]
         return position
 
-    def _run_inverse_kinematics(self, end_effector_pose: Pose3D,
-                                validate: bool) -> List[float]:
+    def inverse_kinematics(self, end_effector_pose: Pose3D,
+                           validate: bool) -> List[float]:
 
         # action1 = inverse_kinematics(self._panda_id,
         #                               self._ee_id,
@@ -774,10 +783,10 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             #                    physicsClientId=self._physics_client_id)
             if "waypoints" not in memory:
                 # First handle the main arm joints.
-                joint_state = self._run_inverse_kinematics(target, validate=False)
+                joint_state = self.inverse_kinematics(target, validate=False)
                 # TODO: legitimate motion planning.
                 # TODO: do we need to nudge?
-                finger_state = state.joint_state[self.left_finger_joint_idx]
+                finger_state = state.joints_state[self.left_finger_joint_idx]
                 f_action = finger_state
                 # Extract the current finger state.
                 state = cast(utils.PyBulletState, state)
@@ -785,7 +794,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                 joint_state[self.left_finger_joint_idx] = f_action
                 joint_state[self.right_finger_joint_idx] = f_action
                 final_waypoint = np.array(joint_state, dtype=np.float32)
-                current_waypoint = np.array(state.joint_state, dtype=np.float32)
+                current_waypoint = np.array(state.joints_state, dtype=np.float32)
                 num_waypoints = 10  # TODO
                 memory["waypoints"] = np.linspace(current_waypoint, final_waypoint, num=num_waypoints).tolist()
             action = memory["waypoints"].pop(0)
@@ -828,7 +837,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
             # f_action = current_val + f_delta
             # # Don't change the rest of the joints.
             # state = cast(utils.PyBulletState, state)
-            target = np.array(state.joint_state, dtype=np.float32)
+            target = np.array(state.joints_state, dtype=np.float32)
             target[self.left_finger_joint_idx] = target_val
             target[self.right_finger_joint_idx] = target_val
             # This clipping is needed sometimes for the joint limits.
