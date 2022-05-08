@@ -2,7 +2,6 @@ import fnmatch
 import importlib
 import os
 import shutil
-
 from distutils.core import setup
 from distutils.dir_util import copy_tree
 from distutils.extension import Extension
@@ -18,6 +17,7 @@ from distutils.extension import Extension
 # https://github.com/yijiangh/ikfast_pybind
 # https://github.com/yijiangh/conrob_pybullet/tree/master/utils/ikfast
 # https://github.com/yijiangh/choreo/blob/bc777069b8eb7283c74af26e5461532aec3d9e8a/framefab_robot/abb/framefab_irb6600/framefab_irb6600_support/doc/ikfast_tutorial.rst
+
 
 def compile_ikfast(module_name, cpp_filename, remove_build=False):
     ikfast_module = Extension(module_name, sources=[cpp_filename])

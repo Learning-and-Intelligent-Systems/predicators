@@ -1,8 +1,8 @@
 """Note: this subdirectory is modified from the pybullet-planning repository
 by Caelan Garrett (https://github.com/caelan/pybullet-planning/)."""
 
-import sys
 import os
+import sys
 
 from predicators.src.envs.assets.ikfast.compile import compile_ikfast
 
@@ -13,6 +13,7 @@ def main():
     robot_name = 'panda_arm'
     compile_ikfast(module_name='ikfast_{}'.format(robot_name),
                    cpp_filename='ikfast_{}.cpp'.format(robot_name))
+
 
 if __name__ == '__main__':
     main()
