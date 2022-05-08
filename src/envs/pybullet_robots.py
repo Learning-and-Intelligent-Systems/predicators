@@ -598,14 +598,28 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         #     action = list(candidate) + [self.open_fingers, self.open_fingers]
         #     return action
 
-        return ikfast_inverse_kinematics(self._panda_id,
-                                         self.get_name(),
-                                         self._ee_id,
-                                         end_effector_pose,
-                                         self._ee_orientation,
-                                         self._arm_joints,
-                                         physics_client_id=self._physics_client_id,
-                                         validate=validate)
+        # TODO handle validate argument
+        # TODO add fingers to return
+
+        # TODO clean and explain this
+        from pybullet_tools.ikfast.utils import IKFastInfo
+        from pybullet_tools.ikfast.ikfast import get_base_from_ee
+        ikfast_info = IKFastInfo(
+            module_name="NOT USED",
+            base_link="panda_link0",
+            ee_link="panda_link8",
+            free_joints=["panda_joint7"],
+        )
+        base_from_ee = get_base_from_ee(
+            self.robot_id,
+            ikfast_info,
+            self.end_effector_id,
+            (end_effector_pose, self._ee_orientation))
+
+        return ikfast_inverse_kinematics(self.get_name(),
+                                         base_from_ee[0],
+                                         base_from_ee[1],
+                                         physics_client_id=self._physics_client_id)
 
 
 
@@ -859,19 +873,15 @@ def pybullet_inverse_kinematics(
 
 
 def ikfast_inverse_kinematics(
-    robot: int,
     robot_name: str,
-    end_effector: int,
     target_position: Pose3D,
     target_orientation: Sequence[float],
-    joints: Sequence[int],
     physics_client_id: int,
-    validate: bool = True,
     ) -> JointsState:
-    """Runs IK and returns a joints state for the given (free) joints.
+    """Runs IK and returns a joints state.
 
-    If validate is True, candidate joints states are checked for matching
-    the target position and orientation before returning.
+    TODO: describe the assumptions about the target position and orientation
+    in terms of what joints they're referring to.
 
     Uses the MoveIt IKFast solver. If the solver is not already installed,
     it will be installed automatically when this function is called for the
