@@ -538,7 +538,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     def get_state(self) -> Array:
         ee_link_state = p.getLinkState(self._panda_id,
-                                       self._ee_id,
+                                       self.end_effector_id,
                                        physicsClientId=self._physics_client_id)
         rx, ry, rz = ee_link_state[4]
         rf = p.getJointState(self._panda_id,
@@ -560,7 +560,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     def set_joints(self, joints_state: JointsState) -> None:
         assert len(joints_state) == len(self._arm_joints)
         for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(self._fetch_id,
+            p.resetJointState(self._panda_id,
                               joint_id,
                               targetValue=joint_val,
                               targetVelocity=0,
@@ -585,7 +585,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                               joint_val,
                               physicsClientId=self._physics_client_id)
         ee_link_state = p.getLinkState(self._panda_id,
-                                       self._ee_id,
+                                       self.end_effector_id,
                                        computeForwardKinematics=True,
                                        physicsClientId=self._physics_client_id)
         position = ee_link_state[4]
@@ -945,6 +945,7 @@ def ikfast_inverse_kinematics(
     # Import the module.
     # See https://docs.python.org/3/library/importlib.html.
     spec = importlib.util.spec_from_file_location(module_name, module_filepath)
+    assert spec is not None, "IKFast module could not be found."
     ikfast = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = ikfast
     spec.loader.exec_module(ikfast)
