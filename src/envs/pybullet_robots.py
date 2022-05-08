@@ -901,9 +901,21 @@ def ikfast_inverse_kinematics(
     sys.modules[module_name] = ikfast
     spec.loader.exec_module(ikfast)
     # Expects matrix representation of orientation.
-    matrix_target_orn = np.array(p.getMatrixFromQuaternion(target_orientation, physicsClientId=physics_client_id)).reshape((3, 3)).tolist()
-    # TODO: understand third argument.
-    solutions = ikfast.get_ik(matrix_target_orn, list(target_position), [0])
+    matrix_target_orn = np.array(p.getMatrixFromQuaternion(target_orientation,
+        physicsClientId=physics_client_id)).reshape((3, 3)).tolist()
+    # TODO: understand third argument. Waiting for Caelan reply on this.
+    # This is a temporary thing until I understand what the hell is happening.
+    # ipdb> self._joint_lower_limits[6]
+    # -2.8973
+    # ipdb> self._joint_upper_limits[6]
+    # 2.8973
+    rng = np.random.default_rng(CFG.seed)
+    for _ in range(CFG.pybullet_max_ik_iters):
+        what_is_this_thing = rng.uniform(-2.8973, 2.8973)
+        solutions = ikfast.get_ik(matrix_target_orn, list(target_position), [what_is_this_thing])
+        if solutions:
+            break
+    import ipdb; ipdb.set_trace()
     
 
 

@@ -202,6 +202,7 @@ def test_fetch_pybullet_robot():
 
 def test_create_single_arm_pybullet_robot():
     """Tests for create_single_arm_pybullet_robot()."""
+    utils.reset_config()
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
