@@ -3,7 +3,7 @@
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import create_approach
+from predicators.src.approaches import ApproachFailure, create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.settings import CFG
@@ -19,6 +19,7 @@ def _test_approach(env_name,
                    strips_learner="cluster_and_intersect",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
+                   solve_exceptions=None,
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -62,7 +63,14 @@ def _test_approach(env_name,
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]
     if try_solving:
-        policy = approach.solve(task, timeout=CFG.timeout)
+        if solve_exceptions is not None:
+            assert not check_solution
+            try:
+                policy = approach.solve(task, timeout=CFG.timeout)
+            except solve_exceptions:
+                pass
+        else:
+            policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
             traj = utils.run_policy_with_simulator(policy,
                                                    env.simulate,
@@ -77,7 +85,14 @@ def _test_approach(env_name,
                                 env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)
     if try_solving:
-        policy = approach2.solve(task, timeout=CFG.timeout)
+        if solve_exceptions is not None:
+            assert not check_solution
+            try:
+                policy = approach2.solve(task, timeout=CFG.timeout)
+            except solve_exceptions:
+                pass
+        else:
+            policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
             traj = utils.run_policy_with_simulator(policy,
                                                    env.simulate,
@@ -133,6 +148,19 @@ def test_neural_option_learning():
                    sampler_learner="random",
                    option_learner="direct_bc",
                    check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                   })
+    # Test with oracle samplers.
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=True,
+                   sampler_learner="oracle",
+                   option_learner="direct_bc",
+                   check_solution=False,
+                   offline_data_method="demo",
+                   solve_exceptions=(ApproachFailure, ),
                    additional_settings={
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,

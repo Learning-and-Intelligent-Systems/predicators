@@ -549,14 +549,14 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._Pick = ParameterizedOption(
             "Pick",
             types=[self._block_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
+            params_space=Box(-np.inf, np.inf, (5, )),
             policy=self._Pick_policy,
             initiable=self._Pick_initiable,
             terminal=self._Pick_terminal)
         self._Place = ParameterizedOption(
             "Place",
             types=[self._block_type, self._robot_type, self._target_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
+            params_space=Box(-np.inf, np.inf, (5, )),
             policy=self._Place_policy,
             initiable=self._Place_initiable,
             terminal=self._Place_terminal)
@@ -990,7 +990,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                         p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
-        m["absolute_params"] = s.vec(o) + p
+        # Get the non-static object features.
+        block, robot = o
+        vec = [
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "y"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
         return self._HandEmpty_holds(s, [])
 
     def _Pick_policy(
@@ -1005,13 +1014,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to pick.
         assert len(o) == 2
         obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         by = s.get(obj, "y")
-        desired_x = absolute_params[7]
+        desired_x = absolute_params[1]
         desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
 
@@ -1043,8 +1050,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         assert robot.is_instance(self._robot_type)
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
-        # Only the block and robot are changing.
-        m["absolute_params"] = s.vec([block, robot]) + p
+        # Only the block and robot are changing. Get the non-static features.
+        vec = [
+            s.get(block, "x"),
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
         # Place is initiable if we're holding the object.
         return self._Holding_holds(s, [block, robot])
 
@@ -1056,13 +1070,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to place at.
         assert len(o) == 3
         obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         bh = s.get(obj, "height")
-        desired_x = absolute_params[7]
+        desired_x = absolute_params[2]
         desired_y = bh + 1e-3
 
         at_desired_x = abs(desired_x - x) < 1e-5

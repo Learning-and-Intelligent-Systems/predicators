@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
+import numpy as np
+
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
@@ -119,7 +121,10 @@ class Teacher:
                 parameterized_option = Pick
                 block = goal_blocks_held[0]
                 arguments = [block, robot]
-                changing_objs = [block, robot]
+                # Parameters are non-static features only.
+                changing_obj_feats = [(block, "grasp"), (robot, "x"),
+                                      (robot, "y"), (robot, "grip"),
+                                      (robot, "holding")]
             # Case 2: Place. Note that we only know how to do two things in
             # this environment, Pick and Place. In this Case 2, we have already
             # established that we're not going to be picking, so we must be
@@ -138,11 +143,16 @@ class Teacher:
                 # target (it becomes covered).
                 target = targets[0]
                 arguments = [block, robot, target]
-                changing_objs = [block, robot]
+                # Parameters are non-static features only.
+                changing_obj_feats = [(block, "x"), (block, "grasp"),
+                                      (robot, "x"), (robot, "grip"),
+                                      (robot, "holding")]
             # Case 3: invalid or unsupported request.
             else:
                 return null_response
-            params = goal_state.vec(changing_objs) - state.vec(changing_objs)
+            goal_vec = [goal_state.get(o, f) for o, f in changing_obj_feats]
+            state_vec = [state.get(o, f) for o, f in changing_obj_feats]
+            params = np.subtract(goal_vec, state_vec)
             option = parameterized_option.ground(arguments, params)
             policy = utils.option_plan_to_policy([option])
             termination_function = lambda s: s.allclose(goal_state)

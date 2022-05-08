@@ -181,12 +181,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 desired_x = bx + (tm - tx)
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
-            # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from -1.0 to 1.0
-            block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
+            # This option changes the grasp for the block from -1.0 to 1.0, so
+            # the delta is 1.0 - (-1.0) = 2.0
+            block_param = [2.0]
+            # The grip changes from -1.0 to 1.0.
+            # The holding changes from -1.0 to 1.0.
             # x, y, grip, holding
-            # grip changes from -1.0 to 1.0
-            # holding changes from -1.0 to 1.0
             robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
@@ -271,21 +271,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                             break
                 assert thr_found
 
-            # The x, y, and held features of the block change, and the x, y,
-            # grasp, and holding features of the robot change.
-            # Note that the y features changing is a little surprising. One
-            # thing to keep in mind is that during replay data collection,
-            # the replays can start from any low-level state in a trajectory,
-            # so there are many cases where the robot is holding the object in
-            # mid-air, and it starts a new place option from there.
             assert len(objs) == 3
             block, robot, target = objs
             assert block.is_instance(block_type)
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
-            rx, ry = state.get(robot, "x"), state.get(robot, "y")
-            bh = state.get(block, "height")
-            grasp_offset = 1e-3
+            rx = state.get(robot, "x")
             tx, tw = state.get(target, "x"), state.get(target, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(tx)
@@ -294,14 +285,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
-            delta_y = bh - ry
-            # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from 1.0 to -1.0
-            block_param = [0.0, 0.0, 0.0, delta_x, -2.0, delta_y, 0.0]
-            # x, y, grip, holding
-            # grip changes from 1.0 to -1.0
-            # holding changes from 1.0 to -1.0
-            robot_param = [delta_x, delta_y + grasp_offset, -2.0, -2.0]
+            # This option changes the grasp for the block from 1.0 to -1.0, so
+            # the delta is -1.0 - 1.0 = -2.0.
+            # x, grasp
+            block_param = [delta_x, -2.0]
+            # The grip changes from 1.0 to -1.0.
+            # The holding changes from 1.0 to -1.0.
+            # x, grip, holding
+            robot_param = [delta_x, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
