@@ -14,6 +14,7 @@ from predicators.src.structs import Action, Array, JointsState, Object, \
     ParameterizedOption, Pose3D, State, Type
 
 
+
 class _SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
 
@@ -372,12 +373,263 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             validate=validate)
 
 
+class PandaPyBulletRobot(_SingleArmPyBulletRobot):
+    """Franka Emika Panda which we assume is fixed on some base."""
+
+    # Parameters that aren't important enough to need to clog up settings.py
+    _base_pose: Pose3D = (0.75, 0.7441, 0.25)
+    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "panda"
+
+    def _initialize(self) -> None:
+
+        self._ikfast_info = IKFastInfo(
+            module_name="franka_panda.ikfast_panda_arm",
+            base_link="panda_link0",
+            ee_link="panda_link8",
+            free_joints=["panda_joint7"],
+        )
+
+        # TODO!!! fix this
+        self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
+
+        self._panda_id = p.loadURDF(
+            utils.get_env_asset_path(
+                "urdf/franka_description/robots/panda_arm_hand.urdf"
+            ),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        
+        p.resetBasePositionAndOrientation(
+            self._panda_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id)
+
+        # Extract IDs for individual robot links and joints.
+
+        # TODO: factor out common code here and elsewhere.
+        joint_names = [
+            p.getJointInfo(
+                self._panda_id, i,
+                physicsClientId=self._physics_client_id)[1].decode("utf-8")
+            for i in range(
+                p.getNumJoints(self._panda_id,
+                               physicsClientId=self._physics_client_id))
+        ]
+
+        self._ee_id = joint_names.index("tool_joint")
+        self._arm_joints = get_kinematic_chain(
+            self._panda_id,
+            self._ee_id,
+            physics_client_id=self._physics_client_id)
+        # NOTE: pybullet tools assumes sorted arm joints.
+        self._arm_joints = sorted(self._arm_joints)
+        self._left_finger_id = joint_names.index("panda_finger_joint1")
+        self._right_finger_id = joint_names.index("panda_finger_joint2")
+        self._arm_joints.append(self._left_finger_id)
+        self._arm_joints.append(self._right_finger_id)
+        # Establish the lower and upper limits for the arm joints.
+        self._joint_lower_limits = []
+        self._joint_upper_limits = []
+        for i in self._arm_joints:
+            info = p.getJointInfo(self._panda_id,
+                                  i,
+                                  physicsClientId=self._physics_client_id)
+            lower_limit = info[8]
+            upper_limit = info[9]
+            # Per PyBullet documentation, values ignored if upper < lower.
+            if upper_limit < lower_limit:
+                self._joint_lower_limits.append(-np.inf)
+                self._joint_upper_limits.append(np.inf)
+            else:
+                self._joint_lower_limits.append(lower_limit)
+                self._joint_upper_limits.append(upper_limit)
+        self._initial_joint_values = self.inverse_kinematics(
+            self._ee_home_pose, validate=True)
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        self._initial_joint_values[-2] = self.open_fingers
+        self._initial_joint_values[-1] = self.open_fingers
+
+    @property
+    def robot_id(self) -> int:
+        return self._panda_id
+
+    @property
+    def end_effector_id(self) -> int:
+        return self._ee_id
+
+    @property
+    def left_finger_id(self) -> int:
+        return self._left_finger_id
+
+    @property
+    def right_finger_id(self) -> int:
+        return self._right_finger_id
+
+    @property
+    def left_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 2
+
+    @property
+    def right_finger_joint_idx(self) -> int:
+        return len(self._arm_joints) - 1
+
+    @property
+    def joint_lower_limits(self) -> List[float]:
+        return self._joint_lower_limits
+
+    @property
+    def joint_upper_limits(self) -> List[float]:
+        return self._joint_upper_limits
+
+    @property
+    def open_fingers(self) -> float:
+        return 0.04
+
+    @property
+    def closed_fingers(self) -> float:
+        return 0.03
+
+    def reset_state(self, robot_state: Array) -> None:
+        rx, ry, rz, rf = robot_state
+        p.resetBasePositionAndOrientation(
+            self._panda_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id)
+        # First, reset the joint values to self._initial_joint_values,
+        # so that IK is consistent (less sensitive to initialization).
+        joint_values = self._initial_joint_values
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(self._panda_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        # Now run IK to get to the actual starting rx, ry, rz. We use
+        # validate=True to ensure that this initialization works.
+        joint_values = self.inverse_kinematics((rx, ry, rz),
+                                                    validate=True)
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
+            p.resetJointState(self._panda_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        # Handle setting the robot finger joints.
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            p.resetJointState(self._panda_id,
+                              finger_id,
+                              rf,
+                              physicsClientId=self._physics_client_id)
+
+    def get_state(self) -> Array:
+        ee_link_state = p.getLinkState(self._panda_id,
+                                       self._ee_id,
+                                       physicsClientId=self._physics_client_id)
+        rx, ry, rz = ee_link_state[4]
+        rf = p.getJointState(self._panda_id,
+                             self._left_finger_id,
+                             physicsClientId=self._physics_client_id)[0]
+        # pose_x, pose_y, pose_z, fingers
+        return np.array([rx, ry, rz, rf], dtype=np.float32)
+
+    def get_joints(self) -> Sequence[float]:
+        joint_state = []
+        for joint_idx in self._arm_joints:
+            joint_val = p.getJointState(
+                self._panda_id,
+                joint_idx,
+                physicsClientId=self._physics_client_id)[0]
+            joint_state.append(joint_val)
+        return joint_state
+
+    def set_joints(self, joints_state: JointsState) -> None:
+        assert len(joints_state) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, joints_state):
+            p.resetJointState(self._fetch_id,
+                              joint_id,
+                              targetValue=joint_val,
+                              targetVelocity=0,
+                              physicsClientId=self._physics_client_id)
+
+    def set_motors(self, action_arr: Array) -> None:
+        assert len(action_arr) == len(self._arm_joints)
+
+        # Set arm joint motors.
+        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
+            p.setJointMotorControl2(bodyIndex=self._panda_id,
+                                    jointIndex=joint_idx,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=joint_val,
+                                    physicsClientId=self._physics_client_id)
+
+    def forward_kinematics(self, action_arr: Array) -> Pose3D:
+        assert len(action_arr) == len(self._arm_joints)
+        for joint_id, joint_val in zip(self._arm_joints, action_arr):
+            p.resetJointState(self._panda_id,
+                              joint_id,
+                              joint_val,
+                              physicsClientId=self._physics_client_id)
+        ee_link_state = p.getLinkState(self._panda_id,
+                                       self._ee_id,
+                                       computeForwardKinematics=True,
+                                       physicsClientId=self._physics_client_id)
+        position = ee_link_state[4]
+        return position
+
+    def inverse_kinematics(self, end_effector_pose: Pose3D,
+                           validate: bool) -> List[float]:
+
+        # action1 = inverse_kinematics(self._panda_id,
+        #                               self._ee_id,
+        #                               end_effector_pose,
+        #                               self._ee_orientation,
+        #                               self._arm_joints,
+        #                               physics_client_id=self._physics_client_id,
+        #                               validate=validate)
+        # result1 = self.forward_kinematics(action1)
+
+        for candidate in ikfast_inverse_kinematics(
+            self._panda_id, self._ikfast_info, self._ee_id,
+            (end_effector_pose, self._ee_orientation),
+            max_attempts=CFG.pybullet_max_ik_iters,
+            physicsClientId=self._physics_client_id):
+
+            # Add fingers. # TODO is this right?
+            action = list(candidate) + [self.open_fingers, self.open_fingers]
+            return action
+
+            # result_pose = self.forward_kinematics(action)
+            # import ipdb; ipdb.set_trace()
+            # while True:
+            #     p.stepSimulation(physicsClientId=self._physics_client_id)
+            # import ipdb; ipdb.set_trace()
+
+        # import ipdb; ipdb.set_trace()
+
+        # return inverse_kinematics(self._panda_id,
+        #                           self._ee_id,
+        #                           end_effector_pose,
+        #                           self._ee_orientation,
+        #                           self._arm_joints,
+        #                           physics_client_id=self._physics_client_id,
+        #                           validate=validate)
+
+
+
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
         return FetchPyBulletRobot(ee_home_pose, ee_orientation,
+                                  physics_client_id)
+    if robot_name == "panda":
+        return PandaPyBulletRobot(ee_home_pose, ee_orientation,
                                   physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
 
@@ -616,6 +868,58 @@ def pybullet_inverse_kinematics(
         joint_vals.append(joint_val)
 
     return joint_vals
+
+
+def ikfast_inverse_kinematics(
+    robot: int,
+    end_effector: int,
+    target_position: Pose3D,
+    target_orientation: Sequence[float],
+    joints: Sequence[int],
+    physics_client_id: int,
+    validate: bool = True,
+    ):  -> JointsState:
+    """Runs IK and returns a joints state for the given (free) joints.
+
+    If validate is True, candidate joints states are checked for matching
+    the target position and orientation before returning.
+
+    Uses the MoveIt IKFast solver. If the solver is not already installed,
+    it will be installed automatically when this function is called for the
+    first time. (TODO!)
+
+    This implementation is heavily based on the pybullet-planning repository
+    by Caelan Garrett (https://github.com/caelan/pybullet-planning/).
+    """
+
+    assert robot.get_name() == "panda", "IKFast is not implemented for " + \
+        f"robot {robot.get_name()}."
+
+    # TODO: if this fails, automatically install.
+    ikfast = importlib.import_module("franka_panda.ikfast_panda_arm")
+
+
+    free_joints = joints_from_names(robot, ikfast_info.free_joints)
+    base_from_ee = get_base_from_ee(robot, ikfast_info, tool_link, world_from_target)
+    difference_fn = get_difference_fn(robot, joints)
+    current_conf = get_joint_positions(robot, joints)
+    current_positions = get_joint_positions(robot, free_joints)
+
+    free_deltas = np.array([0. if joint in fixed_joints else max_distance for joint in free_joints])
+    lower_limits = np.maximum(get_min_limits(robot, free_joints), current_positions - free_deltas)
+    upper_limits = np.minimum(get_max_limits(robot, free_joints), current_positions + free_deltas)
+    generator = chain([current_positions],
+                      interval_generator(lower_limits, upper_limits))
+    if max_attempts < INF:
+        generator = islice(generator, max_attempts)
+    start_time = time.time()
+    for free_positions in generator:
+        if max_time < elapsed_time(start_time):
+            break
+        for conf in randomize(compute_inverse_kinematics(ikfast.get_ik, base_from_ee, free_positions)):
+            difference = difference_fn(current_conf, conf)
+            if not violates_limits(robot, joints, conf) and (get_length(difference, norm=norm) <= max_distance):
+                yield conf
 
 
 def run_motion_planning(

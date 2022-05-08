@@ -7,7 +7,7 @@ import pytest
 from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
 from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
-    create_single_arm_pybullet_robot, get_kinematic_chain, \
+    PandaPyBulletRobot, create_single_arm_pybullet_robot, get_kinematic_chain, \
     pybullet_inverse_kinematics, run_motion_planning
 from predicators.src.settings import CFG
 
@@ -208,6 +208,10 @@ def test_create_single_arm_pybullet_robot():
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
+    physics_client_id = p.connect(p.DIRECT)
+    robot = create_single_arm_pybullet_robot("panda", ee_home_pose, ee_orn,
+                                             physics_client_id)
+    assert isinstance(robot, PandaPyBulletRobot)
     with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, physics_client_id)
