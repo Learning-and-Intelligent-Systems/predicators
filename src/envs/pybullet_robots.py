@@ -5,9 +5,9 @@ import glob
 import importlib.util
 import logging
 import os
+import sys
 from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
     Optional, Sequence, Tuple, cast
-import sys
 
 import numpy as np
 import pybullet as p
@@ -400,13 +400,11 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         # TODO!!! fix this
         self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
 
-        self._panda_id = p.loadURDF(
-            utils.get_env_asset_path(
-                "urdf/franka_description/robots/panda_arm_hand.urdf"
-            ),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id)
-        
+        self._panda_id = p.loadURDF(utils.get_env_asset_path(
+            "urdf/franka_description/robots/panda_arm_hand.urdf"),
+                                    useFixedBase=True,
+                                    physicsClientId=self._physics_client_id)
+
         p.resetBasePositionAndOrientation(
             self._panda_id,
             self._base_pose,
@@ -417,10 +415,11 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
         # TODO: change this, because it's highly confusing that this is not
         # the tool tip, since end_effector_id is the tool tip.
-        self._end_effector_link = get_link_from_name(self._panda_id, "panda_link8",
-            self._physics_client_id)
-        self._tool_link = get_link_from_name(self._panda_id, "tool_link", self._physics_client_id)
-        self._arm_base_link = get_link_from_name(self._panda_id, "panda_link0", self._physics_client_id)
+        self._end_effector_link = get_link_from_name(self._panda_id,
+                                                     "panda_link8",
+                                                     self._physics_client_id)
+        self._tool_link = get_link_from_name(self._panda_id, "tool_link",
+                                             self._physics_client_id)
 
         # TODO: factor out common code here and elsewhere.
         joint_names = [
@@ -524,8 +523,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                               physicsClientId=self._physics_client_id)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joint_values = self.inverse_kinematics((rx, ry, rz),
-                                                    validate=True)
+        joint_values = self.inverse_kinematics((rx, ry, rz), validate=True)
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._panda_id,
                               joint_id,
@@ -596,49 +594,36 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> List[float]:
 
-        # for candidate in ikfast_inverse_kinematics(
-        #     self._panda_id, self._ikfast_info, self._ee_id,
-        #     (end_effector_pose, self._ee_orientation),
-        #     max_attempts=CFG.pybullet_max_ik_iters,
-        #     physicsClientId=self._physics_client_id):
-
-        #     # Add fingers. # TODO is this right?
-        #     action = list(candidate) + [self.open_fingers, self.open_fingers]
-        #     return action
-
         # TODO handle validate argument
 
-        # TODO clean, explain, remove
-        from pybullet_tools.utils import multiply, invert
+        # TODO explain
+        # TODO check if we can compute some of these just once
+        tool_from_ee = get_relative_link_pose(self.robot_id,
+                                              self._end_effector_link,
+                                              self._tool_link,
+                                              self._physics_client_id)
+        world_from_base = p.getBasePositionAndOrientation(
+            self.robot_id, physicsClientId=self._physics_client_id)
+        base_from_ee = p.multiplyTransforms(
+            *p.multiplyTransforms(*p.invertTransform(*world_from_base),
+                                  end_effector_pose, self._ee_orientation),
+            *tool_from_ee)
 
-        def get_link_pose(body, link):
-            if link == -1:
-                return p.getBasePositionAndOrientation(body, physicsClientId=self._physics_client_id)
-            link_state = p.getLinkState(body, link, physicsClientId=self._physics_client_id)
-            return link_state[0], link_state[1]
+        joints_state = ikfast_inverse_kinematics(
+            self.get_name(),
+            base_from_ee[0],
+            base_from_ee[1],
+            physics_client_id=self._physics_client_id)
 
-        def get_relative_pose(body, link1, link2):
-            world_from_link1 = get_link_pose(body, link1)
-            world_from_link2 = get_link_pose(body, link2)
-            link2_from_link1 = multiply(invert(world_from_link2), world_from_link1)
-            return link2_from_link1
-
-        def get_base_from_ee(robot, world_from_target):
-            tool_from_ee = get_relative_pose(robot, self._end_effector_link, self._tool_link)
-            world_from_base = get_link_pose(robot, self._arm_base_link)
-            return multiply(invert(world_from_base), world_from_target, tool_from_ee)
-
-        base_from_ee = get_base_from_ee(
-            self.robot_id,
-            (end_effector_pose, self._ee_orientation))
-
-        joints_state = ikfast_inverse_kinematics(self.get_name(),
-                                                 base_from_ee[0],
-                                                 base_from_ee[1],
-                                                 physics_client_id=self._physics_client_id)
-
-        # Add fingers. # TODO is this right?
-        return list(joints_state) + [self.open_fingers, self.open_fingers]
+        # Add fingers.
+        final_joint_state = list(joints_state)
+        left_finger_idx = self._arm_joints.index(self._left_finger_id)
+        right_finger_idx = self._arm_joints.index(self._right_finger_id)
+        first_finger_idx, second_finger_idx = sorted(
+            [left_finger_idx, right_finger_idx])
+        final_joint_state.insert(first_finger_idx, self.open_fingers)
+        final_joint_state.insert(second_finger_idx, self.open_fingers)
+        return final_joint_state
 
 
 def create_single_arm_pybullet_robot(
@@ -797,11 +782,31 @@ def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     if name == base_name:
         return -1  # base link
     for link in range(p.getNumJoints(body, physicsClientId=physics_client_id)):
-        joint_info = p.getJointInfo(body, link, physicsClientId=physics_client_id)
+        joint_info = p.getJointInfo(body,
+                                    link,
+                                    physicsClientId=physics_client_id)
         joint_name = joint_info[12].decode('UTF-8')
         if joint_name == name:
             return link
     raise ValueError(f"Body {body} has no link with name {name}.")
+
+
+def get_link_pose(body: int, link: int,
+                  physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
+    """Get the position and orientation for a link."""
+    link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
+    return link_state[0], link_state[1]
+
+
+def get_relative_link_pose(
+        body: int, link1: int, link2: int,
+        physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
+    """Get the pose of one link relative to another link on the same body."""
+    world_from_link1 = get_link_pose(body, link1, physics_client_id)
+    world_from_link2 = get_link_pose(body, link2, physics_client_id)
+    link2_from_link1 = p.multiplyTransforms(
+        *p.invertTransform(*world_from_link2), *world_from_link1)
+    return link2_from_link1
 
 
 def get_kinematic_chain(robot: int, end_effector: int,
@@ -874,6 +879,7 @@ def pybullet_inverse_kinematics(
                               joint,
                               targetValue=joint_val,
                               physicsClientId=physics_client_id)
+        # TODO can this be replaced with get_link_pose?
         ee_link_state = p.getLinkState(robot,
                                        end_effector,
                                        computeForwardKinematics=True,
@@ -909,7 +915,7 @@ def ikfast_inverse_kinematics(
     target_position: Pose3D,
     target_orientation: Sequence[float],
     physics_client_id: int,
-    ) -> JointsState:
+) -> JointsState:
     """Runs IK and returns a joints state.
 
     TODO: describe the assumptions about the target position and orientation
@@ -943,8 +949,10 @@ def ikfast_inverse_kinematics(
     sys.modules[module_name] = ikfast
     spec.loader.exec_module(ikfast)
     # Expects matrix representation of orientation.
-    matrix_target_orn = np.array(p.getMatrixFromQuaternion(target_orientation,
-        physicsClientId=physics_client_id)).reshape((3, 3)).tolist()
+    matrix_target_orn = np.array(
+        p.getMatrixFromQuaternion(target_orientation,
+                                  physicsClientId=physics_client_id)).reshape(
+                                      (3, 3)).tolist()
     # TODO: understand third argument. Waiting for Caelan reply on this.
     # This is a temporary thing until I understand what the hell is happening.
     # ipdb> self._joint_lower_limits[6]
@@ -954,19 +962,20 @@ def ikfast_inverse_kinematics(
     rng = np.random.default_rng(CFG.seed)
     for _ in range(CFG.pybullet_max_ik_iters):
         what_is_this_thing = rng.uniform(-2.8973, 2.8973)
-        solutions = ikfast.get_ik(matrix_target_orn, list(target_position), [what_is_this_thing])
+        solutions = ikfast.get_ik(matrix_target_orn, list(target_position),
+                                  [what_is_this_thing])
         if solutions:
             break
     assert solutions
     return solutions[0]
-    
 
 
 def _install_ikfast_module(ikfast_dir: str) -> None:
     """One-time install an IKFast module for a specific robot.
 
-    Assumes there is a subdirectory in envs/assets/ikfast with a setup.py
-    file for the robot. See the panda_arm subdirectory for an example.
+    Assumes there is a subdirectory in envs/assets/ikfast with a
+    setup.py file for the robot. See the panda_arm subdirectory for an
+    example.
     """
     # Go to the subdirectory with the setup.py file.
     cmds = [f"cd {ikfast_dir}"]
