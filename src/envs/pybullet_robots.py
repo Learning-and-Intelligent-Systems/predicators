@@ -1,8 +1,13 @@
 """Interfaces to PyBullet robots."""
 
 import abc
+import glob
+import importlib.util
+import logging
+import os
 from typing import Callable, ClassVar, Collection, Dict, Iterator, List, \
     Optional, Sequence, Tuple, cast
+import sys
 
 import numpy as np
 import pybullet as p
@@ -12,7 +17,6 @@ from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, JointsState, Object, \
     ParameterizedOption, Pose3D, State, Type
-
 
 
 class _SingleArmPyBulletRobot(abc.ABC):
@@ -377,21 +381,21 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
 
     # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: Pose3D = (0.75, 0.7441, 0.25)
-    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
+    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)
+    _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     @classmethod
     def get_name(cls) -> str:
-        return "panda"
+        return "panda_arm"
 
     def _initialize(self) -> None:
 
-        self._ikfast_info = IKFastInfo(
-            module_name="franka_panda.ikfast_panda_arm",
-            base_link="panda_link0",
-            ee_link="panda_link8",
-            free_joints=["panda_joint7"],
-        )
+        # self._ikfast_info = IKFastInfo(
+        #     module_name="franka_panda.ikfast_panda_arm",
+        #     base_link="panda_link0",
+        #     ee_link="panda_link8",
+        #     free_joints=["panda_joint7"],
+        # )
 
         # TODO!!! fix this
         self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
@@ -584,40 +588,24 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> List[float]:
 
-        # action1 = inverse_kinematics(self._panda_id,
-        #                               self._ee_id,
-        #                               end_effector_pose,
-        #                               self._ee_orientation,
-        #                               self._arm_joints,
-        #                               physics_client_id=self._physics_client_id,
-        #                               validate=validate)
-        # result1 = self.forward_kinematics(action1)
+        # for candidate in ikfast_inverse_kinematics(
+        #     self._panda_id, self._ikfast_info, self._ee_id,
+        #     (end_effector_pose, self._ee_orientation),
+        #     max_attempts=CFG.pybullet_max_ik_iters,
+        #     physicsClientId=self._physics_client_id):
 
-        for candidate in ikfast_inverse_kinematics(
-            self._panda_id, self._ikfast_info, self._ee_id,
-            (end_effector_pose, self._ee_orientation),
-            max_attempts=CFG.pybullet_max_ik_iters,
-            physicsClientId=self._physics_client_id):
+        #     # Add fingers. # TODO is this right?
+        #     action = list(candidate) + [self.open_fingers, self.open_fingers]
+        #     return action
 
-            # Add fingers. # TODO is this right?
-            action = list(candidate) + [self.open_fingers, self.open_fingers]
-            return action
-
-            # result_pose = self.forward_kinematics(action)
-            # import ipdb; ipdb.set_trace()
-            # while True:
-            #     p.stepSimulation(physicsClientId=self._physics_client_id)
-            # import ipdb; ipdb.set_trace()
-
-        # import ipdb; ipdb.set_trace()
-
-        # return inverse_kinematics(self._panda_id,
-        #                           self._ee_id,
-        #                           end_effector_pose,
-        #                           self._ee_orientation,
-        #                           self._arm_joints,
-        #                           physics_client_id=self._physics_client_id,
-        #                           validate=validate)
+        return ikfast_inverse_kinematics(self._panda_id,
+                                         self.get_name(),
+                                         self._ee_id,
+                                         end_effector_pose,
+                                         self._ee_orientation,
+                                         self._arm_joints,
+                                         physics_client_id=self._physics_client_id,
+                                         validate=validate)
 
 
 
@@ -872,13 +860,14 @@ def pybullet_inverse_kinematics(
 
 def ikfast_inverse_kinematics(
     robot: int,
+    robot_name: str,
     end_effector: int,
     target_position: Pose3D,
     target_orientation: Sequence[float],
     joints: Sequence[int],
     physics_client_id: int,
     validate: bool = True,
-    ):  -> JointsState:
+    ) -> JointsState:
     """Runs IK and returns a joints state for the given (free) joints.
 
     If validate is True, candidate joints states are checked for matching
@@ -891,35 +880,44 @@ def ikfast_inverse_kinematics(
     This implementation is heavily based on the pybullet-planning repository
     by Caelan Garrett (https://github.com/caelan/pybullet-planning/).
     """
+    ikfast_dir = os.path.join(utils.get_env_asset_path("ikfast"), robot_name)
+    module_name = f"ikfast_{robot_name}"
+    # If IKFast has been previously installed, there should be a file with
+    # extension .so, starting with name module_name, in the ikfast_dir.
+    glob_pattern = os.path.join(ikfast_dir, f"{module_name}*.so")
+    so_filepaths = glob.glob(glob_pattern)
+    assert len(so_filepaths) <= 1
+    # We need to install.
+    if not so_filepaths:
+        logging.warn(f"IKFast module for {robot_name} not found; installing.")
+        _install_ikfast_module(ikfast_dir)
+        so_filepaths = glob.glob(glob_pattern)
+        assert len(so_filepaths) == 1
+    module_filepath = so_filepaths[0]
+    # Import the module.
+    # See https://docs.python.org/3/library/importlib.html.
+    spec = importlib.util.spec_from_file_location(module_name, module_filepath)
+    ikfast = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = ikfast
+    spec.loader.exec_module(ikfast)
 
-    assert robot.get_name() == "panda", "IKFast is not implemented for " + \
-        f"robot {robot.get_name()}."
-
-    # TODO: if this fails, automatically install.
-    ikfast = importlib.import_module("franka_panda.ikfast_panda_arm")
+    # TODO continue implementation.
+    import ipdb; ipdb.set_trace()
 
 
-    free_joints = joints_from_names(robot, ikfast_info.free_joints)
-    base_from_ee = get_base_from_ee(robot, ikfast_info, tool_link, world_from_target)
-    difference_fn = get_difference_fn(robot, joints)
-    current_conf = get_joint_positions(robot, joints)
-    current_positions = get_joint_positions(robot, free_joints)
+def _install_ikfast_module(ikfast_dir: str) -> None:
+    """One-time install an IKFast module for a specific robot.
 
-    free_deltas = np.array([0. if joint in fixed_joints else max_distance for joint in free_joints])
-    lower_limits = np.maximum(get_min_limits(robot, free_joints), current_positions - free_deltas)
-    upper_limits = np.minimum(get_max_limits(robot, free_joints), current_positions + free_deltas)
-    generator = chain([current_positions],
-                      interval_generator(lower_limits, upper_limits))
-    if max_attempts < INF:
-        generator = islice(generator, max_attempts)
-    start_time = time.time()
-    for free_positions in generator:
-        if max_time < elapsed_time(start_time):
-            break
-        for conf in randomize(compute_inverse_kinematics(ikfast.get_ik, base_from_ee, free_positions)):
-            difference = difference_fn(current_conf, conf)
-            if not violates_limits(robot, joints, conf) and (get_length(difference, norm=norm) <= max_distance):
-                yield conf
+    Assumes there is a subdirectory in envs/assets/ikfast with a setup.py
+    file for the robot. See the panda_arm subdirectory for an example.
+    """
+    # Go to the subdirectory with the setup.py file.
+    cmds = [f"cd {ikfast_dir}"]
+    # Run the setup.py file.
+    cmds.append(f"python setup.py")
+    # Execute the command.
+    cmd = "; ".join(cmds)
+    os.system(cmd)
 
 
 def run_motion_planning(
