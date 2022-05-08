@@ -875,7 +875,7 @@ def ikfast_inverse_kinematics(
 
     Uses the MoveIt IKFast solver. If the solver is not already installed,
     it will be installed automatically when this function is called for the
-    first time. (TODO!)
+    first time.
 
     This implementation is heavily based on the pybullet-planning repository
     by Caelan Garrett (https://github.com/caelan/pybullet-planning/).
@@ -900,8 +900,9 @@ def ikfast_inverse_kinematics(
     ikfast = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = ikfast
     spec.loader.exec_module(ikfast)
-
-    # TODO continue implementation.
+    # Expects matrix representation of orientation.
+    matrix_target_orn = p.getMatrixFromQuaternion(target_orientation, physicsClientId=physics_client_id)
+    solutions = ikfast.get_ik(list(matrix_target_orn), list(target_position), free_positions)
     import ipdb; ipdb.set_trace()
 
 
