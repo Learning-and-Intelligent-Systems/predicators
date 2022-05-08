@@ -415,6 +415,13 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Extract IDs for individual robot links and joints.
 
+        # TODO: change this, because it's highly confusing that this is not
+        # the tool tip, since end_effector_id is the tool tip.
+        self._end_effector_link = get_link_from_name(self._panda_id, "panda_link8",
+            self._physics_client_id)
+        self._tool_link = get_link_from_name(self._panda_id, "tool_link", self._physics_client_id)
+        self._arm_base_link = get_link_from_name(self._panda_id, "panda_link0", self._physics_client_id)
+
         # TODO: factor out common code here and elsewhere.
         joint_names = [
             p.getJointInfo(
@@ -425,10 +432,10 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                                physicsClientId=self._physics_client_id))
         ]
 
-        self._ee_id = joint_names.index("tool_joint")
+        self._tool_joint_id = joint_names.index("tool_joint")
         self._arm_joints = get_kinematic_chain(
             self._panda_id,
-            self._ee_id,
+            self._tool_joint_id,
             physics_client_id=self._physics_client_id)
         # NOTE: pybullet tools assumes sorted arm joints.
         self._arm_joints = sorted(self._arm_joints)
@@ -465,7 +472,8 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     @property
     def end_effector_id(self) -> int:
-        return self._ee_id
+        # TODO explain or change this
+        return self._tool_joint_id
 
     @property
     def left_finger_id(self) -> int:
@@ -599,28 +607,38 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         #     return action
 
         # TODO handle validate argument
-        # TODO add fingers to return
 
-        # TODO clean and explain this
-        from pybullet_tools.ikfast.utils import IKFastInfo
-        from pybullet_tools.ikfast.ikfast import get_base_from_ee
-        ikfast_info = IKFastInfo(
-            module_name="NOT USED",
-            base_link="panda_link0",
-            ee_link="panda_link8",
-            free_joints=["panda_joint7"],
-        )
+        # TODO clean, explain, remove
+        from pybullet_tools.utils import multiply, invert
+
+        def get_link_pose(body, link):
+            if link == -1:
+                return p.getBasePositionAndOrientation(body, physicsClientId=self._physics_client_id)
+            link_state = p.getLinkState(body, link, physicsClientId=self._physics_client_id)
+            return link_state[0], link_state[1]
+
+        def get_relative_pose(body, link1, link2):
+            world_from_link1 = get_link_pose(body, link1)
+            world_from_link2 = get_link_pose(body, link2)
+            link2_from_link1 = multiply(invert(world_from_link2), world_from_link1)
+            return link2_from_link1
+
+        def get_base_from_ee(robot, world_from_target):
+            tool_from_ee = get_relative_pose(robot, self._end_effector_link, self._tool_link)
+            world_from_base = get_link_pose(robot, self._arm_base_link)
+            return multiply(invert(world_from_base), world_from_target, tool_from_ee)
+
         base_from_ee = get_base_from_ee(
             self.robot_id,
-            ikfast_info,
-            self.end_effector_id,
             (end_effector_pose, self._ee_orientation))
 
-        return ikfast_inverse_kinematics(self.get_name(),
-                                         base_from_ee[0],
-                                         base_from_ee[1],
-                                         physics_client_id=self._physics_client_id)
+        joints_state = ikfast_inverse_kinematics(self.get_name(),
+                                                 base_from_ee[0],
+                                                 base_from_ee[1],
+                                                 physics_client_id=self._physics_client_id)
 
+        # Add fingers. # TODO is this right?
+        return list(joints_state) + [self.open_fingers, self.open_fingers]
 
 
 def create_single_arm_pybullet_robot(
@@ -770,6 +788,20 @@ def create_change_fingers_option(
 
 
 ########################### Other utility functions ###########################
+
+
+def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
+    """Get the link ID from the name of the link."""
+    base_info = p.getBodyInfo(body, physicsClientId=physics_client_id)
+    base_name = base_info[0].decode(encoding='UTF-8')
+    if name == base_name:
+        return -1  # base link
+    for link in range(p.getNumJoints(body, physicsClientId=physics_client_id)):
+        joint_info = p.getJointInfo(body, link, physicsClientId=physics_client_id)
+        joint_name = joint_info[12].decode('UTF-8')
+        if joint_name == name:
+            return link
+    raise ValueError(f"Body {body} has no link with name {name}.")
 
 
 def get_kinematic_chain(robot: int, end_effector: int,
@@ -925,7 +957,8 @@ def ikfast_inverse_kinematics(
         solutions = ikfast.get_ik(matrix_target_orn, list(target_position), [what_is_this_thing])
         if solutions:
             break
-    import ipdb; ipdb.set_trace()
+    assert solutions
+    return solutions[0]
     
 
 

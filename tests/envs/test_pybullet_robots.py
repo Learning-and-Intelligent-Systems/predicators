@@ -204,12 +204,14 @@ def test_create_single_arm_pybullet_robot():
     """Tests for create_single_arm_pybullet_robot()."""
     utils.reset_config()
     physics_client_id = p.connect(p.DIRECT)
+    p.resetSimulation(physicsClientId=physics_client_id)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     physics_client_id = p.connect(p.DIRECT)
+    p.resetSimulation(physicsClientId=physics_client_id)
     robot = create_single_arm_pybullet_robot("panda", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, PandaPyBulletRobot)
