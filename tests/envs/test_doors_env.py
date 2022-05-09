@@ -35,6 +35,10 @@ def test_doors():
     assert TouchingDoor.name == "TouchingDoor"
     assert env.goal_predicates == {InRoom}
     assert len(env.options) == 3
+    MoveThroughDoor, MoveToDoor, OpenDoor = sorted(env.options)
+    assert MoveThroughDoor.name == "MoveThroughDoor"
+    assert MoveToDoor.name == "MoveToDoor"
+    assert OpenDoor.name == "OpenDoor"
     assert len(env.types) == 4
     door_type, obstacle_type, robot_type, room_type = sorted(env.types)
     assert door_type.name == "door"
@@ -86,7 +90,8 @@ def test_doors():
     assert not env._state_has_collision(state)  # pylint: disable=protected-access
     assert GroundAtom(InRoom, [robot, top_left_room]).holds(state)
     # Create a task with a goal to move to the bottom right room.
-    goal = {GroundAtom(InRoom, [robot, bottom_right_room])}
+    goal_atom = GroundAtom(InRoom, [robot, bottom_right_room])
+    goal = {goal_atom}
     task = Task(state, goal)
     env.render_state(state, task)
 
@@ -146,3 +151,33 @@ def test_doors():
     obstacle_x = s.get(top_right_obstacle, "x")
     robot_x = s.get(robot, "x")
     assert robot_x < obstacle_x
+
+    ## Test options ##
+
+    # Find the right door.
+    right_doors = [d for d in doors \
+        if GroundAtom(DoorInRoom, [d, top_right_room]).holds(state) and \
+           GroundAtom(DoorInRoom, [d, bottom_right_room]).holds(state)
+    ]
+    assert len(right_doors) == 1
+    right_door = right_doors[0]
+
+    # Test options working as expected.
+    option_plan = [
+        MoveToDoor.ground([robot, top_door], []),
+        OpenDoor.ground([robot, top_door], []),
+        MoveThroughDoor.ground([robot, top_door], []),
+        MoveToDoor.ground([robot, right_door], []),
+        OpenDoor.ground([robot, right_door], []),
+        MoveThroughDoor.ground([robot, right_door], []),
+    ]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        task.init,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    final_state = traj.states[-1]
+    assert goal_atom.holds(final_state)

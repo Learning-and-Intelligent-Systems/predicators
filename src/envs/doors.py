@@ -59,6 +59,11 @@ class DoorsEnv(BaseEnv):
         self._DoorInRoom = Predicate("DoorInRoom",
                                      [self._door_type, self._room_type],
                                      self._DoorInRoom_holds)
+        # This predicate is needed as a precondition for moving from one
+        # door to another door in the same room.
+        self._DoorsShareRoom = Predicate("DoorsShareRoom",
+                                         [self._door_type, self._door_type],
+                                         self._DoorsShareRoom_holds)
         # Options
         self._MoveToDoor = ParameterizedOption(
             "MoveToDoor",
@@ -153,7 +158,8 @@ class DoorsEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._InRoom, self._InDoorway, self._TouchingDoor,
-            self._DoorIsOpen, self._DoorInRoom, self._InMainRoom
+            self._DoorIsOpen, self._DoorInRoom, self._InMainRoom,
+            self._DoorsShareRoom,
         }
 
     @property
@@ -608,6 +614,13 @@ class DoorsEnv(BaseEnv):
                           objects: Sequence[Object]) -> bool:
         door, room = objects
         return door in self._room_to_doors(room, state)
+
+    def _DoorsShareRoom_holds(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        door1, door2 = objects
+        rooms1 = self._door_to_rooms(door1, state)
+        rooms2 = self._door_to_rooms(door2, state)
+        return len(rooms1 & rooms2) > 0
 
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)

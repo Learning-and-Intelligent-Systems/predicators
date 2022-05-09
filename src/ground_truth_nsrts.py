@@ -2092,9 +2092,10 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for DoorsEnv."""
     robot_type, door_type, room_type = _get_types_by_names(
         CFG.env, ["robot", "door", "room"])
-    InRoom, InDoorway, InMainRoom, TouchingDoor, DoorIsOpen, DoorInRoom = \
-        _get_predicates_by_names(CFG.env, ["InRoom", "InDoorway",
-            "InMainRoom", "TouchingDoor", "DoorIsOpen", "DoorInRoom"])
+    InRoom, InDoorway, InMainRoom, TouchingDoor, DoorIsOpen, DoorInRoom, \
+        DoorsShareRoom = _get_predicates_by_names(CFG.env, ["InRoom",
+            "InDoorway", "InMainRoom", "TouchingDoor", "DoorIsOpen",
+            "DoorInRoom", "DoorsShareRoom"])
     MoveToDoor, OpenDoor, MoveThroughDoor = _get_options_by_names(
         CFG.env, ["MoveToDoor", "OpenDoor", "MoveThroughDoor"])
 
@@ -2127,17 +2128,14 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
 
     # MoveToDoorFromDoorWay
     robot = Variable("?robot", robot_type)
-    room = Variable("?room", room_type)
     start_door = Variable("?start_door", door_type)
     end_door = Variable("?end_door", door_type)
-    parameters = [robot, room, start_door, end_door]
+    parameters = [robot, start_door, end_door]
     option_vars = [robot, end_door]
     option = MoveToDoor
     preconditions = {
-        LiftedAtom(InRoom, [robot, room]),
         LiftedAtom(InDoorway, [robot, start_door]),
-        LiftedAtom(DoorInRoom, [start_door, room]),
-        LiftedAtom(DoorInRoom, [end_door, room]),
+        LiftedAtom(DoorsShareRoom, [start_door, end_door]),
     }
     add_effects = {
         LiftedAtom(TouchingDoor, [robot, end_door]),
