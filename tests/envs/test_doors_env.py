@@ -24,11 +24,12 @@ def test_doors():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 6
-    DoorInRoom, DoorIsOpen, InDoorway, InMainRoom, InRoom, TouchingDoor = \
-        sorted(env.predicates)
+    assert len(env.predicates) == 7
+    DoorInRoom, DoorIsOpen, DoorsShareRoom, InDoorway, InMainRoom, InRoom, \
+        TouchingDoor = sorted(env.predicates)
     assert DoorInRoom.name == "DoorInRoom"
     assert DoorIsOpen.name == "DoorIsOpen"
+    assert DoorsShareRoom.name == "DoorsShareRoom"
     assert InDoorway.name == "InDoorway"
     assert InMainRoom.name == "InMainRoom"
     assert InRoom.name == "InRoom"

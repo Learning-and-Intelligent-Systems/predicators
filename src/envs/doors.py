@@ -157,8 +157,12 @@ class DoorsEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._InRoom, self._InDoorway, self._TouchingDoor,
-            self._DoorIsOpen, self._DoorInRoom, self._InMainRoom,
+            self._InRoom,
+            self._InDoorway,
+            self._TouchingDoor,
+            self._DoorIsOpen,
+            self._DoorInRoom,
+            self._InMainRoom,
             self._DoorsShareRoom,
         }
 
