@@ -118,7 +118,18 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
     # Update the segments to include which option is being executed.
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
-            # Modifies segment in-place.
+            # Sanity check: if an action in the segment has a known option,
+            # then its parent should be the parameterized option in the spec.
+            # Furthermore, either all of the actions in the segment should have
+            # a known option, or none of them should.
+            expecting_known_option = segment.actions[0].has_option()
+            for action in segment.actions:
+                if expecting_known_option:
+                    assert action.has_option()
+                    assert action.get_option().parent == spec[0]
+                else:
+                    assert not action.has_option()
+            # Modify the segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
     logging.info("\nLearned operators with option specs:")
     for pnad in pnads:

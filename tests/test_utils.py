@@ -2206,12 +2206,13 @@ def test_get_config_path_str():
         "approach": "dummyapproach",
         "seed": 321,
         "excluded_predicates": "all",
+        "included_options": "Dummy1,Dummy2",
         "experiment_id": "foobar",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321__all__foobar"
+    assert s == "dummyenv__dummyapproach__321__all__Dummy1,Dummy2__foobar"
     s = utils.get_config_path_str("override_id")
-    assert s == "dummyenv__dummyapproach__321__all__override_id"
+    assert s == "dummyenv__dummyapproach__321__all__Dummy1,Dummy2__override_id"
 
 
 def test_get_approach_save_path_str():
@@ -2224,21 +2225,23 @@ def test_get_approach_save_path_str():
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "",
+        "included_options": "",
         "experiment_id": "",
     })
     save_path = utils.get_approach_save_path_str()
-    assert save_path == dirname + "/test_env__test_approach__123____.saved"
+    assert save_path == dirname + "/test_env__test_approach__123______.saved"
     os.rmdir(dirname)
     utils.reset_config({"approach_dir": old_approach_dir})
 
@@ -2253,29 +2256,31 @@ def test_get_approach_load_path_str():
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
         "load_experiment_id": "foo",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     load_path = utils.get_approach_load_path_str()
     assert load_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__foo.saved")
+                                   "test_pred1,test_pred2__Dummy1__foo.saved")
     utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     load_path = utils.get_approach_load_path_str()
     assert load_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     os.rmdir(dirname)
     utils.reset_config({"approach_dir": old_approach_dir})
 
