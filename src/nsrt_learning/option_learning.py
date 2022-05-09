@@ -581,12 +581,15 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
 
 
 class _RLOptionLearnerBase(abc.ABC):
-    """Struct defining an option learner that learns via reinforcement learning,
-    which has an abstract method for updating the policy associated with an
-    option."""
+    """Struct defining an option learner that learns via reinforcement
+    learning, which has an abstract method for updating the policy associated
+    with an option."""
 
     @abc.abstractmethod
-    def update(option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
+    def update(
+        option: _LearnedNeuralParameterizedOption,
+        experience: List[List[State], List[Action], List[int], List[Array]]
+    ) -> _LearnedNeuralParameterizedOption:
         raise NotImplementedError("Override me!")
 
 
@@ -597,7 +600,10 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
     def __init__(self) -> None:
         super().__init__()
 
-    def update(self, option: _LearnedNeuralParameterizedOption, experience: List[List[State], List[Action], List[int], List[Array]]) -> _LearnedNeuralParameterizedOption:
+    def update(
+        self, option: _LearnedNeuralParameterizedOption,
+        experience: List[List[State], List[Action], List[int], List[Array]]
+    ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
         # Update would be made to option._regressor, which might require changing
         # the code in ml_models.py so that you can train without re-initializing

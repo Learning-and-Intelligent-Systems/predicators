@@ -156,7 +156,7 @@ class GlobalSettings:
     gnn_metacontroller_max_samples = 100
 
     # parameters for NSRT reinforcement learning approach
-    reward_epsilon = 1e-2 # reward if within epsilon-ball from sampled subgoal
+    reward_epsilon = 1e-2  # reward if within epsilon-ball from sampled subgoal
     pos_reward = 0
     neg_reward = -1
     rl_option_learner = "dummy_rl"
