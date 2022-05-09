@@ -55,6 +55,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             learn_nsrts_from_data(trajectories,
                                   self._train_tasks,
                                   self._get_current_predicates(),
+                                  self._initial_options,
                                   self._action_space,
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()

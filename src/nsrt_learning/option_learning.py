@@ -23,7 +23,7 @@ from predicators.src.utils import OptionExecutionFailure
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
-        return _KnownOptionsOptionLearner()
+        return KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
     if CFG.option_learner == "direct_bc":
@@ -69,7 +69,7 @@ class _OptionLearnerBase(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class _KnownOptionsOptionLearner(_OptionLearnerBase):
+class KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
     CFG.option_learner is "no_learning"."""
 
