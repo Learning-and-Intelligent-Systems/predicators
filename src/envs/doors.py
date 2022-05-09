@@ -1,7 +1,6 @@
 """A 2D navigation environment with obstacles, rooms, and doors."""
 
 import itertools
-from functools import lru_cache
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
@@ -456,7 +455,7 @@ class DoorsEnv(BaseEnv):
 
     def _MoveToDoor_terminal(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
-        del params  # unused
+        del memory, params  # unused
         # Terminate as soon as we are in the doorway.
         robot, door = objects
         return self._InDoorway_holds(state, [robot, door])
