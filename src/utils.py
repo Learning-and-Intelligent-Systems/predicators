@@ -856,31 +856,17 @@ def run_policy(
     metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
-            # Note: we previously tried to collapse these two try/catch cases
-            # into one, but that led to subtle bugs in the order of calls to
-            # monitor.observe(). This version is uglier but less bug-prone.
-
-            # Try/catch 1: an exception is raised in policy().
+            monitor_observed = False
             try:
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
-                # Note: it is important that we call observe(state, act) here
-                # before calling step(), because the monitor may assume that
-                # state is equal to the env current state. For example, the
-                # VideoMonitor makes this assumption implicitly.
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
                 if monitor is not None:
                     monitor.observe(state, act)
-            except Exception as e:
-                if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
-                    break
-                if monitor is not None:
-                    monitor.observe(state, None)
-                raise e
-
-            # Try/catch 2: an exception is raised in step().
-            try:
+                    monitor_observed = True
                 state = env.step(act)
                 actions.append(act)
                 states.append(state)
@@ -888,9 +874,8 @@ def run_policy(
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                # Note: this is the important difference from try/catch 1;
-                # we do NOT call monitor.observe() here, because we already
-                # observed the most recent state in try/catch 1.
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
@@ -934,25 +919,12 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            # Note: we previously tried to collapse these two try/catch cases
-            # into one, but that led to subtle bugs in the order of calls to
-            # monitor.observe(). This version is uglier but less bug-prone.
-
-            # Try/catch 1: an exception is raised in policy().
+            monitor_observed = False
             try:
                 act = policy(state)
                 if monitor is not None:
                     monitor.observe(state, act)
-            except Exception as e:
-                if exceptions_to_break_on is not None and \
-                   type(e) in exceptions_to_break_on:
-                    break
-                if monitor is not None:
-                    monitor.observe(state, None)
-                raise e
-
-            # Try/catch 2: an exception is raised in simulate().
-            try:
+                    monitor_observed = True
                 state = simulator(state, act)
                 actions.append(act)
                 states.append(state)
@@ -960,9 +932,8 @@ def run_policy_with_simulator(
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                # Note: this is the important difference from try/catch 1;
-                # we do NOT call monitor.observe() here, because we already
-                # observed the most recent state in try/catch 1.
+                if monitor is not None and not monitor_observed:
+                    monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break

@@ -12,6 +12,7 @@ from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
+    create_change_fingers_option, create_move_end_effector_to_pose_option, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, Object, ParameterizedOption, \
@@ -56,16 +57,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     z_func=lambda _: self.pick_z,
                     finger_status="open"),
                 # Open fingers.
-                self._pybullet_robot.create_change_fingers_option(
-                    "OpenFingers", types, params_space, open_fingers_func),
+                create_change_fingers_option(
+                    self._pybullet_robot, "OpenFingers", types, params_space,
+                    open_fingers_func, self._max_vel_norm, self._grasp_tol),
                 # Move down to grasp.
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToGrasp",
                     z_func=lambda block_z: (block_z + self._offset_z),
                     finger_status="open"),
                 # Close fingers.
-                self._pybullet_robot.create_change_fingers_option(
-                    "CloseFingers", types, params_space, close_fingers_func),
+                create_change_fingers_option(
+                    self._pybullet_robot, "CloseFingers", types, params_space,
+                    close_fingers_func, self._max_vel_norm, self._grasp_tol),
                 # Move back up.
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
@@ -91,8 +94,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                         block_z + self.block_size + self._offset_z),
                     finger_status="closed"),
                 # Open fingers.
-                self._pybullet_robot.create_change_fingers_option(
-                    "OpenFingers", types, params_space, open_fingers_func),
+                create_change_fingers_option(self._pybullet_robot,
+                    "OpenFingers", types, params_space, open_fingers_func,
+                    self._max_vel_norm, self._grasp_tol),
                 # Move back up.
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
@@ -118,8 +122,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     z=place_z,
                     finger_status="closed"),
                 # Open fingers.
-                self._pybullet_robot.create_change_fingers_option(
-                    "OpenFingers", types, params_space, open_fingers_func),
+                create_change_fingers_option(self._pybullet_robot,
+                    "OpenFingers", types, params_space, open_fingers_func,
+                    self._max_vel_norm, self._grasp_tol),
                 # Move back up.
                 self._create_blocks_move_to_above_table_option(
                     name="MoveEndEffectorBackUp", z=self.pick_z,
@@ -211,9 +216,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        return create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, ee_home, self._ee_orn, self._move_to_pose_tol,
-            self._max_vel_norm, self._grasp_tol, physics_client_id)
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
+                                                self._ee_orn,
+                                                physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
@@ -334,9 +339,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                            z_func(state.get(block, "pose_z")))
             return current_pose, target_pose, finger_status
 
-        return self._pybullet_robot.create_move_end_effector_to_pose_option(
-            name, types, params_space,
-            _get_current_and_target_pose_and_finger_status)
+        return create_move_end_effector_to_pose_option(
+            self._pybullet_robot, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)
 
     def _create_blocks_move_to_above_table_option(
             self, name: str, z: float,
@@ -362,9 +369,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                            self.y_lb + (self.y_ub - self.y_lb) * y_norm, z)
             return current_pose, target_pose, finger_status
 
-        return self._pybullet_robot.create_move_end_effector_to_pose_option(
-            name, types, params_space,
-            _get_current_and_target_pose_and_finger_status)
+        return create_move_end_effector_to_pose_option(
+            self._pybullet_robot, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         """Convert the fingers in the given State to joint values for PyBullet.
