@@ -36,8 +36,9 @@ class DoorsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["x", "y"])
-        self._door_type = Type(
-            "door", ["x", "y", "theta", "mass", "friction", "rot", "open"])
+        self._door_type = Type("door", [
+            "x", "y", "theta", "mass", "friction", "rot", "target_rot", "open"
+        ])
         self._room_type = Type("room", ["x", "y"])
         self._obstacle_type = Type("obstacle",
                                    ["x", "y", "width", "height", "theta"])
@@ -114,7 +115,7 @@ class DoorsEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        dx, dy, door_action_val = action.arr
+        dx, dy, new_door_rot = action.arr
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         new_x = x + dx
@@ -130,13 +131,15 @@ class DoorsEnv(BaseEnv):
         # If touching a door, change its value based on the action
         for door in state.get_objects(self._door_type):
             if self._TouchingDoor_holds(state, [self._robot, door]):
+                # Rotate the door handle.
+                state.set(door, "rot", new_door_rot)
                 # Check if we should now open the door.
                 target = self._get_open_door_target_value(
                     mass=state.get(door, "mass"),
                     friction=state.get(door, "friction"),
-                    rot=state.get(door, "rot"),
+                    target_rot=state.get(door, "target_rot"),
                 )
-                if abs(door_action_val - target) < self.open_door_thresh:
+                if abs(new_door_rot - target) < self.open_door_thresh:
                     next_state.set(door, "open", 1.0)
         return next_state
 
@@ -555,7 +558,7 @@ class DoorsEnv(BaseEnv):
         target = self._get_open_door_target_value(
             mass=state.get(door, "mass"),
             friction=state.get(door, "friction"),
-            rot=state.get(door, "rot"),
+            target_rot=state.get(door, "target_rot"),
         )
         return Action(np.array([0.0, 0.0, target], dtype=np.float32))
 
@@ -795,14 +798,12 @@ class DoorsEnv(BaseEnv):
             y = room_y + offset
             theta = np.pi / 2
 
-        current = rng.uniform(-np.pi, np.pi)
+        mass, friction, target_rot = rng.uniform(0.0, 1.0, size=(3, ))
+        # Sample the initial rotation so that the door is not yet opened.
         while True:
-            target = rng.uniform(-np.pi, np.pi)
-            if abs(current - target) > self.open_door_thresh:
+            rot = rng.uniform(0.0, 1.0)
+            if abs(rot - target_rot) > self.open_door_thresh:
                 break
-
-        mass, friction, rot = rng.uniform(0.0, 1.0, size=(3, ))
-
         return {
             "x": x,
             "y": y,
@@ -810,6 +811,7 @@ class DoorsEnv(BaseEnv):
             "mass": mass,
             "friction": friction,
             "rot": rot,
+            "target_rot": target_rot,
             "open": 0.0,  # always start out closed
         }
 
@@ -913,6 +915,7 @@ class DoorsEnv(BaseEnv):
 
     @staticmethod
     def _get_open_door_target_value(mass: float, friction: float,
-                                    rot: float) -> float:
+                                    target_rot: float) -> float:
         # A made up complicated function.
-        return np.tanh(rot) * (np.sin(mass) + np.cos(friction) * np.sqrt(mass))
+        return np.tanh(target_rot) * (np.sin(mass) +
+                                      np.cos(friction) * np.sqrt(mass))
