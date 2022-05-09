@@ -159,7 +159,7 @@ def _learn_pnad_options_with_learner(
     # Update the segments to include which option is being executed.
     for datastore, spec in zip(datastores, option_specs):
         for (segment, _) in datastore:
-            # Modifies the segment in-place.
+            # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
     logging.info("\nLearned operators with option specs:")
     for pnad in pnads:
