@@ -46,6 +46,9 @@ class DoorsEnv(BaseEnv):
         self._InDoorway = Predicate("InDoorway",
                                     [self._robot_type, self._door_type],
                                     self._InDoorway_holds)
+        self._InMainRoom = Predicate("InMainRoom",
+                                     [self._robot_type, self._room_type],
+                                     self._InMainRoom_holds)
         self._TouchingDoor = Predicate("TouchingDoor",
                                        [self._robot_type, self._door_type],
                                        self._TouchingDoor_holds)
@@ -54,25 +57,17 @@ class DoorsEnv(BaseEnv):
         self._DoorInRoom = Predicate("DoorInRoom",
                                      [self._door_type, self._room_type],
                                      self._DoorInRoom_holds)
-        self._DoorsNEq = Predicate("DoorsNEq",
-                                   [self._door_type, self._door_type],
-                                   self._DoorsNEq_holds)
         # Options
-        self._Move = ParameterizedOption(
-            "Move",
-            # The first door is the one that should already be open, and the
-            # second door is the next one that the robot will move to. After
-            # the robot moves through the first door, it should be in the
-            # room for the second door; this also means that the two doors
-            # should share a room.
-            types=[self._robot_type, self._door_type, self._door_type],
-            # No parameters; the option always moves to the center of the
-            # doorway for the second door.
+        self._MoveToDoor = ParameterizedOption(
+            "MoveToDoor",
+            types=[self._robot_type, self._door_type],
+            # No parameters; the option always moves to the doorway center.
             params_space=Box(0, 1, (0, )),
             # The policy is a motion planner.
-            policy=self._Move_policy,
-            initiable=self._Move_initiable,
-            terminal=self._Move_terminal)
+            policy=self._MoveToDoor_policy,
+            # Only initiable when the robot is in a room for the doory.
+            initiable=self._MoveToDoor_initiable,
+            terminal=self._MoveToDoor_terminal)
         self._OpenDoor = ParameterizedOption(
             "OpenDoor",
             types=[self._robot_type, self._door_type],
@@ -80,8 +75,20 @@ class DoorsEnv(BaseEnv):
             # function of the door state.
             params_space=Box(0, 1, (0, )),
             policy=self._OpenDoor_policy,
+            # Only initiable when the robot is in the doorway.
             initiable=self._OpenDoor_initiable,
             terminal=self._OpenDoor_terminal)
+        self._MoveThroughDoor = ParameterizedOption(
+            "MoveThroughDoor",
+            types=[self._robot_type, self._door_type],
+            # No parameters; the option always moves straight through.
+            params_space=Box(0, 1, (0, )),
+            # The policy just moves in a straight line. No motion planning
+            # required, because there are no obstacles in the doorway.
+            policy=self._MoveThroughDoor_policy,
+            # Only initiable when the robot is in the doorway.
+            initiable=self._MoveThroughDoor_initiable,
+            terminal=self._MoveThroughDoor_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -124,7 +131,7 @@ class DoorsEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._InRoom, self._InDoorway, self._TouchingDoor,
-            self._DoorIsOpen, self._DoorInRoom, self._DoorsNEq
+            self._DoorIsOpen, self._DoorInRoom, self._InMainRoom
         }
 
     @property
@@ -140,7 +147,7 @@ class DoorsEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._Move, self._OpenDoor}
+        return {self._MoveToDoor, self._OpenDoor, self._MoveThroughDoor}
 
     @property
     def action_space(self) -> Box:
@@ -224,12 +231,11 @@ class DoorsEnv(BaseEnv):
         # Create the common parts of the initial state.
         common_state_dict = {}
         # TODO randomize this.
-        # NOTE: EACH ROOM MUST HAVE AT LEAST TWO DOORS
         room_map = np.array([
-            [1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1],
             [1, 0, 1, 1, 1],
             [1, 1, 1, 0, 1],
-            [0, 1, 0, 1, 1],
+            [0, 0, 0, 1, 1],
             [0, 1, 1, 1, 0],
         ])
         # room_map = np.array([
@@ -322,7 +328,7 @@ class DoorsEnv(BaseEnv):
             # _get_position_in_doorway() helper function.
             state_dict[self._robot] = {"x": x, "y": y}
             state = utils.create_state_from_dict(state_dict)
-            # Sample an initial and target room.
+            # Sample an initial and goal room.
             start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
             start_room, goal_room = rooms[start_idx], rooms[goal_idx]
             # Sample an initial door in the start room.
@@ -332,12 +338,17 @@ class DoorsEnv(BaseEnv):
             door_candidates = sorted(self._room_to_doors(start_room, state))
             assert len(door_candidates) > 0
             start_door = door_candidates[rng.choice(len(door_candidates))]
-            # Always start out in a doorway, so that all problems just require
-            # moving between doorways.
-            x, y = self._get_position_in_doorway(start_room, start_door, state)
+            # Always start out near the center of the room. If there are
+            # collisions, we'll just resample another problem.
+            room_x = state_dict[start_room]["x"]
+            room_y = state_dict[start_room]["y"]
+            room_cx = room_x + self.room_size / 2
+            room_cy = room_y + self.room_size / 2
+            rad = self.obstacle_initial_position_radius
+            x = rng.uniform(room_cx - rad, room_cx + rad)
+            y = rng.uniform(room_cy - rad, room_cy + rad)
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
-            assert self._TouchingDoor_holds(state, [self._robot, start_door])
             # In rare cases, the state may have a collision.
             if self._state_has_collision(state):
                 continue
@@ -348,48 +359,29 @@ class DoorsEnv(BaseEnv):
             tasks.append(Task(state, goal))
         return tasks
 
-    def _Move_initiable(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> bool:
+    def _MoveToDoor_initiable(self, state: State, memory: Dict,
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
         del params  # unused
-        robot, start_door, end_door = objects
-        if start_door == end_door:
+        robot, door = objects
+        # The robot must be in one of the rooms for the door.
+        for r in self._door_to_rooms(door, state):
+            if self._InRoom_holds(state, [robot, r]):
+                room = r
+                break
+        else:
             return False
-        # The start door must be open.
-        if not self._DoorIsOpen_holds(state, [start_door]):
-            return False
-        # The doors should share a room, but the robot should not already
-        # be in that room.
-        start_rooms = self._door_to_rooms(start_door, state)
-        end_rooms = self._door_to_rooms(end_door, state)
-        common_rooms = start_rooms & end_rooms
-        if not common_rooms:
-            return False
-        assert len(common_rooms) == 1
-        common_room = next(iter(common_rooms))
-        if self._InRoom_holds(state, [robot, common_room]):
-            return False
-        # The robot should be in the other room.
-        assert len(start_rooms) == 2
-        uncommon_room = next(iter(start_rooms - common_rooms))
-        if not self._InRoom_holds(state, [robot, uncommon_room]):
-            return False
-        # The option is initiable, so we're going to make a plan now and store
-        # it in memory for use in the policy. Note that policies are assumed
-        # to be deterministic, but RRT is stochastic. We enforce determinism
-        # by using a constant seed in RRT.
+        # Make a plan and store it in memory for use in the policy. Note that
+        # policies are assumed to be deterministic, but RRT is stochastic. We
+        # enforce determinism by using a constant seed in RRT.
         rng = np.random.default_rng(CFG.seed)
 
-        start_room_rect = self._object_to_geom(uncommon_room, state)
-        end_room_rect = self._object_to_geom(common_room, state)
-        room_rects = [start_room_rect, end_room_rect]
+        room_rect = self._object_to_geom(room, state)
 
         def _sample_fn(_: Array) -> Array:
-            # Only sample positions that are inside the two rooms that the
-            # robot should stay in for this option.
-            room_rect = room_rects[rng.choice(len(room_rects))]
-            assert isinstance(room_rect, Rectangle)
-            # Sample a point in this room that is far enough away from the
+            # Sample a point in the room that is far enough away from the
             # wall (to save on collision checking).
+            assert isinstance(room_rect, Rectangle)
             x_lb = room_rect.x + self.robot_radius
             x_ub = room_rect.x + self.room_size - self.robot_radius
             y_lb = room_rect.y + self.robot_radius
@@ -428,13 +420,16 @@ class DoorsEnv(BaseEnv):
                             num_iters=CFG.doors_birrt_num_iters,
                             smooth_amt=CFG.doors_birrt_smooth_amt)
 
+        # Set up the initial and target inputs for the motion planner.
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
-        target_x, target_y = self._get_position_in_doorway(
-            common_room, end_door, state)
+        target_x, target_y = self._get_position_in_doorway(room, door, state)
         initial_state = np.array([robot_x, robot_y])
         target_state = np.array([target_x, target_y])
+        # Run planning.
         position_plan = birrt.query(initial_state, target_state)
+        # The position plan is used for the termination check, and for debug
+        # drawing in the rendering.
         memory["position_plan"] = position_plan
         assert position_plan is not None
         # Convert the plan from position space to action space.
@@ -446,10 +441,10 @@ class DoorsEnv(BaseEnv):
         memory["action_plan"] = action_plan
         return True
 
-    def _Move_terminal(self, state: State, memory: Dict,
-                       objects: Sequence[Object], params: Array) -> bool:
+    def _MoveToDoor_terminal(self, state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
         del params  # unused
-        robot, _, _ = objects
+        robot, _ = objects
         desired_x, desired_y = memory["position_plan"][-1]
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
@@ -457,11 +452,63 @@ class DoorsEnv(BaseEnv):
         return sq_dist < self.move_sq_dist_tol
 
     @staticmethod
-    def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> Action:
+    def _MoveToDoor_policy(state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
         del state, objects, params  # unused
         assert memory["action_plan"], "Motion plan did not reach its goal"
         return memory["action_plan"].pop(0)
+
+    def _MoveThroughDoor_initiable(self, state: State, memory: Dict,
+                                   objects: Sequence[Object],
+                                   params: Array) -> bool:
+        del params  # unused
+        robot, door = objects
+        # The robot must be in the doorway.
+        if not self._InDoorway_holds(state, [robot, door]):
+            return False
+        # The door must be open.
+        if not self._DoorIsOpen_holds(state, [door]):
+            return False
+        # The option is initiable. Memorize the target -- otherwise, we would
+        # not know which side of the door to move toward during execution.
+        room1, room2 = self._door_to_rooms(door, state)
+        if self._InRoom_holds(state, [robot, room1]):
+            end_room = room2
+        else:
+            assert self._InRoom_holds(state, [robot, room2])
+            end_room = room1
+        memory["target"] = self._get_position_in_doorway(end_room, door, state)
+        return True
+
+    def _MoveThroughDoor_terminal(self, state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
+        del params  # unused
+        robot, door = objects
+        # Sanity check: we should never leave the doorway.
+        assert self._InDoorway_holds(state, [robot, door])
+        desired_x, desired_y = memory["target"]
+        robot_x = state.get(robot, "x")
+        robot_y = state.get(robot, "y")
+        sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
+        return sq_dist < self.move_sq_dist_tol
+
+    def _MoveThroughDoor_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+        del params  # unused
+        robot, _ = objects
+        desired_x, desired_y = memory["target"]
+        robot_x = state.get(robot, "x")
+        robot_y = state.get(robot, "y")
+        delta = np.subtract([desired_x, desired_y], [robot_x, robot_y])
+        delta_norm = np.linalg.norm(delta)
+        if delta_norm > self.action_magnitude:
+            delta = self.action_magnitude * delta / delta_norm
+        dx, dy = delta
+        action = Action(np.array([dx, dy, 0.0], dtype=np.float32))
+        assert self.action_space.contains(action.arr)
+        return action
 
     def _OpenDoor_initiable(self, state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
@@ -501,6 +548,16 @@ class DoorsEnv(BaseEnv):
         robot_geom = self._object_to_geom(robot, state)
         return robot_geom.intersects(doorway_geom)
 
+    def _InMainRoom_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
+        robot, room = objects
+        if not self._InRoom_holds(state, [robot, room]):
+            return False
+        for door in self._room_to_doors(room, state):
+            if self._InDoorway_holds(state, [robot, door]):
+                return False
+        return True
+
     def _TouchingDoor_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
         _, door = objects
@@ -522,12 +579,6 @@ class DoorsEnv(BaseEnv):
                           objects: Sequence[Object]) -> bool:
         door, room = objects
         return door in self._room_to_doors(room, state)
-
-    @staticmethod
-    def _DoorsNEq_holds(state: State, objects: Sequence[Object]) -> bool:
-        del state  # unused
-        door1, door2 = objects
-        return door1 != door2
 
     def _state_has_collision(self, state: State) -> bool:
         robot, = state.get_objects(self._robot_type)
@@ -758,7 +809,7 @@ class DoorsEnv(BaseEnv):
             door_geom = self._object_to_geom(door, state)
             if room_geom.intersects(door_geom):
                 doors.add(door)
-        assert 2 <= len(doors) <= 4
+        assert 1 <= len(doors) <= 4
         return doors
 
     def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
