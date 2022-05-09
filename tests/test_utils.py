@@ -2682,6 +2682,44 @@ def test_parse_config_excluded_predicates():
         utils.parse_config_excluded_predicates(env)
 
 
+def test_parse_config_included_options():
+    """Tests for parse_config_included_options()."""
+    # Test including nothing.
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "included_options": "",
+    })
+    env = CoverMultistepOptions()
+    included = utils.parse_config_included_options(env)
+    assert not included
+    # Test including specific options.
+    utils.reset_config({
+        "included_options": "Pick",
+    })
+    Pick, Place = sorted(env.options)
+    assert Pick.name == "Pick"
+    assert Place.name == "Place"
+    included = utils.parse_config_included_options(env)
+    assert included == {Pick}
+    utils.reset_config({
+        "included_options": "Place",
+    })
+    included = utils.parse_config_included_options(env)
+    assert included == {Place}
+    utils.reset_config({
+        "included_options": "Pick,Place",
+    })
+    included = utils.parse_config_included_options(env)
+    assert included == {Pick, Place}
+    # Test including an unknown option.
+    utils.reset_config({
+        "included_options": "Pick,NotReal",
+    })
+    with pytest.raises(AssertionError) as e:
+        utils.parse_config_included_options(env)
+    assert "Unrecognized option in included_options!" in str(e)
+
+
 def test_null_sampler():
     """Tests for null_sampler()."""
     assert utils.null_sampler(None, None, None, None).shape == (0, )

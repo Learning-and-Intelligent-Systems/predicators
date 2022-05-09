@@ -56,7 +56,7 @@ def _setup_data_for_env(env_name: str,
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert all(traj.is_demo for traj in dataset.trajectories)
     demo_skeleton_lengths = [
         utils.num_options_in_action_sequence(t.actions)

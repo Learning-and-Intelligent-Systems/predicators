@@ -1,6 +1,6 @@
 """Create offline datasets by collecting demonstrations and replaying."""
 
-from typing import List
+from typing import List, Set
 
 import numpy as np
 
@@ -9,13 +9,15 @@ from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.envs import BaseEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, LowLevelTrajectory, Task, \
-    _GroundNSRT
+from predicators.src.structs import Dataset, LowLevelTrajectory, \
+    ParameterizedOption, Task, _GroundNSRT
 
 
-def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
+def create_demo_replay_data(
+        env: BaseEnv, train_tasks: List[Task],
+        known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets by collecting demos and replaying."""
-    demo_dataset = create_demo_data(env, train_tasks)
+    demo_dataset = create_demo_data(env, train_tasks, known_options)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
     # all states into one list, is that we want to compute
@@ -79,8 +81,9 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # We ignore replay data which leads to an environment failure.
             continue
         goal = train_tasks[traj.train_task_idx].goal
-        if CFG.option_learner != "no_learning":
-            for act in replay_traj.actions:
+        for act in replay_traj.actions:
+            if act.get_option().parent not in known_options:
+                assert CFG.option_learner != "no_learning"
                 act.unset_option()
         replay_trajectories.append(replay_traj)
 

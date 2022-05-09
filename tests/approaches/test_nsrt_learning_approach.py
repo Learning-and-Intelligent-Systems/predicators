@@ -58,7 +58,7 @@ def _test_approach(env_name,
     train_tasks = env.get_train_tasks()
     approach = create_approach(approach_name, preds, env.options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]

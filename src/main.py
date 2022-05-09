@@ -39,7 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 
@@ -50,7 +50,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Task
+    InteractionResult, Metrics, ParameterizedOption, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -94,7 +94,8 @@ def main() -> None:
     if CFG.option_learner == "no_learning":
         options = env.options
     else:
-        options = set()
+        # Determine which oracle options to include, if any.
+        options = utils.parse_config_included_options(env)
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
@@ -102,7 +103,8 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = _generate_or_load_offline_dataset(env, train_tasks)
+        offline_dataset = _generate_or_load_offline_dataset(
+            env, train_tasks, options)
     else:
         offline_dataset = None
     # Run the full pipeline.
@@ -180,12 +182,17 @@ def _run_pipeline(env: BaseEnv,
         _save_test_results(results, online_learning_cycle=None)
 
 
-def _generate_or_load_offline_dataset(env: BaseEnv,
-                                      train_tasks: List[Task]) -> Dataset:
+def _generate_or_load_offline_dataset(
+        env: BaseEnv, train_tasks: List[Task],
+        known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline dataset from training tasks."""
+    # Note that we prefer to generate this string, rather than using
+    # CFG.included_options, because the order that they options are specified
+    # in that flag should not matter.
+    option_str = ",".join(sorted(o.name for o in known_options))
     dataset_filename = (
         f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{CFG.seed}.data")
+        f"__{option_str}__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
         assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
@@ -193,7 +200,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
             dataset = pkl.load(f)
         logging.info("\n\nLOADED DATASET")
     else:
-        dataset = create_dataset(env, train_tasks)
+        dataset = create_dataset(env, train_tasks, known_options)
         logging.info("\n\nCREATED DATASET")
         os.makedirs(CFG.data_dir, exist_ok=True)
         with open(dataset_filepath, "wb") as f:

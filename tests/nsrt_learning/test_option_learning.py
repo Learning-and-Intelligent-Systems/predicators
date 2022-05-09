@@ -272,7 +272,7 @@ def test_option_learning_approach_multistep_cover():
     train_tasks = env.get_train_tasks()
     approach = create_approach("nsrt_learning", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0
@@ -307,7 +307,7 @@ def test_implicit_bc_option_learning_touch_point():
     train_tasks = env.get_train_tasks()
     approach = create_approach("nsrt_learning", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0

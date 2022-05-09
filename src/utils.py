@@ -2286,6 +2286,23 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
+def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
+    """Parse the CFG.included_options string, given an environment.
+
+    Return the set of included oracle options.
+
+    Note that "all" is not implemented because setting the option_learner flag
+    to "no_learning" is the preferred way to include all options.
+    """
+    if not CFG.included_options:
+        return set()
+    included_names = set(CFG.included_options.split(","))
+    assert included_names.issubset({option.name for option in env.options}), \
+        "Unrecognized option in included_options!"
+    included_options = {o for o in env.options if o.name in included_names}
+    return included_options
+
+
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
