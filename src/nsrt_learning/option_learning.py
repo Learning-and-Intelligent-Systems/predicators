@@ -71,7 +71,15 @@ class _OptionLearnerBase(abc.ABC):
 
 class KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.option_learner is "no_learning"."""
+    CFG.option_learner is "no_learning".
+
+    This option learner assumes that all of the actions that are
+    received already have an option attached to them
+    (action.has_option() is True). Since options are already known,
+    "learning" is a bit of a misnomer. What this class is doing is just
+    extracting the known options from the actions and creating option
+    specs for the STRIPSOperator objects.
+    """
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:

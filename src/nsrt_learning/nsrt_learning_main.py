@@ -105,9 +105,8 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
                         action_space: Box) -> None:
     logging.info("\nDoing option learning...")
     # Separate the pnads into two groups: those with known options, and those
-    # without. By assumption, for each PNAD, either all actions should have
-    # known options, or none should. In the former case, all actions should
-    # have the same parameterized option as their parent.
+    # without. By assumption, for each PNAD, either all actions should have the
+    # same known parameterized option, or all actions should have no option.
     known_option_pnads, unknown_option_pnads = [], []
     for pnad in pnads:
         if not pnad.datastore:
@@ -116,13 +115,14 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
         example_action = example_segment.actions[0]
         pnad_options_known = example_action.has_option()
         # Sanity check the assumption described above.
+        if pnad_options_known:
+            assert example_action.get_option().parent in known_options
         for (segment, _) in pnad.datastore:
             for action in segment.actions:
                 if pnad_options_known:
                     assert action.has_option()
                     param_option = action.get_option().parent
                     assert param_option == example_action.get_option().parent
-                    assert param_option in known_options
                 else:
                     assert not action.has_option()
         if pnad_options_known:

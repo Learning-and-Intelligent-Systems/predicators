@@ -68,6 +68,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                   traj.actions,
                                   _is_demo=True,
                                   _train_task_idx=idx)
+        # To prevent cheating by option learning approaches, remove all oracle
+        # options from the trajectory actions, unless the options are known
+        # (via CFG.included_options or CFG.option_learner = 'no_learning').
         for act in traj.actions:
             if act.get_option().parent not in known_options:
                 assert CFG.option_learner != "no_learning"
