@@ -454,12 +454,9 @@ class DoorsEnv(BaseEnv):
     def _MoveToDoor_terminal(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
         del params  # unused
-        robot, _ = objects
-        desired_x, desired_y = memory["position_plan"][-1]
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
-        sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
-        return sq_dist < self.move_sq_dist_tol
+        # Terminate as soon as we are in the doorway.
+        robot, door = objects
+        return self._InDoorway_holds(state, [robot, door])
 
     @staticmethod
     def _MoveToDoor_policy(state: State, memory: Dict,
@@ -488,6 +485,7 @@ class DoorsEnv(BaseEnv):
             assert self._InRoom_holds(state, [robot, room2])
             end_room = room1
         memory["target"] = self._get_position_in_doorway(end_room, door, state)
+        memory["target_room"] = end_room
         return True
 
     def _MoveThroughDoor_terminal(self, state: State, memory: Dict,
@@ -495,13 +493,11 @@ class DoorsEnv(BaseEnv):
                                   params: Array) -> bool:
         del params  # unused
         robot, door = objects
+        target_room = memory["target_room"]
         # Sanity check: we should never leave the doorway.
         assert self._InDoorway_holds(state, [robot, door])
-        desired_x, desired_y = memory["target"]
-        robot_x = state.get(robot, "x")
-        robot_y = state.get(robot, "y")
-        sq_dist = (robot_x - desired_x)**2 + (robot_y - desired_y)**2
-        return sq_dist < self.move_sq_dist_tol
+        # Terminate as soon as we enter the other room.
+        return self._InRoom_holds(state, [robot, target_room])
 
     def _MoveThroughDoor_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
