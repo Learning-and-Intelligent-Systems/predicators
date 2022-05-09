@@ -177,7 +177,7 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     start_time = time.time()
 
     for non_goal_predicates in non_goal_predicate_sets:

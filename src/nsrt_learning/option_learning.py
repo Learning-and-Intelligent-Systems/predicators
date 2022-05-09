@@ -23,7 +23,7 @@ from predicators.src.utils import OptionExecutionFailure
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
-        return _KnownOptionsOptionLearner()
+        return KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
     if CFG.option_learner == "direct_bc":
@@ -69,9 +69,17 @@ class _OptionLearnerBase(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class _KnownOptionsOptionLearner(_OptionLearnerBase):
+class KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.option_learner is "no_learning"."""
+    CFG.option_learner is "no_learning".
+
+    This option learner assumes that all of the actions that are
+    received already have an option attached to them
+    (action.has_option() is True). Since options are already known,
+    "learning" is a bit of a misnomer. What this class is doing is just
+    extracting the known options from the actions and creating option
+    specs for the STRIPSOperator objects.
+    """
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
@@ -472,9 +480,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     x = np.hstack(([1.0], state_features, rel_goal_vec))
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
-
-            if not X_regressor:
-                raise Exception("No data found for learning an option.")
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)

@@ -26,7 +26,7 @@ def test_gnn_action_policy_approach():
     approach = create_approach("gnn_action_policy", env.predicates,
                                env.options, env.types, env.action_space,
                                train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     with pytest.raises(AssertionError):  # haven't learned yet!
