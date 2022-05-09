@@ -34,6 +34,7 @@ def test_nsrt_learning_specific_nsrts():
     action_space = Box(0, 1, (1, ))
     param_option1 = utils.SingletonParameterizedOption(
         "Dummy", lambda s, m, o, p: Action(p), params_space=Box(0.1, 1, (1, )))
+    options = {param_option1}
     option1 = param_option1.ground([], np.array([0.2]))
     assert option1.initiable(state1)
     action1 = option1.policy(state1)
@@ -42,6 +43,7 @@ def test_nsrt_learning_specific_nsrts():
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="neural")
     assert len(nsrts) == 1
@@ -66,6 +68,7 @@ def test_nsrt_learning_specific_nsrts():
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = param_option1.ground([], np.array([0.2]))
+    options = {param_option1}
     assert option1.initiable(state1)
     action1 = option1.policy(state1)
     action1.set_option(option1)
@@ -82,6 +85,7 @@ def test_nsrt_learning_specific_nsrts():
     ]
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="random")
     assert len(nsrts) == 1
@@ -116,6 +120,7 @@ def test_nsrt_learning_specific_nsrts():
         "Dummy",
         lambda s, m, o, p: Action(p),
         params_space=Box(0.1, 0.5, (1, )))
+    options = {param_option1, param_option2}
     option2 = param_option2.ground([], np.array([0.5]))
     assert option2.initiable(state2)
     action2 = option2.policy(state2)
@@ -127,6 +132,7 @@ def test_nsrt_learning_specific_nsrts():
     ]
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="random")
     assert len(nsrts) == 2
@@ -172,6 +178,7 @@ def test_nsrt_learning_specific_nsrts():
     ]
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="random")
     assert len(nsrts) == 2
@@ -202,6 +209,7 @@ def test_nsrt_learning_specific_nsrts():
     })
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="random")
     assert len(nsrts) == 0
@@ -212,6 +220,7 @@ def test_nsrt_learning_specific_nsrts():
     })
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="random")
     assert len(nsrts) == 0
@@ -225,6 +234,7 @@ def test_nsrt_learning_specific_nsrts():
     })
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
+                                        options,
                                         action_space,
                                         sampler_learner="neural")
     assert len(nsrts) == 2

@@ -2172,7 +2172,7 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     if experiment_id is None:
         experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{experiment_id}")
+            f"__{CFG.included_options}__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
@@ -2284,6 +2284,23 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
+
+
+def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
+    """Parse the CFG.included_options string, given an environment.
+
+    Return the set of included oracle options.
+
+    Note that "all" is not implemented because setting the option_learner flag
+    to "no_learning" is the preferred way to include all options.
+    """
+    if not CFG.included_options:
+        return set()
+    included_names = set(CFG.included_options.split(","))
+    assert included_names.issubset({option.name for option in env.options}), \
+        "Unrecognized option in included_options!"
+    included_options = {o for o in env.options if o.name in included_names}
+    return included_options
 
 
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,

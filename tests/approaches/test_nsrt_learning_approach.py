@@ -56,9 +56,13 @@ def _test_approach(env_name,
     else:
         preds = env.predicates
     train_tasks = env.get_train_tasks()
-    approach = create_approach(approach_name, preds, env.options, env.types,
+    if option_learner == "no_learning":
+        options = env.options
+    else:
+        options = utils.parse_config_included_options(env)
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]
@@ -151,6 +155,18 @@ def test_neural_option_learning():
                    additional_settings={
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,
+                   })
+    # Test with some, but not all, options given.
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   option_learner="direct_bc",
+                   check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                       "included_options": "Pick"
                    })
     # Test with oracle samplers.
     _test_approach(env_name="cover_multistep_options",

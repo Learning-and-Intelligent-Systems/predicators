@@ -51,7 +51,7 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     approach = create_approach("gnn_metacontroller", env.predicates,
                                env.options, env.types, env.action_space,
                                train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     with pytest.raises(AssertionError):  # haven't learned yet!
