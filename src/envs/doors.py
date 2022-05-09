@@ -38,7 +38,7 @@ class DoorsEnv(BaseEnv):
         # Types
         self._robot_type = Type("robot", ["x", "y"])
         self._door_type = Type(
-            "door", ["x", "y", "theta", "current", "target", "open"])
+            "door", ["x", "y", "theta", "mass", "friction", "rot", "open"])
         self._room_type = Type("room", ["x", "y"])
         self._obstacle_type = Type("obstacle",
                                    ["x", "y", "width", "height", "theta"])
@@ -111,7 +111,7 @@ class DoorsEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        dx, dy, new_door_val = action.arr
+        dx, dy, door_action_val = action.arr
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         new_x = x + dx
@@ -127,10 +127,13 @@ class DoorsEnv(BaseEnv):
         # If touching a door, change its value based on the action
         for door in state.get_objects(self._door_type):
             if self._TouchingDoor_holds(state, [self._robot, door]):
-                next_state.set(door, "current", new_door_val)
                 # Check if we should now open the door.
-                target = state.get(door, "target")
-                if abs(new_door_val - target) < self.open_door_thresh:
+                target = self._get_open_door_target_value(
+                    mass=state.get(door, "mass"),
+                    friction=state.get(door, "friction"),
+                    rot=state.get(door, "rot"),
+                )
+                if abs(door_action_val - target) < self.open_door_thresh:
                     next_state.set(door, "open", 1.0)
         return next_state
 
@@ -435,7 +438,7 @@ class DoorsEnv(BaseEnv):
         target_state = np.array([target_x, target_y])
         # Run planning.
         position_plan = birrt.query(initial_state, target_state)
-        # In very rare cases, motion planning fails (it is stochastic after 
+        # In very rare cases, motion planning fails (it is stochastic after
         # all). In this case, determine the option to be not initiable.
         if position_plan is None:
             return False
@@ -529,14 +532,15 @@ class DoorsEnv(BaseEnv):
         _, door = objects
         return self._DoorIsOpen_holds(state, [door])
 
-    @staticmethod
-    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> Action:
+    def _OpenDoor_policy(self, state: State, memory: Dict,
+                         objects: Sequence[Object], params: Array) -> Action:
         del memory, params  # unused
-        # TODO make this more complicated.
         _, door = objects
-        target = state.get(door, "target")
-        assert -np.pi <= target <= np.pi
+        target = self._get_open_door_target_value(
+            mass=state.get(door, "mass"),
+            friction=state.get(door, "friction"),
+            rot=state.get(door, "rot"),
+        )
         return Action(np.array([0.0, 0.0, target], dtype=np.float32))
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -781,13 +785,16 @@ class DoorsEnv(BaseEnv):
             if abs(current - target) > self.open_door_thresh:
                 break
 
+        mass, friction, rot = rng.uniform(0.0, 1.0, size=(3, ))
+
         return {
             "x": x,
             "y": y,
             "theta": theta,
-            "current": current,
-            "target": target,
-            "open": 0.0
+            "mass": mass,
+            "friction": friction,
+            "rot": rot,
+            "open": 0.0,  # always start out closed
         }
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
@@ -887,3 +894,9 @@ class DoorsEnv(BaseEnv):
                     visited.add(neighbor)
                     queue.append(neighbor)
         return room_map
+
+    @staticmethod
+    def _get_open_door_target_value(mass: float, friction: float,
+                                    rot: float) -> float:
+        # A made up complicated function.
+        return np.tanh(rot) * (np.sin(mass) + np.cos(friction) * np.sqrt(mass))
