@@ -622,6 +622,9 @@ class DoorsEnv(BaseEnv):
     def _DoorsShareRoom_holds(self, state: State,
                               objects: Sequence[Object]) -> bool:
         door1, door2 = objects
+        # Open to debate, but let's enforce this...
+        if door1 == door2:
+            return False
         rooms1 = self._door_to_rooms(door1, state)
         rooms2 = self._door_to_rooms(door2, state)
         return len(rooms1 & rooms2) > 0
