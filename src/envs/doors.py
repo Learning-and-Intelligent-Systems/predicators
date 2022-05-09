@@ -94,6 +94,10 @@ class DoorsEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
         self._room_map_size = CFG.doors_room_map_size
+        self._min_obstacles_per_room = CFG.doors_min_obstacles_per_room
+        self._max_obstacles_per_room = CFG.doors_max_obstacles_per_room
+        self._min_room_exists_frac = CFG.doors_min_room_exists_frac
+        self._max_room_exists_frac = CFG.doors_max_room_exists_frac
         # Caches for values that do not ever change.
         self._static_geom_cache: Dict[Object, _Geom2D] = {}
         self._door_to_rooms_cache: Dict[Object, Set[Object]] = {}
@@ -101,7 +105,7 @@ class DoorsEnv(BaseEnv):
         self._door_to_doorway_geom_cache: Dict[Object, Rectangle] = {}
         self._position_in_doorway_cache: Dict[Tuple[Object, Object],
                                               Tuple[float, float]] = {}
-        # See note in _get_tasks().
+        # See note in _sample_initial_state_from_map().
         self._task_id_count = itertools.count()
 
     @classmethod
@@ -243,7 +247,28 @@ class DoorsEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
-        while len(tasks) < num:
+        for _ in range(num):
+            # Sample a room map.
+            room_map = self._sample_room_map(rng)
+            state = self._sample_initial_state_from_map(room_map, rng)
+            # Sample the goal.
+            rooms = state.get_objects(self._room_type)
+            candidate_goal_rooms = [
+                r for r in rooms
+                if not self._InRoom_holds(state, [self._robot, r])
+            ]
+            goal_room = candidate_goal_rooms[rng.choice(
+                len(candidate_goal_rooms))]
+            goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
+            goal = {goal_atom}
+            assert not goal_atom.holds(state)
+            tasks.append(Task(state, goal))
+        return tasks
+
+    def _sample_initial_state_from_map(self, room_map: NDArray,
+                                       rng: np.random.Generator) -> State:
+        # Sample until a collision-free state is found.
+        while True:
             # For each task, we create a unique ID, which is included in the
             # names of the objects created. This is important because we then
             # perform caching based on the object names. For example, we want
@@ -252,8 +277,6 @@ class DoorsEnv(BaseEnv):
             # need to be careful to avoid accidental name collisions.
             task_id = next(self._task_id_count)
             state_dict = {}
-            # Sample a room map.
-            room_map = self._sample_room_map(rng)
             num_rows, num_cols = room_map.shape
             # Create the rooms.
             rooms = []
@@ -296,16 +319,17 @@ class DoorsEnv(BaseEnv):
                     feat_dict = self._sample_door_feats(
                         room_x, room_y, name, rng)
                     state_dict[door] = feat_dict
-            # Sample obstacles for each room. Choose between 0 and 3, and
-            # make them small and centered enough that the robot should always
-            # be able to find a collision-free path through the room.
+            # Sample obstacles for each room. Make them small and centered
+            # enough that the robot should almost always be able to find a
+            # collision-free path through the room.
             for room in rooms:
                 room_x = state_dict[room]["x"]
                 room_y = state_dict[room]["y"]
                 room_cx = room_x + self.room_size / 2
                 room_cy = room_y + self.room_size / 2
                 rad = self.obstacle_initial_position_radius
-                num_obstacles = rng.choice(4)
+                num_obstacles = rng.integers(self._min_obstacles_per_room,
+                                             self._max_obstacles_per_room + 1)
                 obstacle_rects_for_room: List[Rectangle] = []
                 for i in range(num_obstacles):
                     name = f"{room.name}-obstacle-{i}"
@@ -345,8 +369,8 @@ class DoorsEnv(BaseEnv):
             state_dict[self._robot] = {"x": x, "y": y}
             state = utils.create_state_from_dict(state_dict)
             # Sample an initial and goal room.
-            start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
-            start_room, goal_room = rooms[start_idx], rooms[goal_idx]
+            start_idx = rng.choice(len(rooms))
+            start_room = rooms[start_idx]
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
             room_x = state_dict[start_room]["x"]
@@ -358,15 +382,8 @@ class DoorsEnv(BaseEnv):
             y = rng.uniform(room_cy - rad, room_cy + rad)
             state.set(self._robot, "x", x)
             state.set(self._robot, "y", y)
-            # In rare cases, the state may have a collision.
-            if self._state_has_collision(state):
-                continue
-            # Set the goal.
-            goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
-            goal = {goal_atom}
-            assert not goal_atom.holds(state)
-            tasks.append(Task(state, goal))
-        return tasks
+            if not self._state_has_collision(state):
+                return state
 
     def _MoveToDoor_initiable(self, state: State, memory: Dict,
                               objects: Sequence[Object],
@@ -867,8 +884,8 @@ class DoorsEnv(BaseEnv):
         assert self._room_map_size > 1
         room_map = np.zeros((self._room_map_size, self._room_map_size),
                             dtype=bool)
-        min_num_rooms = max(2, int(0.25 * room_map.size))
-        max_num_rooms = int(0.75 * room_map.size)
+        min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
+        max_num_rooms = int(self._max_room_exists_frac * room_map.size)
         num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
 
         def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:

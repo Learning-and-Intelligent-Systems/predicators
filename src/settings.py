@@ -137,6 +137,10 @@ class GlobalSettings:
 
     # doors env parameters
     doors_room_map_size = 5
+    doors_min_obstacles_per_room = 0
+    doors_max_obstacles_per_room = 3
+    doors_min_room_exists_frac = 0.25
+    doors_max_room_exists_frac = 0.75
     doors_birrt_num_attempts = 10
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
