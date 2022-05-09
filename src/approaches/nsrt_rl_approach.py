@@ -93,7 +93,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             self._train_task_to_online_traj[i] = traj
 
 
-        option_to_data = {} # option_name -> online experience data
+        option_to_data = {}  # option_name -> online experience data
 
         # For each task, for each _Option involved in the trajectory, compute
         # and store (s, a, s', r, relative_param) data.
@@ -161,6 +161,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     else:
                         reward = self._neg_reward
                     curr_rewards.append(reward)
+                    # TODO: add large negative reward if objects that shouldn't
+                    # change do get changed. And, for the objects that we are
+                    # supposed to change, make sure they only change in the
+                    # dimensions we expect them to.
 
                     # Store transition data.
                     option_to_data[curr_option.name].append([curr_states, curr_actions, curr_rewards, curr_relative_params])
@@ -175,9 +179,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         # If we run out of options in the plan, there should be
                         # an _OptionPlanExhausted exception, and so there is
                         # nothing more in the trajectory that we have not yet
-                        # assigned to an _Option already.
-                        # TODO: maybe add an assert to confirm the above ^
-                        pass
+                        # assigned to an _Option already. That is, the current
+                        # state in this loop is the last state.
+                        assert s == traj.states[-1]
 
                     # Initialize trajectory for next option.
                     curr_states = [s]
@@ -197,7 +201,9 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
 
         # Call the RL option learner on each option.
         for option_name, experience in option_to_data.items():
-            corresponding_nsrt = [nsrt for nsrt in self._nsrts if nsrt.option.name == option_name][0]
+            corresponding_nsrts = [nsrt for nsrt in self._nsrts if nsrt.option.name == option_name]
+            assert len(corresponding_nsrts) == 1
+            corresponding_nsrt = corresponding_nsrts[0]
             corresponding_parent_option = corresponding_nsrt.option
             updated_option = self._option_learners[corresponding_nsrt.name].update(
                 corresponding_parent_option,
