@@ -435,10 +435,13 @@ class DoorsEnv(BaseEnv):
         target_state = np.array([target_x, target_y])
         # Run planning.
         position_plan = birrt.query(initial_state, target_state)
+        # In very rare cases, motion planning fails (it is stochastic after 
+        # all). In this case, determine the option to be not initiable.
+        if position_plan is None:
+            return False
         # The position plan is used for the termination check, and for debug
         # drawing in the rendering.
         memory["position_plan"] = position_plan
-        assert position_plan is not None
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
         action_plan = [
