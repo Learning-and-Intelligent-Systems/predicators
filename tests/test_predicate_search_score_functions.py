@@ -154,7 +154,7 @@ def test_prediction_error_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _PredictionErrorScoreFunction(initial_predicates,
@@ -187,7 +187,7 @@ def test_prediction_error_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _PredictionErrorScoreFunction(initial_predicates,
@@ -224,7 +224,7 @@ def test_hadd_match_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicMatchBasedScoreFunction(
@@ -254,7 +254,7 @@ def test_relaxation_energy_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
@@ -315,7 +315,7 @@ def test_relaxation_energy_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
@@ -370,7 +370,7 @@ def test_relaxation_energy_score_function():
     #         initial_predicates.add(p)
     # candidates = {p: 1.0 for p in name_to_pred.values()}
     # train_tasks = env.get_train_tasks()
-    # dataset = create_dataset(env, train_tasks)
+    # dataset = create_dataset(env, train_tasks, env.options)
     # atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
     #                                                 env.predicates)
     # score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
@@ -446,7 +446,7 @@ def test_exact_energy_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _ExactHeuristicEnergyBasedScoreFunction(
@@ -511,7 +511,7 @@ def test_count_score_functions():
     NotHandEmpty = name_to_pred["HandEmpty"].get_negation()
     candidates[NotHandEmpty] = 1.0
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     for name in ["exact_count", "lmcut_count_lookaheaddepth0"]:
@@ -561,7 +561,7 @@ def test_branching_factor_score_function():
         Holding: 1.0,
     }
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _BranchingFactorScoreFunction(env.goal_predicates,
@@ -595,7 +595,7 @@ def test_task_planning_score_function():
         HandEmpty: 1.0,
     }
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _TaskPlanningScoreFunction(env.goal_predicates,
@@ -640,7 +640,7 @@ def test_expected_nodes_score_function():
             HandEmpty: 1.0,
         }
         train_tasks = env.get_train_tasks()
-        dataset = create_dataset(env, train_tasks)
+        dataset = create_dataset(env, train_tasks, env.options)
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, env.goal_predicates | set(candidates))
         score_function = _ExpectedNodesScoreFunction(
@@ -671,7 +671,7 @@ def test_expected_nodes_score_function():
         "min_data_for_nsrt": 0,
     })
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.goal_predicates | set(candidates))
     score_function = _ExpectedNodesScoreFunction(

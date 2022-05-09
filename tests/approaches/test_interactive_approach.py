@@ -49,7 +49,7 @@ def test_interactive_learning_approach():
                                            env.types, env.action_space,
                                            train_tasks)
     teacher = Teacher(train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))
@@ -215,4 +215,4 @@ def test_interactive_learning_approach():
         "teacher_dataset_num_examples": 0,
     })
     with pytest.raises(AssertionError):
-        create_dataset(env, train_tasks)
+        create_dataset(env, train_tasks, env.options)
