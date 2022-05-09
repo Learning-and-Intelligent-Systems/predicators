@@ -156,6 +156,18 @@ def test_neural_option_learning():
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,
                    })
+    # Test with some, but not all, options given.
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   option_learner="direct_bc",
+                   check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                       "included_options": "Pick"
+                   })
     # Test with oracle samplers.
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning",
