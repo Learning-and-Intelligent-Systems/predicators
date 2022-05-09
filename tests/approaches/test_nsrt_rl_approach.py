@@ -30,11 +30,12 @@ def test_nsrt_reinforcement_learning_approach():
     })
     env = CoverMultistepOptions()
     train_tasks = env.get_train_tasks()
-    approach = NSRTReinforcementLearningApproach(env.predicates, env.options,
+    options = utils.parse_config_included_options(env)
+    approach = NSRTReinforcementLearningApproach(env.predicates, options,
                                                  env.types, env.action_space,
                                                  train_tasks)
     teacher = Teacher(train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     approach.load(online_learning_cycle=None)

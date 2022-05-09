@@ -56,9 +56,17 @@ def _test_approach(env_name,
     else:
         preds = env.predicates
     train_tasks = env.get_train_tasks()
-    approach = create_approach(approach_name, preds, env.options, env.types,
+    if option_learner == "no_learning":
+        options = env.options
+    else:
+        options = utils.parse_config_included_options(env)
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks, env.options)
+    try:
+        dataset = create_dataset(env, train_tasks, options)
+    except:
+        import ipdb
+        ipdb.set_trace()
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]

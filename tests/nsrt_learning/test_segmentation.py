@@ -176,7 +176,7 @@ def test_segment_trajectory():
     env = create_new_env("cover_multistep_options", do_cache=False)
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
-    dataset = create_dataset(env, train_tasks, env.options)
+    dataset = create_dataset(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     assert len(ground_atom_dataset) == 1
