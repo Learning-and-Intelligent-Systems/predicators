@@ -1,5 +1,6 @@
 """A 2D navigation environment with obstacles, rooms, and doors."""
 
+import itertools
 from functools import lru_cache
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
@@ -92,8 +93,17 @@ class DoorsEnv(BaseEnv):
             terminal=self._MoveThroughDoor_terminal)
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
-
+        # Hyperparameters from CFG.
         self._room_map_size = CFG.doors_room_map_size
+        # Caches for values that do not ever change.
+        self._static_geom_cache: Dict[Object, _Geom2D] = {}
+        self._door_to_rooms_cache: Dict[Object, Set[Object]] = {}
+        self._room_to_doors_cache: Dict[Object, Set[Object]] = {}
+        self._door_to_doorway_geom_cache: Dict[Object, Rectangle] = {}
+        self._position_in_doorway_cache: Dict[Tuple[Object, Object],
+                                              Tuple[float, float]] = {}
+        # See note in _get_tasks().
+        self._task_id_count = itertools.count()
 
     @classmethod
     def get_name(cls) -> str:
@@ -232,6 +242,13 @@ class DoorsEnv(BaseEnv):
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
         while len(tasks) < num:
+            # For each task, we create a unique ID, which is included in the
+            # names of the objects created. This is important because we then
+            # perform caching based on the object names. For example, we want
+            # to compute the doors for a room only once. But the same room in
+            # the same location may have different doors between tasks, so we
+            # need to be careful to avoid accidental name collisions.
+            task_id = next(self._task_id_count)
             state_dict = {}
             # Sample a room map.
             room_map = self._sample_room_map(rng)
@@ -239,7 +256,7 @@ class DoorsEnv(BaseEnv):
             # Create the rooms.
             rooms = []
             for (r, c) in np.argwhere(room_map):
-                room = Object(f"room{r}-{c}", self._room_type)
+                room = Object(f"room{task_id}-{r}-{c}", self._room_type)
                 rooms.append(room)
                 room_x = float(c * self.room_size)
                 room_y = float((num_rows - 1 - r) * self.room_size)
@@ -248,15 +265,16 @@ class DoorsEnv(BaseEnv):
                     "y": room_y,
                 }
                 # Create obstacles for the room walls.
-                hall_top = float(r > 0 and room_map[r - 1, c])
-                hall_bottom = float(r < num_rows - 1 and room_map[r + 1, c])
-                hall_left = float(c > 0 and room_map[r, c - 1])
-                hall_right = float(c < num_cols - 1 and room_map[r, c + 1])
+                hall_top = (r > 0 and room_map[r - 1, c])
+                hall_bottom = (r < num_rows - 1 and room_map[r + 1, c])
+                hall_left = (c > 0 and room_map[r, c - 1])
+                hall_right = (c < num_cols - 1 and room_map[r, c + 1])
                 wall_rects = self._get_rectangles_for_room_walls(
                     room_x, room_y, hall_top, hall_bottom, hall_left,
                     hall_right)
                 for i, rect in enumerate(wall_rects):
-                    wall = Object(f"wall{r}-{c}-{i}", self._obstacle_type)
+                    wall = Object(f"wall{task_id}-{r}-{c}-{i}",
+                                  self._obstacle_type)
                     state_dict[wall] = {
                         "x": rect.x,
                         "y": rect.y,
@@ -271,7 +289,8 @@ class DoorsEnv(BaseEnv):
                                      ("left", hall_left)]:
                     if not exists:
                         continue
-                    door = Object(f"{name}-door{r}-{c}", self._door_type)
+                    door = Object(f"{name}-door{task_id}-{r}-{c}",
+                                  self._door_type)
                     feat_dict = self._sample_door_feats(
                         room_x, room_y, name, rng)
                     state_dict[door] = feat_dict
@@ -590,31 +609,24 @@ class DoorsEnv(BaseEnv):
         y = state.get(obj, "y")
         if obj.is_instance(self._robot_type):
             return utils.Circle(x, y, self.robot_radius)
-        if obj.is_instance(self._room_type):
-            width = self.room_size
-            height = self.room_size
-            theta = 0.0
-        elif obj.is_instance(self._door_type):
-            width = self.hallway_width
-            height = self.wall_depth
-            theta = state.get(obj, "theta")
-        else:
-            assert obj.is_instance(self._obstacle_type)
-            width = state.get(obj, "width")
-            height = state.get(obj, "height")
-            theta = state.get(obj, "theta")
-        return self._get_or_create_rectangle(x=x,
-                                             y=y,
-                                             width=width,
-                                             height=height,
-                                             theta=theta)
-
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def _get_or_create_rectangle(x: float, y: float, width: float,
-                                 height: float,
-                                 theta: float) -> utils.Rectangle:
-        return Rectangle(x=x, y=y, width=width, height=height, theta=theta)
+        # Only the robot shape is dynamic. All other shapes are cached.
+        if obj not in self._static_geom_cache:
+            if obj.is_instance(self._room_type):
+                width = self.room_size
+                height = self.room_size
+                theta = 0.0
+            elif obj.is_instance(self._door_type):
+                width = self.hallway_width
+                height = self.wall_depth
+                theta = state.get(obj, "theta")
+            else:
+                assert obj.is_instance(self._obstacle_type)
+                width = state.get(obj, "width")
+                height = state.get(obj, "height")
+                theta = state.get(obj, "theta")
+            geom = Rectangle(x=x, y=y, width=width, height=height, theta=theta)
+            self._static_geom_cache[obj] = geom
+        return self._static_geom_cache[obj]
 
     def _get_world_boundaries(
             self, state: State) -> Tuple[float, float, float, float]:
@@ -629,7 +641,6 @@ class DoorsEnv(BaseEnv):
             y_ub = max(y_ub, room_y + self.room_size)
         return x_lb, x_ub, y_lb, y_ub
 
-    @lru_cache(maxsize=None)
     def _get_rectangles_for_room_walls(self, room_x: float, room_y: float,
                                        hall_top: bool, hall_bottom: bool,
                                        hall_left: bool,
@@ -781,59 +792,68 @@ class DoorsEnv(BaseEnv):
         }
 
     def _door_to_rooms(self, door: Object, state: State) -> Set[Object]:
-        rooms = set()
-        door_geom = self._object_to_geom(door, state)
-        for room in state.get_objects(self._room_type):
-            room_geom = self._object_to_geom(room, state)
-            if door_geom.intersects(room_geom):
-                rooms.add(room)
-        assert len(rooms) == 2
-        return rooms
+        if door not in self._door_to_rooms_cache:
+            rooms = set()
+            door_geom = self._object_to_geom(door, state)
+            for room in state.get_objects(self._room_type):
+                room_geom = self._object_to_geom(room, state)
+                if door_geom.intersects(room_geom):
+                    rooms.add(room)
+            assert len(rooms) == 2
+            self._door_to_rooms_cache[door] = rooms
+        return self._door_to_rooms_cache[door]
 
     def _room_to_doors(self, room: Object, state: State) -> Set[Object]:
-        doors = set()
-        room_geom = self._object_to_geom(room, state)
-        for door in state.get_objects(self._door_type):
-            door_geom = self._object_to_geom(door, state)
-            if room_geom.intersects(door_geom):
-                doors.add(door)
-        assert 1 <= len(doors) <= 4
-        return doors
+        if room not in self._room_to_doors_cache:
+            doors = set()
+            room_geom = self._object_to_geom(room, state)
+            for door in state.get_objects(self._door_type):
+                door_geom = self._object_to_geom(door, state)
+                if room_geom.intersects(door_geom):
+                    doors.add(door)
+            assert 1 <= len(doors) <= 4
+            self._room_to_doors_cache[room] = doors
+        return self._room_to_doors_cache[room]
 
     def _door_to_doorway_geom(self, door: Object, state: State) -> Rectangle:
-        x = state.get(door, "x")
-        y = state.get(door, "y")
-        theta = state.get(door, "theta")
-        doorway_size = self.robot_radius + self.doorway_pad
-        # Top or bottom door.
-        if abs(theta) < 1e-6:
-            return Rectangle(x=x,
-                             y=(y - doorway_size),
-                             width=self.hallway_width,
-                             height=(self.wall_depth + 2 * doorway_size),
+        if door not in self._door_to_doorway_geom_cache:
+            x = state.get(door, "x")
+            y = state.get(door, "y")
+            theta = state.get(door, "theta")
+            doorway_size = self.robot_radius + self.doorway_pad
+            # Top or bottom door.
+            if abs(theta) < 1e-6:
+                return Rectangle(x=x,
+                                 y=(y - doorway_size),
+                                 width=self.hallway_width,
+                                 height=(self.wall_depth + 2 * doorway_size),
+                                 theta=0)
+            # Left or right door.
+            assert abs(theta - np.pi / 2) < 1e-6
+            geom = Rectangle(x=(x - self.wall_depth - doorway_size),
+                             y=y,
+                             width=(self.wall_depth + 2 * doorway_size),
+                             height=self.hallway_width,
                              theta=0)
-        # Left or right door.
-        assert abs(theta - np.pi / 2) < 1e-6
-        return Rectangle(x=(x - self.wall_depth - doorway_size),
-                         y=y,
-                         width=(self.wall_depth + 2 * doorway_size),
-                         height=self.hallway_width,
-                         theta=0)
+            self._door_to_doorway_geom_cache[door] = geom
+        return self._door_to_doorway_geom_cache[door]
 
     def _get_position_in_doorway(self, room: Object, door: Object,
                                  state: State) -> Tuple[float, float]:
-        # Find the two vertices of the doorway that are in the room.
-        doorway_geom = self._door_to_doorway_geom(door, state)
-        room_geom = self._object_to_geom(room, state)
-        vertices_in_room = []
-        for (x, y) in doorway_geom.vertices:
-            if room_geom.contains_point(x, y):
-                vertices_in_room.append((x, y))
-        assert len(vertices_in_room) == 2
-        (x0, y0), (x1, y1) = vertices_in_room
-        target_x = (x0 + x1) / 2
-        target_y = (y0 + y1) / 2
-        return (target_x, target_y)
+        if (room, door) not in self._position_in_doorway_cache:
+            # Find the two vertices of the doorway that are in the room.
+            doorway_geom = self._door_to_doorway_geom(door, state)
+            room_geom = self._object_to_geom(room, state)
+            vertices_in_room = []
+            for (x, y) in doorway_geom.vertices:
+                if room_geom.contains_point(x, y):
+                    vertices_in_room.append((x, y))
+            assert len(vertices_in_room) == 2
+            (x0, y0), (x1, y1) = vertices_in_room
+            tx = (x0 + x1) / 2
+            ty = (y0 + y1) / 2
+            self._position_in_doorway_cache[(room, door)] = (tx, ty)
+        return self._position_in_doorway_cache[(room, door)]
 
     def _sample_room_map(self, rng: np.random.Generator) -> NDArray:
         # Sample a grid where any room can be reached from any other room.
