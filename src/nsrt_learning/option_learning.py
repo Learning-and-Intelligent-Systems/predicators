@@ -473,9 +473,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
 
-            if not X_regressor:
-                raise Exception("No data found for learning an option.")
-
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
             regressor = self._create_regressor()
