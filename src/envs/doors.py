@@ -331,13 +331,6 @@ class DoorsEnv(BaseEnv):
             # Sample an initial and goal room.
             start_idx, goal_idx = rng.choice(len(rooms), size=2, replace=False)
             start_room, goal_room = rooms[start_idx], rooms[goal_idx]
-            # Sample an initial door in the start room.
-            # TODO: sample a non-stupid initial door. One way to do this would
-            # be to have the initial room contain one door only, where all
-            # other rooms should have two doors.
-            door_candidates = sorted(self._room_to_doors(start_room, state))
-            assert len(door_candidates) > 0
-            start_door = door_candidates[rng.choice(len(door_candidates))]
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
             room_x = state_dict[start_room]["x"]
