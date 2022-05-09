@@ -7,6 +7,7 @@ from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+from numpy.typing import NDArray
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -92,6 +93,8 @@ class DoorsEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
+        self._room_map_size = CFG.doors_room_map_size
+
     @classmethod
     def get_name(cls) -> str:
         return "doors"
@@ -163,7 +166,8 @@ class DoorsEnv(BaseEnv):
                      task: Task,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
+        fig, ax = plt.subplots(1, 1, figsize=(x_ub - x_lb, y_ub - y_lb))
 
         # Draw rooms.
         default_room_color = "lightgray"
@@ -214,7 +218,6 @@ class DoorsEnv(BaseEnv):
                     xs, ys = zip(*option.memory["position_plan"])
                     plt.scatter(xs, ys, s=3, alpha=0.5, color=robot_color)
 
-        x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         pad = 2 * self.wall_depth
         ax.set_xlim(x_lb - pad, x_ub + pad)
         ax.set_ylim(y_lb - pad, y_ub + pad)
@@ -228,58 +231,50 @@ class DoorsEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []
-        # Create the common parts of the initial state.
-        common_state_dict = {}
-        # TODO randomize this.
-        room_map = np.array([
-            [0, 1, 1, 1, 1],
-            [1, 0, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-            [0, 0, 0, 1, 1],
-            [0, 1, 1, 1, 0],
-        ])
-        # room_map = np.array([
-        #     [1, 1],
-        #     [1, 1],
-        # ])
-        num_rows, num_cols = room_map.shape
-        rooms = []
-        for (r, c) in np.argwhere(room_map):
-            room = Object(f"room{r}-{c}", self._room_type)
-            rooms.append(room)
-            room_x = float(c * self.room_size)
-            room_y = float((num_rows - 1 - r) * self.room_size)
-            common_state_dict[room] = {
-                "x": room_x,
-                "y": room_y,
-            }
-            # Create obstacles for the room walls.
-            hall_top = float(r > 0 and room_map[r - 1, c])
-            hall_bottom = float(r < num_rows - 1 and room_map[r + 1, c])
-            hall_left = float(c > 0 and room_map[r, c - 1])
-            hall_right = float(c < num_cols - 1 and room_map[r, c + 1])
-            wall_rects = self._get_rectangles_for_room_walls(
-                room_x, room_y, hall_top, hall_bottom, hall_left, hall_right)
-            for i, rect in enumerate(wall_rects):
-                wall = Object(f"wall{r}-{c}-{i}", self._obstacle_type)
-                common_state_dict[wall] = {
-                    "x": rect.x,
-                    "y": rect.y,
-                    "height": rect.height,
-                    "width": rect.width,
-                    "theta": rect.theta,
-                }
-            # Create doors for this room. Note that we only need to create
-            # bottom or left, because each door is on the bottom or left of
-            # some room (and top / right of another room).
-            for name, exists in [("bottom", hall_bottom), ("left", hall_left)]:
-                if not exists:
-                    continue
-                door = Object(f"{name}-door{r}-{c}", self._door_type)
-                feat_dict = self._sample_door_feats(room_x, room_y, name, rng)
-                common_state_dict[door] = feat_dict
         while len(tasks) < num:
-            state_dict = {k: v.copy() for k, v in common_state_dict.items()}
+            state_dict = {}
+            # Sample a room map.
+            room_map = self._sample_room_map(rng)
+            num_rows, num_cols = room_map.shape
+            # Create the rooms.
+            rooms = []
+            for (r, c) in np.argwhere(room_map):
+                room = Object(f"room{r}-{c}", self._room_type)
+                rooms.append(room)
+                room_x = float(c * self.room_size)
+                room_y = float((num_rows - 1 - r) * self.room_size)
+                state_dict[room] = {
+                    "x": room_x,
+                    "y": room_y,
+                }
+                # Create obstacles for the room walls.
+                hall_top = float(r > 0 and room_map[r - 1, c])
+                hall_bottom = float(r < num_rows - 1 and room_map[r + 1, c])
+                hall_left = float(c > 0 and room_map[r, c - 1])
+                hall_right = float(c < num_cols - 1 and room_map[r, c + 1])
+                wall_rects = self._get_rectangles_for_room_walls(
+                    room_x, room_y, hall_top, hall_bottom, hall_left,
+                    hall_right)
+                for i, rect in enumerate(wall_rects):
+                    wall = Object(f"wall{r}-{c}-{i}", self._obstacle_type)
+                    state_dict[wall] = {
+                        "x": rect.x,
+                        "y": rect.y,
+                        "height": rect.height,
+                        "width": rect.width,
+                        "theta": rect.theta,
+                    }
+                # Create doors for this room. Note that we only need to create
+                # bottom or left, because each door is on the bottom or left of
+                # some room (and top / right of another room).
+                for name, exists in [("bottom", hall_bottom),
+                                     ("left", hall_left)]:
+                    if not exists:
+                        continue
+                    door = Object(f"{name}-door{r}-{c}", self._door_type)
+                    feat_dict = self._sample_door_feats(
+                        room_x, room_y, name, rng)
+                    state_dict[door] = feat_dict
             # Sample obstacles for each room. Choose between 0 and 3, and
             # make them small and centered enough that the robot should always
             # be able to find a collision-free path through the room.
@@ -839,3 +834,37 @@ class DoorsEnv(BaseEnv):
         target_x = (x0 + x1) / 2
         target_y = (y0 + y1) / 2
         return (target_x, target_y)
+
+    def _sample_room_map(self, rng: np.random.Generator) -> NDArray:
+        # Sample a grid where any room can be reached from any other room.
+        # To do this, perform a random tree search in the grid for a certain
+        # number of steps, starting from a random location.
+        assert self._room_map_size > 1
+        room_map = np.zeros((self._room_map_size, self._room_map_size),
+                            dtype=bool)
+        min_num_rooms = max(2, int(0.25 * room_map.size))
+        max_num_rooms = int(0.75 * room_map.size)
+        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+
+        def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:
+            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            r, c = room
+            for dr, dc in deltas:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
+                    yield (nr, nc)
+
+        start_r, start_c = rng.integers(self._room_map_size, size=2)
+        start_room = (start_r, start_c)
+        queue = [start_room]
+        visited = {start_room}
+        room_map[start_room] = 1
+        while room_map.sum() < num_rooms:
+            queue_idx = rng.integers(len(queue))
+            room = queue.pop(queue_idx)
+            for neighbor in _get_neighbors(room):
+                if neighbor not in visited:
+                    room_map[neighbor] = 1
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+        return room_map
