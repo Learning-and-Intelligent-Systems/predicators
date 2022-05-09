@@ -39,7 +39,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             # nsrt learning (oracle operators and options)
             # note: $INCLUDED_OPTIONS excluded because all options are
             # included for this oracle approach.
-            # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
+            python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
             # direct BC (main approach)
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
