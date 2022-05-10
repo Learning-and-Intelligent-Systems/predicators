@@ -376,14 +376,6 @@ class DoorsEnv(BaseEnv):
                         "height": h,
                         "theta": theta
                     }
-            # Create the state with a temporary robot x and y that we will
-            # immediately override below. This is done so we can use the
-            # _get_position_in_doorway() helper function.
-            state_dict[self._robot] = {"x": x, "y": y}
-            state = utils.create_state_from_dict(state_dict)
-            # Sample an initial and goal room.
-            start_idx = rng.choice(len(rooms))
-            start_room = rooms[start_idx]
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
             room_x = state_dict[start_room]["x"]
@@ -393,8 +385,8 @@ class DoorsEnv(BaseEnv):
             rad = self.obstacle_initial_position_radius
             x = rng.uniform(room_cx - rad, room_cx + rad)
             y = rng.uniform(room_cy - rad, room_cy + rad)
-            state.set(self._robot, "x", x)
-            state.set(self._robot, "y", y)
+            state_dict[self._robot] = {"x": x, "y": y}
+            state = utils.create_state_from_dict(state_dict)
             if not self._state_has_collision(state):
                 return state
 
