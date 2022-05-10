@@ -467,7 +467,7 @@ class DoorsEnv(BaseEnv):
         position_plan = birrt.query(initial_state, target_state)
         # In very rare cases, motion planning fails (it is stochastic after
         # all). In this case, determine the option to be not initiable.
-        if position_plan is None:  # pragma: cover
+        if position_plan is None:  # pragma: no cover
             return False
         # The position plan is used for the termination check, and for debug
         # drawing in the rendering.

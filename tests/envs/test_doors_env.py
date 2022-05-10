@@ -183,9 +183,10 @@ def test_doors():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
-    final_state = traj.states[-1]
-    assert goal_atom.holds(final_state)
-    env.render_state(final_state, task)
+    assert goal_atom.holds(traj.states[-1])
+    # Cover a few additional rendering cases.
+    env.render_state(traj.states[0], task, traj.actions[0])
+    env.render_state(traj.states[-1], task)
 
     # Test options in cases where they are not initiable.
 
@@ -201,7 +202,7 @@ def test_doors():
     for _ in range(50):
         s = env.simulate(s, action)
     assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
-    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(state)
+    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(s)
 
     # OpenDoor is not initiable if we're not touching the door.
     assert not OpenDoor.ground([robot, right_door], []).initiable(state)
