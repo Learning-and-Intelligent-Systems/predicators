@@ -433,8 +433,6 @@ class DoorsEnv(BaseEnv):
             # Make sure that we obey the bounds on actions.
             distance = np.linalg.norm(pt2 - pt1)
             num = int(distance / self.action_magnitude) + 1
-            if num == 0:
-                yield pt2
             for i in range(1, num + 1):
                 yield pt1 * (1 - i / num) + pt2 * i / num
 
@@ -469,7 +467,7 @@ class DoorsEnv(BaseEnv):
         position_plan = birrt.query(initial_state, target_state)
         # In very rare cases, motion planning fails (it is stochastic after
         # all). In this case, determine the option to be not initiable.
-        if position_plan is None:
+        if position_plan is None:  # pragma: cover
             return False
         # The position plan is used for the termination check, and for debug
         # drawing in the rendering.

@@ -16,6 +16,7 @@ def test_doors():
         "doors_max_obstacles_per_room": 1,
         "doors_min_room_exists_frac": 1.0,
         "doors_max_room_exists_frac": 1.0,
+        "doors_draw_debug": True,
     })
     env = DoorsEnv()
     for task in env.get_train_tasks():
@@ -90,6 +91,7 @@ def test_doors():
     # Since we removed the obstacle, there should be no collisions.
     assert not env._state_has_collision(state)  # pylint: disable=protected-access
     assert GroundAtom(InRoom, [robot, top_left_room]).holds(state)
+    assert GroundAtom(InMainRoom, [robot, top_left_room]).holds(state)
     # Create a task with a goal to move to the bottom right room.
     goal_atom = GroundAtom(InRoom, [robot, bottom_right_room])
     goal = {goal_atom}
@@ -128,6 +130,7 @@ def test_doors():
     # The robot should now be in the doorway and touching the door.
     assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
     assert GroundAtom(TouchingDoor, [robot, top_door]).holds(s)
+    assert not GroundAtom(InMainRoom, [robot, top_left_room]).holds(s)
     # Now, open the door.
     mass = state.get(top_door, "mass")
     friction = state.get(top_door, "friction")
@@ -182,3 +185,23 @@ def test_doors():
         exceptions_to_break_on={utils.OptionExecutionFailure})
     final_state = traj.states[-1]
     assert goal_atom.holds(final_state)
+    env.render_state(final_state, task)
+
+    # Test options in cases where they are not initiable.
+
+    # MoveToDoor is not initiable if we're not already in the room.
+    assert not MoveToDoor.ground([robot, right_door], []).initiable(state)
+
+    # MoveThroughDoor is not initiable if we're not in the doorway.
+    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(state)
+    # or if we're in the doorway, but the door isn't open.
+    action = Action(env.action_magnitude *
+                    np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    s = state.copy()
+    for _ in range(50):
+        s = env.simulate(s, action)
+    assert GroundAtom(InDoorway, [robot, top_door]).holds(s)
+    assert not MoveThroughDoor.ground([robot, top_door], []).initiable(state)
+
+    # OpenDoor is not initiable if we're not touching the door.
+    assert not OpenDoor.ground([robot, right_door], []).initiable(state)
