@@ -378,6 +378,8 @@ class DoorsEnv(BaseEnv):
                     }
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
+            start_idx = rng.choice(len(rooms))
+            start_room = rooms[start_idx]
             room_x = state_dict[start_room]["x"]
             room_y = state_dict[start_room]["y"]
             room_cx = room_x + self.room_size / 2
