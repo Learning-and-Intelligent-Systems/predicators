@@ -133,11 +133,11 @@ class DoorsEnv(BaseEnv):
             # Revert the change to the robot position.
             next_state.set(self._robot, "x", x)
             next_state.set(self._robot, "y", y)
-        # If touching a door, change its value based on the action
+        # If touching a door, change its value based on the action.
         for door in state.get_objects(self._door_type):
             if self._TouchingDoor_holds(state, [self._robot, door]):
                 # Rotate the door handle.
-                state.set(door, "rot", new_door_rot)
+                next_state.set(door, "rot", new_door_rot)
                 # Check if we should now open the door.
                 target = self._get_open_door_target_value(
                     mass=state.get(door, "mass"),
