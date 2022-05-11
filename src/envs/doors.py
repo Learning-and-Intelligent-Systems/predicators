@@ -195,6 +195,7 @@ class DoorsEnv(BaseEnv):
                      task: Task,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
+        del caption  # unused
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         fig, ax = plt.subplots(1, 1, figsize=(x_ub - x_lb, y_ub - y_lb))
 
@@ -251,7 +252,6 @@ class DoorsEnv(BaseEnv):
         ax.set_xlim(x_lb - pad, x_ub + pad)
         ax.set_ylim(y_lb - pad, y_ub + pad)
 
-        assert caption is None
         plt.axis("off")
         plt.tight_layout()
         img = utils.fig2data(fig)

@@ -168,7 +168,6 @@ def _segment_with_switch_function(
                 segment = Segment(current_segment_traj,
                                   current_segment_init_atoms,
                                   current_segment_final_atoms)
-
             segments.append(segment)
             current_segment_states = []
             current_segment_actions = []
