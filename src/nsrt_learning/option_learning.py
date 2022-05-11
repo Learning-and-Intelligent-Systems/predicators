@@ -9,6 +9,7 @@ from typing import Dict, List, Sequence, Set, Tuple
 import numpy as np
 from gym.spaces import Box
 
+from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.ml_models import ImplicitMLPRegressor, MLPRegressor, \
@@ -18,7 +19,6 @@ from predicators.src.structs import Action, Array, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable, VarToObjSub
 from predicators.src.utils import OptionExecutionFailure
-from predicators.src import utils
 
 
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:

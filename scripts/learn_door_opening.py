@@ -28,14 +28,16 @@ MASS, FRICTION, ROT, TARGET_ROT, OPEN = range(3, 8)
 # Param dims: [delta_rot, delta_open]
 NUM_PARAM_DIMS = 2
 
-NUM_TRAIN_DATA = [50, 100, 250, 500, 1000]
-START_SEED = 678
-NUM_SEEDS = 5
+NUM_DATA = [50, 100, 250, 500, 1000]
+VALIDATION_FRAC = 0.1
+START_SEED = 456
+NUM_SEEDS = 10
 # Uncomment to debug the pipeline.
-# NUM_TRAIN_DATA = [5, 10]
+# NUM_DATA = [5, 10]
 # NUM_SEEDS = 2
 
 SAMPLER_TYPES = ["gaussian", "degenerate"]
+DATA_TYPE = "synthetic"  # "synthetic"
 
 OTHER_SETTINGS: Dict[str, Any] = {
     # Uncomment to debug the pipeline.
@@ -50,16 +52,14 @@ def _main() -> None:
                           "results")
     all_results = []
     for seed in range(START_SEED, START_SEED + NUM_SEEDS):
-        for num_train_data in NUM_TRAIN_DATA:
+        for num_data in NUM_DATA:
             # Run non-parameterized.
-            results = _run_experiment(seed,
-                                      num_train_data,
-                                      parameterized=False)
+            results = _run_experiment(seed, num_data, parameterized=False)
             all_results.append(results)
             # Run parameterized with different sampler types.
             for sampler_type in SAMPLER_TYPES:
                 results = _run_experiment(seed,
-                                          num_train_data,
+                                          num_data,
                                           parameterized=True,
                                           sampler_type=sampler_type)
                 all_results.append(results)
@@ -103,13 +103,12 @@ def _error_fn(yhat: Array, y: Array) -> float:
 
 
 def _run_experiment(seed: int,
-                    num_train_data: int,
+                    num_data: int,
                     parameterized: bool,
-                    sampler_type: Optional[str] = None,
-                    num_test_data: int = 1000) -> Dict[str, Any]:
+                    sampler_type: Optional[str] = None) -> Dict[str, Any]:
     utils.reset_config({"seed": seed, **OTHER_SETTINGS})
     logging.info(f"\nRunning experiment for seed={seed}, "
-                 f"num_train_data={num_train_data}")
+                 f"num_data={num_data}")
 
     # Set up the results dict.
     if not parameterized:
@@ -119,16 +118,16 @@ def _run_experiment(seed: int,
     results = {
         "Approach": approach_name,
         "Seed": seed,
-        "Num Train Data": num_train_data,
+        "Num Train Data": num_data,
     }
     logging.info(f"Starting experiment for {approach_name} with "
-                 f"{num_train_data} data on seed {seed}.")
+                 f"{num_data} data on seed {seed}.")
 
     # Generate data.
-    X, Y = _generate_data(num_train_data + num_test_data)
-    train_X, full_test_X = X[:num_train_data], X[num_train_data:]
-    assert train_X.shape == (num_train_data, NUM_STATE_DIMS + NUM_PARAM_DIMS)
-    train_Y, test_Y = Y[:num_train_data], Y[num_train_data:]
+    X, Y = _generate_data(num_data)
+    num_valid = max(1, int(num_data * VALIDATION_FRAC))
+    train_X, full_test_X = X[num_valid:], X[:num_valid]
+    train_Y, test_Y = Y[num_valid:], Y[:num_valid]
 
     # At test time, we don't have the parameterized dims.
     test_X = full_test_X[:, :NUM_STATE_DIMS]
@@ -238,6 +237,19 @@ def _train_parameterized_model(
 
 
 def _generate_data(num_data: int) -> Tuple[Array, Array]:
+    if DATA_TYPE == "synthetic":
+        return _generate_synthetic_data(num_data)
+    assert DATA_TYPE == "loaded"
+    data_dir = "saved_approaches"
+    file_prefix = f"doors__nsrt_learning__{CFG.seed}____MoveToDoor,MoveThroughDoor__doors_main_{num_data}.saved"  # pylint: disable=line-too-long
+    input_file = os.path.join(data_dir, file_prefix + ".option_X.npy")
+    output_file = os.path.join(data_dir, file_prefix + ".option_Y.npy")
+    X = np.load(input_file)
+    Y = np.load(output_file)
+    return (X, Y)
+
+
+def _generate_synthetic_data(num_data: int) -> Tuple[Array, Array]:
     rng = np.random.default_rng()
     # Generate random state inputs.
     state_inputs = rng.uniform(size=(num_data, NUM_STATE_DIMS))
