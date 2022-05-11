@@ -8,7 +8,7 @@ Notes:
 """
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 
 from predicators.src import utils
 from predicators.src.ml_models import DegenerateMLPDistributionRegressor, \
-    MLPRegressor, NeuralGaussianRegressor
+    DistributionRegressor, MLPRegressor, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.structs import Array
 
@@ -31,6 +31,9 @@ NUM_PARAM_DIMS = 2
 NUM_TRAIN_DATA = [50, 100, 250, 500, 1000]
 START_SEED = 678
 NUM_SEEDS = 5
+# Uncomment to debug the pipeline.
+# NUM_TRAIN_DATA = [5, 10]
+# NUM_SEEDS = 2
 
 SAMPLER_TYPES = ["gaussian", "degenerate"]
 
@@ -197,7 +200,7 @@ def _train_parameterized_model(
 
     # Train the sampler for the parameterized model.
     if sampler_type == "gaussian":
-        sampler = NeuralGaussianRegressor(
+        sampler: DistributionRegressor = NeuralGaussianRegressor(
             seed=CFG.seed,
             hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
             max_train_iters=CFG.neural_gaus_regressor_max_itr,
