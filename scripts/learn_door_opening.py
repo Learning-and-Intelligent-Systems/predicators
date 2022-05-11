@@ -37,7 +37,7 @@ NUM_SEEDS = 10
 # NUM_SEEDS = 2
 
 SAMPLER_TYPES = ["gaussian", "degenerate"]
-DATA_TYPE = "synthetic"  # "synthetic"
+DATA_TYPE = "loaded"  # "synthetic"
 
 OTHER_SETTINGS: Dict[str, Any] = {
     # Uncomment to debug the pipeline.
@@ -246,6 +246,9 @@ def _generate_data(num_data: int) -> Tuple[Array, Array]:
     output_file = os.path.join(data_dir, file_prefix + ".option_Y.npy")
     X = np.load(input_file)
     Y = np.load(output_file)
+    # Remove extra first dimension, which is all 1s.
+    assert all(X[:, 0] == 1)
+    X = X[:, 1:]
     return (X, Y)
 
 
