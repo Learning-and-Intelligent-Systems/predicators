@@ -234,14 +234,13 @@ def test_oracle_samplers():
 
 def test_degenerate_mlp_sampler_learning():
     """Tests for NSRTLearningApproach() with a degenerate MLP sampler."""
-    _test_approach(
-        env_name="touch_point",
-        approach_name="nsrt_learning",
-        try_solving=False,
-        sampler_learner="neural",
-        additional_settings={
-            "sampler_learning_regressor_model": "degenerate_mlp",
-        })
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="neural",
+                   additional_settings={
+                       "sampler_learning_regressor_model": "degenerate_mlp",
+                   })
 
 
 def test_grammar_search_invention_approach():
