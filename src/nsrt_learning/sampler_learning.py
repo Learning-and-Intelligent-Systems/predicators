@@ -9,8 +9,9 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.ml_models import BinaryClassifier, MLPBinaryClassifier, \
-    NeuralGaussianRegressor
+from predicators.src.ml_models import BinaryClassifier, \
+    DegenerateMLPDistributionRegressor, DistributionRegressor, \
+    MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -130,8 +131,30 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         datastores, variables, preconditions, add_effects, delete_effects,
         param_option, datastore_idx)
 
-    # Fit classifier to data
-    logging.info("Fitting classifier...")
+    # Construct data for regressor.
+    X_regressor: List[List[Array]] = []
+    Y_regressor = []
+    for state, sub, option, goal in positive_data:  # don't use negative data!
+        # input is state features
+        X_regressor.append([np.array(1.0)])  # start with bias term
+        for var in variables:
+            X_regressor[-1].extend(state[sub[var]])
+        # Above, we made the assumption that there is one goal atom with one
+        # goal object, which must also be used when assembling data for the
+        # regressor.
+        if CFG.sampler_learning_use_goals:
+            assert goal is not None
+            assert len(goal) == 1
+            goal_atom = next(iter(goal))
+            assert len(goal_atom.objects) == 1
+            goal_obj = goal_atom.objects[0]
+            X_regressor[-1].extend(state[goal_obj])
+        # output is option parameters
+        Y_regressor.append(option.params)
+    X_arr_regressor = np.array(X_regressor)
+    Y_arr_regressor = np.array(Y_regressor)
+
+    # Construct data for classifier.
     X_classifier: List[List[Array]] = []
     for state, sub, option, goal in positive_data + negative_data:
         # input is state features and option parameters
@@ -154,38 +177,56 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
                                 [0 for _ in negative_data])
-    classifier = MLPBinaryClassifier(
+
+    # First, try to fit a degenerate sampler. If it's good enough, we will use
+    # it, and not train a classifier. Otherwise, we will proceed to train a
+    # NeuralGaussianRegressor and a classifier.
+    logging.info("Fitting degenerate sampler...")
+    degenerate_regressor = DegenerateMLPDistributionRegressor(
         seed=CFG.seed,
-        balance_data=CFG.mlp_classifier_balance_data,
-        max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-        learning_rate=CFG.learning_rate,
-        n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-        hid_sizes=CFG.mlp_classifier_hid_sizes)
-    classifier.fit(X_arr_classifier, y_arr_classifier)
+        hid_sizes=CFG.mlp_regressor_hid_sizes,
+        max_train_iters=CFG.mlp_regressor_max_itr,
+        clip_gradients=CFG.mlp_regressor_clip_gradients,
+        clip_value=CFG.mlp_regressor_gradient_clip_value,
+        learning_rate=CFG.learning_rate)
+    # Keep aside validation data to check if the learned model is good enough.
+    num_validation = max(1, int(len(X_arr_regressor) * 0.1))
+    X_train_arr_regressor = X_arr_regressor[num_validation:]
+    Y_train_arr_regressor = Y_arr_regressor[num_validation:]
+    X_valid_arr_regressor = X_arr_regressor[:num_validation]
+    Y_valid_arr_regressor = Y_arr_regressor[:num_validation]
+    degenerate_regressor.fit(X_train_arr_regressor, Y_train_arr_regressor)
+    # If the degenerate sampler is good enough, keep it.
+    squared_error = 0.0
+    for x, y in zip(X_valid_arr_regressor, Y_valid_arr_regressor):
+        y_hat = degenerate_regressor.predict(x)
+        squared_error += np.sum((y - y_hat)**2)
+    mean_squared_error = squared_error / num_validation
+    if mean_squared_error < CFG.sampler_degenerate_mse_thresh:
+        logging.info(f"Keeping degenerate sampler (mse={mean_squared_error}).")
+        # Create a trivial classifier, just to conform to the expected inputs
+        # of the learned sampler. Note that if only one class is seen in the
+        # training data for the classifier, it will always predict that one
+        # class, which is the behavior that we want here.
+        classifier = MLPBinaryClassifier(
+            seed=CFG.seed,
+            balance_data=CFG.mlp_classifier_balance_data,
+            max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+            learning_rate=CFG.learning_rate,
+            n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+            hid_sizes=CFG.mlp_classifier_hid_sizes)
+        # The input does not matter, but we need it to infer the data shapes.
+        fake_X_arr_classifier = X_arr_classifier[:1]
+        fake_y_arr_classifier = np.array([1])
+        classifier.fit(fake_X_arr_classifier, fake_y_arr_classifier)
+        return _LearnedSampler(classifier, degenerate_regressor, variables,
+                               param_option).sampler
+
+    logging.info("Degenerate sampler did not fit data "
+                 f"(mse={mean_squared_error}), discarding.")
 
     # Fit regressor to data
     logging.info("Fitting regressor...")
-    X_regressor: List[List[Array]] = []
-    Y_regressor = []
-    for state, sub, option, goal in positive_data:  # don't use negative data!
-        # input is state features
-        X_regressor.append([np.array(1.0)])  # start with bias term
-        for var in variables:
-            X_regressor[-1].extend(state[sub[var]])
-        # Above, we made the assumption that there is one goal atom with one
-        # goal object, which must also be used when assembling data for the
-        # regressor.
-        if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_regressor[-1].extend(state[goal_obj])
-        # output is option parameters
-        Y_regressor.append(option.params)
-    X_arr_regressor = np.array(X_regressor)
-    Y_arr_regressor = np.array(Y_regressor)
     regressor = NeuralGaussianRegressor(
         seed=CFG.seed,
         hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
@@ -194,6 +235,17 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         clip_value=CFG.mlp_regressor_gradient_clip_value,
         learning_rate=CFG.learning_rate)
     regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+    # Fit classifier to data
+    logging.info("Fitting classifier...")
+    classifier = MLPBinaryClassifier(
+        seed=CFG.seed,
+        balance_data=CFG.mlp_classifier_balance_data,
+        max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+        learning_rate=CFG.learning_rate,
+        n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+        hid_sizes=CFG.mlp_classifier_hid_sizes)
+    classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
@@ -272,7 +324,7 @@ class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
     _classifier: BinaryClassifier
-    _regressor: NeuralGaussianRegressor
+    _regressor: DistributionRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
