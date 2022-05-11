@@ -8,7 +8,7 @@ Notes:
 """
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,15 +22,17 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Array
 
 # Hardcoding these values for convenience.
-# State dims: [rx, ry, x, y, theta, mass, friction, rot, target_rot, open]
+# State dims: [x, y, theta, mass, friction, rot, target_rot, open, rx, ry]
 NUM_STATE_DIMS = 10
-MASS, FRICTION, ROT, TARGET_ROT, OPEN = range(5, 10)
+MASS, FRICTION, ROT, TARGET_ROT, OPEN = range(3, 8)
 # Param dims: [delta_rot, delta_open]
 NUM_PARAM_DIMS = 2
 
 NUM_TRAIN_DATA = [50, 100, 250, 500, 1000]
 START_SEED = 678
 NUM_SEEDS = 5
+
+SAMPLER_TYPES = ["gaussian", "degenerate"]
 
 OTHER_SETTINGS: Dict[str, Any] = {
     # Uncomment to debug the pipeline.
@@ -44,47 +46,47 @@ def _main() -> None:
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     all_results = []
-    metrics: Optional[List[str]] = None
     for seed in range(START_SEED, START_SEED + NUM_SEEDS):
         for num_train_data in NUM_TRAIN_DATA:
-            results = _run_experiment(seed, num_train_data)
-            if metrics is None:
-                metrics = sorted(results)
-            assert metrics == sorted(results)
-            metric_values = [results[m] for m in metrics]
-            row = (
-                seed,
-                num_train_data,
-            ) + tuple(metric_values)
-            all_results.append(row)
-    assert metrics is not None
+            # Run non-parameterized.
+            results = _run_experiment(seed,
+                                      num_train_data,
+                                      parameterized=False)
+            all_results.append(results)
+            # Run parameterized with different sampler types.
+            for sampler_type in SAMPLER_TYPES:
+                results = _run_experiment(seed,
+                                          num_train_data,
+                                          parameterized=True,
+                                          sampler_type=sampler_type)
+                all_results.append(results)
     # Display and save all data.
     df = pd.DataFrame(all_results)
-    df.columns = ["Seed", "Num Train Data"] + metrics
     logging.info(df)
     raw_outfile = os.path.join(outdir, "door_opening_raw.csv")
     df.to_csv(raw_outfile)
     logging.info(f"Saved dataframe to {raw_outfile}")
     # Make a plot.
     plt.figure()
+    seed_key = "Seed"
     x_key = "Num Train Data"
-    param_df = df[["Seed", x_key, "Param Error"]]
-    nonparam_df = df[["Seed", x_key, "Nonparam Error"]]
+    approach_key = "Approach"
+    y_key = "Error"
+    df = df[[seed_key, x_key, approach_key, y_key]]
     xs = sorted(np.unique(df[x_key]))
-    for model_df, y_key in zip([param_df, nonparam_df],
-                               ["Param Error", "Nonparam Error"]):
-        model_y_means = []
-        model_y_stds = []
+    approaches = sorted(np.unique(df[approach_key]))
+    for approach in approaches:
+        y_means, y_stds = [], []
         for x in xs:
-            df_x = model_df[model_df[x_key] == x][y_key]
+            df_x = df[(df[x_key] == x) & (df[approach_key] == approach)][y_key]
             mean = np.mean(df_x)
             std = np.std(df_x)
-            model_y_means.append(mean)
-            model_y_stds.append(std)
+            y_means.append(mean)
+            y_stds.append(std)
         # Add a line to the plot.
-        plt.errorbar(xs, model_y_means, yerr=model_y_stds, label=y_key)
+        plt.errorbar(xs, y_means, yerr=y_stds, label=approach)
     plt.xlabel(x_key)
-    plt.ylabel("Error")
+    plt.ylabel(y_key)
     plt.title("Standalone Door Learning")
     plt.legend()
     plt.tight_layout()
@@ -93,26 +95,80 @@ def _main() -> None:
     logging.info(f"Saved plot to {outfile}")
 
 
+def _error_fn(yhat: Array, y: Array) -> float:
+    return np.sum((yhat - y)**2)
+
+
 def _run_experiment(seed: int,
                     num_train_data: int,
-                    num_test_data: int = 1000,
-                    sampler_type: str = "gaussian") -> Dict[str, float]:
+                    parameterized: bool,
+                    sampler_type: Optional[str] = None,
+                    num_test_data: int = 1000) -> Dict[str, Any]:
     utils.reset_config({"seed": seed, **OTHER_SETTINGS})
     logging.info(f"\nRunning experiment for seed={seed}, "
                  f"num_train_data={num_train_data}")
-    metrics: Dict[str, float] = {}
+
+    # Set up the results dict.
+    if not parameterized:
+        approach_name = "Nonparameterized"
+    else:
+        approach_name = f"Parameterized ({sampler_type})"
+    results = {
+        "Approach": approach_name,
+        "Seed": seed,
+        "Num Train Data": num_train_data,
+    }
+    logging.info(f"Starting experiment for {approach_name} with "
+                 f"{num_train_data} data on seed {seed}.")
 
     # Generate data.
     X, Y = _generate_data(num_train_data + num_test_data)
     train_X, full_test_X = X[:num_train_data], X[num_train_data:]
+    assert train_X.shape == (num_train_data, NUM_STATE_DIMS + NUM_PARAM_DIMS)
     train_Y, test_Y = Y[:num_train_data], Y[num_train_data:]
 
     # At test time, we don't have the parameterized dims.
     test_X = full_test_X[:, :NUM_STATE_DIMS]
 
+    # Train the model.
+    sample_fn = _train_model(train_X, train_Y, parameterized, sampler_type)
+
+    # Evaluate the model by taking a min over multiple samples.
+    num_samples = CFG.sesame_max_samples_per_step
+    rng = np.random.default_rng(CFG.seed)
+    errors = []
+    for x, y in zip(test_X, test_Y):
+        y_hats = [sample_fn(x, rng) for _ in range(num_samples)]
+        errors_for_x = [_error_fn(yhat, y) for yhat in y_hats]
+        min_error = min(errors_for_x)
+        errors.append(min_error)
+    error = np.mean(errors)
+    logging.info(f"Error: {error}")
+    results["Error"] = error
+    return results
+
+
+def _train_model(
+    train_X: Array,
+    train_Y: Array,
+    parameterized: bool,
+    sampler_type: Optional[str] = None
+) -> Callable[[Array, np.random.Generator], Array]:
+
+    if not parameterized:
+        assert sampler_type is None
+        return _train_nonparameterized_model(train_X, train_Y)
+
+    assert sampler_type is not None
+    return _train_parameterized_model(train_X, train_Y, sampler_type)
+
+
+def _train_nonparameterized_model(
+    train_X: Array,
+    train_Y: Array,
+) -> Callable[[Array, np.random.Generator], Array]:
     # Get the data for the nonparameterized model. This effectively removes
     # part of the inputs corresponding to the expected next state.
-    assert train_X.shape == (num_train_data, NUM_STATE_DIMS + NUM_PARAM_DIMS)
     nonparam_train_X = train_X[:, :NUM_STATE_DIMS]
     # Train a nonparameterized model.
     nonparam_model = MLPRegressor(
@@ -123,21 +179,21 @@ def _run_experiment(seed: int,
         clip_value=CFG.mlp_regressor_gradient_clip_value,
         learning_rate=CFG.learning_rate)
     nonparam_model.fit(nonparam_train_X, train_Y)
-    # Evaluate the nonparameterized model.
-    pred_Y = np.array([nonparam_model.predict(x) for x in test_X])
 
-    def error_fn(yhat: Array, y: Array) -> float:
-        return np.sum((yhat - y)**2)
+    # Construct a degenerate sampler.
+    def _sample_fn(x: Array, rng: np.random.Generator) -> Array:
+        del rng  # unused
+        return nonparam_model.predict(x)
 
-    errors = [error_fn(yhat, y) for yhat, y in zip(pred_Y, test_Y)]
-    error = np.mean(errors)
-    logging.info(f"Nonparam Error: {error}")
-    metrics["Nonparam Error"] = error
+    return _sample_fn
 
+
+def _train_parameterized_model(
+        train_X: Array, train_Y: Array,
+        sampler_type: str) -> Callable[[Array, np.random.Generator], Array]:
     # Get the data for the sampler for the parameterized model.
     sampler_train_X = train_X[:, :NUM_STATE_DIMS]  # same as nonparam_train_X
     sampler_train_Y = train_X[:, NUM_STATE_DIMS:]
-    assert sampler_train_Y.shape == (num_train_data, NUM_PARAM_DIMS)
 
     # Train the sampler for the parameterized model.
     if sampler_type == "gaussian":
@@ -170,21 +226,12 @@ def _run_experiment(seed: int,
         learning_rate=CFG.learning_rate)
     param_model.fit(train_X, train_Y)
 
-    # Evaluate the parameterized model by sampling a fixed number of times and
-    # keeping the min error over the samples.
-    num_samples = CFG.sesame_max_samples_per_step
-    errors = []
-    rng = np.random.default_rng(CFG.seed)
-    for x, y in zip(test_X, test_Y):
-        samples = [sampler.predict_sample(x, rng) for _ in range(num_samples)]
-        preds_for_x = [param_model.predict(np.hstack([x, s])) for s in samples]
-        errors_for_x = [error_fn(yhat, y) for yhat in preds_for_x]
-        min_error = min(errors_for_x)
-        errors.append(min_error)
-    error = np.mean(errors)
-    logging.info(f"Param Error: {error}")
-    metrics["Param Error"] = error
-    return metrics
+    # Construct a sample function from the parameterized model and sampler.
+    def _sample_fn(x: Array, rng: np.random.Generator) -> Array:
+        params = sampler.predict_sample(x, rng)
+        return param_model.predict(np.hstack([x, params]))
+
+    return _sample_fn
 
 
 def _generate_data(num_data: int) -> Tuple[Array, Array]:
