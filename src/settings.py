@@ -232,6 +232,7 @@ class GlobalSettings:
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
+    sampler_learning_regressor_model = "neural_gaussian"
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10

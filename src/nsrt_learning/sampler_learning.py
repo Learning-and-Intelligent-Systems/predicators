@@ -9,8 +9,9 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.ml_models import BinaryClassifier, MLPBinaryClassifier, \
-    NeuralGaussianRegressor
+from predicators.src.ml_models import BinaryClassifier, \
+    DegenerateMLPDistributionRegressor, DistributionRegressor, \
+    MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -186,19 +187,30 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
-    regressor = NeuralGaussianRegressor(
-        seed=CFG.seed,
-        hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
-        max_train_iters=CFG.neural_gaus_regressor_max_itr,
-        clip_gradients=CFG.mlp_regressor_clip_gradients,
-        clip_value=CFG.mlp_regressor_gradient_clip_value,
-        learning_rate=CFG.learning_rate)
 
     # TODO remove this.
     # Save the data for external analysis.
     save_path = utils.get_approach_save_path_str()
     np.save(f"{save_path}.sampler_X", X_arr_regressor)
     np.save(f"{save_path}.sampler_Y", Y_arr_regressor)
+
+    if CFG.sampler_learning_regressor_model == "neural_gaussian":
+        regressor: DistributionRegressor = NeuralGaussianRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+            max_train_iters=CFG.neural_gaus_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate)
+    else:
+        assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+        regressor = DegenerateMLPDistributionRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
@@ -279,7 +291,7 @@ class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
     _classifier: BinaryClassifier
-    _regressor: NeuralGaussianRegressor
+    _regressor: DistributionRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
