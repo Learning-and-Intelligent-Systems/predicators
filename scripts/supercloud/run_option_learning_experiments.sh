@@ -39,22 +39,25 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             # nsrt learning (oracle operators and options)
             # note: $INCLUDED_OPTIONS excluded because all options are
             # included for this oracle approach.
-            python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
+            # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
             # direct BC (main approach)
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
 
+            # direct BC (main approach) with degenerate samplers
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_degenerate_samplers_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sampler_learning_regressor_model "degenerate_mlp"
+
             # GNN metacontroller with direct BC options
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
 
             # GNN action policy BC
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_action_policy_${NUM_TRAIN_TASKS} --approach gnn_action_policy
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_action_policy_${NUM_TRAIN_TASKS} --approach gnn_action_policy
 
             # direct BC with nonparameterized options
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_direct_bc_nonparam_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc_nonparameterized
 
             # GNN metacontroller with nonparameterized options
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
         fi
 
     done
