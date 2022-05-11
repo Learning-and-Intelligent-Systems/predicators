@@ -193,6 +193,13 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         clip_gradients=CFG.mlp_regressor_clip_gradients,
         clip_value=CFG.mlp_regressor_gradient_clip_value,
         learning_rate=CFG.learning_rate)
+
+    # TODO remove this.
+    # Save the data for external analysis.
+    save_path = utils.get_approach_save_path_str()
+    np.save(f"{save_path}.sampler_X", X_arr_regressor)
+    np.save(f"{save_path}.sampler_Y", Y_arr_regressor)
+
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler

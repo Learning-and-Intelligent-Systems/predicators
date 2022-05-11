@@ -18,6 +18,7 @@ from predicators.src.structs import Action, Array, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
     Variable, VarToObjSub
 from predicators.src.utils import OptionExecutionFailure
+from predicators.src import utils
 
 
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
@@ -487,6 +488,13 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
             logging.info("Fitting regressor with X shape: "
                          f"{X_arr_regressor.shape}, Y shape: "
                          f"{Y_arr_regressor.shape}.")
+
+            # TODO remove this.
+            # Save the data for external analysis.
+            save_path = utils.get_approach_save_path_str()
+            np.save(f"{save_path}.option_X", X_arr_regressor)
+            np.save(f"{save_path}.option_Y", Y_arr_regressor)
+
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.
