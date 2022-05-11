@@ -135,6 +135,17 @@ class GlobalSettings:
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
 
+    # doors env parameters
+    doors_room_map_size = 5
+    doors_min_obstacles_per_room = 0
+    doors_max_obstacles_per_room = 3
+    doors_min_room_exists_frac = 0.25
+    doors_max_room_exists_frac = 0.75
+    doors_birrt_num_attempts = 10
+    doors_birrt_num_iters = 100
+    doors_birrt_smooth_amt = 50
+    doors_draw_debug = False
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -279,11 +290,12 @@ class GlobalSettings:
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For BEHAVIOR and PyBullet environments, actions are
-                    # lower level, so tasks take more actions to complete.
+                    # For certain environments, actions are lower level, so
+                    # tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "doors": 1000,
                     # For the very simple TouchPoint environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
