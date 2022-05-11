@@ -193,17 +193,18 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     num_validation = max(1, int(len(X_arr_regressor) * 0.1))
     X_train_arr_regressor = X_arr_regressor[num_validation:]
     Y_train_arr_regressor = Y_arr_regressor[num_validation:]
-    X_valid_arr_regressor = X_arr_regressor[:num_validation]
-    Y_valid_arr_regressor = Y_arr_regressor[:num_validation]
     degenerate_regressor.fit(X_train_arr_regressor, Y_train_arr_regressor)
-    # If the degenerate sampler is good enough, keep it.
-    squared_error = 0.0
-    for x, y in zip(X_valid_arr_regressor, Y_valid_arr_regressor):
+    # If the degenerate sampler is good enough, keep it. For extra safety,
+    # look at not only the held-out validation set, but also the train set.
+    # Note that we are looking at max error here, not mean error, to be extra
+    # sure that we have learned an accurate deterministic function.
+    max_squared_error = 0.0
+    for x, y in zip(X_arr_regressor, Y_arr_regressor):
         y_hat = degenerate_regressor.predict(x)
-        squared_error += np.sum((y - y_hat)**2)
-    mean_squared_error = squared_error / num_validation
-    if mean_squared_error < CFG.sampler_degenerate_mse_thresh:
-        logging.info(f"Keeping degenerate sampler (mse={mean_squared_error}).")
+        squared_error = np.sum((y - y_hat)**2)
+        max_squared_error = max(squared_error, max_squared_error)
+    if max_squared_error < CFG.sampler_degenerate_error_thresh:
+        logging.info(f"Keeping degenerate sampler (err={max_squared_error}).")
         # Create a trivial classifier, just to conform to the expected inputs
         # of the learned sampler. Note that if only one class is seen in the
         # training data for the classifier, it will always predict that one
@@ -223,7 +224,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                                param_option).sampler
 
     logging.info("Degenerate sampler did not fit data "
-                 f"(mse={mean_squared_error}), discarding.")
+                 f"(err={max_squared_error}), discarding.")
 
     # Fit regressor to data
     logging.info("Fitting regressor...")

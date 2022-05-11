@@ -221,7 +221,7 @@ class GlobalSettings:
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
-    sampler_degenerate_mse_thresh = 1e-4
+    sampler_degenerate_error_thresh = 1e-6
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
