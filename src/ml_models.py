@@ -183,10 +183,6 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
 class DistributionRegressor(abc.ABC):
     """ABC for classes that learn a continuous conditional sampler."""
 
-    def __init__(self, seed: int) -> None:
-        self._seed = seed
-        self._rng = np.random.default_rng(seed)
-
     @abc.abstractmethod
     def fit(self, X: Array, y: Array) -> None:
         """Train the model on the given data.
