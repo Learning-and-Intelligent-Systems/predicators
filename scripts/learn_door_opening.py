@@ -46,29 +46,42 @@ OTHER_SETTINGS: Dict[str, Any] = {
     # "sesame_max_samples_per_step": 1,
 }
 
+APPROACH_TO_COLOR = {
+    "Ours (nonparam)": "green",
+    "Ours (gaussian)": "darkorange",
+    "Ours (degenerate)": "black",
+}
+
+LOAD_CSV = False
+
 
 def _main() -> None:
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
-    all_results = []
-    for seed in range(START_SEED, START_SEED + NUM_SEEDS):
-        for num_data in NUM_DATA:
-            # Run non-parameterized.
-            results = _run_experiment(seed, num_data, parameterized=False)
-            all_results.append(results)
-            # Run parameterized with different sampler types.
-            for sampler_type in SAMPLER_TYPES:
-                results = _run_experiment(seed,
-                                          num_data,
-                                          parameterized=True,
-                                          sampler_type=sampler_type)
+    df_outfile = os.path.join(outdir, f"door_opening_{DATA_TYPE}.csv")
+    if LOAD_CSV and os.path.exists(df_outfile):
+        df = pd.read_csv(df_outfile)
+        logging.info(df)
+        logging.info(f"Loaded dataframe from {df_outfile}")
+    else:
+        all_results = []
+        for seed in range(START_SEED, START_SEED + NUM_SEEDS):
+            for num_data in NUM_DATA:
+                # Run non-parameterized.
+                results = _run_experiment(seed, num_data, parameterized=False)
                 all_results.append(results)
-    # Display and save all data.
-    df = pd.DataFrame(all_results)
-    logging.info(df)
-    raw_outfile = os.path.join(outdir, "door_opening_raw.csv")
-    df.to_csv(raw_outfile)
-    logging.info(f"Saved dataframe to {raw_outfile}")
+                # Run parameterized with different sampler types.
+                for sampler_type in SAMPLER_TYPES:
+                    results = _run_experiment(seed,
+                                              num_data,
+                                              parameterized=True,
+                                              sampler_type=sampler_type)
+                    all_results.append(results)
+        # Display and save all data.
+        df = pd.DataFrame(all_results)
+        df.to_csv(df_outfile)
+        logging.info(df)
+        logging.info(f"Saved dataframe to {df_outfile}")
     # Make a plot.
     plt.figure()
     seed_key = "Seed"
@@ -87,13 +100,17 @@ def _main() -> None:
             y_means.append(mean)
             y_stds.append(std)
         # Add a line to the plot.
-        plt.errorbar(xs, y_means, yerr=y_stds, label=approach)
+        plt.errorbar(xs,
+                     y_means,
+                     yerr=y_stds,
+                     label=approach,
+                     color=APPROACH_TO_COLOR[approach])
     plt.xlabel(x_key)
     plt.ylabel(y_key)
-    plt.title("Standalone Door Learning")
+    plt.title(f"{DATA_TYPE} data")
     plt.legend()
     plt.tight_layout()
-    outfile = os.path.join(outdir, "door_opening.png")
+    outfile = os.path.join(outdir, f"door_opening_{DATA_TYPE}.png")
     plt.savefig(outfile)
     logging.info(f"Saved plot to {outfile}")
 
@@ -112,9 +129,9 @@ def _run_experiment(seed: int,
 
     # Set up the results dict.
     if not parameterized:
-        approach_name = "Nonparameterized"
+        approach_name = "Ours (nonparam)"
     else:
-        approach_name = f"Parameterized ({sampler_type})"
+        approach_name = f"Ours ({sampler_type})"
     results = {
         "Approach": approach_name,
         "Seed": seed,
