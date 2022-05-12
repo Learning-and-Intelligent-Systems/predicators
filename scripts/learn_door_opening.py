@@ -10,6 +10,7 @@ import logging
 import os
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -46,16 +47,18 @@ OTHER_SETTINGS: Dict[str, Any] = {
     # "sesame_max_samples_per_step": 1,
 }
 
+FONT_SIZE = 18
 APPROACH_TO_COLOR = {
     "Ours (nonparam)": "green",
     "Ours (gaussian)": "darkorange",
     "Ours (degenerate)": "black",
 }
 
-LOAD_CSV = False
+LOAD_CSV = True
 
 
 def _main() -> None:
+    matplotlib.rcParams.update({'font.size': FONT_SIZE})
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     df_outfile = os.path.join(outdir, f"door_opening_{DATA_TYPE}.csv")
@@ -103,6 +106,7 @@ def _main() -> None:
         plt.errorbar(xs,
                      y_means,
                      yerr=y_stds,
+                     marker="o",
                      label=approach,
                      color=APPROACH_TO_COLOR[approach])
     plt.xlabel(x_key)
