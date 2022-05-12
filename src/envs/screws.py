@@ -68,7 +68,13 @@ class ScrewsEnv(BaseEnv):
         # MagnetizeGripper
         # DemagnetizeGripper
 
+        # TODO (somewhere else):
+        # - sampling initial positions for things/training problems
+        # - rendering env
+
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._gripper_type)
+        self._receptacle = Object("receptacle", self._receptacle_type)
 
     @classmethod
     def get_name(cls) -> str:
@@ -76,7 +82,17 @@ class ScrewsEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        x, y, magnetization = action
+        # NOTE: currently, the agent can only pick things up or
+        # drop them iff its staying still. This isn't particularly
+        # realistic... 
+        dx, dy, magnetization = action
+        if dx != 0.0 or dy != 0.0:
+            return self._transition_move(state, dx, dy)
+        
+        if magnetization > 0.5:
+            return self._transition_magnetize(state)
+        else:
+            return self._transition_demagnetize(state)
 
 
     def _transition_move(self, state: State, x: float, y: float) -> State:
@@ -131,20 +147,27 @@ class ScrewsEnv(BaseEnv):
                 # the gripper.
                 if self._ScrewPickupable_holds(state, [self._robot, screw]):
                     screw_height = state.get(screw, "height")
-                    next_state.update(screw, {"pose_y": ry - screw_height})
+                    next_state.update(screw, {"pose_y": ry - (screw_height / 2.0)})
                     next_state.update(screw, {"held": True})
 
         return next_state
 
     def _transition_demagnetize(self, state: State) -> State:
         next_state = state.copy()
-        # TODO: drop all screws that are being held.
-        # In particular, figure out how to make them fall to
-        # the nearest available surface (ground or receptacle...)
-        # (I think i can do this by simply checking if we're near
-        # the receptacle and then dropping the screw there if so,
-        # else just drop the y to the ground and keep the x the
-        # same.)
+        all_screws = state.get_objects(self._screw_type)
+        for screw in all_screws:
+            if self._HoldingScrew_holds(state, [screw]):
+                # NOTE: This currently will drop all screws into the receptacle
+                # iff AboveReceptacle is true. Otherwise, it will drop all screws
+                # onto the floor. This neglects the case where the gripper is
+                # half over the receptacle and half not.
+                screw_height = state.get(screw, "height")    
+                if self._AboveReceptacle_holds(state, [self._robot, self._receptacle]):
+                    receptacle_y = state.get(self._receptacle, "pose_y")
+                    next_state.update(screw, {"pose_y": receptacle_y + (screw_height / 2.0)})
+                else:
+                    next_state.update(screw, {"pose_y": self.rz_y_lb + (screw_height / 2.0)})
+
         return next_state
         
 
