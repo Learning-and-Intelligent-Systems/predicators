@@ -26,6 +26,7 @@ from predicators.src.structs import Array
 # State dims: [x, y, theta, mass, friction, rot, target_rot, open, rx, ry]
 NUM_STATE_DIMS = 10
 MASS, FRICTION, ROT, TARGET_ROT, OPEN = range(3, 8)
+DOOR_X = 0
 # Param dims: [delta_rot, delta_open]
 NUM_PARAM_DIMS = 2
 
@@ -37,8 +38,9 @@ NUM_SEEDS = 10
 # NUM_DATA = [5, 10]
 # NUM_SEEDS = 2
 
-SAMPLER_TYPES = ["gaussian", "degenerate"]
-DATA_TYPE = "loaded"  # "synthetic"
+SAMPLER_TYPES = ["degenerate"] #["gaussian", "degenerate"]
+DATA_TYPE = "synthetic"  # "synthetic"
+DOOR_X_OFFSET = 10.0
 
 OTHER_SETTINGS: Dict[str, Any] = {
     # Uncomment to debug the pipeline.
@@ -54,7 +56,7 @@ APPROACH_TO_COLOR = {
     "Ours (degenerate)": "black",
 }
 
-LOAD_CSV = True
+LOAD_CSV = False
 
 
 def _main() -> None:
@@ -145,10 +147,12 @@ def _run_experiment(seed: int,
                  f"{num_data} data on seed {seed}.")
 
     # Generate data.
-    X, Y = _generate_data(num_data)
     num_valid = max(1, int(num_data * VALIDATION_FRAC))
-    train_X, full_test_X = X[num_valid:], X[:num_valid]
-    train_Y, test_Y = Y[num_valid:], Y[:num_valid]
+    num_train = num_data - num_valid
+    assert DATA_TYPE == "synthetic", "TODO fix"
+    train_X, train_Y = _generate_data(num_train, door_x_offset=0.0)
+    # Test generalization!
+    full_test_X, test_Y = _generate_data(num_valid, door_x_offset=DOOR_X_OFFSET)
 
     # At test time, we don't have the parameterized dims.
     test_X = full_test_X[:, :NUM_STATE_DIMS]
@@ -257,19 +261,22 @@ def _train_parameterized_model(
     return _sample_fn
 
 
-def _generate_data(num_data: int) -> Tuple[Array, Array]:
+def _generate_data(num_data: int, door_x_offset: float) -> Tuple[Array, Array]:
     if DATA_TYPE == "synthetic":
-        return _generate_synthetic_data(num_data)
-    assert DATA_TYPE == "loaded"
-    data_dir = "saved_approaches"
-    file_prefix = f"doors__nsrt_learning__{CFG.seed}____MoveToDoor,MoveThroughDoor__doors_main_{num_data}.saved"  # pylint: disable=line-too-long
-    input_file = os.path.join(data_dir, file_prefix + ".option_X.npy")
-    output_file = os.path.join(data_dir, file_prefix + ".option_Y.npy")
-    X = np.load(input_file)
-    Y = np.load(output_file)
-    # Remove extra first dimension, which is all 1s.
-    assert all(X[:, 0] == 1)
-    X = X[:, 1:]
+        X, Y = _generate_synthetic_data(num_data)
+    else:
+        assert DATA_TYPE == "loaded"
+        data_dir = "saved_approaches"
+        file_prefix = f"doors__nsrt_learning__{CFG.seed}____MoveToDoor,MoveThroughDoor__doors_main_{num_data}.saved"  # pylint: disable=line-too-long
+        input_file = os.path.join(data_dir, file_prefix + ".option_X.npy")
+        output_file = os.path.join(data_dir, file_prefix + ".option_Y.npy")
+        X = np.load(input_file)
+        Y = np.load(output_file)
+        # Remove extra first dimension, which is all 1s.
+        assert all(X[:, 0] == 1)
+        X = X[:, 1:]
+    # For testing generalization.
+    X[:, DOOR_X] += door_x_offset
     return (X, Y)
 
 
