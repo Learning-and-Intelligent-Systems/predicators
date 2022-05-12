@@ -180,6 +180,26 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         return y
 
 
+class DistributionRegressor(abc.ABC):
+    """ABC for classes that learn a continuous conditional sampler."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, y: Array) -> None:
+        """Train the model on the given data.
+
+        X is two-dimensional, y is one-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        """Return a sampled prediction on the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+
 class BinaryClassifier(abc.ABC):
     """ABC for binary classifier classes."""
 
@@ -663,7 +683,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         return candidate_ys[sample_idx]
 
 
-class NeuralGaussianRegressor(PyTorchRegressor):
+class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
 
     def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
@@ -748,6 +768,18 @@ class NeuralGaussianRegressor(PyTorchRegressor):
     @staticmethod
     def _split_prediction(Y: Tensor) -> Tuple[Tensor, Tensor]:
         return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
+
+
+class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
+    """A model that can be used as a DistributionRegressor, but that always
+    returns the same output given the same input.
+
+    Implemented as an MLPRegressor().
+    """
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        del rng  # unused
+        return self.predict(x)
 
 
 class KNeighborsRegressor(_ScikitLearnRegressor):
