@@ -895,35 +895,38 @@ class DoorsEnv(BaseEnv):
         # Sample a grid where any room can be reached from any other room.
         # To do this, perform a random tree search in the grid for a certain
         # number of steps, starting from a random location.
-        assert self._room_map_size > 1
-        room_map = np.zeros((self._room_map_size, self._room_map_size),
-                            dtype=bool)
-        min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
-        max_num_rooms = int(self._max_room_exists_frac * room_map.size)
-        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
-
-        def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:
-            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            r, c = room
-            for dr, dc in deltas:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
-                    yield (nr, nc)
-
-        start_r, start_c = rng.integers(self._room_map_size, size=2)
-        start_room = (start_r, start_c)
-        queue = [start_room]
-        visited = {start_room}
-        room_map[start_room] = 1
-        while room_map.sum() < num_rooms:
-            queue_idx = rng.integers(len(queue))
-            room = queue.pop(queue_idx)
-            for neighbor in _get_neighbors(room):
-                if neighbor not in visited:
-                    room_map[neighbor] = 1
-                    visited.add(neighbor)
-                    queue.append(neighbor)
+        room_map = np.ones((2, 2), dtype=bool)
         return room_map
+
+        # assert self._room_map_size > 1
+        # room_map = np.zeros((self._room_map_size, self._room_map_size),
+        #                     dtype=bool)
+        # min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
+        # max_num_rooms = int(self._max_room_exists_frac * room_map.size)
+        # num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+
+        # def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:
+        #     deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        #     r, c = room
+        #     for dr, dc in deltas:
+        #         nr, nc = r + dr, c + dc
+        #         if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
+        #             yield (nr, nc)
+
+        # start_r, start_c = rng.integers(self._room_map_size, size=2)
+        # start_room = (start_r, start_c)
+        # queue = [start_room]
+        # visited = {start_room}
+        # room_map[start_room] = 1
+        # while room_map.sum() < num_rooms:
+        #     queue_idx = rng.integers(len(queue))
+        #     room = queue.pop(queue_idx)
+        #     for neighbor in _get_neighbors(room):
+        #         if neighbor not in visited:
+        #             room_map[neighbor] = 1
+        #             visited.add(neighbor)
+        #             queue.append(neighbor)
+        # return room_map
 
     @staticmethod
     def _get_open_door_target_value(mass: float, friction: float,
