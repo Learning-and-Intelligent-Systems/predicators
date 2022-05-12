@@ -106,8 +106,10 @@ class ScrewsEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._ScrewPickupable, self._AboveReceptacle,
-                self._HoldingScrew, self._ScrewInReceptacle}
+        return {
+            self._ScrewPickupable, self._AboveReceptacle, self._HoldingScrew,
+            self._ScrewInReceptacle
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -119,8 +121,10 @@ class ScrewsEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._MoveToScrew, self._MoveToReceptacle,
-                self._MagnetizeGripper, self._DemagnetizeGripper}
+        return {
+            self._MoveToScrew, self._MoveToReceptacle, self._MagnetizeGripper,
+            self._DemagnetizeGripper
+        }
 
     @property
     def action_space(self) -> Box:

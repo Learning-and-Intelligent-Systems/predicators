@@ -135,6 +135,10 @@ class GlobalSettings:
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
 
+    # screws env parameters
+    screws_num_screws_train = [15, 20]
+    screws_num_screws_test = [25, 30]
+
     # parameters for random options approach
     random_options_max_tries = 100
 
