@@ -79,12 +79,12 @@ PLOT_GROUPS = {
     "Action Baselines in CoverEnv Excluding Covers,Holding": [
         ("Main (Greedy Lookahead)", "blue",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
-        ("GLIB", "green",
+        ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
-        ("Random Actions", "red",
+        ("Random Actions", "blueviolet",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random_actions" in v)
          ),
-        ("No Actions", "purple",
+        ("No Actions", "gold",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_actions" in v)),
     ],
 }
