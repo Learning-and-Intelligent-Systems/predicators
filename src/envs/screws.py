@@ -1,6 +1,6 @@
 """Toy screw picking environment."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,7 +38,7 @@ class ScrewsEnv(BaseEnv):
         super.__init__()
         # Types
         self._screw_type = Type(
-            "screw", ["pose_x", "pose_y", "color", "width", "height", "held"])
+            "screw", ["pose_x", "pose_y", "width", "height", "held"])
         self._gripper_type = Type("gripper", ["pose_x", "pose_y", "width"])
         self._receptacle_type = Type("receptacle",
                                      ["pose_x", "pose_y", "width"])
@@ -82,8 +82,7 @@ class ScrewsEnv(BaseEnv):
             types=[self._gripper_type])
 
         # TODO (somewhere else):
-        # - sampling initial positions for things/training problems
-        # - rendering env
+        # - render env
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._gripper_type)
@@ -92,6 +91,13 @@ class ScrewsEnv(BaseEnv):
     @classmethod
     def get_name(cls) -> str:
         return "screws"
+
+    @property
+    def action_space(self) -> Box:
+        # dimensions: [dx, dy, magnetized vs. unmagnetized].
+        lowers = np.array([self.rz_x_lb, self.rz_y_lb, 0.0], dtype=np.float32)
+        uppers = np.array([self.rz_x_ub, self.rz_y_ub, 1.0], dtype=np.float32)
+        return Box(lowers, uppers)    
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -107,9 +113,70 @@ class ScrewsEnv(BaseEnv):
         else:
             return self._transition_demagnetize(state)
 
+    def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
+                   rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        screw_name_to_pos: Dict[str, Tuple[float, float]] = {}
+        for _ in range(num_tasks):
+            num_screws = rng.choice(possible_num_screws)
+            for si in range(num_screws):
+                existing_xys = set(screw_name_to_pos.values())
+                while True:
+                    # sample a random iniitial position for the screw
+                    # such that it is not in the receptacle.
+                    y_pos = self.rz_y_lb
+                    x_pos = rng.uniform(self.rz_x_lb,
+                                        self.rz_x_ub - self._receptacle_width)
+                    if self._surface_xy_is_clear(x_pos, y_pos, existing_xys):
+                        screw_name_to_pos[f"screw_{si}"] = (x_pos, y_pos)
+                        break
+                init_state, goal_atoms = self._get_init_state_and_goal_atoms_from_positions(
+                    screw_name_to_pos, rng)
+                tasks.append(Task(init_state, goal_atoms))
+        return tasks
+
+    def _get_init_state_and_goal_atoms_from_positions(
+            self, screw_name_to_pos: Dict[str, Tuple[float, float]],
+            rng: np.random.Generator) -> Tuple[State, Set[GroundAtom]]:
+        data: Dict[Object, Array] = {}
+        goal_atoms: Set[GroundAtom] = set()
+        # Select a random screw that needs to be in the receptacle as the goal
+        # GroundAtom.
+        goal_screw_name = rng.choice(list(screw_name_to_pos.keys()))
+
+        # Create screw objects.
+        for screw_name, (x_pos, y_pos) in screw_name_to_pos.items():
+            screw_obj = Object(screw_name, self._screw_type)
+            data[screw_obj] = np.array(
+                [x_pos, y_pos, self._screw_width, self._screw_height, 0.0])
+            # If the screw is the goal screw, then add it being in the receptacle
+            # to the goal atoms.
+            if screw_name == goal_screw_name:
+                goal_atoms.add(
+                    self._ScrewInReceptacle(screw_obj, self._receptacle))
+
+        # Create receptacle object such that it is attached to the
+        # right wall and halfway between the ceiling and floor.
+        data[self._receptacle] = np.array([
+            self.rz_x_ub - (self._receptacle_width / 2.0), self.rz_y_ub / 2.0,
+            self._receptacle_width
+        ])
+        # Create gripper object such that it is at the middle of
+        # the screen.
+        data[self._robot] = np.array([(self.rz_x_lb + self.rz_x_ub) / 2.0,
+                                      (self.rz_y_ub + self.rz_y_ub) / 2.0,
+                                      self._gripper_width])
+        return State(data)
+
+    def _surface_xy_is_clear(self, x: float, y: float,
+                             existing_xys: Set[Tuple[float, float]]) -> bool:
+        for (existing_x, existing_y) in existing_xys:
+            if not (abs(existing_x - x) < self._screw_width
+                    and abs(existing_y - y) < self._screw_height):
+                return False
+        return True
+
     def _transition_move(self, state: State, x: float, y: float) -> State:
-        # TODO: Detect collisions and either don't allow move when there's
-        # collisions, or stop the move at that point.
         next_state = state.copy()
         rx = state.get(self._robot, "pose_x")
         ry = state.get(self._robot, "pose_y")
@@ -185,15 +252,6 @@ class ScrewsEnv(BaseEnv):
                         screw, {"pose_y": self.rz_y_lb + (screw_height / 2.0)})
 
         return next_state
-
-    @property
-    def action_space(self) -> Box:
-        # dimensions: [dx, dy, magnetized vs. unmagnetized].
-        # Note that dx and dy are normalized to be between -1.0
-        # and 1.0.
-        lowers = np.array([-1.0, -1.0, 0.0], dtype=np.float32)
-        uppers = np.array([1.0, 1.0, 1.0], dtype=np.float32)
-        return Box(lowers, uppers)
 
     @staticmethod
     def _ScrewPickupable_holds(self, state: State,
