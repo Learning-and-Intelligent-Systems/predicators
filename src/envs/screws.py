@@ -28,6 +28,8 @@ class ScrewsEnv(BaseEnv):
     _screw_width: ClassVar[float] = 0.05
     _screw_height: ClassVar[float] = 0.05
     _magnetic_field_dist: ClassVar[float] = 0.1
+    num_screws_train: ClassVar[List[int]] = CFG.screws_num_screws_train
+    num_screws_test: ClassVar[List[int]] = CFG.screws_num_screws_test
     # Reachable zone boundaries.
     rz_x_lb = -5.0
     rz_x_ub = 5.0
@@ -88,16 +90,44 @@ class ScrewsEnv(BaseEnv):
         self._robot = Object("robby", self._gripper_type)
         self._receptacle = Object("receptacle", self._receptacle_type)
 
+    def _generate_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               possible_num_screws=self.num_screws_train,
+                               rng=self._train_rng)
+
+    def _generate_test_tasks(self) -> List[Task]:
+        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+                               possible_num_screws=self.num_screws_test,
+                               rng=self._test_rng)
+
     @classmethod
     def get_name(cls) -> str:
         return "screws"
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {self._ScrewPickupable, self._AboveReceptacle,
+                self._HoldingScrew, self._ScrewInReceptacle}
+
+    @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._ScrewInReceptacle}
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._screw_type, self._gripper_type, self._receptacle_type}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._MoveToScrew, self._MoveToReceptacle,
+                self._MagnetizeGripper, self._DemagnetizeGripper}
 
     @property
     def action_space(self) -> Box:
         # dimensions: [dx, dy, magnetized vs. unmagnetized].
         lowers = np.array([self.rz_x_lb, self.rz_y_lb, 0.0], dtype=np.float32)
         uppers = np.array([self.rz_x_ub, self.rz_y_ub, 1.0], dtype=np.float32)
-        return Box(lowers, uppers)    
+        return Box(lowers, uppers)
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
