@@ -18,9 +18,9 @@ from predicators.src import utils
 from predicators.src.ml_models import MLPRegressor
 from predicators.src.settings import CFG
 
-NUM_TRAIN_DATA = 10000
+NUM_TRAIN_DATA = 1000
 NUM_TEST_DATA = 1000
-PERTURB_AMOUNTS = [0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+PERTURB_AMOUNTS = [0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 
 START_SEED = 456
 NUM_SEEDS = 5
@@ -116,7 +116,6 @@ def _generate_data(num_data: int, rng: np.random.Generator,
     if constraint_perb > 0:
         X_constrained_noise = rng.uniform(-constraint_perb, constraint_perb,
                                           size=X_constrained.shape)
-        import ipdb; ipdb.set_trace()
         X_constrained = X_constrained + X_constrained_noise
     # Complete the inputs by concatenation.
     X = np.concatenate((X_main, X_constrained), axis=1)
@@ -137,7 +136,9 @@ def _constraint_fn(X_main: NDArray) -> NDArray:
 
 def _output_fn(X: NDArray) -> NDArray:
     # Make the function "easy" in terms of the constraint.
-    return 2.0 * _constraint_fn(X) - 1.0
+    y0 = 2.0 * _constraint_fn(X) - 1.0
+    y1 = np.sin(_constraint_fn(X))
+    return np.concatenate((y0, y1), axis=1)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
