@@ -60,15 +60,32 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "CoverEnv Excluding Covers,Holding": [
-        ("Section Kid", "blue", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_section_kid" in v)),
-        ("Entropy", "orange", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_entropy_0.1" in v)),
-        ("BALD", "green", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_BALD_0.01" in v)),
-        ("Silent Kid", "red", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_silent_kid" in v)),
+    "Main Approaches in CoverEnv Excluding Covers,Holding": [
+        ("Main (Ensemble)", "blue",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+        ("Main (MLP)", "orange",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main_mlp")),
+    ],
+    "Query Baselines in CoverEnv Excluding Covers,Holding": [
+        ("Main (Entropy)", "blue",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+        ("Ask All", "green",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "section_kid" in v)),
+        ("Ask None", "red",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "silent_kid" in v)),
+        ("Ask Randomly", "purple",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random_kid" in v)),
+    ],
+    "Action Baselines in CoverEnv Excluding Covers,Holding": [
+        ("Main (Greedy Lookahead)", "blue",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+        ("GLIB", "turquoise",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
+        ("Random Actions", "blueviolet",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random_actions" in v)
+         ),
+        ("No Actions", "gold",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_actions" in v)),
     ],
 }
 
