@@ -309,10 +309,10 @@ class ScrewsEnv(BaseEnv):
         gripper_maxx = gripper_center_pose + gripper_width / 2.0
         screw_x = state.get(screw, "pose_x")
         screw_width = state.get(screw, "width")
-        screw_minx = screw_x - screw_width / 2.0
-        screw_maxx = screw_x + screw_width / 2.0
+        screw_minx = screw_x - (screw_width / 2.0)
+        screw_maxx = screw_x + (screw_width / 2.0)
 
-        return screw_maxy < gripper_y and \
+        return screw_maxy <= gripper_y and \
             screw_maxx > gripper_minx and \
             screw_minx < gripper_maxx
 
