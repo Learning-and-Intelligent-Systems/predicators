@@ -174,7 +174,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     var_to_unchanging_feat_ind,
                     parent._changing_var_order,
                     var_to_obj,
-                ) # concatenated unchanging features of the option's objects
+                )  # concatenated unchanging features of the option's objects
                 other_objects = [
                     o for o in s.data.keys() if o not in curr_option.objects
                 ]

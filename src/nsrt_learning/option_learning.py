@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 import copy
 import logging
-from typing import Dict, List, Sequence, Set, Tuple, Type, Union
+from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
@@ -597,6 +597,9 @@ class _RLOptionLearnerBase(abc.ABC):
         experience: List[Tuple[List[State], List[Action], List[int],
                                List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
+        """Updates a _LearnedNeuralParameterizedOption via reinforcement
+        learning.
+        """
         raise NotImplementedError("Override me!")
 
 
@@ -604,20 +607,17 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
     """Does not update the policy associated with a
     _LearnedNeuralParameterizedOption."""
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def update(
         self, option: _LearnedNeuralParameterizedOption,
         experience: List[Tuple[List[State], List[Action], List[int],
                                List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
-        # Update would be made to option._regressor, which might require changing
-        # the code in ml_models.py so that you can train without re-initializing
-        # the network.
-        # Update would also be made to the policy of the parameterized option
-        # itself, e.g. to perform both exploitation and exploration.
+        # Update would be made to option._regressor, which might require
+        # changing the code in ml_models.py so that you can train without
+        # re-initializing the network. Update would also be made to the policy
+        # of the parameterized option itself, e.g. to perform both exploitation
+        # and exploration.
         return copy.deepcopy(option)
 
 
@@ -626,7 +626,6 @@ def _create_absolute_option_param(state: State,
                                                              List[int]],
                                   var_order: Sequence[Variable],
                                   var_to_obj: VarToObjSub) -> Array:
-
     vec = []
     for v in var_order:
         obj = var_to_obj[v]
