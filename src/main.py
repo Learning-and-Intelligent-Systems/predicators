@@ -164,6 +164,7 @@ def _run_pipeline(env: BaseEnv,
                 learning_time += 0.0  # ignore loading time
             else:
                 learning_start = time.time()
+                logging.info("Learning from interaction results...")
                 approach.learn_from_interaction_results(interaction_results)
                 learning_time += time.time() - learning_start
             # Evaluate approach after every online learning cycle.

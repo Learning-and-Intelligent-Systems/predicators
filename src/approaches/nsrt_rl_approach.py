@@ -218,7 +218,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         parent = cast(_LearnedNeuralParameterizedOption,
                                       curr_option.parent)
                         var_to_obj = dict(
-                            zip(parent._operator.parameters,  # pylint: disable=protected-access
+                            zip(
+                                parent._operator.parameters,  # pylint: disable=protected-access
                                 curr_option.objects))
                         var_to_unchanging_feat_ind = \
                             NSRTReinforcementLearningApproach._get_unchanging_features(  # pylint: disable=line-too-long
