@@ -104,19 +104,22 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                                       _train_task_idx=i)
             self._train_task_to_online_traj[i] = traj
 
-        # This maps each unique _Option to experience data. The experience data
-        # is a List of (states, actions, rewards, relative_parameters) tuples.
-        # Each tuple contains information regarding a single time the _Option
-        # was run.
+        # This maps each unique _Option to its experience data from the previous
+        # online learning cycle. The experience data is a List of (states,
+        # actions, rewards, relative_parameters) tuples. Each tuple contains
+        # information from a single instance the _Option was run. Each element
+        # of the tuple is a list: 'states' is the list of states visited,
+        # 'actions' is the list of actions taken, 'rewards' is the list of the
+        # rewards acculumated, and 'relative_params' is a list of (relative)
+        # parameter that was passed into the _LearnedNeuralParameterizedOption's
+        # regressor. The relative parameter is necessary to store because during
+        # learning, the RLOptionLearner will need to reconstruct the input to
+        # the regressor.
         option_to_data: Dict[str,
                              List] = {}  # option_name -> online experience
 
-        # For each task, for each _Option involved in the trajectory, compute
-        # and store (s, a, s', r, relative_param) data. Note that we won't
-        # literally compute a list of such tuples for each time an _Option is
-        # called. Instead, we will just compute all the states, actions,
-        # rewards, relative_params experienced by each _Option, for each time
-        # it was called, as individual lists.
+        # For each training task, compute the experience data for each _Option
+        # we see used in that training task.
         for i in range(len(self._train_tasks)):
             plan = self._train_task_to_option_plan[i]
             traj = self._train_task_to_online_traj[i]
@@ -137,14 +140,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             curr_relative_params = []
             actions = (a for a in traj.actions)
 
-            # Generate transition data, (s, a, s', r, relative_param). The
-            # reward R(s, a, s') = neg_reward if s' is not within epsilon of the
-            # subgoal, and pos_reward otherwise.
             for j, s in enumerate(traj.states[1:]):
+                # Store the state, action, and relative parameter.
                 curr_states.append(s)
                 curr_actions.append(next(actions))
-                var_to_obj = dict(
-                    zip(parent._operator.parameters, curr_option.objects))
                 curr_state_changing_feat = _create_absolute_option_param(
                     s,
                     parent._changing_var_to_feat,
@@ -156,20 +155,26 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 relative_param = subgoal_state_changing_feat - curr_state_changing_feat
                 curr_relative_params.append(relative_param)
 
+                # In the remaining code in this loop we compute the reward.
+                reward = 0
+
                 # Add large negative reward if any object's features that are
-                # not supposed to change, do change
+                # not supposed to change, do change. This can happen in two
+                # ways: 1) if any of the features of the option's objects that
+                # aren't supposed to change, change, and 2) if any feature of
+                # any other objects in the state, change.
                 prev_state_unchanging_feat = _create_absolute_option_param(
                     curr_states[-2],
                     var_to_unchanging_feat_ind,
                     parent._changing_var_order,
                     var_to_obj,
-                )
+                )  # concatenated unchanging features of the option's objects
                 curr_state_unchanging_feat = _create_absolute_option_param(
                     curr_states[-1],
                     var_to_unchanging_feat_ind,
                     parent._changing_var_order,
                     var_to_obj,
-                )
+                ) # concatenated unchanging features of the option's objects
                 other_objects = [
                     o for o in s.data.keys() if o not in curr_option.objects
                 ]
@@ -184,19 +189,21 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_states[-1].vec(other_objects),
                     atol=1e-5)
                 if not option_objects_unchanged or not other_objects_unchanged:
-                    curr_rewards.append(self._neg_reward * 10)
+                    reward += self._neg_reward * 10
 
-                # Ignore the optimization that checks for repeated states.
+                # Add pos_reward if we got within epsilon of the option's
+                # subgoal, otherwise we add neg_reward.
+                # Ignore the optimization that checks for repeated states, which
+                # messes with the terminal state check.
                 _ = curr_option.memory.pop("last_state", None)
                 if curr_option.terminal(s):
                     # Check if we reached our subgoal within a tolerance.
                     if np.allclose(relative_param,
                                    0,
                                    atol=self._reward_epsilon):
-                        reward = self._pos_reward
+                        curr_rewards.append(reward + self._pos_reward)
                     else:
-                        reward = self._neg_reward
-                    curr_rewards[-1] += reward
+                        curr_rewards.append(reward + self._neg_reward)
 
                     # Store transition data.
                     option_to_data[curr_option.name].append(
@@ -230,8 +237,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_rewards = []
                     curr_relative_params = []
 
-                else:
-                    curr_rewards[-1] += self._neg_reward
+                else:  # if this transition did not get us to the terminal state
+                    curr_rewards.append(reward + self._neg_reward)
                     # Handle the case where we are at the last state in the
                     # trajectory, but it is not a terminal state of the current
                     # option. This occurs when the plan we are executing is a
