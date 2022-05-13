@@ -157,8 +157,8 @@ class ScrewsEnv(BaseEnv):
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
-        screw_name_to_pos: Dict[str, Tuple[float, float]] = {}
         for _ in range(num_tasks):
+            screw_name_to_pos: Dict[str, Tuple[float, float]] = {}
             num_screws = rng.choice(possible_num_screws)
             for si in range(num_screws):
                 existing_xys = set(screw_name_to_pos.values())
@@ -173,7 +173,7 @@ class ScrewsEnv(BaseEnv):
                         break
                 init_state, goal_atoms = self._get_init_state_and_goal_atoms_from_positions(
                     screw_name_to_pos, rng)
-                tasks.append(Task(init_state, goal_atoms))
+            tasks.append(Task(init_state, goal_atoms))
         return tasks
 
     def _get_init_state_and_goal_atoms_from_positions(
