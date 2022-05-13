@@ -268,7 +268,7 @@ class ScrewsEnv(BaseEnv):
                 if self._ScrewPickupable_holds(state, [self._robot, screw]):
                     screw_height = state.get(screw, "height")
                     next_state.set(screw, "pose_y", ry - (screw_height / 2.0))
-                    next_state.set(screw, "held", 1)
+                    next_state.set(screw, "held", 1.0)
 
         return next_state
 
@@ -290,7 +290,7 @@ class ScrewsEnv(BaseEnv):
                 else:
                     next_state.set(
                         screw, "pose_y", self.rz_y_lb + (screw_height / 2.0))
-                next_state.set(screw, "held", -1)
+                next_state.set(screw, "held", 0.0)
 
         return next_state
 
@@ -340,7 +340,7 @@ class ScrewsEnv(BaseEnv):
     def _HoldingScrew_holds(state: State,
                             objects: Sequence[Object]) -> bool:
         screw, = objects
-        return state.get(screw, "held") != -1
+        return state.get(screw, "held") > 0.5
 
     @staticmethod
     def _ScrewInReceptacle_holds(state: State,
@@ -357,7 +357,7 @@ class ScrewsEnv(BaseEnv):
         receptacle_minx = receptacle_x - receptacle_width / 2.0
 
         screw_held = state.get(screw, "held")
-        return screw_held != -1 and screw_minx > receptacle_minx and screw_maxx < receptacle_maxx
+        return screw_held <= 0.5 and screw_minx > receptacle_minx and screw_maxx < receptacle_maxx
 
     def _MoveToScrew_policy(self, state: State, memory: Dict,
                             objects: Sequence[Object],

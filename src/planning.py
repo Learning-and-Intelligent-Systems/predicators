@@ -291,6 +291,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
         None for _ in skeleton
     ]
+
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
             return longest_failed_refinement, False
