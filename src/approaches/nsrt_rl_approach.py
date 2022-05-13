@@ -12,7 +12,8 @@ from predicators.src.approaches.base_approach import ApproachFailure, \
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.nsrt_learning.option_learning import \
-    _DummyRLOptionLearner, create_option_learner, _create_absolute_option_param
+    _create_absolute_option_param, _DummyRLOptionLearner, \
+    create_option_learner
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Dataset, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, Object, ParameterizedOption, \
@@ -117,14 +118,17 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             for j, s in enumerate(traj.states[1:]):
                 curr_states.append(s)
                 curr_actions.append(next(actions))
-                var_to_obj = dict(zip(curr_option.parent._operator.parameters, curr_option.objects))
+                var_to_obj = dict(
+                    zip(curr_option.parent._operator.parameters,
+                        curr_option.objects))
                 curr_state_changing_feat = _create_absolute_option_param(
                     s,
                     curr_option.parent._changing_var_to_feat,
                     curr_option.parent._changing_var_order,
                     var_to_obj,
                 )
-                subgoal_state_changing_feat = curr_option.memory["absolute_params"]
+                subgoal_state_changing_feat = curr_option.memory[
+                    "absolute_params"]
                 relative_param = subgoal_state_changing_feat - curr_state_changing_feat
                 curr_relative_params.append(relative_param)
 
@@ -132,17 +136,18 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 _ = curr_option.memory.pop("last_state", None)
                 if curr_option.terminal(s):
                     # Check if we reached our subgoal within a tolerance.
-                    if np.allclose(relative_param, 0, atol=self._reward_epsilon):
+                    if np.allclose(relative_param,
+                                   0,
+                                   atol=self._reward_epsilon):
                         reward = self._pos_reward
                     else:
                         reward = self._neg_reward
                     curr_rewards.append(reward)
 
                     # Store transition data.
-                    option_to_data[curr_option.name].append((
-                        curr_states, curr_actions, curr_rewards,
-                        curr_relative_params
-                    ))
+                    option_to_data[curr_option.name].append(
+                        (curr_states, curr_actions, curr_rewards,
+                         curr_relative_params))
 
                     # Advance to next option.
                     curr_option_idx += 1
@@ -164,26 +169,31 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_rewards = []
                     curr_relative_params = []
 
-                else:  # case where terminal state not reached.
+                else:
                     curr_rewards.append(self._neg_reward)
                     # Handle the case where we are at the last state in the
                     # trajectory, but it is not a terminal state of the current
                     # option. This occurs when the plan we are executing is a
                     # partial refinement.
                     if j + 1 == len(traj.states) - 1:
-                        # Store transition data.
-                        option_to_data[curr_option.name].append((
-                            curr_states, curr_actions, curr_rewards,
-                            curr_relative_params
-                        ))
-                        # TODO: check that this last option has num actions taken to this point + max_num_steps left (has a sufficient number of steps left) such that the reward we assign is fair
+                        # Store transition data if this option had enough steps
+                        # to run. Note that j+1 actions were taken to get to
+                        # the current state.
+                        if CFG.max_num_steps_interaction_request - (
+                                j + 1) >= CFG.last_option_steps_threshold:
+                            option_to_data[curr_option.name].append(
+                                (curr_states, curr_actions, curr_rewards,
+                                 curr_relative_params))
 
                 # Add large negative reward if any object's features that are
                 # not supposed to change, do change.
                 var_to_unchanging_feat_ind = {}
-                for var, changing_indices in curr_option.parent._changing_var_to_feat.items():
+                for var, changing_indices in curr_option.parent._changing_var_to_feat.items(
+                ):
                     dim = var_to_obj[var].type.dim
-                    unchanging_indices = [i for i in range(dim) if i not in changing_indices]
+                    unchanging_indices = [
+                        i for i in range(dim) if i not in changing_indices
+                    ]
                     var_to_unchanging_feat_ind[var] = unchanging_indices
                 initial_state_unchanging_feat = _create_absolute_option_param(
                     curr_states[0],
@@ -197,10 +207,21 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_option.parent._changing_var_order,
                     var_to_obj,
                 )
-                other_objects = [o for o in s.data.keys() if o not in curr_option.objects]
+                other_objects = [
+                    o for o in s.data.keys() if o not in curr_option.objects
+                ]
                 # The first term checks the current option's objects, and the
                 # second term checks all other objects.
-                if not np.allclose(terminal_state_unchanging_feat - initial_state_unchanging_feat, 0, atol=1e-5) or not np.allclose(curr_states[0].vec(other_objects), curr_states[-1].vec(other_objects), atol=1e-5):
+                option_objects_unchanged = np.allclose(
+                    terminal_state_unchanging_feat -
+                    initial_state_unchanging_feat,
+                    0,
+                    atol=1e-5)
+                other_objects_unchanged = np.allclose(
+                    curr_states[0].vec(other_objects),
+                    curr_states[-1].vec(other_objects),
+                    atol=1e-5)
+                if not option_objects_unchanged or not other_objects_unchanged:
                     curr_rewards[-1] += self._neg_reward * 10
 
         # Call the RL option learner on each option.
