@@ -102,14 +102,14 @@ class GlobalSettings:
     behavior_randomize_init_state = False
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
+    pybullet_use_gui = True  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
-    pybullet_robot = "fetch"
+    pybullet_robot = "panda"
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
