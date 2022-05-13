@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 import copy
 import logging
-from typing import Dict, List, Sequence, Set, Tuple
+from typing import Dict, List, Sequence, Set, Tuple, Type, Union
 
 import numpy as np
 from gym.spaces import Box
@@ -34,7 +34,12 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     if CFG.option_learner == "direct_bc_nonparameterized":
         return _DirectBehaviorCloningOptionLearner(action_space,
                                                    is_parameterized=False)
-    if CFG.option_learner == "dummy_rl":
+    raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
+
+
+def create_rl_option_learner() -> _RLOptionLearnerBase:
+    """Create an RL option learner given its name."""
+    if CFG.rl_option_learner == "dummy_rl":
         return _DummyRLOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
@@ -589,7 +594,8 @@ class _RLOptionLearnerBase(abc.ABC):
     @abc.abstractmethod
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: Tuple[List[State], List[Action], List[int], List[Array]]
+        experience: List[Tuple[List[State], List[Action], List[int],
+                               List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
         raise NotImplementedError("Override me!")
 
@@ -603,7 +609,8 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
 
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: Tuple[List[State], List[Action], List[int], List[Array]]
+        experience: List[Tuple[List[State], List[Action], List[int],
+                               List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
         # Update would be made to option._regressor, which might require changing

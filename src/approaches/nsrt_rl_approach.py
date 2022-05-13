@@ -1,7 +1,7 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import Dict, List, Sequence, Set
+from typing import Dict, List, Sequence, Set, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -12,12 +12,13 @@ from predicators.src.approaches.base_approach import ApproachFailure, \
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.nsrt_learning.option_learning import \
-    _create_absolute_option_param, _DummyRLOptionLearner, \
-    create_option_learner
+    _create_absolute_option_param, _LearnedNeuralParameterizedOption, \
+    create_rl_option_learner
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Array, Dataset, InteractionRequest, \
-    InteractionResult, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+from predicators.src.structs import NSRT, Action, Array, Dataset, \
+    InteractionRequest, InteractionResult, LowLevelTrajectory, Object, \
+    ParameterizedOption, Predicate, State, Task, Type, Variable, VarToObjSub, \
+    _Option
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -31,8 +32,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self._online_learning_cycle = 0
-        self._train_task_to_online_traj: Dict[int,
-                                              List[LowLevelTrajectory]] = {}
+        self._train_task_to_online_traj: Dict[int, LowLevelTrajectory] = {}
         self._train_task_to_option_plan: Dict[int, List[_Option]] = {}
         self._reward_epsilon = CFG.reward_epsilon
         self._pos_reward = CFG.pos_reward
@@ -48,9 +48,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # We need to create a separate RL option learner for each option because
         # each one will maintain its own unique state associated with the
         # learning process.
-        CFG.option_learner = CFG.rl_option_learner
         self._option_learners = {
-            n.name: create_option_learner(self._action_space)
+            n.name: create_rl_option_learner()
             for n in self._nsrts
         }
 
@@ -81,29 +80,55 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             requests.append(request)
         return requests
 
+    @staticmethod
+    def _get_unchanging_features(
+            changing_var_to_feat: Dict[Variable, List[int]],
+            var_to_obj: VarToObjSub) -> Dict[Variable, List[int]]:
+        var_to_unchanging_feat_ind = {}
+        for var, changing_indices in changing_var_to_feat.items():
+            dim = var_to_obj[var].type.dim
+            unchanging_indices = [
+                i for i in range(dim) if i not in changing_indices
+            ]
+            var_to_unchanging_feat_ind[var] = unchanging_indices
+        return var_to_unchanging_feat_ind
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         self._online_learning_cycle += 1
         # We get one result per training task.
         for i, result in enumerate(results):
-            states = result.states
-            actions = result.actions
-            traj = LowLevelTrajectory(states,
-                                      actions,
+            traj = LowLevelTrajectory(result.states,
+                                      result.actions,
                                       _is_demo=False,
                                       _train_task_idx=i)
             self._train_task_to_online_traj[i] = traj
 
-        option_to_data = {}  # option_name -> online experience data
+        # This maps each unique _Option to experience data. The experience data
+        # is a List of (states, actions, rewards, relative_parameters) tuples.
+        # Each tuple contains information regarding a single time the _Option
+        # was run.
+        option_to_data: Dict[str,
+                             List] = {}  # option_name -> online experience
 
         # For each task, for each _Option involved in the trajectory, compute
-        # and store (s, a, s', r, relative_param) data.
+        # and store (s, a, s', r, relative_param) data. Note that we won't
+        # literally compute a list of such tuples for each time an _Option is
+        # called. Instead, we will just compute all the states, actions,
+        # rewards, relative_params experienced by each _Option, for each time
+        # it was called, as individual lists.
         for i in range(len(self._train_tasks)):
             plan = self._train_task_to_option_plan[i]
             traj = self._train_task_to_online_traj[i]
 
             curr_option_idx = 0
             curr_option = plan[curr_option_idx]
+            parent = cast(_LearnedNeuralParameterizedOption,
+                          curr_option.parent)
+            var_to_obj = dict(
+                zip(parent._operator.parameters, curr_option.objects))
+            var_to_unchanging_feat_ind = NSRTReinforcementLearningApproach._get_unchanging_features(
+                parent._changing_var_to_feat, var_to_obj)
             if curr_option.name not in option_to_data:
                 option_to_data[curr_option.name] = []
             curr_states = [traj.states[0]]
@@ -119,18 +144,47 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 curr_states.append(s)
                 curr_actions.append(next(actions))
                 var_to_obj = dict(
-                    zip(curr_option.parent._operator.parameters,
-                        curr_option.objects))
+                    zip(parent._operator.parameters, curr_option.objects))
                 curr_state_changing_feat = _create_absolute_option_param(
                     s,
-                    curr_option.parent._changing_var_to_feat,
-                    curr_option.parent._changing_var_order,
+                    parent._changing_var_to_feat,
+                    parent._changing_var_order,
                     var_to_obj,
                 )
                 subgoal_state_changing_feat = curr_option.memory[
                     "absolute_params"]
                 relative_param = subgoal_state_changing_feat - curr_state_changing_feat
                 curr_relative_params.append(relative_param)
+
+                # Add large negative reward if any object's features that are
+                # not supposed to change, do change
+                prev_state_unchanging_feat = _create_absolute_option_param(
+                    curr_states[-2],
+                    var_to_unchanging_feat_ind,
+                    parent._changing_var_order,
+                    var_to_obj,
+                )
+                curr_state_unchanging_feat = _create_absolute_option_param(
+                    curr_states[-1],
+                    var_to_unchanging_feat_ind,
+                    parent._changing_var_order,
+                    var_to_obj,
+                )
+                other_objects = [
+                    o for o in s.data.keys() if o not in curr_option.objects
+                ]
+                # The first term checks the current option's objects, and the
+                # second term checks all other objects.
+                option_objects_unchanged = np.allclose(
+                    prev_state_unchanging_feat - curr_state_unchanging_feat,
+                    0,
+                    atol=1e-5)
+                other_objects_unchanged = np.allclose(
+                    curr_states[-2].vec(other_objects),
+                    curr_states[-1].vec(other_objects),
+                    atol=1e-5)
+                if not option_objects_unchanged or not other_objects_unchanged:
+                    curr_rewards.append(self._neg_reward * 10)
 
                 # Ignore the optimization that checks for repeated states.
                 _ = curr_option.memory.pop("last_state", None)
@@ -142,7 +196,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         reward = self._pos_reward
                     else:
                         reward = self._neg_reward
-                    curr_rewards.append(reward)
+                    curr_rewards[-1] += reward
 
                     # Store transition data.
                     option_to_data[curr_option.name].append(
@@ -153,6 +207,13 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_option_idx += 1
                     if curr_option_idx < len(plan):
                         curr_option = plan[curr_option_idx]
+                        parent = cast(_LearnedNeuralParameterizedOption,
+                                      curr_option.parent)
+                        var_to_obj = dict(
+                            zip(parent._operator.parameters,
+                                curr_option.objects))
+                        var_to_unchanging_feat_ind = NSRTReinforcementLearningApproach._get_unchanging_features(
+                            parent._changing_var_to_feat, var_to_obj)
                         if curr_option.name not in option_to_data:
                             option_to_data[curr_option.name] = []
                     else:
@@ -170,7 +231,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_relative_params = []
 
                 else:
-                    curr_rewards.append(self._neg_reward)
+                    curr_rewards[-1] += self._neg_reward
                     # Handle the case where we are at the last state in the
                     # trajectory, but it is not a terminal state of the current
                     # option. This occurs when the plan we are executing is a
@@ -185,45 +246,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                                 (curr_states, curr_actions, curr_rewards,
                                  curr_relative_params))
 
-                # Add large negative reward if any object's features that are
-                # not supposed to change, do change.
-                var_to_unchanging_feat_ind = {}
-                for var, changing_indices in curr_option.parent._changing_var_to_feat.items(
-                ):
-                    dim = var_to_obj[var].type.dim
-                    unchanging_indices = [
-                        i for i in range(dim) if i not in changing_indices
-                    ]
-                    var_to_unchanging_feat_ind[var] = unchanging_indices
-                initial_state_unchanging_feat = _create_absolute_option_param(
-                    curr_states[0],
-                    var_to_unchanging_feat_ind,
-                    curr_option.parent._changing_var_order,
-                    var_to_obj,
-                )
-                terminal_state_unchanging_feat = _create_absolute_option_param(
-                    curr_states[-1],
-                    var_to_unchanging_feat_ind,
-                    curr_option.parent._changing_var_order,
-                    var_to_obj,
-                )
-                other_objects = [
-                    o for o in s.data.keys() if o not in curr_option.objects
-                ]
-                # The first term checks the current option's objects, and the
-                # second term checks all other objects.
-                option_objects_unchanged = np.allclose(
-                    terminal_state_unchanging_feat -
-                    initial_state_unchanging_feat,
-                    0,
-                    atol=1e-5)
-                other_objects_unchanged = np.allclose(
-                    curr_states[0].vec(other_objects),
-                    curr_states[-1].vec(other_objects),
-                    atol=1e-5)
-                if not option_objects_unchanged or not other_objects_unchanged:
-                    curr_rewards[-1] += self._neg_reward * 10
-
         # Call the RL option learner on each option.
         for option_name, experience in option_to_data.items():
             corresponding_nsrts = [
@@ -231,7 +253,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             ]
             assert len(corresponding_nsrts) == 1
             corresponding_nsrt = corresponding_nsrts[0]
-            corresponding_parent_option = corresponding_nsrt.option
+            corresponding_parent_option = cast(
+                _LearnedNeuralParameterizedOption, corresponding_nsrt.option)
             updated_option = self._option_learners[
                 corresponding_nsrt.name].update(corresponding_parent_option,
                                                 experience)
