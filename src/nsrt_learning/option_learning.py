@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
@@ -587,8 +588,8 @@ class _RLOptionLearnerBase(abc.ABC):
 
     @abc.abstractmethod
     def update(
-        option: _LearnedNeuralParameterizedOption,
-        experience: List[List[State], List[Action], List[int], List[Array]]
+        self, option: _LearnedNeuralParameterizedOption,
+        experience: Tuple[List[State], List[Action], List[int], List[Array]]
     ) -> _LearnedNeuralParameterizedOption:
         raise NotImplementedError("Override me!")
 
@@ -602,7 +603,7 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
 
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[List[State], List[Action], List[int], List[Array]]
+        experience: Tuple[List[State], List[Action], List[int], List[Array]]
     ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
         # Update would be made to option._regressor, which might require changing
@@ -610,7 +611,7 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
         # the network.
         # Update would also be made to the policy of the parameterized option
         # itself, e.g. to perform both exploitation and exploration.
-        return option.copy()
+        return copy.deepcopy(option)
 
 
 def _create_absolute_option_param(state: State,

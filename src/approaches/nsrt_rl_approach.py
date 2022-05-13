@@ -1,7 +1,7 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import List, Sequence, Set, Dict 
+from typing import Dict, List, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -12,11 +12,11 @@ from predicators.src.approaches.base_approach import ApproachFailure, \
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.nsrt_learning.option_learning import \
-    _DummyRLOptionLearner, create_option_learner
+    _DummyRLOptionLearner, create_option_learner, _create_absolute_option_param
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Dataset, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, State, Task, Type
+    Predicate, State, Task, Type, _Option
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -80,14 +80,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             requests.append(request)
         return requests
 
-    @classmethod
-    def infer_delta(cls, object: Object, states: List[State],
-                    features: List[str]) -> List[float]:
-        return [
-            states[-1].get(object, feat) - states[0].get(object, feat)
-            for feat in features
-        ]
-
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         self._online_learning_cycle += 1
@@ -118,10 +110,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             curr_rewards = []
             curr_relative_params = []
             actions = (a for a in traj.actions)
-            block = [b for b in curr_option.objects
-                     if b.type.name == 'block'][0]
-            robot = [r for r in curr_option.objects
-                     if r.type.name == 'robot'][0]
 
             # Generate transition data, (s, a, s', r, relative_param). The
             # reward R(s, a, s') = neg_reward if s' is not within epsilon of the
@@ -129,65 +117,32 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             for j, s in enumerate(traj.states[1:]):
                 curr_states.append(s)
                 curr_actions.append(next(actions))
-                # TODO: is there a better way to do this based on
-                # curr_option.parent._changing_obj_feats? Couldn't access this
-                # field, but could access curr_option.parent._changing_var_order
-                if curr_option.params[-1] > 0:  # if holding becomes true (pick)
-                    changing_obj_feats = np.array([
-                        s.get(block, 'grasp'),
-                        s.get(robot, 'x'),
-                        s.get(robot, 'y'),
-                        s.get(robot, 'grip'),
-                        s.get(robot, 'holding')
-                    ])
-                else:
-                    changing_obj_feats = np.array([
-                        s.get(block, 'x'),
-                        s.get(block, 'grasp'),
-                        s.get(robot, 'x'),
-                        s.get(robot, 'grip'),
-                        s.get(robot, 'holding')
-                    ])
-                curr_relative_params.append(
-                    curr_option.memory["absolute_params"] - changing_obj_feats)
+                var_to_obj = dict(zip(curr_option.parent._operator.parameters, curr_option.objects))
+                curr_state_changing_feat = _create_absolute_option_param(
+                    s,
+                    curr_option.parent._changing_var_to_feat,
+                    curr_option.parent._changing_var_order,
+                    var_to_obj,
+                )
+                subgoal_state_changing_feat = curr_option.memory["absolute_params"]
+                relative_param = subgoal_state_changing_feat - curr_state_changing_feat
+                curr_relative_params.append(relative_param)
 
+                # Ignore the optimization that checks for repeated states.
+                _ = curr_option.memory.pop("last_state", None)
                 if curr_option.terminal(s):
-                    # TODO: make this not hardcoded to be environment specific,
-                    # or implement specifically per environment and throw an
-                    # error for environments where this is not implemented.
-
-                    # Check if we reached our subgoal within a tolerance by
-                    # checking the difference between our proposed subgoal
-                    # (which is expressed relatively) and the relative changes
-                    # that actually happened.
-                    if curr_option.params[-1] > 0:  # if holding becomes true
-                        dblock = self.infer_delta(block, curr_states,
-                                                  ['grasp'])
-                        drobot = self.infer_delta(
-                            robot, curr_states, ['x', 'y', 'grip', 'holding'])
-                    else:
-                        dblock = self.infer_delta(block, curr_states,
-                                                  ['x', 'grasp'])
-                        drobot = self.infer_delta(robot, curr_states,
-                                                  ['x', 'grip', 'holding'])
-                    actual_delta = np.array(dblock + drobot)
-                    if np.allclose(curr_option.params,
-                                   actual_delta,
-                                   atol=self._reward_epsilon):
+                    # Check if we reached our subgoal within a tolerance.
+                    if np.allclose(relative_param, 0, atol=self._reward_epsilon):
                         reward = self._pos_reward
                     else:
                         reward = self._neg_reward
                     curr_rewards.append(reward)
-                    # TODO: add large negative reward if objects that shouldn't
-                    # change do get changed. And, for the objects that we are
-                    # supposed to change, make sure they only change in the
-                    # dimensions we expect them to.
 
                     # Store transition data.
-                    option_to_data[curr_option.name].append([
+                    option_to_data[curr_option.name].append((
                         curr_states, curr_actions, curr_rewards,
                         curr_relative_params
-                    ])
+                    ))
 
                     # Advance to next option.
                     curr_option_idx += 1
@@ -217,10 +172,36 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     # partial refinement.
                     if j + 1 == len(traj.states) - 1:
                         # Store transition data.
-                        option_to_data[curr_option.name].append([
+                        option_to_data[curr_option.name].append((
                             curr_states, curr_actions, curr_rewards,
                             curr_relative_params
-                        ])
+                        ))
+                        # TODO: check that this last option has num actions taken to this point + max_num_steps left (has a sufficient number of steps left) such that the reward we assign is fair
+
+                # Add large negative reward if any object's features that are
+                # not supposed to change, do change.
+                var_to_unchanging_feat_ind = {}
+                for var, changing_indices in curr_option.parent._changing_var_to_feat.items():
+                    dim = var_to_obj[var].type.dim
+                    unchanging_indices = [i for i in range(dim) if i not in changing_indices]
+                    var_to_unchanging_feat_ind[var] = unchanging_indices
+                initial_state_unchanging_feat = _create_absolute_option_param(
+                    curr_states[0],
+                    var_to_unchanging_feat_ind,
+                    curr_option.parent._changing_var_order,
+                    var_to_obj,
+                )
+                terminal_state_unchanging_feat = _create_absolute_option_param(
+                    curr_states[-1],
+                    var_to_unchanging_feat_ind,
+                    curr_option.parent._changing_var_order,
+                    var_to_obj,
+                )
+                other_objects = [o for o in s.data.keys() if o not in curr_option.objects]
+                # The first term checks the current option's objects, and the
+                # second term checks all other objects.
+                if not np.allclose(terminal_state_unchanging_feat - initial_state_unchanging_feat, 0, atol=1e-5) or not np.allclose(curr_states[0].vec(other_objects), curr_states[-1].vec(other_objects), atol=1e-5):
+                    curr_rewards[-1] += self._neg_reward * 10
 
         # Call the RL option learner on each option.
         for option_name, experience in option_to_data.items():
