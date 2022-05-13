@@ -46,6 +46,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
     elif CFG.env == "repeated_nextto_single_option":
         nsrts = _get_repeated_nextto_single_option_gt_nsrts()
+    elif CFG.env == "screws":
+        nsrts = _get_screws_gt_nsrts()
     elif CFG.env.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
@@ -1893,6 +1895,86 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
         rn_grasp_nsrt.option_vars,
         lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
     nsrts.add(grasp_nsrt)
+
+    return nsrts
+
+
+def _get_screws_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for ScrewsEnv."""
+    screw_type, gripper_type, receptacle_type = _get_types_by_names(
+        CFG.env, ["screw", "gripper", "receptacle"])
+    ScrewPickupable, AboveReceptacle, HoldingScrew, ScrewInReceptacle = _get_predicates_by_names(
+        CFG.env, [
+            "ScrewPickupable", "AboveReceptacle", "HoldingScrew",
+            "ScrewInReceptacle"
+        ])
+    MoveToScrew, MoveToReceptacle, MagnetizeGripper, DemagnetizeGripper = _get_options_by_names(
+        CFG.env, [
+            "MoveToScrew", "MoveToReceptacle", "MagnetizeGripper",
+            "DemagnetizeGripper"
+        ])
+
+    nsrts: Set[NSRT] = set()
+    
+    # MoveToScrew
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, screw]
+    option_vars = [robot, screw]
+    option = MoveToScrew
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(ScrewPickupable, [robot, screw])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {ScrewPickupable}
+    move_to_screw_nsrt = NSRT(
+        "MoveToScrew", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars, null_sampler)
+    nsrts.add(move_to_screw_nsrt)
+
+    # MoveToReceptacle
+    robot = Variable("?robot", gripper_type)
+    receptacle = Variable("?receptacle", receptacle_type)
+    parameters = [robot, receptacle]
+    option_vars = [robot, receptacle]
+    option = MoveToReceptacle
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(AboveReceptacle, [robot, receptacle])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {ScrewPickupable}
+    move_to_receptacle_nsrt = NSRT(
+        "MoveToReceptacle", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars, null_sampler)
+    nsrts.add(move_to_receptacle_nsrt)
+
+    # MagnetizeGripper
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, screw]
+    option_vars = [robot]
+    option = MagnetizeGripper
+    preconditions = {LiftedAtom(ScrewPickupable, [robot, screw])}
+    add_effects = {LiftedAtom(HoldingScrew, [screw])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {HoldingScrew}
+    magnetize_gripper_nsrt = NSRT(
+        "MagnetizeGripper", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars, null_sampler)
+    nsrts.add(magnetize_gripper_nsrt)
+
+    # DemagnetizeGripper
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, screw]
+    option_vars = [robot]
+    option = DemagnetizeGripper
+    preconditions = {LiftedAtom(HoldingScrew, [screw]), LiftedAtom(AboveReceptacle, [robot, receptacle])}
+    add_effects = {}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {HoldingScrew}
+    demagnetize_gripper_nsrt = NSRT(
+        "DemagnetizeGripper", parameters, preconditions, add_effects, delete_effects,
+        side_predicates, option, option_vars, null_sampler)
+    nsrts.add(demagnetize_gripper_nsrt)
 
     return nsrts
 

@@ -46,7 +46,7 @@ class ScrewsEnv(BaseEnv):
                                      ["pose_x", "pose_y", "width"])
         # Predicates
         self._ScrewPickupable = Predicate(
-            "AboveScrew", [self._gripper_type, self._screw_type],
+            "ScrewPickupable", [self._gripper_type, self._screw_type],
             self._ScrewPickupable_holds)
         self._AboveReceptacle = Predicate(
             "AboveReceptacle", [self._gripper_type, self._receptacle_type],
