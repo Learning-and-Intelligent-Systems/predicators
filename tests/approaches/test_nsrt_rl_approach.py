@@ -37,14 +37,10 @@ def test_nsrt_reinforcement_learning_approach():
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
-    approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
         env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
-    approach.load(online_learning_cycle=1)
-    with pytest.raises(FileNotFoundError):
-        approach.load(online_learning_cycle=2)
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     for task in env.get_test_tasks():

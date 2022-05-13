@@ -598,8 +598,7 @@ class _RLOptionLearnerBase(abc.ABC):
                                List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
         """Updates a _LearnedNeuralParameterizedOption via reinforcement
-        learning.
-        """
+        learning."""
         raise NotImplementedError("Override me!")
 
 

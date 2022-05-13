@@ -13,12 +13,11 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.nsrt_learning.option_learning import \
     _create_absolute_option_param, _LearnedNeuralParameterizedOption, \
-    create_rl_option_learner
+    _RLOptionLearnerBase, create_rl_option_learner
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, Array, Dataset, \
-    InteractionRequest, InteractionResult, LowLevelTrajectory, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, Variable, VarToObjSub, \
-    _Option
+from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Task, Type, Variable, VarToObjSub, _Option
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -32,6 +31,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
         self._online_learning_cycle = 0
+        self._initial_trajectories: List[LowLevelTrajectory] = []
+        self._option_learners: Dict[str, _RLOptionLearnerBase] = {}
         self._train_task_to_online_traj: Dict[int, LowLevelTrajectory] = {}
         self._train_task_to_option_plan: Dict[int, List[_Option]] = {}
         self._reward_epsilon = CFG.reward_epsilon
@@ -64,14 +65,12 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             task = self._train_tasks[i]
             try:
                 _act_policy = self.solve(task, CFG.timeout)
-                # Store the list of _Option objects corresponding to this policy.
                 self._train_task_to_option_plan[i] = self._last_plan
             except (ApproachTimeout, ApproachFailure) as e:
                 partial_refinements = e.info.get("partial_refinements")
                 assert partial_refinements is not None
                 _, plan = max(partial_refinements, key=lambda x: len(x[1]))
                 _act_policy = utils.option_plan_to_policy(plan)
-                # Store the list of _Option objects corresponding to this policy.
                 self._train_task_to_option_plan[i] = plan
             request = InteractionRequest(train_task_idx=i,
                                          act_policy=_act_policy,
@@ -129,9 +128,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             parent = cast(_LearnedNeuralParameterizedOption,
                           curr_option.parent)
             var_to_obj = dict(
-                zip(parent._operator.parameters, curr_option.objects))
-            var_to_unchanging_feat_ind = NSRTReinforcementLearningApproach._get_unchanging_features(
-                parent._changing_var_to_feat, var_to_obj)
+                zip(parent._operator.parameters, curr_option.objects))  # pylint: disable=protected-access
+            var_to_unchanging_feat_ind = \
+                NSRTReinforcementLearningApproach._get_unchanging_features(
+                parent._changing_var_to_feat, var_to_obj)  # pylint: disable=protected-access
             if curr_option.name not in option_to_data:
                 option_to_data[curr_option.name] = []
             curr_states = [traj.states[0]]
@@ -146,13 +146,14 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 curr_actions.append(next(actions))
                 curr_state_changing_feat = _create_absolute_option_param(
                     s,
-                    parent._changing_var_to_feat,
-                    parent._changing_var_order,
+                    parent._changing_var_to_feat,  # pylint: disable=protected-access
+                    parent._changing_var_order,  # pylint: disable=protected-access
                     var_to_obj,
                 )
                 subgoal_state_changing_feat = curr_option.memory[
                     "absolute_params"]
-                relative_param = subgoal_state_changing_feat - curr_state_changing_feat
+                relative_param = subgoal_state_changing_feat - \
+                    curr_state_changing_feat
                 curr_relative_params.append(relative_param)
 
                 # In the remaining code in this loop we compute the reward.
@@ -166,13 +167,13 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 prev_state_unchanging_feat = _create_absolute_option_param(
                     curr_states[-2],
                     var_to_unchanging_feat_ind,
-                    parent._changing_var_order,
+                    parent._changing_var_order,  # pylint: disable=protected-access
                     var_to_obj,
                 )  # concatenated unchanging features of the option's objects
                 curr_state_unchanging_feat = _create_absolute_option_param(
                     curr_states[-1],
                     var_to_unchanging_feat_ind,
-                    parent._changing_var_order,
+                    parent._changing_var_order,  # pylint: disable=protected-access
                     var_to_obj,
                 )  # concatenated unchanging features of the option's objects
                 other_objects = [
@@ -217,10 +218,11 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         parent = cast(_LearnedNeuralParameterizedOption,
                                       curr_option.parent)
                         var_to_obj = dict(
-                            zip(parent._operator.parameters,
+                            zip(parent._operator.parameters,  # pylint: disable=protected-access
                                 curr_option.objects))
-                        var_to_unchanging_feat_ind = NSRTReinforcementLearningApproach._get_unchanging_features(
-                            parent._changing_var_to_feat, var_to_obj)
+                        var_to_unchanging_feat_ind = \
+                            NSRTReinforcementLearningApproach._get_unchanging_features(  # pylint: disable=line-too-long
+                            parent._changing_var_to_feat, var_to_obj)  # pylint: disable=protected-access
                         if curr_option.name not in option_to_data:
                             option_to_data[curr_option.name] = []
                     else:
