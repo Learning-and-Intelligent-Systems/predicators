@@ -1964,12 +1964,13 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     # DemagnetizeGripper
     robot = Variable("?robot", gripper_type)
     screw = Variable("?screw", screw_type)
-    parameters = [robot, screw]
+    receptacle = Variable("?receptacle", receptacle_type)
+    parameters = [robot, screw, receptacle]
     option_vars = [robot]
     option = DemagnetizeGripper
     preconditions = {LiftedAtom(HoldingScrew, [screw]), LiftedAtom(AboveReceptacle, [robot, receptacle])}
-    add_effects = {}
-    delete_effects: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(ScrewInReceptacle, [screw, receptacle])}
+    delete_effects = {LiftedAtom(HoldingScrew, [screw])}
     side_predicates = {HoldingScrew}
     demagnetize_gripper_nsrt = NSRT(
         "DemagnetizeGripper", parameters, preconditions, add_effects, delete_effects,
