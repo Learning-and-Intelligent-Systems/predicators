@@ -4,7 +4,7 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.envs.doors import DoorsEnv
-from predicators.src.structs import Action, GroundAtom, State, Task
+from predicators.src.structs import Action, GroundAtom, Object, State, Task
 
 
 def test_doors():
@@ -167,12 +167,30 @@ def test_doors():
     right_door = right_doors[0]
 
     # Test options working as expected.
+
+    # Compute the key parameters for the OpenDoor options.
+    get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
+
+    def _get_delta_rot_to_open_door(door: Object, s: State) -> float:
+        mass = s.get(door, "mass")
+        friction = s.get(door, "friction")
+        target_rot = s.get(door, "target_rot")
+        target_val = get_open_door_target_value(mass=mass,
+                                                friction=friction,
+                                                target_rot=target_rot)
+        current_val = s.get(door, "rot")
+        delta_rot = target_val - current_val
+        return delta_rot
+
+    top_door_delta = _get_delta_rot_to_open_door(top_door, state)
+    right_door_delta = _get_delta_rot_to_open_door(right_door, state)
+
     option_plan = [
         MoveToDoor.ground([robot, top_door], []),
-        OpenDoor.ground([robot, top_door], []),
+        OpenDoor.ground([top_door, robot], [top_door_delta, 1.0]),
         MoveThroughDoor.ground([robot, top_door], []),
         MoveToDoor.ground([robot, right_door], []),
-        OpenDoor.ground([robot, right_door], []),
+        OpenDoor.ground([right_door, robot], [right_door_delta, 1.0]),
         MoveThroughDoor.ground([robot, right_door], []),
     ]
     policy = utils.option_plan_to_policy(option_plan)
@@ -205,4 +223,5 @@ def test_doors():
     assert not MoveThroughDoor.ground([robot, top_door], []).initiable(s)
 
     # OpenDoor is not initiable if we're not touching the door.
-    assert not OpenDoor.ground([robot, right_door], []).initiable(state)
+    assert not OpenDoor.ground([right_door, robot],
+                               [right_door_delta, 1.0]).initiable(state)
