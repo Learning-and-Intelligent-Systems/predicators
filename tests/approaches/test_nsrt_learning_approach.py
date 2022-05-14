@@ -250,6 +250,7 @@ def test_grammar_search_invention_approach():
         "grammar_search_score_function": "prediction_error",
         "grammar_search_search_algorithm": "hill_climbing",
         "pretty_print_when_loading": True,
+        "grammar_search_gbfs_num_evals": 1,
     }
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
@@ -259,10 +260,8 @@ def test_grammar_search_invention_approach():
                    num_train_tasks=3,
                    additional_settings=additional_settings)
     # Test approach with unrecognized search algorithm.
-    additional_settings = {
-        "grammar_search_search_algorithm": "not a real search algorithm",
-        "grammar_search_gbfs_num_evals": 10,
-    }
+    additional_settings["grammar_search_search_algorithm"] = \
+        "not a real search algorithm"
     with pytest.raises(Exception) as e:
         _test_approach(env_name="cover",
                        approach_name="grammar_search_invention",
@@ -272,10 +271,7 @@ def test_grammar_search_invention_approach():
                        additional_settings=additional_settings)
     assert "Unrecognized grammar_search_search_algorithm" in str(e.value)
     # Test approach with gbfs.
-    additional_settings = {
-        "grammar_search_search_algorithm": "gbfs",
-        "grammar_search_gbfs_num_evals": 10,
-    }
+    additional_settings["grammar_search_search_algorithm"] = "gbfs"
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",
