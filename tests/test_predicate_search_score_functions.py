@@ -167,42 +167,6 @@ def test_prediction_error_score_function():
     assert all_included_s < holding_included_s < none_included_s
     assert all_included_s < handempty_included_s  # not better than none
 
-    # Tests for BlocksEnv.
-    utils.flush_cache()
-    utils.reset_config({
-        "env": "blocks",
-        "offline_data_method": "demo+replay",
-        "num_train_tasks": 5,
-        "blocks_num_blocks_train": [3],
-        "blocks_num_blocks_test": [4],
-    })
-    env = BlocksEnv()
-    ablated = {"Holding", "Clear", "GripperOpen"}
-    initial_predicates = set()
-    name_to_pred = {}
-    for p in env.predicates:
-        if p.name in ablated:
-            name_to_pred[p.name] = p
-        else:
-            initial_predicates.add(p)
-    candidates = {p: 1.0 for p in name_to_pred.values()}
-    train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
-    atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
-                                                    env.predicates)
-    score_function = _PredictionErrorScoreFunction(initial_predicates,
-                                                   atom_dataset, candidates,
-                                                   train_tasks)
-    all_included_s = score_function.evaluate(set(candidates))
-    holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
-    clear_included_s = score_function.evaluate({name_to_pred["Clear"]})
-    gripper_open_included_s = score_function.evaluate(
-        {name_to_pred["GripperOpen"]})
-    none_included_s = score_function.evaluate(set())
-    assert all_included_s < holding_included_s < none_included_s
-    assert all_included_s < clear_included_s < none_included_s
-    assert all_included_s < gripper_open_included_s < none_included_s
-
 
 def test_hadd_match_score_function():
     """Tests for _RelaxationHeuristicMatchBasedScoreFunction() with hAdd.."""
@@ -258,7 +222,11 @@ def test_relaxation_energy_score_function():
     atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
                                                     env.predicates)
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-        initial_predicates, atom_dataset, candidates, train_tasks, ["hadd"])
+        initial_predicates,
+        atom_dataset,
+        candidates,
+        train_tasks, ["hadd"],
+        lookahead_depth=1)
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
@@ -294,90 +262,6 @@ def test_relaxation_energy_score_function():
         score_function = _MockEnergy(initial_predicates, atom_dataset,
                                      candidates, train_tasks, [heuristic_name])
         assert score_function.evaluate(set()) == float("inf")
-
-    # Tests for BlocksEnv.
-    utils.flush_cache()
-    utils.reset_config({
-        "env": "blocks",
-        "offline_data_method": "demo+replay",
-        "num_train_tasks": 5,
-        "blocks_num_blocks_train": [3],
-        "blocks_num_blocks_test": [4],
-    })
-    env = BlocksEnv()
-    ablated = {"Holding", "Clear", "GripperOpen"}
-    initial_predicates = set()
-    name_to_pred = {}
-    for p in env.predicates:
-        if p.name in ablated:
-            name_to_pred[p.name] = p
-        else:
-            initial_predicates.add(p)
-    candidates = {p: 1.0 for p in name_to_pred.values()}
-    train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
-    atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
-                                                    env.predicates)
-    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-        initial_predicates, atom_dataset, candidates, train_tasks, ["hadd"])
-    all_included_s = score_function.evaluate(set(candidates))
-    none_included_s = score_function.evaluate(set())
-    gripperopen_excluded_s = score_function.evaluate(
-        {name_to_pred["Holding"], name_to_pred["Clear"]})
-    assert all_included_s < none_included_s  # good!
-    # The fact that there is not a monotonic improvement shows a downside of
-    # this score function. But we do see that learning works well in the end.
-    assert gripperopen_excluded_s < all_included_s  # bad!
-    # Note: here are all the scores.
-    # (): 17640.461089410717
-    # (Clear,): 21144.93016115656
-    # (Holding,): 11240.237938078439
-    # (GripperOpen,): 17641.505279500794
-    # (Clear, Holding): 7581.118488743514
-    # (Clear, GripperOpen): 21145.98910036367
-    # (Holding, GripperOpen): 14643.702564367157
-    # (Clear, Holding, GripperOpen): 11411.369394796291
-
-    # Tests for lookahead_depth > 0.
-    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-        initial_predicates,
-        atom_dataset,
-        candidates,
-        train_tasks, ["hadd"],
-        lookahead_depth=1)
-    all_included_s = score_function.evaluate(set(candidates))
-    none_included_s = score_function.evaluate(set())
-    gripperopen_excluded_s = score_function.evaluate(
-        {name_to_pred["Holding"], name_to_pred["Clear"]})
-    assert all_included_s < none_included_s  # good!
-
-    # Tests for PaintingEnv.
-    # Comment out this test because it's flaky.
-    # utils.flush_cache()
-    # utils.reset_config({
-    #     "env": "painting",
-    #     "offline_data_method": "demo+replay",
-    #     "painting_train_families": ["box_and_shelf"],
-    # })
-    # env = PaintingEnv()
-    # ablated = {"IsWet", "IsDry"}
-    # initial_predicates = set()
-    # name_to_pred = {}
-    # for p in env.predicates:
-    #     if p.name in ablated:
-    #         name_to_pred[p.name] = p
-    #     else:
-    #         initial_predicates.add(p)
-    # candidates = {p: 1.0 for p in name_to_pred.values()}
-    # train_tasks = env.get_train_tasks()
-    # dataset = create_dataset(env, train_tasks, env.options)
-    # atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
-    #                                                 env.predicates)
-    # score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-    #     initial_predicates, atom_dataset, candidates, train_tasks, ["hadd"])
-    # all_included_s = score_function.evaluate(set(candidates))
-    # none_included_s = score_function.evaluate(set())
-    # assert all_included_s < none_included_s  # hooray!
 
     # Cover edge case where there are no successors.
     # The below is kind of a lot to get one line of coverage (the line is
