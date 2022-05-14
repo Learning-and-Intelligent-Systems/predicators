@@ -151,17 +151,27 @@ class ScrewsEnv(BaseEnv):
             [gripper_y - gripper_width / 4.0, gripper_y],
             color="black")
 
+        # Find which object is the goal screw.
+        assert len(task.goal) == 1
+        goal_pred = list(task.goal)[0]
+        goal_screw = goal_pred.objects[0]
+        assert goal_screw.type.name == 'screw'
+
         # Draw screws
         for screw in state.get_objects(self._screw_type):
             screw_x = state.get(screw, "pose_x")
             screw_y = state.get(screw, "pose_y")
             screw_width = state.get(screw, "width")
             screw_height = state.get(screw, "height")
+            if screw == goal_screw:
+                color = 'gold'
+            else:
+                color = 'grey'
             rect = plt.Rectangle((screw_x, screw_y),
                                  screw_width,
                                  screw_height,
-                                 edgecolor="grey",
-                                 facecolor="grey",
+                                 edgecolor=color,
+                                 facecolor=color,
                                  label=screw.name)
             ax.add_patch(rect)
 
