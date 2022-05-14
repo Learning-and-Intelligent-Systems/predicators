@@ -1939,9 +1939,7 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, receptacle]
     option_vars = [robot, receptacle]
     option = MoveToReceptacle
-    preconditions: Set[LiftedAtom] = set()
     add_effects = {LiftedAtom(AboveReceptacle, [robot, receptacle])}
-    delete_effects: Set[LiftedAtom] = set()
     side_predicates = {ScrewPickupable}
     move_to_receptacle_nsrt = NSRT("MoveToReceptacle", parameters,
                                    preconditions, add_effects, delete_effects,
@@ -1957,7 +1955,6 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     option = MagnetizeGripper
     preconditions = {LiftedAtom(ScrewPickupable, [robot, screw])}
     add_effects = {LiftedAtom(HoldingScrew, [screw])}
-    delete_effects: Set[LiftedAtom] = set()
     side_predicates = {HoldingScrew}
     magnetize_gripper_nsrt = NSRT("MagnetizeGripper", parameters,
                                   preconditions, add_effects, delete_effects,
