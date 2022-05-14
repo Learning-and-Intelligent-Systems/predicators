@@ -27,7 +27,8 @@ class ScrewsEnv(BaseEnv):
     _receptacle_height: ClassVar[float] = 0.2
     _screw_width: ClassVar[float] = 0.05
     _screw_height: ClassVar[float] = 0.05
-    _magnetic_field_dist: ClassVar[float] = 0.1
+    _magnetic_field_dist: ClassVar[float] = 0.5
+    _num_screw_clusters: ClassVar[int] = 3
     num_screws_train: ClassVar[List[int]] = CFG.screws_num_screws_train
     num_screws_test: ClassVar[List[int]] = CFG.screws_num_screws_test
     # Reachable zone boundaries.
@@ -107,7 +108,10 @@ class ScrewsEnv(BaseEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
-        plt.xlim([self.rz_x_lb, self.rz_x_ub])
+        plt.xlim([
+            self.rz_x_lb - 2 * self._screw_width,
+            self.rz_x_ub + 2 * self._screw_width
+        ])
         plt.ylim([self.rz_y_lb, self.rz_y_ub])
 
         # Draw receptacle
@@ -124,16 +128,22 @@ class ScrewsEnv(BaseEnv):
         gripper_x = state.get(self._robot, "pose_x")
         gripper_y = state.get(self._robot, "pose_y")
         gripper_width = state.get(self._robot, "width")
+        # NOTE: this 1.3 factor is just to make the gripper wide enough so that
+        # even when it grabs a block on its very edge, it doesn't look strange
+        # in the visualization.
         plt.plot(
-            [gripper_x - gripper_width / 2.0, gripper_x + gripper_width / 2.0],
+            [(gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3),
+             (gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3)],
             [gripper_y, gripper_y],
             color="black")
         plt.plot(
-            [gripper_x - gripper_width / 2.0, gripper_x - gripper_width / 2.0],
+            [(gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3),
+             (gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3)],
             [gripper_y - gripper_width / 4.0, gripper_y],
             color="black")
         plt.plot(
-            [gripper_x + gripper_width / 2.0, gripper_x + gripper_width / 2.0],
+            [(gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3),
+             (gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3)],
             [gripper_y - gripper_width / 4.0, gripper_y],
             color="black")
 
@@ -146,12 +156,11 @@ class ScrewsEnv(BaseEnv):
             rect = plt.Rectangle((screw_x, screw_y),
                                  screw_width,
                                  screw_height,
-                                 edgecolor="black",
+                                 edgecolor="grey",
                                  facecolor="grey",
                                  label=screw.name)
             ax.add_patch(rect)
 
-        plt.margins(0.05)
         img = utils.fig2data(fig, dpi=150)
         plt.close()
         return [img]
@@ -207,6 +216,14 @@ class ScrewsEnv(BaseEnv):
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
+
+        # Sample center locations for each of the screw clusters.
+        screw_cluster_xcenters = []
+        for _ in range(self._num_screw_clusters):
+            screw_cluster_xcenters.append(
+                rng.uniform(self.rz_x_lb,
+                            self.rz_x_ub - self._receptacle_width))
+
         for _ in range(num_tasks):
             screw_name_to_pos: Dict[str, Tuple[float, float]] = {}
             num_screws = rng.choice(possible_num_screws)
@@ -214,15 +231,18 @@ class ScrewsEnv(BaseEnv):
                 existing_xys = set(screw_name_to_pos.values())
                 while True:
                     # sample a random iniitial position for the screw
-                    # such that it is not in the receptacle.
-                    y_pos = self.rz_y_lb
-                    x_pos = rng.uniform(self.rz_x_lb,
-                                        self.rz_x_ub - self._receptacle_width)
-                    if self._surface_xy_is_clear(x_pos, y_pos, existing_xys):
+                    # such that it is on the ground, not in the
+                    # receptacle, and near one of the screw clusters.
+                    y_pos = self.rz_y_lb + self._screw_height / 2.0
+                    screw_cluster_xcenter = rng.choice(screw_cluster_xcenters)
+                    x_pos = rng.normal(screw_cluster_xcenter)
+                    # if this position doesn't make this screw in collision
+                    # with another screw, then put the screw here.
+                    if self._surface_xy_is_valid(x_pos, y_pos, existing_xys):
                         screw_name_to_pos[f"screw_{si}"] = (x_pos, y_pos)
                         break
-                init_state, goal_atoms = self._get_init_state_and_goal_atoms_from_positions(
-                    screw_name_to_pos, rng)
+            init_state, goal_atoms = self._get_init_state_and_goal_atoms_from_positions(
+                screw_name_to_pos, rng)
             tasks.append(Task(init_state, goal_atoms))
         return tasks
 
@@ -256,17 +276,22 @@ class ScrewsEnv(BaseEnv):
         # Create gripper object such that it is at the middle of
         # the screen.
         data[self._robot] = np.array([(self.rz_x_lb + self.rz_x_ub) / 2.0,
-                                      (self.rz_y_ub + self.rz_y_ub) / 2.0,
+                                      (self.rz_y_lb + self.rz_y_ub) / 2.0,
                                       self._gripper_width])
         return State(data), goal_atoms
 
-    def _surface_xy_is_clear(self, x: float, y: float,
+    def _surface_xy_is_valid(self, x: float, y: float,
                              existing_xys: Set[Tuple[float, float]]) -> bool:
+        # First, check that there isn't another screw at this location.
         for (existing_x, existing_y) in existing_xys:
-            if not (abs(existing_x - x) < self._screw_width
+            if (abs(existing_x - x) < self._screw_width
                     and abs(existing_y - y) < self._screw_height):
                 return False
-        return True
+        # Next, check that the location is valid.
+        y_is_valid = y == self.rz_y_lb + self._screw_height / 2.0
+        x_is_valid = (x >= self.rz_x_lb + self._screw_width / 2.0) and (
+            x <= self.rz_x_ub - self._screw_width / 2.0)
+        return x_is_valid and y_is_valid
 
     def _transition_move(self, state: State, x: float, y: float) -> State:
         next_state = state.copy()
@@ -407,7 +432,8 @@ class ScrewsEnv(BaseEnv):
         receptacle_minx = receptacle_x - receptacle_width / 2.0
 
         screw_held = state.get(screw, "held")
-        return screw_held <= 0.5 and screw_minx > receptacle_minx and screw_maxx < receptacle_maxx
+        return screw_held <= 0.5 and screw_minx > receptacle_minx \
+            and screw_maxx < receptacle_maxx
 
     def _MoveToScrew_policy(self, state: State, memory: Dict,
                             objects: Sequence[Object],
