@@ -146,16 +146,6 @@ def test_unknown_strips_learner():
 
 def test_neural_option_learning():
     """Tests for NeuralOptionLearner class."""
-    _test_approach(env_name="cover_multistep_options",
-                   approach_name="nsrt_learning",
-                   try_solving=False,
-                   sampler_learner="random",
-                   option_learner="direct_bc",
-                   check_solution=False,
-                   additional_settings={
-                       "cover_multistep_thr_percent": 0.99,
-                       "cover_multistep_bhr_percent": 0.99,
-                   })
     # Test with some, but not all, options given.
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning",
@@ -181,6 +171,7 @@ def test_neural_option_learning():
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,
                    })
+    # Test with implicit bc option learning.
     _test_approach(env_name="touch_point",
                    approach_name="nsrt_learning",
                    try_solving=False,
@@ -192,6 +183,7 @@ def test_neural_option_learning():
                        "implicit_mlp_regressor_num_negative_data_per_input": 1,
                        "implicit_mlp_regressor_num_samples_per_inference": 1,
                    })
+    # Test with direct bc nonparameterized option learning.
     _test_approach(env_name="touch_point",
                    approach_name="nsrt_learning",
                    try_solving=True,
