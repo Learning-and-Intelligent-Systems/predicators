@@ -121,7 +121,10 @@ EXTRA_ARGS_ORACLE_APPROACH["stick_button"] = [
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
-    "doors_room_map_size": 3,
+    "doors_room_map_size": 2,
+    "doors_min_room_exists_frac": 1.0,
+    "doors_max_room_exists_frac": 1.0,
+    "doors_birrt_smooth_amt": 0,
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
