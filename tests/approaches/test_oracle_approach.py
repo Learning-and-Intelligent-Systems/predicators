@@ -18,9 +18,9 @@ from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
-from predicators.src.envs.screws import ScrewsEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.screws import ScrewsEnv
 from predicators.src.envs.stick_button import StickButtonEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
