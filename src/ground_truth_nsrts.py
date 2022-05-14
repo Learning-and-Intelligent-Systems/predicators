@@ -1903,12 +1903,14 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for ScrewsEnv."""
     screw_type, gripper_type, receptacle_type = _get_types_by_names(
         CFG.env, ["screw", "gripper", "receptacle"])
-    ScrewPickupable, AboveReceptacle, HoldingScrew, ScrewInReceptacle = _get_predicates_by_names(
+    ScrewPickupable, AboveReceptacle, HoldingScrew, ScrewInReceptacle = \
+        _get_predicates_by_names(
         CFG.env, [
             "ScrewPickupable", "AboveReceptacle", "HoldingScrew",
             "ScrewInReceptacle"
         ])
-    MoveToScrew, MoveToReceptacle, MagnetizeGripper, DemagnetizeGripper = _get_options_by_names(
+    MoveToScrew, MoveToReceptacle, MagnetizeGripper, DemagnetizeGripper = \
+        _get_options_by_names(
         CFG.env, [
             "MoveToScrew", "MoveToReceptacle", "MagnetizeGripper",
             "DemagnetizeGripper"

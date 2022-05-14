@@ -59,25 +59,29 @@ class ScrewsEnv(BaseEnv):
             self._ScrewInReceptacle_holds)
 
         # Options
-        self._MoveToScrew: ParameterizedOption = utils.SingletonParameterizedOption(
+        self._MoveToScrew: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
             # variables: [robot, screw to pick up]
             # params: []
             "MoveToScrew",
             self._MoveToScrew_policy,
             types=[self._gripper_type, self._screw_type])
-        self._MoveToReceptacle: ParameterizedOption = utils.SingletonParameterizedOption(
+        self._MoveToReceptacle: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
             # variables: [robot, receptacle]
             # params: []
             "MoveToReceptacle",
             self._MoveToReceptacle_policy,
             types=[self._gripper_type, self._receptacle_type])
-        self._MagnetizeGripper: ParameterizedOption = utils.SingletonParameterizedOption(
+        self._MagnetizeGripper: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "MagnetizeGripper",
             self._MagnetizeGripper_policy,
             types=[self._gripper_type])
-        self._DemagnetizeGripper: ParameterizedOption = utils.SingletonParameterizedOption(
+        self._DemagnetizeGripper: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "DemagnetizeGripper",
@@ -210,8 +214,7 @@ class ScrewsEnv(BaseEnv):
 
         if magnetization > 0.5:
             return self._transition_magnetize(state)
-        else:
-            return self._transition_demagnetize(state)
+        return self._transition_demagnetize(state)
 
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
                    rng: np.random.Generator) -> List[Task]:
@@ -241,7 +244,8 @@ class ScrewsEnv(BaseEnv):
                     if self._surface_xy_is_valid(x_pos, y_pos, existing_xys):
                         screw_name_to_pos[f"screw_{si}"] = (x_pos, y_pos)
                         break
-            init_state, goal_atoms = self._get_init_state_and_goal_atoms_from_positions(
+            init_state, goal_atoms = \
+                self._get_init_state_and_goal_atoms_from_positions(
                 screw_name_to_pos, rng)
             tasks.append(Task(init_state, goal_atoms))
         return tasks
@@ -260,8 +264,8 @@ class ScrewsEnv(BaseEnv):
             screw_obj = Object(screw_name, self._screw_type)
             data[screw_obj] = np.array(
                 [x_pos, y_pos, self._screw_width, self._screw_height, 0.0])
-            # If the screw is the goal screw, then add it being in the receptacle
-            # to the goal atoms.
+            # If the screw is the goal screw, then add it being in the
+            # receptacle to the goal atoms.
             if screw_name == goal_screw_name:
                 goal_atoms.add(
                     GroundAtom(self._ScrewInReceptacle,
@@ -289,8 +293,8 @@ class ScrewsEnv(BaseEnv):
                 return False
         # Next, check that the location is valid.
         y_is_valid = y == self.rz_y_lb + self._screw_height / 2.0
-        x_is_valid = (x >= self.rz_x_lb + self._screw_width / 2.0) and (
-            x <= self.rz_x_ub - self._screw_width / 2.0)
+        x_is_valid = (self.rz_x_lb + self._screw_width / 2.0) <= x <= (
+            self.rz_x_ub - self._screw_width / 2.0)
         return x_is_valid and y_is_valid
 
     def _transition_move(self, state: State, x: float, y: float) -> State:
@@ -354,9 +358,9 @@ class ScrewsEnv(BaseEnv):
         for screw in all_screws:
             if self._HoldingScrew_holds(state, [screw]):
                 # NOTE: This currently will drop all screws into the receptacle
-                # iff AboveReceptacle is true. Otherwise, it will drop all screws
-                # onto the floor. This neglects the case where the gripper is
-                # half over the receptacle and half not.
+                # iff AboveReceptacle is true. Otherwise, it will drop all
+                # screws onto the floor. This neglects the case where the
+                # gripper is half over the receptacle and half not.
                 screw_height = state.get(screw, "height")
                 if self._AboveReceptacle_holds(
                         state, [self._robot, self._receptacle]):
@@ -407,8 +411,8 @@ class ScrewsEnv(BaseEnv):
         receptacle_minx = receptacle_x - receptacle_width / 2.0
         receptacle_maxx = receptacle_x + receptacle_width / 2.0
 
-        return gripper_y > receptacle_y and \
-            receptacle_y > gripper_y - self._magnetic_field_dist and \
+        return gripper_y - self._magnetic_field_dist < receptacle_y \
+            < gripper_y and \
             receptacle_minx < gripper_minx and \
             receptacle_maxx > gripper_maxx
 
@@ -473,13 +477,15 @@ class ScrewsEnv(BaseEnv):
             np.array([target_x - current_x, target_y - current_y, 1.0],
                      dtype=np.float32))
 
-    def _MagnetizeGripper_policy(self, state: State, memory: Dict,
+    @staticmethod
+    def _MagnetizeGripper_policy(state: State, memory: Dict,
                                  objects: Sequence[Object],
                                  params: Array) -> Action:
         del state, memory, objects, params  # unused
         return Action(np.array([0.0, 0.0, 1.0], dtype=np.float32))
 
-    def _DemagnetizeGripper_policy(self, state: State, memory: Dict,
+    @staticmethod
+    def _DemagnetizeGripper_policy(state: State, memory: Dict,
                                    objects: Sequence[Object],
                                    params: Array) -> Action:
         del state, memory, objects, params  # unused
