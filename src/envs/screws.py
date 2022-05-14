@@ -411,8 +411,7 @@ class ScrewsEnv(BaseEnv):
         receptacle_minx = receptacle_x - receptacle_width / 2.0
         receptacle_maxx = receptacle_x + receptacle_width / 2.0
 
-        return gripper_y - self._magnetic_field_dist < receptacle_y \
-            < gripper_y and \
+        return gripper_y > receptacle_y and \
             receptacle_minx < gripper_minx and \
             receptacle_maxx > gripper_maxx
 
