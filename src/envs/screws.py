@@ -46,7 +46,7 @@ class ScrewsEnv(BaseEnv):
         self._screw_type = Type("screw", ["pose_x", "pose_y", "held"])
         self._gripper_type = Type("gripper", ["pose_x", "pose_y"])
         self._receptacle_type = Type("receptacle", ["pose_x", "pose_y"])
-        # Predicates
+        # Predicates.
         self._GripperCanPickScrew = Predicate(
             "GripperCanPickScrew", [self._gripper_type, self._screw_type],
             self._GripperCanPickScrew_holds)
@@ -60,30 +60,30 @@ class ScrewsEnv(BaseEnv):
             "ScrewInReceptacle", [self._screw_type, self._receptacle_type],
             self._ScrewInReceptacle_holds)
 
-        # Options
+        # Options.
         self._MoveToScrew = utils.SingletonParameterizedOption(
-            # variables: [robot, screw to pick up]
-            # params: []
+            # variables: [robot, screw to pick up].
+            # params: [].
             "MoveToScrew",
             self._MoveToScrew_policy,
             types=[self._gripper_type, self._screw_type])
         self._MoveToReceptacle = utils.SingletonParameterizedOption(
-            # variables: [robot, receptacle]
-            # params: []
+            # variables: [robot, receptacle].
+            # params: [].
             "MoveToReceptacle",
             self._MoveToReceptacle_policy,
             types=[
                 self._gripper_type, self._receptacle_type, self._screw_type
             ])
         self._MagnetizeGripper = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: []
+            # variables: [robot].
+            # params: [].
             "MagnetizeGripper",
             self._MagnetizeGripper_policy,
             types=[self._gripper_type])
         self._DemagnetizeGripper = utils.SingletonParameterizedOption(
-            # variables: [robot]
-            # params: []
+            # variables: [robot].
+            # params: [].
             "DemagnetizeGripper",
             self._DemagnetizeGripper_policy,
             types=[self._gripper_type])
@@ -118,7 +118,7 @@ class ScrewsEnv(BaseEnv):
         ])
         plt.ylim([self.rz_y_lb, self.rz_y_ub])
 
-        # Draw receptacle
+        # Draw receptacle.
         receptacle_x = state.get(self._receptacle, "pose_x")
         receptacle_y = state.get(self._receptacle, "pose_y")
         plt.plot([
@@ -127,7 +127,7 @@ class ScrewsEnv(BaseEnv):
         ], [receptacle_y, receptacle_y],
                  color="green")
 
-        # Draw the gripper
+        # Draw the gripper.
         gripper_x = state.get(self._robot, "pose_x")
         gripper_y = state.get(self._robot, "pose_y")
         plt.plot([(gripper_x - self.gripper_width / 2.0) + self._screw_width,
@@ -427,7 +427,7 @@ class ScrewsEnv(BaseEnv):
                             params: Array) -> Action:
         """Policy to return an action that moves to a position above a
         particular screw such that the screw can be grasped."""
-        del memory, params  # unused
+        del memory, params  # unused.
         _, screw = objects
         screw_x = state.get(screw, "pose_x")
         screw_y = state.get(screw, "pose_y")
@@ -448,7 +448,7 @@ class ScrewsEnv(BaseEnv):
                                  params: Array) -> Action:
         """Policy to return an action that moves to a position above the
         receptacle."""
-        del memory, params  # unused
+        del memory, params  # unused.
         _, receptacle, _ = objects
         receptacle_x = state.get(receptacle, "pose_x")
         receptacle_y = state.get(receptacle, "pose_y")
@@ -469,7 +469,7 @@ class ScrewsEnv(BaseEnv):
                                  params: Array) -> Action:
         """Policy to return an action that magnetizes the gripper at its
         current position."""
-        del state, memory, objects, params  # unused
+        del state, memory, objects, params  # unused.
         return Action(np.array([0.0, 0.0, 1.0], dtype=np.float32))
 
     @staticmethod
@@ -478,5 +478,5 @@ class ScrewsEnv(BaseEnv):
                                    params: Array) -> Action:
         """Policy to return an action that demagnetizes the gripper at its
         current position."""
-        del state, memory, objects, params  # unused
+        del state, memory, objects, params  # unused.
         return Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
