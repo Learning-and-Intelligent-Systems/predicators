@@ -150,7 +150,6 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
-
     # parameters for random options approach
     random_options_max_tries = 100
 
