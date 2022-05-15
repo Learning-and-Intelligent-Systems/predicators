@@ -9,7 +9,6 @@ from typing import Dict, List, Sequence, Set, Tuple
 import numpy as np
 from gym.spaces import Box
 
-from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.ml_models import ImplicitMLPRegressor, MLPRegressor, \
@@ -488,13 +487,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
             logging.info("Fitting regressor with X shape: "
                          f"{X_arr_regressor.shape}, Y shape: "
                          f"{Y_arr_regressor.shape}.")
-
-            # TODO remove this.
-            # Save the data for external analysis.
-            save_path = utils.get_approach_save_path_str()
-            np.save(f"{save_path}.option_X", X_arr_regressor)
-            np.save(f"{save_path}.option_Y", Y_arr_regressor)
-
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.
