@@ -14,7 +14,6 @@ from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
 
 class BaseSTRIPSLearner(abc.ABC):
     """Base class definition."""
-
     def __init__(
         self,
         trajectories: List[LowLevelTrajectory],

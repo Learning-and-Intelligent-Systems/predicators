@@ -11,7 +11,6 @@ from predicators.src.structs import Action, LowLevelTrajectory, \
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
-
     def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
         """Exposed for testing."""
         return self._try_specializing_pnad(necessary_add_effects, pnad,

@@ -223,7 +223,6 @@ def create_state_from_dict(data: Dict[Object, Dict[str, float]],
 
 class _Geom2D(abc.ABC):
     """A 2D shape that contains some points."""
-
     @abc.abstractmethod
     def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
         """Plot the shape on a given pyplot axis."""
@@ -680,7 +679,6 @@ class LinearChainParameterizedOption(ParameterizedOption):
     The LinearChainParameterizedOption has memory, which stores the current
     child index.
     """
-
     def __init__(self, name: str,
                  children: Sequence[ParameterizedOption]) -> None:
         assert len(children) > 0
@@ -750,7 +748,6 @@ class SingletonParameterizedOption(ParameterizedOption):
         * Types defaults to [].
         * Params space defaults to Box(0, 1, (0, )).
     """
-
     def __init__(
         self,
         name: str,
@@ -793,10 +790,18 @@ class SingletonParameterizedOption(ParameterizedOption):
                          terminal=_terminal)
 
 
+class BehaviorState(State):
+    """A Behavior state that stores the index of the temporary behavior state
+    folder index in addition to the features that are exposed in the object-
+    centric state."""
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint states in addition to the
     features that are exposed in the object-centric state."""
-
     @property
     def joints_state(self) -> JointsState:
         """Expose the current joints state in the simulator_state."""
@@ -814,7 +819,6 @@ class PyBulletState(State):
 
 class Monitor(abc.ABC):
     """Observes states and actions during environment interaction."""
-
     @abc.abstractmethod
     def observe(self, state: State, action: Optional[Action]) -> None:
         """Record a state and the action that is about to be taken.
@@ -946,7 +950,6 @@ def run_policy_with_simulator(
 class ExceptionWithInfo(Exception):
     """An exception with an optional info dictionary that is initially
     empty."""
-
     def __init__(self, message: str, info: Optional[Dict] = None) -> None:
         super().__init__(message)
         if info is None:
@@ -965,7 +968,6 @@ class EnvironmentFailure(ExceptionWithInfo):
     The info dictionary must contain a key "offending_objects", which
     maps to a set of objects responsible for the failure.
     """
-
     def __repr__(self) -> str:
         return f"{super().__repr__()}: {self.info}"
 
@@ -1407,7 +1409,6 @@ def run_hill_climbing(
 
 class BiRRT(Generic[_S]):
     """Bidirectional rapidly-exploring random tree."""
-
     def __init__(self, sample_fn: Callable[[_S], _S],
                  extend_fn: Callable[[_S, _S], Iterator[_S]],
                  collision_fn: Callable[[_S], bool],
@@ -1501,7 +1502,6 @@ class BiRRT(Generic[_S]):
 
 class _BiRRTNode(Generic[_S]):
     """A node for BiRRT."""
-
     def __init__(self,
                  data: _S,
                  parent: Optional[_BiRRTNode[_S]] = None) -> None:

@@ -2,6 +2,7 @@
 # pylint: disable=import-error
 
 import functools
+import imp
 import itertools
 import os
 import shutil
@@ -36,6 +37,7 @@ except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 
+from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.behavior_options import create_grasp_option_model, \
     create_grasp_policy, create_navigate_option_model, \
@@ -48,7 +50,6 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 
 class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment."""
-
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
@@ -396,13 +397,13 @@ class BehaviorEnv(BaseEnv):
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{self.task_num}/")
 
-        return State(state_data, f"{self.task_num}-{simulator_state}")
+        return utils.BehaviorState(state_data,
+                                   f"{self.task_num}-{simulator_state}")
 
     def _create_classifier_from_bddl(
         self,
         bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
-
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
@@ -571,7 +572,6 @@ def make_behavior_option(
         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
-
     def policy(state: State, memory: Dict, _objects: Sequence[Object],
                _params: Array) -> Action:
         assert "has_terminated" in memory

@@ -32,7 +32,6 @@ _Output = TypeVar("_Output")  # a generic type for the output of this GNN
 
 class GNNApproach(BaseApproach, Generic[_Output]):
     """Abstract GNNApproach definition."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

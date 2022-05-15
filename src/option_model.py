@@ -35,7 +35,6 @@ def create_option_model(name: str) -> _OptionModelBase:
 class _OptionModelBase(abc.ABC):
     """Struct defining an option model, which predicts the next state of the
     world after an option is executed from a given start state."""
-
     @abc.abstractmethod
     def get_next_state_and_num_actions(self, state: State,
                                        option: _Option) -> Tuple[State, int]:
@@ -52,7 +51,6 @@ class _OracleOptionModel(_OptionModelBase):
 
     Runs options through this simulator to figure out the next state.
     """
-
     def __init__(self, env: BaseEnv) -> None:
         super().__init__()
         self._name_to_parameterized_option = {o.name: o for o in env.options}
@@ -124,7 +122,6 @@ class _OracleOptionModel(_OptionModelBase):
 class _BehaviorOptionModel(_OptionModelBase):
     """An oracle option model that is specific to BEHAVIOR, since simulation is
     expensive in this environment."""
-
     def get_next_state_and_num_actions(
             self, state: State,
             option: _Option) -> Tuple[State, int]:  # pragma: no cover

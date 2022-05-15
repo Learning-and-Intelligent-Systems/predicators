@@ -40,7 +40,6 @@ class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
-
     @abc.abstractmethod
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
@@ -80,7 +79,6 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
     extracting the known options from the actions and creating option
     specs for the STRIPSOperator objects.
     """
-
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         # Since we're not actually doing option learning, the data already
@@ -123,7 +121,6 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     Useful for testing.
     """
-
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         env = get_or_create_env(CFG.env)
@@ -284,7 +281,6 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     The is_parameterized kwarg is for a baseline that learns a policy without
     continuous parameters. If it is False, the parameter space is null.
     """
-
     def __init__(self,
                  name: str,
                  operator: STRIPSOperator,
@@ -387,7 +383,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     The is_parameterized kwarg is for a baseline that learns a policy without
     continuous parameters. If it is False, the parameter space is null.
     """
-
     def __init__(self,
                  action_space: Box,
                  is_parameterized: bool = True) -> None:
@@ -545,7 +540,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
 
 class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
     """Use an MLPRegressor for regression."""
-
     def _create_regressor(self) -> Regressor:
         return MLPRegressor(seed=CFG.seed,
                             hid_sizes=CFG.mlp_regressor_hid_sizes,
@@ -557,7 +551,6 @@ class _DirectBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
 
 class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
     """Use an ImplicitMLPRegressor for regression."""
-
     def _create_regressor(self) -> Regressor:
         # Pull out the constants that have long names.
         num_neg = CFG.implicit_mlp_regressor_num_negative_data_per_input

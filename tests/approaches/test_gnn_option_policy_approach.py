@@ -16,7 +16,6 @@ from predicators.src.structs import Action, Dataset, GroundAtom, \
 
 
 class _MockOptionModel1(_OptionModelBase):
-
     def __init__(self, simulator):
         self._simulator = simulator
 
@@ -26,7 +25,6 @@ class _MockOptionModel1(_OptionModelBase):
 
 
 class _MockOptionModel2(_OptionModelBase):
-
     def __init__(self, simulator):
         self._simulator = simulator
 
@@ -35,7 +33,6 @@ class _MockOptionModel2(_OptionModelBase):
 
 
 class _MockOptionModel3(_OptionModelBase):
-
     def __init__(self, simulator):
         self._simulator = simulator
 

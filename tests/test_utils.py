@@ -567,7 +567,6 @@ def test_run_policy():
     assert len(traj4.states) == 1
 
     class _MockEnv:
-
         @staticmethod
         def reset(train_or_test, task_idx):
             """Reset the mock environment."""
@@ -608,7 +607,6 @@ def test_run_policy():
 
     # Test with monitor in case where an uncaught exception is raised.
     class _CountingMonitor(utils.Monitor):
-
         def __init__(self):
             self.num_observations = 0
 
@@ -678,7 +676,6 @@ def test_run_policy_with_simulator():
 
     # Test with monitor.
     class _NullMonitor(utils.Monitor):
-
         def observe(self, state, action):
             pass
 
@@ -694,7 +691,6 @@ def test_run_policy_with_simulator():
 
     # Test with monitor in case where an uncaught exception is raised.
     class _CountingMonitor(utils.Monitor):
-
         def __init__(self):
             self.num_observations = 0
 
