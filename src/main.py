@@ -186,13 +186,9 @@ def _generate_or_load_offline_dataset(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline dataset from training tasks."""
-    # Note that we prefer to generate this string, rather than using
-    # CFG.included_options, because the order that they options are specified
-    # in that flag should not matter.
-    option_str = ",".join(sorted(o.name for o in known_options))
     dataset_filename = (
         f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{option_str}__{CFG.seed}.data")
+        f"__{CFG.included_options}__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
         assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
