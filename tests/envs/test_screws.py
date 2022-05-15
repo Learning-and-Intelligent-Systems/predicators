@@ -1,4 +1,4 @@
-"""Test cases for the cover environment."""
+"""Test cases for the screws environment."""
 
 import numpy as np
 

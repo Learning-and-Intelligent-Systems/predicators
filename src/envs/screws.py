@@ -17,7 +17,7 @@ class ScrewsEnv(BaseEnv):
     """Toy screw picking env.
 
     In this environment, the agent controls a magnetic gripper that can
-    be used to pick up screws of different colors/sizes. The challennge
+    be used to pick up screws of different colors/sizes. The challenge
     is for the agent to learn actions that don't precisely model all the
     irrelevant screws that might be picked up when picking a desired
     screw.
@@ -29,8 +29,6 @@ class ScrewsEnv(BaseEnv):
     _screw_height: ClassVar[float] = 0.05
     _magnetic_field_dist: ClassVar[float] = 0.5
     _num_screw_clusters: ClassVar[int] = 3
-    num_screws_train: ClassVar[List[int]] = CFG.screws_num_screws_train
-    num_screws_test: ClassVar[List[int]] = CFG.screws_num_screws_test
     # Reachable zone boundaries.
     rz_x_lb = -5.0
     rz_x_ub = 5.0
@@ -39,49 +37,49 @@ class ScrewsEnv(BaseEnv):
 
     def __init__(self) -> None:
         super().__init__()
+        self.num_screws_train = CFG.screws_num_screws_train
+        self.num_screws_test = CFG.screws_num_screws_test
+        self._rz_width = self.rz_x_ub - self.rz_x_lb
+        self._rz_height = self.rz_y_ub - self.rz_y_lb
+
         # Types
-        self._screw_type = Type(
-            "screw", ["pose_x", "pose_y", "width", "height", "held"])
-        self._gripper_type = Type("gripper", ["pose_x", "pose_y", "width"])
-        self._receptacle_type = Type("receptacle",
-                                     ["pose_x", "pose_y", "width"])
+        self._screw_type = Type("screw", ["pose_x", "pose_y", "held"])
+        self._gripper_type = Type("gripper", ["pose_x", "pose_y"])
+        self._receptacle_type = Type("receptacle", ["pose_x", "pose_y"])
         # Predicates
-        self._ScrewPickupable = Predicate(
-            "ScrewPickupable", [self._gripper_type, self._screw_type],
-            self._ScrewPickupable_holds)
+        self._GripperCanPickScrew = Predicate(
+            "GripperCanPickScrew", [self._gripper_type, self._screw_type],
+            self._GripperCanPickScrew_holds)
         self._AboveReceptacle = Predicate(
             "AboveReceptacle", [self._gripper_type, self._receptacle_type],
             self._AboveReceptacle_holds)
-        self._HoldingScrew = Predicate("HoldingScrew", [self._screw_type],
+        self._HoldingScrew = Predicate("HoldingScrew",
+                                       [self._gripper_type, self._screw_type],
                                        self._HoldingScrew_holds)
         self._ScrewInReceptacle = Predicate(
             "ScrewInReceptacle", [self._screw_type, self._receptacle_type],
             self._ScrewInReceptacle_holds)
 
         # Options
-        self._MoveToScrew: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
+        self._MoveToScrew = utils.SingletonParameterizedOption(
             # variables: [robot, screw to pick up]
             # params: []
             "MoveToScrew",
             self.MoveToScrew_policy,
             types=[self._gripper_type, self._screw_type])
-        self._MoveToReceptacle: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
+        self._MoveToReceptacle = utils.SingletonParameterizedOption(
             # variables: [robot, receptacle]
             # params: []
             "MoveToReceptacle",
             self.MoveToReceptacle_policy,
             types=[self._gripper_type, self._receptacle_type])
-        self._MagnetizeGripper: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
+        self._MagnetizeGripper = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "MagnetizeGripper",
             self.MagnetizeGripper_policy,
             types=[self._gripper_type])
-        self._DemagnetizeGripper: ParameterizedOption = \
-            utils.SingletonParameterizedOption(
+        self._DemagnetizeGripper = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
             "DemagnetizeGripper",
@@ -121,69 +119,57 @@ class ScrewsEnv(BaseEnv):
         # Draw receptacle
         receptacle_x = state.get(self._receptacle, "pose_x")
         receptacle_y = state.get(self._receptacle, "pose_y")
-        receptacle_width = state.get(self._receptacle, "width")
         plt.plot([
-            receptacle_x - receptacle_width / 2.0,
-            receptacle_x + receptacle_width / 2.0
+            receptacle_x - self._receptacle_width / 2.0,
+            receptacle_x + self._receptacle_width / 2.0
         ], [receptacle_y, receptacle_y],
                  color="green")
 
         # Draw the gripper
         gripper_x = state.get(self.robot, "pose_x")
         gripper_y = state.get(self.robot, "pose_y")
-        gripper_width = state.get(self.robot, "width")
-        # NOTE: this 1.3 factor is just to make the gripper wide enough so that
-        # even when it grabs a block on its very edge, it doesn't look strange
-        # in the visualization.
-        plt.plot(
-            [(gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3),
-             (gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3)],
-            [gripper_y, gripper_y],
-            color="black")
-        plt.plot(
-            [(gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3),
-             (gripper_x - gripper_width / 2.0) + (self._screw_width * 1.3)],
-            [gripper_y - gripper_width / 4.0, gripper_y],
-            color="black")
-        plt.plot(
-            [(gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3),
-             (gripper_x + gripper_width / 2.0) + (self._screw_width * 1.3)],
-            [gripper_y - gripper_width / 4.0, gripper_y],
-            color="black")
+        plt.plot([(gripper_x - self.gripper_width / 2.0) + self._screw_width,
+                  (gripper_x + self.gripper_width / 2.0) + self._screw_width],
+                 [gripper_y, gripper_y],
+                 color="black")
+        plt.plot([(gripper_x - self.gripper_width / 2.0) + self._screw_width,
+                  (gripper_x - self.gripper_width / 2.0) + self._screw_width],
+                 [gripper_y - self.gripper_width / 4.0, gripper_y],
+                 color="black")
+        plt.plot([(gripper_x + self.gripper_width / 2.0) + self._screw_width,
+                  (gripper_x + self.gripper_width / 2.0) + self._screw_width],
+                 [gripper_y - self.gripper_width / 4.0, gripper_y],
+                 color="black")
 
         # Find which object is the goal screw.
         assert len(task.goal) == 1
         goal_pred = list(task.goal)[0]
         goal_screw = goal_pred.objects[0]
-        assert goal_screw.type.name == 'screw'
 
-        # Draw screws
+        # Draw screws.
         for screw in state.get_objects(self._screw_type):
             screw_x = state.get(screw, "pose_x")
             screw_y = state.get(screw, "pose_y")
-            screw_width = state.get(screw, "width")
-            screw_height = state.get(screw, "height")
             if screw == goal_screw:
                 color = 'gold'
             else:
                 color = 'grey'
             rect = plt.Rectangle((screw_x, screw_y),
-                                 screw_width,
-                                 screw_height,
+                                 self._screw_width,
+                                 self._screw_height,
                                  edgecolor=color,
-                                 facecolor=color,
-                                 label=screw.name)
+                                 facecolor=color)
             ax.add_patch(rect)
 
-        img = utils.fig2data(fig, dpi=150)
+        img = utils.fig2data(fig)
         plt.close()
         return [img]
 
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._ScrewPickupable, self._AboveReceptacle, self._HoldingScrew,
-            self._ScrewInReceptacle
+            self._GripperCanPickScrew, self._AboveReceptacle,
+            self._HoldingScrew, self._ScrewInReceptacle
         }
 
     @property
@@ -204,20 +190,14 @@ class ScrewsEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [dx, dy, magnetized vs. unmagnetized].
-        lowers = np.array([
-            -(self.rz_x_ub - self.rz_x_lb), -(self.rz_y_ub - self.rz_y_lb), 0.0
-        ],
+        lowers = np.array([-self._rz_width, -self._rz_height, 0.0],
                           dtype=np.float32)
-        uppers = np.array([(self.rz_x_ub - self.rz_x_lb),
-                           (self.rz_y_ub - self.rz_y_lb), 1.0],
+        uppers = np.array([self._rz_width, self._rz_height, 1.0],
                           dtype=np.float32)
         return Box(lowers, uppers)
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        # NOTE: currently, the agent can only pick things up or
-        # drop them iff its staying still. This isn't particularly
-        # realistic...
         dx, dy, magnetization = action.arr
         if dx != 0.0 or dy != 0.0:
             return self._transition_move(state, dx, dy)
@@ -243,9 +223,9 @@ class ScrewsEnv(BaseEnv):
             for si in range(num_screws):
                 existing_xys = set(screw_name_to_pos.values())
                 while True:
-                    # sample a random iniitial position for the screw
-                    # such that it is on the ground, not in the
-                    # receptacle, and near one of the screw clusters.
+                    # Sample a random initial position for the screw
+                    # such that it is on the ground, and near one of the
+                    # screw clusters.
                     y_pos = self.rz_y_lb + self._screw_height / 2.0
                     screw_cluster_xcenter = rng.choice(screw_cluster_xcenters)
                     x_pos = rng.normal(screw_cluster_xcenter)
@@ -254,16 +234,13 @@ class ScrewsEnv(BaseEnv):
                     if self._surface_xy_is_valid(x_pos, y_pos, existing_xys):
                         screw_name_to_pos[f"screw_{si}"] = (x_pos, y_pos)
                         break
-            init_state, goal_atoms = \
-                self._get_init_state_and_goal_atoms_from_positions(
-                screw_name_to_pos, rng)
-            tasks.append(Task(init_state, goal_atoms))
+            tasks.append(self._get_single_task(screw_name_to_pos, rng))
         return tasks
 
-    def _get_init_state_and_goal_atoms_from_positions(
-            self, screw_name_to_pos: Dict[str, Tuple[float, float]],
-            rng: np.random.Generator) -> Tuple[State, Set[GroundAtom]]:
-        data: Dict[Object, Array] = {}
+    def _get_single_task(self, screw_name_to_pos: Dict[str, Tuple[float,
+                                                                  float]],
+                         rng: np.random.Generator) -> Task:
+        state_dict = {}
         goal_atoms: Set[GroundAtom] = set()
         # Select a random screw that needs to be in the receptacle as the goal
         # GroundAtom.
@@ -272,8 +249,12 @@ class ScrewsEnv(BaseEnv):
         # Create screw objects.
         for screw_name, (x_pos, y_pos) in screw_name_to_pos.items():
             screw_obj = Object(screw_name, self._screw_type)
-            data[screw_obj] = np.array(
-                [x_pos, y_pos, self._screw_width, self._screw_height, 0.0])
+            state_dict[screw_obj] = {
+                "pose_x": x_pos,
+                "pose_y": y_pos,
+                "held": 0.0,
+            }
+
             # If the screw is the goal screw, then add it being in the
             # receptacle to the goal atoms.
             if screw_name == goal_screw_name:
@@ -283,16 +264,21 @@ class ScrewsEnv(BaseEnv):
 
         # Create receptacle object such that it is attached to the
         # right wall and halfway between the ceiling and floor.
-        data[self._receptacle] = np.array([
-            self.rz_x_ub - (self._receptacle_width / 2.0),
-            (self.rz_y_ub - self.rz_y_lb) / 2.0, self._receptacle_width
-        ])
+        state_dict[self._receptacle] = {
+            "pose_x": self.rz_x_ub - (self._receptacle_width / 2.0),
+            "pose_y": (self.rz_y_ub - self.rz_y_lb) / 2.0,
+        }
+
         # Create gripper object such that it is at the middle of
         # the screen.
-        data[self.robot] = np.array([(self.rz_x_lb + self.rz_x_ub) / 2.0,
-                                     (self.rz_y_lb + self.rz_y_ub) / 2.0,
-                                     self.gripper_width])
-        return State(data), goal_atoms
+        state_dict[self.robot] = {
+            "pose_x": (self.rz_x_lb + self.rz_x_ub) / 2.0,
+            "pose_y": (self.rz_y_lb + self.rz_y_ub) / 2.0
+        }
+
+        init_state = utils.create_state_from_dict(state_dict)
+        task = Task(init_state, goal_atoms)
+        return task
 
     def _surface_xy_is_valid(self, x: float, y: float,
                              existing_xys: Set[Tuple[float, float]]) -> bool:
@@ -307,25 +293,24 @@ class ScrewsEnv(BaseEnv):
             self.rz_x_ub - self._screw_width / 2.0)
         return x_is_valid and y_is_valid
 
-    def _transition_move(self, state: State, x: float, y: float) -> State:
+    def _transition_move(self, state: State, dx: float, dy: float) -> State:
         next_state = state.copy()
         rx = state.get(self.robot, "pose_x")
         ry = state.get(self.robot, "pose_y")
-        rwidth = state.get(self.robot, "width")
-        new_rx = rx + x
-        new_rx_min = new_rx - rwidth / 2.0
-        new_rx_max = new_rx + rwidth / 2.0
-        new_ry = ry + y
+        new_rx = rx + dx
+        new_rx_min = new_rx - self.gripper_width / 2.0
+        new_rx_max = new_rx + self.gripper_width / 2.0
+        new_ry = ry + dy
 
         # If the new position is outside the boundaries, move till
         # the robot collides with the boundary.
         if new_rx_min < self.rz_x_lb:
-            new_rx = self.rz_x_lb + (rwidth / 2.0)
-        if new_rx_max > self.rz_x_ub:
-            new_rx = self.rz_x_ub - (rwidth / 2.0)
+            new_rx = self.rz_x_lb + (self.gripper_width / 2.0)
+        elif new_rx_max > self.rz_x_ub:
+            new_rx = self.rz_x_ub - (self.gripper_width / 2.0)
         if new_ry < self.rz_y_lb:
             new_ry = self.rz_y_lb
-        if new_ry > self.rz_y_ub:
+        elif new_ry > self.rz_y_ub:
             new_ry = self.rz_y_ub
         next_state.set(self.robot, "pose_x", new_rx)
         next_state.set(self.robot, "pose_y", new_ry)
@@ -338,7 +323,7 @@ class ScrewsEnv(BaseEnv):
         # the gripper and update their positions to follow the gripper.
         all_screws = state.get_objects(self._screw_type)
         for screw in all_screws:
-            if self._HoldingScrew_holds(state, [screw]):
+            if self._HoldingScrew_holds(state, [self.robot, screw]):
                 screw_x = state.get(screw, "pose_x")
                 screw_y = state.get(screw, "pose_y")
                 next_state.set(screw, "pose_x", screw_x + dx)
@@ -351,13 +336,13 @@ class ScrewsEnv(BaseEnv):
         ry = state.get(self.robot, "pose_y")
         all_screws = state.get_objects(self._screw_type)
         for screw in all_screws:
-            if not self._HoldingScrew_holds(state, [screw]):
+            if not self._HoldingScrew_holds(state, [self.robot, screw]):
                 # Check if the gripper is in the right position to
                 # pick up this screw, and if so, move the screw to
                 # the gripper.
-                if self._ScrewPickupable_holds(state, [self.robot, screw]):
-                    screw_height = state.get(screw, "height")
-                    next_state.set(screw, "pose_y", ry - (screw_height / 2.0))
+                if self._GripperCanPickScrew_holds(state, [self.robot, screw]):
+                    next_state.set(screw, "pose_y",
+                                   ry - (self._screw_height / 2.0))
                     next_state.set(screw, "held", 1.0)
 
         return next_state
@@ -366,61 +351,50 @@ class ScrewsEnv(BaseEnv):
         next_state = state.copy()
         all_screws = state.get_objects(self._screw_type)
         for screw in all_screws:
-            if self._HoldingScrew_holds(state, [screw]):
-                # NOTE: This currently will drop all screws into the receptacle
-                # iff AboveReceptacle is true. Otherwise, it will drop all
-                # screws onto the floor. This neglects the case where the
-                # gripper is half over the receptacle and half not.
-                screw_height = state.get(screw, "height")
+            if self._HoldingScrew_holds(state, [self.robot, screw]):
                 if self._AboveReceptacle_holds(state,
                                                [self.robot, self._receptacle]):
                     receptacle_y = state.get(self._receptacle, "pose_y")
                     next_state.set(screw, "pose_y",
-                                   receptacle_y + (screw_height / 2.0))
+                                   receptacle_y + (self._screw_height / 2.0))
                 else:
                     next_state.set(screw, "pose_y",
-                                   self.rz_y_lb + (screw_height / 2.0))
+                                   self.rz_y_lb + (self._screw_height / 2.0))
                 next_state.set(screw, "held", 0.0)
 
         return next_state
 
-    @staticmethod
-    def _ScrewPickupable_holds(state: State,
-                               objects: Sequence[Object]) -> bool:
+    def _GripperCanPickScrew_holds(self, state: State,
+                                   objects: Sequence[Object]) -> bool:
         gripper, screw = objects
         gripper_y = state.get(gripper, "pose_y")
         screw_y = state.get(screw, "pose_y")
-        screw_height = state.get(screw, "height")
-        screw_maxy = screw_y + screw_height / 2.0
+        screw_maxy = screw_y + self._screw_height / 2.0
 
         gripper_center_pose = state.get(gripper, "pose_x")
-        gripper_width = state.get(gripper, "width")
-        gripper_minx = gripper_center_pose - gripper_width / 2.0
-        gripper_maxx = gripper_center_pose + gripper_width / 2.0
+        gripper_minx = gripper_center_pose - self.gripper_width / 2.0
+        gripper_maxx = gripper_center_pose + self.gripper_width / 2.0
         screw_x = state.get(screw, "pose_x")
-        screw_width = state.get(screw, "width")
-        screw_minx = screw_x - (screw_width / 2.0)
-        screw_maxx = screw_x + (screw_width / 2.0)
+        screw_minx = screw_x - (self._screw_width / 2.0)
+        screw_maxx = screw_x + (self._screw_width / 2.0)
 
         return screw_maxy <= gripper_y and \
-            screw_maxx > gripper_minx and \
-            screw_minx < gripper_maxx
+            gripper_y - screw_maxy < self._magnetic_field_dist and \
+            gripper_minx < screw_maxx < gripper_maxx and \
+            gripper_minx < screw_minx < gripper_maxx
 
-    @staticmethod
-    def _AboveReceptacle_holds(state: State,
+    def _AboveReceptacle_holds(self, state: State,
                                objects: Sequence[Object]) -> bool:
         gripper, receptacle = objects
         gripper_y = state.get(gripper, "pose_y")
         receptacle_y = state.get(receptacle, "pose_y")
 
         gripper_center_pose = state.get(gripper, "pose_x")
-        gripper_width = state.get(gripper, "width")
-        gripper_minx = gripper_center_pose - gripper_width / 2.0
-        gripper_maxx = gripper_center_pose + gripper_width / 2.0
+        gripper_minx = gripper_center_pose - self.gripper_width / 2.0
+        gripper_maxx = gripper_center_pose + self.gripper_width / 2.0
         receptacle_x = state.get(receptacle, "pose_x")
-        receptacle_width = state.get(receptacle, "width")
-        receptacle_minx = receptacle_x - receptacle_width / 2.0
-        receptacle_maxx = receptacle_x + receptacle_width / 2.0
+        receptacle_minx = receptacle_x - self._receptacle_width / 2.0
+        receptacle_maxx = receptacle_x + self._receptacle_width / 2.0
 
         return gripper_y > receptacle_y and \
             receptacle_minx < gripper_minx and \
@@ -428,22 +402,19 @@ class ScrewsEnv(BaseEnv):
 
     @staticmethod
     def _HoldingScrew_holds(state: State, objects: Sequence[Object]) -> bool:
-        screw, = objects
+        _, screw = objects
         return state.get(screw, "held") > 0.5
 
-    @staticmethod
-    def _ScrewInReceptacle_holds(state: State,
+    def _ScrewInReceptacle_holds(self, state: State,
                                  objects: Sequence[Object]) -> bool:
         screw, receptacle = objects
 
         screw_center_pose = state.get(screw, "pose_x")
-        screw_width = state.get(screw, "width")
-        screw_minx = screw_center_pose - screw_width / 2.0
-        screw_maxx = screw_center_pose + screw_width / 2.0
+        screw_minx = screw_center_pose - self._screw_width / 2.0
+        screw_maxx = screw_center_pose + self._screw_width / 2.0
         receptacle_x = state.get(receptacle, "pose_x")
-        receptacle_width = state.get(receptacle, "width")
-        receptacle_maxx = receptacle_x + receptacle_width / 2.0
-        receptacle_minx = receptacle_x - receptacle_width / 2.0
+        receptacle_maxx = receptacle_x + self._receptacle_width / 2.0
+        receptacle_minx = receptacle_x - self._receptacle_width / 2.0
 
         screw_held = state.get(screw, "held")
         return screw_held <= 0.5 and screw_minx > receptacle_minx \
@@ -457,10 +428,9 @@ class ScrewsEnv(BaseEnv):
         _, screw = objects
         screw_x = state.get(screw, "pose_x")
         screw_y = state.get(screw, "pose_y")
-        screw_height = state.get(screw, "height")
 
         target_x = screw_x
-        target_y = screw_y + (screw_height /
+        target_y = screw_y + (self._screw_height /
                               2.0) + (self._magnetic_field_dist / 2.0)
 
         current_x = state.get(self.robot, "pose_x")
