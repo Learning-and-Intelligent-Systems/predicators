@@ -1,7 +1,6 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
-import imp
 import logging
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 

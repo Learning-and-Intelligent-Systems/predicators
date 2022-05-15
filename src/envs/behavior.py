@@ -2,7 +2,6 @@
 # pylint: disable=import-error
 
 import functools
-import imp
 import itertools
 import os
 import shutil
