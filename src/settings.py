@@ -139,6 +139,18 @@ class GlobalSettings:
     screws_num_screws_train = [15, 20]
     screws_num_screws_test = [25, 30]
 
+    # doors env parameters
+    doors_room_map_size = 5
+    doors_min_obstacles_per_room = 0
+    doors_max_obstacles_per_room = 3
+    doors_min_room_exists_frac = 0.25
+    doors_max_room_exists_frac = 0.75
+    doors_birrt_num_attempts = 10
+    doors_birrt_num_iters = 100
+    doors_birrt_smooth_amt = 50
+    doors_draw_debug = False
+
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -225,6 +237,7 @@ class GlobalSettings:
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
+    sampler_learning_regressor_model = "neural_gaussian"
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
@@ -283,11 +296,12 @@ class GlobalSettings:
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For BEHAVIOR and PyBullet environments, actions are
-                    # lower level, so tasks take more actions to complete.
+                    # For certain environments, actions are lower level, so
+                    # tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
+                    "doors": 1000,
                     # For the very simple TouchPoint environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
