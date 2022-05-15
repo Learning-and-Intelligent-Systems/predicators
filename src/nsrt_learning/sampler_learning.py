@@ -188,12 +188,6 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
 
-    # TODO remove this.
-    # Save the data for external analysis.
-    save_path = utils.get_approach_save_path_str()
-    np.save(f"{save_path}.sampler_X", X_arr_regressor)
-    np.save(f"{save_path}.sampler_Y", Y_arr_regressor)
-
     if CFG.sampler_learning_regressor_model == "neural_gaussian":
         regressor: DistributionRegressor = NeuralGaussianRegressor(
             seed=CFG.seed,

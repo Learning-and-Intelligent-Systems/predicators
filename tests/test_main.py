@@ -87,15 +87,15 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
-        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "0.0", "--num_train_tasks", "1", "--num_test_tasks", "1",
         "--experiment_id", "foobar"
     ]
     main()
-    # Try loading approaches.
+    # Try loading approaches and data.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_approach", "--cover_initial_holding_prob", "0.0",
-        "--experiment_id", "foobar"
+        "123", "--load_approach", "--load_data",
+        "--cover_initial_holding_prob", "0.0", "--experiment_id", "foobar"
     ]
     main()
     # Try loading with a bad experiment id.
@@ -119,19 +119,6 @@ def test_main():
         "123", "--sampler_learner", "random", "--num_train_tasks", "1",
         "--num_test_tasks", "1", "--option_learner", "direct_bc",
         "--mlp_regressor_max_itr", "1"
-    ]
-    main()
-    # Try remaking data (this is the default).
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--cover_initial_holding_prob", "0.0", "--num_train_tasks", "3",
-        "--num_test_tasks", "3"
-    ]
-    main()
-    # Try loading the data.
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_data", "--cover_initial_holding_prob", "0.0"
     ]
     main()
     # Try running interactive approach with no online learning, to make sure

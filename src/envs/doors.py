@@ -77,10 +77,12 @@ class DoorsEnv(BaseEnv):
             terminal=self._MoveToDoor_terminal)
         self._OpenDoor = ParameterizedOption(
             "OpenDoor",
-            types=[self._robot_type, self._door_type],
-            # No parameters, since the right rotation is a deterministic
-            # function of the door state.
-            params_space=Box(0, 1, (0, )),
+            types=[self._door_type, self._robot_type],
+            # Even though this option does not need to be parameterized, we
+            # make it so, because we want to match the parameter space of the
+            # option that will get learned during option learning. This is
+            # useful for when we want to use sampler_learner = "oracle" too.
+            params_space=Box(-np.inf, np.inf, (2, )),
             policy=self._OpenDoor_policy,
             # Only initiable when the robot is in the doorway.
             initiable=self._OpenDoor_initiable,
@@ -544,24 +546,24 @@ class DoorsEnv(BaseEnv):
                             objects: Sequence[Object], params: Array) -> bool:
         del memory, params  # unused
         # Can only open the door if touching it.
-        return self._TouchingDoor_holds(state, objects)
+        door, robot = objects
+        return self._TouchingDoor_holds(state, [robot, door])
 
     def _OpenDoor_terminal(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         del memory, params  # unused
         # Terminate when the door is open.
-        _, door = objects
+        door, _ = objects
         return self._DoorIsOpen_holds(state, [door])
 
-    def _OpenDoor_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        _, door = objects
-        target = self._get_open_door_target_value(
-            mass=state.get(door, "mass"),
-            friction=state.get(door, "friction"),
-            target_rot=state.get(door, "target_rot"),
-        )
+    @staticmethod
+    def _OpenDoor_policy(state: State, memory: Dict, objects: Sequence[Object],
+                         params: Array) -> Action:
+        del memory  # unused
+        door, _ = objects
+        delta_rot, _ = params
+        current_rot = state.get(door, "rot")
+        target = current_rot + delta_rot
         return Action(np.array([0.0, 0.0, target], dtype=np.float32))
 
     def _InRoom_holds(self, state: State, objects: Sequence[Object]) -> bool:
