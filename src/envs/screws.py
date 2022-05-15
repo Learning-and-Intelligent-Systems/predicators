@@ -72,7 +72,9 @@ class ScrewsEnv(BaseEnv):
             # params: []
             "MoveToReceptacle",
             self._MoveToReceptacle_policy,
-            types=[self._gripper_type, self._receptacle_type])
+            types=[
+                self._gripper_type, self._receptacle_type, self._screw_type
+            ])
         self._MagnetizeGripper = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: []
@@ -200,25 +202,22 @@ class ScrewsEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         dx, dy, magnetization = action.arr
-        if dx != 0.0 or dy != 0.0:
-            return self._transition_move(state, dx, dy)
-
+        state_after_move = self._transition_move(state, dx, dy)
         if magnetization > 0.5:
-            return self._transition_magnetize(state)
-        return self._transition_demagnetize(state)
+            return self._transition_magnetize(state_after_move)
+        return self._transition_demagnetize(state_after_move)
 
     def _get_tasks(self, num_tasks: int, possible_num_screws: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
 
-        # Sample center locations for each of the screw clusters.
-        screw_cluster_xcenters = []
-        for _ in range(self._num_screw_clusters):
-            screw_cluster_xcenters.append(
-                rng.uniform(self.rz_x_lb,
-                            self.rz_x_ub - self._receptacle_width))
-
         for _ in range(num_tasks):
+            # Sample center locations for each of the screw clusters.
+            screw_cluster_xcenters = []
+            for _ in range(self._num_screw_clusters):
+                screw_cluster_xcenters.append(
+                    rng.uniform(self.rz_x_lb,
+                                self.rz_x_ub - self._receptacle_width))
             screw_name_to_pos: Dict[str, Tuple[float, float]] = {}
             num_screws = rng.choice(possible_num_screws)
             for si in range(num_screws):
@@ -245,7 +244,7 @@ class ScrewsEnv(BaseEnv):
         goal_atoms: Set[GroundAtom] = set()
         # Select a random screw that needs to be in the receptacle as the goal
         # GroundAtom.
-        goal_screw_name = rng.choice(list(screw_name_to_pos.keys()))
+        goal_screw_name = rng.choice(sorted(screw_name_to_pos))
 
         # Create screw objects.
         for screw_name, (x_pos, y_pos) in screw_name_to_pos.items():
@@ -278,6 +277,7 @@ class ScrewsEnv(BaseEnv):
         }
 
         init_state = utils.create_state_from_dict(state_dict)
+        assert len(goal_atoms) == 1
         task = Task(init_state, goal_atoms)
         return task
 
@@ -289,9 +289,9 @@ class ScrewsEnv(BaseEnv):
                     and abs(existing_y - y) < self._screw_height):
                 return False
         # Next, check that the location is valid.
-        y_is_valid = y == self.rz_y_lb + self._screw_height / 2.0
+        y_is_valid = (y == self.rz_y_lb + self._screw_height / 2.0)
         x_is_valid = (self.rz_x_lb + self._screw_width / 2.0) <= x <= (
-            self.rz_x_ub - self._screw_width / 2.0)
+            self.rz_x_ub - (self._receptacle_width + self._screw_width / 2.0))
         return x_is_valid and y_is_valid
 
     def _transition_move(self, state: State, dx: float, dy: float) -> State:
@@ -371,19 +371,19 @@ class ScrewsEnv(BaseEnv):
         gripper, screw = objects
         gripper_y = state.get(gripper, "pose_y")
         screw_y = state.get(screw, "pose_y")
-        screw_maxy = screw_y + self._screw_height / 2.0
+        screw_max_y = screw_y + self._screw_height / 2.0
 
         gripper_center_pose = state.get(gripper, "pose_x")
-        gripper_minx = gripper_center_pose - self.gripper_width / 2.0
-        gripper_maxx = gripper_center_pose + self.gripper_width / 2.0
+        gripper_min_x = gripper_center_pose - self.gripper_width / 2.0
+        gripper_max_x = gripper_center_pose + self.gripper_width / 2.0
         screw_x = state.get(screw, "pose_x")
-        screw_minx = screw_x - (self._screw_width / 2.0)
-        screw_maxx = screw_x + (self._screw_width / 2.0)
+        screw_min_x = screw_x - (self._screw_width / 2.0)
+        screw_max_x = screw_x + (self._screw_width / 2.0)
 
-        return screw_maxy <= gripper_y and \
-            gripper_y - screw_maxy < self._magnetic_field_dist and \
-            gripper_minx < screw_maxx < gripper_maxx and \
-            gripper_minx < screw_minx < gripper_maxx
+        return screw_max_y <= gripper_y and \
+            gripper_y - screw_max_y < self._magnetic_field_dist and \
+            gripper_min_x < screw_max_x < gripper_max_x and \
+            gripper_min_x < screw_min_x < gripper_max_x
 
     def _AboveReceptacle_holds(self, state: State,
                                objects: Sequence[Object]) -> bool:
@@ -392,15 +392,15 @@ class ScrewsEnv(BaseEnv):
         receptacle_y = state.get(receptacle, "pose_y")
 
         gripper_center_pose = state.get(gripper, "pose_x")
-        gripper_minx = gripper_center_pose - self.gripper_width / 2.0
-        gripper_maxx = gripper_center_pose + self.gripper_width / 2.0
+        gripper_min_x = gripper_center_pose - self.gripper_width / 2.0
+        gripper_max_x = gripper_center_pose + self.gripper_width / 2.0
         receptacle_x = state.get(receptacle, "pose_x")
-        receptacle_minx = receptacle_x - self._receptacle_width / 2.0
-        receptacle_maxx = receptacle_x + self._receptacle_width / 2.0
+        receptacle_min_x = receptacle_x - self._receptacle_width / 2.0
+        receptacle_max_x = receptacle_x + self._receptacle_width / 2.0
 
         return gripper_y > receptacle_y and \
-            receptacle_minx < gripper_minx and \
-            receptacle_maxx > gripper_maxx
+            receptacle_min_x < gripper_min_x and \
+            receptacle_max_x > gripper_max_x
 
     @staticmethod
     def _HoldingScrew_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -412,15 +412,15 @@ class ScrewsEnv(BaseEnv):
         screw, receptacle = objects
 
         screw_center_pose = state.get(screw, "pose_x")
-        screw_minx = screw_center_pose - self._screw_width / 2.0
-        screw_maxx = screw_center_pose + self._screw_width / 2.0
+        screw_min_x = screw_center_pose - self._screw_width / 2.0
+        screw_max_x = screw_center_pose + self._screw_width / 2.0
         receptacle_x = state.get(receptacle, "pose_x")
-        receptacle_maxx = receptacle_x + self._receptacle_width / 2.0
-        receptacle_minx = receptacle_x - self._receptacle_width / 2.0
+        receptacle_max_x = receptacle_x + self._receptacle_width / 2.0
+        receptacle_min_x = receptacle_x - self._receptacle_width / 2.0
 
         screw_held = state.get(screw, "held")
-        return screw_held <= 0.5 and screw_minx > receptacle_minx \
-            and screw_maxx < receptacle_maxx
+        return screw_held <= 0.5 and screw_min_x > receptacle_min_x \
+            and screw_max_x < receptacle_max_x
 
     def _MoveToScrew_policy(self, state: State, memory: Dict,
                             objects: Sequence[Object],
@@ -449,7 +449,7 @@ class ScrewsEnv(BaseEnv):
         """Policy to return an action that moves to a position above the
         receptacle."""
         del memory, params  # unused
-        _, receptacle = objects
+        _, receptacle, _ = objects
         receptacle_x = state.get(receptacle, "pose_x")
         receptacle_y = state.get(receptacle, "pose_y")
 

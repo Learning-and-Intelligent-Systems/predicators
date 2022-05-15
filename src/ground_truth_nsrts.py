@@ -1941,7 +1941,7 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     receptacle = Variable("?receptacle", receptacle_type)
     screw = Variable("?screw", screw_type)
     parameters = [robot, receptacle, screw]
-    option_vars = [robot, receptacle]
+    option_vars = [robot, receptacle, screw]
     option = MoveToReceptacle
     preconditions = {LiftedAtom(HoldingScrew, [robot, screw])}
     add_effects = {LiftedAtom(AboveReceptacle, [robot, receptacle])}

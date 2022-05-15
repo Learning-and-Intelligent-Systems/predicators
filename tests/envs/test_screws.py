@@ -69,4 +69,8 @@ def test_screws():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure})
+    # traj.states[-1] is the last state after executing the demagnetization,
+    # and traj.states[-3] is the state before executing magnetization.
+    # This check thus asserts that magnetizing and then immediately
+    # demagnetizing does nothing to the state.
     assert traj.states[-1].allclose(traj.states[-3])
