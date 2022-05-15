@@ -51,6 +51,8 @@ def _segment_with_contact_changes(
         keep_pred_names = {"Grasped", "Pressed"}
     elif CFG.env == "cover_multistep_options":
         keep_pred_names = {a.name for a in all_preds}
+    elif CFG.env == "doors":
+        keep_pred_names = {"TouchingDoor", "InRoom"}
     else:
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")

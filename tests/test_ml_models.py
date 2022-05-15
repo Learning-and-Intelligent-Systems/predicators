@@ -6,9 +6,10 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.ml_models import ImplicitMLPRegressor, \
-    KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
-    MLPBinaryClassifierEnsemble, MLPRegressor, NeuralGaussianRegressor
+from predicators.src.ml_models import DegenerateMLPDistributionRegressor, \
+    ImplicitMLPRegressor, KNeighborsClassifier, KNeighborsRegressor, \
+    MLPBinaryClassifier, MLPBinaryClassifierEnsemble, MLPRegressor, \
+    NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -114,6 +115,33 @@ def test_neural_gaussian_regressor():
     rng = np.random.default_rng(123)
     sample = model.predict_sample(x, rng)
     assert sample.shape == expected_y.shape
+
+
+def test_degenerate_mlp_distribution_regressor():
+    """Tests for DegenerateMLPDistributionRegressor."""
+    utils.reset_config()
+    input_size = 3
+    output_size = 2
+    num_samples = 5
+    model = DegenerateMLPDistributionRegressor(seed=123,
+                                               hid_sizes=[32, 32],
+                                               max_train_iters=100,
+                                               clip_gradients=True,
+                                               clip_value=5,
+                                               learning_rate=1e-3)
+    X = np.ones((num_samples, input_size))
+    Y = np.zeros((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    mean = model.predict(x)
+    expected_y = np.zeros(output_size)
+    assert mean.shape == expected_y.shape
+    assert np.allclose(mean, expected_y, atol=1e-2)
+    rng = np.random.default_rng(123)
+    sample = model.predict_sample(x, rng)
+    assert sample.shape == expected_y.shape
+    assert np.allclose(sample, expected_y, atol=1e-2)
+    assert np.allclose(sample, mean, atol=1e-6)
 
 
 def test_mlp_classifier():

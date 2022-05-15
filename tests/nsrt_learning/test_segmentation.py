@@ -198,7 +198,8 @@ def test_segment_trajectory():
             unknown_option_ll_traj, unknown_option_segments)
 
 
-@pytest.mark.parametrize("env", ["stick_button", "cover_multistep_options"])
+@pytest.mark.parametrize("env",
+                         ["stick_button", "cover_multistep_options", "doors"])
 def test_contact_based_segmentation(env):
     """Tests for contact-based segmentation."""
     utils.reset_config({
@@ -206,6 +207,10 @@ def test_contact_based_segmentation(env):
         "env": env,
         "num_train_tasks": 1,
         "offline_data_method": "demo",
+        "doors_room_map_size": 2,
+        "doors_min_room_exists_frac": 1.0,
+        "doors_max_room_exists_frac": 1.0,
+        "doors_birrt_smooth_amt": 0,
     })
     env = create_new_env(env, do_cache=False)
     train_tasks = env.get_train_tasks()

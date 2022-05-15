@@ -43,6 +43,7 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         learned_pnads = self._learn()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+            logging.info("\nRunning harmlessness check...")
             assert self._check_harmlessness(learned_pnads)
         min_data = max(CFG.min_data_for_nsrt,
                        self._num_segments * CFG.min_perc_data_for_nsrt / 100)
