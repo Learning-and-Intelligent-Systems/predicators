@@ -40,6 +40,7 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
+    ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
 ]
 
 DERIVED_KEYS = [("perc_solved",

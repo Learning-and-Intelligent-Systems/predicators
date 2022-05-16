@@ -149,7 +149,7 @@ def _run_pipeline(env: BaseEnv,
                 continue
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
             logging.info("Getting interaction requests...")
-            if num_online_transitions > CFG.online_learning_max_transitions:
+            if num_online_transitions >= CFG.online_learning_max_transitions:
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
