@@ -414,7 +414,7 @@ def create_move_end_effector_to_pose_option(
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)
         # Reduce the target to conform to the max velocity constraint.
-        ee_norm = np.linalg.norm(ee_delta)  # type: ignore
+        ee_norm = np.linalg.norm(ee_delta)
         if ee_norm > max_vel_norm:
             ee_delta = ee_delta * max_vel_norm / ee_norm
         ee_action = np.add(current, ee_delta)

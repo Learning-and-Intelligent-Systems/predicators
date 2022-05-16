@@ -167,7 +167,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             for j in range(len(scores)):
                 if j not in allowed_idxs:
                     scores[j] = float("-inf")  # set its score to be really bad
-            if np.max(scores) == float("-inf"):  # type: ignore
+            if np.max(scores) == float("-inf"):
                 # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure(
                     "GNN metacontroller could not select an object")

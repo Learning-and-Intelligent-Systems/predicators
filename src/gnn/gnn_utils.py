@@ -135,8 +135,8 @@ def compute_normalizers(data: List[Dict]) -> Dict[str, Tuple[Array, Array]]:
 
 def _compute_normalizer_array(array_data: Array) -> Tuple[Array, Array]:
     """Helper function for compute_normalizers()."""
-    shift = np.min(array_data, axis=0)  # type: ignore
-    scale = np.max(array_data - shift, axis=0)  # type: ignore
+    shift = np.min(array_data, axis=0)
+    scale = np.max(array_data - shift, axis=0)
     shift[np.where(scale == 0)] = 0
     scale[np.where(scale == 0)] = 1
     return shift, scale
@@ -232,7 +232,7 @@ def _unstack(array: Array) -> List[torch.Tensor]:
     num_splits = int(array.shape[0])
     return [
         torch.squeeze(x, dim=0)  # type: ignore
-        for x in np.split(array, num_splits, axis=0)  # type: ignore
+        for x in np.split(array, num_splits, axis=0)
     ]
 
 
@@ -254,16 +254,14 @@ def split_graphs(graph: Dict) -> List[Dict]:
     edges_splits = np.cumsum(graph['n_edge'][:-1])
     graph_of_lists: Dict[str, Any] = collections.defaultdict(lambda: [])
     if graph['nodes'] is not None:
-        graph_of_lists['nodes'] = np.split(  # type: ignore
-            graph['nodes'], nodes_splits)
+        graph_of_lists['nodes'] = np.split(graph['nodes'], nodes_splits)
     if graph['edges'] is not None:
-        graph_of_lists['edges'] = np.split(  # type: ignore
-            graph['edges'], edges_splits)
+        graph_of_lists['edges'] = np.split(graph['edges'], edges_splits)
     if graph['receivers'] is not None:
-        graph_of_lists['receivers'] = np.split(  # type: ignore
-            graph['receivers'] - offset, edges_splits)
-        graph_of_lists['senders'] = np.split(  # type: ignore
-            graph['senders'] - offset, edges_splits)
+        graph_of_lists['receivers'] = np.split(graph['receivers'] - offset,
+                                               edges_splits)
+        graph_of_lists['senders'] = np.split(graph['senders'] - offset,
+                                             edges_splits)
     if graph['globals'] is not None:
         graph_of_lists['globals'] = _unstack(graph['globals'])
 
