@@ -439,7 +439,7 @@ def get_delta_low_level_hand_action(
     )
 
     delta_trig_frac = 0
-    action = np.concatenate(  # type: ignore
+    action = np.concatenate(
         [
             np.zeros((10), dtype=np.float32),
             np.array(delta_pos, dtype=np.float32),
@@ -775,7 +775,7 @@ def grasp_obj_at_pos(
         return None
 
     # If the object is too far away, fail and return None
-    if (np.linalg.norm(  # type: ignore
+    if (np.linalg.norm(
             np.array(obj.get_position()) -
             np.array(env.robots[0].get_position())) > 2):
         logging.info(f"PRIMITIVE: grasp {obj.name} fail, too far")
@@ -809,24 +809,21 @@ def grasp_obj_at_pos(
     hand_to_obj_unit_vector = hand_to_obj_vector / \
         np.linalg.norm(
         hand_to_obj_vector
-    )  # type: ignore
+    )
     unit_z_vector = np.array([0.0, 0.0, -1.0])
     # This is because we assume the hand is originally oriented
     # so -z is coming out of the palm
-    c_var = np.dot(
-        unit_z_vector,  # type: ignore
-        hand_to_obj_unit_vector)
+    c_var = np.dot(unit_z_vector, hand_to_obj_unit_vector)
     if c_var not in [-1.0, 1.0]:
         v_var = np.cross(unit_z_vector, hand_to_obj_unit_vector)
-        s_var = np.linalg.norm(v_var)  # type: ignore
+        s_var = np.linalg.norm(v_var)
         v_x = np.array([
             [0, -v_var[2], v_var[1]],
             [v_var[2], 0, -v_var[0]],
             [-v_var[1], v_var[0], 0],
         ])
-        R = (
-            np.eye(3) + v_x + np.linalg.matrix_power(v_x, 2)  # type: ignore
-            * ((1 - c_var) / (s_var**2)))
+        R = (np.eye(3) + v_x + np.linalg.matrix_power(v_x, 2) * ((1 - c_var) /
+                                                                 (s_var**2)))
         r = scipy.spatial.transform.Rotation.from_matrix(R)
         euler_angles = r.as_euler("xyz")
     else:

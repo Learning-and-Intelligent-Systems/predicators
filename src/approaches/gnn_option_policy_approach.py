@@ -143,8 +143,8 @@ class GNNOptionPolicyApproach(GNNApproach):
         for obj, node in object_to_node.items():
             type_to_node[obj.type.name].add(node)
         # Extract parameterized option and continuous parameters.
-        onehot_output, params = np.split(  # type: ignore
-            graph_output["globals"], [len(self._sorted_options)])
+        onehot_output, params = np.split(graph_output["globals"],
+                                         [len(self._sorted_options)])
         param_opt = self._sorted_options[np.argmax(onehot_output)]
         # Pad and clip parameters.
         params = params[:param_opt.params_space.shape[0]]
@@ -158,7 +158,7 @@ class GNNOptionPolicyApproach(GNNApproach):
             for j in range(len(scores)):
                 if j not in allowed_idxs:
                     scores[j] = float("-inf")  # set its score to be really bad
-            if np.max(scores) == float("-inf"):  # type: ignore
+            if np.max(scores) == float("-inf"):
                 # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure(
                     "GNN option policy could not select an object")

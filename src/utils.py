@@ -470,7 +470,7 @@ def line_segment_intersects_circle(seg: LineSegment,
     b = (seg.x2, seg.y2)
     ba = np.subtract(b, a)
     ca = np.subtract(c, a)
-    da = ba * np.dot(ca, ba) / np.dot(ba, ba)  # type: ignore
+    da = ba * np.dot(ca, ba) / np.dot(ba, ba)
     # The point on the extended line that is the closest to the center.
     d = dx, dy = (a[0] + da[0], a[1] + da[1])
     # Optionally plot the important points.
@@ -2098,9 +2098,7 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.frombuffer(
-        fig.canvas.tostring_argb(),  # type: ignore
-        dtype=np.uint8).copy()
+    data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).copy()
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (4, ))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
