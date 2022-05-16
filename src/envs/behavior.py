@@ -36,6 +36,7 @@ except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 
+from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.behavior_options import create_grasp_option_model, \
     create_grasp_policy, create_navigate_option_model, \
@@ -396,7 +397,8 @@ class BehaviorEnv(BaseEnv):
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{self.task_num}/")
 
-        return State(state_data, f"{self.task_num}-{simulator_state}")
+        return utils.BehaviorState(state_data,
+                                   f"{self.task_num}-{simulator_state}")
 
     def _create_classifier_from_bddl(
         self,
