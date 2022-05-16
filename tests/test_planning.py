@@ -281,6 +281,7 @@ def test_planning_determinism():
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
 
     class _MockEnv:
+
         @staticmethod
         def simulate(state, action):
             """A mock simulate method."""

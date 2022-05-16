@@ -19,6 +19,7 @@ from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
     """A bilevel planning approach that learns NSRTs from an offline dataset,
     and continues learning options through reinforcement learning."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

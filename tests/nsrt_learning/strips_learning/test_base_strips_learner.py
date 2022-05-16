@@ -12,6 +12,7 @@ from predicators.src.utils import SingletonParameterizedOption
 
 class _MockBaseSTRIPSLearner(BaseSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
+
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
         return self._recompute_datastores_from_segments(pnads)

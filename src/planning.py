@@ -443,6 +443,7 @@ class _DiscoveredFailure:
 
 class _DiscoveredFailureException(ExceptionWithInfo):
     """Exception class for DiscoveredFailure propagation."""
+
     def __init__(self,
                  message: str,
                  discovered_failure: _DiscoveredFailure,
@@ -465,5 +466,6 @@ class _MaxSkeletonsFailure(PlanningFailure):
 
 class _SkeletonSearchTimeout(PlanningTimeout):
     """Raised when timeout occurs in _run_low_level_search()."""
+
     def __init__(self) -> None:
         super().__init__("Planning timed out in skeleton search!")

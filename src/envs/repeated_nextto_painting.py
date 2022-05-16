@@ -20,6 +20,7 @@ from predicators.src.structs import Action, Array, Image, Object, \
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
     """RepeatedNextToPainting domain."""
+
     def __init__(self) -> None:
         super().__init__()
         # Additional Predicates

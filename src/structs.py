@@ -77,6 +77,7 @@ class _TypedEntity:
 class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name does
     not start with "?"."""
+
     def __post_init__(self) -> None:
         assert not self.name.startswith("?")
 
@@ -90,6 +91,7 @@ class Object(_TypedEntity):
 class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?"."""
+
     def __post_init__(self) -> None:
         assert self.name.startswith("?")
 
@@ -346,6 +348,7 @@ class _Atom:
 @dataclass(frozen=True, repr=False, eq=False)
 class LiftedAtom(_Atom):
     """Struct defining a lifted atom (a predicate applied to variables)."""
+
     @cached_property
     def variables(self) -> List[Variable]:
         """Arguments for this lifted atom.
@@ -368,6 +371,7 @@ class LiftedAtom(_Atom):
 @dataclass(frozen=True, repr=False, eq=False)
 class GroundAtom(_Atom):
     """Struct defining a ground atom (a predicate applied to objects)."""
+
     @cached_property
     def objects(self) -> List[Object]:
         """Arguments for this ground atom.
@@ -1227,6 +1231,7 @@ class InteractionResult:
 @dataclass(frozen=True, eq=False, repr=False)
 class Query(abc.ABC):
     """Base class for a Query."""
+
     @property
     def cost(self) -> float:
         """The cost of making this Query."""

@@ -10,6 +10,7 @@ from predicators.src.structs import Action, DummyOption, State, Task
 
 class RandomOptionsApproach(BaseApproach):
     """Samples random options (and random parameters for those options)."""
+
     @classmethod
     def get_name(cls) -> str:
         return "random_options"

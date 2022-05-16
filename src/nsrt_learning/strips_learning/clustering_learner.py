@@ -14,6 +14,7 @@ from predicators.src.structs import Datastore, DummyOption, LiftedAtom, \
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a clustering-based STRIPS learner."""
+
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         segments = [seg for segs in self._segmented_trajs for seg in segs]
         # Cluster the segments according to common option and effects.
@@ -115,6 +116,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
 class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via
     intersection."""
+
     def _learn_pnad_preconditions(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
@@ -137,6 +139,7 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
 class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,
     following the LOFT algorithm: https://arxiv.org/abs/2103.00589."""
+
     def _learn_pnad_preconditions(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
@@ -298,6 +301,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
                                                ):
     """Base class for a clustering-based STRIPS learner that does sidelining
     via hill climbing, after operator learning."""
+
     def _postprocessing_learn_side_predicates(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
@@ -358,6 +362,7 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a prediction error score
     function for side predicate learning."""
+
     @classmethod
     def get_name(cls) -> str:
         return "cluster_and_intersect_sideline_prederror"
@@ -380,6 +385,7 @@ class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a harmlessness score
     function for side predicate learning."""
+
     @classmethod
     def get_name(cls) -> str:
         return "cluster_and_intersect_sideline_harmlessness"

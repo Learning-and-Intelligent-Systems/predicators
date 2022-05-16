@@ -49,6 +49,7 @@ from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
 
 class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment."""
+
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
@@ -403,6 +404,7 @@ class BehaviorEnv(BaseEnv):
         self,
         bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
+
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
@@ -571,6 +573,7 @@ def make_behavior_option(
         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
+
     def policy(state: State, memory: Dict, _objects: Sequence[Object],
                _params: Array) -> Action:
         assert "has_terminated" in memory

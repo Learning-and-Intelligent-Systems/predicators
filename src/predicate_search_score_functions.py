@@ -123,6 +123,7 @@ class _PredicateSearchScoreFunction(abc.ABC):
 @dataclass(frozen=True, eq=False, repr=False)
 class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
+
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
@@ -185,6 +186,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
 class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting false
     positives."""
+
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 low_level_trajs: List[LowLevelTrajectory],
@@ -203,6 +205,7 @@ class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
 class _BranchingFactorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting the number of
     ground operators that are applicable at each state in the data."""
+
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 low_level_trajs: List[LowLevelTrajectory],
@@ -226,6 +229,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
     added, which is meant to be an upper bound on the number of nodes
     that could be expanded.
     """
+
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 low_level_trajs: List[LowLevelTrajectory],
@@ -472,6 +476,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
 class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
+
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],
@@ -500,6 +505,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
     4. The objective for predicate learning is to maximize prod pi(a | s)
        where the product is over demonstrations.
     """
+
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],
@@ -556,6 +562,7 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):
     states that are actually impossible (suspicious) from ones that are simply
     alternative steps toward optimally achieving the goal.
     """
+
     def _evaluate_atom_trajectory(
         self,
         atoms_sequence: List[Set[GroundAtom]],

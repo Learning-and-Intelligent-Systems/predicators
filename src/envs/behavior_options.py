@@ -178,6 +178,7 @@ def create_navigate_policy(
     """Instantiates and returns a navigation option policy given an RRT plan,
     which is a list of 3-element lists each containing a series of (x, y, rot)
     waypoints for the robot to pass through."""
+
     def navigateToOptionPolicy(_state: State,
                                env: "BehaviorEnv") -> Tuple[Array, bool]:
         atol_xy = 1e-2
@@ -253,6 +254,7 @@ def create_navigate_option_model(
     """Instantiates and returns a navigation option model function given an RRT
     plan, which is a list of 3-element lists each containing a series of (x, y,
     rot) waypoints for the robot to pass through."""
+
     def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
         target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
@@ -1183,6 +1185,7 @@ def create_place_option_model(
     """Instantiates and returns a place option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
+
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: "BehaviorEnv") -> None:
         released_obj_bid = env.robots[0].parts["right_hand"].object_in_hand

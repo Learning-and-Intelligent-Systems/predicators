@@ -96,6 +96,7 @@ def _extract_oracle_samplers(
 def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
                             sub: EntToEntSub) -> NSRTSampler:
     """Helper for _extract_oracle_samplers()."""
+
     def _reordered_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:

@@ -238,6 +238,7 @@ def test_relaxation_energy_score_function():
     # Sanity check this for all heuristic choices.
     class _MockEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
+
         def evaluate(self,
                      candidate_predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
@@ -269,6 +270,7 @@ def test_relaxation_energy_score_function():
     # the heuristic will never get called (see evaluate_atom_trajectory).
     class _MockHAddEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
+
         def evaluate(self,
                      candidate_predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(

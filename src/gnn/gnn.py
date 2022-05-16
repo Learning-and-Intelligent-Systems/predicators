@@ -68,6 +68,7 @@ def _aggregate_globals(graph: Dict, global_node_idxs: Array,
 
 class GraphModel(nn.Module, abc.ABC):
     """General GNN architecture."""
+
     def __init__(self, dims: List[int], **kwargs: List[int]) -> None:
         super().__init__()  # type: ignore
         node_dim = dims[0]
@@ -126,6 +127,7 @@ class GraphModel(nn.Module, abc.ABC):
 
 class EncodeProcessDecode(GraphModel):
     """Encode-process-decode GNN architecture."""
+
     def __init__(self, dims: List[int], num_steps: int,
                  **kwargs: List[int]) -> None:
         super().__init__(dims, **kwargs)

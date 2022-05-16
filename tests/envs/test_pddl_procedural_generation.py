@@ -12,6 +12,7 @@ def _split_pddl_problem_str(problem_str):
     Not reliable, definitely don't use anywhere outside of this test
     file.
     """
+
     def _parse_helper(start_marker, end_marker=None):
         str_start = problem_str.index(start_marker)
         start = str_start + len(start_marker) + 1

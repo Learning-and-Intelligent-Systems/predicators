@@ -10,6 +10,7 @@ from predicators.src.structs import Action
 
 class DummyToolsEnv(ToolsEnv):
     """Dummy tools environment that exposes get_best_screwdriver_or_none."""
+
     def get_best_screwdriver_or_none(self, state, screw):
         """Expose parent class method."""
         return self._get_best_screwdriver_or_none(state, screw)

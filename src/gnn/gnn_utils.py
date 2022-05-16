@@ -322,6 +322,7 @@ def concat_graphs(input_graphs: List[Dict], dim: int) -> Dict:
 
 class GraphDictDataset(Dataset):
     """A Dataset that stores input and output graphs."""
+
     def __init__(self, graph_dicts_input: List[Dict],
                  graph_dicts_target: List[Dict]):
         self.graph_dicts_input = graph_dicts_input

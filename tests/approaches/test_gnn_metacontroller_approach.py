@@ -18,6 +18,7 @@ from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
 
 class _MockGNNMetacontrollerApproach(GNNMetacontrollerApproach):
     """A mock approach that exposes some methods and fields for testing."""
+
     def graphify_single_input(self, state, atoms, goal):
         """Expose self._graphify_single_input()."""
         return self._graphify_single_input(state, atoms, goal)

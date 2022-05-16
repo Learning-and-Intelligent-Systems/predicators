@@ -207,6 +207,7 @@ class RepeatedNextToEnv(BaseEnv):
 
 class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
     """A variation on RepeatedNextToEnv with a single parameterized option."""
+
     def __init__(self) -> None:
         super().__init__()
         # Options

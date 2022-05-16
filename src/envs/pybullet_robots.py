@@ -16,6 +16,7 @@ from predicators.src.structs import Action, Array, JointsState, Object, \
 
 class _SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
+
     def __init__(self, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
                  physics_client_id: int) -> None:
         # Initial position for the end effector.

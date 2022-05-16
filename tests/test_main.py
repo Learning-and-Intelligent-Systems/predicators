@@ -17,6 +17,7 @@ from predicators.src.structs import Action, State, Task
 
 class _DummyApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
+
     @classmethod
     def get_name(cls) -> str:
         return "dummy"
@@ -26,6 +27,7 @@ class _DummyApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
         def _policy(s: State) -> Action:
             raise ApproachFailure("Option plan exhausted.")
 
@@ -34,6 +36,7 @@ class _DummyApproach(BaseApproach):
 
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
+
     @classmethod
     def get_name(cls) -> str:
         return "dummy"
