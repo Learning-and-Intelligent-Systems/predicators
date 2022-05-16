@@ -133,11 +133,7 @@ def _main() -> None:
                                 yerr=y_stds,
                                 label=label,
                                 marker=marker)
-                # Automatically make x ticks integers for certain X KEYS.
-                if x_key == "CYCLE":
-                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                elif x_key == "NUM_TRAIN_TASKS":
-                    ax.set_xticks(xs)
+                ax.set_xticks(xs)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
