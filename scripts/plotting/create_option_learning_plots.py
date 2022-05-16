@@ -61,8 +61,11 @@ Y_KEY_AND_LABEL = [
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
-TITLE_ENVS = [("PickPlace1D", "cover_multistep_options"),
-              ("Stick Button", "stick_button")]
+TITLE_ENVS = [
+    ("PickPlace1D", "cover_multistep_options"),
+    ("Stick Button", "stick_button"),
+    ("Doors", "doors"),
+]
 
 
 def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
@@ -71,20 +74,21 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
 
 PLOT_GROUPS = {
     title: [
-        ("Oracle Options", "*", partial(_select_data, env, "oracle_options")),
-        ("Ours", "o", partial(_select_data, env, "main")),
-        ("Ours (Nonparam)", "o",
+        ("Oracle Options", "black", "*",
+         partial(_select_data, env, "oracle_options")),
+        ("Ours", "darkgreen", "o", partial(_select_data, env, "main")),
+        ("Ours (Nonparam)", "darkorange", "o",
          partial(_select_data, env, "direct_bc_nonparam")),
-        ("GNN Metacontroller (Param)", "o",
+        ("GNN Metacontroller (Param)", "blue", "o",
          partial(_select_data, env, "gnn_metacontroller_param")),
-        ("GNN Metacontroller (Nonparam)", "o",
+        ("GNN Metacontroller (Nonparam)", "purple", "o",
          partial(_select_data, env, "gnn_metacontroller_nonparam")),
-        ("GNN Action Policy", "o",
+        ("GNN Action Policy", "gold", "o",
          partial(_select_data, env, "gnn_action_policy")),
-        ("Max Skeletons=1", "o",
+        ("Max Skeletons=1", "gray", "o",
          partial(_select_data, env, "direct_bc_max_skel1")),
-        ("Max Samples=1", "o", partial(_select_data, env,
-                                       "direct_bc_max_samp1")),
+        ("Max Samples=1", "brown", "o",
+         partial(_select_data, env, "direct_bc_max_samp1")),
     ]
     for (title, env) in TITLE_ENVS
 }
@@ -110,7 +114,7 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots(figsize=(10, 5))
-                for label, marker, selector in d:
+                for label, color, marker, selector in d:
                     exp_means = get_df_for_entry(x_key, means, selector)
                     exp_stds = get_df_for_entry(x_key, stds, selector)
                     xs = exp_means[x_key].tolist()
@@ -124,6 +128,7 @@ def _main() -> None:
                                 ys,
                                 yerr=y_stds,
                                 label=label,
+                                color=color,
                                 marker=marker)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
