@@ -454,7 +454,6 @@ def get_delta_low_level_hand_action(
 
 def create_grasp_policy(
     plan: List[List[float]], _original_orientation: List[List[float]]
-    # obj_to_grasp: "URDFObject"
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
     """Instantiates and returns a navigation option policy given an RRT plan,
     which is a list of 6-element lists containing a series of (x, y, z, roll,
