@@ -123,8 +123,9 @@ def _run_pipeline(env: BaseEnv,
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
-        total_num_transitions = sum(
+        num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
+        num_online_transitions = 0
         total_query_cost = 0.0
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
@@ -136,7 +137,8 @@ def _run_pipeline(env: BaseEnv,
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, approach)
-            results["num_transitions"] = total_num_transitions
+            results["num_offline_transitions"] = num_offline_transitions
+            results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=None)
@@ -147,7 +149,7 @@ def _run_pipeline(env: BaseEnv,
                 continue
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
             logging.info("Getting interaction requests...")
-            if total_num_transitions > CFG.online_learning_max_transitions:
+            if num_online_transitions > CFG.online_learning_max_transitions:
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
@@ -158,7 +160,7 @@ def _run_pipeline(env: BaseEnv,
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
                 env, teacher, interaction_requests, i)
-            total_num_transitions += sum(
+            num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
@@ -171,13 +173,15 @@ def _run_pipeline(env: BaseEnv,
                 learning_time += time.time() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
-            results["num_transitions"] = total_num_transitions
+            results["num_offline_transitions"] = num_offline_transitions
+            results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
-        results["num_transitions"] = 0
+        results["num_offline_transitions"] = 0
+        results["num_online_transitions"] = 0
         results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)

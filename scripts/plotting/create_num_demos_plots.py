@@ -50,7 +50,6 @@ DERIVED_KEYS = [("perc_solved",
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
     ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
-    # ("NUM_TRANSITIONS", "Num transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
@@ -135,7 +134,7 @@ def _main() -> None:
                                 label=label,
                                 marker=marker)
                 # Automatically make x ticks integers for certain X KEYS.
-                if x_key in ("CYCLE", "NUM_TRANSITIONS"):
+                if x_key in ("CYCLE", "NUM_OFFLINE_TRANSITIONS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 elif x_key == "NUM_TRAIN_TASKS":
                     ax.set_xticks(xs)
