@@ -118,7 +118,7 @@ def test_main():
         "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--num_train_tasks", "1",
         "--num_test_tasks", "1", "--option_learner", "direct_bc",
-        "--mlp_regressor_max_itr", "1"
+        "--segmenter", "atom_changes", "--mlp_regressor_max_itr", "1"
     ]
     main()
     # Try running interactive approach with no online learning, to make sure

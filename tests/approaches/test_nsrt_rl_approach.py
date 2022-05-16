@@ -22,6 +22,7 @@ def test_nsrt_reinforcement_learning_approach():
         "num_test_tasks": 1,
         "option_learner": "direct_bc",
         "sampler_learner": "random",
+        "segmenter": "atom_changes",
         "num_online_learning_cycles": 1,
         "mlp_regressor_max_itr": 1,
     }
