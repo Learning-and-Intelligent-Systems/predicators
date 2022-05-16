@@ -90,11 +90,12 @@ def main() -> None:
     stripped_train_tasks = [
         utils.strip_task(task, preds) for task in train_tasks
     ]
-    # Don't pass in options if we are learning them.
     if CFG.option_learner == "no_learning":
+        # If we are not doing option learning, pass in all the environment's
+        # oracle options.
         options = env.options
     else:
-        # Determine which oracle options to include, if any.
+        # Determine from the config which oracle options to include, if any.
         options = utils.parse_config_included_options(env)
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, options, env.types,
