@@ -72,8 +72,7 @@ class ClutteredTableEnv(BaseEnv):
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
             this_radius = state.get(can, "radius")
-            if np.linalg.norm([end_x - this_x, end_y - this_y
-                               ]) < this_radius:  # type: ignore
+            if np.linalg.norm([end_x - this_x, end_y - this_y]) < this_radius:
                 assert desired_can is None
                 desired_can = can
         if desired_can is None:
@@ -242,8 +241,7 @@ class ClutteredTableEnv(BaseEnv):
             other_x = other_feats[0]
             other_y = other_feats[1]
             other_radius = other_feats[2]
-            distance = np.linalg.norm([other_x - pose[0],
-                                       other_y - pose[1]])  # type: ignore
+            distance = np.linalg.norm([other_x - pose[0], other_y - pose[1]])
             if distance <= (radius + other_radius):
                 return True
         return False
@@ -276,13 +274,10 @@ class ClutteredTableEnv(BaseEnv):
             vec2 = np.array([end_x - this_x, end_y - this_y])
             angle = np.arccos(
                 np.clip(
-                    vec1.dot(vec2) / (
-                        np.linalg.norm(vec1) *  # type: ignore
-                        np.linalg.norm(vec2)),  # type: ignore
-                    -1.0,
-                    1.0))
+                    vec1.dot(vec2) /
+                    (np.linalg.norm(vec1) * np.linalg.norm(vec2)), -1.0, 1.0))
             if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
-                dist = np.linalg.norm(vec2)  # type: ignore
+                dist = np.linalg.norm(vec2)
                 if dist > colliding_can_max_dist:
                     colliding_can_max_dist = float(dist)
                     colliding_can = can
@@ -363,8 +358,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
             this_radius = state.get(can, "radius")
-            if np.linalg.norm([end_x - this_x, end_y - this_y
-                               ]) < this_radius:  # type: ignore
+            if np.linalg.norm([end_x - this_x, end_y - this_y]) < this_radius:
                 assert desired_can is None
                 desired_can = can
         if desired_can is None:

@@ -486,9 +486,7 @@ class BlocksEnv(BaseEnv):
                 state.get(block, "pose_z")
             ])
             if np.allclose([x, y, z], block_pose, atol=self.pick_tol):
-                dist = np.linalg.norm(
-                    np.array([x, y, z]) -  # type: ignore
-                    block_pose)
+                dist = np.linalg.norm(np.array([x, y, z]) - block_pose)
                 close_blocks.append((block, float(dist)))
         if not close_blocks:
             return None
