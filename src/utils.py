@@ -795,8 +795,8 @@ class SingletonParameterizedOption(ParameterizedOption):
 
 class BehaviorState(State):
     """A Behavior state that stores the index of the temporary behavior state
-    folder in addition to the features that are exposed in the object-
-    centric state."""
+    folder in addition to the features that are exposed in the object-centric
+    state."""
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.
