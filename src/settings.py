@@ -33,6 +33,9 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    # The method to use for segmentation. By default, segment using options.
+    # If you are learning options, you should change this via the command line.
+    segmenter = "option_changes"
 
     # cover env parameters
     cover_num_blocks = 2
@@ -191,6 +194,8 @@ class GlobalSettings:
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
     offline_data_max_skeletons_optimized = -1
+    # Number of replays used when offline_data_method is replay-based.
+    offline_data_num_replays = 500
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
@@ -301,7 +306,7 @@ class GlobalSettings:
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
-                    # For the very simple TouchPoint environment, restrict
+                    # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
                 })[args.get("env", "")],
@@ -341,16 +346,6 @@ class GlobalSettings:
                     "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 
-            # Number of replays used when offline_data_method is demo+replay.
-            offline_data_num_replays=defaultdict(
-                # Default number of random replays.
-                lambda: 500,
-                {
-                    # For the repeated_nextto environment, too many
-                    # replays makes learning slow.
-                    "repeated_nextto": 50,
-                })[args.get("env", "")],
-
             # The name of the option model used by the agent.
             option_model_name=defaultdict(
                 lambda: "oracle",
@@ -373,7 +368,7 @@ class GlobalSettings:
                     "stick_button": 1000,
                 })[args.get("env", "")],
 
-            # In SeSamE, the maximum effort put into sampling a single skeleton.
+            # In SeSamE, the maximum effort put into refining a single skeleton.
             # Concretely, this effort refers to the maximum number of calls to
             # the sampler on each step before backtracking.
             sesame_max_samples_per_step=defaultdict(
@@ -391,14 +386,6 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
-
-            # Segmentation parameters.
-            segmenter=defaultdict(
-                lambda: "atom_changes",
-                {
-                    # When options are given, use them to segment instead.
-                    "no_learning": "option_changes",
-                })[args.get("option_learner", "no_learning")],
         )
 
 

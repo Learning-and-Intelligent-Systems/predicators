@@ -17,6 +17,7 @@ def _test_approach(env_name,
                    sampler_learner="neural",
                    option_learner="no_learning",
                    strips_learner="cluster_and_intersect",
+                   segmenter="option_changes",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    solve_exceptions=None,
@@ -41,6 +42,7 @@ def _test_approach(env_name,
         "strips_learner": strips_learner,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
+        "segmenter": segmenter,
         "cover_initial_holding_prob": 0.0,
         **additional_settings,
     })
@@ -152,6 +154,7 @@ def test_neural_option_learning():
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="direct_bc",
+                   segmenter="atom_changes",
                    check_solution=False,
                    additional_settings={
                        "cover_multistep_thr_percent": 0.99,
@@ -164,6 +167,7 @@ def test_neural_option_learning():
                    try_solving=True,
                    sampler_learner="oracle",
                    option_learner="direct_bc",
+                   segmenter="atom_changes",
                    check_solution=False,
                    offline_data_method="demo",
                    solve_exceptions=(ApproachFailure, ),
@@ -177,6 +181,7 @@ def test_neural_option_learning():
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="implicit_bc",
+                   segmenter="atom_changes",
                    check_solution=False,
                    additional_settings={
                        "implicit_mlp_regressor_max_itr": 10,
@@ -189,6 +194,7 @@ def test_neural_option_learning():
                    try_solving=True,
                    sampler_learner="random",
                    option_learner="direct_bc_nonparameterized",
+                   segmenter="atom_changes",
                    check_solution=False)
 
 
@@ -211,6 +217,7 @@ def test_oracle_samplers():
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
                    option_learner="oracle",
+                   segmenter="atom_changes",
                    check_solution=True,
                    num_train_tasks=3)
     with pytest.raises(Exception) as e:
