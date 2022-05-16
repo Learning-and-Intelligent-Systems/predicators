@@ -1002,12 +1002,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         m["absolute_params"] = vec + p
         return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(
-            self,
-            s: State,
-            m: Dict,  # type: ignore
-            o: Sequence[Object],
-            p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
+                     p: Array) -> Action:
         assert np.allclose(p, m["params"])
         del p
         absolute_params = m["absolute_params"]
