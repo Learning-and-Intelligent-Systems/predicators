@@ -186,9 +186,10 @@ class DoorsEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dx, dy, drot
-        lb = np.array([-self.action_magnitude, -self.action_magnitude, -np.pi],
-                      dtype=np.float32)
-        ub = np.array([self.action_magnitude, self.action_magnitude, np.pi],
+        lb = np.array(
+            [-self.action_magnitude, -self.action_magnitude, -np.inf],
+            dtype=np.float32)
+        ub = np.array([self.action_magnitude, self.action_magnitude, np.inf],
                       dtype=np.float32)
         return Box(lb, ub)
 
