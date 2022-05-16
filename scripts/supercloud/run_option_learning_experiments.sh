@@ -20,7 +20,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
         COMMON_ARGS="--env $ENV --min_perc_data_for_nsrt 1 \
             --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
-            --seed $SEED --gnn_num_epochs 10000 --disable_harmlessness_check True"
+            --seed $SEED --gnn_num_epochs 10000 --disable_harmlessness_check True \
+            --neural_gaus_regressor_max_itr 50000"
 
         # Include the motion planning options for the doors environment.
         if [ $ENV = "doors" ]; then
@@ -45,16 +46,16 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
 
             # GNN metacontroller with direct BC options
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
 
             # GNN action policy BC
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_action_policy_${NUM_TRAIN_TASKS} --approach gnn_action_policy
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_action_policy_${NUM_TRAIN_TASKS} --approach gnn_action_policy
 
             # direct BC with nonparameterized options
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_direct_bc_nonparam_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc_nonparameterized
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_direct_bc_nonparam_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc_nonparameterized --mlp_regressor_max_itr 60000
 
             # GNN metacontroller with nonparameterized options
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized
         fi
 
     done
