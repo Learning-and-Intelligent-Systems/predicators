@@ -40,7 +40,6 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
-    ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
 ]
 
 DERIVED_KEYS = [("perc_solved",
@@ -135,7 +134,7 @@ def _main() -> None:
                                 label=label,
                                 marker=marker)
                 # Automatically make x ticks integers for certain X KEYS.
-                if x_key in ("CYCLE", "NUM_OFFLINE_TRANSITIONS"):
+                if x_key == "CYCLE":
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 elif x_key == "NUM_TRAIN_TASKS":
                     ax.set_xticks(xs)
