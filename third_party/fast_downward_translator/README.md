@@ -9,3 +9,4 @@ Modifications:
 * Removed [options.py](https://github.com/aibasel/downward/blob/3e3759d091196515fa68c44a729153100747c4bf/src/translate/options.py) and associated command-line arguments, replacing with the default values from the linked file.
 * Removed tests.
 * Changed imports to be absolute.
+* Ran our code autoformatter.
