@@ -18,12 +18,15 @@ from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 
-@pytest.mark.parametrize("sesame_check_expected_atoms", [True, False])
-def test_sesame_plan(sesame_check_expected_atoms):
+@pytest.mark.parametrize("sesame_check_expected_atoms,sesame_grounder",
+                         [(True, "naive"), (False, "naive"),
+                          (True, "fd_translator")])
+def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder):
     """Tests for sesame_plan()."""
     utils.reset_config({
         "env": "cover",
         "sesame_check_expected_atoms": sesame_check_expected_atoms,
+        "sesame_grounder": sesame_grounder,
         "num_test_tasks": 1,
     })
     env = CoverEnv()
@@ -395,3 +398,30 @@ def test_planning_determinism():
     assert len(all_plans) == 4
     for plan in all_plans[1:]:
         assert plan == all_plans[0]
+
+
+def test_sesame_plan_invalid_grounding():
+    """Test for an invalid setting of CFG.sesame_grounder."""
+    utils.reset_config({
+        "env": "cover",
+        "num_test_tasks": 1,
+        "sesame_grounder": "not a real grounder",
+    })
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = env.get_test_tasks()[0]
+    option_model = create_option_model(CFG.option_model_name)
+    with pytest.raises(ValueError) as e:
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            1,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
+        )
+    assert "Unrecognized sesame_grounder" in str(e)

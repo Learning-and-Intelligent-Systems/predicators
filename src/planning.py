@@ -23,6 +23,8 @@ from predicators.src.structs import NSRT, DefaultState, DummyOption, \
     STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
+from predicators.third_party.fast_downward_translator.translate import \
+    main as downward_translate
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -62,16 +64,34 @@ def sesame_plan(
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
-    del types  # will be used for Fast Downward grounding in a forthcoming PR
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-            if time.time() - start_time > timeout:
-                raise PlanningTimeout("Planning timed out in grounding!")
+    if CFG.sesame_grounder == "naive":
+        ground_nsrts = []
+        for nsrt in sorted(nsrts):
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+                if time.time() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in grounding!")
+    elif CFG.sesame_grounder == "fd_translator":
+        nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+        obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+        dom_str = utils.create_pddl_domain(nsrts, predicates, types,
+                                           "mydomain")
+        prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
+                                             "mydomain", "myproblem")
+        with utils.nostdout():
+            sas_task = downward_translate(dom_str, prob_str)
+        ground_nsrts = []
+        for operator in sas_task.operators:
+            split_name = operator.name[1:-1].split()  # strip out ( and )
+            nsrt = nsrt_name_to_nsrt[split_name[0]]
+            objs = [obj_name_to_obj[name] for name in split_name[1:]]
+            ground_nsrts.append(nsrt.ground(objs))
+    else:
+        raise ValueError(
+            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
