@@ -298,6 +298,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
+        print("NT:", num_tries[cur_idx])
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]

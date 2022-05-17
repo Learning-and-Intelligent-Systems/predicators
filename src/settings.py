@@ -371,6 +371,8 @@ class GlobalSettings:
                     "tools": 1000,
                     # For the stick button environment, allow more skeletons.
                     "stick_button": 1000,
+                    # For Behavior, allow even more skeletons.
+                    "behavior": 10000,
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum effort put into sampling a single skeleton.
@@ -381,6 +383,8 @@ class GlobalSettings:
                 {
                     # For the tools environment, don't do any backtracking.
                     "tools": 1,
+                    # For the behavior environment, do alot of sampling.
+                    "behavior": 30,
                 })[args.get("env", "")],
 
             # Maximum number of skeletons used by ExpectedNodesScoreFunction.

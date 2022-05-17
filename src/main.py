@@ -84,7 +84,9 @@ def main() -> None:
     assert env.goal_predicates.issubset(env.predicates)
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
+    # TODO Possibly load train tasks
     train_tasks = env.get_train_tasks()
+    #
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
     stripped_train_tasks = [
@@ -108,6 +110,8 @@ def main() -> None:
             env, train_tasks, options)
     else:
         offline_dataset = None
+
+    import ipdb; ipdb.set_trace()
     # Run the full pipeline.
     _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
     script_time = time.time() - script_start

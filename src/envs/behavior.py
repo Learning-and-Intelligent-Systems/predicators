@@ -2,6 +2,7 @@
 # pylint: disable=import-error
 
 import functools
+import imp
 import itertools
 import os
 import shutil
@@ -61,7 +62,6 @@ class BehaviorEnv(BaseEnv):
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.set_igibson_behavior_env(self._seed)
-        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
         # a unique id for saving and loading each task's state
         self.task_num: int = 0
@@ -124,6 +124,7 @@ class BehaviorEnv(BaseEnv):
         return "behavior"
 
     def simulate(self, state: State, action: Action) -> State:
+        #import ipdb; ipdb.set_trace()
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(
@@ -135,6 +136,7 @@ class BehaviorEnv(BaseEnv):
         # a[16] is used to indicate whether to grasp or release the currently-
         # held object. 1.0 indicates that the object should be grasped, and
         # -1.0 indicates it should be released
+        #import ipdb; ipdb.set_trace()
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             # We now need to create a 28-dimensional action to pass to
@@ -152,6 +154,7 @@ class BehaviorEnv(BaseEnv):
             # grasping release mechanism
             self.igibson_behavior_env.robots[0].parts[
                 "right_hand"].force_release_obj()
+            self.igibson_behavior_env.robots[0].parts["right_hand"].object_in_hand = None
             # reset the released object to zero velocity
             pyb.resetBaseVelocity(
                 released_obj.get_body_id(),
@@ -333,6 +336,7 @@ class BehaviorEnv(BaseEnv):
                 action_filter="mobile_manipulation",
                 rng=self._rng,
             )
+            self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
             self.igibson_behavior_env.step(
                 np.zeros(self.igibson_behavior_env.action_space.shape))
             ig_objs_bddl_scope = [
@@ -404,7 +408,7 @@ class BehaviorEnv(BaseEnv):
         self,
         bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
-
+        global _classifier
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
