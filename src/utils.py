@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import abc
-import io
 import contextlib
 import functools
 import gc
 import heapq as hq
+import io
 import itertools
 import logging
 import os
@@ -17,8 +17,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, \
-    Tuple, Generator
+    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
