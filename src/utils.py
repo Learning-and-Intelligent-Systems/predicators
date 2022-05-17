@@ -2349,7 +2349,8 @@ class _DummyFile(io.StringIO):
 def nostdout() -> Generator[None, None, None]:
     """Suppress output for a block of code.
 
-    To use, wrap code in the statement `with utils.nostdout():`.
+    To use, wrap code in the statement `with utils.nostdout():`. Note
+    that calls to the logging library are unaffected.
     """
     save_stdout = sys.stdout
     sys.stdout = _DummyFile()
