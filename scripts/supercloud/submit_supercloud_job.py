@@ -7,8 +7,8 @@ import sys
 from predicators.src import utils
 from predicators.src.settings import CFG
 
-START_SEED=456
-NUM_SEEDS=10
+START_SEED = 456
+NUM_SEEDS = 10
 
 
 def _run() -> None:
