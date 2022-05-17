@@ -24,7 +24,7 @@ SUPERCLOUD_USER_TO_DIR = {
     "ronuchit": "/home/gridsan/ronuchit/predicators/",
     "tslvr": "/home/gridsan/tslvr/predicators/",
     "njk": "/home/gridsan/njk/GitHub/research/predicators/",
-    "wmcclinton": "/home/gridsan/wmcclinton/GitHub/research/predicators/",
+    "wmcclinton": "/home/gridsan/wmcclinton/GitHub/predicators/",
     "wshen": "/home/gridsan/wshen/predicators/",
 }
 
