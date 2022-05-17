@@ -29,7 +29,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
             COMMON_ARGS="--env $ENV --min_perc_data_for_nsrt 1 \
                 --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
-                --seed $SEED --gnn_num_epochs 10000 --disable_harmlessness_check True \
+                --seed $SEED --gnn_num_epochs 1000 --disable_harmlessness_check True \
                 --neural_gaus_regressor_max_itr 50000"
 
             # Include the motion planning options for the doors environment.
