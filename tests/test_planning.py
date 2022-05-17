@@ -144,6 +144,10 @@ def test_sesame_plan_failures():
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=-100)  # times out
+    utils.reset_config({"env": "cover", "sesame_grounder": "fd_translator"})
+    with pytest.raises(ApproachTimeout):
+        approach.solve(impossible_task, timeout=-100)  # times out
+    utils.reset_config({"env": "cover"})
     old_max_samples_per_step = CFG.sesame_max_samples_per_step
     old_max_skeletons = CFG.sesame_max_skeletons_optimized
     CFG.sesame_max_samples_per_step = 1
