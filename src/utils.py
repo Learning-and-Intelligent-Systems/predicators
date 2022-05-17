@@ -2350,7 +2350,9 @@ def nostdout() -> Generator[None, None, None]:
     """Suppress output for a block of code.
 
     To use, wrap code in the statement `with utils.nostdout():`. Note
-    that calls to the logging library are unaffected.
+    that calls to the logging library, which this codebase uses
+    primarily, are unaffected. So, this utility is mostly helpful when
+    calling third-party code.
     """
     save_stdout = sys.stdout
     sys.stdout = _DummyFile()
