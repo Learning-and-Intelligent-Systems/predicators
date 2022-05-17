@@ -9,8 +9,8 @@ python $FILE --experiment_id cover_nsrt_learning --env cover --approach nsrt_lea
 # python $FILE --experiment_id cover_invent_allexclude --env cover --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50
 
 # # pybullet_blocks
-# python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --num_train_tasks 0
-# python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --num_train_tasks 50
+python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --num_train_tasks 0
+python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --num_train_tasks 50
 # python $FILE --experiment_id pybullet_blocks_invent_noexclude --env pybullet_blocks --approach grammar_search_invention --num_train_tasks 50
 # python $FILE --experiment_id pybullet_blocks_invent_allexclude --env pybullet_blocks --approach grammar_search_invention --excluded_predicates all --num_train_tasks 50
 
