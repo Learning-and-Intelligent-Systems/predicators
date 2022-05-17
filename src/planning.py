@@ -62,16 +62,28 @@ def sesame_plan(
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
-    del types  # will be used for Fast Downward grounding in a forthcoming PR
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-            if time.time() - start_time > timeout:
-                raise PlanningTimeout("Planning timed out in grounding!")
+    if CFG.sesame_grounder == "naive":
+        ground_nsrts = []
+        for nsrt in sorted(nsrts):
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+                if time.time() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in grounding!")
+    elif CFG.sesame_grounder == "fd_translator":
+        # WARNING: there is no easy way to check the timeout within this call,
+        # since Fast Downward's translator is a third-party function. We'll
+        # just check the timeout afterward.
+        ground_nsrts = list(
+            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
+                                                 types, init_atoms, task.goal))
+        if time.time() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in grounding!")
+    else:
+        raise ValueError(
+            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
