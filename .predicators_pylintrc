@@ -10,7 +10,7 @@ extension-pkg-whitelist=numpy,pybullet,torch,tensorflow
 ignore=CVS
 
 # Add paths to the blacklist.
-ignore-paths=src/envs/assets
+ignore-paths=src/envs/assets,third_party
 
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
