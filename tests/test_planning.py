@@ -1,5 +1,7 @@
 """Test cases for planning algorithms."""
 
+from contextlib import nullcontext as does_not_raise
+
 import pytest
 from gym.spaces import Box
 
@@ -18,10 +20,13 @@ from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 
-@pytest.mark.parametrize("sesame_check_expected_atoms,sesame_grounder",
-                         [(True, "naive"), (False, "naive"),
-                          (True, "fd_translator")])
-def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder):
+@pytest.mark.parametrize(
+    "sesame_check_expected_atoms,sesame_grounder,expectation",
+    [(True, "naive", does_not_raise()), (False, "naive", does_not_raise()),
+     (True, "fd_translator", does_not_raise()),
+     (True, "not a real grounder", pytest.raises(ValueError))])
+def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
+                     expectation):
     """Tests for sesame_plan()."""
     utils.reset_config({
         "env": "cover",
@@ -33,21 +38,25 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder):
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
-    plan, metrics = sesame_plan(
-        task,
-        option_model,
-        nsrts,
-        env.predicates,
-        env.types,
-        1,  # timeout
-        123,  # seed
-        CFG.sesame_task_planning_heuristic,
-        CFG.sesame_max_skeletons_optimized,
-        max_horizon=CFG.horizon,
-    )
-    assert len(plan) == 3
-    assert all(isinstance(act, _Option) for act in plan)
-    assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
+    with expectation as e:
+        plan, metrics = sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            1,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
+        )
+    if e is None:
+        assert len(plan) == 3
+        assert all(isinstance(act, _Option) for act in plan)
+        assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
+    else:
+        assert "Unrecognized sesame_grounder" in str(e)
 
 
 def test_task_plan():
@@ -398,30 +407,3 @@ def test_planning_determinism():
     assert len(all_plans) == 4
     for plan in all_plans[1:]:
         assert plan == all_plans[0]
-
-
-def test_sesame_plan_invalid_grounding():
-    """Test for an invalid setting of CFG.sesame_grounder."""
-    utils.reset_config({
-        "env": "cover",
-        "num_test_tasks": 1,
-        "sesame_grounder": "not a real grounder",
-    })
-    env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = env.get_test_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name)
-    with pytest.raises(ValueError) as e:
-        sesame_plan(
-            task,
-            option_model,
-            nsrts,
-            env.predicates,
-            env.types,
-            1,  # timeout
-            123,  # seed
-            CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,
-            max_horizon=CFG.horizon,
-        )
-    assert "Unrecognized sesame_grounder" in str(e)
