@@ -14,7 +14,7 @@ NUM_SEEDS=10
 def _run() -> None:
     args = utils.parse_args(seed_required=False)
     utils.update_config(args)
-    assert CFG.seed is None
+    assert CFG.seed is None, "Do not pass in a seed to this script!"
     job_name = CFG.experiment_id
     os.makedirs(CFG.log_dir, exist_ok=True)
     logfile_pattern = os.path.join(CFG.log_dir,
