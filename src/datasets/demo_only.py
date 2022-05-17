@@ -45,6 +45,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
+
+            import ipdb; ipdb.set_trace()
             traj, _ = utils.run_policy(
                 utils.option_plan_to_policy(plan),
                 env,
