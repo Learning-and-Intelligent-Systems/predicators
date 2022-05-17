@@ -35,6 +35,7 @@ def test_sesame_plan(sesame_check_expected_atoms):
         option_model,
         nsrts,
         env.predicates,
+        env.types,
         1,  # timeout
         123,  # seed
         CFG.sesame_task_planning_heuristic,
@@ -153,6 +154,7 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -167,6 +169,7 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -180,6 +183,7 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -226,6 +230,7 @@ def test_sesame_plan_uninitiable_option():
             option_model,
             new_nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -310,6 +315,7 @@ def test_planning_determinism():
             option_model,
             [sleep_nsrt, cry_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -323,6 +329,7 @@ def test_planning_determinism():
             option_model,
             [cry_nsrt, sleep_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -336,6 +343,7 @@ def test_planning_determinism():
             option_model,
             [sleep_nsrt, cry_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -349,6 +357,7 @@ def test_planning_determinism():
             option_model,
             [cry_nsrt, sleep_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
