@@ -38,9 +38,6 @@ def _run() -> None:
         os.remove(temp_run_file)
         raise Exception("Are you logged into supercloud?")
     os.remove(temp_run_file)
-    job_id = output.split()[-1]
-    log = logfile_pattern.replace("%j", str(job_id)).replace("%a", "<SEED>")
-    print(f"Started job, see log with:\ntail -n 10000 -F {log}")
 
 
 if __name__ == "__main__":
