@@ -297,7 +297,7 @@ class GlobalSettings:
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
-                    "behavior": 1000,
+                    "behavior": 10000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,

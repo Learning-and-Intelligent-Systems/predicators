@@ -154,9 +154,12 @@ def navigate_to_param_sampler(rng: Generator,
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit = 1.25
-    distance = closeness_limit * rng.random()
+    distance_limit = 1.95
+    closeness_limit = 0.5
+    distance = (distance_limit - closeness_limit) * rng.random()  + closeness_limit
     yaw = rng.random() * (2 * np.pi) - np.pi
+    if "shelf" in obj_to_sample_near.name: # -0.5, -0.8, -0.43, -0.5, -0.66, 1.8
+        yaw = rng.random() * 0.4 - 0.8
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
 
@@ -164,12 +167,17 @@ def navigate_to_param_sampler(rng: Generator,
     # the bounding box of the object and therefore will
     # certainly be in collision with the object if the robot
     # tries to move there.
+    count = 0
+    max_count = 100
     while (abs(x) <= obj_to_sample_near.bounding_box[0]
-           and abs(y) <= obj_to_sample_near.bounding_box[1]):
-        distance = closeness_limit * rng.random()
+           and abs(y) <= obj_to_sample_near.bounding_box[1]) and count < max_count:
+        distance = (distance_limit - closeness_limit) * rng.random()  + closeness_limit
         yaw = rng.random() * (2 * np.pi) - np.pi
+        if "shelf" in obj_to_sample_near.name: # -0.5, -0.8, -0.43, -0.5, -0.66, 1.8
+            yaw = rng.random() * 0.4 - 0.8
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
+        count += 1
 
     return np.array([x, y])
 

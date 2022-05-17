@@ -6,6 +6,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 from __future__ import annotations
 
 import heapq as hq
+import imp
 import logging
 import time
 from collections import defaultdict
@@ -310,6 +311,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
+                print("TRY")
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
@@ -317,11 +319,13 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # Remember only the most recent failure.
                 discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
             else:  # an EnvironmentFailure was not raised
+                print("...")
                 discovered_failures[cur_idx - 1] = None
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    print(f"Max horizon {max_horizon} exceeded:",np.sum(num_actions_per_option[:cur_idx]),"steps")
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.
@@ -339,9 +343,13 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # utils.abstract(traj[cur_idx], predicates).
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
+                        print("Success")
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                print(f"WARNING: did not pass expected atoms check {a}")
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
