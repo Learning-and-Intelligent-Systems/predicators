@@ -57,6 +57,7 @@ class PrologProgram:
 
     def remove_free_effect_variables(self):
         """Remove free effect variables like the variable Y in the rule p(X, Y)
+
         :- q(X). This is done by introducing a new predicate.
 
         @object, setting it true for all objects, and translating the above

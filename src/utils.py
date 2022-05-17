@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import abc
+import contextlib
 import functools
 import gc
 import heapq as hq
+import io
 import itertools
 import logging
 import os
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
@@ -2329,3 +2332,29 @@ def get_all_subclasses(cls: Any) -> Set[Any]:
     """Get all subclasses of the given class."""
     return set(cls.__subclasses__()).union(
         [s for c in cls.__subclasses__() for s in get_all_subclasses(c)])
+
+
+class _DummyFile(io.StringIO):
+    """Dummy file object used by nostdout()."""
+
+    def write(self, _: Any) -> int:
+        """Mock write() method."""
+        return 0
+
+    def flush(self) -> None:
+        """Mock flush() method."""
+
+
+@contextlib.contextmanager
+def nostdout() -> Generator[None, None, None]:
+    """Suppress output for a block of code.
+
+    To use, wrap code in the statement `with utils.nostdout():`. Note
+    that calls to the logging library, which this codebase uses
+    primarily, are unaffected. So, this utility is mostly helpful when
+    calling third-party code.
+    """
+    save_stdout = sys.stdout
+    sys.stdout = _DummyFile()
+    yield
+    sys.stdout = save_stdout

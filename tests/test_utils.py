@@ -2739,3 +2739,19 @@ def test_behavior_state():
     state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
     other_state = state.copy()
     assert state.allclose(other_state)
+
+
+def test_nostdout(capfd):
+    """Tests for nostdout()."""
+
+    def _hello_world():
+        print("Hello world!")
+
+    for _ in range(2):
+        _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == "Hello world!\n"
+        with utils.nostdout():
+            _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == ""

@@ -20,7 +20,7 @@ from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, DefaultState, DummyOption, \
     GroundAtom, Metrics, Object, OptionSpec, Predicate, State, \
-    STRIPSOperator, Task, _GroundNSRT, _Option
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -41,6 +41,7 @@ def sesame_plan(
     option_model: _OptionModelBase,
     nsrts: Set[NSRT],
     initial_predicates: Set[Predicate],
+    types: Set[Type],
     timeout: float,
     seed: int,
     task_planning_heuristic: str,
@@ -55,9 +56,13 @@ def sesame_plan(
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
     planning, then Execution.
     """
+    # Note: the types that would be extracted from the NSRTs here may not
+    # include all the environment's types, so it's better to use the
+    # types that are passed in as an argument instead.
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
+    del types  # will be used for Fast Downward grounding in a forthcoming PR
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
