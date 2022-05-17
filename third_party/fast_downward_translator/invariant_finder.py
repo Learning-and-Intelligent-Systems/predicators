@@ -1,15 +1,16 @@
 #! /usr/bin/env python3
 
-
-from collections import deque, defaultdict
 import itertools
 import time
+from collections import defaultdict, deque
 
 import predicators.third_party.fast_downward_translator.invariants as invariants
 import predicators.third_party.fast_downward_translator.pddl as pddl
 import predicators.third_party.fast_downward_translator.timers as timers
 
+
 class BalanceChecker:
+
     def __init__(self, task, reachable_action_params):
         self.predicates_to_add_actions = defaultdict(set)
         self.action_to_heavy_action = {}
@@ -20,7 +21,7 @@ class BalanceChecker:
             heavy_act = action
             for eff in action.effects:
                 too_heavy_effects.append(eff)
-                if eff.parameters: # universal effect
+                if eff.parameters:  # universal effect
                     create_heavy_act = True
                     too_heavy_effects.append(eff.copy())
                 if not eff.literal.negated:
@@ -61,11 +62,12 @@ class BalanceChecker:
                 new_cond = pddl.NegatedAtom("=", (param1, param2))
                 precond_parts.append(new_cond)
             precond = pddl.Conjunction(precond_parts).simplified()
-            return pddl.Action(
-                action.name, action.parameters, action.num_external_parameters,
-                precond, action.effects, action.cost)
+            return pddl.Action(action.name, action.parameters,
+                               action.num_external_parameters, precond,
+                               action.effects, action.cost)
         else:
             return action
+
 
 def get_fluents(task):
     fluent_names = set()
@@ -74,17 +76,20 @@ def get_fluents(task):
             fluent_names.add(eff.literal.predicate)
     return [pred for pred in task.predicates if pred.name in fluent_names]
 
+
 def get_initial_invariants(task):
     for predicate in get_fluents(task):
         all_args = list(range(len(predicate.arguments)))
         for omitted_arg in [-1] + all_args:
             order = [i for i in all_args if i != omitted_arg]
             part = invariants.InvariantPart(predicate.name, order, omitted_arg)
-            yield invariants.Invariant((part,))
+            yield invariants.Invariant((part, ))
+
 
 def find_invariants(task, reachable_action_params):
     limit = 100000
-    candidates = deque(itertools.islice(get_initial_invariants(task), 0, limit))
+    candidates = deque(itertools.islice(get_initial_invariants(task), 0,
+                                        limit))
     print(len(candidates), "initial candidates")
     seen_candidates = set(candidates)
 
@@ -103,6 +108,7 @@ def find_invariants(task, reachable_action_params):
             return
         if candidate.check_balance(balance_checker, enqueue_func):
             yield candidate
+
 
 def useful_groups(invariants, initial_facts):
     predicate_to_invariants = defaultdict(list)
@@ -123,7 +129,10 @@ def useful_groups(invariants, initial_facts):
                 overcrowded_groups.add(group_key)
     useful_groups = nonempty_groups - overcrowded_groups
     for (invariant, parameters) in useful_groups:
-        yield [part.instantiate(parameters) for part in sorted(invariant.parts)]
+        yield [
+            part.instantiate(parameters) for part in sorted(invariant.parts)
+        ]
+
 
 def get_groups(task, reachable_action_params=None):
     with timers.timing("Finding invariants", block=True):

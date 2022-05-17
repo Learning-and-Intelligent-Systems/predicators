@@ -1,11 +1,11 @@
-from . import axioms
-from . import predicates
+from . import axioms, predicates
 
 
 class Task:
-    def __init__(self, domain_name, task_name, requirements,
-                 types, objects, predicates, functions, init, goal,
-                 actions, axioms, use_metric):
+
+    def __init__(self, domain_name, task_name, requirements, types, objects,
+                 predicates, functions, init, goal, actions, axioms,
+                 use_metric):
         self.domain_name = domain_name
         self.task_name = task_name
         self.requirements = requirements
@@ -29,8 +29,8 @@ class Task:
         return axiom
 
     def dump(self):
-        print("Problem %s: %s [%s]" % (
-            self.domain_name, self.task_name, self.requirements))
+        print("Problem %s: %s [%s]" %
+              (self.domain_name, self.task_name, self.requirements))
         print("Types:")
         for type in self.types:
             print("  %s" % type)
@@ -56,15 +56,19 @@ class Task:
             for axiom in self.axioms:
                 axiom.dump()
 
+
 class Requirements:
+
     def __init__(self, requirements):
         self.requirements = requirements
         for req in requirements:
-            assert req in (
-              ":strips", ":adl", ":typing", ":negation", ":equality",
-              ":negative-preconditions", ":disjunctive-preconditions",
-              ":existential-preconditions", ":universal-preconditions",
-              ":quantified-preconditions", ":conditional-effects",
-              ":derived-predicates", ":action-costs"), req
+            assert req in (":strips", ":adl", ":typing", ":negation",
+                           ":equality", ":negative-preconditions",
+                           ":disjunctive-preconditions",
+                           ":existential-preconditions",
+                           ":universal-preconditions",
+                           ":quantified-preconditions", ":conditional-effects",
+                           ":derived-predicates", ":action-costs"), req
+
     def __str__(self):
         return ", ".join(self.requirements)

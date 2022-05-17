@@ -2,6 +2,7 @@ from . import conditions
 
 
 class Axiom:
+
     def __init__(self, name, parameters, num_external_parameters, condition):
         # For an explanation of num_external_parameters, see the
         # related Action class. Note that num_external_parameters
@@ -26,22 +27,27 @@ class Axiom:
         # The comments for Action.instantiate apply accordingly.
         arg_list = [self.name] + [
             var_mapping[par.name]
-            for par in self.parameters[:self.num_external_parameters]]
+            for par in self.parameters[:self.num_external_parameters]
+        ]
         name = "(%s)" % " ".join(arg_list)
 
         condition = []
         try:
-            self.condition.instantiate(var_mapping, init_facts, fluent_facts, condition)
+            self.condition.instantiate(var_mapping, init_facts, fluent_facts,
+                                       condition)
         except conditions.Impossible:
             return None
 
-        effect_args = [var_mapping.get(arg.name, arg.name)
-                       for arg in self.parameters[:self.num_external_parameters]]
+        effect_args = [
+            var_mapping.get(arg.name, arg.name)
+            for arg in self.parameters[:self.num_external_parameters]
+        ]
         effect = conditions.Atom(self.name, effect_args)
         return PropositionalAxiom(name, condition, effect)
 
 
 class PropositionalAxiom:
+
     def __init__(self, name, condition, effect):
         self.name = name
         self.condition = condition
@@ -72,5 +78,5 @@ class PropositionalAxiom:
         return self.key == other.key
 
     def __repr__(self):
-        return '<PropositionalAxiom %s %s -> %s>' % (
-            self.name, self.condition, self.effect)
+        return '<PropositionalAxiom %s %s -> %s>' % (self.name, self.condition,
+                                                     self.effect)

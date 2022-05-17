@@ -1,4 +1,5 @@
 class Function:
+
     def __init__(self, name, arguments, type_name):
         self.name = name
         self.arguments = arguments

@@ -4,8 +4,9 @@ from . import conditions
 
 
 class Action:
-    def __init__(self, name, parameters, num_external_parameters,
-                 precondition, effects, cost):
+
+    def __init__(self, name, parameters, num_external_parameters, precondition,
+                 effects, cost):
         assert 0 <= num_external_parameters <= len(parameters)
         self.name = name
         self.parameters = parameters
@@ -18,7 +19,7 @@ class Action:
         self.precondition = precondition
         self.effects = effects
         self.cost = cost
-        self.uniquify_variables() # TODO: uniquify variables in cost?
+        self.uniquify_variables()  # TODO: uniquify variables in cost?
 
     def __repr__(self):
         return "<Action %r at %#x>" % (self.name, id(self))
@@ -31,7 +32,7 @@ class Action:
         for eff in self.effects:
             eff.dump()
         print("Cost:")
-        if(self.cost):
+        if (self.cost):
             self.cost.dump()
         else:
             print("  None")
@@ -49,8 +50,7 @@ class Action:
             if relaxed_eff:
                 new_effects.append(relaxed_eff)
         return Action(self.name, self.parameters, self.num_external_parameters,
-                      self.precondition.relaxed().simplified(),
-                      new_effects)
+                      self.precondition.relaxed().simplified(), new_effects)
 
     def untyped(self):
         # We do not actually remove the types from the parameter lists,
@@ -59,21 +59,27 @@ class Action:
         result = copy.copy(self)
         parameter_atoms = [par.to_untyped_strips() for par in self.parameters]
         new_precondition = self.precondition.untyped()
-        result.precondition = conditions.Conjunction(parameter_atoms + [new_precondition])
+        result.precondition = conditions.Conjunction(parameter_atoms +
+                                                     [new_precondition])
         result.effects = [eff.untyped() for eff in self.effects]
         return result
 
     def instantiate(self, var_mapping, init_facts, init_assignments,
                     fluent_facts, objects_by_type, metric):
-        """Return a PropositionalAction which corresponds to the instantiation of
-        this action with the arguments in var_mapping. Only fluent parts of the
-        conditions (those in fluent_facts) are included. init_facts are evaluated
-        while instantiating.
-        Precondition and effect conditions must be normalized for this to work.
-        Returns None if var_mapping does not correspond to a valid instantiation
-        (because it has impossible preconditions or an empty effect list.)"""
-        arg_list = [var_mapping[par.name]
-                    for par in self.parameters[:self.num_external_parameters]]
+        """Return a PropositionalAction which corresponds to the instantiation
+        of this action with the arguments in var_mapping.
+
+        Only fluent parts of the conditions (those in fluent_facts) are
+        included. init_facts are evaluated while instantiating.
+        Precondition and effect conditions must be normalized for this
+        to work. Returns None if var_mapping does not correspond to a
+        valid instantiation (because it has impossible preconditions or
+        an empty effect list.)
+        """
+        arg_list = [
+            var_mapping[par.name]
+            for par in self.parameters[:self.num_external_parameters]
+        ]
         name = "(%s %s)" % (self.name, " ".join(arg_list))
 
         precondition = []
@@ -91,8 +97,9 @@ class Action:
                 if self.cost is None:
                     cost = 0
                 else:
-                    cost = int(self.cost.instantiate(
-                        var_mapping, init_assignments).expression.value)
+                    cost = int(
+                        self.cost.instantiate(
+                            var_mapping, init_assignments).expression.value)
             else:
                 cost = 1
             return PropositionalAction(name, precondition, effects, cost)
@@ -101,6 +108,7 @@ class Action:
 
 
 class PropositionalAction:
+
     def __init__(self, name, precondition, effects, cost):
         self.name = name
         self.precondition = precondition
@@ -114,7 +122,8 @@ class PropositionalAction:
         # usually few effects.
         # TODO: Measure this in critical domains, then use sets if acceptable.
         for condition, effect in effects:
-            if effect.negated and (condition, effect.negate()) not in self.add_effects:
+            if effect.negated and (condition,
+                                   effect.negate()) not in self.add_effects:
                 self.del_effects.append((condition, effect.negate()))
         self.cost = cost
 

@@ -1,14 +1,15 @@
+from collections import defaultdict
+from itertools import chain
+
 import predicators.third_party.fast_downward_translator.pddl as pddl
 import predicators.third_party.fast_downward_translator.sccs as sccs
 import predicators.third_party.fast_downward_translator.timers as timers
 
-from collections import defaultdict
-from itertools import chain
-
-
 DEBUG = False
 
+
 class AxiomDependencies(object):
+
     def __init__(self, axioms):
         if DEBUG:
             assert all(isinstance(axiom.effect, pddl.Atom) for axiom in axioms)
@@ -31,13 +32,15 @@ class AxiomDependencies(object):
     # must be relevant by definition.
     def remove_unnecessary_variables(self, necessary_literals):
         for var in self.derived_variables.copy():
-            if var not in necessary_literals and var.negate() not in necessary_literals:
+            if var not in necessary_literals and var.negate(
+            ) not in necessary_literals:
                 self.derived_variables.remove(var)
                 self.positive_dependencies.pop(var, None)
                 self.negative_dependencies.pop(var, None)
 
 
 class AxiomCluster(object):
+
     def __init__(self, derived_variables):
         self.variables = derived_variables
         self.axioms = dict((v, []) for v in derived_variables)
@@ -78,8 +81,9 @@ def compute_necessary_literals(dependencies, goals, operators):
             necessary_literals.add(g)
 
     for op in operators:
-        derived_preconditions = (l for l in op.precondition if l.positive()
-                                 in dependencies.derived_variables)
+        derived_preconditions = (
+            l for l in op.precondition
+            if l.positive() in dependencies.derived_variables)
         necessary_literals.update(derived_preconditions)
 
         for condition, effect in chain(op.add_effects, op.del_effects):
@@ -124,11 +128,13 @@ def get_strongly_connected_components(dependencies):
     groups = [[sorted_vars[i] for i in g] for g in index_groups]
     return groups
 
+
 # Expects a list of axioms *with the same head* and returns a subset consisting
 # of all non-dominated axioms whose conditions have been cleaned up
 # (duplicate elimination).
 def compute_simplified_axioms(axioms):
-    """Remove duplicate axioms, duplicates within axioms, and dominated axioms."""
+    """Remove duplicate axioms, duplicates within axioms, and dominated
+    axioms."""
 
     if DEBUG:
         assert len(set(axiom.effect for axiom in axioms)) == 1
@@ -149,7 +155,7 @@ def compute_simplified_axioms(axioms):
 
     for axiom in axioms:
         if id(axiom) in axioms_to_skip:
-            continue   # Required to keep one of multiple identical axioms.
+            continue  # Required to keep one of multiple identical axioms.
         if not axiom.condition:  # empty condition: dominates everything
             return [axiom]
         literals = iter(axiom.condition)
@@ -166,7 +172,8 @@ def compute_clusters(axioms, goals, operators):
     dependencies = AxiomDependencies(axioms)
 
     # Compute necessary literals and prune unnecessary vars from dependencies.
-    necessary_literals = compute_necessary_literals(dependencies, goals, operators)
+    necessary_literals = compute_necessary_literals(dependencies, goals,
+                                                    operators)
     dependencies.remove_unnecessary_variables(necessary_literals)
 
     groups = get_strongly_connected_components(dependencies)
@@ -184,19 +191,22 @@ def compute_clusters(axioms, goals, operators):
     for axiom in axioms:
         # axiom.effect is derived but might have been pruned
         if axiom.effect in dependencies.derived_variables:
-            variable_to_cluster[axiom.effect].axioms[axiom.effect].append(axiom)
+            variable_to_cluster[axiom.effect].axioms[axiom.effect].append(
+                axiom)
 
     removed = 0
     with timers.timing("Simplifying axioms"):
         for cluster in clusters:
             for variable in cluster.variables:
                 old_size = len(cluster.axioms[variable])
-                cluster.axioms[variable] = compute_simplified_axioms(cluster.axioms[variable])
+                cluster.axioms[variable] = compute_simplified_axioms(
+                    cluster.axioms[variable])
                 removed += old_size - len(cluster.axioms[variable])
     print("Translator axioms removed by simplifying: %d" % removed)
 
     # Create links between clusters (positive dependencies).
-    for from_variable, depends_on in dependencies.positive_dependencies.items():
+    for from_variable, depends_on in dependencies.positive_dependencies.items(
+    ):
         from_cluster = variable_to_cluster[from_variable]
         for to_variable in depends_on:
             to_cluster = variable_to_cluster[to_variable]
@@ -204,7 +214,8 @@ def compute_clusters(axioms, goals, operators):
                 from_cluster.positive_children.add(to_cluster)
 
     # Create links between clusters (negative dependencies).
-    for from_variable, depends_on in dependencies.negative_dependencies.items():
+    for from_variable, depends_on in dependencies.negative_dependencies.items(
+    ):
         from_cluster = variable_to_cluster[from_variable]
         for to_variable in depends_on:
             to_cluster = variable_to_cluster[to_variable]
@@ -265,7 +276,8 @@ def compute_negative_axioms(clusters):
                 # Again, see issue453 for details.
                 for variable in cluster.variables:
                     name = cluster.axioms[variable][0].name
-                    negated_axiom = pddl.PropositionalAxiom(name, [], variable.negate())
+                    negated_axiom = pddl.PropositionalAxiom(
+                        name, [], variable.negate())
                     cluster.axioms[variable].append(negated_axiom)
             else:
                 variable = next(iter(cluster.variables))
@@ -275,7 +287,9 @@ def compute_negative_axioms(clusters):
 
 def negate(axioms):
     assert axioms
-    result = [pddl.PropositionalAxiom(axioms[0].name, [], axioms[0].effect.negate())]
+    result = [
+        pddl.PropositionalAxiom(axioms[0].name, [], axioms[0].effect.negate())
+    ]
     for axiom in axioms:
         condition = axiom.condition
         if len(condition) == 0:
@@ -352,8 +366,9 @@ def verify_layering_condition(axioms, axiom_layers):
         body = axiom.condition
         for cond in body:
             cond_positive = cond.positive()
-            if (cond_positive in variables_in_heads and
-                axiom_layers[cond_positive] == axiom_layers[head_positive]):
+            if (cond_positive in variables_in_heads
+                    and axiom_layers[cond_positive]
+                    == axiom_layers[head_positive]):
                 assert cond in literals_in_heads
 
     # 3. For every rule head <- ... cond ... where cond is a literal
@@ -369,4 +384,7 @@ def verify_layering_condition(axioms, axiom_layers):
             if cond_positive in variables_in_heads:
                 # We need the assertion to be on a single line for
                 # our error handler to be able to print the line.
-                assert (axiom_layers[cond_positive] <= axiom_layers[head_positive]), (axiom_layers[cond_positive], axiom_layers[head_positive])
+                assert (axiom_layers[cond_positive] <=
+                        axiom_layers[head_positive]), (
+                            axiom_layers[cond_positive],
+                            axiom_layers[head_positive])

@@ -1,5 +1,6 @@
 import itertools
 
+
 class NegativeClause:
     # disjunction of inequalities
     def __init__(self, parts):
@@ -7,8 +8,8 @@ class NegativeClause:
         assert len(parts)
 
     def __str__(self):
-        disj = " or ".join(["(%s != %s)" % (v1, v2)
-                            for (v1, v2) in self.parts])
+        disj = " or ".join(
+            ["(%s != %s)" % (v1, v2) for (v1, v2) in self.parts])
         return "(%s)" % disj
 
     def is_satisfiable(self):
@@ -23,6 +24,7 @@ class NegativeClause:
 
 
 class Assignment:
+
     def __init__(self, equalities):
         self.equalities = tuple(equalities)
         # represents a conjunction of expressions ?x = ?y or ?x = d
@@ -33,8 +35,8 @@ class Assignment:
         self.eq_classes = None
 
     def __str__(self):
-        conj = " and ".join(["(%s = %s)" % (v1, v2)
-                            for (v1, v2) in self.equalities])
+        conj = " and ".join(
+            ["(%s = %s)" % (v1, v2) for (v1, v2) in self.equalities])
         return "(%s)" % conj
 
     def _compute_equivalence_classes(self):
@@ -86,6 +88,7 @@ class Assignment:
 
 
 class ConstraintSystem:
+
     def __init__(self):
         self.combinatorial_assignments = []
         self.neg_clauses = []
@@ -126,7 +129,7 @@ class ConstraintSystem:
         self.neg_clauses.append(negative_clause)
 
     def combine(self, other):
-        """Combines two constraint systems to a new system"""
+        """Combines two constraint systems to a new system."""
         combined = ConstraintSystem()
         combined.combinatorial_assignments = (self.combinatorial_assignments +
                                               other.combinatorial_assignments)
@@ -148,9 +151,9 @@ class ConstraintSystem:
             print("  NEG: ", str(neg_clause))
 
     def is_solvable(self):
-        """Check whether the combinatorial assignments include at least
-           one consistent assignment under which the negative clauses
-           are satisfiable"""
+        """Check whether the combinatorial assignments include at least one
+        consistent assignment under which the negative clauses are
+        satisfiable."""
         for assignments in itertools.product(*self.combinatorial_assignments):
             combined = self._combine_assignments(assignments)
             if not combined.is_consistent():

@@ -1,12 +1,12 @@
 #! /usr/bin/env python3
 
-
 from collections import defaultdict
 
 import predicators.third_party.fast_downward_translator.build_model as build_model
-import predicators.third_party.fast_downward_translator.pddl_to_prolog as pddl_to_prolog
 import predicators.third_party.fast_downward_translator.pddl as pddl
+import predicators.third_party.fast_downward_translator.pddl_to_prolog as pddl_to_prolog
 import predicators.third_party.fast_downward_translator.timers as timers
+
 
 def get_fluent_facts(task, model):
     fluent_predicates = set()
@@ -15,8 +15,8 @@ def get_fluent_facts(task, model):
             fluent_predicates.add(effect.literal.predicate)
     for axiom in task.axioms:
         fluent_predicates.add(axiom.name)
-    return {fact for fact in model
-            if fact.predicate in fluent_predicates}
+    return {fact for fact in model if fact.predicate in fluent_predicates}
+
 
 def get_objects_by_type(typed_objects, types):
     result = defaultdict(list)
@@ -28,6 +28,7 @@ def get_objects_by_type(typed_objects, types):
         for type in supertypes[obj.type_name]:
             result[type].append(obj.name)
     return result
+
 
 def instantiate_goal(goal, init_facts, fluent_facts):
     # With the way this module is designed, we need to "instantiate"
@@ -49,6 +50,7 @@ def instantiate_goal(goal, init_facts, fluent_facts):
     except pddl.conditions.Impossible:
         return None
     return result
+
 
 def instantiate(task, model):
     relaxed_reachable = False
@@ -77,19 +79,24 @@ def instantiate(task, model):
             # actions with the same name after normalization, and we
             # want to distinguish their instantiations.
             reachable_action_parameters[action].append(inst_parameters)
-            variable_mapping = {par.name: arg
-                                for par, arg in zip(parameters, atom.args)}
-            inst_action = action.instantiate(
-                variable_mapping, init_facts, init_assignments,
-                fluent_facts, type_to_objects,
-                task.use_min_cost_metric)
+            variable_mapping = {
+                par.name: arg
+                for par, arg in zip(parameters, atom.args)
+            }
+            inst_action = action.instantiate(variable_mapping, init_facts,
+                                             init_assignments, fluent_facts,
+                                             type_to_objects,
+                                             task.use_min_cost_metric)
             if inst_action:
                 instantiated_actions.append(inst_action)
         elif isinstance(atom.predicate, pddl.Axiom):
             axiom = atom.predicate
-            variable_mapping = {par.name: arg
-                                for par, arg in zip(axiom.parameters, atom.args)}
-            inst_axiom = axiom.instantiate(variable_mapping, init_facts, fluent_facts)
+            variable_mapping = {
+                par.name: arg
+                for par, arg in zip(axiom.parameters, atom.args)
+            }
+            inst_axiom = axiom.instantiate(variable_mapping, init_facts,
+                                           fluent_facts)
             if inst_axiom:
                 instantiated_axioms.append(inst_axiom)
         elif atom.predicate == "@goal-reachable":
@@ -97,8 +104,8 @@ def instantiate(task, model):
 
     instantiated_goal = instantiate_goal(task.goal, init_facts, fluent_facts)
 
-    return (relaxed_reachable, fluent_facts,
-            instantiated_actions, instantiated_goal,
+    return (relaxed_reachable,
+            fluent_facts, instantiated_actions, instantiated_goal,
             sorted(instantiated_axioms), reachable_action_parameters)
 
 
@@ -107,5 +114,3 @@ def explore(task):
     model = build_model.compute_model(prog)
     with timers.timing("Completing instantiation"):
         return instantiate(task, model)
-
-

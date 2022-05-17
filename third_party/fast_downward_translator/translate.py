@@ -1,17 +1,18 @@
 #! /usr/bin/env python3
 
-
 import os
 import sys
 import traceback
 
+
 def python_version_supported():
     return sys.version_info >= (3, 6)
+
 
 if not python_version_supported():
     sys.exit("Error: Translator only supports Python >= 3.6.")
 
-
+import signal
 from collections import defaultdict
 from copy import deepcopy
 from itertools import product
@@ -21,10 +22,8 @@ import predicators.third_party.fast_downward_translator.fact_groups as fact_grou
 import predicators.third_party.fast_downward_translator.instantiate as instantiate
 import predicators.third_party.fast_downward_translator.normalize as normalize
 import predicators.third_party.fast_downward_translator.pddl as pddl
-
 import predicators.third_party.fast_downward_translator.pddl_parser as pddl_parser
 import predicators.third_party.fast_downward_translator.sas_tasks as sas_tasks
-import signal
 import predicators.third_party.fast_downward_translator.simplify as simplify
 import predicators.third_party.fast_downward_translator.timers as timers
 import predicators.third_party.fast_downward_translator.tools as tools
@@ -42,7 +41,6 @@ import predicators.third_party.fast_downward_translator.variable_order as variab
 
 DEBUG = False
 
-
 ## For a full list of exit codes, please see driver/returncodes.py. Here,
 ## we only list codes that are used by the translator component of the planner.
 TRANSLATE_OUT_OF_MEMORY = 20
@@ -58,8 +56,7 @@ def strips_to_sas_dictionary(groups, assert_partial):
         for val_no, atom in enumerate(group):
             dictionary.setdefault(atom, []).append((var_no, val_no))
     if assert_partial:
-        assert all(len(sas_pairs) == 1
-                   for sas_pairs in dictionary.values())
+        assert all(len(sas_pairs) == 1 for sas_pairs in dictionary.values())
     return [len(group) + 1 for group in groups], dictionary
 
 
@@ -81,8 +78,8 @@ def translate_strips_conditions_aux(conditions, dictionary, ranges):
             # in the same way we deal with operator preconditions etc.,
             # where static facts disappear during grounding. So change
             # this when the goal code is refactored (also below). (**)
-            if (condition.get(var) is not None and
-                    val not in condition.get(var)):
+            if (condition.get(var) is not None
+                    and val not in condition.get(var)):
                 # Conflicting conditions on this variable: Operator invalid.
                 return None
             condition[var] = {val}
@@ -133,7 +130,8 @@ def translate_strips_conditions_aux(conditions, dictionary, ranges):
                 # this atom. So we need to introduce a new condition:
                 # We can select any from new_condition and currently prefer the
                 # smallest one.
-                candidates = sorted(new_condition.items(), key=number_of_values)
+                candidates = sorted(new_condition.items(),
+                                    key=number_of_values)
                 var, vals = candidates[0]
                 condition[var] = vals
 
@@ -157,8 +155,8 @@ def translate_strips_conditions_aux(conditions, dictionary, ranges):
     return multiply_out(condition)
 
 
-def translate_strips_conditions(conditions, dictionary, ranges,
-                                mutex_dict, mutex_ranges):
+def translate_strips_conditions(conditions, dictionary, ranges, mutex_dict,
+                                mutex_ranges):
     if not conditions:
         return [{}]  # Quick exit for common case.
 
@@ -212,9 +210,8 @@ def translate_strips_operator_aux(operator, dictionary, ranges, mutex_dict,
     # effects_by_variables: var -> val -> list(FDR conditions)
     add_conds_by_variable = defaultdict(list)
     for conditions, fact in operator.add_effects:
-        eff_condition_list = translate_strips_conditions(conditions, dictionary,
-                                                         ranges, mutex_dict,
-                                                         mutex_ranges)
+        eff_condition_list = translate_strips_conditions(
+            conditions, dictionary, ranges, mutex_dict, mutex_ranges)
         if eff_condition_list is None:  # Impossible condition for this effect.
             continue
         for var, val in dictionary[fact]:
@@ -224,9 +221,8 @@ def translate_strips_operator_aux(operator, dictionary, ranges, mutex_dict,
     # collect all del effects
     del_effects_by_variable = defaultdict(lambda: defaultdict(list))
     for conditions, fact in operator.del_effects:
-        eff_condition_list = translate_strips_conditions(conditions, dictionary,
-                                                         ranges, mutex_dict,
-                                                         mutex_ranges)
+        eff_condition_list = translate_strips_conditions(
+            conditions, dictionary, ranges, mutex_dict, mutex_ranges)
         if eff_condition_list is None:  # Impossible condition for this effect.
             continue
         for var, val in dictionary[fact]:
@@ -268,7 +264,8 @@ def translate_strips_operator_aux(operator, dictionary, ranges, mutex_dict,
                             break
                         new_cond[cvar] = cval
                     else:
-                        effects_by_variable[var][none_of_those].append(new_cond)
+                        effects_by_variable[var][none_of_those].append(
+                            new_cond)
 
     return build_sas_operator(operator.name, condition, effects_by_variable,
                               operator.cost, ranges, implied_facts)
@@ -290,8 +287,9 @@ def build_sas_operator(name, condition, effects_by_variable, cost, ranges,
             # if the effect does not change the variable value, we ignore it
             if pre == post:
                 continue
-            eff_condition_lists = [sorted(eff_cond.items())
-                                   for eff_cond in eff_conditions]
+            eff_condition_lists = [
+                sorted(eff_cond.items()) for eff_cond in eff_conditions
+            ]
             if ranges[var] == 2:
                 # Apply simplifications for binary variables.
                 if prune_stupid_effect_conditions(var, post,
@@ -367,7 +365,8 @@ def prune_stupid_effect_conditions(var, val, conditions, effects_on_var):
     return simplified
 
 
-def translate_strips_axiom(axiom, dictionary, ranges, mutex_dict, mutex_ranges):
+def translate_strips_axiom(axiom, dictionary, ranges, mutex_dict,
+                           mutex_ranges):
     conditions = translate_strips_conditions(axiom.condition, dictionary,
                                              ranges, mutex_dict, mutex_ranges)
     if conditions is None:
@@ -430,13 +429,12 @@ def dump_task(init, goals, actions, axioms, axiom_layer_dict):
     sys.stdout = old_stdout
 
 
-def translate_task(strips_to_sas, ranges, translation_key,
-                   mutex_dict, mutex_ranges, mutex_key,
-                   init, goals,
-                   actions, axioms, metric, implied_facts):
+def translate_task(strips_to_sas, ranges, translation_key, mutex_dict,
+                   mutex_ranges, mutex_key, init, goals, actions, axioms,
+                   metric, implied_facts):
     with timers.timing("Processing axioms", block=True):
-        axioms, axiom_layer_dict = axiom_rules.handle_axioms(actions, axioms, goals,
-                                                             "min")
+        axioms, axiom_layer_dict = axiom_rules.handle_axioms(
+            actions, axioms, goals, "min")
 
     if False:
         # Remove init facts that don't occur in strips_to_sas: they're constant.
@@ -486,8 +484,8 @@ def translate_task(strips_to_sas, ranges, translation_key,
         axiom_layers[var] = layer
     variables = sas_tasks.SASVariables(ranges, axiom_layers, translation_key)
     mutexes = [sas_tasks.SASMutexGroup(group) for group in mutex_key]
-    return sas_tasks.SASTask(variables, mutexes, init, goal,
-                             operators, axioms, metric)
+    return sas_tasks.SASTask(variables, mutexes, init, goal, operators, axioms,
+                             metric)
 
 
 def trivial_task(solvable):
@@ -507,16 +505,19 @@ def trivial_task(solvable):
     operators = []
     axioms = []
     metric = True
-    return sas_tasks.SASTask(variables, mutexes, init, goal,
-                             operators, axioms, metric)
+    return sas_tasks.SASTask(variables, mutexes, init, goal, operators, axioms,
+                             metric)
+
 
 def solvable_sas_task(msg):
     print("%s! Generating solvable task..." % msg)
     return trivial_task(solvable=True)
 
+
 def unsolvable_sas_task(msg):
     print("%s! Generating unsolvable task..." % msg)
     return trivial_task(solvable=False)
+
 
 def pddl_to_sas(task):
     with timers.timing("Instantiating", block=True):
@@ -536,8 +537,8 @@ def pddl_to_sas(task):
             task, atoms, reachable_action_params)
 
     with timers.timing("Building STRIPS to SAS dictionary"):
-        ranges, strips_to_sas = strips_to_sas_dictionary(
-            groups, assert_partial=True)
+        ranges, strips_to_sas = strips_to_sas_dictionary(groups,
+                                                         assert_partial=True)
 
     with timers.timing("Building dictionary for full mutex groups"):
         mutex_ranges, mutex_dict = strips_to_sas_dictionary(
@@ -558,15 +559,16 @@ def pddl_to_sas(task):
             # information for the full encoding can incur an
             # unacceptable (quadratic) blowup in the task representation
             # size. See issue771 for details.
-            print("using full encoding: between-variable mutex information skipped.")
+            print(
+                "using full encoding: between-variable mutex information skipped."
+            )
             mutex_key = []
 
     with timers.timing("Translating task", block=True):
-        sas_task = translate_task(
-            strips_to_sas, ranges, translation_key,
-            mutex_dict, mutex_ranges, mutex_key,
-            task.init, goal_list, actions, axioms, task.use_min_cost_metric,
-            implied_facts)
+        sas_task = translate_task(strips_to_sas, ranges, translation_key,
+                                  mutex_dict, mutex_ranges, mutex_key,
+                                  task.init, goal_list, actions, axioms,
+                                  task.use_min_cost_metric, implied_facts)
 
     print("%d effect conditions simplified" %
           simplified_effect_condition_counter)
@@ -578,14 +580,14 @@ def pddl_to_sas(task):
             try:
                 simplify.filter_unreachable_propositions(sas_task)
             except simplify.Impossible:
-                return unsolvable_sas_task("Simplified to trivially false goal")
+                return unsolvable_sas_task(
+                    "Simplified to trivially false goal")
             except simplify.TriviallySolvable:
                 return solvable_sas_task("Simplified to empty goal")
 
     if True:
         with timers.timing("Reordering and filtering variables", block=True):
-            variable_order.find_and_apply_variable_order(
-                sas_task, True, True)
+            variable_order.find_and_apply_variable_order(sas_task, True, True)
 
     return sas_task
 
@@ -653,9 +655,10 @@ def build_implied_facts(strips_to_sas, groups, mutex_groups):
 
 def dump_statistics(sas_task):
     print("Translator variables: %d" % len(sas_task.variables.ranges))
-    print("Translator derived variables: %d" %
-          len([layer for layer in sas_task.variables.axiom_layers
-               if layer >= 0]))
+    print(
+        "Translator derived variables: %d" %
+        len([layer
+             for layer in sas_task.variables.axiom_layers if layer >= 0]))
     print("Translator facts: %d" % sum(sas_task.variables.ranges))
     print("Translator goal facts: %d" % len(sas_task.goal.pairs))
     print("Translator mutex groups: %d" % len(sas_task.mutexes))

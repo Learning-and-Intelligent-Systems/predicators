@@ -1,4 +1,5 @@
 class Predicate:
+
     def __init__(self, name, arguments):
         self.name = name
         self.arguments = arguments

@@ -6,21 +6,23 @@ DEBUG = False
 class SASTask:
     """Planning task in finite-domain representation.
 
-    The user is responsible for making sure that the data fits a
-    number of structural restrictions. For example, conditions should
-    generally be sorted and mention each variable at most once. See
-    the validate methods for details."""
+    The user is responsible for making sure that the data fits a number
+    of structural restrictions. For example, conditions should generally
+    be sorted and mention each variable at most once. See the validate
+    methods for details.
+    """
 
-    def __init__(self, variables, mutexes, init, goal,
-                 operators, axioms, metric):
+    def __init__(self, variables, mutexes, init, goal, operators, axioms,
+                 metric):
         self.variables = variables
         self.mutexes = mutexes
         self.init = init
         self.goal = goal
-        self.operators = sorted(operators, key=lambda op: (
-            op.name, op.prevail, op.pre_post))
-        self.axioms = sorted(axioms, key=lambda axiom: (
-            axiom.condition, axiom.effect))
+        self.operators = sorted(operators,
+                                key=lambda op:
+                                (op.name, op.prevail, op.pre_post))
+        self.axioms = sorted(axioms,
+                             key=lambda axiom: (axiom.condition, axiom.effect))
         self.metric = metric
         if DEBUG:
             self.validate()
@@ -109,6 +111,7 @@ class SASTask:
 
 
 class SASVariables:
+
     def __init__(self, ranges, axiom_layers, value_names):
         self.ranges = ranges
         self.axiom_layers = axiom_layers
@@ -117,14 +120,15 @@ class SASVariables:
     def validate(self):
         """Validate variables.
 
-        All variables must have range at least 2, and derived
-        variables must have range exactly 2. See comment on derived
-        variables in the docstring of SASTask.validate.
+        All variables must have range at least 2, and derived variables
+        must have range exactly 2. See comment on derived variables in
+        the docstring of SASTask.validate.
         """
         assert len(self.ranges) == len(self.axiom_layers) == len(
             self.value_names)
-        for (var_range, layer, var_value_names) in zip(
-                self.ranges, self.axiom_layers, self.value_names):
+        for (var_range, layer, var_value_names) in zip(self.ranges,
+                                                       self.axiom_layers,
+                                                       self.value_names):
             assert var_range == len(var_value_names)
             assert var_range >= 2
             assert layer == -1 or layer >= 0
@@ -147,8 +151,9 @@ class SASVariables:
             last_var = var
 
     def dump(self):
-        for var, (rang, axiom_layer) in enumerate(
-                zip(self.ranges, self.axiom_layers)):
+        for var, (rang,
+                  axiom_layer) in enumerate(zip(self.ranges,
+                                                self.axiom_layers)):
             if axiom_layer != -1:
                 axiom_str = " [axiom layer %d]" % axiom_layer
             else:
@@ -157,8 +162,8 @@ class SASVariables:
 
     def output(self, stream):
         print(len(self.ranges), file=stream)
-        for var, (rang, axiom_layer, values) in enumerate(zip(
-                self.ranges, self.axiom_layers, self.value_names)):
+        for var, (rang, axiom_layer, values) in enumerate(
+                zip(self.ranges, self.axiom_layers, self.value_names)):
             print("begin_variable", file=stream)
             print("var%d" % var, file=stream)
             print(axiom_layer, file=stream)
@@ -175,12 +180,13 @@ class SASVariables:
 
 
 class SASMutexGroup:
+
     def __init__(self, facts):
         self.facts = sorted(facts)
 
     def validate(self, variables):
-        """Assert that the facts in the mutex group are sorted and unique
-        and that they are all valid."""
+        """Assert that the facts in the mutex group are sorted and unique and
+        that they are all valid."""
         for fact in self.facts:
             variables.validate_fact(fact)
         assert self.facts == sorted(set(self.facts))
@@ -201,6 +207,7 @@ class SASMutexGroup:
 
 
 class SASInit:
+
     def __init__(self, values):
         self.values = values
 
@@ -227,6 +234,7 @@ class SASInit:
 
 
 class SASGoal:
+
     def __init__(self, pairs):
         self.pairs = sorted(pairs)
 
@@ -251,6 +259,7 @@ class SASGoal:
 
 
 class SASOperator:
+
     def __init__(self, name, prevail, pre_post, cost):
         self.name = name
         self.prevail = sorted(prevail)
@@ -264,9 +273,11 @@ class SASOperator:
         def tuplify(entry):
             var, pre, post, cond = entry
             return var, pre, post, tuple(cond)
+
         def listify(entry):
             var, pre, post, cond = entry
             return var, pre, post, list(cond)
+
         pre_post = map(tuplify, pre_post)
         pre_post = sorted(set(pre_post))
         pre_post = list(map(listify, pre_post))
@@ -337,8 +348,8 @@ class SASOperator:
                 pre_values[var] = pre
         for var, pre, post, cond in self.pre_post:
             for cvar, cval in cond:
-                assert(cvar not in pre_values or pre_values[cvar] == -1)
-                assert(cvar not in prevail_vars)
+                assert (cvar not in pre_values or pre_values[cvar] == -1)
+                assert (cvar not in prevail_vars)
         assert self.pre_post
         assert self.cost >= 0 and self.cost == int(self.cost)
 
@@ -380,12 +391,13 @@ class SASOperator:
         return size
 
     def get_applicability_conditions(self):
-        """Return the combined applicability conditions
-        (prevail conditions and preconditions) of the operator.
+        """Return the combined applicability conditions (prevail conditions and
+        preconditions) of the operator.
 
-        Returns a sorted list of (var, value) pairs. This is
-        guaranteed to contain at most one fact per variable and
-        must hence be non-contradictory."""
+        Returns a sorted list of (var, value) pairs. This is guaranteed
+        to contain at most one fact per variable and must hence be non-
+        contradictory.
+        """
         conditions = {}
         for var, val in self.prevail:
             assert var not in conditions
@@ -398,6 +410,7 @@ class SASOperator:
 
 
 class SASAxiom:
+
     def __init__(self, condition, effect):
         self.condition = sorted(condition)
         self.effect = effect
@@ -407,7 +420,6 @@ class SASAxiom:
             assert val >= 0, condition
 
     def validate(self, variables, init):
-
         """Validate the axiom.
 
         Assert that the axiom condition is a valid condition, that the

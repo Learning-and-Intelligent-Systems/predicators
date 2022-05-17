@@ -1,5 +1,5 @@
-"""This module contains a function for simplifying tasks in
-finite-domain representation (SASTask). Usage:
+"""This module contains a function for simplifying tasks in finite-domain
+representation (SASTask). Usage:
 
     simplify.filter_unreachable_propositions(sas_task)
 
@@ -67,7 +67,9 @@ class DomainTransitionGraph:
 
     def reachable(self):
         """Return the values reachable from the initial value.
-        Represented as a set(int)."""
+
+        Represented as a set(int).
+        """
         queue = [self.init]
         reachable = set(queue)
         while queue:
@@ -88,26 +90,31 @@ class DomainTransitionGraph:
 
 
 def build_dtgs(task):
-    """Build DTGs for all variables of the SASTask `task`.
-    Return a list(DomainTransitionGraph), one for each variable.
+    """Build DTGs for all variables of the SASTask `task`. Return a
+    list(DomainTransitionGraph), one for each variable.
 
-    For derived variables, we do not consider the axiom bodies, i.e.,
-    we treat each axiom as if it were an operator with no
-    preconditions. In the case where the only derived variables used
-    are binary and all rules change the value from the default value
-    to the non-default value, this results in the correct DTG.
-    Otherwise, at worst it results in an overapproximation, which
-    would not threaten correctness."""
+    For derived variables, we do not consider the axiom bodies, i.e., we
+    treat each axiom as if it were an operator with no preconditions. In
+    the case where the only derived variables used are binary and all
+    rules change the value from the default value to the non-default
+    value, this results in the correct DTG. Otherwise, at worst it
+    results in an overapproximation, which would not threaten
+    correctness.
+    """
 
     init_vals = task.init.values
     sizes = task.variables.ranges
-    dtgs = [DomainTransitionGraph(init, size)
-            for (init, size) in zip(init_vals, sizes)]
+    dtgs = [
+        DomainTransitionGraph(init, size)
+        for (init, size) in zip(init_vals, sizes)
+    ]
 
     def add_arc(var_no, pre_spec, post):
         """Add a DTG arc for var_no induced by transition pre_spec -> post.
-        pre_spec may be -1, in which case arcs from every value
-        other than post are added."""
+
+        pre_spec may be -1, in which case arcs from every value other
+        than post are added.
+        """
         if pre_spec == -1:
             pre_values = set(range(sizes[var_no])).difference([post])
         else:
@@ -116,8 +123,8 @@ def build_dtgs(task):
             dtgs[var_no].add_arc(pre, post)
 
     def get_effective_pre(var_no, conditions, effect_conditions):
-        """Return combined information on the conditions on `var_no`
-        from operator conditions and effect conditions.
+        """Return combined information on the conditions on `var_no` from
+        operator conditions and effect conditions.
 
         - conditions: dict(int -> int) containing the combined
           operator prevail and preconditions
@@ -127,7 +134,8 @@ def build_dtgs(task):
         Result:
         - -1   if there is no condition on var_no
         - val  if there is a unique condition var_no=val
-        - None if there are contradictory conditions on var_no"""
+        - None if there are contradictory conditions on var_no
+        """
 
         result = conditions.get(var_no, -1)
         for cond_var_no, cond_val in effect_conditions:
@@ -156,39 +164,43 @@ def build_dtgs(task):
 always_false = object()
 always_true = object()
 
+
 class Impossible(Exception):
     pass
+
 
 class TriviallySolvable(Exception):
     pass
 
+
 class DoesNothing(Exception):
     pass
 
+
 class VarValueRenaming:
+
     def __init__(self):
-        self.new_var_nos = []   # indexed by old var_no
-        self.new_values = []    # indexed by old var_no and old value
-        self.new_sizes = []     # indexed by new var_no
+        self.new_var_nos = []  # indexed by old var_no
+        self.new_values = []  # indexed by old var_no and old value
+        self.new_sizes = []  # indexed by new var_no
         self.new_var_count = 0
         self.num_removed_values = 0
 
     def dump(self):
         old_var_count = len(self.new_var_nos)
-        print("variable count: %d => %d" % (
-            old_var_count, self.new_var_count))
+        print("variable count: %d => %d" % (old_var_count, self.new_var_count))
         print("number of removed values: %d" % self.num_removed_values)
         print("variable conversions:")
         for old_var_no, (new_var_no, new_values) in enumerate(
                 zip(self.new_var_nos, self.new_values)):
             old_size = len(new_values)
             if new_var_no is None:
-                print("variable %d [size %d] => removed" % (
-                    old_var_no, old_size))
+                print("variable %d [size %d] => removed" %
+                      (old_var_no, old_size))
             else:
                 new_size = self.new_sizes[new_var_no]
-                print("variable %d [size %d] => %d [size %d]" % (
-                    old_var_no, old_size, new_var_no, new_size))
+                print("variable %d [size %d] => %d [size %d]" %
+                      (old_var_no, old_size, new_var_no, new_size))
             for old_value, new_value in enumerate(new_values):
                 if new_value is always_false:
                     new_value = "always false"
@@ -256,7 +268,8 @@ class VarValueRenaming:
                         print("Removed false proposition: %s" % value_name)
                 else:
                     new_value_names[new_var_no][new_value] = value_name
-        assert all((None not in value_names) for value_names in new_value_names)
+        assert all(
+            (None not in value_names) for value_names in new_value_names)
         value_names[:] = new_value_names
 
     def apply_to_mutexes(self, mutexes):
@@ -265,8 +278,8 @@ class VarValueRenaming:
             new_facts = []
             for var, val in mutex.facts:
                 new_var_no, new_value = self.translate_pair((var, val))
-                if (new_value is not always_true and
-                    new_value is not always_false):
+                if (new_value is not always_true
+                        and new_value is not always_false):
                     new_facts.append((new_var_no, new_value))
             if len(new_facts) >= 2:
                 mutex.facts = new_facts
@@ -326,9 +339,12 @@ class VarValueRenaming:
         axioms[:] = new_axioms
 
     def translate_operator(self, op):
-        """Compute a new operator from op where the var/value renaming has
-        been applied. Return None if op should be pruned (because it
-        is always inapplicable or has no effect.)"""
+        """Compute a new operator from op where the var/value renaming has been
+        applied.
+
+        Return None if op should be pruned (because it is always
+        inapplicable or has no effect.)
+        """
 
         # We do not call this apply_to_operator, breaking the analogy
         # with the other methods, because it creates a new operator
@@ -372,13 +388,13 @@ class VarValueRenaming:
         if not new_pre_post:
             # The operator has no effect.
             return None
-        new_prevail = sorted(
-            (var, value)
-            for (var, value) in conditions_dict.items()
-            if var in new_prevail_vars)
-        return sas_tasks.SASOperator(
-            name=op.name, prevail=new_prevail, pre_post=new_pre_post,
-            cost=op.cost)
+        new_prevail = sorted((var, value)
+                             for (var, value) in conditions_dict.items()
+                             if var in new_prevail_vars)
+        return sas_tasks.SASOperator(name=op.name,
+                                     prevail=new_prevail,
+                                     pre_post=new_pre_post,
+                                     cost=op.cost)
 
     def apply_to_axiom(self, axiom):
         # The following line may generate an Impossible exception,
@@ -393,8 +409,8 @@ class VarValueRenaming:
         axiom.effect = new_var, new_value
 
     def translate_pre_post(self, pre_post_entry, conditions_dict):
-        """Return a translated version of a pre_post entry.
-        If the entry never causes a value change, return None.
+        """Return a translated version of a pre_post entry. If the entry never
+        causes a value change, return None.
 
         (It might seem that a possible precondition part of pre_post
         gets lost in this case, but pre_post entries that become
@@ -441,8 +457,8 @@ class VarValueRenaming:
             return None
 
         for cond_var, cond_value in new_cond:
-            if (cond_var in conditions_dict and
-                conditions_dict[cond_var] != cond_value):
+            if (cond_var in conditions_dict
+                    and conditions_dict[cond_var] != cond_value):
                 # This effect condition is not compatible with
                 # the applicability conditions.
                 return None
@@ -476,6 +492,7 @@ class VarValueRenaming:
                 new_pairs.append((new_var_no, new_value))
         pairs[:] = new_pairs
 
+
 def build_renaming(dtgs):
     renaming = VarValueRenaming()
     for dtg in dtgs:
@@ -484,8 +501,8 @@ def build_renaming(dtgs):
 
 
 def filter_unreachable_propositions(sas_task):
-    """We remove unreachable propositions and then prune variables
-    with only one value.
+    """We remove unreachable propositions and then prune variables with only
+    one value.
 
     Examples of things that are pruned:
     - Constant propositions that are not detected in instantiate.py

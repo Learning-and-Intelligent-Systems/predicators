@@ -2,10 +2,12 @@
 # components" (where to conditions are related if they share a variabe) into
 # several rules, one for each connected component and one high-level rule.
 
-from predicators.third_party.fast_downward_translator.pddl_to_prolog import Rule, get_variables
 import predicators.third_party.fast_downward_translator.graph as graph
 import predicators.third_party.fast_downward_translator.greedy_join as greedy_join
 import predicators.third_party.fast_downward_translator.pddl as pddl
+from predicators.third_party.fast_downward_translator.pddl_to_prolog import \
+    Rule, get_variables
+
 
 def get_connected_conditions(conditions):
     agraph = graph.Graph(conditions)
@@ -21,12 +23,14 @@ def get_connected_conditions(conditions):
             agraph.connect(conds[0], cond)
     return sorted(map(sorted, agraph.connected_components()))
 
+
 def project_rule(rule, conditions, name_generator):
     predicate = next(name_generator)
     effect_variables = set(rule.effect.args) & get_variables(conditions)
     effect = pddl.Atom(predicate, sorted(effect_variables))
     projected_rule = Rule(conditions, effect)
     return projected_rule
+
 
 def split_rule(rule, name_generator):
     important_conditions, trivial_conditions = [], []
@@ -45,14 +49,16 @@ def split_rule(rule, name_generator):
     if len(components) == 1 and not trivial_conditions:
         return split_into_binary_rules(rule, name_generator)
 
-    projected_rules = [project_rule(rule, conditions, name_generator)
-                       for conditions in components]
+    projected_rules = [
+        project_rule(rule, conditions, name_generator)
+        for conditions in components
+    ]
     result = []
     for proj_rule in projected_rules:
         result += split_into_binary_rules(proj_rule, name_generator)
 
-    conditions = ([proj_rule.effect for proj_rule in projected_rules] +
-                  trivial_conditions)
+    conditions = ([proj_rule.effect
+                   for proj_rule in projected_rules] + trivial_conditions)
     combining_rule = Rule(conditions, rule.effect)
     if len(conditions) >= 2:
         combining_rule.type = "product"
@@ -60,6 +66,7 @@ def split_rule(rule, name_generator):
         combining_rule.type = "project"
     result.append(combining_rule)
     return result
+
 
 def split_into_binary_rules(rule, name_generator):
     if len(rule.conditions) <= 1:

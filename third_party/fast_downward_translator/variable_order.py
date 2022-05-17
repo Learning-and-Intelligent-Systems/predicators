@@ -1,10 +1,11 @@
+import heapq
 from collections import defaultdict, deque
 from itertools import chain
-import heapq
 
 import predicators.third_party.fast_downward_translator.sccs as sccs
 
 DEBUG = False
+
 
 class CausalGraph:
     """Weighted causal graph used for defining a variable order.
@@ -69,7 +70,7 @@ class CausalGraph:
 
     def get_strongly_connected_components(self):
         unweighted_graph = [[] for _ in range(self.num_variables)]
-        assert(len(self.weighted_graph) <= self.num_variables)
+        assert (len(self.weighted_graph) <= self.num_variables)
         for source, target_weights in self.weighted_graph.items():
             unweighted_graph[source] = sorted(target_weights.keys())
         return sccs.get_sccs_adjacency_list(unweighted_graph)
@@ -85,7 +86,8 @@ class CausalGraph:
                     # for each variable in component only list edges inside
                     # component.
                     subgraph_edges = subgraph[var]
-                    for target, cost in sorted(self.weighted_graph[var].items()):
+                    for target, cost in sorted(
+                            self.weighted_graph[var].items()):
                         if target in scc:
                             if target in self.goal_map:
                                 subgraph_edges.append((target, 100000 + cost))
@@ -115,14 +117,13 @@ class CausalGraph:
 
 
 class MaxDAG:
-    """Defines a variable ordering for a SCC of the (weighted) causal
-    graph.
+    """Defines a variable ordering for a SCC of the (weighted) causal graph.
 
     Conceptually, the greedy algorithm successively picks a node with
-    minimal cummulated weight of incoming arcs and removes its
-    incident edges from the graph until only a single node remains
-    (cf. computation of total order of vertices when pruning the
-    causal graph in the Fast Downward JAIR 2006 paper).
+    minimal cummulated weight of incoming arcs and removes its incident
+    edges from the graph until only a single node remains (cf.
+    computation of total order of vertices when pruning the causal graph
+    in the Fast Downward JAIR 2006 paper).
     """
 
     def __init__(self, graph, input_order):
@@ -150,12 +151,12 @@ class MaxDAG:
             min_key = weights[0]
             min_elem = None
             entries = weight_to_nodes[min_key]
-            while entries and (min_elem is None or min_elem in done or
-                               min_key > incoming_weights[min_elem]):
+            while entries and (min_elem is None or min_elem in done
+                               or min_key > incoming_weights[min_elem]):
                 min_elem = entries.popleft()
             if not entries:
                 del weight_to_nodes[min_key]
-                heapq.heappop(weights) # remove min_key from heap
+                heapq.heappop(weights)  # remove min_key from heap
             if min_elem is None or min_elem in done:
                 # since we use lazy deletion from the heap weights,
                 # there can be weights with a "done" entry in
@@ -181,11 +182,12 @@ class MaxDAG:
 
 class VariableOrder:
     """Apply a given variable order to a SAS task."""
+
     def __init__(self, ordering):
         """Ordering is a list of variable numbers in the desired order.
 
-        If a variable does not occur in the ordering, it is removed
-        from the task.
+        If a variable does not occur in the ordering, it is removed from
+        the task.
         """
         self.ordering = ordering
         self.new_var = {v: i for i, v in enumerate(ordering)}
@@ -216,8 +218,7 @@ class VariableOrder:
         init.values = [init.values[var] for var in self.ordering]
 
     def _apply_to_goal(self, goal):
-        goal.pairs = sorted((self.new_var[var], val)
-                            for var, val in goal.pairs
+        goal.pairs = sorted((self.new_var[var], val) for var, val in goal.pairs
                             if var in self.new_var)
 
     def _apply_to_mutexes(self, mutexes):
@@ -228,8 +229,8 @@ class VariableOrder:
             if facts and len({var for var, _ in facts}) > 1:
                 group.facts = facts
                 new_mutexes.append(group)
-        print("%s of %s mutex groups necessary." % (len(new_mutexes),
-                                                    len(mutexes)))
+        print("%s of %s mutex groups necessary." %
+              (len(new_mutexes), len(mutexes)))
         mutexes[:] = new_mutexes
 
     def _apply_to_operators(self, operators):
@@ -249,8 +250,7 @@ class VariableOrder:
                               for var, val in op.prevail
                               if var in self.new_var]
                 new_ops.append(op)
-        print("%s of %s operators necessary." % (len(new_ops),
-                                                 len(operators)))
+        print("%s of %s operators necessary." % (len(new_ops), len(operators)))
         operators[:] = new_ops
 
     def _apply_to_axioms(self, axioms):
@@ -263,12 +263,13 @@ class VariableOrder:
                                 if var in self.new_var]
                 ax.effect = (self.new_var[eff_var], eff_val)
                 new_axioms.append(ax)
-        print("%s of %s axiom rules necessary." % (len(new_axioms),
-                                                   len(axioms)))
+        print("%s of %s axiom rules necessary." %
+              (len(new_axioms), len(axioms)))
         axioms[:] = new_axioms
 
 
-def find_and_apply_variable_order(sas_task, reorder_vars=True,
+def find_and_apply_variable_order(sas_task,
+                                  reorder_vars=True,
                                   filter_unimportant_vars=True):
     if reorder_vars or filter_unimportant_vars:
         cg = CausalGraph(sas_task)
@@ -278,7 +279,7 @@ def find_and_apply_variable_order(sas_task, reorder_vars=True,
             order = list(range(len(sas_task.variables.ranges)))
         if filter_unimportant_vars:
             necessary = cg.calculate_important_vars(sas_task.goal)
-            print("%s of %s variables necessary." % (len(necessary),
-                                                     len(order)))
+            print("%s of %s variables necessary." %
+                  (len(necessary), len(order)))
             order = [var for var in order if necessary[var]]
         VariableOrder(order).apply_to_task(sas_task)

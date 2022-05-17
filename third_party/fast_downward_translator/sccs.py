@@ -29,8 +29,10 @@ def get_sccs_adjacency_list(adjacency_list):
 
     Returns a list of lists that defines a partition of {0, ..., N-1},
     where each block in the partition is an SCC of the graph, and
-    the partition is given in a topologically sort order."""
+    the partition is given in a topologically sort order.
+    """
     return StronglyConnectedComponentComputation(adjacency_list).get_result()
+
 
 def get_sccs_adjacency_dict(adjacency_dict):
     """Compute SCCs for a graph represented as an adjacency dict.
@@ -43,7 +45,8 @@ def get_sccs_adjacency_dict(adjacency_dict):
 
     Returns a list of lists that defines a partition of the graph
     nodes, where each block in the partition is an SCC of the graph,
-    and the partition is given in a topologically sort order."""
+    and the partition is given in a topologically sort order.
+    """
     node_to_index = {}
     index_to_node = []
     for index, node in enumerate(adjacency_dict):
@@ -66,9 +69,10 @@ def get_sccs_adjacency_dict(adjacency_dict):
 
 
 class StronglyConnectedComponentComputation:
+
     def __init__(self, unweighted_graph):
         self.graph = unweighted_graph
-        self.BEGIN, self.CONTINUE, self.RETURN = 0, 1, 2 # "recursion" handling
+        self.BEGIN, self.CONTINUE, self.RETURN = 0, 1, 2  # "recursion" handling
 
     def get_result(self):
         self.indices = dict()

@@ -1,5 +1,5 @@
-from predicators.third_party.fast_downward_translator.pddl_parser import lisp_parser
-from predicators.third_party.fast_downward_translator.pddl_parser import parsing_functions
+from predicators.third_party.fast_downward_translator.pddl_parser import \
+    lisp_parser, parsing_functions
 
 file_open = open
 
