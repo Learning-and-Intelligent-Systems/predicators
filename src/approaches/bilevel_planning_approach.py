@@ -54,6 +54,7 @@ class BilevelPlanningApproach(BaseApproach):
                                         self._option_model,
                                         nsrts,
                                         preds,
+                                        self._types,
                                         timeout,
                                         seed,
                                         self._task_planning_heuristic,
