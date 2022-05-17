@@ -177,7 +177,16 @@ class GlobalSettings:
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
-    sesame_grounder = "naive"  # "naive" or "fd_translator"
+    # The algorithm used for grounding the planning problem. Choices are
+    # "naive" or "fd_translator". The former does a type-aware cross product
+    # of operators and objects to obtain ground operators, while the latter
+    # calls Fast Downward's translator to produce an SAS task, then extracts
+    # the ground operators from that. The latter is preferable when grounding
+    # is a bottleneck in your environment, but will not work when operators
+    # with no-ops need to be part of the ground planning problem, like the
+    # OpenLid() operator in painting. So, we'll keep the former as the
+    # default.
+    sesame_grounder = "naive"
 
     # evaluation parameters
     log_dir = "logs"

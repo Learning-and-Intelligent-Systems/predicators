@@ -42,6 +42,8 @@ from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
     STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option, _TypedEntity
+from predicators.third_party.fast_downward_translator.translate import \
+    main as downward_translate
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -1604,6 +1606,27 @@ def all_ground_nsrts(nsrt: NSRT,
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
         yield nsrt.ground(choice)
+
+
+def all_ground_nsrts_fd_translator(
+        nsrts: Set[NSRT], objects: Collection[Object],
+        predicates: Set[Predicate], types: Set[Type],
+        init_atoms: Set[GroundAtom],
+        goal: Set[GroundAtom]) -> Iterator[_GroundNSRT]:
+    """Get all possible groundings of the given set of NSRTs with the given
+    objects, using Fast Downward's translator for efficiency."""
+    nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+    obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+    dom_str = create_pddl_domain(nsrts, predicates, types, "mydomain")
+    prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
+                                   "myproblem")
+    with nostdout():
+        sas_task = downward_translate(dom_str, prob_str)
+    for operator in sas_task.operators:
+        split_name = operator.name[1:-1].split()  # strip out ( and )
+        nsrt = nsrt_name_to_nsrt[split_name[0]]
+        objs = [obj_name_to_obj[name] for name in split_name[1:]]
+        yield nsrt.ground(objs)
 
 
 def all_ground_predicates(pred: Predicate,

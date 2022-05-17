@@ -23,8 +23,6 @@ from predicators.src.structs import NSRT, DefaultState, DummyOption, \
     STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
-from predicators.third_party.fast_downward_translator.translate import \
-    main as downward_translate
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -75,20 +73,14 @@ def sesame_plan(
                 if time.time() - start_time > timeout:
                     raise PlanningTimeout("Planning timed out in grounding!")
     elif CFG.sesame_grounder == "fd_translator":
-        nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
-        obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
-        dom_str = utils.create_pddl_domain(nsrts, predicates, types,
-                                           "mydomain")
-        prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
-                                             "mydomain", "myproblem")
-        with utils.nostdout():
-            sas_task = downward_translate(dom_str, prob_str)
-        ground_nsrts = []
-        for operator in sas_task.operators:
-            split_name = operator.name[1:-1].split()  # strip out ( and )
-            nsrt = nsrt_name_to_nsrt[split_name[0]]
-            objs = [obj_name_to_obj[name] for name in split_name[1:]]
-            ground_nsrts.append(nsrt.ground(objs))
+        # WARNING: there is no easy way to check the timeout within this call,
+        # since Fast Downward's translator is a third-party function. We'll
+        # just check the timeout afterward.
+        ground_nsrts = list(
+            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
+                                                 types, init_atoms, task.goal))
+        if time.time() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in grounding!")
     else:
         raise ValueError(
             f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
