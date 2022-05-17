@@ -198,8 +198,7 @@ def test_learned_neural_parameterized_option():
                              learning_rate=1e-3)
     param_dim = sum([len(v) for v in changing_var_to_feat.values()])
     input_dim = sum([p.type.dim for p in pick_operator.parameters]) + param_dim
-    # The plus 1 is for the bias term.
-    X_arr_regressor = np.zeros((1, 1 + input_dim), dtype=np.float32)
+    X_arr_regressor = np.zeros((1, input_dim), dtype=np.float32)
     Y_arr_regressor = np.zeros((1, ) + env.action_space.shape,
                                dtype=np.float32)
     regressor.fit(X_arr_regressor, Y_arr_regressor)

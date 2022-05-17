@@ -141,7 +141,7 @@ def test_learned_sampler_with_goal():
                                      n_iter_no_change=1000000,
                                      hid_sizes=[32, 32])
 
-    input_size = 11
+    input_size = 10
     output_size = 2
     num_samples = 5
     regressor = NeuralGaussianRegressor(seed=123,

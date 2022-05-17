@@ -346,7 +346,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             relative_goal_vec = memory["absolute_params"] - state_params
         else:
             relative_goal_vec = []
-        x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
+        x = np.hstack((state.vec(objects), relative_goal_vec))
         action_arr = self._regressor.predict(x)
         if np.isnan(action_arr).any():
             raise OptionExecutionFailure("Option policy returned nan.")
@@ -476,8 +476,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                         rel_goal_vec = (final_param - state_param).tolist()
                     else:
                         rel_goal_vec = []
-                    # Add a bias term for regression.
-                    x = np.hstack(([1.0], state_features, rel_goal_vec))
+                    x = np.hstack((state_features, rel_goal_vec))
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
 

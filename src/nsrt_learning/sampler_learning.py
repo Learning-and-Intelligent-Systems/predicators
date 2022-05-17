@@ -136,7 +136,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     X_classifier: List[List[Array]] = []
     for state, sub, option, goal in positive_data + negative_data:
         # input is state features and option parameters
-        X_classifier.append([np.array(1.0)])  # start with bias term
+        X_classifier.append([])
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
@@ -170,7 +170,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     Y_regressor = []
     for state, sub, option, goal in positive_data:  # don't use negative data!
         # input is state features
-        X_regressor.append([np.array(1.0)])  # start with bias term
+        X_regressor.append([])
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
         # Above, we made the assumption that there is one goal atom with one
@@ -295,7 +295,7 @@ class _LearnedSampler:
 
         May be used as the _sampler field in an NSRT.
         """
-        x_lst: List[Any] = [1.0]  # start with bias term
+        x_lst: List[Any] = []
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
