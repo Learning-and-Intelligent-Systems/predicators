@@ -11,10 +11,10 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 # RUN_LOAD_EXPERIMENTS=false, then rerun with RUN_LOAD_EXPERIMENTS=true.
 RUN_LOAD_EXPERIMENTS=false
 ALL_NUM_TRAIN_TASKS=(
-    "50"
-    "100"
-    "250"
-    "500"
+    # "50"
+    # "100"
+    # "250"
+    # "500"
     "1000"
 )
 ENVS=(
