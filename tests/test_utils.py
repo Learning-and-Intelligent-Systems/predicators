@@ -2403,15 +2403,15 @@ def test_run_gbfs():
     # Test with an infinite branching factor.
     def _inf_grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
         # Change all costs to 1.
+        i = 0
         for (a, ns, _) in _grid_successor_fn(state):
             yield (a, ns, 1.)
         # Yield unnecessary and costly noops.
         # These lines should not be covered, and that's the point!
-        i = 0  # pragma: no cover
         while True:  # pragma: no cover
-            action = f"noop{i}"  # pragma: no cover
-            yield (action, state, 100.)  # pragma: no cover
-            i += 1  # pragma: no cover
+            action = f"noop{i}"
+            yield (action, state, 100.)
+            i += 1
 
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
                                                      _grid_check_goal_fn,
@@ -2434,13 +2434,14 @@ def test_run_gbfs():
     assert action_sequence == ['down']
 
     # Test timeout.
-    state_sequence, action_sequence = utils.run_gbfs(initial_state,
-                                                     _grid_check_goal_fn,
-                                                     _inf_grid_successor_fn,
-                                                     _grid_heuristic_fn,
-                                                     timeout=1e-6)
-    assert state_sequence == [(0, 0)]
-    assert not action_sequence
+    # We don't care about the return value. Since the goal check always
+    # returns False, the fact that this test doesn't hang means that
+    # the timeout is working correctly.
+    utils.run_gbfs(initial_state,
+                   lambda s: False,
+                   _inf_grid_successor_fn,
+                   _grid_heuristic_fn,
+                   timeout=0.01)
 
 
 def test_run_hill_climbing():
