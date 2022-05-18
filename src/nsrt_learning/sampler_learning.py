@@ -257,9 +257,14 @@ def _create_sampler_data(
                             for pre in preconditions)
                         positive_data.append((state, var_to_obj, option, goal))
                         continue
-                if CFG.sampler_disable_classifier:
-                    # We disable the classifier by not providing it any
+                if CFG.sampler_disable_classifier or len(
+                        negative_data
+                ) >= CFG.sampler_learning_max_negative_data:
+                    # If we disable the classifier, then we never provide
                     # negative examples, so that it always outputs 1.
+                    # Otherwise, if we already have more negative examples
+                    # than the maximum specified in the configuration,
+                    # we don't add any more negative examples.
                     continue
                 sub = dict(zip(variables, grounding))
                 # When building data for a datastore with effects X, if we
@@ -274,6 +279,7 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
+
     logging.info(f"Generated {len(positive_data)} positive and "
                  f"{len(negative_data)} negative examples")
     assert len(positive_data) == len(datastores[datastore_idx])
