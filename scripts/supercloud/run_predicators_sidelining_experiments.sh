@@ -13,7 +13,7 @@ ALL_ENVS=(
 )
 
 for ENV in ${ALL_ENVS[@]}; do
-    COMMON_ARGS = "--env $ENV --num_train_tasks $NUM_TRAIN_TASKS"
+    COMMON_ARGS="--env $ENV --num_train_tasks $NUM_TRAIN_TASKS"
 
     if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then
         # Model-free GNN option policy baseline.
