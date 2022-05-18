@@ -46,6 +46,8 @@ class CoffeeEnv(BaseEnv):
     jug_handle_x_offset: ClassVar[float] = 0.0
     jug_handle_y_offset: ClassVar[float] = -(1.05 * jug_radius)
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
+    dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
     cup_init_x_ub: ClassVar[
         float] = machine_x - machine_x_len - cup_radius - init_padding
@@ -107,18 +109,30 @@ class CoffeeEnv(BaseEnv):
         fingers = np.clip(
             state.get(self._robot, "fingers") + dfingers, self.closed_fingers,
             self.open_fingers)
-        # Make sure we don't use the deltas because they may now be wrong
-        # after clipping.
-        del dx, dy, dz, dtilt, dfingers
+        # The deltas may be outdated because of the clipping, so recompute
+        # or delete them.
+        dx = x - state.get(self._robot, "x")
+        dy = y - state.get(self._robot, "y")
+        del dz, dtilt, dfingers
         # Update the robot in the new state.
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "z", z)
         next_state.set(self._robot, "tilt", tilt)
         next_state.set(self._robot, "fingers", fingers)
-        # Check if the jug should be grasped for the first time.
-        if state.get(self._jug, "is_held") < 0.5 and \
-            abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
+        # If the jug is already held, move its position, and process drops.
+        if state.get(self._jug, "is_held") > 0.5:
+            # If the jug should be dropped, drop it first.
+            if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
+                next_state.set(self._jug, "is_held", 0.0)
+            # Otherwise, move it.
+            else:
+                new_jug_x = state.get(self._jug, "x") + dx
+                new_jug_y = state.get(self._jug, "y") + dy
+                next_state.set(self._jug, "x", new_jug_x)
+                next_state.set(self._jug, "y", new_jug_y)
+            # Check if the jug should be grasped for the first time.
+        elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
             if sq_dist_to_handle < self.grasp_position_tol:
