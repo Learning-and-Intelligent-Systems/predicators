@@ -255,6 +255,7 @@ class GlobalSettings:
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
     sampler_learning_regressor_model = "neural_gaussian"
+    sampler_learning_max_negative_data = 100000
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
