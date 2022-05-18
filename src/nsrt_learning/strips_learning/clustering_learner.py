@@ -3,7 +3,7 @@
 import abc
 import functools
 import logging
-from typing import FrozenSet, Iterator, List, Set, Tuple, cast
+from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
@@ -155,34 +155,38 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                 if pnad.option_spec[0] != other_pnad.option_spec[0]:
                     continue
                 negative_data.extend(other_pnad.datastore)
-            all_preconditions = self._run_outer_search(pnad, positive_data,
-                                                       negative_data)
-            # The datastores of the new PNADs could need to be changed, so
-            # we initialize them as empty, then recompute them at the end.
-            for j, preconditions in enumerate(all_preconditions):
+            # Run the top-level search to find sets of precondition sets. This
+            # also produces datastores, letting us avoid making a potentially
+            # expensive call to recompute_datastores_from_segments().
+            all_preconditions_to_datastores = self._run_outer_search(
+                pnad, positive_data, negative_data)
+            for j, preconditions in enumerate(all_preconditions_to_datastores):
+                datastore = all_preconditions_to_datastores[preconditions]
                 new_pnads.append(
                     PartialNSRTAndDatastore(
                         pnad.op.copy_with(name=f"{pnad.op.name}-{j}",
-                                          preconditions=preconditions), [],
-                        pnad.option_spec))
-        self._recompute_datastores_from_segments(new_pnads)
+                                          preconditions=preconditions),
+                        datastore, pnad.option_spec))
         return new_pnads
 
     def _run_outer_search(
             self, pnad: PartialNSRTAndDatastore, positive_data: Datastore,
-            negative_data: Datastore) -> Set[FrozenSet[LiftedAtom]]:
-        """Run outer-level search to find a set of precondition sets.
+            negative_data: Datastore
+    ) -> Dict[FrozenSet[LiftedAtom], Datastore]:
+        """Run outer-level search to find a set of precondition sets and
+        associated datastores.
 
         Each precondition set will produce one operator.
         """
-        all_preconditions = set()
+        all_preconditions_to_datastores = {}
         # We'll remove positives as they get covered.
         remaining_positives = list(positive_data)
         while remaining_positives:
             new_preconditions = self._run_inner_search(pnad,
                                                        remaining_positives,
                                                        negative_data)
-            # Update the remaining positives.
+            # Compute the datastore and update the remaining positives.
+            datastore = []
             new_remaining_positives = []
             for seg, var_to_obj in remaining_positives:
                 ground_pre = {a.ground(var_to_obj) for a in new_preconditions}
@@ -192,15 +196,28 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
                     # to be covered, so we keep it in the positives.
                     new_remaining_positives.append((seg, var_to_obj))
                 else:
-                    # Otherwise, we can move this segment to negative_data,
-                    # for any future preconditions that get learned.
+                    # Otherwise, we can add this segment to the datastore and
+                    # also move it to negative_data, for any future
+                    # preconditions that get learned.
+                    datastore.append((seg, var_to_obj))
                     negative_data.append((seg, var_to_obj))
+            # Special case: if the datastore is empty, that means these
+            # new_preconditions don't cover any positives, so the search
+            # failed to find preconditions that have a better score than inf.
+            # Therefore we give up, without including these new_preconditions
+            # into all_preconditions_to_datastores.
+            if len(datastore) == 0:
+                break
             assert len(new_remaining_positives) < len(remaining_positives)
             remaining_positives = new_remaining_positives
-            # Update the set to be returned.
-            assert new_preconditions not in all_preconditions
-            all_preconditions.add(new_preconditions)
-        return all_preconditions
+            # Update all_preconditions_to_datastores.
+            assert new_preconditions not in all_preconditions_to_datastores
+            all_preconditions_to_datastores[new_preconditions] = datastore
+        if not all_preconditions_to_datastores:
+            # If we couldn't find any preconditions, default to empty.
+            assert len(remaining_positives) == len(positive_data)
+            all_preconditions_to_datastores[frozenset()] = positive_data
+        return all_preconditions_to_datastores
 
     def _run_inner_search(self, pnad: PartialNSRTAndDatastore,
                           positive_data: Datastore,
@@ -211,11 +228,13 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
         heuristic = functools.partial(self._score_preconditions, pnad,
                                       positive_data, negative_data)
         max_expansions = CFG.cluster_and_search_inner_search_max_expansions
+        timeout = CFG.cluster_and_search_inner_search_timeout
         path, _ = utils.run_gbfs(initial_state,
                                  check_goal,
                                  self._get_precondition_successors,
                                  heuristic,
-                                 max_expansions=max_expansions)
+                                 max_expansions=max_expansions,
+                                 timeout=timeout)
         return path[-1]
 
     @staticmethod
@@ -277,11 +296,17 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             assert option.parent == option_spec[0]
             option_objs = option.objects
             isub = dict(zip(option_spec[1], option_objs))
-            num_false_positives += int(
-                any(
-                    ground_op.preconditions.issubset(seg.init_atoms)
-                    for ground_op in utils.all_ground_operators_given_partial(
-                        candidate_op, objects, isub)))
+            for idx, ground_op in enumerate(
+                    utils.all_ground_operators_given_partial(
+                        candidate_op, objects, isub)):
+                # If the maximum number of groundings is reached, treat this
+                # as a false positive. Doesn't really matter in practice
+                # because the GBFS is going to time out anyway -- we just
+                # want the code to not hang in this score function.
+                if idx >= CFG.cluster_and_search_score_func_max_groundings or \
+                   ground_op.preconditions.issubset(seg.init_atoms):
+                    num_false_positives += 1
+                    break
         tp_w = CFG.clustering_learner_true_pos_weight
         fp_w = CFG.clustering_learner_false_pos_weight
         score = fp_w * num_false_positives + tp_w * (-num_true_positives)
