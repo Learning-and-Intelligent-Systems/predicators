@@ -62,7 +62,7 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 TITLE_ENVS = [
-    ("PickPlace1D", "cover_multistep_options"),
+    ("Cover", "cover_multistep_options"),
     ("Stick Button", "stick_button"),
     ("Doors", "doors"),
 ]
@@ -74,8 +74,8 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
 
 PLOT_GROUPS = {
     title: [
-        ("Oracle Options", "black", "*",
-         partial(_select_data, env, "oracle_options")),
+        # ("Oracle Options", "black", "*",
+        #  partial(_select_data, env, "oracle_options")),
         ("Ours", "darkgreen", "o", partial(_select_data, env, "main")),
         ("Ours (Nonparam)", "darkorange", "o",
          partial(_select_data, env, "direct_bc_nonparam")),
@@ -83,8 +83,8 @@ PLOT_GROUPS = {
          partial(_select_data, env, "gnn_metacontroller_param")),
         ("GNN Metacontroller (Nonparam)", "purple", "o",
          partial(_select_data, env, "gnn_metacontroller_nonparam")),
-        ("GNN Action Policy", "gold", "o",
-         partial(_select_data, env, "gnn_action_policy")),
+        # ("GNN Action Policy", "gold", "o",
+        #  partial(_select_data, env, "gnn_action_policy")),
         ("Max Skeletons=1", "gray", "o",
          partial(_select_data, env, "direct_bc_max_skel1")),
         ("Max Samples=1", "brown", "o",
