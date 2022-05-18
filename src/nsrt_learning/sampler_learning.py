@@ -257,9 +257,8 @@ def _create_sampler_data(
                             for pre in preconditions)
                         positive_data.append((state, var_to_obj, option, goal))
                         continue
-                if CFG.sampler_disable_classifier or len(
-                        negative_data
-                ) >= CFG.sampler_learning_max_negative_data:
+                if CFG.sampler_disable_classifier or \
+                   len(negative_data) >= CFG.sampler_learning_max_negative_data:
                     # If we disable the classifier, then we never provide
                     # negative examples, so that it always outputs 1.
                     # Otherwise, if we already have more negative examples
