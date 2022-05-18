@@ -89,8 +89,8 @@ def count_positives_for_ops(
             # that are not in the option vars, and consider all
             # groundings of them.
             for grounding_idx, ground_op in enumerate(
-                    all_ground_operators_given_partial(
-                        op, objects, option_var_to_obj)):
+                    all_ground_operators_given_partial(op, objects,
+                                                       option_var_to_obj)):
                 if max_groundings is not None and \
                    grounding_idx > max_groundings:
                     break
