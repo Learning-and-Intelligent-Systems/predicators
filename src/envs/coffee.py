@@ -32,19 +32,19 @@ class CoffeeEnv(BaseEnv):
     closed_fingers: ClassVar[float] = 0.1
     machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
-    machine_init_x: ClassVar[float] = x_ub - machine_x_len
-    machine_init_y: ClassVar[float] = y_ub - machine_y_len
+    machine_x: ClassVar[float] = x_ub - machine_x_len
+    machine_y: ClassVar[float] = y_ub - machine_y_len
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.2 * (z_ub - z_lb)
     cup_radius: ClassVar[float] = 0.3 * jug_radius
-    jug_init_x_lb: ClassVar[float] = machine_init_x - machine_x_len
-    jug_init_x_ub: ClassVar[float] = machine_init_x + machine_x_len
+    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len
+    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len
     jug_init_y_lb: ClassVar[float] = y_lb + jug_radius
     jug_init_y_ub: ClassVar[
-        float] = machine_init_y - machine_y_len - jug_radius
+        float] = machine_y - machine_y_len - jug_radius
     cup_init_x_lb: ClassVar[float] = x_lb + cup_radius
     cup_init_x_ub: ClassVar[
-        float] = machine_init_x - machine_x_len - cup_radius
+        float] = machine_x - machine_x_len - cup_radius
     cup_init_y_lb: ClassVar[float] = jug_init_y_lb
     cup_init_y_ub: ClassVar[float] = jug_init_y_ub
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
@@ -133,9 +133,18 @@ class CoffeeEnv(BaseEnv):
             x = state.get(cup, "x")
             y = state.get(cup, "y")
             circ = utils.Circle(x, y, self.cup_radius)
-            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
+            circ.plot(ax, facecolor=color, edgecolor="black")
         # Draw the machine.
-        # TODO
+        machine, = state.get_objects(self._machine_type)
+        color = "gray"  # TODO change color if the machine is on
+        rect = utils.Rectangle(
+            x=self.machine_x,
+            y=self.machine_y,
+            width=self.machine_x_len,
+            height=self.machine_y_len,
+            theta=0.0
+        )
+        rect.plot(ax, facecolor=color, edgecolor="black")
         # Draw the jug.
         # TODO
         # Draw the robot.
