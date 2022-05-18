@@ -118,7 +118,7 @@ class CoffeeEnv(BaseEnv):
         next_state.set(self._robot, "fingers", fingers)
         # Check if the jug should be grasped for the first time.
         if state.get(self._jug, "is_held") < 0.5 and \
-            abs(fingers < self.closed_fingers) < self.grasp_finger_tol:
+            abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
             if sq_dist_to_handle < self.grasp_position_tol:
