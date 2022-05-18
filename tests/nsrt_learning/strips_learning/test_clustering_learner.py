@@ -155,3 +155,33 @@ def test_cluster_and_search_strips_learner():
     Side Predicates: []
     Option Spec: Interact()"""
     assert len(op2.datastore) == 1
+
+    # If we run cluster_and_search without allowing any node expansions
+    # during GBFS, we should recover the cluster_and_intersect operators.
+    utils.reset_config({
+        "strips_learner": "cluster_and_search",
+        "clustering_learner_false_pos_weight": 100,
+        "cluster_and_search_inner_search_max_expansions": 0,
+    })
+    pnads = learn_strips_operators([traj1, traj2, traj3],
+                                   [task1, task2, task3],
+                                   preds, [[segment1], [segment2], [segment3]],
+                                   verify_harmlessness=True)
+    assert len(pnads) == 2
+    op0, op1 = sorted(pnads, key=str)
+    assert str(op0) == """STRIPS-Op0-0:
+    Parameters: [?x0:obj_type]
+    Preconditions: []
+    Add Effects: [IsHappy(?x0:obj_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Interact()"""
+    assert len(op0.datastore) == 2
+    assert str(op1) == """STRIPS-Op1-0:
+    Parameters: [?x0:obj_type]
+    Preconditions: [IsBlue(?x0:obj_type)]
+    Add Effects: [IsSad(?x0:obj_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Interact()"""
+    assert len(op1.datastore) == 1
