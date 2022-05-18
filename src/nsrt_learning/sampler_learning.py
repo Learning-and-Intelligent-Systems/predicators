@@ -223,7 +223,7 @@ def _create_sampler_data(
 ) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
     # Populate all positive data.
-    positive_data = []
+    positive_data: List[SamplerDatapoint] = []
     for (segment, var_to_obj) in datastores[datastore_idx]:
         # Note: it should ALWAYS be the case that the segment has
         # an option here. If options are learned, then earlier calls
@@ -239,13 +239,14 @@ def _create_sampler_data(
             goal = segment.get_goal()
         else:
             goal = None
-        assert all(pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
-                    for pre in preconditions)
+        assert all(
+            pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
+            for pre in preconditions)
         positive_data.append((state, var_to_obj, option, goal))
 
     # Populate all negative data.
-    negative_data = []
-    
+    negative_data: List[SamplerDatapoint] = []
+
     if CFG.sampler_disable_classifier:
         # If we disable the classifier, then we never provide
         # negative examples, so that it always outputs 1.
@@ -275,8 +276,9 @@ def _create_sampler_data(
             objects = list(state)
             for grounding in utils.get_object_combinations(objects, var_types):
                 # If we are currently at the datastore that we're learning a
-                # sampler for, and this datapoint matches the positive grounding,
-                # this was already added to the positive data, so we can continue.
+                # sampler for, and this datapoint matches the positive
+                # grounding, this was already added to the positive data, so
+                # we can continue.
                 if idx == datastore_idx:
                     positive_grounding = [var_to_obj[var] for var in variables]
                     if grounding == positive_grounding:
@@ -294,13 +296,14 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-                
-                if len(negative_data) >= CFG.sampler_learning_max_negative_data:                    
+
+                if len(negative_data
+                       ) >= CFG.sampler_learning_max_negative_data:
                     # If we already have more negative examples
                     # than the maximum specified in the config,
                     # we don't add any more negative examples.
                     return positive_data, negative_data
-    
+
     return positive_data, negative_data
 
 
