@@ -1235,6 +1235,7 @@ def _run_heuristic_search(
         get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
+        timeout: int = 10000000,
         lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
@@ -1255,9 +1256,10 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
+    start_time = time.time()
 
-    while len(queue) > 0 and num_expansions < max_expansions and \
-        num_evals < max_evals:
+    while len(queue) > 0 and time.time() - start_time < timeout and \
+          num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -1268,8 +1270,10 @@ def _run_heuristic_search(
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
+            if time.time() - start_time >= timeout:
+                break
             child_path_cost = node.cumulative_cost + cost
-            # If we already found a better path to child, don't bother.
+            # If we already found a better path to this child, don't bother.
             if state_to_best_path_cost[child_state] <= child_path_cost:
                 continue
             # Add new node.
@@ -1320,12 +1324,13 @@ def run_gbfs(initial_state: _S,
              heuristic: Callable[[_S], float],
              max_expansions: int = 10000000,
              max_evals: int = 10000000,
+             timeout: int = 10000000,
              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
-                                 lazy_expansion)
+                                 timeout, lazy_expansion)
 
 
 def run_hill_climbing(
