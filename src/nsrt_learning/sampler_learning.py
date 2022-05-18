@@ -275,6 +275,13 @@ def _create_sampler_data(
             var_types = [var.type for var in variables]
             objects = list(state)
             for grounding in utils.get_object_combinations(objects, var_types):
+                if len(negative_data
+                       ) >= CFG.sampler_learning_max_negative_data:
+                    # If we already have more negative examples
+                    # than the maximum specified in the config,
+                    # we don't add any more negative examples.
+                    return positive_data, negative_data
+
                 # If we are currently at the datastore that we're learning a
                 # sampler for, and this datapoint matches the positive
                 # grounding, this was already added to the positive data, so
@@ -294,15 +301,9 @@ def _create_sampler_data(
                 if ground_add_effects.issubset(trans_add_effects) and \
                    ground_delete_effects.issubset(trans_delete_effects):
                     continue
+
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-
-                if len(negative_data
-                       ) >= CFG.sampler_learning_max_negative_data:
-                    # If we already have more negative examples
-                    # than the maximum specified in the config,
-                    # we don't add any more negative examples.
-                    return positive_data, negative_data
 
     return positive_data, negative_data
 
