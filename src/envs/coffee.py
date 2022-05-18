@@ -122,7 +122,31 @@ class CoffeeEnv(BaseEnv):
                      task: Task,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
-        raise NotImplementedError("TODO")
+        del caption  # unused
+        # A crude top-down rendering.
+        figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        # Draw the cups.
+        for cup in state.get_objects(self._cup_type):
+            # TODO make color indicate filled level
+            color = "salmon"
+            x = state.get(cup, "x")
+            y = state.get(cup, "y")
+            circ = utils.Circle(x, y, self.cup_radius)
+            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75)
+        # Draw the machine.
+        # TODO
+        # Draw the jug.
+        # TODO
+        # Draw the robot.
+        # TODO
+        ax.set_xlim(self.x_lb, self.x_ub)
+        ax.set_ylim(self.y_lb, self.y_ub)
+        ax.axis("off")
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
