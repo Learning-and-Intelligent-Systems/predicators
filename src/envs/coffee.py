@@ -33,8 +33,13 @@ class CoffeeEnv(BaseEnv):
     closed_fingers: ClassVar[float] = 0.1
     machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
+    machine_z_len: ClassVar[float] = 0.2 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
+    button_x: ClassVar[float] = machine_x + machine_x_len / 2
+    button_y: ClassVar[float] = machine_y + machine_y_len / 2
+    button_z: ClassVar[float] = machine_z_len
+    button_radius: ClassVar[float] = 0.2 * machine_x_len
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.2 * (z_ub - z_lb)
     cup_radius: ClassVar[float] = 0.3 * jug_radius
@@ -61,6 +66,7 @@ class CoffeeEnv(BaseEnv):
     max_finger_vel: ClassVar[float] = 1.0
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 1e-1
+    dispense_tol: ClassVar[float] = 1e-1
 
     def __init__(self) -> None:
         super().__init__()
@@ -120,6 +126,12 @@ class CoffeeEnv(BaseEnv):
         next_state.set(self._robot, "z", z)
         next_state.set(self._robot, "tilt", tilt)
         next_state.set(self._robot, "fingers", fingers)
+        # Check if the button should be pressed for the first time.
+        if state.get(self._machine, "is_on") < 0.5:
+            button_pos = (self.button_x, self.button_y, self.button_z)
+            sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
+            if sq_dist_to_button < self.button_radius:
+                next_state.set(self._machine, "is_on", 1.0)
         # If the jug is already held, move its position, and process drops.
         if state.get(self._jug, "is_held") > 0.5:
             # If the jug should be dropped, drop it first.
@@ -131,14 +143,23 @@ class CoffeeEnv(BaseEnv):
                 new_jug_y = state.get(self._jug, "y") + dy
                 next_state.set(self._jug, "x", new_jug_x)
                 next_state.set(self._jug, "y", new_jug_y)
-            # Check if the jug should be grasped for the first time.
+        # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
             if sq_dist_to_handle < self.grasp_position_tol:
                 # Grasp the jug.
                 next_state.set(self._jug, "is_held", 1.0)
-
+        # If the jug is close enough to the dispense area and the machine is
+        # on, the jug should get filled.
+        dispense_pos = (self.dispense_area_x, self.dispense_area_y)
+        next_jug_x = next_state.get(self._jug, "x")
+        next_jug_y = next_state.get(self._jug, "y")
+        jug_pos = (next_jug_x, next_jug_y)
+        sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos))**2
+        if sq_dist_to_dispense < self.dispense_tol and \
+            next_state.get(self._machine, "is_on") > 0.5:
+            next_state.set(self._jug, "is_filled", 1.0)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -194,19 +215,36 @@ class CoffeeEnv(BaseEnv):
             circ.plot(ax, facecolor=color, edgecolor="black")
         # Draw the machine.
         machine, = state.get_objects(self._machine_type)
-        color = "gray"  # TODO change color if the machine is on
+        color = "gray"
         rect = utils.Rectangle(x=self.machine_x,
                                y=self.machine_y,
                                width=self.machine_x_len,
                                height=self.machine_y_len,
                                theta=0.0)
         rect.plot(ax, facecolor=color, edgecolor="black")
+        # Draw a button on the machine.
+        if state.get(machine, "is_on") > 0.5:
+            color = "red"
+        else:
+            color = "brown"
+        circ = utils.Circle(x=self.button_x,
+                            y=self.button_y,
+                            radius=self.button_radius)
+        circ.plot(ax, facecolor=color, edgecolor="black")
         # Draw the jug.
         jug, = state.get_objects(self._jug_type)
-        if state.get(jug, "is_held") < 0.5:
-            color = "lightgreen"
+        jug_full = (state.get(jug, "is_filled") > 0.5)
+        jug_held = (state.get(jug, "is_held") > 0.5)
+        if jug_full:
+            if jug_held:
+                color = "darkblue"
+            else:
+                color = "lightblue"
         else:
-            color = "darkgreen"  # TODO change if full of liquid
+            if jug_held:
+                color = "darkgreen"
+            else:
+                color = "lightgreen"
         x = state.get(jug, "x")
         y = state.get(jug, "y")
         circ = utils.Circle(x=x, y=y, radius=self.jug_radius)
