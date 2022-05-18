@@ -157,9 +157,6 @@ class BehaviorEnv(BaseEnv):
             released_obj = self.igibson_behavior_env.scene.get_objects()[
                 self.igibson_behavior_env.robots[0].parts["right_hand"].
                 object_in_hand]
-            #
-            released_obj.set_position(self.igibson_behavior_env.robots[0].parts["right_hand"].object_in_hand.get_position() + np.array([0.0,0.0,-0.1]))
-            #
             # force release object to avoid dealing with stateful assisted
             # grasping release mechanism
             self.igibson_behavior_env.robots[0].parts[

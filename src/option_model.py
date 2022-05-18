@@ -24,7 +24,7 @@ def create_option_model(name: str) -> _OptionModelBase:
         env = get_or_create_env(CFG.env)
         return _OracleOptionModel(env)
     if name == "oracle_behavior":
-        return _BehaviorOptionModel()
+        return _BehaviorOptionModel() # Use _OracleOptionModel(env) to use Sim
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
         env = get_or_create_env(env_name)
