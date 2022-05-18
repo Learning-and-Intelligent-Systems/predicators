@@ -2434,12 +2434,11 @@ def test_run_gbfs():
     assert action_sequence == ['down']
 
     # Test timeout.
-    state_sequence, action_sequence = utils.run_gbfs(
-        initial_state,
-        _grid_check_goal_fn,
-        _inf_grid_successor_fn,
-        _grid_heuristic_fn,
-        timeout=1e-6)
+    state_sequence, action_sequence = utils.run_gbfs(initial_state,
+                                                     _grid_check_goal_fn,
+                                                     _inf_grid_successor_fn,
+                                                     _grid_heuristic_fn,
+                                                     timeout=1e-6)
     assert state_sequence == [(0, 0)]
     assert not action_sequence
 

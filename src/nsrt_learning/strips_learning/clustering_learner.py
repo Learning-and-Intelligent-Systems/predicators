@@ -299,6 +299,10 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             for idx, ground_op in enumerate(
                     utils.all_ground_operators_given_partial(
                         candidate_op, objects, isub)):
+                # If the maximum number of groundings is reached, treat this
+                # as a false positive. Doesn't really matter in practice
+                # because the GBFS is going to time out anyway -- we just
+                # want the code to not hang in this score function.
                 if idx >= CFG.cluster_and_search_score_func_max_groundings or \
                    ground_op.preconditions.issubset(seg.init_atoms):
                     num_false_positives += 1
