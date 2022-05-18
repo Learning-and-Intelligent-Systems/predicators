@@ -213,6 +213,10 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             # Update all_preconditions_to_datastores.
             assert new_preconditions not in all_preconditions_to_datastores
             all_preconditions_to_datastores[new_preconditions] = datastore
+        if not all_preconditions_to_datastores:
+            # If we couldn't find any preconditions, default to empty.
+            assert len(remaining_positives) == len(positive_data)
+            all_preconditions_to_datastores[frozenset()] = positive_data
         return all_preconditions_to_datastores
 
     def _run_inner_search(self, pnad: PartialNSRTAndDatastore,
