@@ -124,7 +124,6 @@ class BehaviorEnv(BaseEnv):
         return "behavior"
 
     def simulate(self, state: State, action: Action) -> State:
-        #import ipdb; ipdb.set_trace()
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(
@@ -136,20 +135,31 @@ class BehaviorEnv(BaseEnv):
         # a[16] is used to indicate whether to grasp or release the currently-
         # held object. 1.0 indicates that the object should be grasped, and
         # -1.0 indicates it should be released
-        #import ipdb; ipdb.set_trace()
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             # We now need to create a 28-dimensional action to pass to
             # the assisted grasping code. Here, the 26th dimension dictates
-            # whether to close the hand or not (1.0 indicates that the
-            # hand should be closed)
-            assisted_grasp_action[26] = 1.0
+            # whether to close the hand or not. Since the grasp was triggered
+            # when we step the environment, we do not need to trigger the 
+            # grasp again
+            #assisted_grasp_action[26] = 1.0 # already triggered grasp
+            
+            obj_to_grasp = None
+            obj_distance = np.inf
+            for obj in self.igibson_behavior_env.task_relevant_objects:
+                dist = np.linalg.norm(np.array(obj.get_position()) - np.array(self.igibson_behavior_env.robots[0].parts["right_hand"].get_position()))
+                if dist < obj_distance:
+                    obj_to_grasp = obj
+                    obj_distance = dist
             _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
-                 handle_assisted_grasping(assisted_grasp_action))
+                 handle_assisted_grasping(assisted_grasp_action, override_ag_data=(obj_to_grasp.body_id[0], -1), bypass_force_check=True))
         elif a[16] == -1.0:
             released_obj = self.igibson_behavior_env.scene.get_objects()[
                 self.igibson_behavior_env.robots[0].parts["right_hand"].
                 object_in_hand]
+            #
+            released_obj.set_position(self.igibson_behavior_env.robots[0].parts["right_hand"].object_in_hand.get_position() + np.array([0.0,0.0,-0.1]))
+            #
             # force release object to avoid dealing with stateful assisted
             # grasping release mechanism
             self.igibson_behavior_env.robots[0].parts[

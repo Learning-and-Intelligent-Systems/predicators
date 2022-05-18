@@ -1,7 +1,6 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
-import imp
 import logging
 from pydoc import importfile
 from typing import Callable, List, Optional, Sequence, Tuple, Union
@@ -194,9 +193,9 @@ def create_navigate_policy(
     def navigateToOptionPolicy(_state: State,
                                env: "BehaviorEnv") -> Tuple[Array, bool]:
         nonlocal repeat_count
-        atol_xy = 1e-2
-        atol_theta = 1e-3
-        atol_vel = 1e-4
+        atol_xy = 1e-1
+        atol_theta = 1e-2
+        atol_vel = 1
 
         # 1. Get current position and orientation
         current_pos = list(env.robots[0].get_position()[0:2])
@@ -210,8 +209,8 @@ def create_navigate_policy(
         if not np.allclose(current_pos, expected_pos,
                            atol=atol_xy) or not np.allclose(
                                current_orn, expected_orn, atol=atol_theta):
-
-            print("Navigate: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
+            if repeat_count != 0:
+                print("Navigate: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
             # 2.a take a corrective action
             if len(plan) <= 1:
                 done_bit = True
@@ -484,6 +483,15 @@ def create_grasp_policy(
     # and this is critical to the functioning of our option. The reversed
     # plan is necessary because RRT just gives us a plan to move our hand
     # to the grasping location, but not to getting back.
+
+    # Add a little more movement in final direction
+    for i in range(20):
+        next_plan_step = np.array(plan[-1]) + (np.array(plan[-1]) - np.array(plan[-2]))
+        for j in range(3):
+            next_plan_step[3+j] = plan[-1][3+j]
+        plan.append(list(next_plan_step))
+    #
+
     reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_closing_gripper = False
@@ -498,9 +506,9 @@ def create_grasp_policy(
         nonlocal repeat_count
         done_bit = False
 
-        atol_xyz = 1e-2 #Needed for real grasping
-        atol_theta = 0.1 #0.1 Needed for real grasping
-        atol_vel = 5e-3
+        atol_xyz = 1e-3 #Needed for real grasping
+        atol_theta = 1e-2 #0.1 Needed for real grasping
+        atol_vel = 1
 
         # 1. Get current position and orientation
         current_pos, current_orn_quat = p.multiplyTransforms(
@@ -518,8 +526,8 @@ def create_grasp_policy(
             if not np.allclose(current_pos, expected_pos,
                                atol=atol_xyz) or not np.allclose(
                                    current_orn, expected_orn, atol=atol_theta):
-                
-                print("Grasp: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
+                if repeat_count != 0:
+                    print("Grasp: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
                 # 2.a take a corrective action
                 if len(plan) <= 1:
                     done_bit = False
@@ -543,7 +551,7 @@ def create_grasp_policy(
                         low_level_action,
                         np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
-                ):
+                ) or repeat_count > 300:
                     low_level_action = (get_delta_low_level_hand_action(
                         env.robots[0].parts["body"],
                         np.array(current_pos),
@@ -593,8 +601,8 @@ def create_grasp_policy(
         if not np.allclose(current_pos, expected_pos,
                            atol=atol_xyz) or not np.allclose(
                                current_orn, expected_orn, atol=atol_theta):
-
-            print("Grasp: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
+            if repeat_count != 0:
+                print("Grasp: took Corrective Action, Plan Length:", len(plan), "repeat count", repeat_count)
             # 2.a take a corrective action
             if len(plan) <= 1:
                 done_bit = True
@@ -613,9 +621,9 @@ def create_grasp_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape, 1)),
+                    np.zeros((env.action_space.shape[0], 1)),
                     atol=atol_vel,
-            ):
+            )  or repeat_count > 300:
                 low_level_action = (get_delta_low_level_hand_action(
                     env.robots[0].parts["body"],
                     np.array(current_pos),
@@ -1102,7 +1110,7 @@ def create_place_policy(
                 # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
+                        np.zeros(env.action_space.shape),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
