@@ -24,6 +24,7 @@ class CoffeeEnv(BaseEnv):
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 2
+    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub
@@ -32,32 +33,38 @@ class CoffeeEnv(BaseEnv):
     closed_fingers: ClassVar[float] = 0.1
     machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
-    machine_x: ClassVar[float] = x_ub - machine_x_len
-    machine_y: ClassVar[float] = y_ub - machine_y_len
+    machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
+    machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.2 * (z_ub - z_lb)
     cup_radius: ClassVar[float] = 0.3 * jug_radius
-    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len
-    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len
-    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius
+    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
+    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
+    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + init_padding
     jug_init_y_ub: ClassVar[
-        float] = machine_y - machine_y_len - jug_radius
-    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius
+        float] = machine_y - machine_y_len - jug_radius - init_padding
+    jug_handle_x_offset: ClassVar[float] = 0.0
+    jug_handle_y_offset: ClassVar[float] = -(1.05 * jug_radius)
+    jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
     cup_init_x_ub: ClassVar[
-        float] = machine_x - machine_x_len - cup_radius
+        float] = machine_x - machine_x_len - cup_radius - init_padding
     cup_init_y_lb: ClassVar[float] = jug_init_y_lb
     cup_init_y_ub: ClassVar[float] = jug_init_y_ub
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
-    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    max_position_vel: ClassVar[float] = 0.5
+    max_angular_vel: ClassVar[float] = np.pi / 10
+    max_finger_vel: ClassVar[float] = 1.0
+    grasp_finger_tol: ClassVar[float] = 1e-2
+    grasp_position_tol: ClassVar[float] = 1e-1
 
     def __init__(self) -> None:
         super().__init__()
 
         # Types
-        self._robot_type = Type("robot",
-                                ["x", "y", "z", "tilt-angle", "fingers"])
+        self._robot_type = Type("robot", ["x", "y", "z", "tilt", "fingers"])
         self._jug_type = Type("jug", ["x", "y", "is_held", "is_filled"])
         self._machine_type = Type("machine", ["is_on"])
         self._cup_type = Type(
@@ -83,8 +90,42 @@ class CoffeeEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        # TODO
-        return state.copy()
+        next_state = state.copy()
+        norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dfingers = action.arr
+        # Denormalize the action.
+        dx = norm_dx * self.max_position_vel
+        dy = norm_dy * self.max_position_vel
+        dz = norm_dz * self.max_position_vel
+        dtilt = norm_dtilt * self.max_angular_vel
+        dfingers = norm_dfingers * self.max_finger_vel
+        # Apply changes to the robot, taking bounds into account.
+        x = np.clip(state.get(self._robot, "x") + dx, self.x_lb, self.x_ub)
+        y = np.clip(state.get(self._robot, "y") + dy, self.y_lb, self.y_ub)
+        z = np.clip(state.get(self._robot, "z") + dz, self.z_lb, self.z_ub)
+        tilt = np.clip(
+            state.get(self._robot, "tilt") + dtilt, self.tilt_lb, self.tilt_ub)
+        fingers = np.clip(
+            state.get(self._robot, "fingers") + dfingers, self.closed_fingers,
+            self.open_fingers)
+        # Make sure we don't use the deltas because they may now be wrong
+        # after clipping.
+        del dx, dy, dz, dtilt, dfingers
+        # Update the robot in the new state.
+        next_state.set(self._robot, "x", x)
+        next_state.set(self._robot, "y", y)
+        next_state.set(self._robot, "z", z)
+        next_state.set(self._robot, "tilt", tilt)
+        next_state.set(self._robot, "fingers", fingers)
+        # Check if the jug should be grasped for the first time.
+        if state.get(self._jug, "is_held") < 0.5 and \
+            abs(fingers < self.closed_fingers) < self.grasp_finger_tol:
+            handle_pos = self._get_jug_handle_grasp(state, self._jug)
+            sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
+            if sq_dist_to_handle < self.grasp_position_tol:
+                # Grasp the jug.
+                next_state.set(self._jug, "is_held", 1.0)
+
+        return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks,
@@ -106,7 +147,10 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return set()  # TODO
+        return {
+            self._cup_type, self._jug_type, self._machine_type,
+            self._robot_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -114,7 +158,7 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Normalized dx, dy, dz, dtilt-angle, dfingers.
+        # Normalized dx, dy, dz, dtilt, dfingers.
         return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
 
     def render_state(self,
@@ -137,18 +181,33 @@ class CoffeeEnv(BaseEnv):
         # Draw the machine.
         machine, = state.get_objects(self._machine_type)
         color = "gray"  # TODO change color if the machine is on
-        rect = utils.Rectangle(
-            x=self.machine_x,
-            y=self.machine_y,
-            width=self.machine_x_len,
-            height=self.machine_y_len,
-            theta=0.0
-        )
+        rect = utils.Rectangle(x=self.machine_x,
+                               y=self.machine_y,
+                               width=self.machine_x_len,
+                               height=self.machine_y_len,
+                               theta=0.0)
         rect.plot(ax, facecolor=color, edgecolor="black")
         # Draw the jug.
-        # TODO
+        jug, = state.get_objects(self._jug_type)
+        if state.get(jug, "is_held") < 0.5:
+            color = "lightgreen"
+        else:
+            color = "darkgreen"  # TODO change if full of liquid
+        x = state.get(jug, "x")
+        y = state.get(jug, "y")
+        circ = utils.Circle(x=x, y=y, radius=self.jug_radius)
+        circ.plot(ax, facecolor=color, edgecolor="black")
         # Draw the robot.
-        # TODO
+        color = "gold"
+        robot, = state.get_objects(self._robot_type)
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        circ = utils.Circle(
+            x=x,
+            y=y,
+            radius=self.cup_radius  # robot in reality has no 'radius'
+        )
+        circ.plot(ax, facecolor=color, edgecolor="black")
         ax.set_xlim(self.x_lb, self.x_ub)
         ax.set_ylim(self.y_lb, self.y_ub)
         ax.axis("off")
@@ -168,7 +227,7 @@ class CoffeeEnv(BaseEnv):
             "x": self.robot_init_x,
             "y": self.robot_init_y,
             "z": self.robot_init_z,
-            "tilt-angle": self.robot_init_tilt,
+            "tilt": self.robot_init_tilt,
             "fingers": self.open_fingers,  # robot fingers start open
         }
         # Create the machine.
@@ -228,3 +287,10 @@ class CoffeeEnv(BaseEnv):
         current = state.get(cup, "current_liquid")
         target = state.get(cup, "target_liquid")
         return current > target
+
+    def _get_jug_handle_grasp(self, state: State,
+                              jug: Object) -> Tuple[float, float, float]:
+        target_x = state.get(jug, "x") + self.jug_handle_x_offset
+        target_y = state.get(jug, "y") + self.jug_handle_y_offset
+        target_z = self.jug_handle_height
+        return (target_x, target_y, target_z)
