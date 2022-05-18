@@ -265,7 +265,6 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
-            positive_grounding = [var_to_obj[var] for var in variables]
             for grounding in utils.get_object_combinations(objects, var_types):
                 if len(negative_data
                        ) >= CFG.sampler_learning_max_negative_data:
@@ -279,6 +278,7 @@ def _create_sampler_data(
                 # grounding, this was already added to the positive data, so
                 # we can continue.
                 if idx == datastore_idx:
+                    positive_grounding = [var_to_obj[var] for var in variables]
                     if grounding == positive_grounding:
                         continue
                 sub = dict(zip(variables, grounding))
