@@ -153,6 +153,10 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # coffee env parameters
+    coffee_num_cups_train = [1, 2]
+    coffee_num_cups_test = [3, 4]
+
     # parameters for random options approach
     random_options_max_tries = 100
 
