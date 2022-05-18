@@ -55,6 +55,7 @@ def count_positives_for_ops(
     strips_ops: List[STRIPSOperator],
     option_specs: List[OptionSpec],
     segments: List[Segment],
+    max_groundings: Optional[int] = None,
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
@@ -68,7 +69,7 @@ def count_positives_for_ops(
     # The following two lists are just useful for debugging.
     true_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
     false_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
-    for idx, segment in enumerate(segments):
+    for seg_idx, segment in enumerate(segments):
         objects = set(segment.states[0])
         segment_option = segment.get_option()
         option_objects = segment_option.objects
@@ -87,17 +88,21 @@ def count_positives_for_ops(
             # segment. So, determine all of the operator variables
             # that are not in the option vars, and consider all
             # groundings of them.
-            for ground_op in all_ground_operators_given_partial(
-                    op, objects, option_var_to_obj):
+            for grounding_idx, ground_op in enumerate(
+                    all_ground_operators_given_partial(
+                        op, objects, option_var_to_obj)):
+                if max_groundings is not None and \
+                   grounding_idx > max_groundings:
+                    break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
-                    true_positive_idxs[op_idx].add(idx)
+                    true_positive_idxs[op_idx].add(seg_idx)
                 else:
-                    false_positive_idxs[op_idx].add(idx)
+                    false_positive_idxs[op_idx].add(seg_idx)
                     num_false_positives += 1
         if covered_by_some_op:
             num_true_positives += 1

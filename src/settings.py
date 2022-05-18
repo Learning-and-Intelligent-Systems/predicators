@@ -220,6 +220,7 @@ class GlobalSettings:
     disable_harmlessness_check = False  # some methods may want this to be True
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
+    cluster_and_intersect_prederror_max_groundings = 10
     cluster_and_search_inner_search_max_expansions = 2500
     cluster_and_search_inner_search_timeout = 30
     cluster_and_search_score_func_max_groundings = 10000
