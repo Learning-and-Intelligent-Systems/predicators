@@ -255,7 +255,6 @@ def _create_sampler_data(
                 # Right now, we're making the assumption that all data is
                 # demonstration data when we're learning samplers with goals.
                 # In the future, we may weaken this assumption.
-                assert segment.has_goal()
                 goal = segment.get_goal()
             else:
                 goal = None
