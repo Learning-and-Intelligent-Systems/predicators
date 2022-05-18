@@ -130,6 +130,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     positive_data, negative_data = _create_sampler_data(
         datastores, variables, preconditions, add_effects, delete_effects,
         param_option, datastore_idx)
+    logging.info(f"Generated {len(positive_data)} positive and "
+                 f"{len(negative_data)} negative examples")
 
     # Fit classifier to data
     logging.info("Fitting classifier...")
@@ -220,8 +222,35 @@ def _create_sampler_data(
     datastore_idx: int
 ) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
+    # Populate all positive data.
     positive_data = []
+    for (segment, var_to_obj) in datastores[datastore_idx]:
+        # Note: it should ALWAYS be the case that the segment has
+        # an option here. If options are learned, then earlier calls
+        # to update_segment_from_option_spec() should have set the
+        # option correctly to a learned one.
+        option = segment.get_option()
+        state = segment.states[0]
+        if CFG.sampler_learning_use_goals:
+            # Right now, we're making the assumption that all data is
+            # demonstration data when we're learning samplers with goals.
+            # In the future, we may weaken this assumption.
+            assert segment.has_goal()
+            goal = segment.get_goal()
+        else:
+            goal = None
+        assert all(pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
+                    for pre in preconditions)
+        positive_data.append((state, var_to_obj, option, goal))
+
+    # Populate all negative data.
     negative_data = []
+    
+    if CFG.sampler_disable_classifier:
+        # If we disable the classifier, then we never provide
+        # negative examples, so that it always outputs 1.
+        return positive_data, negative_data
+
     for idx, datastore in enumerate(datastores):
         for (segment, var_to_obj) in datastore:
             # Note: it should ALWAYS be the case that the segment has
@@ -246,25 +275,12 @@ def _create_sampler_data(
             objects = list(state)
             for grounding in utils.get_object_combinations(objects, var_types):
                 # If we are currently at the datastore that we're learning a
-                # sampler for, and this datapoint matches the actual grounding,
-                # add it to the positive data and continue.
+                # sampler for, and this datapoint matches the positive grounding,
+                # this was already added to the positive data, so we can continue.
                 if idx == datastore_idx:
-                    actual_grounding = [var_to_obj[var] for var in variables]
-                    if grounding == actual_grounding:
-                        assert all(
-                            pre.predicate.holds(
-                                state, [var_to_obj[v] for v in pre.variables])
-                            for pre in preconditions)
-                        positive_data.append((state, var_to_obj, option, goal))
+                    positive_grounding = [var_to_obj[var] for var in variables]
+                    if grounding == positive_grounding:
                         continue
-                if CFG.sampler_disable_classifier or \
-                   len(negative_data) >= CFG.sampler_learning_max_negative_data:
-                    # If we disable the classifier, then we never provide
-                    # negative examples, so that it always outputs 1.
-                    # Otherwise, if we already have more negative examples
-                    # than the maximum specified in the configuration,
-                    # we don't add any more negative examples.
-                    continue
                 sub = dict(zip(variables, grounding))
                 # When building data for a datastore with effects X, if we
                 # encounter a transition with effects Y, and if Y is a superset
@@ -278,9 +294,13 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-    logging.info(f"Generated {len(positive_data)} positive and "
-                 f"{len(negative_data)} negative examples")
-    assert len(positive_data) == len(datastores[datastore_idx])
+                
+                if len(negative_data) >= CFG.sampler_learning_max_negative_data:                    
+                    # If we already have more negative examples
+                    # than the maximum specified in the config,
+                    # we don't add any more negative examples.
+                    return positive_data, negative_data
+    
     return positive_data, negative_data
 
 
