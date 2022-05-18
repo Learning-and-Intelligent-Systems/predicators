@@ -397,8 +397,10 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
         segments = [seg for traj in self._segmented_trajs for seg in traj]
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
+        max_groundings = CFG.cluster_and_intersect_prederror_max_groundings
         num_true_positives, num_false_positives, _, _ = \
-            utils.count_positives_for_ops(strips_ops, option_specs, segments)
+            utils.count_positives_for_ops(strips_ops, option_specs, segments,
+                                          max_groundings=max_groundings)
         # Note: lower is better! We want more true positives and fewer
         # false positives.
         tp_w = CFG.clustering_learner_true_pos_weight
