@@ -279,7 +279,6 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-
     logging.info(f"Generated {len(positive_data)} positive and "
                  f"{len(negative_data)} negative examples")
     assert len(positive_data) == len(datastores[datastore_idx])
