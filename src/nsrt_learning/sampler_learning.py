@@ -225,17 +225,12 @@ def _create_sampler_data(
     # Populate all positive data.
     positive_data: List[SamplerDatapoint] = []
     for (segment, var_to_obj) in datastores[datastore_idx]:
-        # Note: it should ALWAYS be the case that the segment has
-        # an option here. If options are learned, then earlier calls
-        # to update_segment_from_option_spec() should have set the
-        # option correctly to a learned one.
         option = segment.get_option()
         state = segment.states[0]
         if CFG.sampler_learning_use_goals:
             # Right now, we're making the assumption that all data is
             # demonstration data when we're learning samplers with goals.
             # In the future, we may weaken this assumption.
-            assert segment.has_goal()
             goal = segment.get_goal()
         else:
             goal = None
@@ -254,10 +249,6 @@ def _create_sampler_data(
 
     for idx, datastore in enumerate(datastores):
         for (segment, var_to_obj) in datastore:
-            # Note: it should ALWAYS be the case that the segment has
-            # an option here. If options are learned, then earlier calls
-            # to update_segment_from_option_spec() should have set the
-            # option correctly to a learned one.
             option = segment.get_option()
             state = segment.states[0]
             if CFG.sampler_learning_use_goals:
@@ -274,6 +265,7 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
+            positive_grounding = [var_to_obj[var] for var in variables]
             for grounding in utils.get_object_combinations(objects, var_types):
                 if len(negative_data
                        ) >= CFG.sampler_learning_max_negative_data:
@@ -287,7 +279,6 @@ def _create_sampler_data(
                 # grounding, this was already added to the positive data, so
                 # we can continue.
                 if idx == datastore_idx:
-                    positive_grounding = [var_to_obj[var] for var in variables]
                     if grounding == positive_grounding:
                         continue
                 sub = dict(zip(variables, grounding))
