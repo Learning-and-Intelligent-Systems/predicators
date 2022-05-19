@@ -11,9 +11,10 @@ from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
-from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
-    create_change_fingers_option, create_move_end_effector_to_pose_option, \
+from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
+from predicators.src.pybullet_utils.controllers import create_move_end_effector_to_pose_option, \
+    create_change_fingers_option
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, Object, ParameterizedOption, \
     Pose3D, State
@@ -214,7 +215,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       self._physics_client_id))
 
     def _create_pybullet_robot(
-            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
+            self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
                                                 self._ee_orn,
