@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -61,12 +62,18 @@ class CoffeeEnv(BaseEnv):
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
+    pour_x_offset: ClassVar[float] = cup_radius
+    pour_y_offset: ClassVar[float] = cup_radius + jug_radius
+    pour_z_offset: ClassVar[float] = robot_init_z
+    pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 0.5
-    max_angular_vel: ClassVar[float] = np.pi / 10
+    max_angular_vel: ClassVar[float] = np.pi / 2
     max_finger_vel: ClassVar[float] = 1.0
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 1e-1
     dispense_tol: ClassVar[float] = 1e-1
+    pour_angle_tol: ClassVar[float] = 1e-1
+    pour_pos_tol: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -137,12 +144,26 @@ class CoffeeEnv(BaseEnv):
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
                 next_state.set(self._jug, "is_held", 0.0)
-            # Otherwise, move it.
+            # Otherwise, move it, and process pouring.
             else:
                 new_jug_x = state.get(self._jug, "x") + dx
                 new_jug_y = state.get(self._jug, "y") + dy
                 next_state.set(self._jug, "x", new_jug_x)
                 next_state.set(self._jug, "y", new_jug_y)
+                # Check for pouring.
+                if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
+                    # Find the cup to pour into, if any.
+                    cup = self._get_cup_to_pour(next_state)
+                    # If pouring into nothing, raise an error (spilling).
+                    if cup is None:
+                        raise utils.EnvironmentFailure("Spilled.")
+                    # Increase the liquid in the cup.
+                    current_liquid = state.get(cup, "current_liquid")
+                    new_liquid = current_liquid + self.pour_velocity
+                    # If we have exceeded the capacity of the cup, raise error.
+                    if new_liquid > state.get(cup, "capacity_liquid"):
+                        raise utils.EnvironmentFailure("Overfilled cup.")
+                    next_state.set(cup, "current_liquid", new_liquid)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
@@ -206,9 +227,9 @@ class CoffeeEnv(BaseEnv):
         figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         # Draw the cups.
+        cmap = matplotlib.cm.get_cmap("Blues")
         for cup in state.get_objects(self._cup_type):
-            # TODO make color indicate filled level
-            color = "salmon"
+            color = cmap(state.get(cup, "current_liquid"))
             x = state.get(cup, "x")
             y = state.get(cup, "y")
             circ = utils.Circle(x, y, self.cup_radius)
@@ -346,3 +367,27 @@ class CoffeeEnv(BaseEnv):
         target_y = state.get(jug, "y") + self.jug_handle_y_offset
         target_z = self.jug_handle_height
         return (target_x, target_y, target_z)
+
+    def _get_pour_position(self, state: State,
+                           cup: Object) -> Tuple[float, float, float]:
+        target_x = state.get(cup, "x") + self.pour_x_offset
+        target_y = state.get(cup, "y") + self.pour_y_offset
+        target_z = self.pour_z_offset
+        return (target_x, target_y, target_z)
+
+    def _get_cup_to_pour(self, state: State) -> Optional[Object]:
+        jug, = state.get_objects(self._jug_type)
+        robot, = state.get_objects(self._robot_type)
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
+        jug_z = state.get(robot, "z")
+        jug_pos = (jug_x, jug_y, jug_z)
+        closest_cup = None
+        closest_cup_dist = float("inf")
+        for cup in state.get_objects(self._cup_type):
+            target = self._get_pour_position(state, cup)
+            sq_dist = np.sum(np.subtract(jug_pos, target)**2)
+            if sq_dist < self.pour_pos_tol and sq_dist < closest_cup_dist:
+                closest_cup = cup
+                closest_cup_dist = sq_dist
+        return closest_cup

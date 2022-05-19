@@ -23,7 +23,8 @@ def test_stick_button():
             assert len(obj.type.feature_names) == len(task.init[obj])
     # assert len(env.predicates) == 6
     assert len(env.goal_predicates) == 1
-    assert {pred.name for pred in env.goal_predicates} == {"CupFilled"}
+    CupFilled = next(iter(env.goal_predicates))
+    assert CupFilled.name == "CupFilled"
     # assert len(env.options) == 3
     assert len(env.types) == 4
     cup_type, jug_type, machine_type, robot_type = sorted(env.types)
@@ -33,7 +34,7 @@ def test_stick_button():
     assert robot_type.name == "robot"
     assert env.action_space.shape == (5, )
     # Create a custom initial state, with cups positions at the extremes of
-    # their possible initial positions. (TODO extremes!)
+    # their possible initial positions.
     state = env.get_test_tasks()[0].init.copy()
     robot, = state.get_objects(robot_type)
     jug, = state.get_objects(jug_type)
@@ -144,6 +145,57 @@ def test_stick_button():
     assert traj.states[-2].get(jug, "is_filled") < 0.5
     assert traj.states[-1].get(jug, "is_filled") > 0.5
     s = traj.states[-1]
+
+    # Test picking up the filled jug.
+    target_x, target_y, target_z = env._get_jug_handle_grasp(s, jug)
+    move_to_pick_act_arrs = _get_position_action_arrs(s.get(robot, "x"),
+                                                      s.get(robot, "y"),
+                                                      s.get(robot,
+                                                            "z"), target_x,
+                                                      target_y, target_z)
+    action_arrs.extend(move_to_pick_act_arrs)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    action_arrs.append(pick_act_arr)
+
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           state,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert traj.states[-2].get(jug, "is_held") < 0.5
+    assert traj.states[-1].get(jug, "is_held") > 0.5
+    s = traj.states[-1]
+
+    # Test pouring in each of the cups.
+    for cup in cups:
+        jug_target_x, jug_target_y, target_z = env._get_pour_position(s, cup)
+        target_x = jug_target_x - (s.get(jug, "x") - s.get(robot, "x"))
+        target_y = jug_target_y - (s.get(jug, "y") - s.get(robot, "y"))
+        move_to_pour_act_arrs = _get_position_action_arrs(
+            s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"), target_x,
+            target_y, target_z)
+        action_arrs.extend(move_to_pour_act_arrs)
+        target_liquid = state.get(cup, "target_liquid")
+        num_pour_steps = int(np.ceil(target_liquid / env.pour_velocity))
+        # Start pouring.
+        pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0]
+        pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
+        action_arrs.append(pour_act_arr)
+        # Keep pouring.
+        action_arrs.extend([pour_act_arr for _ in range(num_pour_steps - 1)])
+        # Stop pouring.
+        action_arrs.append(-1 * pour_act_arr)
+
+        policy = utils.action_arrs_to_policy(action_arrs)
+        traj = utils.run_policy_with_simulator(policy,
+                                               env.simulate,
+                                               state,
+                                               lambda _: False,
+                                               max_num_steps=len(action_arrs))
+        assert not GroundAtom(CupFilled, [cup]).holds(traj.states[-3])
+        assert GroundAtom(CupFilled, [cup]).holds(traj.states[-1])
+        s = traj.states[-1]
 
     # Uncomment for debugging.
     policy = utils.action_arrs_to_policy(action_arrs)
