@@ -19,7 +19,6 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import (
     ikfast_inverse_kinematics,
-    get_ikfast_supported_robots,
 )
 from predicators.src.pybullet_helpers.utils import (
     get_link_from_name,
@@ -401,19 +400,13 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         physics_client_id: int,
     ):
         super().__init__(ee_home_pose, ee_orientation, physics_client_id)
-        # self._ikfast_info = IKFastInfo(
-        #     module_name="franka_panda.ikfast_panda_arm",
-        #     base_link="panda_link0",
-        #     ee_link="panda_link8",
-        #     free_joints=["panda_joint7"],
-        # )
 
         # Base pose and orientation (robot is fixed)
         self._world_from_base = p.getBasePositionAndOrientation(
             self.robot_id, physicsClientId=self._physics_client_id
         )
 
-        # TODO!!! fix this
+        # TODO!!! fix this. Hardcoded constant at the moment, we just want it facing down
         self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
         # Extract IDs for individual robot links and joints.
 
@@ -458,12 +451,12 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         return 0.03
 
     def _validate(self, joints_state: JointsState, target_pose: Pose3D):
+        # Store current joint positions so we can reset
         initial_joint_states = self.get_joints()
-        self.set_joints(joints_state)
 
+        self.set_joints(joints_state)
         ee_pos = self.get_state()[:3]
         target_pos = target_pose
-
         pos_is_close = np.allclose(ee_pos, target_pos, atol=CFG.pybullet_ik_tol)
 
         # Reset joint positions before returning/raising error
@@ -477,10 +470,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> List[float]:
-        # FIXME: clean up IKFast everything
-        # TODO handle validate argument
-
-        # TODO explain
+        # TODO explain what IKFast is doing
         # X_TE
         tool_from_ee = get_relative_link_pose(
             self.robot_id,
@@ -502,7 +492,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         )
 
         joints_state = ikfast_inverse_kinematics(
-            "panda_arm",
+            self,
             base_from_ee[0],
             base_from_ee[1],
             physics_client_id=self._physics_client_id,
@@ -516,6 +506,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
 
+        # TODO: retry on validate fail?
         if validate:
             self._validate(final_joint_state, target_pose=end_effector_pose)
 
@@ -589,7 +580,6 @@ if __name__ == "__main__":
     print(panda.joint_lower_limits)
     print(panda.joint_upper_limits)
     print([p.getBodyInfo(b) for b in get_bodies()])
-    print("IK fast supported:", get_ikfast_supported_robots())
     # wait_for_user("start?")
     for _ in range(50):
         p.stepSimulation(physicsClientId=physics_client_id)

@@ -12,6 +12,12 @@ if TYPE_CHECKING:
     from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot
 
 
+def matrix_from_quat(quat: Sequence[float], physics_client_id: int):
+    return np.array(
+        p.getMatrixFromQuaternion(quat, physicsClientId=physics_client_id)
+    ).reshape(3, 3)
+
+
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     """Get the link ID from the name of the link."""
     base_info = p.getBodyInfo(body, physicsClientId=physics_client_id)
