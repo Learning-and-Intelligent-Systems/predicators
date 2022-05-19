@@ -13,6 +13,7 @@ def test_coffee():
     utils.reset_config({
         "env": "coffee",
         "coffee_num_cups_test": [4],  # used to assure 4 cups in custom state
+        "video_fps": 10,  # for faster debugging videos
     })
     env = CoffeeEnv()
     for task in env.get_train_tasks():
@@ -121,13 +122,13 @@ def test_coffee():
     # First move to above the button.
     move_to_above_button_act_arrs = _get_position_action_arrs(
         s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"), env.button_x,
-        env.button_y, env.button_z + 1.0)
+        env.button_y + 1.0, env.button_z)
     action_arrs.extend(move_to_above_button_act_arrs)
-    # Move down to press the button.
+    # Move forward to press the button.
     move_to_press_button_act_arrs = _get_position_action_arrs(
         env.button_x,
-        env.button_y,
-        env.button_z + 1.0,
+        env.button_y + 1.0,
+        env.button_z,
         env.button_x,
         env.button_y,
         env.button_z,
@@ -247,6 +248,22 @@ def test_coffee():
     assert traj.states[-2].get(jug, "is_held") > 0.5
     assert traj.states[-1].get(jug, "is_held") < 0.5
     assert GroundAtom(InMachine, [jug, machine]).holds(traj.states[-1])
+
+    # Test TurnOnMachine.
+    TurnOnMachine = option_name_to_option["TurnOnMachine"]
+    option = TurnOnMachine.ground([robot, machine], [])
+    option_plan.append(option)
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(machine, "is_on") < 0.5
+    assert traj.states[-1].get(machine, "is_on") > 0.5
 
     # Uncomment for debugging.
     policy = utils.option_plan_to_policy(option_plan)
