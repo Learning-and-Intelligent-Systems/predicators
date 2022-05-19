@@ -93,6 +93,9 @@ class CoffeeEnv(BaseEnv):
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)
+        self._InMachine = Predicate("InMachine",
+                                    [self._jug_type, self._machine_type],
+                                    self._InMachine_holds)
         # TODO
 
         # Options
@@ -103,6 +106,14 @@ class CoffeeEnv(BaseEnv):
             policy=self._PickJug_policy,
             initiable=lambda s, m, o, p: True,
             terminal=self._PickJug_terminal,
+        )
+        self._PlaceJugInMachine = ParameterizedOption(
+            "PlaceJugInMachine",
+            types=[self._robot_type, self._jug_type, self._machine_type],
+            params_space=Box(0, 1, (0, )),
+            policy=self._PlaceJugInMachine_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._PlaceJugInMachine_terminal,
         )
         # TODO
 
@@ -185,12 +196,7 @@ class CoffeeEnv(BaseEnv):
                 next_state.set(self._jug, "is_held", 1.0)
         # If the jug is close enough to the dispense area and the machine is
         # on, the jug should get filled.
-        dispense_pos = (self.dispense_area_x, self.dispense_area_y)
-        next_jug_x = next_state.get(self._jug, "x")
-        next_jug_y = next_state.get(self._jug, "y")
-        jug_pos = (next_jug_x, next_jug_y)
-        sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos))**2
-        if sq_dist_to_dispense < self.dispense_tol and \
+        if self._InMachine_holds(next_state, [self._jug, self._machine]) and \
             next_state.get(self._machine, "is_on") > 0.5:
             next_state.set(self._jug, "is_filled", 1.0)
         return next_state
@@ -207,7 +213,7 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._CupFilled}  # TODO
+        return {self._CupFilled, self._InMachine, self._Holding}  # TODO
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -222,7 +228,7 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._PickJug}
+        return {self._PickJug, self._PlaceJugInMachine}
 
     @property
     def action_space(self) -> Box:
@@ -251,8 +257,18 @@ class CoffeeEnv(BaseEnv):
             circ.plot(xy_ax, facecolor=color, edgecolor="black")
             circ = utils.Circle(x, z, self.cup_radius)
             circ.plot(xz_ax, facecolor=color, edgecolor="black")
-        # Draw the machine.
+        # Draw the dispense area (xy plane only).
+        jug, = state.get_objects(self._jug_type)
         machine, = state.get_objects(self._machine_type)
+        if self._InMachine_holds(state, [jug, machine]):
+            color = "violet"
+        else:
+            color = "thistle"
+        circ = utils.Circle(x=self.dispense_area_x,
+                            y=self.dispense_area_y,
+                            radius=self.jug_radius + self.dispense_tol)
+        circ.plot(xy_ax, facecolor=color)
+        # Draw the machine.
         color = "gray"
         rect = utils.Rectangle(x=self.machine_x,
                                y=self.machine_y,
@@ -276,7 +292,6 @@ class CoffeeEnv(BaseEnv):
                             radius=self.button_radius)
         circ.plot(xy_ax, facecolor=color, edgecolor="black")
         # Draw the jug.
-        jug, = state.get_objects(self._jug_type)
         jug_full = (state.get(jug, "is_filled") > 0.5)
         jug_held = (state.get(jug, "is_held") > 0.5)
         if jug_full:
@@ -419,6 +434,103 @@ class CoffeeEnv(BaseEnv):
         _, jug = objects
         return state.get(jug, "is_held") > 0.5
 
+    def _InMachine_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        jug, machine = objects
+        dispense_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
+        x = state.get(jug, "x")
+        y = state.get(jug, "y")
+        if state.get(jug, "is_held") > 0.5:
+            # Offset to account for handle.
+            z = state.get(self._robot, "z") - self.jug_handle_height
+        else:
+            z = self.z_lb
+        jug_pos = (x, y, z)
+        sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos))**2
+        return (sq_dist_to_dispense < self.dispense_tol)
+
+    def _PickJug_policy(self, state: State, memory: Dict,
+                        objects: Sequence[Object], params: Array) -> Action:
+        # This policy moves the robot to a safe height, then moves to behind
+        # the handle in the y direction, then moves down in the z direction,
+        # then moves forward in the y direction before finally grasping.
+        del memory, params  # unused
+        robot, jug = objects
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
+        robot_pos = (x, y, z)
+        handle_pos = self._get_jug_handle_grasp(state, jug)
+        # If close enough, pick.
+        sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
+        if sq_dist_to_handle < self.grasp_position_tol:
+            return Action(
+                np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
+        target_x, target_y, target_z = handle_pos
+        # Distance to the handle in the x/z plane.
+        xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
+        # Distance to the penultimate waypoint in the x/y plane.
+        waypoint_y = target_y - self.move_padding
+        # Distance in the z direction to a safe move distance.
+        safe_z_sq_dist = (self.robot_init_z - z)**2
+        xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
+        # If at the correct x and z position and behind in the y direction,
+        # move directly toward the target.
+        if target_y > y and xz_handle_sq_dist < self.grasp_position_tol:
+            return self._get_move_action(handle_pos, robot_pos)
+        # If close enough to the penultimate waypoint in the x/y plane,
+        # move to the waypoint (in the z direction).
+        if xy_waypoint_sq_dist < self.grasp_position_tol:
+            return self._get_move_action((target_x, waypoint_y, target_z),
+                                         robot_pos)
+        # If at a safe height, move to the position above the penultimate
+        # waypoint, still at a safe height.
+        if safe_z_sq_dist < self.grasp_position_tol:
+            return self._get_move_action(
+                (target_x, waypoint_y, self.robot_init_z), robot_pos)
+        # Move up to a safe height.
+        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
+
+    def _PickJug_terminal(self, state: State, memory: Dict,
+                          objects: Sequence[Object], params: Array) -> bool:
+        del memory, params  # unused
+        robot, jug = objects
+        return self._Holding_holds(state, [robot, jug])
+
+    def _PlaceJugInMachine_policy(self, state: State, memory: Dict,
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
+        # This policy picks the jug up slightly above the table to avoid
+        # worrying about friction, then moves directly to the place position,
+        # then places the jug.
+        del memory, params  # unused
+        robot, jug, _ = objects
+        # Use the jug position as the origin.
+        x = state.get(jug, "x")
+        y = state.get(jug, "y")
+        z = state.get(robot, "z") - self.jug_handle_height
+        jug_pos = (x, y, z)
+        place_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
+        # If close enough, place.
+        sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
+        if sq_dist_to_place < self.dispense_tol:
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0],
+                                   dtype=np.float32))
+        # If already above the table, move directly toward the place pos.
+        if z > self.z_lb:
+            return self._get_move_action(place_pos, jug_pos)
+        # Move up.
+        return self._get_move_action((x, y, z + self.max_position_vel),
+                                     jug_pos)
+
+    def _PlaceJugInMachine_terminal(self, state: State, memory: Dict,
+                                    objects: Sequence[Object],
+                                    params: Array) -> bool:
+        del memory, params  # unused
+        robot, jug, machine = objects
+        return not self._Holding_holds(state, [robot, jug]) and \
+            self._InMachine_holds(state, [jug, machine])
+
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         target_x = state.get(jug, "x") + self.jug_handle_x_offset
@@ -450,69 +562,9 @@ class CoffeeEnv(BaseEnv):
                 closest_cup_dist = sq_dist
         return closest_cup
 
-    def _PickJug_policy(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> Action:
-        del memory, params  # unused
-        robot, jug = objects
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        z = state.get(robot, "z")
-        robot_pos = (x, y, z)
-        handle_pos = self._get_jug_handle_grasp(state, jug)
-        # If close enough, pick.
-        sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
-        if sq_dist_to_handle < self.grasp_position_tol:
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
-        # Set up the conditions and position targets. In order, if a condition
-        # is True, then the policy should select an action that moves to the
-        # corresponding position target. Here, the policy moves the robot to
-        # a safe height, then moves to behind the handle in the y direction,
-        # then moves down in the z direction, then moves forward in the y
-        # direction.
-        target_x, target_y, target_z = handle_pos
-        # Distance to the handle in the x/z plane.
-        xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
-        # Distance to the penultimate waypoint in the x/y plane.
-        waypoint_y = target_y - self.move_padding
-        # Distance in the z direction to a safe move distance.
-        safe_z_sq_dist = (self.robot_init_z - z)**2
-        xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
-        move_rules = [
-            # If at the correct x and z position and behind in the y direction,
-            # move directly toward the target.
-            (target_y > y
-             and xz_handle_sq_dist < self.grasp_position_tol, handle_pos),
-            # If close enough to the penultimate waypoint in the x/y plane,
-            # move to the waypoint (in the z direction).
-            (xy_waypoint_sq_dist < self.grasp_position_tol,
-             (target_x, waypoint_y, target_z)),
-            # If at a safe height, move to the position above the penultimate
-            # waypoint, still at a safe height.
-            (safe_z_sq_dist < self.grasp_position_tol, (target_x, waypoint_y,
-                                                        self.robot_init_z)),
-            # Move up to a safe height.
-            (True, (x, y, self.robot_init_z))
-        ]
-        return self._move_rules_to_action(move_rules, (x, y, z))
-
-    def _PickJug_terminal(self, state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        robot, jug = objects
-        return self._Holding_holds(state, [robot, jug])
-
-    def _move_rules_to_action(self,
-                              move_rules: Sequence[Tuple[bool,
-                                                         Tuple[float, float,
-                                                               float]]],
-                              robot_pos: Tuple[float, float, float]) -> Action:
-        for (condition, waypoint) in move_rules:
-            if condition:
-                delta = np.subtract(waypoint, robot_pos)
-                break
-        else:
-            raise ValueError("Malformed move rules; no condition was True.")
+    def _get_move_action(self, target_pos: Tuple[float, float, float],
+                         robot_pos: Tuple[float, float, float]) -> Action:
+        delta = np.subtract(target_pos, robot_pos)
         # Apply velocity limits.
         max_vel = self.max_position_vel
         delta = np.clip(delta, -max_vel, max_vel)

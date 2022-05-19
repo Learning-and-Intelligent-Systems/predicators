@@ -23,15 +23,16 @@ def test_coffee():
             assert len(obj.type.feature_names) == len(task.init[obj])
     # assert len(env.predicates) == 6
     assert len(env.goal_predicates) == 1
-    CupFilled = next(iter(env.goal_predicates))
-    assert CupFilled.name == "CupFilled"
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    CupFilled = pred_name_to_pred["CupFilled"]
+    InMachine = pred_name_to_pred["InMachine"]
     # assert len(env.options) == 3
     assert len(env.types) == 4
-    cup_type, jug_type, machine_type, robot_type = sorted(env.types)
-    assert cup_type.name == "cup"
-    assert jug_type.name == "jug"
-    assert machine_type.name == "machine"
-    assert robot_type.name == "robot"
+    type_name_to_type = {t.name: t for t in env.types}
+    cup_type = type_name_to_type["cup"]
+    jug_type = type_name_to_type["jug"]
+    machine_type = type_name_to_type["machine"]
+    robot_type = type_name_to_type["robot"]
     assert env.action_space.shape == (5, )
     # Create a custom initial state, with cups positions at the extremes of
     # their possible initial positions.
@@ -230,6 +231,23 @@ def test_coffee():
     assert traj.states[-2].get(jug, "is_held") < 0.5
     assert traj.states[-1].get(jug, "is_held") > 0.5
 
+    # Test PlaceJugInMachine.
+    PlaceJugInMachine = option_name_to_option["PlaceJugInMachine"]
+    option = PlaceJugInMachine.ground([robot, jug, machine], [])
+    option_plan.append(option)
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(jug, "is_held") > 0.5
+    assert traj.states[-1].get(jug, "is_held") < 0.5
+    assert GroundAtom(InMachine, [jug, machine]).holds(traj.states[-1])
+
     # Uncomment for debugging.
     policy = utils.option_plan_to_policy(option_plan)
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
@@ -238,7 +256,7 @@ def test_coffee():
         env.simulate,
         state,
         lambda _: False,
-        max_num_steps=1000,
+        max_num_steps=100,
         exceptions_to_break_on={utils.OptionExecutionFailure},
         monitor=monitor)
     video = monitor.get_video()
