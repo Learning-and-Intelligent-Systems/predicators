@@ -67,8 +67,8 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @property
     def action_space(self) -> Box:
-        """The action space for the robot.
-
+        """
+        The action space for the robot.
         Represents position control of the arm and finger joints.
         """
         return Box(
@@ -134,17 +134,36 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """The index into the joints corresponding to the right finger."""
         return self.arm_joints.index(self.right_finger_id)
 
-    @property
-    @abc.abstractmethod
-    def joint_lower_limits(self) -> JointsState:
-        """Lower bound on the arm joint limits."""
-        raise NotImplementedError("Override me!")
+    @cached_property
+    def _joint_limits(self) -> Tuple[JointsState, JointsState]:
+        """Return the lower and upper joint limits."""
+        joint_lower_limits, joint_upper_limits = [], []
+
+        for i in self.arm_joints:
+            info = p.getJointInfo(
+                self.robot_id, i, physicsClientId=self._physics_client_id
+            )
+            lower_limit = info[8]
+            upper_limit = info[9]
+            # Per PyBullet documentation, values ignored if upper < lower.
+            if upper_limit < lower_limit:
+                joint_lower_limits.append(-np.inf)
+                joint_upper_limits.append(np.inf)
+            else:
+                joint_lower_limits.append(lower_limit)
+                joint_upper_limits.append(upper_limit)
+
+        return joint_lower_limits, joint_upper_limits
 
     @property
-    @abc.abstractmethod
+    def joint_lower_limits(self) -> JointsState:
+        """Lower bound on the arm joint limits."""
+        return self._joint_limits[0]
+
+    @property
     def joint_upper_limits(self) -> JointsState:
         """Upper bound on the arm joint limits."""
-        raise NotImplementedError("Override me!")
+        return self._joint_limits[1]
 
     @property
     @abc.abstractmethod
@@ -313,22 +332,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         # return anything for them.
         self._initial_joints_state[-2] = self.open_fingers
         self._initial_joints_state[-1] = self.open_fingers
-        # Establish the lower and upper limits for the arm joints.
-        self._joint_lower_limits = []
-        self._joint_upper_limits = []
-        for i in self.arm_joints:
-            info = p.getJointInfo(
-                self._fetch_id, i, physicsClientId=self._physics_client_id
-            )
-            lower_limit = info[8]
-            upper_limit = info[9]
-            # Per PyBullet documentation, values ignored if upper < lower.
-            if upper_limit < lower_limit:
-                self._joint_lower_limits.append(-np.inf)
-                self._joint_upper_limits.append(np.inf)
-            else:
-                self._joint_lower_limits.append(lower_limit)
-                self._joint_upper_limits.append(upper_limit)
 
     @property
     def robot_id(self) -> int:
@@ -345,22 +348,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     @property
     def right_finger_id(self) -> int:
         return self._right_finger_id
-
-    @property
-    def left_finger_joint_idx(self) -> int:
-        return len(self.arm_joints) - 2
-
-    @property
-    def right_finger_joint_idx(self) -> int:
-        return len(self.arm_joints) - 1
-
-    @property
-    def joint_lower_limits(self) -> JointsState:
-        return self._joint_lower_limits
-
-    @property
-    def joint_upper_limits(self) -> JointsState:
-        return self._joint_upper_limits
 
     @property
     def open_fingers(self) -> float:
@@ -415,7 +402,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
     @classmethod
     def get_name(cls) -> str:
-        return "panda_arm"
+        return "panda"
 
     def _initialize(self) -> None:
 
@@ -513,14 +500,6 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         return self._right_finger_id
 
     @property
-    def joint_lower_limits(self) -> List[float]:
-        return self._joint_lower_limits
-
-    @property
-    def joint_upper_limits(self) -> List[float]:
-        return self._joint_upper_limits
-
-    @property
     def open_fingers(self) -> float:
         return 0.04
 
@@ -589,7 +568,7 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         )
 
         joints_state = ikfast_inverse_kinematics(
-            self.get_name(),
+            "panda_arm",
             base_from_ee[0],
             base_from_ee[1],
             physics_client_id=self._physics_client_id,
@@ -612,11 +591,13 @@ def create_single_arm_pybullet_robot(
     physics_client_id: int,
 ) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
-    if robot_name == "fetch":
-        return FetchPyBulletRobot(ee_home_pose, ee_orientation, physics_client_id)
-    if robot_name == "panda":
-        return PandaPyBulletRobot(ee_home_pose, ee_orientation, physics_client_id)
-    raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
+    for cls in utils.get_all_subclasses(_SingleArmPyBulletRobot):
+        if not cls.__abstractmethods__ and cls.get_name() == robot_name:
+            robot = cls(ee_home_pose, ee_orientation, physics_client_id)
+            break
+    else:
+        raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
+    return robot
 
 
 ################################# Controllers #################################
@@ -1009,4 +990,4 @@ if __name__ == "__main__":
         print(panda.get_joints())
         print(panda.get_state())
         time.sleep(0.1)
-    wait_for_user("test")
+    wait_for_user("terminate?")
