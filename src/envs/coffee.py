@@ -97,8 +97,23 @@ class CoffeeEnv(BaseEnv):
         self._InMachine = Predicate("InMachine",
                                     [self._jug_type, self._machine_type],
                                     self._InMachine_holds)
-        self._MachineIsOn = Predicate("MachineIsOn", [self._machine_type],
-                                      self._MachineIsOn_holds)
+        self._MachineOn = Predicate("MachineOn", [self._machine_type],
+                                    self._MachineOn_holds)
+        self._OnTable = Predicate("OnTable", [self._jug_type],
+                                  self._OnTable_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
+        self._JugFilled = Predicate("JugFilled", [self._jug_type],
+                                    self._JugFilled_holds)
+        self._AboveCup = Predicate(
+            "AboveCup", [self._robot_type, self._jug_type, self._cup_type],
+            self._AboveCup_holds)
+        self._NotAboveCup = Predicate("NotAboveCup",
+                                      [self._robot_type, self._jug_type],
+                                      self._NotAboveCup_holds)
+        self._PressingButton = Predicate(
+            "PressingButton", [self._robot_type, self._machine_type],
+            self._PressingButton_holds)
         # TODO
 
         # Options
@@ -118,13 +133,13 @@ class CoffeeEnv(BaseEnv):
             initiable=lambda s, m, o, p: True,
             terminal=self._PlaceJugInMachine_terminal,
         )
-        self._TurnOnMachine = ParameterizedOption(
-            "TurnOnMachine",
+        self._TurnMachineOn = ParameterizedOption(
+            "TurnMachineOn",
             types=[self._robot_type, self._machine_type],
             params_space=Box(0, 1, (0, )),
-            policy=self._TurnOnMachine_policy,
+            policy=self._TurnMachineOn_policy,
             initiable=lambda s, m, o, p: True,
-            terminal=self._TurnOnMachine_terminal,
+            terminal=self._TurnMachineOn_terminal,
         )
         self._Pour = ParameterizedOption(
             "Pour",
@@ -232,8 +247,10 @@ class CoffeeEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._CupFilled, self._InMachine, self._Holding, self._MachineIsOn
-        }  # TODO
+            self._CupFilled, self._InMachine, self._Holding, self._MachineOn,
+            self._OnTable, self._HandEmpty, self._JugFilled, self._AboveCup,
+            self._NotAboveCup, self._PressingButton
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -249,7 +266,7 @@ class CoffeeEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {
-            self._PickJug, self._PlaceJugInMachine, self._TurnOnMachine,
+            self._PickJug, self._PlaceJugInMachine, self._TurnMachineOn,
             self._Pour
         }
 
@@ -283,21 +300,19 @@ class CoffeeEnv(BaseEnv):
             circ = utils.Circle(x, y, self.cup_radius)
             circ.plot(xy_ax, facecolor=color, edgecolor="black")
             # Cups are cylinders, so in the xz plane, they look like rects.
-            rect = utils.Rectangle(
-                x=x,
-                y=z,
-                width=(self.cup_radius*2),
-                height=capacity,
-                theta=0)
+            rect = utils.Rectangle(x=x,
+                                   y=z,
+                                   width=(self.cup_radius * 2),
+                                   height=capacity,
+                                   theta=0)
             rect.plot(xz_ax, facecolor=color, edgecolor="black")
             # Draw an inner rect to represent the filled level.
             if current > 0:
-                rect = utils.Rectangle(
-                    x=x,
-                    y=z,
-                    width=(self.cup_radius*2),
-                    height=current,
-                    theta=0)
+                rect = utils.Rectangle(x=x,
+                                       y=z,
+                                       width=(self.cup_radius * 2),
+                                       height=current,
+                                       theta=0)
                 rect.plot(xz_ax, facecolor="lightblue", edgecolor="black")
         # Draw the dispense area (xy plane only).
         if self._InMachine_holds(state, [jug, machine]):
@@ -499,9 +514,55 @@ class CoffeeEnv(BaseEnv):
         return (sq_dist_to_dispense < self.dispense_tol)
 
     @staticmethod
-    def _MachineIsOn_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _MachineOn_holds(state: State, objects: Sequence[Object]) -> bool:
         machine, = objects
         return state.get(machine, "is_on") > 0.5
+
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        jug, = objects
+        if self._Holding_holds(state, [self._robot, jug]):
+            return False
+        return self._InMachine_holds(state, [jug, self._machine])
+
+    def _HandEmpty_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return not self._Holding_holds(state, [robot, self._jug])
+
+    @staticmethod
+    def _JugFilled_holds(state: State, objects: Sequence[Object]) -> bool:
+        jug, = objects
+        return state.get(jug, "is_filled") > 0.5
+
+    def _AboveCup_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, jug, cup = objects
+        if not self._Holding_holds(state, [robot, jug]):
+            return False
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
+        jug_z = state.get(robot, "z") - self.jug_handle_height
+        jug_pos = (jug_x, jug_y, jug_z)
+        pour_pos = self._get_pour_position(state, cup)
+        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+        return sq_dist_to_pour < self.pour_pos_tol
+
+    def _NotAboveCup_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
+        robot, jug = objects
+        for cup in state.get_objects(self._cup_type):
+            if self._AboveCup_holds(state, [robot, jug, cup]):
+                return False
+        return True
+
+    def _PressingButton_holds(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        robot, _ = objects
+        button_pos = (self.button_x, self.button_y, self.button_z)
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
+        sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
+        return sq_dist_to_button < self.button_radius
 
     def _PickJug_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
@@ -585,7 +646,7 @@ class CoffeeEnv(BaseEnv):
         return not self._Holding_holds(state, [robot, jug]) and \
             self._InMachine_holds(state, [jug, machine])
 
-    def _TurnOnMachine_policy(self, state: State, memory: Dict,
+    def _TurnMachineOn_policy(self, state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> Action:
         # This policy moves the robot up to be level with the button in the
@@ -603,12 +664,12 @@ class CoffeeEnv(BaseEnv):
         # Move only in the z direction.
         return self._get_move_action((x, y, self.button_z), robot_pos)
 
-    def _TurnOnMachine_terminal(self, state: State, memory: Dict,
+    def _TurnMachineOn_terminal(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> bool:
         del memory, params  # unused
         _, machine = objects
-        return self._MachineIsOn_holds(state, [machine])
+        return self._MachineOn_holds(state, [machine])
 
     def _Pour_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
