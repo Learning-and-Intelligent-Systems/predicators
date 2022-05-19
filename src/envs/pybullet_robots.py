@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import time
+from functools import cached_property
 from typing import (
     Callable,
     ClassVar,
@@ -38,7 +39,6 @@ from predicators.src.structs import (
     State,
     Type,
 )
-from pybullet_tools.utils import wait_for_user
 
 
 class _SingleArmPyBulletRobot(abc.ABC):
@@ -99,6 +99,19 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """The PyBullet ID for the end effector."""
         raise NotImplementedError("Override me!")
 
+    @cached_property
+    def arm_joints(self) -> List[int]:
+        """The indices of the joints of the robot arm."""
+        joint_ids = get_kinematic_chain(
+            self.robot_id,
+            self.end_effector_id,
+            physics_client_id=self._physics_client_id,
+        )
+        # NOTE: pybullet tools assumes sorted arm joints.
+        joint_ids = sorted(joint_ids)
+        joint_ids.extend([self.left_finger_id, self.right_finger_id])
+        return joint_ids
+
     @property
     @abc.abstractmethod
     def left_finger_id(self) -> int:
@@ -111,17 +124,15 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """The PyBullet ID for the right finger."""
         raise NotImplementedError("Override me!")
 
-    @property
-    @abc.abstractmethod
+    @cached_property
     def left_finger_joint_idx(self) -> int:
         """The index into the joints corresponding to the left finger."""
-        raise NotImplementedError("Override me!")
+        return self.arm_joints.index(self.left_finger_id)
 
-    @property
-    @abc.abstractmethod
+    @cached_property
     def right_finger_joint_idx(self) -> int:
         """The index into the joints corresponding to the right finger."""
-        raise NotImplementedError("Override me!")
+        return self.arm_joints.index(self.right_finger_id)
 
     @property
     @abc.abstractmethod
@@ -156,20 +167,34 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
     def get_state(self) -> Array:
         """Get the robot state vector based on the current PyBullet state.
 
         This corresponds to the State vector for the robot object.
         """
-        raise NotImplementedError("Override me!")
+        ee_link_state = p.getLinkState(
+            self.robot_id, self.end_effector_id, physicsClientId=self._physics_client_id
+        )
+        rx, ry, rz = ee_link_state[4]
+        # Note: we assume both left and right gripper have the same joint position
+        rf = p.getJointState(
+            self.robot_id,
+            self.left_finger_id,
+            physicsClientId=self._physics_client_id,
+        )[0]
+        # pose_x, pose_y, pose_z, fingers
+        return np.array([rx, ry, rz, rf], dtype=np.float32)
 
-    @abc.abstractmethod
     def get_joints(self) -> JointsState:
         """Get the joints state from the current PyBullet state."""
-        raise NotImplementedError("Override me!")
+        joint_state = [
+            joint_info[0]  # extract joint position only
+            for joint_info in p.getJointStates(
+                self.robot_id, self.arm_joints, physicsClientId=self._physics_client_id
+            )
+        ]
+        return joint_state
 
-    @abc.abstractmethod
     def set_joints(self, joints_state: JointsState) -> None:
         """Directly set the joint states.
 
@@ -178,14 +203,36 @@ class _SingleArmPyBulletRobot(abc.ABC):
         be used for motion planning, collision checks, etc., in a robot
         that does not maintain state.
         """
-        raise NotImplementedError("Override me!")
+        assert len(joints_state) == len(self.arm_joints)
+        for joint_id, joint_val in zip(self.arm_joints, joints_state):
+            p.resetJointState(
+                self.robot_id,
+                joint_id,
+                targetValue=joint_val,
+                targetVelocity=0,
+                physicsClientId=self._physics_client_id,
+            )
 
-    @abc.abstractmethod
     def set_motors(self, joints_state: JointsState) -> None:
         """Update the motors to move toward the given joints state."""
-        raise NotImplementedError("Override me!")
+        assert len(joints_state) == len(self.arm_joints)
 
-    @abc.abstractmethod
+        # Set arm joint motors.
+        if CFG.pybullet_control_mode == "position":
+            p.setJointMotorControlArray(
+                bodyUniqueId=self.robot_id,
+                jointIndices=self.arm_joints,
+                controlMode=p.POSITION_CONTROL,
+                targetPositions=joints_state,
+                physicsClientId=self._physics_client_id,
+            )
+        elif CFG.pybullet_control_mode == "reset":
+            self.set_joints(joints_state)
+        else:
+            raise NotImplementedError(
+                f"Unrecognized pybullet_control_mode: {CFG.pybullet_control_mode}"
+            )
+
     def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
         """Compute the end effector position that would result if the robot arm
         joints state was equal to the input joints_state.
@@ -193,7 +240,15 @@ class _SingleArmPyBulletRobot(abc.ABC):
         WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
         """
-        raise NotImplementedError("Override me!")
+        self.set_joints(joints_state)
+        ee_link_state = p.getLinkState(
+            self.robot_id,
+            self.end_effector_id,
+            computeForwardKinematics=True,
+            physicsClientId=self._physics_client_id,
+        )
+        position = ee_link_state[4]
+        return position
 
     @abc.abstractmethod
     def inverse_kinematics(
@@ -247,13 +302,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             )
         ]
         self._ee_id = joint_names.index("gripper_axis")
-        self._arm_joints = get_kinematic_chain(
-            self._fetch_id, self._ee_id, physics_client_id=self._physics_client_id
-        )
+
         self._left_finger_id = joint_names.index("l_gripper_finger_joint")
         self._right_finger_id = joint_names.index("r_gripper_finger_joint")
-        self._arm_joints.append(self._left_finger_id)
-        self._arm_joints.append(self._right_finger_id)
 
         self._initial_joints_state = self.inverse_kinematics(
             self._ee_home_pose, validate=True
@@ -265,7 +316,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         # Establish the lower and upper limits for the arm joints.
         self._joint_lower_limits = []
         self._joint_upper_limits = []
-        for i in self._arm_joints:
+        for i in self.arm_joints:
             info = p.getJointInfo(
                 self._fetch_id, i, physicsClientId=self._physics_client_id
             )
@@ -297,11 +348,11 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
     @property
     def left_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 2
+        return len(self.arm_joints) - 2
 
     @property
     def right_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 1
+        return len(self.arm_joints) - 1
 
     @property
     def joint_lower_limits(self) -> JointsState:
@@ -340,69 +391,6 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
                 self._fetch_id, finger_id, rf, physicsClientId=self._physics_client_id
             )
 
-    def get_state(self) -> Array:
-        ee_link_state = p.getLinkState(
-            self._fetch_id, self._ee_id, physicsClientId=self._physics_client_id
-        )
-        rx, ry, rz = ee_link_state[4]
-        rf = p.getJointState(
-            self._fetch_id,
-            self._left_finger_id,
-            physicsClientId=self._physics_client_id,
-        )[0]
-        # pose_x, pose_y, pose_z, fingers
-        return np.array([rx, ry, rz, rf], dtype=np.float32)
-
-    def get_joints(self) -> JointsState:
-        joints_state = []
-        for joint_idx in self._arm_joints:
-            joint_val = p.getJointState(
-                self._fetch_id, joint_idx, physicsClientId=self._physics_client_id
-            )[0]
-            joints_state.append(joint_val)
-        return joints_state
-
-    def set_joints(self, joints_state: JointsState) -> None:
-        assert len(joints_state) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(
-                self._fetch_id,
-                joint_id,
-                targetValue=joint_val,
-                targetVelocity=0,
-                physicsClientId=self._physics_client_id,
-            )
-
-    def set_motors(self, joints_state: JointsState) -> None:
-        assert len(joints_state) == len(self._arm_joints)
-
-        # Set arm joint motors.
-        if CFG.pybullet_control_mode == "position":
-            p.setJointMotorControlArray(
-                bodyUniqueId=self._fetch_id,
-                jointIndices=self._arm_joints,
-                controlMode=p.POSITION_CONTROL,
-                targetPositions=joints_state,
-                physicsClientId=self._physics_client_id,
-            )
-        elif CFG.pybullet_control_mode == "reset":
-            self.set_joints(joints_state)
-        else:
-            raise NotImplementedError(
-                "Unrecognized pybullet_control_mode: " f"{CFG.pybullet_control_mode}"
-            )
-
-    def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        self.set_joints(joints_state)
-        ee_link_state = p.getLinkState(
-            self._fetch_id,
-            self._ee_id,
-            computeForwardKinematics=True,
-            physicsClientId=self._physics_client_id,
-        )
-        position = ee_link_state[4]
-        return position
-
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> JointsState:
@@ -411,7 +399,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             self._ee_id,
             end_effector_pose,
             self._ee_orientation,
-            self._arm_joints,
+            self.arm_joints,
             physics_client_id=self._physics_client_id,
             validate=validate,
         )
@@ -478,21 +466,15 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         ]
 
         self._tool_joint_id = joint_names.index("tool_joint")
-        self._arm_joints = get_kinematic_chain(
-            self._panda_id,
-            self._tool_joint_id,
-            physics_client_id=self._physics_client_id,
-        )
+
         # NOTE: pybullet tools assumes sorted arm joints.
-        self._arm_joints = sorted(self._arm_joints)
         self._left_finger_id = joint_names.index("panda_finger_joint1")
         self._right_finger_id = joint_names.index("panda_finger_joint2")
-        self._arm_joints.append(self._left_finger_id)
-        self._arm_joints.append(self._right_finger_id)
+
         # Establish the lower and upper limits for the arm joints.
         self._joint_lower_limits = []
         self._joint_upper_limits = []
-        for i in self._arm_joints:
+        for i in self.arm_joints:
             info = p.getJointInfo(
                 self._panda_id, i, physicsClientId=self._physics_client_id
             )
@@ -529,14 +511,6 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     @property
     def right_finger_id(self) -> int:
         return self._right_finger_id
-
-    @property
-    def left_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 2
-
-    @property
-    def right_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 1
 
     @property
     def joint_lower_limits(self) -> List[float]:
@@ -588,72 +562,6 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
                 self._panda_id, finger_id, rf, physicsClientId=self._physics_client_id
             )
 
-    def get_state(self) -> Array:
-        ee_link_state = p.getLinkState(
-            self._panda_id,
-            self.end_effector_id,
-            physicsClientId=self._physics_client_id,
-        )
-        rx, ry, rz = ee_link_state[4]
-        rf = p.getJointState(
-            self._panda_id,
-            self._left_finger_id,
-            physicsClientId=self._physics_client_id,
-        )[0]
-        # pose_x, pose_y, pose_z, fingers
-        return np.array([rx, ry, rz, rf], dtype=np.float32)
-
-    def get_joints(self) -> Sequence[float]:
-        joint_state = []
-        for joint_idx in self._arm_joints:
-            joint_val = p.getJointState(
-                self._panda_id, joint_idx, physicsClientId=self._physics_client_id
-            )[0]
-            joint_state.append(joint_val)
-        return joint_state
-
-    def set_joints(self, joints_state: JointsState) -> None:
-        assert len(joints_state) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(
-                self._panda_id,
-                joint_id,
-                targetValue=joint_val,
-                targetVelocity=0,
-                physicsClientId=self._physics_client_id,
-            )
-
-    def set_motors(self, action_arr: Array) -> None:
-        assert len(action_arr) == len(self._arm_joints)
-
-        # Set arm joint motors.
-        for joint_idx, joint_val in zip(self._arm_joints, action_arr):
-            p.setJointMotorControl2(
-                bodyIndex=self._panda_id,
-                jointIndex=joint_idx,
-                controlMode=p.POSITION_CONTROL,
-                targetPosition=joint_val,
-                physicsClientId=self._physics_client_id,
-            )
-
-    def forward_kinematics(self, action_arr: Array) -> Pose3D:
-        assert len(action_arr) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, action_arr):
-            p.resetJointState(
-                self._panda_id,
-                joint_id,
-                joint_val,
-                physicsClientId=self._physics_client_id,
-            )
-        ee_link_state = p.getLinkState(
-            self._panda_id,
-            self.end_effector_id,
-            computeForwardKinematics=True,
-            physicsClientId=self._physics_client_id,
-        )
-        position = ee_link_state[4]
-        return position
-
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> List[float]:
@@ -689,10 +597,8 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
 
         # Add fingers.
         final_joint_state = list(joints_state)
-        left_finger_idx = self._arm_joints.index(self._left_finger_id)
-        right_finger_idx = self._arm_joints.index(self._right_finger_id)
         first_finger_idx, second_finger_idx = sorted(
-            [left_finger_idx, right_finger_idx]
+            [self.left_finger_joint_idx, self.right_finger_joint_idx]
         )
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
@@ -1058,6 +964,8 @@ def run_motion_planning(
 
 
 if __name__ == "__main__":
+    from pybullet_tools.utils import wait_for_user
+
     logging.basicConfig(
         level=logging.DEBUG, format="%(message)s", handlers=[logging.StreamHandler()]
     )
@@ -1098,5 +1006,7 @@ if __name__ == "__main__":
     wait_for_user("start?")
     for _ in range(50):
         p.stepSimulation(physicsClientId=physics_client_id)
+        print(panda.get_joints())
+        print(panda.get_state())
         time.sleep(0.1)
     wait_for_user("test")
