@@ -64,7 +64,8 @@ class CoffeeEnv(BaseEnv):
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     pour_x_offset: ClassVar[float] = cup_radius + jug_radius
     pour_y_offset: ClassVar[float] = cup_radius
-    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height)
+    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
+                                            jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 0.5
     max_angular_vel: ClassVar[float] = tilt_ub
@@ -314,15 +315,6 @@ class CoffeeEnv(BaseEnv):
                                        height=current,
                                        theta=0)
                 rect.plot(xz_ax, facecolor="lightblue", edgecolor="black")
-        # Draw the dispense area (xy plane only).
-        if self._InMachine_holds(state, [jug, machine]):
-            color = "violet"
-        else:
-            color = "thistle"
-        circ = utils.Circle(x=self.dispense_area_x,
-                            y=self.dispense_area_y,
-                            radius=self.jug_radius + self.dispense_tol)
-        circ.plot(xy_ax, facecolor=color)
         # Draw the machine.
         color = "gray"
         rect = utils.Rectangle(x=self.machine_x,
