@@ -88,7 +88,7 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
         "0.0", "--num_train_tasks", "1", "--num_test_tasks", "1",
-        "--experiment_id", "foobar"
+        "--experiment_id", "foobar", "--harmlessness_check", "log",
     ]
     main()
     # Try loading approaches and data.
