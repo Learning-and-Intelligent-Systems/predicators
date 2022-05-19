@@ -253,8 +253,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         final_pnads = []
         for pnad in nec_pnads:
             if pnad.datastore:
-                pre = self._induce_preconditions_via_intersection(pnad)
-                pnad.op = pnad.op.copy_with(preconditions=pre)
+                # pre = self._induce_preconditions_via_intersection(pnad)
+                # pnad.op = pnad.op.copy_with(preconditions=pre)
                 final_pnads.append(pnad)
 
         return final_pnads
