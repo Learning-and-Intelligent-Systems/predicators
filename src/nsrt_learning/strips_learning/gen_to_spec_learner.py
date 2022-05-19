@@ -80,6 +80,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
                     pnad.poss_keep_effects = set()
+                    pnad.keep_effects_subs = {}
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
@@ -195,13 +196,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # necessary_add_effects, if it only contains objects
                 # already in obj_to_var, then it's a possible keep effect.
                 for atom in necessary_image - necessary_add_effects:
+                    keep_effects_subs = {}
                     for obj in atom.objects:
                         if obj in obj_to_var:
                             continue
                         new_var = utils.create_new_variables(
                             [obj.type], obj_to_var.values())[0]
                         obj_to_var[obj] = new_var
+                        keep_effects_subs[new_var] = obj
                     pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+                    if segment not in pnad.keep_effects_subs:
+                        pnad.keep_effects_subs[segment] = {}
+                    pnad.keep_effects_subs[segment].update(keep_effects_subs)
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -362,8 +368,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
-        # Note: we don't need to copy pnad.poss_keep_effects into new_pnad
-        # here, because we only care about the poss_keep_effects on the final
+        # Note: we don't need to copy anything related to keep effects into
+        # new_pnad here, because we only care about keep effects on the final
         # iteration of backchaining, where this function is never called.
 
         return new_pnad
@@ -450,6 +456,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
                                                    pnad.option_spec)
+                # Remember to copy keep_effects_subs into the new_pnad!
+                new_pnad.keep_effects_subs = pnad.keep_effects_subs
                 new_pnads_with_keep_effects.add(new_pnad)
                 i += 1
 
