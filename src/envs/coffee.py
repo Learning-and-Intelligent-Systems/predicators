@@ -62,7 +62,7 @@ class CoffeeEnv(BaseEnv):
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
-    pour_x_offset: ClassVar[float] = cup_radius + jug_radius
+    pour_x_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
     pour_y_offset: ClassVar[float] = cup_radius
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
