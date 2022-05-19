@@ -48,7 +48,7 @@ class BaseSTRIPSLearner(abc.ABC):
             logging.info("\nRunning harmlessness check...")
             is_harmless = self._check_harmlessness(learned_pnads)
             if CFG.harmlessness_check == "assert":
-                assert is_harmless
+                assert is_harmless, "Harmlessness check failed!"
             else:
                 logging.info(f"Harmlessness check result: {is_harmless}")
         min_data = max(CFG.min_data_for_nsrt,
