@@ -522,7 +522,7 @@ class CoffeeEnv(BaseEnv):
         jug, = objects
         if self._Holding_holds(state, [self._robot, jug]):
             return False
-        return self._InMachine_holds(state, [jug, self._machine])
+        return not self._InMachine_holds(state, [jug, self._machine])
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:

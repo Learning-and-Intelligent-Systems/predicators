@@ -2463,8 +2463,8 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     robot = Variable("?robot", robot_type)
     jug = Variable("?jug", jug_type)
     cup = Variable("?cup", cup_type)
-    other_cup = Variable("?cup", cup_type)
-    parameters = [robot, jug, cup]
+    other_cup = Variable("?other_cup", cup_type)
+    parameters = [robot, jug, cup, other_cup]
     option_vars = [robot, jug, cup]
     option = Pour
     preconditions = {
