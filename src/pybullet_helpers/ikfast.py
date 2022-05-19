@@ -134,7 +134,7 @@ def ikfast_inverse_kinematics(
     # ipdb> self._joint_upper_limits[6]
     # 2.8973
     rng = np.random.default_rng(CFG.seed)
-    for _ in range(CFG.pybullet_max_ik_iters):
+    for _ in range(500): #CFG.pybullet_max_ik_iters):
         what_is_this_thing = rng.uniform(-2.8973, 2.8973)
         solutions = ikfast.get_ik(
             matrix_target_orn, list(target_position), [what_is_this_thing]

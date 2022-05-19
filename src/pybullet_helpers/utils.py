@@ -39,8 +39,11 @@ def get_relative_link_pose(
     body: int, link1: int, link2: int, physics_client_id: int
 ) -> Tuple[Pose3D, Sequence[float]]:
     """Get the pose of one link relative to another link on the same body."""
+    # X_WL1
     world_from_link1 = get_link_pose(body, link1, physics_client_id)
+    # X_WL2
     world_from_link2 = get_link_pose(body, link2, physics_client_id)
+    # X_L2L1 = (X_WL2)^-1 * (X_WL1)
     link2_from_link1 = p.multiplyTransforms(
         *p.invertTransform(*world_from_link2), *world_from_link1
     )

@@ -17,12 +17,16 @@ import pybullet_data
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.pybullet_utils.ikfast import (
+from predicators.src.pybullet_helpers.ikfast import (
     ikfast_inverse_kinematics,
     get_ikfast_supported_robots,
 )
-from predicators.src.pybullet_utils.utils import get_link_from_name, get_relative_link_pose, get_kinematic_chain, \
-    pybullet_inverse_kinematics
+from predicators.src.pybullet_helpers.utils import (
+    get_link_from_name,
+    get_relative_link_pose,
+    get_kinematic_chain,
+    pybullet_inverse_kinematics,
+)
 from predicators.src.settings import CFG
 from predicators.src.structs import (
     Array,
@@ -453,44 +457,22 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     def closed_fingers(self) -> float:
         return 0.03
 
-    def _validate(self):
-        # Record the initial state of the joints so that we can reset them after.
-        if validate:
-            initial_joints_states = p.getJointStates(
-                robot, free_joints, physicsClientId=physics_client_id
+    def _validate(self, joints_state: JointsState, target_pose: Pose3D):
+        initial_joint_states = self.get_joints()
+        self.set_joints(joints_state)
+
+        ee_pos = self.get_state()[:3]
+        target_pos = target_pose
+
+        pos_is_close = np.allclose(ee_pos, target_pos, atol=CFG.pybullet_ik_tol)
+
+        # Reset joint positions before returning/raising error
+        self.set_joints(initial_joint_states)
+
+        if not pos_is_close:
+            raise ValueError(
+                f"IK failed to reach target position {target_pos} from {ee_pos}"
             )
-            assert len(initial_joints_states) == len(free_joints)
-
-
-        # Update the robot state and check if the desired position and
-        # orientation are reached.
-        for joint, joint_val in zip(free_joints, free_joint_vals):
-            p.resetJointState(
-                robot, joint, targetValue=joint_val, physicsClientId=physics_client_id
-            )
-        # TODO can this be replaced with get_link_pose?
-        ee_link_state = p.getLinkState(
-            robot,
-            end_effector,
-            computeForwardKinematics=True,
-            physicsClientId=physics_client_id,
-        )
-        position = ee_link_state[4]
-        # Note: we are checking positions only for convergence.
-        if np.allclose(position, target_position, atol=convergence_tol):
-            break
-
-        # Reset the joint states to their initial values to avoid modifying the
-        # PyBullet internal state.
-        if validate:
-            for joint, (pos, vel, _, _) in zip(free_joints, initial_joints_states):
-                p.resetJointState(
-                    robot,
-                    joint,
-                    targetValue=pos,
-                    targetVelocity=vel,
-                    physicsClientId=physics_client_id,
-                )
 
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
@@ -499,17 +481,20 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         # TODO handle validate argument
 
         # TODO explain
-        # TODO check if we can compute some of these just once
+        # X_TE
         tool_from_ee = get_relative_link_pose(
             self.robot_id,
             self._end_effector_link,
             self._tool_link,
             self._physics_client_id,
         )
+        print("X_TE", tool_from_ee)
 
+        # X_BE = (X_WB)^-1 * X_WT * X_TE
         base_from_ee = p.multiplyTransforms(
             *p.multiplyTransforms(
                 *p.invertTransform(*self._world_from_base),
+                # End effector means tool tip here
                 end_effector_pose,
                 self._ee_orientation,
             ),
@@ -523,13 +508,16 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
             physics_client_id=self._physics_client_id,
         )
 
-        # Add fingers.
+        # Add fingers to state
         final_joint_state = list(joints_state)
         first_finger_idx, second_finger_idx = sorted(
             [self.left_finger_joint_idx, self.right_finger_joint_idx]
         )
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
+
+        if validate:
+            self._validate(final_joint_state, target_pose=end_effector_pose)
 
         return final_joint_state
 
@@ -555,9 +543,8 @@ def create_single_arm_pybullet_robot(
     return robot
 
 
-
 if __name__ == "__main__":
-    from pybullet_tools.utils import wait_for_user, get_bodies
+    from pybullet_tools.utils import wait_for_user, get_bodies, get_pose_distance
 
     logging.basicConfig(
         level=logging.DEBUG, format="%(message)s", handlers=[logging.StreamHandler()]
@@ -587,7 +574,7 @@ if __name__ == "__main__":
 
     panda = create_single_arm_pybullet_robot(
         "panda",
-        (0, 0.5, 0.2),
+        (0, 0.6, 0.1),
         # This doesn't do anything
         p.getQuaternionFromEuler([-1, -1, -1]),
         physics_client_id,
@@ -608,8 +595,10 @@ if __name__ == "__main__":
         p.stepSimulation(physicsClientId=physics_client_id)
         print(panda.get_joints())
         print(panda.get_state())
+        # panda.print_stats()
         time.sleep(0.02)
 
-    panda.reset_state(np.array([0.5, 0.2, 0.2, 0.04]))
+    joint_states = panda.inverse_kinematics((0.6, 0.0, 0.1), True)
+    panda.set_joints(joint_states)
 
     wait_for_user("terminate?")
