@@ -300,16 +300,16 @@ def test_coffee():
         s = traj.states[-1]
 
     # Uncomment for debugging.
-    # policy = utils.option_plan_to_policy(option_plan)
-    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    # traj = utils.run_policy_with_simulator(
-    #     policy,
-    #     env.simulate,
-    #     state,
-    #     lambda _: False,
-    #     max_num_steps=1000,
-    #     exceptions_to_break_on={utils.OptionExecutionFailure},
-    #     monitor=monitor)
-    # video = monitor.get_video()
-    # outfile = "hardcoded_options_coffee.mp4"
-    # utils.save_video(outfile, video)
+    policy = utils.option_plan_to_policy(option_plan)
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure},
+        monitor=monitor)
+    video = monitor.get_video()
+    outfile = "hardcoded_options_coffee.mp4"
+    utils.save_video(outfile, video)

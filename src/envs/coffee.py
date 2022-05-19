@@ -273,16 +273,32 @@ class CoffeeEnv(BaseEnv):
         machine, = state.get_objects(self._machine_type)
         robot, = state.get_objects(self._robot_type)
         # Draw the cups.
-        cmap = matplotlib.cm.get_cmap("Blues")
+        color = "none"
         for cup in state.get_objects(self._cup_type):
-            color = cmap(state.get(cup, "current_liquid"))
             x = state.get(cup, "x")
             y = state.get(cup, "y")
+            capacity = state.get(cup, "capacity_liquid")
+            current = state.get(cup, "current_liquid")
             z = self.z_lb + self.cup_radius
             circ = utils.Circle(x, y, self.cup_radius)
             circ.plot(xy_ax, facecolor=color, edgecolor="black")
-            circ = utils.Circle(x, z, self.cup_radius)
-            circ.plot(xz_ax, facecolor=color, edgecolor="black")
+            # Cups are cylinders, so in the xz plane, they look like rects.
+            rect = utils.Rectangle(
+                x=x,
+                y=z,
+                width=(self.cup_radius*2),
+                height=capacity,
+                theta=0)
+            rect.plot(xz_ax, facecolor=color, edgecolor="black")
+            # Draw an inner rect to represent the filled level.
+            if current > 0:
+                rect = utils.Rectangle(
+                    x=x,
+                    y=z,
+                    width=(self.cup_radius*2),
+                    height=current,
+                    theta=0)
+                rect.plot(xz_ax, facecolor="lightblue", edgecolor="black")
         # Draw the dispense area (xy plane only).
         if self._InMachine_holds(state, [jug, machine]):
             color = "violet"
