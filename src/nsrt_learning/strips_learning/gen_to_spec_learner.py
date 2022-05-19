@@ -195,8 +195,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # necessary_add_effects, if it only contains objects
                 # already in obj_to_var, then it's a possible keep effect.
                 for atom in necessary_image - necessary_add_effects:
-                    if all(obj in obj_to_var for obj in atom.objects):
-                        pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+                    for obj in atom.objects:
+                        if obj in obj_to_var:
+                            continue
+                        new_var = utils.create_new_variables(
+                            [obj.type], obj_to_var.values())[0]
+                        obj_to_var[obj] = new_var
+                    pnad.poss_keep_effects.add(atom.lift(obj_to_var))
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -431,10 +436,16 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         i = 0
         for r in range(1, len(keep_effects) + 1):
             for keep_effects_subset in itertools.combinations(keep_effects, r):
+                params_set = set(pnad.op.parameters)
+                for eff in keep_effects_subset:
+                    for var in eff.variables:
+                        params_set.add(var)
+                parameters = sorted(params_set)
                 preconditions = pnad.op.preconditions | set(
                     keep_effects_subset)
                 add_effects = pnad.op.add_effects | set(keep_effects_subset)
                 new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
+                                                parameters=parameters,
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
