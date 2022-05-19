@@ -1,24 +1,17 @@
 """Interfaces to PyBullet robots."""
 
 import abc
-import glob
-import importlib.util
 import logging
-import os
-import sys
 import time
 from functools import cached_property
 from typing import (
-    Callable,
     ClassVar,
     Collection,
-    Dict,
     Iterator,
     List,
     Optional,
     Sequence,
     Tuple,
-    cast,
 )
 
 import numpy as np
@@ -30,18 +23,13 @@ from predicators.src import utils
 from predicators.src.pybullet_utils.ikfast import ikfast_inverse_kinematics
 from predicators.src.settings import CFG
 from predicators.src.structs import (
-    Action,
     Array,
     JointsState,
-    Object,
-    ParameterizedOption,
     Pose3D,
-    State,
-    Type,
 )
 
 
-class _SingleArmPyBulletRobot(abc.ABC):
+class SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
 
     def __init__(
@@ -55,15 +43,19 @@ class _SingleArmPyBulletRobot(abc.ABC):
         # Orientation for the end effector.
         self._ee_orientation = ee_orientation
         self._physics_client_id = physics_client_id
-        # These get overridden in initialize(), but type checking needs to be
-        # aware that it exists.
-        self._initial_joints_state: JointsState = []
         self._initialize()
 
-    @property
+    @cached_property
     def initial_joints_state(self) -> JointsState:
         """The joint values for the robot in its home pose."""
-        return self._initial_joints_state
+        initial_joints_state = self.inverse_kinematics(
+            self._ee_home_pose, validate=True
+        )
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        initial_joints_state[self.left_finger_joint_idx] = self.open_fingers
+        initial_joints_state[self.right_finger_joint_idx] = self.open_fingers
+        return initial_joints_state
 
     @property
     def action_space(self) -> Box:
@@ -95,13 +87,18 @@ class _SingleArmPyBulletRobot(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def end_effector_name(self) -> str:
+        """The name of the end effector."""
+        raise NotImplementedError("Override me!")
+
+    @property
     def end_effector_id(self) -> int:
         """The PyBullet ID for the end effector."""
-        raise NotImplementedError("Override me!")
+        return self.joint_names.index(self.end_effector_name)
 
     @cached_property
     def arm_joints(self) -> List[int]:
-        """The indices of the joints of the robot arm."""
+        """The Pybullet IDs of the joints of the robot arm."""
         joint_ids = get_kinematic_chain(
             self.robot_id,
             self.end_effector_id,
@@ -112,17 +109,44 @@ class _SingleArmPyBulletRobot(abc.ABC):
         joint_ids.extend([self.left_finger_id, self.right_finger_id])
         return joint_ids
 
+    @cached_property
+    def num_joints(self) -> int:
+        """The number of joints in the robot."""
+        return p.getNumJoints(self.robot_id, physicsClientId=self._physics_client_id)
+
+    @cached_property
+    def joint_names(self) -> List[str]:
+        """Get the names of the joints in the robot."""
+        joint_names = [
+            p.getJointInfo(self.robot_id, i, physicsClientId=self._physics_client_id)[
+                1
+            ].decode("utf-8")
+            for i in range(self.num_joints)
+        ]
+        print("ROBOT:", joint_names)
+        return joint_names
+
     @property
     @abc.abstractmethod
-    def left_finger_id(self) -> int:
-        """The PyBullet ID for the left finger."""
+    def left_finger_joint_name(self) -> str:
+        """The name of the left finger joint."""
         raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
+    def right_finger_joint_name(self) -> str:
+        """The name of the right finger joint."""
+        raise NotImplementedError("Override me!")
+
+    @cached_property
+    def left_finger_id(self) -> int:
+        """The PyBullet ID for the left finger."""
+        return self.joint_names.index(self.left_finger_joint_name)
+
+    @cached_property
     def right_finger_id(self) -> int:
         """The PyBullet ID for the right finger."""
-        raise NotImplementedError("Override me!")
+        return self.joint_names.index(self.right_finger_joint_name)
 
     @cached_property
     def left_finger_joint_idx(self) -> int:
@@ -287,12 +311,24 @@ class _SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class FetchPyBulletRobot(_SingleArmPyBulletRobot):
+class FetchPyBulletRobot(SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
 
     # Parameters that aren't important enough to need to clog up settings.py
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
+
+    @property
+    def end_effector_name(self) -> str:
+        return "gripper_axis"
+
+    @property
+    def left_finger_joint_name(self) -> str:
+        return "l_gripper_finger_joint"
+
+    @property
+    def right_finger_joint_name(self) -> str:
+        return "r_gripper_finger_joint"
 
     @classmethod
     def get_name(cls) -> str:
@@ -311,43 +347,9 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             physicsClientId=self._physics_client_id,
         )
 
-        # Extract IDs for individual robot links and joints.
-        joint_names = [
-            p.getJointInfo(self._fetch_id, i, physicsClientId=self._physics_client_id)[
-                1
-            ].decode("utf-8")
-            for i in range(
-                p.getNumJoints(self._fetch_id, physicsClientId=self._physics_client_id)
-            )
-        ]
-        self._ee_id = joint_names.index("gripper_axis")
-
-        self._left_finger_id = joint_names.index("l_gripper_finger_joint")
-        self._right_finger_id = joint_names.index("r_gripper_finger_joint")
-
-        self._initial_joints_state = self.inverse_kinematics(
-            self._ee_home_pose, validate=True
-        )
-        # The initial joint values for the fingers should be open. IK may
-        # return anything for them.
-        self._initial_joints_state[-2] = self.open_fingers
-        self._initial_joints_state[-1] = self.open_fingers
-
     @property
     def robot_id(self) -> int:
         return self._fetch_id
-
-    @property
-    def end_effector_id(self) -> int:
-        return self._ee_id
-
-    @property
-    def left_finger_id(self) -> int:
-        return self._left_finger_id
-
-    @property
-    def right_finger_id(self) -> int:
-        return self._right_finger_id
 
     @property
     def open_fingers(self) -> float:
@@ -367,13 +369,13 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         )
         # First, reset the joint values to self._initial_joints_state,
         # so that IK is consistent (less sensitive to initialization).
-        self.set_joints(self._initial_joints_state)
+        self.set_joints(self.initial_joints_state)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
         joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
         self.set_joints(joints_state)
         # Handle setting the robot finger joints.
-        for finger_id in [self._left_finger_id, self._right_finger_id]:
+        for finger_id in [self.left_finger_id, self.right_finger_id]:
             p.resetJointState(
                 self._fetch_id, finger_id, rf, physicsClientId=self._physics_client_id
             )
@@ -383,7 +385,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     ) -> JointsState:
         return pybullet_inverse_kinematics(
             self._fetch_id,
-            self._ee_id,
+            self.end_effector_id,
             end_effector_pose,
             self._ee_orientation,
             self.arm_joints,
@@ -392,8 +394,21 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         )
 
 
-class PandaPyBulletRobot(_SingleArmPyBulletRobot):
+class PandaPyBulletRobot(SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
+
+    @property
+    def end_effector_name(self) -> str:
+        # TODO explain or change this
+        return "tool_joint"
+
+    @property
+    def left_finger_joint_name(self) -> str:
+        return "panda_finger_joint1"
+
+    @property
+    def right_finger_joint_name(self) -> str:
+        return "panda_finger_joint2"
 
     # Parameters that aren't important enough to need to clog up settings.py
     # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)
@@ -443,37 +458,8 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
         )
 
         # TODO: factor out common code here and elsewhere.
-        joint_names = [
-            p.getJointInfo(self._panda_id, i, physicsClientId=self._physics_client_id)[
-                1
-            ].decode("utf-8")
-            for i in range(
-                p.getNumJoints(self._panda_id, physicsClientId=self._physics_client_id)
-            )
-        ]
+        joint_names = self.joint_names
 
-        self._tool_joint_id = joint_names.index("tool_joint")
-
-        # NOTE: pybullet tools assumes sorted arm joints.
-        self._left_finger_id = joint_names.index("panda_finger_joint1")
-        self._right_finger_id = joint_names.index("panda_finger_joint2")
-
-        # Establish the lower and upper limits for the arm joints.
-        self._joint_lower_limits = []
-        self._joint_upper_limits = []
-        for i in self.arm_joints:
-            info = p.getJointInfo(
-                self._panda_id, i, physicsClientId=self._physics_client_id
-            )
-            lower_limit = info[8]
-            upper_limit = info[9]
-            # Per PyBullet documentation, values ignored if upper < lower.
-            if upper_limit < lower_limit:
-                self._joint_lower_limits.append(-np.inf)
-                self._joint_upper_limits.append(np.inf)
-            else:
-                self._joint_lower_limits.append(lower_limit)
-                self._joint_upper_limits.append(upper_limit)
         self._initial_joint_values = self.inverse_kinematics(
             self._ee_home_pose, validate=True
         )
@@ -485,19 +471,6 @@ class PandaPyBulletRobot(_SingleArmPyBulletRobot):
     @property
     def robot_id(self) -> int:
         return self._panda_id
-
-    @property
-    def end_effector_id(self) -> int:
-        # TODO explain or change this
-        return self._tool_joint_id
-
-    @property
-    def left_finger_id(self) -> int:
-        return self._left_finger_id
-
-    @property
-    def right_finger_id(self) -> int:
-        return self._right_finger_id
 
     @property
     def open_fingers(self) -> float:
@@ -589,9 +562,9 @@ def create_single_arm_pybullet_robot(
     ee_home_pose: Pose3D,
     ee_orientation: Sequence[float],
     physics_client_id: int,
-) -> _SingleArmPyBulletRobot:
+) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
-    for cls in utils.get_all_subclasses(_SingleArmPyBulletRobot):
+    for cls in utils.get_all_subclasses(SingleArmPyBulletRobot):
         if not cls.__abstractmethods__ and cls.get_name() == robot_name:
             robot = cls(ee_home_pose, ee_orientation, physics_client_id)
             break
@@ -744,7 +717,7 @@ def pybullet_inverse_kinematics(
 
 
 def run_motion_planning(
-    robot: _SingleArmPyBulletRobot,
+    robot: SingleArmPyBulletRobot,
     initial_state: JointsState,
     target_state: JointsState,
     collision_bodies: Collection[int],
@@ -800,7 +773,7 @@ def run_motion_planning(
 
 
 if __name__ == "__main__":
-    from pybullet_tools.utils import wait_for_user
+    from pybullet_tools.utils import wait_for_user, get_bodies
 
     logging.basicConfig(
         level=logging.DEBUG, format="%(message)s", handlers=[logging.StreamHandler()]
@@ -827,7 +800,7 @@ if __name__ == "__main__":
     CFG.seed = 0
 
     panda = create_single_arm_pybullet_robot(
-        "panda",
+        "fetch",
         (0, 0.5, 0.2),
         p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi]),
         physics_client_id,
@@ -835,9 +808,13 @@ if __name__ == "__main__":
     plane_id = p.loadURDF("plane.urdf")
     p.setGravity(0.0, 0.0, -10.0, physicsClientId=physics_client_id)
 
-    logging.info(panda._initial_joint_values)
-    panda.set_motors(panda._initial_joint_values)
+    logging.info(panda.initial_joints_state)
+    panda.set_motors(panda.initial_joints_state)
     # wait_for_user("test")
+    print(panda.joint_names)
+    print(panda.joint_lower_limits)
+    print(panda.joint_upper_limits)
+    print(get_bodies())
 
     wait_for_user("start?")
     for _ in range(50):
@@ -845,4 +822,5 @@ if __name__ == "__main__":
         print(panda.get_joints())
         print(panda.get_state())
         time.sleep(0.1)
+
     wait_for_user("terminate?")
