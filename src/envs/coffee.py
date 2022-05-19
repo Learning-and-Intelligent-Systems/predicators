@@ -125,7 +125,14 @@ class CoffeeEnv(BaseEnv):
             initiable=lambda s, m, o, p: True,
             terminal=self._TurnOnMachine_terminal,
         )
-        # TODO
+        self._Pour = ParameterizedOption(
+            "Pour",
+            types=[self._robot_type, self._jug_type, self._cup_type],
+            params_space=Box(0, 1, (0, )),
+            policy=self._Pour_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._Pour_terminal,
+        )
 
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
@@ -240,7 +247,10 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._PickJug, self._PlaceJugInMachine, self._TurnOnMachine}
+        return {
+            self._PickJug, self._PlaceJugInMachine, self._TurnOnMachine,
+            self._Pour
+        }
 
     @property
     def action_space(self) -> Box:
@@ -557,7 +567,6 @@ class CoffeeEnv(BaseEnv):
                               params: Array) -> Action:
         # This policy moves the robot up to be level with the button in the
         # z direction and then moves forward in the y direction to press it.
-
         del memory, params  # unused
         robot, _ = objects
         x = state.get(robot, "x")
@@ -577,6 +586,19 @@ class CoffeeEnv(BaseEnv):
         del memory, params  # unused
         _, machine = objects
         return self._MachineIsOn_holds(state, [machine])
+
+    def _Pour_policy(self, state: State, memory: Dict,
+                     objects: Sequence[Object], params: Array) -> Action:
+        # TODO describe policy
+        del memory, params  # unused
+        import ipdb
+        ipdb.set_trace()
+
+    def _Pour_terminal(self, state: State, memory: Dict,
+                       objects: Sequence[Object], params: Array) -> bool:
+        del memory, params  # unused
+        _, _, cup = objects
+        return self._CupFilled_holds(state, [cup])
 
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:

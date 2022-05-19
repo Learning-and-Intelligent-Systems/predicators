@@ -27,7 +27,8 @@ def test_coffee():
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
     InMachine = pred_name_to_pred["InMachine"]
-    # assert len(env.options) == 3
+    assert len(env.options) == 4
+    option_name_to_option = {o.name: o for o in env.options}
     assert len(env.types) == 4
     type_name_to_type = {t.name: t for t in env.types}
     cup_type = type_name_to_type["cup"]
@@ -214,7 +215,6 @@ def test_coffee():
 
     ## Test options ##
 
-    option_name_to_option = {o.name: o for o in env.options}
     PickJug = option_name_to_option["PickJug"]
 
     # Test PickJug.
@@ -264,6 +264,38 @@ def test_coffee():
         exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(machine, "is_on") < 0.5
     assert traj.states[-1].get(machine, "is_on") > 0.5
+
+    # Test PickJug from the dispense area.
+    option = PickJug.ground([robot, jug], [])
+    option_plan.append(option)
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(jug, "is_held") < 0.5
+    assert traj.states[-1].get(jug, "is_held") > 0.5
+
+    # Test Pour into each of the cups.
+    Pour = option_name_to_option["Pour"]
+    for cup in cups:
+        option = Pour.ground([robot, jug, cup], [])
+        option_plan.append(option)
+        policy = utils.option_plan_to_policy(option_plan)
+        traj = utils.run_policy_with_simulator(
+            policy,
+            env.simulate,
+            state,
+            lambda _: False,
+            max_num_steps=1000,
+            exceptions_to_break_on={utils.OptionExecutionFailure})
+        assert not GroundAtom(CupFilled, [cup]).holds(traj.states[-3])
+        assert GroundAtom(CupFilled, [cup]).holds(traj.states[-1])
+        s = traj.states[-1]
 
     # Uncomment for debugging.
     policy = utils.option_plan_to_policy(option_plan)
