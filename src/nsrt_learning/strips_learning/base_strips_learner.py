@@ -42,9 +42,15 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
-        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+        assert CFG.harmlessness_check in ("assert", "log", "disable")
+        if self._verify_harmlessness and \
+           CFG.harmlessness_check in ("assert", "log"):
             logging.info("\nRunning harmlessness check...")
-            assert self._check_harmlessness(learned_pnads)
+            is_harmless = self._check_harmlessness(learned_pnads)
+            if CFG.harmlessness_check == "assert":
+                assert is_harmless
+            else:
+                logging.info(f"Harmlessness check result: {is_harmless}")
         min_data = max(CFG.min_data_for_nsrt,
                        self._num_segments * CFG.min_perc_data_for_nsrt / 100)
         learned_pnads = [

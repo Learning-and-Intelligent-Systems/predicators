@@ -24,19 +24,19 @@ for ENV in ${ALL_ENVS[@]}; do
         # Oracle.
         python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle --approach oracle --num_train_tasks 0
         # Main backchaining approach with various numbers of demonstrations.
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_5demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 5
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_10demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 10
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_25demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 25
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_50demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 50
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_5demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 5 --harmlessness_check log
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_10demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 10 --harmlessness_check log
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_25demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 25 --harmlessness_check log
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_50demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks 50 --harmlessness_check log
         # Cluster-and-intersect (RLDM) baseline. Although it is guaranteed to
         # preserve harmlessness, we disable the check because it takes a long
         # time (since the operators have high arity).
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_intersect_50demo --approach nsrt_learning --strips_learner cluster_and_intersect --num_train_tasks 50 --disable_harmlessness_check True
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_intersect_50demo --approach nsrt_learning --strips_learner cluster_and_intersect --num_train_tasks 50 --harmlessness_check disable
         # LOFT baseline. Same note on harmlessness as for cluster-and-intersect.
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_50demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks 50 --disable_harmlessness_check True
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_cluster_and_search_50demo --approach nsrt_learning --strips_learner cluster_and_search --num_train_tasks 50 --harmlessness_check disable
         # Prediction error baseline that optimizes via hill climbing. Not
         # guaranteed to preserve harmlessness.
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_pred_error_50demo --approach nsrt_learning --strips_learner cluster_and_intersect_sideline_prederror --num_train_tasks 50 --disable_harmlessness_check True
+        python $FILE $COMMON_ARGS --experiment_id ${ENV}_pred_error_50demo --approach nsrt_learning --strips_learner cluster_and_intersect_sideline_prederror --num_train_tasks 50 --harmlessness_check disable
         # Model-based GNN option policy baseline.
         python $FILE $COMMON_ARGS --experiment_id ${ENV}_gnn_shooting_50demo --approach gnn_option_policy --num_train_tasks 50
     fi

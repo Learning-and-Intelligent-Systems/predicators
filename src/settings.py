@@ -217,7 +217,9 @@ class GlobalSettings:
     # STRIPS learning algorithm. See get_name() functions in the directory
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
-    disable_harmlessness_check = False  # some methods may want this to be True
+    # Whether to run the harmlessness check on STRIPS operators after they
+    # are learned. Choices are "assert", "log", or "disable".
+    harmlessness_check = "assert"
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
     cluster_and_intersect_prederror_max_groundings = 10

@@ -26,7 +26,7 @@ for ENV in ${ENVS[@]}; do
 
         COMMON_ARGS="--env $ENV --min_perc_data_for_nsrt 1 \
                 --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
-                --gnn_num_epochs 1000 --disable_harmlessness_check True \
+                --gnn_num_epochs 1000 --harmlessness_check disable \
                 --neural_gaus_regressor_max_itr 50000"
 
         # Include the motion planning options for the doors environment.
