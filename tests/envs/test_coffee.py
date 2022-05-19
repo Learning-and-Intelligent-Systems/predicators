@@ -8,7 +8,7 @@ from predicators.src.envs.coffee import CoffeeEnv
 from predicators.src.structs import Action, GroundAtom, Task
 
 
-def test_stick_button():
+def test_coffee():
     """Tests for CoffeeEnv()."""
     utils.reset_config({
         "env": "coffee",
@@ -198,31 +198,49 @@ def test_stick_button():
         s = traj.states[-1]
 
     # Uncomment for debugging.
-    policy = utils.action_arrs_to_policy(action_arrs)
-    monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    traj = utils.run_policy_with_simulator(policy,
-                                           env.simulate,
-                                           state,
-                                           lambda _: False,
-                                           max_num_steps=len(action_arrs),
-                                           monitor=monitor)
-    video = monitor.get_video()
-    outfile = "hardcoded_actions_coffee.mp4"
-    utils.save_video(outfile, video)
+    # policy = utils.action_arrs_to_policy(action_arrs)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # traj = utils.run_policy_with_simulator(policy,
+    #                                        env.simulate,
+    #                                        state,
+    #                                        lambda _: False,
+    #                                        max_num_steps=len(action_arrs),
+    #                                        monitor=monitor)
+    # video = monitor.get_video()
+    # outfile = "hardcoded_actions_coffee.mp4"
+    # utils.save_video(outfile, video)
 
     ## Test options ##
 
+    option_name_to_option = {o.name: o for o in env.options}
+    PickJug = option_name_to_option["PickJug"]
+
+    # Test PickJug.
+    option = PickJug.ground([robot, jug], [])
+    option_plan = [option]
+
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    assert traj.states[-2].get(jug, "is_held") < 0.5
+    assert traj.states[-1].get(jug, "is_held") > 0.5
+
     # Uncomment for debugging.
-    # policy = utils.option_plan_to_policy(option_plan)
-    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    # traj = utils.run_policy_with_simulator(
-    #     policy,
-    #     env.simulate,
-    #     state,
-    #     lambda _: False,
-    #     max_num_steps=1000,
-    #     exceptions_to_break_on={utils.OptionExecutionFailure},
-    #     monitor=monitor)
-    # video = monitor.get_video()
-    # outfile = "hardcoded_options_coffee.mp4"
-    # utils.save_video(outfile, video)
+    policy = utils.option_plan_to_policy(option_plan)
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure},
+        monitor=monitor)
+    video = monitor.get_video()
+    outfile = "hardcoded_options_coffee.mp4"
+    utils.save_video(outfile, video)
