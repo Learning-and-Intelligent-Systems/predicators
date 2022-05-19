@@ -24,7 +24,7 @@ class CoffeeEnv(BaseEnv):
     z_lb: ClassVar[float] = 0.0
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
-    tilt_ub: ClassVar[float] = np.pi / 2
+    tilt_ub: ClassVar[float] = np.pi / 4
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
@@ -43,7 +43,7 @@ class CoffeeEnv(BaseEnv):
     button_radius: ClassVar[float] = 0.2 * machine_x_len
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
-    cup_radius: ClassVar[float] = 0.3 * jug_radius
+    cup_radius: ClassVar[float] = 0.6 * jug_radius
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
     jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + init_padding
@@ -62,18 +62,19 @@ class CoffeeEnv(BaseEnv):
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
-    pour_x_offset: ClassVar[float] = cup_radius
-    pour_y_offset: ClassVar[float] = cup_radius + jug_radius
-    pour_z_offset: ClassVar[float] = robot_init_z
+    pour_x_offset: ClassVar[float] = cup_radius + jug_radius
+    pour_y_offset: ClassVar[float] = cup_radius
+    pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 0.5
-    max_angular_vel: ClassVar[float] = np.pi / 2
+    max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 1e-1
     dispense_tol: ClassVar[float] = 1e-1
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
+    safe_z_tol: ClassVar[float] = 1e-1
     move_padding: ClassVar[float] = 0.5
 
     def __init__(self) -> None:
@@ -263,11 +264,14 @@ class CoffeeEnv(BaseEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         del caption  # unused
-        fig_width = 2 * (self.x_ub - self.x_lb)
+        fig_width = (2 * (self.x_ub - self.x_lb))
         fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
         fig_size = (fig_width, fig_height)
         fig, axes = plt.subplots(1, 2, figsize=fig_size)
         xy_ax, xz_ax = axes
+        jug, = state.get_objects(self._jug_type)
+        machine, = state.get_objects(self._machine_type)
+        robot, = state.get_objects(self._robot_type)
         # Draw the cups.
         cmap = matplotlib.cm.get_cmap("Blues")
         for cup in state.get_objects(self._cup_type):
@@ -280,8 +284,6 @@ class CoffeeEnv(BaseEnv):
             circ = utils.Circle(x, z, self.cup_radius)
             circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the dispense area (xy plane only).
-        jug, = state.get_objects(self._jug_type)
-        machine, = state.get_objects(self._machine_type)
         if self._InMachine_holds(state, [jug, machine]):
             color = "violet"
         else:
@@ -344,6 +346,12 @@ class CoffeeEnv(BaseEnv):
                                width=(2 * self.jug_radius),
                                height=self.jug_height,
                                theta=0.0)
+        # Rotate if held.
+        if jug_held:
+            tilt = state.get(robot, "tilt")
+            robot_x = state.get(robot, "x")
+            robot_z = state.get(robot, "z")
+            rect = rect.rotate_about_point(robot_x, robot_z, tilt)
         rect.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the jug handle in the xz plane.
         color = "darkgray"
@@ -353,7 +361,6 @@ class CoffeeEnv(BaseEnv):
         circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
-        robot, = state.get_objects(self._robot_type)
         x = state.get(robot, "x")
         y = state.get(robot, "y")
         z = state.get(robot, "z")
@@ -379,7 +386,7 @@ class CoffeeEnv(BaseEnv):
         xz_ax.set_xlabel("x")
         xz_ax.set_ylabel("z")
         plt.tight_layout()
-        img = utils.fig2data(fig)
+        img = utils.fig2data(fig, dpi=50)  # lower dpi for faster rendering
         plt.close()
         return [img]
 
@@ -472,7 +479,7 @@ class CoffeeEnv(BaseEnv):
         else:
             z = self.z_lb
         jug_pos = (x, y, z)
-        sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos))**2
+        sq_dist_to_dispense = np.sum(np.subtract(dispense_pos, jug_pos)**2)
         return (sq_dist_to_dispense < self.dispense_tol)
 
     @staticmethod
@@ -516,7 +523,7 @@ class CoffeeEnv(BaseEnv):
                                          robot_pos)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
-        if safe_z_sq_dist < self.grasp_position_tol:
+        if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
                 (target_x, waypoint_y, self.robot_init_z), robot_pos)
         # Move up to a safe height.
@@ -589,10 +596,43 @@ class CoffeeEnv(BaseEnv):
 
     def _Pour_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        # TODO describe policy
+        # This policy moves the robot next to the cup and then pours until
+        # the cup is filled. Note that if starting out at the end of another
+        # pour, we need to start by rotating the cup to prevent any further
+        # pouring until we've moved over the next cup.
         del memory, params  # unused
-        import ipdb
-        ipdb.set_trace()
+        move_tilt = self.tilt_lb
+        pour_tilt = self.tilt_ub
+        robot, jug, cup = objects
+        robot_x = state.get(robot, "x")
+        robot_y = state.get(robot, "y")
+        robot_z = state.get(robot, "z")
+        robot_pos = (robot_x, robot_y, robot_z)
+        tilt = state.get(robot, "tilt")
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
+        jug_z = robot_z - self.jug_handle_height
+        jug_pos = (jug_x, jug_y, jug_z)
+        pour_x, pour_y, pour_z = pour_pos = self._get_pour_position(state, cup)
+        # If we're close enough to the pour position, pour.
+        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+        if sq_dist_to_pour < self.pour_pos_tol:
+            dtilt = pour_tilt - tilt
+            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
+        dtilt = move_tilt - tilt
+        # If we're above the pour position, move down to pour.
+        xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
+        if xy_pour_sq_dist < self.safe_z_tol:
+            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
+        # If we're at the safe moving height, move toward above the pour position.
+        if (robot_z - self.robot_init_z)**2 < self.safe_z_tol:
+            return self._get_move_action((pour_x, pour_y, jug_z),
+                                         jug_pos,
+                                         dtilt=dtilt)
+        # Move to a safe moving height.
+        return self._get_move_action((robot_x, robot_y, self.robot_init_z),
+                                     robot_pos,
+                                     dtilt=dtilt)
 
     def _Pour_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
@@ -619,7 +659,7 @@ class CoffeeEnv(BaseEnv):
         robot, = state.get_objects(self._robot_type)
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_z = state.get(robot, "z")
+        jug_z = state.get(robot, "z") - self.jug_handle_height
         jug_pos = (jug_x, jug_y, jug_z)
         closest_cup = None
         closest_cup_dist = float("inf")
@@ -631,10 +671,16 @@ class CoffeeEnv(BaseEnv):
                 closest_cup_dist = sq_dist
         return closest_cup
 
-    @staticmethod
-    def _get_move_action(target_pos: Tuple[float, float, float],
-                         robot_pos: Tuple[float, float, float]) -> Action:
+    def _get_move_action(self,
+                         target_pos: Tuple[float, float, float],
+                         robot_pos: Tuple[float, float, float],
+                         dtilt: float = 0.0) -> Action:
         delta = np.subtract(target_pos, robot_pos)
         # Normalize.
-        dx, dy, dz = delta / np.linalg.norm(delta)
-        return Action(np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+        pos_norm = np.linalg.norm(delta)
+        if pos_norm > 0:
+            delta = delta / pos_norm
+        dx, dy, dz = delta
+        dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
+        dtilt = dtilt / self.max_angular_vel
+        return Action(np.array([dx, dy, dz, dtilt, 0.0], dtype=np.float32))

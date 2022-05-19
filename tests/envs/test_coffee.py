@@ -172,9 +172,11 @@ def test_coffee():
 
     # Test pouring in each of the cups.
     for cup in cups:
-        jug_target_x, jug_target_y, target_z = env._get_pour_position(s, cup)
+        jug_target_x, jug_target_y, jug_target_z = env._get_pour_position(
+            s, cup)
         target_x = jug_target_x - (s.get(jug, "x") - s.get(robot, "x"))
         target_y = jug_target_y - (s.get(jug, "y") - s.get(robot, "y"))
+        target_z = jug_target_z + env.jug_handle_height
         move_to_pour_act_arrs = _get_position_action_arrs(
             s.get(robot, "x"), s.get(robot, "y"), s.get(robot, "z"), target_x,
             target_y, target_z)
@@ -298,16 +300,16 @@ def test_coffee():
         s = traj.states[-1]
 
     # Uncomment for debugging.
-    policy = utils.option_plan_to_policy(option_plan)
-    monitor = utils.SimulateVideoMonitor(task, env.render_state)
-    traj = utils.run_policy_with_simulator(
-        policy,
-        env.simulate,
-        state,
-        lambda _: False,
-        max_num_steps=100,
-        exceptions_to_break_on={utils.OptionExecutionFailure},
-        monitor=monitor)
-    video = monitor.get_video()
-    outfile = "hardcoded_options_coffee.mp4"
-    utils.save_video(outfile, video)
+    # policy = utils.option_plan_to_policy(option_plan)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # traj = utils.run_policy_with_simulator(
+    #     policy,
+    #     env.simulate,
+    #     state,
+    #     lambda _: False,
+    #     max_num_steps=1000,
+    #     exceptions_to_break_on={utils.OptionExecutionFailure},
+    #     monitor=monitor)
+    # video = monitor.get_video()
+    # outfile = "hardcoded_options_coffee.mp4"
+    # utils.save_video(outfile, video)
