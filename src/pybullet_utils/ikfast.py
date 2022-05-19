@@ -3,7 +3,7 @@ import importlib.util
 import logging
 import os
 import sys
-from typing import Sequence
+from typing import Sequence, List
 
 import numpy as np
 import pybullet as p
@@ -89,6 +89,15 @@ def _import_ikfast(robot_name: str):
     logging.debug(f"Loaded IKFast module for {robot_name} from {module_filepath}")
 
     return ikfast
+
+
+def get_ikfast_supported_robots() -> List[str]:
+    ikfast_base_dir = utils.get_env_asset_path("ikfast")
+    return [
+        path
+        for path in os.listdir(ikfast_base_dir)
+        if os.path.isdir(os.path.join(ikfast_base_dir, path)) and path != "__pycache__"
+    ]
 
 
 def ikfast_inverse_kinematics(

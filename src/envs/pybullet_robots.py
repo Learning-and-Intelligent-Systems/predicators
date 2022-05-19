@@ -20,7 +20,10 @@ import pybullet_data
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.pybullet_utils.ikfast import ikfast_inverse_kinematics
+from predicators.src.pybullet_utils.ikfast import (
+    ikfast_inverse_kinematics,
+    get_ikfast_supported_robots,
+)
 from predicators.src.settings import CFG
 from predicators.src.structs import (
     Array,
@@ -31,6 +34,14 @@ from predicators.src.structs import (
 
 class SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
+
+    # TODO: temporary hack, handle this better
+    # Parameters that aren't important enough to need to clog up settings.py
+    _base_pose: ClassVar[Pose3D] = (0, 0, 0)
+    # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)  # fetch
+    # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)  # panda
+
+    _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
     def __init__(
         self,
@@ -43,19 +54,31 @@ class SingleArmPyBulletRobot(abc.ABC):
         # Orientation for the end effector.
         self._ee_orientation = ee_orientation
         self._physics_client_id = physics_client_id
-        self._initialize()
 
-    @cached_property
-    def initial_joints_state(self) -> JointsState:
-        """The joint values for the robot in its home pose."""
-        initial_joints_state = self.inverse_kinematics(
-            self._ee_home_pose, validate=True
+        # Load the robot and reset base position and orientation.
+        self.robot_id = p.loadURDF(
+            self.urdf_path(),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id,
         )
-        # The initial joint values for the fingers should be open. IK may
-        # return anything for them.
-        initial_joints_state[self.left_finger_joint_idx] = self.open_fingers
-        initial_joints_state[self.right_finger_joint_idx] = self.open_fingers
-        return initial_joints_state
+        p.resetBasePositionAndOrientation(
+            self.robot_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id,
+        )
+
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the name of the robot."""
+        raise NotImplementedError("Override me!")
+
+    @classmethod
+    @abc.abstractmethod
+    def urdf_path(cls) -> str:
+        """Get the path to the URDF file for the robot."""
+        raise NotImplementedError("Override me!")
 
     @property
     def action_space(self) -> Box:
@@ -68,22 +91,6 @@ class SingleArmPyBulletRobot(abc.ABC):
             np.array(self.joint_upper_limits, dtype=np.float32),
             dtype=np.float32,
         )
-
-    @classmethod
-    @abc.abstractmethod
-    def get_name(cls) -> str:
-        """Get the name of the robot."""
-        raise NotImplementedError("Override me!")
-
-    @abc.abstractmethod
-    def _initialize(self) -> None:
-        raise NotImplementedError("Override me!")
-
-    @property
-    @abc.abstractmethod
-    def robot_id(self) -> int:
-        """The PyBullet ID for the robot."""
-        raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
@@ -201,14 +208,45 @@ class SingleArmPyBulletRobot(abc.ABC):
         """The value at which the finger joints should be closed."""
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
+    @cached_property
+    def initial_joints_state(self) -> JointsState:
+        """The joint values for the robot in its home pose."""
+        initial_joints_state = self.inverse_kinematics(
+            self._ee_home_pose, validate=True
+        )
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        initial_joints_state[self.left_finger_joint_idx] = self.open_fingers
+        initial_joints_state[self.right_finger_joint_idx] = self.open_fingers
+        return initial_joints_state
+
     def reset_state(self, robot_state: Array) -> None:
         """Reset the robot state to match the input state.
 
         The robot_state corresponds to the State vector for the robot
         object.
         """
-        raise NotImplementedError("Override me!")
+        rx, ry, rz, rf = robot_state
+        p.resetBasePositionAndOrientation(
+            self.robot_id,
+            self._base_pose,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id,
+        )
+        # First, reset the joint values to initial joint state,
+        # so that IK is consistent (less sensitive to initialization).
+        self.set_joints(self.initial_joints_state)
+
+        # Now run IK to get to the actual starting rx, ry, rz. We use
+        # validate=True to ensure that this initialization works.
+        joint_values = self.inverse_kinematics((rx, ry, rz), validate=True)
+        self.set_joints(joint_values)
+
+        # Handle setting the robot finger joints.
+        for finger_id in [self.left_finger_id, self.right_finger_id]:
+            p.resetJointState(
+                self.robot_id, finger_id, rf, physicsClientId=self._physics_client_id
+            )
 
     def get_state(self) -> Array:
         """Get the robot state vector based on the current PyBullet state.
@@ -314,9 +352,13 @@ class SingleArmPyBulletRobot(abc.ABC):
 class FetchPyBulletRobot(SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
 
-    # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
-    _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
+    @classmethod
+    def get_name(cls) -> str:
+        return "fetch"
+
+    @classmethod
+    def urdf_path(cls) -> str:
+        return utils.get_env_asset_path("urdf/robots/fetch.urdf")
 
     @property
     def end_effector_name(self) -> str:
@@ -330,27 +372,6 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
     def right_finger_joint_name(self) -> str:
         return "r_gripper_finger_joint"
 
-    @classmethod
-    def get_name(cls) -> str:
-        return "fetch"
-
-    def _initialize(self) -> None:
-        self._fetch_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id,
-        )
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id,
-        )
-
-    @property
-    def robot_id(self) -> int:
-        return self._fetch_id
-
     @property
     def open_fingers(self) -> float:
         return 0.04
@@ -359,32 +380,11 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
     def closed_fingers(self) -> float:
         return 0.01
 
-    def reset_state(self, robot_state: Array) -> None:
-        rx, ry, rz, rf = robot_state
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id,
-        )
-        # First, reset the joint values to self._initial_joints_state,
-        # so that IK is consistent (less sensitive to initialization).
-        self.set_joints(self.initial_joints_state)
-        # Now run IK to get to the actual starting rx, ry, rz. We use
-        # validate=True to ensure that this initialization works.
-        joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
-        self.set_joints(joints_state)
-        # Handle setting the robot finger joints.
-        for finger_id in [self.left_finger_id, self.right_finger_id]:
-            p.resetJointState(
-                self._fetch_id, finger_id, rf, physicsClientId=self._physics_client_id
-            )
-
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> JointsState:
         return pybullet_inverse_kinematics(
-            self._fetch_id,
+            self.robot_id,
             self.end_effector_id,
             end_effector_pose,
             self._ee_orientation,
@@ -396,6 +396,44 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
 
 class PandaPyBulletRobot(SingleArmPyBulletRobot):
     """Franka Emika Panda which we assume is fixed on some base."""
+
+    def __init__(
+        self,
+        ee_home_pose: Pose3D,
+        ee_orientation: Sequence[float],
+        physics_client_id: int,
+    ):
+        super().__init__(ee_home_pose, ee_orientation, physics_client_id)
+        # self._ikfast_info = IKFastInfo(
+        #     module_name="franka_panda.ikfast_panda_arm",
+        #     base_link="panda_link0",
+        #     ee_link="panda_link8",
+        #     free_joints=["panda_joint7"],
+        # )
+
+        # TODO!!! fix this
+        self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
+
+        # Extract IDs for individual robot links and joints.
+
+        # TODO: change this, because it's highly confusing that this is not
+        # the tool tip, since end_effector_id is the tool tip.
+        self._end_effector_link = get_link_from_name(
+            self.robot_id, "panda_link8", self._physics_client_id
+        )
+        self._tool_link = get_link_from_name(
+            self.robot_id, "tool_link", self._physics_client_id
+        )
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "panda"
+
+    @classmethod
+    def urdf_path(cls) -> str:
+        return utils.get_env_asset_path(
+            "urdf/franka_description/robots/panda_arm_hand.urdf"
+        )
 
     @property
     def end_effector_name(self) -> str:
@@ -410,68 +448,6 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     def right_finger_joint_name(self) -> str:
         return "panda_finger_joint2"
 
-    # Parameters that aren't important enough to need to clog up settings.py
-    # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)
-    _base_pose: ClassVar[Pose3D] = (0, 0, 0)
-    _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "panda"
-
-    def _initialize(self) -> None:
-
-        # self._ikfast_info = IKFastInfo(
-        #     module_name="franka_panda.ikfast_panda_arm",
-        #     base_link="panda_link0",
-        #     ee_link="panda_link8",
-        #     free_joints=["panda_joint7"],
-        # )
-
-        # TODO!!! fix this
-        self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
-
-        self._panda_id = p.loadURDF(
-            utils.get_env_asset_path(
-                "urdf/franka_description/robots/panda_arm_hand.urdf"
-            ),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id,
-        )
-
-        p.resetBasePositionAndOrientation(
-            self._panda_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id,
-        )
-
-        # Extract IDs for individual robot links and joints.
-
-        # TODO: change this, because it's highly confusing that this is not
-        # the tool tip, since end_effector_id is the tool tip.
-        self._end_effector_link = get_link_from_name(
-            self._panda_id, "panda_link8", self._physics_client_id
-        )
-        self._tool_link = get_link_from_name(
-            self._panda_id, "tool_link", self._physics_client_id
-        )
-
-        # TODO: factor out common code here and elsewhere.
-        joint_names = self.joint_names
-
-        self._initial_joint_values = self.inverse_kinematics(
-            self._ee_home_pose, validate=True
-        )
-        # The initial joint values for the fingers should be open. IK may
-        # return anything for them.
-        self._initial_joint_values[-2] = self.open_fingers
-        self._initial_joint_values[-1] = self.open_fingers
-
-    @property
-    def robot_id(self) -> int:
-        return self._panda_id
-
     @property
     def open_fingers(self) -> float:
         return 0.04
@@ -479,40 +455,6 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     @property
     def closed_fingers(self) -> float:
         return 0.03
-
-    def reset_state(self, robot_state: Array) -> None:
-        rx, ry, rz, rf = robot_state
-        p.resetBasePositionAndOrientation(
-            self._panda_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id,
-        )
-        # First, reset the joint values to self._initial_joint_values,
-        # so that IK is consistent (less sensitive to initialization).
-        joint_values = self._initial_joint_values
-        for joint_id, joint_val in zip(self._arm_joints, joint_values):
-            p.resetJointState(
-                self._panda_id,
-                joint_id,
-                joint_val,
-                physicsClientId=self._physics_client_id,
-            )
-        # Now run IK to get to the actual starting rx, ry, rz. We use
-        # validate=True to ensure that this initialization works.
-        joint_values = self.inverse_kinematics((rx, ry, rz), validate=True)
-        for joint_id, joint_val in zip(self._arm_joints, joint_values):
-            p.resetJointState(
-                self._panda_id,
-                joint_id,
-                joint_val,
-                physicsClientId=self._physics_client_id,
-            )
-        # Handle setting the robot finger joints.
-        for finger_id in [self._left_finger_id, self._right_finger_id]:
-            p.resetJointState(
-                self._panda_id, finger_id, rf, physicsClientId=self._physics_client_id
-            )
 
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
@@ -800,7 +742,7 @@ if __name__ == "__main__":
     CFG.seed = 0
 
     panda = create_single_arm_pybullet_robot(
-        "fetch",
+        "panda",
         (0, 0.5, 0.2),
         p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi]),
         physics_client_id,
@@ -814,13 +756,15 @@ if __name__ == "__main__":
     print(panda.joint_names)
     print(panda.joint_lower_limits)
     print(panda.joint_upper_limits)
-    print(get_bodies())
-
-    wait_for_user("start?")
+    print([p.getBodyInfo(b) for b in get_bodies()])
+    print("IK fast supported:", get_ikfast_supported_robots())
+    # wait_for_user("start?")
     for _ in range(50):
         p.stepSimulation(physicsClientId=physics_client_id)
         print(panda.get_joints())
         print(panda.get_state())
-        time.sleep(0.1)
+        time.sleep(0.02)
+
+    panda.reset_state(np.array([0.5, 0.2, 0.2, 0.04]))
 
     wait_for_user("terminate?")
