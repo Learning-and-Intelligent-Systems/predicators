@@ -33,29 +33,29 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             break
         try:
             ### TODO Uncomment after debugging simulator
-            oracle_approach.solve(task,
-                                  timeout=CFG.offline_data_planning_timeout)
-            # Since we're running the oracle approach, we know that the policy
-            # is actually a plan under the hood, and we can retrieve it with
-            # get_last_plan(). We do this because we want to run the full plan.
-            plan = oracle_approach.get_last_plan()
-            # Stop run_policy() when OptionExecutionFailure() is hit, which
-            # should only happen when the goal has been reached, as verified
-            # by the assertion below.
+            # oracle_approach.solve(task,
+            #                       timeout=CFG.offline_data_planning_timeout)
+            # # Since we're running the oracle approach, we know that the policy
+            # # is actually a plan under the hood, and we can retrieve it with
+            # # get_last_plan(). We do this because we want to run the full plan.
+            # plan = oracle_approach.get_last_plan()
+            # # Stop run_policy() when OptionExecutionFailure() is hit, which
+            # # should only happen when the goal has been reached, as verified
+            # # by the assertion below.
 
             #  
-            # import dill as pickle
-            # file = open('plan.pkl', 'rb')
-            # pickled_plan = pickle.load(file)
-            # file.close()
-            # plan = []
-            # for i in range(len(pickled_plan)):
-            #     curr_option = None
-            #     for option in env.options:
-            #         if option.name == pickled_plan[i][0]:
-            #             curr_option = option
-            #     plan.append(curr_option.ground(pickled_plan[i][1], pickled_plan[i][2]))
-            # #
+            import dill as pickle
+            file = open('plan.pkl', 'rb')
+            pickled_plan = pickle.load(file)
+            file.close()
+            plan = []
+            for i in range(len(pickled_plan)):
+                curr_option = None
+                for option in env.options:
+                    if option.name == pickled_plan[i][0]:
+                        curr_option = option
+                plan.append(curr_option.ground(pickled_plan[i][1], pickled_plan[i][2]))
+            #
 
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)

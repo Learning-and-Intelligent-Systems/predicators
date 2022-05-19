@@ -484,14 +484,16 @@ def create_grasp_policy(
     # plan is necessary because RRT just gives us a plan to move our hand
     # to the grasping location, but not to getting back.
 
-    # Add a little more movement in final direction
-    for i in range(20):
-        next_plan_step = np.array(plan[-1]) + (np.array(plan[-1]) - np.array(plan[-2]))
-        for j in range(3):
-            next_plan_step[3+j] = plan[-1][3+j]
-        plan.append(list(next_plan_step))
-    #
-
+    # # Add a little more movement in final direction
+    # for i in range(20):
+    #     next_plan_step = np.array(plan[-1]) + (np.array(plan[-1]) - np.array(plan[-2]))
+    #     for j in range(3):
+    #         next_plan_step[3+j] = plan[-1][3+j]
+    #     plan.append(list(next_plan_step))
+    # #
+    hand_i = -1
+    rh_final_grasp_postion = plan[hand_i][0:3]
+    rh_final_grasp_orn = plan[hand_i][3:6]
     reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_closing_gripper = False
@@ -506,8 +508,8 @@ def create_grasp_policy(
         nonlocal repeat_count
         done_bit = False
 
-        atol_xyz = 1e-3 #Needed for real grasping
-        atol_theta = 1e-2 #0.1 Needed for real grasping
+        atol_xyz = 1e-4 #1e-3 #Needed for real grasping
+        atol_theta = 5e-3 #1e-2 #0.1 Needed for real grasping
         atol_vel = 1
 
         # 1. Get current position and orientation
@@ -551,7 +553,7 @@ def create_grasp_policy(
                         low_level_action,
                         np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
-                ) or repeat_count > 300:
+                ) or repeat_count > 60:
                     low_level_action = (get_delta_low_level_hand_action(
                         env.robots[0].parts["body"],
                         np.array(current_pos),
@@ -569,6 +571,9 @@ def create_grasp_policy(
                                             dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
+                env.robots[0].parts["right_hand"].set_position_orientation(
+                    rh_final_grasp_postion,
+                    p.getQuaternionFromEuler(rh_final_grasp_orn))
             else:
                 # Step thru the plan to execute placing
                 # phases 1 and 2
@@ -623,7 +628,7 @@ def create_grasp_policy(
                     low_level_action,
                     np.zeros((env.action_space.shape[0], 1)),
                     atol=atol_vel,
-            )  or repeat_count > 300:
+            )  or repeat_count > 60:
                 low_level_action = (get_delta_low_level_hand_action(
                     env.robots[0].parts["body"],
                     np.array(current_pos),

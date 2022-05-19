@@ -157,6 +157,10 @@ class BehaviorEnv(BaseEnv):
                 grasp_obj_body_id = obj_to_grasp.body_id
             _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
                  handle_assisted_grasping(assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1), bypass_force_check=True))
+            a = np.zeros(self.igibson_behavior_env.action_space.shape, dtype=float)
+            a[16] = 1.0
+            for _ in range(5):
+                self.igibson_behavior_env.step(a)
         elif a[16] == -1.0:
             released_obj = self.igibson_behavior_env.scene.get_objects()[
                 self.igibson_behavior_env.robots[0].parts["right_hand"].
