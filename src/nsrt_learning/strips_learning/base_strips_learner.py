@@ -216,6 +216,8 @@ class BaseSTRIPSLearner(abc.ABC):
                     isub = dict(zip(opt_vars, segment_option_objs))
                     for ground_op in utils.all_ground_operators_given_partial(
                             pnad.op, objects, isub):
+                        if len(ground_op.objects) != len(set(ground_op.objects)):
+                            continue
                         # If the preconditions don't hold in the segment's
                         # initial atoms, skip.
                         if not ground_op.preconditions.issubset(
