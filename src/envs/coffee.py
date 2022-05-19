@@ -42,7 +42,7 @@ class CoffeeEnv(BaseEnv):
     button_z: ClassVar[float] = machine_z_len
     button_radius: ClassVar[float] = 0.2 * machine_x_len
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
-    jug_height: ClassVar[float] = 0.2 * (z_ub - z_lb)
+    jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_radius: ClassVar[float] = 0.3 * jug_radius
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
@@ -235,17 +235,22 @@ class CoffeeEnv(BaseEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         del caption  # unused
-        # A crude top-down rendering.
-        figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        fig_width = 2 * (self.x_ub - self.x_lb)
+        fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
+        fig_size = (fig_width, fig_height)
+        fig, axes = plt.subplots(1, 2, figsize=fig_size)
+        xy_ax, xz_ax = axes
         # Draw the cups.
         cmap = matplotlib.cm.get_cmap("Blues")
         for cup in state.get_objects(self._cup_type):
             color = cmap(state.get(cup, "current_liquid"))
             x = state.get(cup, "x")
             y = state.get(cup, "y")
+            z = self.z_lb + self.cup_radius
             circ = utils.Circle(x, y, self.cup_radius)
-            circ.plot(ax, facecolor=color, edgecolor="black")
+            circ.plot(xy_ax, facecolor=color, edgecolor="black")
+            circ = utils.Circle(x, z, self.cup_radius)
+            circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the machine.
         machine, = state.get_objects(self._machine_type)
         color = "gray"
@@ -254,8 +259,14 @@ class CoffeeEnv(BaseEnv):
                                width=self.machine_x_len,
                                height=self.machine_y_len,
                                theta=0.0)
-        rect.plot(ax, facecolor=color, edgecolor="black")
-        # Draw a button on the machine.
+        rect.plot(xy_ax, facecolor=color, edgecolor="black")
+        rect = utils.Rectangle(x=self.machine_x,
+                               y=self.z_lb,
+                               width=self.machine_x_len,
+                               height=self.machine_z_len,
+                               theta=0.0)
+        rect.plot(xz_ax, facecolor=color, edgecolor="black")
+        # Draw a button on the machine (xy plane only).
         if state.get(machine, "is_on") > 0.5:
             color = "red"
         else:
@@ -263,7 +274,7 @@ class CoffeeEnv(BaseEnv):
         circ = utils.Circle(x=self.button_x,
                             y=self.button_y,
                             radius=self.button_radius)
-        circ.plot(ax, facecolor=color, edgecolor="black")
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
         # Draw the jug.
         jug, = state.get_objects(self._jug_type)
         jug_full = (state.get(jug, "is_filled") > 0.5)
@@ -281,21 +292,51 @@ class CoffeeEnv(BaseEnv):
         x = state.get(jug, "x")
         y = state.get(jug, "y")
         circ = utils.Circle(x=x, y=y, radius=self.jug_radius)
-        circ.plot(ax, facecolor=color, edgecolor="black")
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
+        # The jug is a cylinder, so in the xz plane it looks like a rect.
+        if jug_held:
+            # Offset to account for handle.
+            z = state.get(self._robot, "z") - self.jug_handle_height
+        else:
+            z = self.z_lb
+        rect = utils.Rectangle(x=(x - self.jug_radius),
+                               y=z,
+                               width=(2 * self.jug_radius),
+                               height=self.jug_height,
+                               theta=0.0)
+        rect.plot(xz_ax, facecolor=color, edgecolor="black")
+        # Draw the jug handle in the xz plane.
+        color = "darkgray"
+        x, _, z = self._get_jug_handle_grasp(state, jug)
+        circ = utils.Circle(x=x, y=z, radius=self.grasp_position_tol)
+        circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
         robot, = state.get_objects(self._robot_type)
         x = state.get(robot, "x")
         y = state.get(robot, "y")
+        z = state.get(robot, "z")
         circ = utils.Circle(
             x=x,
             y=y,
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
-        circ.plot(ax, facecolor=color, edgecolor="black")
-        ax.set_xlim(self.x_lb, self.x_ub)
-        ax.set_ylim(self.y_lb, self.y_ub)
-        ax.axis("off")
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
+        circ = utils.Circle(
+            x=x,
+            y=z,
+            radius=self.cup_radius  # robot in reality has no 'radius'
+        )
+        circ.plot(xz_ax, facecolor=color, edgecolor="black")
+        ax_pad = 0.5
+        xy_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
+        xy_ax.set_ylim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        xy_ax.set_xlabel("x")
+        xy_ax.set_ylabel("y")
+        xz_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
+        xz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
+        xz_ax.set_xlabel("x")
+        xz_ax.set_ylabel("z")
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
@@ -461,7 +502,11 @@ class CoffeeEnv(BaseEnv):
         robot, jug = objects
         return self._Holding_holds(state, [robot, jug])
 
-    def _move_rules_to_action(self, move_rules, robot_pos) -> Action:
+    def _move_rules_to_action(self,
+                              move_rules: Sequence[Tuple[bool,
+                                                         Tuple[float, float,
+                                                               float]]],
+                              robot_pos: Tuple[float, float, float]) -> Action:
         for (condition, waypoint) in move_rules:
             if condition:
                 delta = np.subtract(waypoint, robot_pos)
