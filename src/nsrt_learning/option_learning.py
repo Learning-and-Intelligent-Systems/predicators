@@ -93,6 +93,7 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
                 option = segment.actions[0].get_option()
                 if i == 0:
                     obj_to_var = {o: v for v, o in var_to_obj.items()}
+                    assert len(var_to_obj) == len(obj_to_var)
                     param_option = option.parent
                     option_vars = [obj_to_var[o] for o in option.objects]
                 else:
