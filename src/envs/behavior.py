@@ -151,8 +151,12 @@ class BehaviorEnv(BaseEnv):
                 if dist < obj_distance:
                     obj_to_grasp = obj
                     obj_distance = dist
+            if isinstance(obj_to_grasp.body_id, List):
+                grasp_obj_body_id = obj_to_grasp.body_id[0]
+            else:
+                grasp_obj_body_id = obj_to_grasp.body_id
             _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
-                 handle_assisted_grasping(assisted_grasp_action, override_ag_data=(obj_to_grasp.body_id[0], -1), bypass_force_check=True))
+                 handle_assisted_grasping(assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1), bypass_force_check=True))
         elif a[16] == -1.0:
             released_obj = self.igibson_behavior_env.scene.get_objects()[
                 self.igibson_behavior_env.robots[0].parts["right_hand"].
