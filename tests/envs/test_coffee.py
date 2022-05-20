@@ -28,6 +28,8 @@ def test_coffee():
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
     InMachine = pred_name_to_pred["InMachine"]
+    OnTable = pred_name_to_pred["OnTable"]
+    NotAboveCup = pred_name_to_pred["NotAboveCup"]
     assert len(env.options) == 4
     option_name_to_option = {o.name: o for o in env.options}
     assert len(env.types) == 4
@@ -95,6 +97,8 @@ def test_coffee():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(jug, "is_held") < 0.5
     assert traj.states[-1].get(jug, "is_held") > 0.5
+    assert GroundAtom(OnTable, [jug]).holds(traj.states[-2])
+    assert not GroundAtom(OnTable, [jug]).holds(traj.states[-1])
     s = traj.states[-1]
 
     # Test moving and placing the jug at the machine.
@@ -170,6 +174,7 @@ def test_coffee():
                                            max_num_steps=len(action_arrs))
     assert traj.states[-2].get(jug, "is_held") < 0.5
     assert traj.states[-1].get(jug, "is_held") > 0.5
+    assert GroundAtom(NotAboveCup, [robot, jug]).holds(traj.states[-1])
     s = traj.states[-1]
 
     # Check that an EnvironmentFailure is raised when pouring into nothing.
@@ -207,6 +212,7 @@ def test_coffee():
                                                max_num_steps=len(action_arrs))
         assert not GroundAtom(CupFilled, [cup]).holds(traj.states[-3])
         assert GroundAtom(CupFilled, [cup]).holds(traj.states[-1])
+        assert not GroundAtom(NotAboveCup, [robot, jug]).holds(traj.states[-1])
         s = traj.states[-1]
         # Render a state where we are in the process of pouring.
         env.render_state(traj.states[-2], task)
