@@ -263,10 +263,10 @@ class SupercloudLaunchResponse(SupercloudResponse):
         num_launched = 0
         with open("output.txt", "r", encoding="utf-8") as f:
             for line in f.readlines():
-                if line.startswith("Started job, see log with"):
+                if line.startswith("Running command:"):
                     num_launched += 1
         return [
-            f"<@{self._inquirer}>: Launched {num_launched} experiments on "
+            f"<@{self._inquirer}>: Launched {num_launched} job arrays on "
             f"{self._user}'s supercloud."
         ]
 
