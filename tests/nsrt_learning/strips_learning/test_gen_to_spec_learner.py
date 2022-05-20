@@ -365,8 +365,9 @@ def test_keep_effect_data_partitioning():
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
-    predicates = {MachineOn, MachineConfigurableWhileOff, MachineConfigured,
-                  MachineRun}
+    predicates = {
+        MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun
+    }
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -651,11 +652,11 @@ def test_combinatorial_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the four demos.
-    learner = _MockBackchainingSTRIPSLearner(
-        [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
-        predicates,
-        segmented_trajs,
-        verify_harmlessness=True)
+    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3, traj4],
+                                             [task1, task2, task3, task4],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
     output_pnads = learner.learn()
     # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
     assert len(output_pnads) == 7
@@ -716,11 +717,11 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Now, run the learner on 3/4 of the demos and verify that it produces only
     # 3 PNADs for the Configure action.
-    learner = _MockBackchainingSTRIPSLearner(
-        [traj1, traj2, traj3], [task1, task2, task3],
-        predicates,
-        segmented_trajs[:-1],
-        verify_harmlessness=True)
+    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
+                                             [task1, task2, task3],
+                                             predicates,
+                                             segmented_trajs[:-1],
+                                             verify_harmlessness=True)
     output_pnads = learner.learn()
     assert len(output_pnads) == 6
 
@@ -743,8 +744,7 @@ def test_combinatorial_keep_effect_data_partitioning():
 def test_keep_effect_adding_new_variables():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
-    harmlessness.
-    """
+    harmlessness."""
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types and predicates.
     button_type = Type("button_type", ["pressed"])
@@ -783,11 +783,13 @@ def test_keep_effect_adding_new_variables():
     })
 
     # Create the necessary options and actions.
-    press = utils.SingletonParameterizedOption("Press", lambda s, m, o, p: None,
+    press = utils.SingletonParameterizedOption("Press",
+                                               lambda s, m, o, p: None,
                                                types=[button_type])
     Press = press.ground([button], [])
     press_act = Action([], Press)
-    pick = utils.SingletonParameterizedOption("Pick", lambda s, m, o, p: None,
+    pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
                                               types=[potato_type])
     Pick = pick.ground([potato3], [])
     pick_act = Action([], Pick)
@@ -801,8 +803,9 @@ def test_keep_effect_adding_new_variables():
     segmented_traj = segment_trajectory(ground_atom_traj)
 
     # Now, run the learner on the four demos.
-    learner = _MockBackchainingSTRIPSLearner(
-        [traj], [task], predicates, [segmented_traj], verify_harmlessness=True)
+    learner = _MockBackchainingSTRIPSLearner([traj], [task],
+                                             predicates, [segmented_traj],
+                                             verify_harmlessness=True)
     output_pnads = learner.learn()
 
     # Verify that all the output PNADs are correct. The PNAD for Press should

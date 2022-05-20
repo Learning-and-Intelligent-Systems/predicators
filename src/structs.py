@@ -1151,7 +1151,9 @@ class PartialNSRTAndDatastore:
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
     # A container for the possible keep effects for this PNAD.
     poss_keep_effects: Set[LiftedAtom] = field(init=False, default_factory=set)
-    keep_effects_subs: Dict[Segment, VarToObjSub] = field(init=False, default_factory=dict)
+    seg_to_keep_effects_sub: Dict[Segment,
+                                  VarToObjSub] = field(init=False,
+                                                       default_factory=dict)
 
     def add_to_datastore(self,
                          member: Tuple[Segment, VarToObjSub],
