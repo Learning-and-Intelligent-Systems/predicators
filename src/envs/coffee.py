@@ -601,8 +601,8 @@ class CoffeeEnv(BaseEnv):
         return self._Holding_holds(state, [robot, jug])
 
     def _PlaceJugInMachine_policy(self, state: State, memory: Dict,
-                                     objects: Sequence[Object],
-                                     params: Array) -> Action:
+                                  objects: Sequence[Object],
+                                  params: Array) -> Action:
         # This policy picks the jug up slightly above the table to avoid
         # worrying about friction, then moves directly to the place position,
         # then places the jug.
@@ -627,8 +627,8 @@ class CoffeeEnv(BaseEnv):
                                      jug_pos)
 
     def _PlaceJugInMachine_terminal(self, state: State, memory: Dict,
-                                       objects: Sequence[Object],
-                                       params: Array) -> bool:
+                                    objects: Sequence[Object],
+                                    params: Array) -> bool:
         del memory, params  # unused
         robot, jug, machine = objects
         return not self._Holding_holds(state, [robot, jug]) and \
