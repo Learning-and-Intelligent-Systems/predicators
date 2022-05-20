@@ -444,14 +444,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         i = 0
         for r in range(1, len(keep_effects) + 1):
             for keep_effects_subset in itertools.combinations(keep_effects, r):
+                # These keep effects (keep_effects_subset) could involve new
+                # variables, which we need to add to the PNAD parameters.
                 params_set = set(pnad.op.parameters)
                 for eff in keep_effects_subset:
                     for var in eff.variables:
                         params_set.add(var)
                 parameters = sorted(params_set)
+                # The keep effects go into both the PNAD preconditions and the
+                # PNAD add effects.
                 preconditions = pnad.op.preconditions | set(
                     keep_effects_subset)
                 add_effects = pnad.op.add_effects | set(keep_effects_subset)
+                # Create the new PNAD.
                 new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
                                                 parameters=parameters,
                                                 preconditions=preconditions,

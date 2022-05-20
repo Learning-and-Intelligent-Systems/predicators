@@ -215,6 +215,9 @@ class BaseSTRIPSLearner(abc.ABC):
                         continue
                     isub = dict(zip(opt_vars, segment_option_objs))
                     if segment in pnad.seg_to_keep_effects_sub:
+                        # If there are any variables only in the keep effects,
+                        # their mappings should be put into isub, since their
+                        # grounding is underconstrained by the segment itself.
                         keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
                         for var in pnad.op.parameters:
                             if var in keep_eff_sub:

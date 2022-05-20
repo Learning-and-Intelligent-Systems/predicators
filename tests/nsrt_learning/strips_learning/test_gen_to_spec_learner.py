@@ -833,12 +833,14 @@ def test_keep_effect_adding_new_variables():
             # We need that potato3 in particular is left intact during the
             # Press, because it needs to be intact for the subsequent Pick.
             assert len(pnad.datastore) == 1
-            sub = pnad.datastore[0][1]
+            seg, sub = pnad.datastore[0]
+            assert seg is segmented_traj[0]
             assert str(sub) == ("{?x0:button_type: button:button_type, "
                                 "?x1:potato_type: potato3:potato_type}")
         else:
             assert pnad.option_spec[0].name == "Pick"
             # The demonstrator Picked potato3.
             assert len(pnad.datastore) == 1
-            sub = pnad.datastore[0][1]
+            seg, sub = pnad.datastore[0]
+            assert seg is segmented_traj[1]
             assert str(sub) == "{?x0:potato_type: potato3:potato_type}"
