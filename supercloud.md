@@ -64,16 +64,14 @@ To run our default suite of experiments (will take many hours to complete, we re
 
 Upon running that script, you should see many printouts, such as:
 ```
-Running command: sbatch -p normal --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=pybullet_blocks_nsrt_learning_456.sh -o /tmp/%j_log.out temp_run_file.sh
-Started job, see log with:
-tail -n 10000 -F logs/pybullet_blocks_nsrt_learning_456.log
+Running command: sbatch -p normal --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=cover_oracle --array=456-465 -o logs/cover__oracle__%a______cover_oracle__%j.log temp_run_file.sh
 ```
 
 After experiments are running:
 * To monitor experiments that are running, use `sl`.
-* As indicated by the printouts, to see individual logs, you can use, for example, `logs/pybullet_blocks_nsrt_learning_456.log`.
+* To see individual logs, look in the `logs/` directory.
 * To cancel all jobs, use `scancel -u $USER`.
-* To see a summary of results so far, do `python scripts/analyze_results_directory.py`.
+* To see a summary of results so far, run `python scripts/analyze_results_directory.py`.
 * To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `logs/`, `saved_datasets/`, and `saved_approaches/`.
 
 ## Contributing
