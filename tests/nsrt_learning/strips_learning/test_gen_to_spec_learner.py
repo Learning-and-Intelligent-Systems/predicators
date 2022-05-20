@@ -802,7 +802,7 @@ def test_keep_effect_adding_new_variables():
     ground_atom_traj = utils.create_ground_atom_dataset([traj], predicates)[0]
     segmented_traj = segment_trajectory(ground_atom_traj)
 
-    # Now, run the learner on the four demos.
+    # Now, run the learner on the demo.
     learner = _MockBackchainingSTRIPSLearner([traj], [task],
                                              predicates, [segmented_traj],
                                              verify_harmlessness=True)
@@ -827,6 +827,9 @@ def test_keep_effect_adding_new_variables():
     Option Spec: Pick(?x0:potato_type)"""
     ])
 
+    button_x0 = button_type("?x0")
+    potato_x0 = potato_type("?x0")
+    potato_x1 = potato_type("?x1")
     for pnad in output_pnads:
         assert str(pnad) in correct_pnads
         if pnad.option_spec[0].name == "Press":
@@ -835,12 +838,11 @@ def test_keep_effect_adding_new_variables():
             assert len(pnad.datastore) == 1
             seg, sub = pnad.datastore[0]
             assert seg is segmented_traj[0]
-            assert str(sub) == ("{?x0:button_type: button:button_type, "
-                                "?x1:potato_type: potato3:potato_type}")
+            assert sub == {button_x0: button, potato_x1: potato3}
         else:
             assert pnad.option_spec[0].name == "Pick"
             # The demonstrator Picked potato3.
             assert len(pnad.datastore) == 1
             seg, sub = pnad.datastore[0]
             assert seg is segmented_traj[1]
-            assert str(sub) == "{?x0:potato_type: potato3:potato_type}"
+            assert sub == {potato_x0: potato3}

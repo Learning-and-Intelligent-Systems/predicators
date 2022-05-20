@@ -80,8 +80,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # the PNADs did not change.
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
-                    pnad.poss_keep_effects = set()
-                    pnad.seg_to_keep_effects_sub = {}
+                    pnad.poss_keep_effects.clear()
+                    pnad.seg_to_keep_effects_sub.clear()
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
