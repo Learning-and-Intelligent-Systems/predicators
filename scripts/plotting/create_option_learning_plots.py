@@ -65,6 +65,7 @@ TITLE_ENVS = [
     ("Cover", "cover_multistep_options"),
     ("Stick Button", "stick_button"),
     ("Doors", "doors"),
+    ("Coffee", "coffee"),
 ]
 
 
