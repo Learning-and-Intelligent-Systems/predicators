@@ -65,6 +65,7 @@ TITLE_ENVS = [
     ("PickPlace1D", "cover_multistep_options"),
     ("Stick Button", "stick_button"),
     ("Doors", "doors"),
+    ("Coffee", "coffee"),
 ]
 
 

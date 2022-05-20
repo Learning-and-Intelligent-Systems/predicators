@@ -19,6 +19,7 @@ ENVS=(
     "cover_multistep_options"
     "stick_button"
     "doors"
+    "coffee"
 )
 
 for ENV in ${ENVS[@]}; do
