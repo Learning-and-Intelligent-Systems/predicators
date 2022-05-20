@@ -5,7 +5,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.coffee import CoffeeEnv
-from predicators.src.structs import Action, GroundAtom, Task
+from predicators.src.structs import GroundAtom
 
 
 def test_coffee():
@@ -77,7 +77,7 @@ def test_coffee():
         return [act_arr for _ in range(num_steps)]
 
     # Test picking up the jug.
-    target_x, target_y, target_z = env._get_jug_handle_grasp(state, jug)
+    target_x, target_y, target_z = env._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
     action_arrs = _get_position_action_arrs(state.get(robot, "x"),
                                             state.get(robot, "y"),
                                             state.get(robot, "z"), target_x,
@@ -150,7 +150,7 @@ def test_coffee():
     s = traj.states[-1]
 
     # Test picking up the filled jug.
-    target_x, target_y, target_z = env._get_jug_handle_grasp(s, jug)
+    target_x, target_y, target_z = env._get_jug_handle_grasp(s, jug)  # pylint: disable=protected-access
     move_to_pick_act_arrs = _get_position_action_arrs(s.get(robot, "x"),
                                                       s.get(robot, "y"),
                                                       s.get(robot,
@@ -172,7 +172,7 @@ def test_coffee():
 
     # Test pouring in each of the cups.
     for cup in cups:
-        jug_target_x, jug_target_y, jug_target_z = env._get_pour_position(
+        jug_target_x, jug_target_y, jug_target_z = env._get_pour_position(  # pylint: disable=protected-access
             s, cup)
         target_x = jug_target_x - (s.get(jug, "x") - s.get(robot, "x"))
         target_y = jug_target_y - (s.get(jug, "y") - s.get(robot, "y"))

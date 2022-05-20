@@ -155,7 +155,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
-    coffee_num_cups_test = [3, 4]
+    coffee_num_cups_test = [3, 4, 5, 6]
 
     # parameters for random options approach
     random_options_max_tries = 100
