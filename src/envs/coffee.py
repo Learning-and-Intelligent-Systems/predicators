@@ -409,7 +409,7 @@ class CoffeeEnv(BaseEnv):
         xz_ax.set_xlabel("x")
         xz_ax.set_ylabel("z")
         plt.tight_layout()
-        img = utils.fig2data(fig, dpi=50)  # lower dpi for faster rendering
+        img = utils.fig2data(fig, dpi=CFG.coffee_render_dpi)
         plt.close()
         return [img]
 

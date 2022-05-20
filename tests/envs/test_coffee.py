@@ -5,7 +5,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.coffee import CoffeeEnv
-from predicators.src.structs import GroundAtom
+from predicators.src.structs import Action, GroundAtom
 
 
 def test_coffee():
@@ -13,7 +13,8 @@ def test_coffee():
     utils.reset_config({
         "env": "coffee",
         "coffee_num_cups_test": [4],  # used to assure 4 cups in custom state
-        "video_fps": 10,  # for faster debugging videos
+        "video_fps": 10,  # for faster debugging videos,
+        "coffee_render_dpi": 10,  # increase when debugging
     })
     env = CoffeeEnv()
     for task in env.get_train_tasks():
@@ -22,7 +23,7 @@ def test_coffee():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    # assert len(env.predicates) == 6
+    assert len(env.predicates) == 10
     assert len(env.goal_predicates) == 1
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
@@ -57,6 +58,7 @@ def test_coffee():
     # Reposition the jug just so we know exactly where it is.
     state.set(jug, "x", env.jug_init_x_ub)
     state.set(jug, "y", env.jug_init_y_ub)
+    env.render_state(state, task)
 
     ## Test simulate ##
 
@@ -170,6 +172,13 @@ def test_coffee():
     assert traj.states[-1].get(jug, "is_held") > 0.5
     s = traj.states[-1]
 
+    # Check that an EnvironmentFailure is raised when pouring into nothing.
+    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0]
+    pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
+    with pytest.raises(utils.EnvironmentFailure) as e:
+        env.simulate(s, Action(pour_act_arr))
+    assert "Spilled" in str(e)
+
     # Test pouring in each of the cups.
     for cup in cups:
         jug_target_x, jug_target_y, jug_target_z = env._get_pour_position(  # pylint: disable=protected-access
@@ -184,8 +193,6 @@ def test_coffee():
         target_liquid = state.get(cup, "target_liquid")
         num_pour_steps = int(np.ceil(target_liquid / env.pour_velocity))
         # Start pouring.
-        pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0]
-        pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
         action_arrs.append(pour_act_arr)
         # Keep pouring.
         action_arrs.extend([pour_act_arr for _ in range(num_pour_steps - 1)])
@@ -201,6 +208,15 @@ def test_coffee():
         assert not GroundAtom(CupFilled, [cup]).holds(traj.states[-3])
         assert GroundAtom(CupFilled, [cup]).holds(traj.states[-1])
         s = traj.states[-1]
+        # Render a state where we are in the process of pouring.
+        env.render_state(traj.states[-2], task)
+
+    # Check that an EnvironmentFailure is raised when overfilling a cup.
+    with pytest.raises(utils.EnvironmentFailure) as e:
+        overfill_state = s.copy()
+        for _ in range(10):
+            overfill_state = env.simulate(overfill_state, Action(pour_act_arr))
+    assert "Overfilled cup" in str(e)
 
     # Uncomment for debugging.
     # policy = utils.action_arrs_to_policy(action_arrs)
