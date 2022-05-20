@@ -200,11 +200,16 @@ class CoffeeEnv(BaseEnv):
         machine_was_on = self._MachineOn_holds(state, [self._machine])
         pressing_button = self._PressingButton_holds(
             next_state, [self._robot, self._machine])
+        jug_held = self._Holding_holds(state, [self._robot, self._jug])
         if pressing_button and not machine_was_on:
             next_state.set(self._machine, "is_on", 1.0)
+            # Snap the robot to the center of the button.
+            next_state.set(self._robot, "x", self.button_x)
+            next_state.set(self._robot, "y", self.button_y)
+            next_state.set(self._robot, "z", self.button_z)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
         # If the jug is already held, move its position, and process drops.
-        jug_held = self._Holding_holds(state, [self._robot, self._jug])
-        if jug_held:
+        elif jug_held:
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
                 next_state.set(self._jug, "is_held", 0.0)
@@ -233,6 +238,12 @@ class CoffeeEnv(BaseEnv):
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
             if sq_dist_to_handle < self.grasp_position_tol:
+                # Snap to the handle.
+                handle_x, handle_y, handle_z = handle_pos
+                next_state.set(self._robot, "x", handle_x)
+                next_state.set(self._robot, "y", handle_y)
+                next_state.set(self._robot, "z", handle_z)
+                next_state.set(self._robot, "tilt", self.tilt_lb)
                 # Grasp the jug.
                 next_state.set(self._jug, "is_held", 1.0)
         # If the jug is close enough to the dispense area and the machine is
