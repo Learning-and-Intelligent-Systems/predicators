@@ -131,13 +131,13 @@ class CoffeeEnv(BaseEnv):
             initiable=lambda s, m, o, p: True,
             terminal=self._PickJug_terminal,
         )
-        self._PlaceJugJugInMachine = ParameterizedOption(
-            "PlaceJugJugInMachine",
+        self._PlaceJugInMachine = ParameterizedOption(
+            "PlaceJugInMachine",
             types=[self._robot_type, self._jug_type, self._machine_type],
             params_space=Box(0, 1, (0, )),
-            policy=self._PlaceJugJugInMachine_policy,
+            policy=self._PlaceJugInMachine_policy,
             initiable=lambda s, m, o, p: True,
-            terminal=self._PlaceJugJugInMachine_terminal,
+            terminal=self._PlaceJugInMachine_terminal,
         )
         self._TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
@@ -275,7 +275,7 @@ class CoffeeEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {
-            self._PickJug, self._PlaceJugJugInMachine, self._TurnMachineOn,
+            self._PickJug, self._PlaceJugInMachine, self._TurnMachineOn,
             self._Pour
         }
 
@@ -600,7 +600,7 @@ class CoffeeEnv(BaseEnv):
         robot, jug = objects
         return self._Holding_holds(state, [robot, jug])
 
-    def _PlaceJugJugInMachine_policy(self, state: State, memory: Dict,
+    def _PlaceJugInMachine_policy(self, state: State, memory: Dict,
                                      objects: Sequence[Object],
                                      params: Array) -> Action:
         # This policy picks the jug up slightly above the table to avoid
@@ -626,7 +626,7 @@ class CoffeeEnv(BaseEnv):
         return self._get_move_action((x, y, z + self.max_position_vel),
                                      jug_pos)
 
-    def _PlaceJugJugInMachine_terminal(self, state: State, memory: Dict,
+    def _PlaceJugInMachine_terminal(self, state: State, memory: Dict,
                                        objects: Sequence[Object],
                                        params: Array) -> bool:
         del memory, params  # unused

@@ -256,9 +256,9 @@ def test_coffee():
     assert traj.states[-2].get(jug, "is_held") < 0.5
     assert traj.states[-1].get(jug, "is_held") > 0.5
 
-    # Test PlaceJugJugInMachine.
-    PlaceJugJugInMachine = option_name_to_option["PlaceJugJugInMachine"]
-    option = PlaceJugJugInMachine.ground([robot, jug, machine], [])
+    # Test PlaceJugInMachine.
+    PlaceJugInMachine = option_name_to_option["PlaceJugInMachine"]
+    option = PlaceJugInMachine.ground([robot, jug, machine], [])
     option_plan.append(option)
 
     policy = utils.option_plan_to_policy(option_plan)
