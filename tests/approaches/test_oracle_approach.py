@@ -10,6 +10,7 @@ from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
+from predicators.src.envs.coffee import CoffeeEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.src.envs.doors import DoorsEnv
@@ -44,7 +45,7 @@ ENV_NAME_AND_CLS = [
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
     ("touch_point", TouchPointEnv), ("stick_button", StickButtonEnv),
-    ("doors", DoorsEnv)
+    ("doors", DoorsEnv), ("coffee", CoffeeEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
