@@ -365,9 +365,8 @@ def test_keep_effect_data_partitioning():
                                   lambda s, o: s[o[0]][1] > 0.5)
     MachineRun = Predicate("MachineRun", [machine_type],
                            lambda s, o: s[o[0]][2] > 0.5)
-    predicates = set([
-        MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun
-    ])
+    predicates = {MachineOn, MachineConfigurableWhileOff, MachineConfigured,
+                  MachineRun}
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -528,8 +527,7 @@ def test_combinatorial_keep_effect_data_partitioning():
                            lambda s, o: s[o[0]][2] > 0.5)
     MachineWorking = Predicate("MachineWorking", [machine_type],
                                lambda s, o: s[o[0]][3] > 0.5)
-    predicates = set(
-        [MachineOn, MachineConfigured, MachineRun, MachineWorking])
+    predicates = {MachineOn, MachineConfigured, MachineRun, MachineWorking}
 
     m1 = machine_type("m1")
     m2 = machine_type("m2")
@@ -655,7 +653,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     # Now, run the learner on the four demos.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2, traj3, traj4], [task1, task2, task3, task4],
-        set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
+        predicates,
         segmented_trajs,
         verify_harmlessness=True)
     output_pnads = learner.learn()
@@ -720,7 +718,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     # 3 PNADs for the Configure action.
     learner = _MockBackchainingSTRIPSLearner(
         [traj1, traj2, traj3], [task1, task2, task3],
-        set([MachineOn, MachineConfigured, MachineRun, MachineWorking]),
+        predicates,
         segmented_trajs[:-1],
         verify_harmlessness=True)
     output_pnads = learner.learn()
@@ -740,3 +738,104 @@ def test_combinatorial_keep_effect_data_partitioning():
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
         assert str(pnad) in correct_pnads
+
+
+def test_keep_effect_adding_new_variables():
+    """Test that the BackchainingSTRIPSLearner is able to correctly induce
+    operators when the keep effects must create new variables to ensure
+    harmlessness.
+    """
+    utils.reset_config({"segmenter": "atom_changes"})
+    # Set up the types and predicates.
+    button_type = Type("button_type", ["pressed"])
+    potato_type = Type("potato_type", ["held", "intact"])
+    ButtonPressed = Predicate("ButtonPressed", [button_type],
+                              lambda s, o: s[o[0]][0] > 0.5)
+    PotatoHeld = Predicate("PotatoHeld", [potato_type],
+                           lambda s, o: s[o[0]][0] > 0.5)
+    PotatoIntact = Predicate("PotatoIntact", [potato_type],
+                             lambda s, o: s[o[0]][1] > 0.5)
+    predicates = {ButtonPressed, PotatoHeld, PotatoIntact}
+
+    button = button_type("button")
+    potato1 = potato_type("potato1")
+    potato2 = potato_type("potato2")
+    potato3 = potato_type("potato3")
+
+    # Create states to be used as part of the trajectory.
+    s0 = State({
+        button: [0.0],
+        potato1: [0.0, 1.0],
+        potato2: [0.0, 1.0],
+        potato3: [0.0, 1.0],
+    })
+    s1 = State({
+        button: [1.0],
+        potato1: [0.0, 1.0],
+        potato2: [0.0, 0.0],
+        potato3: [0.0, 1.0],
+    })
+    s2 = State({
+        button: [1.0],
+        potato1: [0.0, 1.0],
+        potato2: [0.0, 0.0],
+        potato3: [1.0, 1.0],
+    })
+
+    # Create the necessary options and actions.
+    press = utils.SingletonParameterizedOption("Press", lambda s, m, o, p: None,
+                                               types=[button_type])
+    Press = press.ground([button], [])
+    press_act = Action([], Press)
+    pick = utils.SingletonParameterizedOption("Pick", lambda s, m, o, p: None,
+                                              types=[potato_type])
+    Pick = pick.ground([potato3], [])
+    pick_act = Action([], Pick)
+
+    # Create the trajectory, goal, and task.
+    traj = LowLevelTrajectory([s0, s1, s2], [press_act, pick_act], True, 0)
+    goal = {ButtonPressed([button]), PotatoHeld([potato3])}
+    task = Task(s0, goal)
+
+    ground_atom_traj = utils.create_ground_atom_dataset([traj], predicates)[0]
+    segmented_traj = segment_trajectory(ground_atom_traj)
+
+    # Now, run the learner on the four demos.
+    learner = _MockBackchainingSTRIPSLearner(
+        [traj], [task], predicates, [segmented_traj], verify_harmlessness=True)
+    output_pnads = learner.learn()
+
+    # Verify that all the output PNADs are correct. The PNAD for Press should
+    # have a keep effect that keeps potato3 intact (in the datastore's sub).
+    assert len(output_pnads) == 2
+    correct_pnads = set([
+        """STRIPS-Press0-KEEP0:
+    Parameters: [?x0:button_type, ?x1:potato_type]
+    Preconditions: [PotatoIntact(?x1:potato_type)]
+    Add Effects: [ButtonPressed(?x0:button_type), PotatoIntact(?x1:potato_type)]
+    Delete Effects: []
+    Side Predicates: [PotatoIntact]
+    Option Spec: Press(?x0:button_type)""", """STRIPS-Pick0:
+    Parameters: [?x0:potato_type]
+    Preconditions: [PotatoIntact(?x0:potato_type)]
+    Add Effects: [PotatoHeld(?x0:potato_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Pick(?x0:potato_type)"""
+    ])
+
+    for pnad in output_pnads:
+        assert str(pnad) in correct_pnads
+        if pnad.option_spec[0].name == "Press":
+            # We need that potato3 in particular is left intact during the
+            # Press, because it needs to be intact for the subsequent Pick.
+            assert len(pnad.datastore) == 1
+            sub = pnad.datastore[0][1]
+            assert str(sub) == ("{?x0:button_type: button:button_type, "
+                                "?x1:potato_type: potato3:potato_type}")
+        else:
+            assert pnad.option_spec[0].name == "Pick"
+            # The demonstrator Picked potato3.
+            assert len(pnad.datastore) == 1
+            sub = pnad.datastore[0][1]
+            assert str(sub) == "{?x0:potato_type: potato3:potato_type}"
