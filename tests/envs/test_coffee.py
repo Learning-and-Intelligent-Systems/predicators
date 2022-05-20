@@ -13,7 +13,7 @@ def test_coffee():
     utils.reset_config({
         "env": "coffee",
         "coffee_num_cups_test": [4],  # used to assure 4 cups in custom state
-        "video_fps": 10,  # for faster debugging videos,
+        "video_fps": 10,  # for faster debugging videos
         "coffee_render_dpi": 10,  # increase when debugging
     })
     env = CoffeeEnv()
@@ -27,7 +27,7 @@ def test_coffee():
     assert len(env.goal_predicates) == 1
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
-    InMachine = pred_name_to_pred["InMachine"]
+    JugInMachine = pred_name_to_pred["JugInMachine"]
     OnTable = pred_name_to_pred["OnTable"]
     NotAboveCup = pred_name_to_pred["NotAboveCup"]
     assert len(env.options) == 4
@@ -256,9 +256,9 @@ def test_coffee():
     assert traj.states[-2].get(jug, "is_held") < 0.5
     assert traj.states[-1].get(jug, "is_held") > 0.5
 
-    # Test PlaceJugInMachine.
-    PlaceJugInMachine = option_name_to_option["PlaceJugInMachine"]
-    option = PlaceJugInMachine.ground([robot, jug, machine], [])
+    # Test PlaceJugJugInMachine.
+    PlaceJugJugInMachine = option_name_to_option["PlaceJugJugInMachine"]
+    option = PlaceJugJugInMachine.ground([robot, jug, machine], [])
     option_plan.append(option)
 
     policy = utils.option_plan_to_policy(option_plan)
@@ -271,7 +271,7 @@ def test_coffee():
         exceptions_to_break_on={utils.OptionExecutionFailure})
     assert traj.states[-2].get(jug, "is_held") > 0.5
     assert traj.states[-1].get(jug, "is_held") < 0.5
-    assert GroundAtom(InMachine, [jug, machine]).holds(traj.states[-1])
+    assert GroundAtom(JugInMachine, [jug, machine]).holds(traj.states[-1])
 
     # Test TurnMachineOn.
     TurnMachineOn = option_name_to_option["TurnMachineOn"]

@@ -101,9 +101,9 @@ class CoffeeEnv(BaseEnv):
         self._Holding = Predicate("Holding",
                                   [self._robot_type, self._jug_type],
                                   self._Holding_holds)
-        self._InMachine = Predicate("InMachine",
-                                    [self._jug_type, self._machine_type],
-                                    self._InMachine_holds)
+        self._JugInMachine = Predicate("JugInMachine",
+                                       [self._jug_type, self._machine_type],
+                                       self._JugInMachine_holds)
         self._MachineOn = Predicate("MachineOn", [self._machine_type],
                                     self._MachineOn_holds)
         self._OnTable = Predicate("OnTable", [self._jug_type],
@@ -131,13 +131,13 @@ class CoffeeEnv(BaseEnv):
             initiable=lambda s, m, o, p: True,
             terminal=self._PickJug_terminal,
         )
-        self._PlaceJugInMachine = ParameterizedOption(
-            "PlaceJugInMachine",
+        self._PlaceJugJugInMachine = ParameterizedOption(
+            "PlaceJugJugInMachine",
             types=[self._robot_type, self._jug_type, self._machine_type],
             params_space=Box(0, 1, (0, )),
-            policy=self._PlaceJugInMachine_policy,
+            policy=self._PlaceJugJugInMachine_policy,
             initiable=lambda s, m, o, p: True,
-            terminal=self._PlaceJugInMachine_terminal,
+            terminal=self._PlaceJugJugInMachine_terminal,
         )
         self._TurnMachineOn = ParameterizedOption(
             "TurnMachineOn",
@@ -236,8 +236,8 @@ class CoffeeEnv(BaseEnv):
                 next_state.set(self._jug, "is_held", 1.0)
         # If the jug is close enough to the dispense area and the machine is
         # on, the jug should get filled.
-        jug_in_machine = self._InMachine_holds(next_state,
-                                               [self._jug, self._machine])
+        jug_in_machine = self._JugInMachine_holds(next_state,
+                                                  [self._jug, self._machine])
         machine_on = self._MachineOn_holds(next_state, [self._machine])
         if jug_in_machine and machine_on:
             next_state.set(self._jug, "is_filled", 1.0)
@@ -256,9 +256,9 @@ class CoffeeEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         return {
-            self._CupFilled, self._InMachine, self._Holding, self._MachineOn,
-            self._OnTable, self._HandEmpty, self._JugFilled, self._AboveCup,
-            self._NotAboveCup, self._PressingButton
+            self._CupFilled, self._JugInMachine, self._Holding,
+            self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
+            self._AboveCup, self._NotAboveCup, self._PressingButton
         }
 
     @property
@@ -275,7 +275,7 @@ class CoffeeEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {
-            self._PickJug, self._PlaceJugInMachine, self._TurnMachineOn,
+            self._PickJug, self._PlaceJugJugInMachine, self._TurnMachineOn,
             self._Pour
         }
 
@@ -490,8 +490,8 @@ class CoffeeEnv(BaseEnv):
         _, jug = objects
         return state.get(jug, "is_held") > 0.5
 
-    def _InMachine_holds(self, state: State,
-                         objects: Sequence[Object]) -> bool:
+    def _JugInMachine_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
         jug, _ = objects
         dispense_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
         x = state.get(jug, "x")
@@ -510,7 +510,7 @@ class CoffeeEnv(BaseEnv):
         jug, = objects
         if self._Holding_holds(state, [self._robot, jug]):
             return False
-        return not self._InMachine_holds(state, [jug, self._machine])
+        return not self._JugInMachine_holds(state, [jug, self._machine])
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -600,9 +600,9 @@ class CoffeeEnv(BaseEnv):
         robot, jug = objects
         return self._Holding_holds(state, [robot, jug])
 
-    def _PlaceJugInMachine_policy(self, state: State, memory: Dict,
-                                  objects: Sequence[Object],
-                                  params: Array) -> Action:
+    def _PlaceJugJugInMachine_policy(self, state: State, memory: Dict,
+                                     objects: Sequence[Object],
+                                     params: Array) -> Action:
         # This policy picks the jug up slightly above the table to avoid
         # worrying about friction, then moves directly to the place position,
         # then places the jug.
@@ -626,13 +626,13 @@ class CoffeeEnv(BaseEnv):
         return self._get_move_action((x, y, z + self.max_position_vel),
                                      jug_pos)
 
-    def _PlaceJugInMachine_terminal(self, state: State, memory: Dict,
-                                    objects: Sequence[Object],
-                                    params: Array) -> bool:
+    def _PlaceJugJugInMachine_terminal(self, state: State, memory: Dict,
+                                       objects: Sequence[Object],
+                                       params: Array) -> bool:
         del memory, params  # unused
         robot, jug, machine = objects
         return not self._Holding_holds(state, [robot, jug]) and \
-            self._InMachine_holds(state, [jug, machine])
+            self._JugInMachine_holds(state, [jug, machine])
 
     def _TurnMachineOn_policy(self, state: State, memory: Dict,
                               objects: Sequence[Object],

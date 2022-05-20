@@ -2326,13 +2326,13 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for CoffeeEnv."""
     robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
         CFG.env, ["robot", "jug", "cup", "machine"])
-    CupFilled, Holding, InMachine, MachineOn, OnTable, HandEmpty, \
+    CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
         JugFilled, AboveCup, NotAboveCup, PressingButton = \
         _get_predicates_by_names(CFG.env, ["CupFilled",
-            "Holding", "InMachine", "MachineOn", "OnTable", "HandEmpty",
+            "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "AboveCup", "NotAboveCup", "PressingButton"])
-    PickJug, PlaceJugInMachine, TurnMachineOn, Pour = _get_options_by_names(
-        CFG.env, ["PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
+    PickJug, PlaceJugJugInMachine, TurnMachineOn, Pour = _get_options_by_names(
+        CFG.env, ["PickJug", "PlaceJugJugInMachine", "TurnMachineOn", "Pour"])
 
     nsrts = set()
 
@@ -2360,25 +2360,25 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
                                     null_sampler)
     nsrts.add(pick_jug_from_table_nsrt)
 
-    # PlaceJugInMachine
+    # PlaceJugJugInMachine
     robot = Variable("?robot", robot_type)
     jug = Variable("?jug", jug_type)
     machine = Variable("?machine", machine_type)
     parameters = [robot, jug, machine]
     option_vars = [robot, jug, machine]
-    option = PlaceJugInMachine
+    option = PlaceJugJugInMachine
     preconditions = {
         LiftedAtom(Holding, [robot, jug]),
     }
     add_effects = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InMachine, [jug, machine]),
+        LiftedAtom(JugInMachine, [jug, machine]),
     }
     delete_effects = {
         LiftedAtom(Holding, [robot, jug]),
     }
     side_predicates = set()
-    place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
+    place_jug_in_machine_nsrt = NSRT("PlaceJugJugInMachine", parameters,
                                      preconditions, add_effects,
                                      delete_effects, side_predicates, option,
                                      option_vars, null_sampler)
@@ -2393,7 +2393,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     option = TurnMachineOn
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InMachine, [jug, machine]),
+        LiftedAtom(JugInMachine, [jug, machine]),
     }
     add_effects = {
         LiftedAtom(JugFilled, [jug]),
@@ -2416,7 +2416,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     option = PickJug
     preconditions = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InMachine, [jug, machine]),
+        LiftedAtom(JugInMachine, [jug, machine]),
         LiftedAtom(PressingButton, [robot, machine]),
     }
     add_effects = {
@@ -2424,7 +2424,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
-        LiftedAtom(InMachine, [jug, machine]),
+        LiftedAtom(JugInMachine, [jug, machine]),
         LiftedAtom(PressingButton, [robot, machine]),
     }
     side_predicates = set()
