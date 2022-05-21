@@ -18,8 +18,8 @@ class CoffeeEnv(BaseEnv):
 
     # Tolerances.
     grasp_finger_tol: ClassVar[float] = 1e-2
-    grasp_position_tol: ClassVar[float] = 1e-1
-    dispense_tol: ClassVar[float] = 1e-1
+    grasp_position_tol: ClassVar[float] = 0.5
+    dispense_tol: ClassVar[float] = 1.0
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
     safe_z_tol: ClassVar[float] = 1e-1
@@ -62,6 +62,7 @@ class CoffeeEnv(BaseEnv):
     jug_handle_x_offset: ClassVar[float] = 0.0
     jug_handle_y_offset: ClassVar[float] = -(1.05 * jug_radius)
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
     dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
@@ -392,7 +393,7 @@ class CoffeeEnv(BaseEnv):
         color = "darkgray"
         circ = utils.Circle(x=handle_x,
                             y=handle_z,
-                            radius=self.grasp_position_tol)
+                            radius=self.jug_handle_radius)
         circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
@@ -757,11 +758,20 @@ class CoffeeEnv(BaseEnv):
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0) -> Action:
+        # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
-        # Normalize.
-        pos_norm = np.linalg.norm(delta)
+        # But we can only move at most max_position_vel in one step.
+        # Get the norm full move delta.
+        pos_norm = float(np.linalg.norm(delta))
+        # If the norm is more than max_position_vel, rescale the delta so that
+        # its norm is max_position_vel.
+        if pos_norm > self.max_position_vel:
+            delta = self.max_position_vel * (delta / pos_norm)
+            pos_norm = self.max_position_vel
+        # Now normalize so that the action values are between -1 and 1, as
+        # expected by simulate and the action space.
         if pos_norm > 0:
-            delta = delta / pos_norm
+            delta = delta / self.max_position_vel
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel
