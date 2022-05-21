@@ -22,9 +22,12 @@ class CoffeeEnv(BaseEnv):
     dispense_tol: ClassVar[float] = 1.0
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
-    safe_z_tol: ClassVar[float] = 1e-1
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
     pick_jug_y_padding: ClassVar[float] = 1.5
+    safe_z_tol: ClassVar[float] = 1e-1
+    pick_policy_tol: ClassVar[float] = 1e-1
+    place_jug_in_machine_tol: ClassVar[float] = 1e-1
+    pour_policy_tol: ClassVar[float] = 1e-1
     # Robot settings.
     x_lb: ClassVar[float] = 0.0
     x_ub: ClassVar[float] = 10.0
@@ -579,7 +582,7 @@ class CoffeeEnv(BaseEnv):
         handle_pos = self._get_jug_handle_grasp(state, jug)
         # If close enough, pick.
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
-        if sq_dist_to_handle < self.grasp_position_tol:
+        if sq_dist_to_handle < self.pick_policy_tol:
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
         target_x, target_y, target_z = handle_pos
@@ -592,11 +595,11 @@ class CoffeeEnv(BaseEnv):
         xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
         # If at the correct x and z position and behind in the y direction,
         # move directly toward the target.
-        if target_y > y and xz_handle_sq_dist < self.grasp_position_tol:
+        if target_y > y and xz_handle_sq_dist < self.pick_policy_tol:
             return self._get_move_action(handle_pos, robot_pos)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
-        if xy_waypoint_sq_dist < self.grasp_position_tol:
+        if xy_waypoint_sq_dist < self.pick_policy_tol:
             return self._get_move_action((target_x, waypoint_y, target_z),
                                          robot_pos)
         # If at a safe height, move to the position above the penultimate
@@ -629,7 +632,7 @@ class CoffeeEnv(BaseEnv):
         place_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
         # If close enough, place.
         sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
-        if sq_dist_to_place < self.dispense_tol:
+        if sq_dist_to_place < self.place_jug_in_machine_tol:
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0],
                                    dtype=np.float32))
         # If already above the table, move directly toward the place pos.
@@ -694,7 +697,7 @@ class CoffeeEnv(BaseEnv):
         pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
         # If we're close enough to the pour position, pour.
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-        if sq_dist_to_pour < self.pour_pos_tol:
+        if sq_dist_to_pour < self.pour_policy_tol:
             dtilt = pour_tilt - tilt
             return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
         dtilt = move_tilt - tilt
