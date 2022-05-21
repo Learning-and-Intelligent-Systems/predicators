@@ -85,7 +85,7 @@ class CoffeeEnv(BaseEnv):
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
-    max_position_vel: ClassVar[float] = 0.5
+    max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
 
