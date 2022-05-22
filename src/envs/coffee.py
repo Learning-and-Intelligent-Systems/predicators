@@ -539,6 +539,8 @@ class CoffeeEnv(BaseEnv):
     def _JugInMachine_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
         jug, _ = objects
+        if self._Holding_holds(state, [self._robot, jug]):
+            return False
         dispense_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
         x = state.get(jug, "x")
         y = state.get(jug, "y")
