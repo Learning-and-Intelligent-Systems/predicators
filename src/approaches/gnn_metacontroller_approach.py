@@ -206,8 +206,12 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             if not opt.initiable(state):
                 # The option is not initiable. Continue on to the next sample.
                 continue
-            next_state, _ = self._option_model.get_next_state_and_num_actions(
-                state, opt)
+            try:
+                next_state, _ = \
+                    self._option_model.get_next_state_and_num_actions(state,
+                                                                      opt)
+            except utils.EnvironmentFailure:
+                continue
             expected_next_atoms = utils.apply_operator(ground_nsrt, atoms)
             if not all(a.holds(next_state) for a in expected_next_atoms):
                 # Some expected atom is not achieved. Continue on to the
