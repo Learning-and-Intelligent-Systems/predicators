@@ -589,6 +589,8 @@ class CoffeeEnv(BaseEnv):
     def _NotAboveCup_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
         robot, jug = objects
+        assert robot == self._robot
+        assert jug == self._jug
         for cup in state.get_objects(self._cup_type):
             if self._robot_jug_above_cup(state, cup):
                 return False
