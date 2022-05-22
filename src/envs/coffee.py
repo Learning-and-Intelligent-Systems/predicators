@@ -236,16 +236,19 @@ class CoffeeEnv(BaseEnv):
                     if new_liquid > state.get(cup, "capacity_liquid"):
                         raise utils.EnvironmentFailure("Overfilled cup.")
                     next_state.set(cup, "current_liquid", new_liquid)
-                    # If successfully poured, prevent movement.
+                    # If successfully poured, prevent movement and dropping.
                     next_state.set(self._robot, "x", robot_x)
                     next_state.set(self._robot, "y", robot_y)
                     next_state.set(self._robot, "z", robot_z)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
                 # Move the jug.
                 else:
                     new_jug_x = state.get(self._jug, "x") + dx
                     new_jug_y = state.get(self._jug, "y") + dy
                     next_state.set(self._jug, "x", new_jug_x)
                     next_state.set(self._jug, "y", new_jug_y)
+                    next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
