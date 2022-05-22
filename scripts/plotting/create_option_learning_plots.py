@@ -76,8 +76,8 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
 
 PLOT_GROUPS = {
     title: [
-        ("Oracle Options", "black", "*",
-         partial(_select_data, env, "oracle_options")),
+        # ("Oracle Options", "black", "*",
+        #  partial(_select_data, env, "oracle_options")),
         ("Ours", "darkgreen", "o", partial(_select_data, env, "main")),
         ("Ours (Nonparam)", "darkorange", "o",
          partial(_select_data, env, "direct_bc_nonparam")),
