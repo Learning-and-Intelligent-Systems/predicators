@@ -485,8 +485,6 @@ class CoffeeEnv(BaseEnv):
                             break
                     else:
                         # Failed to sample a position for the cup.
-                        collision_geoms.clear()
-                        cup_state_dict.clear()
                         break
                     collision_geoms.add(gm)
                     # Sample a cup capacity, which also defines its height.
@@ -506,7 +504,11 @@ class CoffeeEnv(BaseEnv):
                 else:
                     # We made it through without breaking, so we're done.
                     assert len(cup_state_dict) == len(cups)
-                    break
+                    # It is very rare that this while True loop fails on the
+                    # first try, but it can happen. It doesn't happen during
+                    # normal testing, so coverage complains (because the case
+                    # where this else block is not hit is not covered).
+                    break  # pragma: no cover
             state_dict.update(cup_state_dict)
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
