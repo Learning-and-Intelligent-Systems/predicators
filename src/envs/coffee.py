@@ -181,9 +181,12 @@ class CoffeeEnv(BaseEnv):
         dtilt = norm_dtilt * self.max_angular_vel
         dfingers = norm_dfingers * self.max_finger_vel
         # Apply changes to the robot, taking bounds into account.
-        x = np.clip(state.get(self._robot, "x") + dx, self.x_lb, self.x_ub)
-        y = np.clip(state.get(self._robot, "y") + dy, self.y_lb, self.y_ub)
-        z = np.clip(state.get(self._robot, "z") + dz, self.z_lb, self.z_ub)
+        robot_x = state.get(self._robot, "x")
+        robot_y = state.get(self._robot, "y")
+        robot_z = state.get(self._robot, "z")
+        x = np.clip(robot_x + dx, self.x_lb, self.x_ub)
+        y = np.clip(robot_y + dy, self.y_lb, self.y_ub)
+        z = np.clip(robot_z + dz, self.z_lb, self.z_ub)
         current_tilt = state.get(self._robot, "tilt")
         tilt = np.clip(current_tilt + dtilt, self.tilt_lb, self.tilt_ub)
         current_fingers = state.get(self._robot, "fingers")
@@ -219,10 +222,6 @@ class CoffeeEnv(BaseEnv):
                 next_state.set(self._jug, "is_held", 0.0)
             # Otherwise, move it, and process pouring.
             else:
-                new_jug_x = state.get(self._jug, "x") + dx
-                new_jug_y = state.get(self._jug, "y") + dy
-                next_state.set(self._jug, "x", new_jug_x)
-                next_state.set(self._jug, "y", new_jug_y)
                 # Check for pouring.
                 if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
@@ -237,6 +236,16 @@ class CoffeeEnv(BaseEnv):
                     if new_liquid > state.get(cup, "capacity_liquid"):
                         raise utils.EnvironmentFailure("Overfilled cup.")
                     next_state.set(cup, "current_liquid", new_liquid)
+                    # If successfully poured, prevent movement.
+                    next_state.set(self._robot, "x", robot_x)
+                    next_state.set(self._robot, "y", robot_y)
+                    next_state.set(self._robot, "z", robot_z)
+                # Move the jug.
+                else:
+                    new_jug_x = state.get(self._jug, "x") + dx
+                    new_jug_y = state.get(self._jug, "y") + dy
+                    next_state.set(self._jug, "x", new_jug_x)
+                    next_state.set(self._jug, "y", new_jug_y)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
