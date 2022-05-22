@@ -70,7 +70,8 @@ TITLE_ENVS = [
 
 
 def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
-    return df["EXPERIMENT_ID"].apply(lambda v: f"{env}_{approach}_" in v)
+    return df["EXPERIMENT_ID"].apply(
+        lambda v: v.startswith(f"{env}_{approach}_"))
 
 
 PLOT_GROUPS = {
@@ -82,6 +83,11 @@ PLOT_GROUPS = {
          partial(_select_data, env, "direct_bc_nonparam")),
         ("GNN Metacontroller (Param)", "blue", "o",
          partial(_select_data, env, "gnn_metacontroller_param")),
+        # ("GNN Metacontroller Param, Test # Objs", "blue", "o",
+        #  partial(_select_data, env, "gnn_metacontroller_param")),
+        # ("GNN Metacontroller Param, Train # Objs", "gold", "*",
+        #  partial(_select_data, "train_objs_" + env,
+        #          "gnn_metacontroller_param")),
         ("GNN Metacontroller (Nonparam)", "purple", "o",
          partial(_select_data, env, "gnn_metacontroller_nonparam")),
         # ("GNN Action Policy", "gold", "o",
