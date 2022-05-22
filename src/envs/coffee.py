@@ -453,7 +453,8 @@ class CoffeeEnv(BaseEnv):
             cups = [Object(f"cup{i}", self._cup_type) for i in range(num_cups)]
             # TODO change back
             # goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
-            goal = {GroundAtom(self._JugInMachine, [self._jug, self._machine])}
+            goal = {GroundAtom(self._JugInMachine, [self._jug, self._machine]),
+                    GroundAtom(self._MachineOn, [self._machine])}
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
             radius = self.cup_radius + self.init_padding
