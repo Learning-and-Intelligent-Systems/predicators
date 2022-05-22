@@ -454,32 +454,48 @@ class CoffeeEnv(BaseEnv):
             goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
-            collision_geoms: Set[utils.Circle] = set()
             radius = self.cup_radius + self.init_padding
-            for cup in cups:
-                # Assuming that the dimensions are forgiving enough that
-                # infinite loops are impossible.
-                while True:
-                    x = rng.uniform(self.cup_init_x_lb, self.cup_init_x_ub)
-                    y = rng.uniform(self.cup_init_y_lb, self.cup_init_y_ub)
-                    geom = utils.Circle(x, y, radius)
-                    # Keep only if no intersections with existing objects.
-                    if not any(geom.intersects(g) for g in collision_geoms):
+            # Assuming that the dimensions are forgiving enough that
+            # infinite loops are impossible.
+            while True:
+                collision_geoms: Set[utils.Circle] = set()
+                cup_state_dict: Dict[Object, Dict[str, float]] = {}
+                for cup in cups:
+                    # Try to sample a position for the cup. If sampling does
+                    # not quickly succeed, throw out the whole set of cup
+                    # positions and start over.
+                    for _ in range(10):
+                        x = rng.uniform(self.cup_init_x_lb, self.cup_init_x_ub)
+                        y = rng.uniform(self.cup_init_y_lb, self.cup_init_y_ub)
+                        gm = utils.Circle(x, y, radius)
+                        # Keep only if no intersections with existing objects.
+                        if not any(gm.intersects(g) for g in collision_geoms):
+                            break
+                    else:
+                        # Failed to sample a position for the cup.
+                        collision_geoms.clear()
+                        cup_state_dict.clear()
                         break
-                collision_geoms.add(geom)
-                # Sample a cup capacity, which also defines the cup's height.
-                cap = rng.uniform(self.cup_capacity_lb, self.cup_capacity_ub)
-                # Target liquid amount for filling the cup.
-                target = cap * self.cup_target_frac
-                # The initial liquid amount is always 0.
-                current = 0.0
-                state_dict[cup] = {
-                    "x": x,
-                    "y": y,
-                    "capacity_liquid": cap,
-                    "target_liquid": target,
-                    "current_liquid": current,
-                }
+                    collision_geoms.add(gm)
+                    # Sample a cup capacity, which also defines its height.
+                    cap = rng.uniform(self.cup_capacity_lb,
+                                      self.cup_capacity_ub)
+                    # Target liquid amount for filling the cup.
+                    target = cap * self.cup_target_frac
+                    # The initial liquid amount is always 0.
+                    current = 0.0
+                    cup_state_dict[cup] = {
+                        "x": x,
+                        "y": y,
+                        "capacity_liquid": cap,
+                        "target_liquid": target,
+                        "current_liquid": current,
+                    }
+                else:
+                    # We made it through without breaking, so we're done.
+                    assert len(cup_state_dict) == len(cups)
+                    break
+            state_dict.update(cup_state_dict)
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
