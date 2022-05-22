@@ -45,7 +45,7 @@ for ENV in ${ENVS[@]}; do
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load_experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --experiment_id ${ENV}_direct_bc_max_samp1_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc --sesame_max_samples_per_step 1 --load_a --load_d
 
             # GNN metacontroller with direct BC options, with TRAIN number of objects
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load_experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --experiment_id train_objs_${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc --load_a --load_d --stick_button_num_buttons_test "[1,2]" --coffee_num_cups_test "[1,2]"
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load_experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --experiment_id train_objs_${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc --load_a --load_d --stick_button_num_buttons_test "[1,2]" --coffee_num_cups_test "[1,2]"
 
         else
             # nsrt learning (oracle operators and options)
