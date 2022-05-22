@@ -117,9 +117,12 @@ class CoffeeEnv(BaseEnv):
                                     self._HandEmpty_holds)
         self._JugFilled = Predicate("JugFilled", [self._jug_type],
                                     self._JugFilled_holds)
-        self._AboveCup = Predicate(
-            "AboveCup", [self._robot_type, self._jug_type, self._cup_type],
-            self._AboveCup_holds)
+        self._RobotAboveCup = Predicate("RobotAboveCup",
+                                        [self._robot_type, self._cup_type],
+                                        self._RobotAboveCup_holds)
+        self._JugAboveCup = Predicate("JugAboveCup",
+                                      [self._jug_type, self._cup_type],
+                                      self._JugAboveCup_holds)
         self._NotAboveCup = Predicate("NotAboveCup",
                                       [self._robot_type, self._jug_type],
                                       self._NotAboveCup_holds)
@@ -286,7 +289,8 @@ class CoffeeEnv(BaseEnv):
         return {
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
-            self._AboveCup, self._NotAboveCup, self._PressingButton
+            self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
+            self._PressingButton
         }
 
     @property
@@ -570,23 +574,23 @@ class CoffeeEnv(BaseEnv):
         jug, = objects
         return state.get(jug, "is_filled") > 0.5
 
-    def _AboveCup_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        robot, jug, cup = objects
-        if not self._Holding_holds(state, [robot, jug]):
-            return False
-        jug_x = state.get(jug, "x")
-        jug_y = state.get(jug, "y")
-        jug_z = state.get(robot, "z") - self.jug_handle_height
-        jug_pos = (jug_x, jug_y, jug_z)
-        pour_pos = self._get_pour_position(state, cup)
-        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-        return sq_dist_to_pour < self.pour_pos_tol
+    def _RobotAboveCup_holds(self, state: State,
+                             objects: Sequence[Object]) -> bool:
+        robot, cup = objects
+        assert robot == self._robot
+        return self._robot_jug_above_cup(state, cup)
+
+    def _JugAboveCup_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
+        jug, cup = objects
+        assert jug == self._jug
+        return self._robot_jug_above_cup(state, cup)
 
     def _NotAboveCup_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
         robot, jug = objects
         for cup in state.get_objects(self._cup_type):
-            if self._AboveCup_holds(state, [robot, jug, cup]):
+            if self._robot_jug_above_cup(state, cup):
                 return False
         return True
 
@@ -752,6 +756,17 @@ class CoffeeEnv(BaseEnv):
         del memory, params  # unused
         _, _, cup = objects
         return self._CupFilled_holds(state, [cup])
+
+    def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
+        if not self._Holding_holds(state, [self._robot, self._jug]):
+            return False
+        jug_x = state.get(self._jug, "x")
+        jug_y = state.get(self._jug, "y")
+        jug_z = state.get(self._robot, "z") - self.jug_handle_height
+        jug_pos = (jug_x, jug_y, jug_z)
+        pour_pos = self._get_pour_position(state, cup)
+        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+        return sq_dist_to_pour < self.pour_pos_tol
 
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
