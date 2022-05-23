@@ -19,13 +19,12 @@ class CoffeeEnv(BaseEnv):
     # Tolerances.
     grasp_finger_tol: ClassVar[float] = 1e-2
     grasp_position_tol: ClassVar[float] = 0.5
-    twist_wrist_tol: ClassVar[float] = 1e-1
     dispense_tol: ClassVar[float] = 1.0
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
     pick_jug_y_padding: ClassVar[float] = 1.5
-    pick_jug_rot_tol: ClassVar[float] = np.pi / 2
+    pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-1
     twist_policy_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
@@ -92,7 +91,6 @@ class CoffeeEnv(BaseEnv):
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
-    max_wrist_vel: ClassVar[float] = np.pi
     max_finger_vel: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
@@ -205,7 +203,7 @@ class CoffeeEnv(BaseEnv):
         dy = norm_dy * self.max_position_vel
         dz = norm_dz * self.max_position_vel
         dtilt = norm_dtilt * self.max_angular_vel
-        dwrist = norm_dwrist * self.max_wrist_vel
+        dwrist = norm_dwrist * self.max_angular_vel
         dfingers = norm_dfingers * self.max_finger_vel
         # Apply changes to the robot, taking bounds into account.
         robot_x = state.get(self._robot, "x")
@@ -300,7 +298,7 @@ class CoffeeEnv(BaseEnv):
             # Grasp the jug.
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
-        elif self._robot_at_twist_pos(state, self._robot, self._jug):
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
             # Rotate the jug.
             rot = state.get(self._jug, "rot")
             next_state.set(self._jug, "rot", rot + dwrist)
@@ -613,11 +611,20 @@ class CoffeeEnv(BaseEnv):
 
     def _Twisting_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, jug = objects
-        # Twist only holds if the robot's wrist is not straight.
-        wrist = state.get(robot, "wrist")
-        if abs(wrist - self.robot_init_wrist) < self.twist_wrist_tol:
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
+        jug_top = (jug_x, jug_y, self.jug_height)
+        # To prevent false positives, if the distance to the handle is less
+        # than the distance to the jug top, we are not twisting.
+        handle_pos = self._get_jug_handle_grasp(state, jug)
+        sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
+        sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
+        if sq_dist_to_handle < sq_dist_to_jug_top:
             return False
-        return self._robot_at_twist_pos(state, robot, jug)
+        return sq_dist_to_jug_top < self.grasp_position_tol
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
@@ -666,7 +673,7 @@ class CoffeeEnv(BaseEnv):
     def _TwistJug_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
         # This policy moves the robot to above the jug, then moves down in the
-        # z direction, then applies a twist to reach the desired rotation.
+        # z direction, then applies twists to reach the desired rotation.
         del memory  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -683,9 +690,9 @@ class CoffeeEnv(BaseEnv):
             current_rot = state.get(jug, "rot")
             norm_desired_rot, = params
             desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
-            delta_rot = np.clip(desired_rot - current_rot, -self.max_wrist_vel,
-                                self.max_wrist_vel)
-            dtwist = delta_rot / self.max_wrist_vel
+            delta_rot = np.clip(desired_rot - current_rot,
+                                -self.max_angular_vel, self.max_angular_vel)
+            dtwist = delta_rot / self.max_angular_vel
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
@@ -698,9 +705,12 @@ class CoffeeEnv(BaseEnv):
 
     def _TwistJug_terminal(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
-        del memory, params  # unused
-        robot, jug = objects
-        return self._Twisting_holds(state, [robot, jug])
+        del memory  # unused
+        _, jug = objects
+        current_rot = state.get(jug, "rot")
+        norm_desired_rot, = params
+        desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
+        return abs(current_rot - desired_rot) < self.twist_policy_tol
 
     def _PickJug_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
@@ -866,23 +876,6 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         return sq_dist_to_pour < self.pour_pos_tol
 
-    def _robot_at_twist_pos(self, state: State, robot: Object,
-                            jug: Object) -> bool:
-        x = state.get(robot, "x")
-        y = state.get(robot, "y")
-        z = state.get(robot, "z")
-        jug_x = state.get(jug, "x")
-        jug_y = state.get(jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height)
-        # To prevent false positives, if the distance to the handle is less
-        # than the distance to the jug top, we are not twisting.
-        handle_pos = self._get_jug_handle_grasp(state, jug)
-        sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
-        sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
-        if sq_dist_to_handle < sq_dist_to_jug_top:
-            return False
-        return sq_dist_to_jug_top < self.grasp_position_tol
-
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
@@ -924,7 +917,8 @@ class CoffeeEnv(BaseEnv):
     def _get_move_action(self,
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
-                         dtilt: float = 0.0) -> Action:
+                         dtilt: float = 0.0,
+                         dwrist: float = 0.0) -> Action:
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -942,5 +936,5 @@ class CoffeeEnv(BaseEnv):
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel
-        return Action(np.array([dx, dy, dz, dtilt, 0.0, 0.0],
-                               dtype=np.float32))
+        return Action(
+            np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
