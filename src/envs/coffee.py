@@ -131,6 +131,9 @@ class CoffeeEnv(BaseEnv):
         self._NotAboveCup = Predicate("NotAboveCup",
                                       [self._robot_type, self._jug_type],
                                       self._NotAboveCup_holds)
+        self._Twisting = Predicate("Twisting",
+                                   [self._robot_type, self._jug_type],
+                                   self._Twisting_holds)
         self._PressingButton = Predicate(
             "PressingButton", [self._robot_type, self._machine_type],
             self._PressingButton_holds)
@@ -232,11 +235,7 @@ class CoffeeEnv(BaseEnv):
         # Get jug state info for later checks.
         handle_pos = self._get_jug_handle_grasp(state, self._jug)
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
-        jug_x = state.get(self._jug, "x")
-        jug_y = state.get(self._jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height)
         jug_rot = state.get(self._jug, "rot")
-        sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
         # Check if the button should be pressed for the first time.
         machine_was_on = self._MachineOn_holds(state, [self._machine])
         pressing_button = self._PressingButton_holds(
@@ -299,7 +298,7 @@ class CoffeeEnv(BaseEnv):
             # Grasp the jug.
             next_state.set(self._jug, "is_held", 1.0)
         # Check if the jug should be rotated.
-        elif sq_dist_to_jug_top < self.grasp_position_tol:
+        elif self._Twisting_holds(state, [self._robot, self._jug]):
             # Rotate the jug.
             rot = state.get(self._jug, "rot")
             next_state.set(self._jug, "rot", rot + dwrist)
@@ -328,7 +327,7 @@ class CoffeeEnv(BaseEnv):
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
             self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
-            self._PressingButton
+            self._PressingButton, self._Twisting
         }
 
     @property
@@ -610,9 +609,28 @@ class CoffeeEnv(BaseEnv):
             return False
         return not self._JugInMachine_holds(state, [jug, self._machine])
 
+    def _Twisting_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        robot, jug = objects
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
+        jug_x = state.get(self._jug, "x")
+        jug_y = state.get(self._jug, "y")
+        jug_top = (jug_x, jug_y, self.jug_height)
+        # To prevent false positives, if the distance to the handle is less
+        # than the distance to the jug top, we are not twisting.
+        handle_pos = self._get_jug_handle_grasp(state, self._jug)
+        sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
+        sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
+        if sq_dist_to_handle < sq_dist_to_jug_top:
+            return False
+        return sq_dist_to_jug_top < self.grasp_position_tol
+
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
         robot, = objects
+        if self._Twisting_holds(state, [robot, self._jug]):
+            return False
         return not self._Holding_holds(state, [robot, self._jug])
 
     @staticmethod
@@ -653,7 +671,7 @@ class CoffeeEnv(BaseEnv):
         return sq_dist_to_button < self.button_radius
 
     def _TwistJug_policy(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> Action:
+                         objects: Sequence[Object], params: Array) -> Action:
         # This policy moves the robot to a safe height, then moves to above
         # the jug in the z direction, then moves down in the z direction,
         # then applies twist actions to reach the desired rotation.
@@ -676,7 +694,8 @@ class CoffeeEnv(BaseEnv):
             delta_rot = np.clip(desired_rot - current_rot,
                                 -self.max_angular_vel, self.max_angular_vel)
             dtwist = delta_rot / self.max_angular_vel
-            return Action(np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+            return Action(
+                np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
         safe_z_sq_dist = (self.robot_init_z - z)**2
         # If at the correct x and y position, move directly toward the target.

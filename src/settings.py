@@ -155,7 +155,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
-    coffee_num_cups_test = [3, 4, 5, 6]
+    coffee_num_cups_test = [3, 4]
     coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
@@ -384,9 +384,9 @@ class GlobalSettings:
             sesame_max_skeletons_optimized=defaultdict(
                 lambda: 8,
                 {
-                    # For the tools environment, allow more skeletons.
+                    # For these environments, allow more skeletons.
+                    "coffee": 1000,
                     "tools": 1000,
-                    # For the stick button environment, allow more skeletons.
                     "stick_button": 1000,
                 })[args.get("env", "")],
 
