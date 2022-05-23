@@ -112,8 +112,9 @@ def test_cover():
             assert sum(
                 task.init.get(obj, "grasp") != -1 for obj in task.init
                 if obj.type.name == "block") == 1
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError) as e:
         env.get_event_to_action_fn()
+    assert "did not implement an interface for human demonstrations" in str(e)
 
 
 def test_cover_typed_options():

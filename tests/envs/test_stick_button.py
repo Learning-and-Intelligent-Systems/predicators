@@ -68,7 +68,7 @@ def test_stick_button():
     # Test interface for collecting human demonstrations.
     event_to_action = env.get_event_to_action_fn()
     fig = plt.figure()
-    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "x")
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "down")
     assert isinstance(event_to_action(state, event), Action)
     event = matplotlib.backend_bases.MouseEvent("test",
                                                 fig.canvas,

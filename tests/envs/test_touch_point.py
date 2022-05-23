@@ -57,7 +57,7 @@ def test_touch_point():
     # Test interface for collecting human demonstrations.
     event_to_action = env.get_event_to_action_fn()
     fig = plt.figure()
-    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "x")
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "down")
     with pytest.raises(AssertionError) as e:
         event_to_action(state, event)
     assert "Keyboard controls not allowed" in str(e)
