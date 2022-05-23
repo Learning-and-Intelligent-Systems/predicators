@@ -119,6 +119,9 @@ def test_pybullet_blocks_reset(env):
     task = env.get_train_tasks()[0]
     with pytest.raises(NotImplementedError):
         env.render_state(state, task, action)
+    with pytest.raises(NotImplementedError) as e:
+        env.render_state_plt(state, task, action)
+    assert "This env does not use Matplotlib" in str(e)
 
 
 def test_pybullet_blocks_picking(env):

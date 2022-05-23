@@ -24,11 +24,11 @@ from typing import TypeVar, Union, cast
 
 import imageio
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
 from gym.spaces import Box
 from matplotlib import patches
-from matplotlib import pyplot as plt
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -2062,7 +2062,7 @@ class VideoMonitor(Monitor):
     because the environment should use its current internal state to
     render.
     """
-    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
+    _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
@@ -2082,7 +2082,7 @@ class SimulateVideoMonitor(Monitor):
     opposed to VideoMonitor, which is meant for use with run_policy.
     """
     _task: Task
-    _render_state_fn: Callable[[State, Task, Optional[Action]], List[Image]]
+    _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:

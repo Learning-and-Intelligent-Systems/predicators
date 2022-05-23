@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -9,7 +10,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -97,11 +98,12 @@ class TouchPointEnv(BaseEnv):
         # An angle in radians.
         return Box(-np.pi, np.pi, (1, ))
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         robot_color = "red"
         target_color = "blue"
@@ -121,9 +123,7 @@ class TouchPointEnv(BaseEnv):
             title += f";\n{caption}"
         plt.suptitle(title, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         # There is only one goal in this environment.
