@@ -11,8 +11,8 @@ from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.option_model import _OracleOptionModel, \
-    create_option_model
+from predicators.src.option_model import _OptionModelBase, \
+    _OracleOptionModel, create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan, task_plan, task_plan_grounding
 from predicators.src.settings import CFG
@@ -176,6 +176,33 @@ def test_sesame_plan_failures():
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
             max_horizon=0)
+
+    # Test that no plan is found when all of the options appear to terminate
+    # immediately, under the option model.
+
+    class _MockOptionModel(_OptionModelBase):
+        """A mock option model that raises an EnvironmentFailure."""
+
+        def __init__(self, simulator):
+            self._simulator = simulator
+
+        def get_next_state_and_num_actions(self, state, option):
+            return state, 0
+
+    option_model = _MockOptionModel(env.simulate)
+    with pytest.raises(PlanningFailure):
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            max_skeletons_optimized=1,
+            max_horizon=CFG.horizon)
+
     # Test for dr-reachability.
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(PlanningFailure):
