@@ -22,9 +22,9 @@ from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, \
-    LiftedAtom, Object, ParameterizedOption, PDDLProblemGenerator, Predicate, \
-    State, STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
+from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
+    Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
+    STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                Base Classes                                 #

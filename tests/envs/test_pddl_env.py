@@ -167,7 +167,7 @@ def test_pddlenv(domain_str, problem_strs):
     with pytest.raises(NotImplementedError):
         env.render_state(state, test_task)
     with pytest.raises(NotImplementedError) as e:
-        env.render_state_plt(state, task, action)
+        env.render_state_plt(state, test_task)
     assert "This env does not use Matplotlib" in str(e)
     inapplicable_option = eat_option.ground([fish1, ban1], [])
     assert not inapplicable_option.initiable(state)
