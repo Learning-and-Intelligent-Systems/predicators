@@ -98,16 +98,15 @@ def test_coffee():
                                             state.get(robot, "y"),
                                             state.get(robot, "z"), target_x,
                                             target_y, target_z)
-    num_twists = 2
     twist_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0], dtype=np.float32)
-    action_arrs.extend([twist_act_arr for _ in range(num_twists)])
+    action_arrs.append(twist_act_arr)
     policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            state,
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
-    twist_amt = num_twists * env.max_angular_vel
+    twist_amt = env.max_wrist_vel
     assert abs(traj.states[-1].get(jug, "rot") - twist_amt) < 1e-6
     s = traj.states[-1]
 
