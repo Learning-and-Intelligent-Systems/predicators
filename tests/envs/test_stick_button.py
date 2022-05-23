@@ -1,5 +1,7 @@
 """Test cases for the stick button environment."""
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
@@ -63,6 +65,22 @@ def test_stick_button():
     task = Task(state, task.goal)
     env.render_state(state, task)
     assert GroundAtom(AboveNoButton, []).holds(state)
+    # Test interface for collecting human demonstrations.
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "x")
+    assert isinstance(event_to_action(state, event), Action)
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=1.0,
+                                                y=2.0)
+    with pytest.raises(AssertionError) as e:
+        event_to_action(state, event)
+    assert "Out-of-bounds click" in str(e)
+    event.xdata = event.x
+    event.ydata = event.y
+    assert isinstance(event_to_action(state, event), Action)
+    plt.close()
 
     ## Test simulate ##
 

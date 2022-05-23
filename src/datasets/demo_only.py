@@ -29,7 +29,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             train_tasks,
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
-    else:
+    else:  # pragma: no cover
         # Disable all built-in keyboard shortcuts.
         keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
         for k in keymaps:
@@ -59,7 +59,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 # hit, which should only happen when the goal has been
                 # reached, as verified by the assertion later.
                 termination_function = lambda s: False
-            else:
+            else:  # pragma: no cover
                 policy = functools.partial(_human_demonstrator_policy, env,
                                            idx, num_tasks, task,
                                            event_to_action)
@@ -86,7 +86,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         if not task.goal_holds(traj.states[-1]):  # pragma: no cover
             logging.warning("WARNING: Oracle failed on training task.")
             continue
-        if CFG.demonstrator == "human":
+        if CFG.demonstrator == "human":  # pragma: no cover
             logging.info("Successfully collected human demonstration of "
                          f"length {len(traj.states)} for task {idx+1} / "
                          f"{num_tasks}.")
@@ -115,7 +115,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
                                task: Task, event_to_action: Callable[
                                    [State, matplotlib.backend_bases.Event],
-                                   Action], state: State) -> Action:
+                                   Action],
+                               state: State) -> Action:  # pragma: no cover
     # Change the backend to one that supports a GUI.
     cur_backend = matplotlib.get_backend()
     matplotlib.use("Qt5Agg")

@@ -1,6 +1,9 @@
 """Test cases for the touch point environment."""
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from predicators.src import utils
 from predicators.src.envs.touch_point import TouchPointEnv
@@ -51,3 +54,21 @@ def test_touch_point():
     assert abs(state.get(robot, "y") - (0.1 + act_mag)) < 1e-7
     state.set(robot, "y", 0.9 - TouchPointEnv.action_magnitude)
     assert goal_atom.holds(state)
+    # Test interface for collecting human demonstrations.
+    event_to_action = env.get_event_to_action_fn()
+    fig = plt.figure()
+    event = matplotlib.backend_bases.KeyEvent("test", fig.canvas, "x")
+    with pytest.raises(AssertionError) as e:
+        event_to_action(state, event)
+    assert "Keyboard controls not allowed" in str(e)
+    event = matplotlib.backend_bases.MouseEvent("test",
+                                                fig.canvas,
+                                                x=1.0,
+                                                y=2.0)
+    with pytest.raises(AssertionError) as e:
+        event_to_action(state, event)
+    assert "Out-of-bounds click" in str(e)
+    event.xdata = event.x
+    event.ydata = event.y
+    assert isinstance(event_to_action(state, event), Action)
+    plt.close()

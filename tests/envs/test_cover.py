@@ -112,6 +112,8 @@ def test_cover():
             assert sum(
                 task.init.get(obj, "grasp") != -1 for obj in task.init
                 if obj.type.name == "block") == 1
+    with pytest.raises(NotImplementedError):
+        env.get_event_to_action_fn()
 
 
 def test_cover_typed_options():
