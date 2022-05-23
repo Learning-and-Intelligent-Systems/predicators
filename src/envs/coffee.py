@@ -686,7 +686,7 @@ class CoffeeEnv(BaseEnv):
                                objects: Sequence[Object],
                                params: Array) -> Action:
         # This policy moves the robot to above the jug, then moves down.
-        del memory  # unused
+        del memory, params  # unused
         robot, jug = objects
         x = state.get(robot, "x")
         y = state.get(robot, "y")
@@ -735,7 +735,7 @@ class CoffeeEnv(BaseEnv):
 
     def _TwistJug_terminal(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
-        del memory  # unused
+        del memory, params  # unused
         robot, _ = objects
         return self._HandEmpty_holds(state, [robot])
 
