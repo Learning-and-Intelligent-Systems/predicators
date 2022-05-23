@@ -2,7 +2,7 @@
 
 import functools
 import logging
-from typing import List, Set
+from typing import Callable, List, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,6 +29,14 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             train_tasks,
             task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
             max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+    else:
+        # Disable all built-in keyboard shortcuts.
+        keymaps = {k for k in plt.rcParams if k.startswith("keymap.")}
+        for k in keymaps:
+            plt.rcParams[k].clear()
+        # Create the environment-specific method for turning events into
+        # actions. This should also log instructions.
+        event_to_action = env.get_event_to_action_fn()
     trajectories = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     for idx, task in enumerate(train_tasks):
@@ -53,7 +61,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 termination_function = lambda s: False
             else:
                 policy = functools.partial(_human_demonstrator_policy, env,
-                                           idx, num_tasks, task)
+                                           idx, num_tasks, task,
+                                           event_to_action)
                 termination_function = task.goal_holds
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)
@@ -104,7 +113,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 
 
 def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
-                               task: Task, state: State) -> Action:
+                               task: Task, event_to_action: Callable[
+                                   [State, matplotlib.backend_bases.Event],
+                                   Action], state: State) -> Action:
     # Change the backend to one that supports a GUI.
     cur_backend = matplotlib.get_backend()
     matplotlib.use("Qt5Agg")
@@ -115,7 +126,7 @@ def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
     container = {}
 
     def _handler(event: matplotlib.backend_bases.Event) -> None:
-        container["action"] = env.event_to_action(state, event)
+        container["action"] = event_to_action(state, event)
 
     keyboard_cid = fig.canvas.mpl_connect("key_press_event", _handler)
     mouse_cid = fig.canvas.mpl_connect("button_press_event", _handler)
