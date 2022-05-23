@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -226,14 +227,14 @@ class StickButtonEnv(BaseEnv):
         # Normalized dx, dy, dtheta, press.
         return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(self,
+                         state: State,
+                         task: Task,
+                         action: Optional[Action] = None,
+                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
-        assert caption is None
+        plt.suptitle(caption, wrap=True)
         # Draw a light green rectangle for the reachable zone.
         reachable_zone = utils.Rectangle(x=self.rz_x_lb,
                                          y=self.rz_y_lb,
@@ -282,9 +283,7 @@ class StickButtonEnv(BaseEnv):
         ax.set_ylim(self.y_lb, self.y_ub)
         ax.axis("off")
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, num_button_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:

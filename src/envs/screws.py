@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -106,11 +107,11 @@ class ScrewsEnv(BaseEnv):
     def get_name(cls) -> str:
         return "screws"
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(self,
+                         state: State,
+                         task: Task,
+                         action: Optional[Action] = None,
+                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         plt.xlim([
             self.rz_x_lb - 2 * self._screw_width,
@@ -153,9 +154,9 @@ class ScrewsEnv(BaseEnv):
             screw_x = state.get(screw, "pose_x")
             screw_y = state.get(screw, "pose_y")
             if screw == goal_screw:
-                color = 'gold'
+                color = "gold"
             else:
-                color = 'grey'
+                color = "grey"
             rect = plt.Rectangle((screw_x - self._screw_width / 2.0,
                                   screw_y - self._screw_height / 2.0),
                                  self._screw_width,
@@ -164,9 +165,7 @@ class ScrewsEnv(BaseEnv):
                                  facecolor=color)
             ax.add_patch(rect)
 
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     @property
     def predicates(self) -> Set[Predicate]:

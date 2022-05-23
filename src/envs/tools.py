@@ -13,6 +13,7 @@ sizes don't matter.
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
+import matplotlib
 import numpy as np
 from gym.spaces import Box
 
@@ -310,11 +311,11 @@ class ToolsEnv(BaseEnv):
             np.array([self.table_lx, self.table_ly, 0, 0], dtype=np.float32),
             np.array([self.table_ux, self.table_uy, 1, 1], dtype=np.float32))
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(self,
+                         state: State,
+                         task: Task,
+                         action: Optional[Action] = None,
+                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],

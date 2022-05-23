@@ -4,6 +4,7 @@ import itertools
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -193,11 +194,11 @@ class DoorsEnv(BaseEnv):
                       dtype=np.float32)
         return Box(lb, ub)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(self,
+                         state: State,
+                         task: Task,
+                         action: Optional[Action] = None,
+                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         fig, ax = plt.subplots(1, 1, figsize=(x_ub - x_lb, y_ub - y_lb))
@@ -257,9 +258,7 @@ class DoorsEnv(BaseEnv):
 
         plt.axis("off")
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []

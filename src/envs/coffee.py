@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -316,11 +317,11 @@ class CoffeeEnv(BaseEnv):
         # Normalized dx, dy, dz, dtilt, dfingers.
         return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(self,
+                         state: State,
+                         task: Task,
+                         action: Optional[Action] = None,
+                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
         fig_width = (2 * (self.x_ub - self.x_lb))
         fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
@@ -441,9 +442,7 @@ class CoffeeEnv(BaseEnv):
         xz_ax.set_xlabel("x")
         xz_ax.set_ylabel("z")
         plt.tight_layout()
-        img = utils.fig2data(fig, dpi=CFG.coffee_render_dpi)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, num_cups_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
