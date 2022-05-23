@@ -26,6 +26,7 @@ class CoffeeEnv(BaseEnv):
     pick_jug_y_padding: ClassVar[float] = 1.5
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-1
+    twist_policy_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
     place_jug_in_machine_tol: ClassVar[float] = 1e-1
     pour_policy_tol: ClassVar[float] = 1e-1
@@ -38,8 +39,8 @@ class CoffeeEnv(BaseEnv):
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
-    wrist_lb: ClassVar[float] = -2 * np.pi / 3
-    wrist_ub: ClassVar[float] = 2 * np.pi / 3
+    wrist_lb: ClassVar[float] = -np.pi
+    wrist_ub: ClassVar[float] = np.pi
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub
@@ -135,6 +136,15 @@ class CoffeeEnv(BaseEnv):
             self._PressingButton_holds)
 
         # Options
+        self._TwistJug = ParameterizedOption(
+            "TwistJug",
+            types=[self._robot_type, self._jug_type],
+            # The parameter is a normalized amount to twist by.
+            params_space=Box(-1, 1, (1, )),
+            policy=self._TwistJug_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._TwistJug_terminal,
+        )
         self._PickJug = ParameterizedOption(
             "PickJug",
             types=[self._robot_type, self._jug_type],
@@ -335,8 +345,8 @@ class CoffeeEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {
-            self._PickJug, self._PlaceJugInMachine, self._TurnMachineOn,
-            self._Pour
+            self._TwistJug, self._PickJug, self._PlaceJugInMachine,
+            self._TurnMachineOn, self._Pour
         }
 
     @property
@@ -641,6 +651,52 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return sq_dist_to_button < self.button_radius
+
+    def _TwistJug_policy(self, state: State, memory: Dict,
+                        objects: Sequence[Object], params: Array) -> Action:
+        # This policy moves the robot to a safe height, then moves to above
+        # the jug in the z direction, then moves down in the z direction,
+        # then applies twist actions to reach the desired rotation.
+        del memory  # unused
+        robot, jug = objects
+        x = state.get(robot, "x")
+        y = state.get(robot, "y")
+        z = state.get(robot, "z")
+        robot_pos = (x, y, z)
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
+        jug_z = self.jug_height
+        jug_top = (jug_x, jug_y, jug_z)
+        # If close enough, twist.
+        sq_dist_to_top = np.sum(np.subtract(jug_top, robot_pos)**2)
+        if sq_dist_to_top < self.twist_policy_tol:
+            current_rot = state.get(jug, "rot")
+            norm_desired_rot, = params
+            desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
+            delta_rot = np.clip(desired_rot - current_rot,
+                                -self.max_angular_vel, self.max_angular_vel)
+            dtwist = delta_rot / self.max_angular_vel
+            return Action(np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+        xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
+        safe_z_sq_dist = (self.robot_init_z - z)**2
+        # If at the correct x and y position, move directly toward the target.
+        if xy_sq_dist < self.twist_policy_tol:
+            return self._get_move_action(jug_top, robot_pos)
+        # If at a safe height, move to the position above the jug.
+        if safe_z_sq_dist < self.safe_z_tol:
+            return self._get_move_action((jug_x, jug_y, self.robot_init_z),
+                                         robot_pos)
+        # Move up to a safe height.
+        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
+
+    def _TwistJug_terminal(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> bool:
+        del memory  # unused
+        _, jug = objects
+        current_rot = state.get(jug, "rot")
+        norm_desired_rot, = params
+        desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
+        return abs(current_rot - desired_rot) < self.twist_policy_tol
 
     def _PickJug_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:

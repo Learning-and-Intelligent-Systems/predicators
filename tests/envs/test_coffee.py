@@ -30,7 +30,7 @@ def test_coffee():
     JugInMachine = pred_name_to_pred["JugInMachine"]
     OnTable = pred_name_to_pred["OnTable"]
     NotAboveCup = pred_name_to_pred["NotAboveCup"]
-    assert len(env.options) == 4
+    assert len(env.options) == 5
     option_name_to_option = {o.name: o for o in env.options}
     assert len(env.types) == 4
     type_name_to_type = {t.name: t for t in env.types}
@@ -288,9 +288,23 @@ def test_coffee():
 
     ## Test options ##
 
-    PickJug = option_name_to_option["PickJug"]
+    # Test TwistJug.
+    TwistJug = option_name_to_option["TwistJug"]
+    option = TwistJug.ground([robot, jug], np.array([1.0], dtype=np.float32))
+    option_plan = [option]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    expected_rot = env.jug_init_rot_ub
+    assert abs(traj.states[-1].get(jug, "rot") - expected_rot) < 1e-6
 
     # Test PickJug.
+    PickJug = option_name_to_option["PickJug"]
     option = PickJug.ground([robot, jug], [])
     option_plan = [option]
 
