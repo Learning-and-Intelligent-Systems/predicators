@@ -38,7 +38,7 @@ def test_coffee():
     jug_type = type_name_to_type["jug"]
     machine_type = type_name_to_type["machine"]
     robot_type = type_name_to_type["robot"]
-    assert env.action_space.shape == (5, )
+    assert env.action_space.shape == (6, )
     # Create a custom initial state, with cups positions at the extremes of
     # their possible initial positions.
     state = env.get_test_tasks()[0].init.copy()
@@ -78,7 +78,7 @@ def test_coffee():
             for _ in range(num_max_steps):
                 dx, dy, dz = delta / env.max_position_vel
                 action_arrs.append(
-                    np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+                    np.array([dx, dy, dz, 0.0, 0.0, 0.0], dtype=np.float32))
                 current_pos = current_pos + delta
             delta = np.subtract((final_x, final_y, final_z), current_pos)
             pos_norm = float(np.linalg.norm(delta))
@@ -86,7 +86,7 @@ def test_coffee():
             delta = delta / env.max_position_vel
             dx, dy, dz = delta
             action_arrs.append(
-                np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+                np.array([dx, dy, dz, 0.0, 0.0, 0.0], dtype=np.float32))
         return action_arrs
 
     # Test picking up the jug.
@@ -95,7 +95,7 @@ def test_coffee():
                                             state.get(robot, "y"),
                                             state.get(robot, "z"), target_x,
                                             target_y, target_z)
-    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     action_arrs.append(pick_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -121,7 +121,7 @@ def test_coffee():
                                                   target_y, target_z)
     action_arrs.extend(move_jug_act_arrs)
     # Drop the jug.
-    place_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    place_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)
     action_arrs.append(place_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -172,7 +172,7 @@ def test_coffee():
                                                             "z"), target_x,
                                                       target_y, target_z)
     action_arrs.extend(move_to_pick_act_arrs)
-    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     action_arrs.append(pick_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -187,7 +187,7 @@ def test_coffee():
     s = traj.states[-1]
 
     # Check that an EnvironmentFailure is raised when pouring into nothing.
-    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0]
+    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
     with pytest.raises(utils.EnvironmentFailure) as e:
         env.simulate(s, Action(pour_act_arr))

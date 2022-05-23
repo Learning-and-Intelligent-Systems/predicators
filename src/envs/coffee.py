@@ -37,10 +37,13 @@ class CoffeeEnv(BaseEnv):
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
+    wrist_lb: ClassVar[float] = -np.pi / 2
+    wrist_ub: ClassVar[float] = np.pi / 2
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub
     robot_init_tilt: ClassVar[float] = 0.0
+    robot_init_wrist: ClassVar[float] = 0.0
     open_fingers: ClassVar[float] = 0.4
     closed_fingers: ClassVar[float] = 0.1
     # Machine settings.
@@ -93,7 +96,8 @@ class CoffeeEnv(BaseEnv):
         super().__init__()
 
         # Types
-        self._robot_type = Type("robot", ["x", "y", "z", "tilt", "fingers"])
+        self._robot_type = Type("robot",
+                                ["x", "y", "z", "tilt", "wrist", "fingers"])
         self._jug_type = Type("jug", ["x", "y", "is_held", "is_filled"])
         self._machine_type = Type("machine", ["is_on"])
         self._cup_type = Type(
@@ -176,12 +180,14 @@ class CoffeeEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dfingers = action.arr
+        norm_dx, norm_dy, norm_dz, norm_dtilt, norm_dwrist, norm_dfingers = \
+            action.arr
         # Denormalize the action.
         dx = norm_dx * self.max_position_vel
         dy = norm_dy * self.max_position_vel
         dz = norm_dz * self.max_position_vel
         dtilt = norm_dtilt * self.max_angular_vel
+        dwrist = norm_dwrist * self.max_angular_vel
         dfingers = norm_dfingers * self.max_finger_vel
         # Apply changes to the robot, taking bounds into account.
         robot_x = state.get(self._robot, "x")
@@ -192,6 +198,8 @@ class CoffeeEnv(BaseEnv):
         z = np.clip(robot_z + dz, self.z_lb, self.z_ub)
         current_tilt = state.get(self._robot, "tilt")
         tilt = np.clip(current_tilt + dtilt, self.tilt_lb, self.tilt_ub)
+        current_wrist = state.get(self._robot, "wrist")
+        wrist = np.clip(current_wrist + dwrist, self.wrist_lb, self.wrist_ub)
         current_fingers = state.get(self._robot, "fingers")
         fingers = np.clip(current_fingers + dfingers, self.closed_fingers,
                           self.open_fingers)
@@ -205,6 +213,7 @@ class CoffeeEnv(BaseEnv):
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "z", z)
         next_state.set(self._robot, "tilt", tilt)
+        next_state.set(self._robot, "wrist", wrist)
         next_state.set(self._robot, "fingers", fingers)
         # Check if the button should be pressed for the first time.
         machine_was_on = self._MachineOn_holds(state, [self._machine])
@@ -218,6 +227,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "y", self.button_y)
             next_state.set(self._robot, "z", self.button_z)
             next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "wrist", self.robot_init_wrist)
         # If the jug is already held, move its position, and process drops.
         elif jug_held:
             # If the jug should be dropped, drop it first.
@@ -251,6 +261,7 @@ class CoffeeEnv(BaseEnv):
                     next_state.set(self._jug, "x", new_jug_x)
                     next_state.set(self._jug, "y", new_jug_y)
                     next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
@@ -263,6 +274,7 @@ class CoffeeEnv(BaseEnv):
                 next_state.set(self._robot, "y", handle_y)
                 next_state.set(self._robot, "z", handle_z)
                 next_state.set(self._robot, "tilt", self.tilt_lb)
+                next_state.set(self._robot, "wrist", self.robot_init_wrist)
                 # Grasp the jug.
                 next_state.set(self._jug, "is_held", 1.0)
         # If the jug is close enough to the dispense area and the machine is
@@ -313,8 +325,8 @@ class CoffeeEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Normalized dx, dy, dz, dtilt, dfingers.
-        return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
+        # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
+        return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
 
     def render_state(self,
                      state: State,
@@ -457,6 +469,7 @@ class CoffeeEnv(BaseEnv):
             "y": self.robot_init_y,
             "z": self.robot_init_z,
             "tilt": self.robot_init_tilt,
+            "wrist": self.robot_init_wrist,
             "fingers": self.open_fingers,  # robot fingers start open
         }
         # Create the machine.
@@ -622,7 +635,7 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
         if sq_dist_to_handle < self.pick_policy_tol:
             return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
         target_x, target_y, target_z = handle_pos
         # Distance to the handle in the x/z plane.
         xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
@@ -671,8 +684,8 @@ class CoffeeEnv(BaseEnv):
         # If close enough, place.
         sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
         if sq_dist_to_place < self.place_jug_in_machine_tol:
-            return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0],
-                                   dtype=np.float32))
+            return Action(
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32))
         # If already above the table, move directly toward the place pos.
         if z > self.z_lb:
             return self._get_move_action(place_pos, jug_pos)
@@ -809,7 +822,8 @@ class CoffeeEnv(BaseEnv):
     def _get_move_action(self,
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
-                         dtilt: float = 0.0) -> Action:
+                         dtilt: float = 0.0,
+                         dwrist: float = 0.0) -> Action:
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -827,4 +841,5 @@ class CoffeeEnv(BaseEnv):
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel
-        return Action(np.array([dx, dy, dz, dtilt, 0.0], dtype=np.float32))
+        return Action(
+            np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
