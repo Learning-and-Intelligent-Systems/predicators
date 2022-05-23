@@ -24,6 +24,7 @@ class CoffeeEnv(BaseEnv):
     pour_pos_tol: ClassVar[float] = 1.0
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
     pick_jug_y_padding: ClassVar[float] = 1.5
+    pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-1
     pick_policy_tol: ClassVar[float] = 1e-1
     place_jug_in_machine_tol: ClassVar[float] = 1e-1
@@ -37,8 +38,8 @@ class CoffeeEnv(BaseEnv):
     z_ub: ClassVar[float] = 10.0
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
-    wrist_lb: ClassVar[float] = -np.pi / 2
-    wrist_ub: ClassVar[float] = np.pi / 2
+    wrist_lb: ClassVar[float] = -2 * np.pi / 3
+    wrist_ub: ClassVar[float] = 2 * np.pi / 3
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
     robot_init_z: ClassVar[float] = z_ub
@@ -65,8 +66,7 @@ class CoffeeEnv(BaseEnv):
                                      init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - jug_radius - init_padding
-    jug_handle_x_offset: ClassVar[float] = 0.0
-    jug_handle_y_offset: ClassVar[float] = -(1.05 * jug_radius)
+    jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
     # Dispense area settings.
@@ -98,7 +98,7 @@ class CoffeeEnv(BaseEnv):
         # Types
         self._robot_type = Type("robot",
                                 ["x", "y", "z", "tilt", "wrist", "fingers"])
-        self._jug_type = Type("jug", ["x", "y", "is_held", "is_filled"])
+        self._jug_type = Type("jug", ["x", "y", "rot", "is_held", "is_filled"])
         self._machine_type = Type("machine", ["is_on"])
         self._cup_type = Type(
             "cup",
@@ -172,6 +172,9 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
+        # Settings from CFG.
+        self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
+        self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
     @classmethod
     def get_name(cls) -> str:
@@ -267,7 +270,9 @@ class CoffeeEnv(BaseEnv):
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
-            if sq_dist_to_handle < self.grasp_position_tol:
+            jug_rot = state.get(self._jug, "rot")
+            if sq_dist_to_handle < self.grasp_position_tol and \
+                abs(jug_rot) < self.pick_jug_rot_tol:
                 # Snap to the handle.
                 handle_x, handle_y, handle_z = handle_pos
                 next_state.set(self._robot, "x", handle_x)
@@ -413,15 +418,20 @@ class CoffeeEnv(BaseEnv):
             robot_z = state.get(self._robot, "z")
             rect = rect.rotate_about_point(robot_x, robot_z, tilt)
         rect.plot(xz_ax, facecolor=color, edgecolor="black")
-        # Draw the jug handle in the xz plane.
+        # Draw the jug handle.
         if jug_held:
             # Offset to account for handle.
             handle_x = state.get(self._robot, "x")
+            handle_y = state.get(self._robot, "y")
             handle_z = state.get(self._robot, "z")
         else:
-            handle_x, _, handle_z = self._get_jug_handle_grasp(
+            handle_x, handle_y, handle_z = self._get_jug_handle_grasp(
                 state, self._jug)
         color = "darkgray"
+        circ = utils.Circle(x=handle_x,
+                            y=handle_y,
+                            radius=self.jug_handle_radius)
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
         circ = utils.Circle(x=handle_x,
                             y=handle_z,
                             radius=self.jug_handle_radius)
@@ -530,9 +540,11 @@ class CoffeeEnv(BaseEnv):
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
+            rot = rng.uniform(self.jug_init_rot_lb, self.jug_init_rot_ub)
             state_dict[self._jug] = {
                 "x": x,
                 "y": y,
+                "rot": rot,
                 "is_held": 0.0,  # jug starts off not held
                 "is_filled": 0.0  # jug starts off empty
             }
@@ -785,8 +797,10 @@ class CoffeeEnv(BaseEnv):
 
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
-        target_x = state.get(jug, "x") + self.jug_handle_x_offset
-        target_y = state.get(jug, "y") + self.jug_handle_y_offset
+        # Orient pointing down.
+        rot = state.get(jug, "rot") - np.pi / 2
+        target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
+        target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
         target_z = self.jug_handle_height
         return (target_x, target_y, target_z)
 

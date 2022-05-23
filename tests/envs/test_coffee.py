@@ -15,6 +15,7 @@ def test_coffee():
         "coffee_num_cups_test": [4],  # used to assure 4 cups in custom state
         "video_fps": 10,  # for faster debugging videos
         "coffee_render_dpi": 10,  # increase when debugging
+        "coffee_jug_init_rot_amt": 0.0,
     })
     env = CoffeeEnv()
     for task in env.get_train_tasks():
