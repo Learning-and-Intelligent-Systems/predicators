@@ -1,5 +1,6 @@
 """Test cases for the cover environment."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -56,7 +57,11 @@ def test_cover():
     ]
     plan = []
     state = task.init
-    env.render_state(state, task)
+    env.render_state_plt(state, task)
+    plt.close()
+    env.reset("train", 0)
+    env.render_plt()
+    plt.close()
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],

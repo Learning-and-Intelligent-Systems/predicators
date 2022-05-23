@@ -3,12 +3,15 @@
 import abc
 from typing import List, Optional, Set
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
+from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, DefaultState, DefaultTask, Image, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import Action, DefaultState, DefaultTask, \
+    ParameterizedOption, Predicate, State, Task, Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -87,22 +90,62 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        """Render a state and action into a Matplotlib figure.
+
+        Like simulate, this function is not meant to be part of the
+        "final system", where the environment is the real world. It is
+        just for convenience, e.g., in test coverage.
+
+        For environments which don't use Matplotlib for rendering, this
+        function should be overriden to simply crash.
+
+        NOTE: Users of this method must remember to call `plt.close()`,
+        because this method returns an active figure object!
+        """
+        raise NotImplementedError("Matplotlib rendering not implemented!")
+
     def render_state(self,
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None) -> Video:
         """Render a state and action into a list of images.
 
         Like simulate, this function is not meant to be part of the
         "final system", where the environment is the real world. It is
         just for convenience, e.g., in test coverage.
+
+        By default, calls render_state_plt, but subclasses may override,
+        e.g. if they do not use Matplotlib for rendering, and thus do not
+        define a render_state_plt() function.
         """
-        raise NotImplementedError("Override me!")
+        fig = self.render_state_plt(state, task, action, caption)
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
+
+    def render_plt(self,
+                   action: Optional[Action] = None,
+                   caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        """Render the current state and action into a Matplotlib figure.
+
+        By default, calls render_state_plt, but subclasses may override.
+
+        NOTE: Users of this method must remember to call `plt.close()`,
+        because this method returns an active figure object!
+        """
+        return self.render_state_plt(self._current_state, self._current_task,
+                                     action, caption)
 
     def render(self,
                action: Optional[Action] = None,
-               caption: Optional[str] = None) -> List[Image]:
+               caption: Optional[str] = None) -> Video:
         """Render the current state and action into a list of images.
 
         By default, calls render_state, but subclasses may override.

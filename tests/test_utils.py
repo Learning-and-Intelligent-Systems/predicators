@@ -5,10 +5,10 @@ import time
 from typing import Iterator, Tuple
 from typing import Type as TypingType
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from gym.spaces import Box
-from matplotlib import pyplot as plt
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
