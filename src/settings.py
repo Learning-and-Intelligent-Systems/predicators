@@ -155,7 +155,7 @@ class GlobalSettings:
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
-    coffee_num_cups_test = [3, 4]
+    coffee_num_cups_test = [2, 3]
     coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 

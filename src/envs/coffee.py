@@ -139,6 +139,14 @@ class CoffeeEnv(BaseEnv):
             self._PressingButton_holds)
 
         # Options
+        self._MoveToTwistJug = ParameterizedOption(
+            "MoveToTwistJug",
+            types=[self._robot_type, self._jug_type],
+            params_space=Box(0, 1, (0, )),
+            policy=self._MoveToTwistJug_policy,
+            initiable=lambda s, m, o, p: True,
+            terminal=self._MoveToTwistJug_terminal,
+        )
         self._TwistJug = ParameterizedOption(
             "TwistJug",
             types=[self._robot_type, self._jug_type],
@@ -344,8 +352,12 @@ class CoffeeEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {
-            self._TwistJug, self._PickJug, self._PlaceJugInMachine,
-            self._TurnMachineOn, self._Pour
+            self._TwistJug,
+            self._PickJug,
+            self._PlaceJugInMachine,
+            self._TurnMachineOn,
+            self._Pour,
+            self._MoveToTwistJug,
         }
 
     @property
@@ -670,10 +682,10 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return sq_dist_to_button < self.button_radius
 
-    def _TwistJug_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> Action:
-        # This policy moves the robot to above the jug, then moves down in the
-        # z direction, then applies twists to reach the desired rotation.
+    def _MoveToTwistJug_policy(self, state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> Action:
+        # This policy moves the robot to above the jug, then moves down.
         del memory  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -684,17 +696,6 @@ class CoffeeEnv(BaseEnv):
         jug_y = state.get(jug, "y")
         jug_z = self.jug_height
         jug_top = (jug_x, jug_y, jug_z)
-        # If close enough, twist.
-        sq_dist_to_top = np.sum(np.subtract(jug_top, robot_pos)**2)
-        if sq_dist_to_top < self.twist_policy_tol:
-            current_rot = state.get(jug, "rot")
-            norm_desired_rot, = params
-            desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
-            delta_rot = np.clip(desired_rot - current_rot,
-                                -self.max_angular_vel, self.max_angular_vel)
-            dtwist = delta_rot / self.max_angular_vel
-            return Action(
-                np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
         # If at the correct x and y position, move directly toward the target.
         if xy_sq_dist < self.twist_policy_tol:
@@ -703,14 +704,40 @@ class CoffeeEnv(BaseEnv):
         return self._get_move_action((jug_x, jug_y, self.robot_init_z),
                                      robot_pos)
 
-    def _TwistJug_terminal(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
+    def _MoveToTwistJug_terminal(self, state: State, memory: Dict,
+                                 objects: Sequence[Object],
+                                 params: Array) -> bool:
+        del memory, params  # unused
+        robot, jug = objects
+        return self._Twisting_holds(state, [robot, jug])
+
+    def _TwistJug_policy(self, state: State, memory: Dict,
+                         objects: Sequence[Object], params: Array) -> Action:
+        # This policy twists until the jug is in the desired rotation, and then
+        # moves up to break contact with the jug.
         del memory  # unused
-        _, jug = objects
+        robot, jug = objects
         current_rot = state.get(jug, "rot")
         norm_desired_rot, = params
         desired_rot = norm_desired_rot * CFG.coffee_jug_init_rot_amt
-        return abs(current_rot - desired_rot) < self.twist_policy_tol
+        delta_rot = np.clip(desired_rot - current_rot, -self.max_angular_vel,
+                            self.max_angular_vel)
+        if abs(delta_rot) < self.twist_policy_tol:
+            # Move up to stop twisting.
+            x = state.get(robot, "x")
+            y = state.get(robot, "y")
+            z = state.get(robot, "z")
+            robot_pos = (x, y, z)
+            return self._get_move_action((x, y, self.robot_init_z), robot_pos)
+        dtwist = delta_rot / self.max_angular_vel
+        return Action(
+            np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
+
+    def _TwistJug_terminal(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> bool:
+        del memory  # unused
+        robot, _ = objects
+        return self._HandEmpty_holds(state, [robot])
 
     def _PickJug_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
