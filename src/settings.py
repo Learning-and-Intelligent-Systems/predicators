@@ -351,10 +351,11 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For the stick button environment, the only environment
-                    # failure is one that involves no objects, which we want
-                    # to be treated like a terminal environment state.
+                    # For these environments, the only environment failure
+                    # is one that involves no objects, which we want to be
+                    # treated like a terminal environment state.
                     "stick_button": "never",
+                    "coffee": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
