@@ -23,14 +23,14 @@ def test_coffee():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 11
+    assert len(env.predicates) == 12
     assert len(env.goal_predicates) == 1
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
     JugInMachine = pred_name_to_pred["JugInMachine"]
     OnTable = pred_name_to_pred["OnTable"]
     NotAboveCup = pred_name_to_pred["NotAboveCup"]
-    assert len(env.options) == 4
+    assert len(env.options) == 6
     option_name_to_option = {o.name: o for o in env.options}
     assert len(env.types) == 4
     type_name_to_type = {t.name: t for t in env.types}
@@ -38,7 +38,7 @@ def test_coffee():
     jug_type = type_name_to_type["jug"]
     machine_type = type_name_to_type["machine"]
     robot_type = type_name_to_type["robot"]
-    assert env.action_space.shape == (5, )
+    assert env.action_space.shape == (6, )
     # Create a custom initial state, with cups positions at the extremes of
     # their possible initial positions.
     state = env.get_test_tasks()[0].init.copy()
@@ -60,6 +60,7 @@ def test_coffee():
     # Reposition the jug just so we know exactly where it is.
     state.set(jug, "x", env.jug_init_x_ub)
     state.set(jug, "y", env.jug_init_y_ub)
+    state.set(jug, "rot", 0.0)
     env.render_state(state, task)
 
     ## Test simulate ##
@@ -78,7 +79,7 @@ def test_coffee():
             for _ in range(num_max_steps):
                 dx, dy, dz = delta / env.max_position_vel
                 action_arrs.append(
-                    np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+                    np.array([dx, dy, dz, 0.0, 0.0, 0.0], dtype=np.float32))
                 current_pos = current_pos + delta
             delta = np.subtract((final_x, final_y, final_z), current_pos)
             pos_norm = float(np.linalg.norm(delta))
@@ -86,8 +87,47 @@ def test_coffee():
             delta = delta / env.max_position_vel
             dx, dy, dz = delta
             action_arrs.append(
-                np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+                np.array([dx, dy, dz, 0.0, 0.0, 0.0], dtype=np.float32))
         return action_arrs
+
+    # Test twisting the jug.
+    target_x = state.get(jug, "x")
+    target_y = state.get(jug, "y")
+    target_z = env.jug_height
+    action_arrs = _get_position_action_arrs(state.get(robot, "x"),
+                                            state.get(robot, "y"),
+                                            state.get(robot, "z"), target_x,
+                                            target_y, target_z)
+    num_twists = 2
+    twist_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0], dtype=np.float32)
+    action_arrs.extend([twist_act_arr for _ in range(num_twists)])
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           state,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    twist_amt = num_twists * env.max_angular_vel
+    assert abs(traj.states[-1].get(jug, "rot") - twist_amt) < 1e-6
+    s = traj.states[-1]
+
+    # The jug is too twisted now, so picking it up should fail.
+    target_x, target_y, target_z = env._get_jug_handle_grasp(s, jug)  # pylint: disable=protected-access
+    move_action_arrs = _get_position_action_arrs(s.get(robot, "x"),
+                                                 s.get(robot, "y"),
+                                                 s.get(robot, "z"), target_x,
+                                                 target_y, target_z)
+    action_arrs.extend(move_action_arrs)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    action_arrs.append(pick_act_arr)
+
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           state,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert traj.states[-1].get(jug, "is_held") < 0.5
 
     # Test picking up the jug.
     target_x, target_y, target_z = env._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
@@ -95,7 +135,7 @@ def test_coffee():
                                             state.get(robot, "y"),
                                             state.get(robot, "z"), target_x,
                                             target_y, target_z)
-    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     action_arrs.append(pick_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -121,7 +161,7 @@ def test_coffee():
                                                   target_y, target_z)
     action_arrs.extend(move_jug_act_arrs)
     # Drop the jug.
-    place_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    place_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)
     action_arrs.append(place_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -172,7 +212,7 @@ def test_coffee():
                                                             "z"), target_x,
                                                       target_y, target_z)
     action_arrs.extend(move_to_pick_act_arrs)
-    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
     action_arrs.append(pick_act_arr)
 
     policy = utils.action_arrs_to_policy(action_arrs)
@@ -187,7 +227,7 @@ def test_coffee():
     s = traj.states[-1]
 
     # Check that an EnvironmentFailure is raised when pouring into nothing.
-    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0]
+    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
     with pytest.raises(utils.EnvironmentFailure) as e:
         env.simulate(s, Action(pour_act_arr))
@@ -248,9 +288,25 @@ def test_coffee():
 
     ## Test options ##
 
-    PickJug = option_name_to_option["PickJug"]
+    # Test MoveToTwistJug and TwistJug.
+    MoveToTwistJug = option_name_to_option["MoveToTwistJug"]
+    TwistJug = option_name_to_option["TwistJug"]
+    option1 = MoveToTwistJug.ground([robot, jug], [])
+    option2 = TwistJug.ground([robot, jug], np.array([1.0], dtype=np.float32))
+    option_plan = [option1, option2]
+    policy = utils.option_plan_to_policy(option_plan)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        state,
+        lambda _: False,
+        max_num_steps=1000,
+        exceptions_to_break_on={utils.OptionExecutionFailure})
+    expected_rot = env.jug_init_rot_ub
+    assert abs(traj.states[-1].get(jug, "rot") - expected_rot) < 1e-6
 
     # Test PickJug.
+    PickJug = option_name_to_option["PickJug"]
     option = PickJug.ground([robot, jug], [])
     option_plan = [option]
 

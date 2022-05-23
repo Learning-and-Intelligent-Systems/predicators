@@ -2327,15 +2327,68 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
         CFG.env, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
-        JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton = \
+        JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
+        Twisting = \
         _get_predicates_by_names(CFG.env, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
-            "PressingButton"])
-    PickJug, PlaceJugInMachine, TurnMachineOn, Pour = _get_options_by_names(
-        CFG.env, ["PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
+            "PressingButton", "Twisting"])
+    MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
+        Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
+            "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
 
     nsrts = set()
+
+    # MoveToTwistJug
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    parameters = [robot, jug]
+    option_vars = [robot, jug]
+    option = MoveToTwistJug
+    preconditions = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    add_effects = {
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    side_predicates: Set[Predicate] = set()
+    move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates,
+                                  option, option_vars, null_sampler)
+    nsrts.add(move_to_twist_jug_nsrt)
+
+    # TwistJug
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    parameters = [robot, jug]
+    option_vars = [robot, jug]
+    option = TwistJug
+    preconditions = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    delete_effects = {
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    side_predicates = set()
+
+    def twist_jug_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
+
+    twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          twist_jug_sampler)
+    nsrts.add(twist_jug_nsrt)
 
     # PickJugFromTable
     robot = Variable("?robot", robot_type)
@@ -2345,16 +2398,16 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     option = PickJug
     preconditions = {
         LiftedAtom(OnTable, [jug]),
-        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(HandEmpty, [robot])
     }
     add_effects = {
         LiftedAtom(Holding, [robot, jug]),
     }
     delete_effects = {
         LiftedAtom(OnTable, [jug]),
-        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(HandEmpty, [robot])
     }
-    side_predicates: Set[Predicate] = set()
+    side_predicates = set()
     pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                     preconditions, add_effects, delete_effects,
                                     side_predicates, option, option_vars,
