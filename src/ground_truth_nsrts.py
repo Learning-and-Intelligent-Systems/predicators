@@ -2327,10 +2327,11 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
         CFG.env, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
-        JugFilled, AboveCup, NotAboveCup, PressingButton = \
+        JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton = \
         _get_predicates_by_names(CFG.env, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
-            "JugFilled", "AboveCup", "NotAboveCup", "PressingButton"])
+            "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
+            "PressingButton"])
     PickJug, PlaceJugInMachine, TurnMachineOn, Pour = _get_options_by_names(
         CFG.env, ["PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
 
@@ -2447,7 +2448,8 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(NotAboveCup, [robot, jug]),
     }
     add_effects = {
-        LiftedAtom(AboveCup, [robot, jug, cup]),
+        LiftedAtom(JugAboveCup, [jug, cup]),
+        LiftedAtom(RobotAboveCup, [robot, cup]),
         LiftedAtom(CupFilled, [cup]),
     }
     delete_effects = {
@@ -2470,13 +2472,18 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(Holding, [robot, jug]),
         LiftedAtom(JugFilled, [jug]),
-        LiftedAtom(AboveCup, [robot, jug, other_cup]),
+        LiftedAtom(JugAboveCup, [jug, other_cup]),
+        LiftedAtom(RobotAboveCup, [robot, other_cup]),
     }
     add_effects = {
-        LiftedAtom(AboveCup, [robot, jug, cup]),
+        LiftedAtom(JugAboveCup, [jug, cup]),
+        LiftedAtom(RobotAboveCup, [robot, cup]),
         LiftedAtom(CupFilled, [cup]),
     }
-    delete_effects = {LiftedAtom(AboveCup, [robot, jug, other_cup])}
+    delete_effects = {
+        LiftedAtom(JugAboveCup, [jug, other_cup]),
+        LiftedAtom(RobotAboveCup, [robot, other_cup]),
+    }
     side_predicates = set()
     pour_from_other_cup_nsrt = NSRT("PourFromOtherCup", parameters,
                                     preconditions, add_effects, delete_effects,

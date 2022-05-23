@@ -18,13 +18,16 @@ class CoffeeEnv(BaseEnv):
 
     # Tolerances.
     grasp_finger_tol: ClassVar[float] = 1e-2
-    grasp_position_tol: ClassVar[float] = 1e-1
-    dispense_tol: ClassVar[float] = 1e-1
+    grasp_position_tol: ClassVar[float] = 0.5
+    dispense_tol: ClassVar[float] = 1.0
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1.0
-    safe_z_tol: ClassVar[float] = 1e-1
     init_padding: ClassVar[float] = 0.5  # used to space objects in init states
-    pick_jug_y_padding: ClassVar[float] = 0.5
+    pick_jug_y_padding: ClassVar[float] = 1.5
+    safe_z_tol: ClassVar[float] = 1e-1
+    pick_policy_tol: ClassVar[float] = 1e-1
+    place_jug_in_machine_tol: ClassVar[float] = 1e-1
+    pour_policy_tol: ClassVar[float] = 1e-1
     # Robot settings.
     x_lb: ClassVar[float] = 0.0
     x_ub: ClassVar[float] = 10.0
@@ -55,12 +58,14 @@ class CoffeeEnv(BaseEnv):
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
     jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
     jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
-    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + init_padding
+    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + pick_jug_y_padding + \
+                                     init_padding
     jug_init_y_ub: ClassVar[
         float] = machine_y - machine_y_len - jug_radius - init_padding
     jug_handle_x_offset: ClassVar[float] = 0.0
     jug_handle_y_offset: ClassVar[float] = -(1.05 * jug_radius)
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
     dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
@@ -80,7 +85,7 @@ class CoffeeEnv(BaseEnv):
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
-    max_position_vel: ClassVar[float] = 0.5
+    max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
 
@@ -112,9 +117,12 @@ class CoffeeEnv(BaseEnv):
                                     self._HandEmpty_holds)
         self._JugFilled = Predicate("JugFilled", [self._jug_type],
                                     self._JugFilled_holds)
-        self._AboveCup = Predicate(
-            "AboveCup", [self._robot_type, self._jug_type, self._cup_type],
-            self._AboveCup_holds)
+        self._RobotAboveCup = Predicate("RobotAboveCup",
+                                        [self._robot_type, self._cup_type],
+                                        self._RobotAboveCup_holds)
+        self._JugAboveCup = Predicate("JugAboveCup",
+                                      [self._jug_type, self._cup_type],
+                                      self._JugAboveCup_holds)
         self._NotAboveCup = Predicate("NotAboveCup",
                                       [self._robot_type, self._jug_type],
                                       self._NotAboveCup_holds)
@@ -176,9 +184,12 @@ class CoffeeEnv(BaseEnv):
         dtilt = norm_dtilt * self.max_angular_vel
         dfingers = norm_dfingers * self.max_finger_vel
         # Apply changes to the robot, taking bounds into account.
-        x = np.clip(state.get(self._robot, "x") + dx, self.x_lb, self.x_ub)
-        y = np.clip(state.get(self._robot, "y") + dy, self.y_lb, self.y_ub)
-        z = np.clip(state.get(self._robot, "z") + dz, self.z_lb, self.z_ub)
+        robot_x = state.get(self._robot, "x")
+        robot_y = state.get(self._robot, "y")
+        robot_z = state.get(self._robot, "z")
+        x = np.clip(robot_x + dx, self.x_lb, self.x_ub)
+        y = np.clip(robot_y + dy, self.y_lb, self.y_ub)
+        z = np.clip(robot_z + dz, self.z_lb, self.z_ub)
         current_tilt = state.get(self._robot, "tilt")
         tilt = np.clip(current_tilt + dtilt, self.tilt_lb, self.tilt_ub)
         current_fingers = state.get(self._robot, "fingers")
@@ -199,20 +210,21 @@ class CoffeeEnv(BaseEnv):
         machine_was_on = self._MachineOn_holds(state, [self._machine])
         pressing_button = self._PressingButton_holds(
             next_state, [self._robot, self._machine])
+        jug_held = self._Holding_holds(state, [self._robot, self._jug])
         if pressing_button and not machine_was_on:
             next_state.set(self._machine, "is_on", 1.0)
+            # Snap the robot to the center of the button.
+            next_state.set(self._robot, "x", self.button_x)
+            next_state.set(self._robot, "y", self.button_y)
+            next_state.set(self._robot, "z", self.button_z)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
         # If the jug is already held, move its position, and process drops.
-        jug_held = self._Holding_holds(state, [self._robot, self._jug])
-        if jug_held:
+        elif jug_held:
             # If the jug should be dropped, drop it first.
             if abs(fingers - self.open_fingers) < self.grasp_finger_tol:
                 next_state.set(self._jug, "is_held", 0.0)
             # Otherwise, move it, and process pouring.
             else:
-                new_jug_x = state.get(self._jug, "x") + dx
-                new_jug_y = state.get(self._jug, "y") + dy
-                next_state.set(self._jug, "x", new_jug_x)
-                next_state.set(self._jug, "y", new_jug_y)
                 # Check for pouring.
                 if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
@@ -227,11 +239,30 @@ class CoffeeEnv(BaseEnv):
                     if new_liquid > state.get(cup, "capacity_liquid"):
                         raise utils.EnvironmentFailure("Overfilled cup.")
                     next_state.set(cup, "current_liquid", new_liquid)
+                    # If successfully poured, prevent movement and dropping.
+                    next_state.set(self._robot, "x", robot_x)
+                    next_state.set(self._robot, "y", robot_y)
+                    next_state.set(self._robot, "z", robot_z)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
+                # Move the jug.
+                else:
+                    new_jug_x = state.get(self._jug, "x") + dx
+                    new_jug_y = state.get(self._jug, "y") + dy
+                    next_state.set(self._jug, "x", new_jug_x)
+                    next_state.set(self._jug, "y", new_jug_y)
+                    next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
             handle_pos = self._get_jug_handle_grasp(state, self._jug)
             sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
             if sq_dist_to_handle < self.grasp_position_tol:
+                # Snap to the handle.
+                handle_x, handle_y, handle_z = handle_pos
+                next_state.set(self._robot, "x", handle_x)
+                next_state.set(self._robot, "y", handle_y)
+                next_state.set(self._robot, "z", handle_z)
+                next_state.set(self._robot, "tilt", self.tilt_lb)
                 # Grasp the jug.
                 next_state.set(self._jug, "is_held", 1.0)
         # If the jug is close enough to the dispense area and the machine is
@@ -258,7 +289,8 @@ class CoffeeEnv(BaseEnv):
         return {
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
-            self._AboveCup, self._NotAboveCup, self._PressingButton
+            self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
+            self._PressingButton
         }
 
     @property
@@ -380,7 +412,7 @@ class CoffeeEnv(BaseEnv):
         color = "darkgray"
         circ = utils.Circle(x=handle_x,
                             y=handle_z,
-                            radius=self.grasp_position_tol)
+                            radius=self.jug_handle_radius)
         circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
@@ -438,32 +470,50 @@ class CoffeeEnv(BaseEnv):
             goal = {GroundAtom(self._CupFilled, [c]) for c in cups}
             # Sample initial positions for cups, making sure to keep them
             # far enough apart from one another.
-            collision_geoms: Set[utils.Circle] = set()
             radius = self.cup_radius + self.init_padding
-            for cup in cups:
-                # Assuming that the dimensions are forgiving enough that
-                # infinite loops are impossible.
-                while True:
-                    x = rng.uniform(self.cup_init_x_lb, self.cup_init_x_ub)
-                    y = rng.uniform(self.cup_init_y_lb, self.cup_init_y_ub)
-                    geom = utils.Circle(x, y, radius)
-                    # Keep only if no intersections with existing objects.
-                    if not any(geom.intersects(g) for g in collision_geoms):
+            # Assuming that the dimensions are forgiving enough that
+            # infinite loops are impossible.
+            while True:
+                collision_geoms: Set[utils.Circle] = set()
+                cup_state_dict: Dict[Object, Dict[str, float]] = {}
+                for cup in cups:
+                    # Try to sample a position for the cup. If sampling does
+                    # not quickly succeed, throw out the whole set of cup
+                    # positions and start over.
+                    for _ in range(10):
+                        x = rng.uniform(self.cup_init_x_lb, self.cup_init_x_ub)
+                        y = rng.uniform(self.cup_init_y_lb, self.cup_init_y_ub)
+                        gm = utils.Circle(x, y, radius)
+                        # Keep only if no intersections with existing objects.
+                        if not any(gm.intersects(g) for g in collision_geoms):
+                            break
+                    else:
+                        # Failed to sample a position for the cup.
                         break
-                collision_geoms.add(geom)
-                # Sample a cup capacity, which also defines the cup's height.
-                cap = rng.uniform(self.cup_capacity_lb, self.cup_capacity_ub)
-                # Target liquid amount for filling the cup.
-                target = cap * self.cup_target_frac
-                # The initial liquid amount is always 0.
-                current = 0.0
-                state_dict[cup] = {
-                    "x": x,
-                    "y": y,
-                    "capacity_liquid": cap,
-                    "target_liquid": target,
-                    "current_liquid": current,
-                }
+                    collision_geoms.add(gm)
+                    # Sample a cup capacity, which also defines its height.
+                    cap = rng.uniform(self.cup_capacity_lb,
+                                      self.cup_capacity_ub)
+                    # Target liquid amount for filling the cup.
+                    target = cap * self.cup_target_frac
+                    # The initial liquid amount is always 0.
+                    current = 0.0
+                    cup_state_dict[cup] = {
+                        "x": x,
+                        "y": y,
+                        "capacity_liquid": cap,
+                        "target_liquid": target,
+                        "current_liquid": current,
+                    }
+                else:
+                    # We made it through without breaking, so we're done.
+                    assert len(cup_state_dict) == len(cups)
+                    # It is very rare that this while True loop fails on the
+                    # first try, but it can happen. It doesn't happen during
+                    # normal testing, so coverage complains (because the case
+                    # where this else block is not hit is not covered).
+                    break  # pragma: no cover
+            state_dict.update(cup_state_dict)
             # Create the jug.
             x = rng.uniform(self.jug_init_x_lb, self.jug_init_x_ub)
             y = rng.uniform(self.jug_init_y_lb, self.jug_init_y_ub)
@@ -493,6 +543,8 @@ class CoffeeEnv(BaseEnv):
     def _JugInMachine_holds(self, state: State,
                             objects: Sequence[Object]) -> bool:
         jug, _ = objects
+        if self._Holding_holds(state, [self._robot, jug]):
+            return False
         dispense_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
         x = state.get(jug, "x")
         y = state.get(jug, "y")
@@ -522,23 +574,25 @@ class CoffeeEnv(BaseEnv):
         jug, = objects
         return state.get(jug, "is_filled") > 0.5
 
-    def _AboveCup_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        robot, jug, cup = objects
-        if not self._Holding_holds(state, [robot, jug]):
-            return False
-        jug_x = state.get(jug, "x")
-        jug_y = state.get(jug, "y")
-        jug_z = state.get(robot, "z") - self.jug_handle_height
-        jug_pos = (jug_x, jug_y, jug_z)
-        pour_pos = self._get_pour_position(state, cup)
-        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-        return sq_dist_to_pour < self.pour_pos_tol
+    def _RobotAboveCup_holds(self, state: State,
+                             objects: Sequence[Object]) -> bool:
+        robot, cup = objects
+        assert robot == self._robot
+        return self._robot_jug_above_cup(state, cup)
+
+    def _JugAboveCup_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
+        jug, cup = objects
+        assert jug == self._jug
+        return self._robot_jug_above_cup(state, cup)
 
     def _NotAboveCup_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
         robot, jug = objects
+        assert robot == self._robot
+        assert jug == self._jug
         for cup in state.get_objects(self._cup_type):
-            if self._AboveCup_holds(state, [robot, jug, cup]):
+            if self._robot_jug_above_cup(state, cup):
                 return False
         return True
 
@@ -566,7 +620,7 @@ class CoffeeEnv(BaseEnv):
         handle_pos = self._get_jug_handle_grasp(state, jug)
         # If close enough, pick.
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, robot_pos)**2)
-        if sq_dist_to_handle < self.grasp_position_tol:
+        if sq_dist_to_handle < self.pick_policy_tol:
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
         target_x, target_y, target_z = handle_pos
@@ -579,11 +633,11 @@ class CoffeeEnv(BaseEnv):
         xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
         # If at the correct x and z position and behind in the y direction,
         # move directly toward the target.
-        if target_y > y and xz_handle_sq_dist < self.grasp_position_tol:
+        if target_y > y and xz_handle_sq_dist < self.pick_policy_tol:
             return self._get_move_action(handle_pos, robot_pos)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
-        if xy_waypoint_sq_dist < self.grasp_position_tol:
+        if xy_waypoint_sq_dist < self.pick_policy_tol:
             return self._get_move_action((target_x, waypoint_y, target_z),
                                          robot_pos)
         # If at a safe height, move to the position above the penultimate
@@ -616,7 +670,7 @@ class CoffeeEnv(BaseEnv):
         place_pos = (self.dispense_area_x, self.dispense_area_y, self.z_lb)
         # If close enough, place.
         sq_dist_to_place = np.sum(np.subtract(jug_pos, place_pos)**2)
-        if sq_dist_to_place < self.dispense_tol:
+        if sq_dist_to_place < self.place_jug_in_machine_tol:
             return Action(np.array([0.0, 0.0, 0.0, 0.0, 1.0],
                                    dtype=np.float32))
         # If already above the table, move directly toward the place pos.
@@ -681,7 +735,7 @@ class CoffeeEnv(BaseEnv):
         pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
         # If we're close enough to the pour position, pour.
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
-        if sq_dist_to_pour < self.pour_pos_tol:
+        if sq_dist_to_pour < self.pour_policy_tol:
             dtilt = pour_tilt - tilt
             return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
         dtilt = move_tilt - tilt
@@ -704,6 +758,17 @@ class CoffeeEnv(BaseEnv):
         del memory, params  # unused
         _, _, cup = objects
         return self._CupFilled_holds(state, [cup])
+
+    def _robot_jug_above_cup(self, state: State, cup: Object) -> bool:
+        if not self._Holding_holds(state, [self._robot, self._jug]):
+            return False
+        jug_x = state.get(self._jug, "x")
+        jug_y = state.get(self._jug, "y")
+        jug_z = state.get(self._robot, "z") - self.jug_handle_height
+        jug_pos = (jug_x, jug_y, jug_z)
+        pour_pos = self._get_pour_position(state, cup)
+        sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
+        return sq_dist_to_pour < self.pour_pos_tol
 
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
@@ -745,11 +810,20 @@ class CoffeeEnv(BaseEnv):
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0) -> Action:
+        # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
-        # Normalize.
-        pos_norm = np.linalg.norm(delta)
+        # But we can only move at most max_position_vel in one step.
+        # Get the norm full move delta.
+        pos_norm = float(np.linalg.norm(delta))
+        # If the norm is more than max_position_vel, rescale the delta so that
+        # its norm is max_position_vel.
+        if pos_norm > self.max_position_vel:
+            delta = self.max_position_vel * (delta / pos_norm)
+            pos_norm = self.max_position_vel
+        # Now normalize so that the action values are between -1 and 1, as
+        # expected by simulate and the action space.
         if pos_norm > 0:
-            delta = delta / pos_norm
+            delta = delta / self.max_position_vel
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel

@@ -23,7 +23,7 @@ def test_coffee():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 10
+    assert len(env.predicates) == 11
     assert len(env.goal_predicates) == 1
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
@@ -68,17 +68,26 @@ def test_coffee():
     # from an initial position to a target position in a straight line.
     def _get_position_action_arrs(init_x, init_y, init_z, final_x, final_y,
                                   final_z):
-        x_delta = final_x - init_x
-        y_delta = final_y - init_y
-        z_delta = final_z - init_z
-        delta_norm = np.linalg.norm([x_delta, y_delta, z_delta])
-        x_norm_delta = x_delta / delta_norm
-        y_norm_delta = y_delta / delta_norm
-        z_norm_delta = z_delta / delta_norm
-        num_steps = int(np.ceil(delta_norm / env.max_position_vel))
-        act_lst = [x_norm_delta, y_norm_delta, z_norm_delta, 0.0, 0.0]
-        act_arr = np.array(act_lst, dtype=np.float32)
-        return [act_arr for _ in range(num_steps)]
+        action_arrs = []
+        current_pos = np.array([init_x, init_y, init_z])
+        delta = np.subtract((final_x, final_y, final_z), current_pos)
+        pos_norm = float(np.linalg.norm(delta))
+        if pos_norm > env.max_position_vel:
+            delta = env.max_position_vel * (delta / pos_norm)
+            num_max_steps = int(np.floor(pos_norm / env.max_position_vel))
+            for _ in range(num_max_steps):
+                dx, dy, dz = delta / env.max_position_vel
+                action_arrs.append(
+                    np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+                current_pos = current_pos + delta
+            delta = np.subtract((final_x, final_y, final_z), current_pos)
+            pos_norm = float(np.linalg.norm(delta))
+        if pos_norm > 0:
+            delta = delta / env.max_position_vel
+            dx, dy, dz = delta
+            action_arrs.append(
+                np.array([dx, dy, dz, 0.0, 0.0], dtype=np.float32))
+        return action_arrs
 
     # Test picking up the jug.
     target_x, target_y, target_z = env._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
