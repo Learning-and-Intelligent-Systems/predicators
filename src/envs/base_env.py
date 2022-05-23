@@ -205,3 +205,14 @@ class BaseEnv(abc.ABC):
         self._current_state = self.simulate(self._current_state, action)
         # Copy to prevent external changes to the environment's state.
         return self._current_state.copy()
+
+    def event_to_action(self, state: State,
+                        event: matplotlib.backend_bases.Event) -> Action:
+        """Return a mapping from a Matplotlib event to an Action in this
+        environment.
+
+        Used for generating demonstrations from a human. Does not need
+        to be implemented.
+        """
+        raise NotImplementedError("This environment did not implement an "
+                                  "interface for human demonstrations!")

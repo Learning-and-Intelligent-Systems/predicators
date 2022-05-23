@@ -48,7 +48,11 @@ from predicators.third_party.fast_downward_translator.translate import \
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
 
+# Switch to a non-GUI backend and disable all built-in keyboard shortcuts.
 matplotlib.use("Agg")
+keymaps = {keymap for keymap in plt.rcParams if keymap.startswith("keymap.")}
+for keymap in keymaps:
+    plt.rcParams[keymap].clear()
 
 
 def count_positives_for_ops(

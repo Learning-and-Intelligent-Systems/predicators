@@ -177,3 +177,17 @@ class TouchPointEnv(BaseEnv):
         ty = state.get(target, "y")
         dist = np.sqrt((rx - tx)**2 + (ry - ty)**2)
         return dist < self.action_magnitude * self.touch_multiplier
+
+    def event_to_action(self, state: State,
+                        event: matplotlib.backend_bases.Event) -> Action:
+        """Controls: mouse click to move.
+        """
+        assert event.key is None, "Keyboard controls not allowed."
+        rx = state.get(self._robot, "x")
+        ry = state.get(self._robot, "y")
+        tx = event.xdata
+        ty = event.ydata
+        dx = tx - rx
+        dy = ty - ry
+        rot = np.arctan2(dy, dx)  # between -pi and pi
+        return Action(np.array([rot], dtype=np.float32))

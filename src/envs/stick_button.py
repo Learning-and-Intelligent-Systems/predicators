@@ -576,3 +576,24 @@ class StickButtonEnv(BaseEnv):
             if self._Above_holds(state, [stick, button]):
                 return False
         return True
+
+    def event_to_action(self, state: State,
+                        event: matplotlib.backend_bases.Event) -> Action:
+        """Controls: mouse click to move, any key to press.
+        """
+        if event.key is not None:
+            # Press action.
+            return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+        # Move action.
+        rx = state.get(self._robot, "x")
+        ry = state.get(self._robot, "y")
+        tx = event.xdata
+        ty = event.ydata
+        # Move toward the target.
+        dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
+        dy = np.clip(ty - ry, -self.max_speed, self.max_speed)
+        # Normalize.
+        dx = dx / self.max_speed
+        dy = dy / self.max_speed
+        # No need to rotate or press.
+        return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
