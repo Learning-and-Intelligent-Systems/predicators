@@ -14,7 +14,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -113,11 +113,12 @@ class RepeatedNextToEnv(BaseEnv):
         # dim is grasp). Normalization is [self.env_lb, self.env_ub] -> [0, 1].
         return Box(0, 1, (3, ))
 
-    def render_state_plt(self,
-                         state: State,
-                         task: Task,
-                         action: Optional[Action] = None,
-                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
         for dot in state.get_objects(self._dot_type):

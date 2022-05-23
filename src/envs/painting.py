@@ -18,7 +18,7 @@ from matplotlib import patches
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -366,11 +366,12 @@ class PaintingEnv(BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render_state_plt(self,
-                         state: State,
-                         task: Task,
-                         action: Optional[Action] = None,
-                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)

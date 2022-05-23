@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -317,11 +317,12 @@ class CoffeeEnv(BaseEnv):
         # Normalized dx, dy, dz, dtilt, dfingers.
         return Box(low=-1., high=1., shape=(5, ), dtype=np.float32)
 
-    def render_state_plt(self,
-                         state: State,
-                         task: Task,
-                         action: Optional[Action] = None,
-                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
         fig_width = (2 * (self.x_ub - self.x_lb))
         fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))

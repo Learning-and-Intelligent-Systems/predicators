@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, DefaultState, DefaultTask, Image, \
-    ParameterizedOption, Predicate, State, Task, Type
 from predicators.src import utils
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, DefaultState, DefaultTask, \
+    ParameterizedOption, Predicate, State, Task, Type, Video
 
 
 class BaseEnv(abc.ABC):
@@ -89,20 +89,21 @@ class BaseEnv(abc.ABC):
         """Get the action space of this environment."""
         raise NotImplementedError("Override me!")
 
-    def render_state_plt(self,
-                         state: State,
-                         task: Task,
-                         action: Optional[Action] = None,
-                         caption: Optional[str] = None
-                         ) -> matplotlib.figure.Figure:
+    @abc.abstractmethod
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         """Render a state and action into a Matplotlib figure.
 
         Like simulate, this function is not meant to be part of the
         "final system", where the environment is the real world. It is
         just for convenience, e.g., in test coverage.
 
-        Not all environments need to define this method -- only ones
-        which use Matplotlib for rendering.
+        For environments which don't use Matplotlib for rendering, this
+        function should be overriden to simply crash.
 
         NOTE: Users of this method must remember to call `plt.close()`,
         because this method returns an active figure object!
@@ -113,7 +114,7 @@ class BaseEnv(abc.ABC):
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None) -> Video:
         """Render a state and action into a list of images.
 
         Like simulate, this function is not meant to be part of the
@@ -144,7 +145,7 @@ class BaseEnv(abc.ABC):
 
     def render(self,
                action: Optional[Action] = None,
-               caption: Optional[str] = None) -> List[Image]:
+               caption: Optional[str] = None) -> Video:
         """Render the current state and action into a list of images.
 
         By default, calls render_state, but subclasses may override.

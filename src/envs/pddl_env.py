@@ -10,6 +10,7 @@ import functools
 from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
     Tuple, cast
 
+import matplotlib
 import numpy as np
 from gym.spaces import Box
 from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
@@ -21,9 +22,9 @@ from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, \
+from predicators.src.structs import Action, Array, GroundAtom, \
     LiftedAtom, Object, ParameterizedOption, PDDLProblemGenerator, Predicate, \
-    State, STRIPSOperator, Task, Type, Variable, _GroundSTRIPSOperator
+    State, STRIPSOperator, Task, Type, Variable, Video, _GroundSTRIPSOperator
 
 ###############################################################################
 #                                Base Classes                                 #
@@ -183,11 +184,19 @@ class _PDDLEnv(BaseEnv):
                       dtype=np.float32)
         return Box(lb, ub, dtype=np.float32)
 
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        raise NotImplementedError("This env does not use Matplotlib")
+
     def render_state(self,
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None) -> Video:
         raise NotImplementedError("Render not implemented for PDDLEnv.")
 
 

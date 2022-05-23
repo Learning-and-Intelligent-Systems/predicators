@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 from predicators.src.utils import _Geom2D
 
@@ -227,11 +227,12 @@ class StickButtonEnv(BaseEnv):
         # Normalized dx, dy, dtheta, press.
         return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
 
-    def render_state_plt(self,
-                         state: State,
-                         task: Task,
-                         action: Optional[Action] = None,
-                         caption: Optional[str] = None) -> matplotlib.figure.Figure:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)

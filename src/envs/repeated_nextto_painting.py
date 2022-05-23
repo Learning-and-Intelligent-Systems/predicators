@@ -8,13 +8,14 @@ option can turn on any number of NextTo predicates.
 
 from typing import Dict, List, Optional, Sequence, Set
 
+import matplotlib
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Image, Object, \
+from predicators.src.structs import Action, Array, Object, \
     ParameterizedOption, Predicate, State, Task
 
 
@@ -132,11 +133,12 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def _update_z_poses(self) -> bool:
         return True
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # List of NextTo objects to render
         nextto_objs = []
         for obj in state:
@@ -149,7 +151,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                     nextto_objs.append(obj)
         # Call the parent's renderer, but include information about what
         # objects we are NextTo as a caption
-        return super().render_state(state, task, caption="NextTo: " + \
+        assert caption is None
+        return super().render_state_plt(state, task, caption="NextTo: " + \
             str(nextto_objs))
 
     @staticmethod
