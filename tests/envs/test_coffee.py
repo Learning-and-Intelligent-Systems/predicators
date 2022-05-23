@@ -90,6 +90,45 @@ def test_coffee():
                 np.array([dx, dy, dz, 0.0, 0.0, 0.0], dtype=np.float32))
         return action_arrs
 
+    # Test twisting the jug.
+    target_x = state.get(jug, "x")
+    target_y = state.get(jug, "y")
+    target_z = env.jug_height
+    action_arrs = _get_position_action_arrs(state.get(robot, "x"),
+                                            state.get(robot, "y"),
+                                            state.get(robot, "z"), target_x,
+                                            target_y, target_z)
+    num_twists = 2
+    twist_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0], dtype=np.float32)
+    action_arrs.extend([twist_act_arr for _ in range(num_twists)])
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           state,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    twist_amt = num_twists * env.max_angular_vel
+    assert abs(traj.states[-1].get(jug, "rot") - twist_amt) < 1e-6
+    s = traj.states[-1]
+
+    # The jug is too twisted now, so picking it up should fail.
+    target_x, target_y, target_z = env._get_jug_handle_grasp(s, jug)  # pylint: disable=protected-access
+    move_action_arrs = _get_position_action_arrs(s.get(robot, "x"),
+                                                 s.get(robot, "y"),
+                                                 s.get(robot, "z"), target_x,
+                                                 target_y, target_z)
+    action_arrs.extend(move_action_arrs)
+    pick_act_arr = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+    action_arrs.append(pick_act_arr)
+
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           state,
+                                           lambda _: False,
+                                           max_num_steps=len(action_arrs))
+    assert traj.states[-1].get(jug, "is_held") < 0.5
+
     # Test picking up the jug.
     target_x, target_y, target_z = env._get_jug_handle_grasp(state, jug)  # pylint: disable=protected-access
     action_arrs = _get_position_action_arrs(state.get(robot, "x"),

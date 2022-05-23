@@ -210,6 +210,7 @@ class CoffeeEnv(BaseEnv):
         # or delete them.
         dx = x - state.get(self._robot, "x")
         dy = y - state.get(self._robot, "y")
+        dwrist = wrist - state.get(self._robot, "wrist")
         del dz, dtilt, dfingers
         # Update the robot in the next state.
         next_state.set(self._robot, "x", x)
@@ -218,6 +219,14 @@ class CoffeeEnv(BaseEnv):
         next_state.set(self._robot, "tilt", tilt)
         next_state.set(self._robot, "wrist", wrist)
         next_state.set(self._robot, "fingers", fingers)
+        # Get jug state info for later checks.
+        handle_pos = self._get_jug_handle_grasp(state, self._jug)
+        sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
+        jug_x = state.get(self._jug, "x")
+        jug_y = state.get(self._jug, "y")
+        jug_top = (jug_x, jug_y, self.jug_height)
+        jug_rot = state.get(self._jug, "rot")
+        sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
         # Check if the button should be pressed for the first time.
         machine_was_on = self._MachineOn_holds(state, [self._machine])
         pressing_button = self._PressingButton_holds(
@@ -267,21 +276,23 @@ class CoffeeEnv(BaseEnv):
                     next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
-        elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol:
-            handle_pos = self._get_jug_handle_grasp(state, self._jug)
-            sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
-            jug_rot = state.get(self._jug, "rot")
-            if sq_dist_to_handle < self.grasp_position_tol and \
-                abs(jug_rot) < self.pick_jug_rot_tol:
-                # Snap to the handle.
-                handle_x, handle_y, handle_z = handle_pos
-                next_state.set(self._robot, "x", handle_x)
-                next_state.set(self._robot, "y", handle_y)
-                next_state.set(self._robot, "z", handle_z)
-                next_state.set(self._robot, "tilt", self.tilt_lb)
-                next_state.set(self._robot, "wrist", self.robot_init_wrist)
-                # Grasp the jug.
-                next_state.set(self._jug, "is_held", 1.0)
+        elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
+            sq_dist_to_handle < self.grasp_position_tol and \
+            abs(jug_rot) < self.pick_jug_rot_tol:
+            # Snap to the handle.
+            handle_x, handle_y, handle_z = handle_pos
+            next_state.set(self._robot, "x", handle_x)
+            next_state.set(self._robot, "y", handle_y)
+            next_state.set(self._robot, "z", handle_z)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "wrist", self.robot_init_wrist)
+            # Grasp the jug.
+            next_state.set(self._jug, "is_held", 1.0)
+        # Check if the jug should be rotated.
+        elif sq_dist_to_jug_top < self.grasp_position_tol:
+            # Rotate the jug.
+            rot = state.get(self._jug, "rot")
+            next_state.set(self._jug, "rot", rot + dwrist)
         # If the jug is close enough to the dispense area and the machine is
         # on, the jug should get filled.
         jug_in_machine = self._JugInMachine_holds(next_state,
