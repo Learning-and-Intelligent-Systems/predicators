@@ -53,6 +53,8 @@ def _segment_with_contact_changes(
         keep_pred_names = {a.name for a in all_preds}
     elif CFG.env == "doors":
         keep_pred_names = {"TouchingDoor", "InRoom"}
+    elif CFG.env == "touch_point":
+        keep_pred_names = {"Touched"}
     elif CFG.env == "coffee":
         keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
     else:
