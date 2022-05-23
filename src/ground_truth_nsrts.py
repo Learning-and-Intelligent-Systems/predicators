@@ -2334,7 +2334,8 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
             "PressingButton", "Twisting"])
     TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, Pour = \
-        _get_options_by_names(CFG.env, ["TwistJug", "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
+        _get_options_by_names(CFG.env, ["TwistJug", "PickJug",
+            "PlaceJugInMachine", "TurnMachineOn", "Pour"])
 
     nsrts = set()
 

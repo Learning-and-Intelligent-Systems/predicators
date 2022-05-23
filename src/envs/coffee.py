@@ -614,12 +614,12 @@ class CoffeeEnv(BaseEnv):
         x = state.get(robot, "x")
         y = state.get(robot, "y")
         z = state.get(robot, "z")
-        jug_x = state.get(self._jug, "x")
-        jug_y = state.get(self._jug, "y")
+        jug_x = state.get(jug, "x")
+        jug_y = state.get(jug, "y")
         jug_top = (jug_x, jug_y, self.jug_height)
         # To prevent false positives, if the distance to the handle is less
         # than the distance to the jug top, we are not twisting.
-        handle_pos = self._get_jug_handle_grasp(state, self._jug)
+        handle_pos = self._get_jug_handle_grasp(state, jug)
         sq_dist_to_handle = np.sum(np.subtract(handle_pos, (x, y, z))**2)
         sq_dist_to_jug_top = np.sum(np.subtract(jug_top, (x, y, z))**2)
         if sq_dist_to_handle < sq_dist_to_jug_top:
@@ -672,9 +672,8 @@ class CoffeeEnv(BaseEnv):
 
     def _TwistJug_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
-        # This policy moves the robot to a safe height, then moves to above
-        # the jug in the z direction, then moves down in the z direction,
-        # then applies twist actions to reach the desired rotation.
+        # This policy moves the robot to above the jug, then moves down in the
+        # z direction, then applies twists to reach the desired rotation.
         del memory  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -697,16 +696,12 @@ class CoffeeEnv(BaseEnv):
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, dtwist, 0.0], dtype=np.float32))
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
-        safe_z_sq_dist = (self.robot_init_z - z)**2
         # If at the correct x and y position, move directly toward the target.
         if xy_sq_dist < self.twist_policy_tol:
             return self._get_move_action(jug_top, robot_pos)
-        # If at a safe height, move to the position above the jug.
-        if safe_z_sq_dist < self.safe_z_tol:
-            return self._get_move_action((jug_x, jug_y, self.robot_init_z),
-                                         robot_pos)
-        # Move up to a safe height.
-        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
+        # Move to the position above the jug.
+        return self._get_move_action((jug_x, jug_y, self.robot_init_z),
+                                     robot_pos)
 
     def _TwistJug_terminal(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
