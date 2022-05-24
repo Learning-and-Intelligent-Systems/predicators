@@ -5,10 +5,10 @@ import time
 from typing import Iterator, Tuple
 from typing import Type as TypingType
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from gym.spaces import Box
-from matplotlib import pyplot as plt
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
@@ -23,7 +23,9 @@ from predicators.src.utils import GoalCountHeuristic, \
     _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
 
 
-def test_count_positives_for_ops():
+@pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",
+                         [(-1, 0, 0), (None, 1, 1)])
+def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
     """Tests for count_positives_for_ops()."""
     utils.reset_config({"segmenter": "atom_changes"})
     cup_type = Type("cup_type", ["feat1"])
@@ -70,9 +72,9 @@ def test_count_positives_for_ops():
     ]
 
     num_true, num_false, _, _ = utils.count_positives_for_ops(
-        strips_ops, option_specs, segments)
-    assert num_true == 1
-    assert num_false == 1
+        strips_ops, option_specs, segments, max_groundings=max_groundings)
+    assert num_true == exp_num_true
+    assert num_false == exp_num_false
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():
@@ -2403,15 +2405,15 @@ def test_run_gbfs():
     # Test with an infinite branching factor.
     def _inf_grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
         # Change all costs to 1.
+        i = 0
         for (a, ns, _) in _grid_successor_fn(state):
             yield (a, ns, 1.)
         # Yield unnecessary and costly noops.
         # These lines should not be covered, and that's the point!
-        i = 0  # pragma: no cover
         while True:  # pragma: no cover
-            action = f"noop{i}"  # pragma: no cover
-            yield (action, state, 100.)  # pragma: no cover
-            i += 1  # pragma: no cover
+            action = f"noop{i}"
+            yield (action, state, 100.)
+            i += 1
 
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
                                                      _grid_check_goal_fn,
@@ -2432,6 +2434,16 @@ def test_run_gbfs():
         max_evals=2)  # note: need lazy_expansion to be False here
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
+
+    # Test timeout.
+    # We don't care about the return value. Since the goal check always
+    # returns False, the fact that this test doesn't hang means that
+    # the timeout is working correctly.
+    utils.run_gbfs(initial_state,
+                   lambda s: False,
+                   _inf_grid_successor_fn,
+                   _grid_heuristic_fn,
+                   timeout=0.01)
 
 
 def test_run_hill_climbing():
@@ -2739,3 +2751,19 @@ def test_behavior_state():
     state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
     other_state = state.copy()
     assert state.allclose(other_state)
+
+
+def test_nostdout(capfd):
+    """Tests for nostdout()."""
+
+    def _hello_world():
+        print("Hello world!")
+
+    for _ in range(2):
+        _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == "Hello world!\n"
+        with utils.nostdout():
+            _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == ""

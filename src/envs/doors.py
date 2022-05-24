@@ -4,6 +4,7 @@ import itertools
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -12,7 +13,7 @@ from numpy.typing import NDArray
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 from predicators.src.utils import Rectangle, _Geom2D
 
@@ -186,17 +187,19 @@ class DoorsEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dx, dy, drot
-        lb = np.array([-self.action_magnitude, -self.action_magnitude, -np.pi],
-                      dtype=np.float32)
-        ub = np.array([self.action_magnitude, self.action_magnitude, np.pi],
+        lb = np.array(
+            [-self.action_magnitude, -self.action_magnitude, -np.inf],
+            dtype=np.float32)
+        ub = np.array([self.action_magnitude, self.action_magnitude, np.inf],
                       dtype=np.float32)
         return Box(lb, ub)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
         x_lb, x_ub, y_lb, y_ub = self._get_world_boundaries(state)
         fig, ax = plt.subplots(1, 1, figsize=(x_ub - x_lb, y_ub - y_lb))
@@ -256,9 +259,7 @@ class DoorsEnv(BaseEnv):
 
         plt.axis("off")
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks: List[Task] = []

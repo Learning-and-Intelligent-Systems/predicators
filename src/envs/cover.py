@@ -6,6 +6,7 @@ fail), but it still requires backtracking.
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -13,7 +14,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -138,11 +139,12 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         return Box(0, 1, (1, ))  # same as option param space
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
@@ -214,9 +216,7 @@ class CoverEnv(BaseEnv):
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
@@ -723,11 +723,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 return state.copy()
         return next_state
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -809,9 +810,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
@@ -1002,12 +1001,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         m["absolute_params"] = vec + p
         return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(
-            self,
-            s: State,
-            m: Dict,  # type: ignore
-            o: Sequence[Object],
-            p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
+                     p: Array) -> Action:
         assert np.allclose(p, m["params"])
         del p
         absolute_params = m["absolute_params"]

@@ -26,7 +26,8 @@ COLUMN_NAMES_AND_KEYS = [
     ("SEED", "seed"),
     ("NUM_SOLVED", "num_solved"),
     ("PERC_SOLVED", "perc_solved"),
-    ("NUM_TRANSITIONS", "num_transitions"),
+    ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
+    ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
     ("QUERY_COST", "query_cost"),
     ("PERC_EXEC_FAIL", "perc_exec_fail"),
     ("PERC_PLAN_FAIL", "perc_plan_fail"),
@@ -44,7 +45,7 @@ DERIVED_KEYS = [
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("NUM_TRANSITIONS", "Number of Transitions"),
+    ("NUM_ONLINE_TRANSITIONS", "Number of Online Transitions"),
 ]
 
 # Same as above, but for the y axis.

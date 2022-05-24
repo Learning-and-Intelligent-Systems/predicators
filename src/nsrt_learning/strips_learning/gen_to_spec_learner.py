@@ -74,12 +74,14 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # to learn PNADs. Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
-            # Before each pass, clear the poss_keep_effects of all the
-            # PNADs. We do this because we only want the poss_keep_effects
-            # of the final pass, where the PNADs did not change.
+            # Before each pass, clear the poss_keep_effects and
+            # seg_to_keep_effects_sub of all the PNADs. We do this because
+            # we only want the poss_keep_effects of the final pass, where
+            # the PNADs did not change.
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
-                    pnad.poss_keep_effects = set()
+                    pnad.poss_keep_effects.clear()
+                    pnad.seg_to_keep_effects_sub.clear()
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
@@ -191,12 +193,23 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
-                # For every atom in the necessary_image that wasn't in the
-                # necessary_add_effects, if it only contains objects
-                # already in obj_to_var, then it's a possible keep effect.
+                # Every atom in the necessary_image that wasn't in the
+                # necessary_add_effects is a possible keep effect. This
+                # may add new variables, whose mappings for this segment
+                # we keep track of in the seg_to_keep_effects_sub dict.
                 for atom in necessary_image - necessary_add_effects:
-                    if all(obj in obj_to_var for obj in atom.objects):
-                        pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+                    keep_eff_sub = {}
+                    for obj in atom.objects:
+                        if obj in obj_to_var:
+                            continue
+                        new_var = utils.create_new_variables(
+                            [obj.type], obj_to_var.values())[0]
+                        obj_to_var[obj] = new_var
+                        keep_eff_sub[new_var] = obj
+                    pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+                    if segment not in pnad.seg_to_keep_effects_sub:
+                        pnad.seg_to_keep_effects_sub[segment] = {}
+                    pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -357,8 +370,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
-        # Note: we don't need to copy pnad.poss_keep_effects into new_pnad
-        # here, because we only care about the poss_keep_effects on the final
+        # Note: we don't need to copy anything related to keep effects into
+        # new_pnad here, because we only care about keep effects on the final
         # iteration of backchaining, where this function is never called.
 
         return new_pnad
@@ -431,14 +444,27 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         i = 0
         for r in range(1, len(keep_effects) + 1):
             for keep_effects_subset in itertools.combinations(keep_effects, r):
+                # These keep effects (keep_effects_subset) could involve new
+                # variables, which we need to add to the PNAD parameters.
+                params_set = set(pnad.op.parameters)
+                for eff in keep_effects_subset:
+                    for var in eff.variables:
+                        params_set.add(var)
+                parameters = sorted(params_set)
+                # The keep effects go into both the PNAD preconditions and the
+                # PNAD add effects.
                 preconditions = pnad.op.preconditions | set(
                     keep_effects_subset)
                 add_effects = pnad.op.add_effects | set(keep_effects_subset)
+                # Create the new PNAD.
                 new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
+                                                parameters=parameters,
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
                                                    pnad.option_spec)
+                # Remember to copy seg_to_keep_effects_sub into the new_pnad!
+                new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
                 new_pnads_with_keep_effects.add(new_pnad)
                 i += 1
 

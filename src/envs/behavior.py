@@ -8,6 +8,7 @@ import os
 import shutil
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
+import matplotlib
 import numpy as np
 from numpy.random._generator import Generator
 
@@ -44,8 +45,8 @@ from predicators.src.envs.behavior_options import create_grasp_option_model, \
     create_navigate_policy, create_place_option_model, create_place_policy, \
     grasp_obj_at_pos, navigate_to_obj_pos, place_ontop_obj_pos
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Task, Type, Video
 
 
 class BehaviorEnv(BaseEnv):
@@ -323,11 +324,19 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.igibson_behavior_env.action_space.high == 1)
         return self.igibson_behavior_env.action_space
 
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        raise NotImplementedError("This env does not use Matplotlib")
+
     def render_state(self,
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None) -> Video:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 

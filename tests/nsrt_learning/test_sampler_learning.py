@@ -80,6 +80,21 @@ def test_create_sampler_data():
         param_option, datastore_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 0  # classifier disabled, no negatives
+
+    utils.reset_config({
+        "env": "cover",
+        "min_data_for_nsrt": 0,
+        "num_train_tasks": 15,
+        "sampler_disable_classifier": False,
+        "sampler_learning_max_negative_data": 0
+    })
+    positive_examples, negative_examples = _create_sampler_data(
+        datastores, variables, preconditions, add_effects, delete_effects,
+        param_option, datastore_idx)
+    assert len(positive_examples) == 1
+    # max_negative_data set to 0, so no negatives
+    assert len(negative_examples) == 0
+
     utils.reset_config({
         "env": "cover",
         "min_data_for_nsrt": 0,

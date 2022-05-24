@@ -118,7 +118,7 @@ def test_main():
         "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--num_train_tasks", "1",
         "--num_test_tasks", "1", "--option_learner", "direct_bc",
-        "--mlp_regressor_max_itr", "1"
+        "--segmenter", "atom_changes", "--mlp_regressor_max_itr", "1"
     ]
     main()
     # Try running interactive approach with no online learning, to make sure
@@ -128,7 +128,7 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "interactive_learning",
         "--seed", "123", "--num_online_learning_cycles", "1",
-        "--online_learning_max_transitions", "3", "--excluded_predicates",
+        "--online_learning_max_transitions", "0", "--excluded_predicates",
         "Covers", "--interactive_num_ensemble_members", "1",
         "--num_train_tasks", "3", "--num_test_tasks", "3",
         "--predicate_mlp_classifier_max_itr", "100"

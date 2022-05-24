@@ -71,6 +71,7 @@ def test_oracle_option_learner_cover():
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
         "option_learner": "oracle",
+        "segmenter": "atom_changes",
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
@@ -117,6 +118,7 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle",
+        "segmenter": "atom_changes",
         "blocks_num_blocks_train": [3],
         "blocks_num_blocks_test": [4],
     })
@@ -169,6 +171,7 @@ def test_learned_neural_parameterized_option():
     utils.reset_config({
         "env": "cover_multistep_options",
         "option_learner": "direct_bc",
+        "segmenter": "atom_changes",
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
     })
@@ -264,6 +267,7 @@ def test_option_learning_approach_multistep_cover():
         "env": "cover_multistep_options",
         "approach": "nsrt_learning",
         "option_learner": "direct_bc",
+        "segmenter": "atom_changes",
         "sampler_learner": "oracle",
         "num_train_tasks": 10,
         "num_test_tasks": 10,
@@ -301,6 +305,7 @@ def test_implicit_bc_option_learning_touch_point():
         "env": "touch_point",
         "approach": "nsrt_learning",
         "option_learner": "implicit_bc",
+        "segmenter": "atom_changes",
         "num_test_tasks": 10,
     })
     env = create_new_env("touch_point")

@@ -6,6 +6,7 @@ failures reported by the environment.
 
 from typing import Dict, List, Optional, Sequence, Set
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -13,7 +14,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -72,8 +73,7 @@ class ClutteredTableEnv(BaseEnv):
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
             this_radius = state.get(can, "radius")
-            if np.linalg.norm([end_x - this_x, end_y - this_y
-                               ]) < this_radius:  # type: ignore
+            if np.linalg.norm([end_x - this_x, end_y - this_y]) < this_radius:
                 assert desired_can is None
                 desired_can = can
         if desired_can is None:
@@ -114,11 +114,12 @@ class ClutteredTableEnv(BaseEnv):
         # where all 4 dimensions are 0.
         return Box(0, 1, (4, ))
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         assert len(task.goal) == 1
@@ -163,9 +164,7 @@ class ClutteredTableEnv(BaseEnv):
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []
@@ -242,8 +241,7 @@ class ClutteredTableEnv(BaseEnv):
             other_x = other_feats[0]
             other_y = other_feats[1]
             other_radius = other_feats[2]
-            distance = np.linalg.norm([other_x - pose[0],
-                                       other_y - pose[1]])  # type: ignore
+            distance = np.linalg.norm([other_x - pose[0], other_y - pose[1]])
             if distance <= (radius + other_radius):
                 return True
         return False
@@ -276,13 +274,10 @@ class ClutteredTableEnv(BaseEnv):
             vec2 = np.array([end_x - this_x, end_y - this_y])
             angle = np.arccos(
                 np.clip(
-                    vec1.dot(vec2) / (
-                        np.linalg.norm(vec1) *  # type: ignore
-                        np.linalg.norm(vec2)),  # type: ignore
-                    -1.0,
-                    1.0))
+                    vec1.dot(vec2) /
+                    (np.linalg.norm(vec1) * np.linalg.norm(vec2)), -1.0, 1.0))
             if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
-                dist = np.linalg.norm(vec2)  # type: ignore
+                dist = np.linalg.norm(vec2)
                 if dist > colliding_can_max_dist:
                     colliding_can_max_dist = float(dist)
                     colliding_can = can
@@ -363,8 +358,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
             this_radius = state.get(can, "radius")
-            if np.linalg.norm([end_x - this_x, end_y - this_y
-                               ]) < this_radius:  # type: ignore
+            if np.linalg.norm([end_x - this_x, end_y - this_y]) < this_radius:
                 assert desired_can is None
                 desired_can = can
         if desired_can is None:

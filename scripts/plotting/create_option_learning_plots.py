@@ -62,29 +62,36 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 TITLE_ENVS = [
-    ("PickPlace1D", "cover_multistep_options"),
+    ("Cover", "cover_multistep_options"),
     ("Stick Button", "stick_button"),
     ("Doors", "doors"),
+    ("Coffee", "coffee"),
 ]
 
 
 def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
-    return df["EXPERIMENT_ID"].apply(lambda v: f"{env}_{approach}_" in v)
+    return df["EXPERIMENT_ID"].apply(
+        lambda v: v.startswith(f"{env}_{approach}_"))
 
 
 PLOT_GROUPS = {
     title: [
-        ("Oracle Options", "black", "*",
-         partial(_select_data, env, "oracle_options")),
+        # ("Oracle Options", "black", "*",
+        #  partial(_select_data, env, "oracle_options")),
         ("Ours", "darkgreen", "o", partial(_select_data, env, "main")),
         ("Ours (Nonparam)", "darkorange", "o",
          partial(_select_data, env, "direct_bc_nonparam")),
         ("GNN Metacontroller (Param)", "blue", "o",
          partial(_select_data, env, "gnn_metacontroller_param")),
+        # ("GNN Metacontroller Param, Test # Objs", "blue", "o",
+        #  partial(_select_data, env, "gnn_metacontroller_param")),
+        # ("GNN Metacontroller Param, Train # Objs", "gold", "*",
+        #  partial(_select_data, "train_objs_" + env,
+        #          "gnn_metacontroller_param")),
         ("GNN Metacontroller (Nonparam)", "purple", "o",
          partial(_select_data, env, "gnn_metacontroller_nonparam")),
-        ("GNN Action Policy", "gold", "o",
-         partial(_select_data, env, "gnn_action_policy")),
+        # ("GNN Action Policy", "gold", "o",
+        #  partial(_select_data, env, "gnn_action_policy")),
         ("Max Skeletons=1", "gray", "o",
          partial(_select_data, env, "direct_bc_max_skel1")),
         ("Max Samples=1", "brown", "o",

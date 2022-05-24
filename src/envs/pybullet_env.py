@@ -6,6 +6,7 @@ Contains useful common code.
 import abc
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, cast
 
+import matplotlib
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
@@ -14,7 +15,7 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Image, Pose3D, State, Task
+from predicators.src.structs import Action, Array, Pose3D, State, Task, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -163,11 +164,19 @@ class PyBulletEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("A PyBullet environment cannot simulate.")
 
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
+        raise NotImplementedError("This env does not use Matplotlib")
+
     def render_state(self,
                      state: State,
                      task: Task,
                      action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+                     caption: Optional[str] = None) -> Video:
         raise NotImplementedError("A PyBullet environment cannot render "
                                   "arbitrary states.")
 
@@ -190,10 +199,9 @@ class PyBulletEnv(BaseEnv):
         # Reset robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
-    def render(
-            self,
-            action: Optional[Action] = None,
-            caption: Optional[str] = None) -> List[Image]:  # pragma: no cover
+    def render(self,
+               action: Optional[Action] = None,
+               caption: Optional[str] = None) -> Video:  # pragma: no cover
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         del caption  # unused
@@ -296,9 +304,7 @@ class PyBulletEnv(BaseEnv):
         closest_held_obj_dist = float("inf")
         for obj_id in self._get_object_ids_for_held_check():
             for finger_id, expected_normal in expected_finger_normals.items():
-                assert abs(
-                    np.linalg.norm(expected_normal) -  # type: ignore
-                    1.0) < 1e-5
+                assert abs(np.linalg.norm(expected_normal) - 1.0) < 1e-5
                 # Find points on the object that are within grasp_tol distance
                 # of the finger. Note that we use getClosestPoints instead of
                 # getContactPoints because we still want to consider the object

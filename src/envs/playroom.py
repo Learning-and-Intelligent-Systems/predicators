@@ -2,15 +2,16 @@
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
-from matplotlib import pyplot as plt
 
 from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -335,11 +336,12 @@ class PlayroomEnv(BlocksEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         r = self.block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))
@@ -520,9 +522,7 @@ class PlayroomEnv(BlocksEnv):
             title += f"; {caption}"
         plt.suptitle(title, fontsize=24, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-
-        return [img]
+        return fig
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[Task]:

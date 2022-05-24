@@ -21,7 +21,7 @@ from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, DefaultState, DummyOption, \
     GroundAtom, Metrics, Object, OptionSpec, Predicate, State, LowLevelTrajectory, \
-    STRIPSOperator, Task, _GroundNSRT, _Option, Action, ParameterizedOption
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option, Action, ParameterizedOption
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -42,6 +42,7 @@ def sesame_plan(
     option_model: _OptionModelBase,
     nsrts: Set[NSRT],
     initial_predicates: Set[Predicate],
+    types: Set[Type],
     timeout: float,
     seed: int,
     task_planning_heuristic: str,
@@ -56,18 +57,34 @@ def sesame_plan(
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
     planning, then Execution.
     """
+    # Note: the types that would be extracted from the NSRTs here may not
+    # include all the environment's types, so it's better to use the
+    # types that are passed in as an argument instead.
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-            if time.time() - start_time > timeout:
-                raise PlanningTimeout("Planning timed out in grounding!")
+    if CFG.sesame_grounder == "naive":
+        ground_nsrts = []
+        for nsrt in sorted(nsrts):
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+                if time.time() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in grounding!")
+    elif CFG.sesame_grounder == "fd_translator":
+        # WARNING: there is no easy way to check the timeout within this call,
+        # since Fast Downward's translator is a third-party function. We'll
+        # just check the timeout afterward.
+        ground_nsrts = list(
+            utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
+                                                 types, init_atoms, task.goal))
+        if time.time() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in grounding!")
+    else:
+        raise ValueError(
+            f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
@@ -326,6 +343,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     print(f"Max horizon {max_horizon} exceeded:",np.sum(num_actions_per_option[:cur_idx]),"steps")
+                    can_continue_on = False
+                # Check if the option was effectively a no-op.
+                elif num_actions == 0:
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
                     # Check atoms against expected atoms_sequence constraint.

@@ -198,8 +198,9 @@ def test_segment_trajectory():
             unknown_option_ll_traj, unknown_option_segments)
 
 
-@pytest.mark.parametrize("env",
-                         ["stick_button", "cover_multistep_options", "doors"])
+@pytest.mark.parametrize("env", [
+    "stick_button", "cover_multistep_options", "doors", "coffee", "touch_point"
+])
 def test_contact_based_segmentation(env):
     """Tests for contact-based segmentation."""
     utils.reset_config({
