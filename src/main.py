@@ -118,8 +118,8 @@ def _run_pipeline(env: BaseEnv,
                   approach: BaseApproach,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
-    # If agent is learning-based, generate an offline dataset, allow the agent
-    # to learn from it, and then proceed with the online learning loop. Test
+    # If agent is learning-based, allow the agent to learn from the generated
+    # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
