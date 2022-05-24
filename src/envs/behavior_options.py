@@ -491,9 +491,6 @@ def create_grasp_policy(
     #         next_plan_step[3+j] = plan[-1][3+j]
     #     plan.append(list(next_plan_step))
     # #
-    hand_i = -1
-    rh_final_grasp_postion = plan[hand_i][0:3]
-    rh_final_grasp_orn = plan[hand_i][3:6]
     reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_closing_gripper = False
@@ -571,9 +568,6 @@ def create_grasp_policy(
                                             dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
-                env.robots[0].parts["right_hand"].set_position_orientation(
-                    rh_final_grasp_postion,
-                    p.getQuaternionFromEuler(rh_final_grasp_orn))
             else:
                 # Step thru the plan to execute placing
                 # phases 1 and 2
@@ -585,6 +579,8 @@ def create_grasp_policy(
                     plan[1][3:],
                 ))
                 if len(plan) == 1:
+                    low_level_action = np.zeros(env.action_space.shape,
+                                            dtype=float)
                     plan_executed_forwards = True
 
             repeat_count = 0
@@ -1134,7 +1130,6 @@ def create_place_policy(
                                             dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
-
             else:
                 # Step thru the plan to execute placing
                 # phases 1 and 2
@@ -1146,6 +1141,8 @@ def create_place_policy(
                     plan[1][3:],
                 ))
                 if len(plan) == 1:
+                    low_level_action = np.zeros(env.action_space.shape,
+                                            dtype=float)
                     plan_executed_forwards = True
 
             plan.pop(0)

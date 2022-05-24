@@ -1,5 +1,6 @@
 """Create offline datasets by collecting demonstrations."""
 
+from bdb import set_trace
 import imp
 import logging
 from typing import List, Set
@@ -11,6 +12,7 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, LowLevelTrajectory, \
     ParameterizedOption, Task
+from predicators.src.planning import _run_low_level_plan
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
@@ -32,7 +34,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         if idx >= CFG.max_initial_demos:
             break
         try:
-            ### TODO Uncomment after debugging simulator
+            # ## TODO Uncomment after debugging simulator
             # oracle_approach.solve(task,
             #                       timeout=CFG.offline_data_planning_timeout)
             # # Since we're running the oracle approach, we know that the policy
@@ -43,9 +45,11 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             # # should only happen when the goal has been reached, as verified
             # # by the assertion below.
 
+            # import ipdb; ipdb.set_trace()
+
             #  
             import dill as pickle
-            file = open('plan.pkl', 'rb')
+            file = open('plan2.pkl', 'rb')
             pickled_plan = pickle.load(file)
             file.close()
             plan = []
@@ -56,20 +60,25 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                         curr_option = option
                 plan.append(curr_option.ground(pickled_plan[i][1], pickled_plan[i][2]))
             #
+            traj, suc = _run_low_level_plan(
+                    task, oracle_approach._option_model, plan, oracle_approach._seed,
+                    CFG.offline_data_planning_timeout, CFG.horizon)
+            assert suc
+            #
 
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj, _ = utils.run_policy(
-                utils.option_plan_to_policy(plan),
-                env,
-                "train",
-                idx,
-                termination_function=lambda s: False,
-                max_num_steps=CFG.horizon,
-                exceptions_to_break_on={utils.OptionExecutionFailure},
-                monitor=monitor)
+            # traj, _ = utils.run_policy(
+            #     utils.option_plan_to_policy(plan),
+            #     env,
+            #     "train",
+            #     idx,
+            #     termination_function=lambda s: False,
+            #     max_num_steps=CFG.horizon,
+            #     exceptions_to_break_on={utils.OptionExecutionFailure},
+            #     monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
@@ -98,4 +107,5 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
+        
     return Dataset(trajectories)

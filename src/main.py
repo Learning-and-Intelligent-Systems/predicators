@@ -111,7 +111,6 @@ def main() -> None:
     else:
         offline_dataset = None
 
-    import ipdb; ipdb.set_trace()
     # Run the full pipeline.
     _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
     script_time = time.time() - script_start

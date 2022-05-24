@@ -20,8 +20,8 @@ from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, DefaultState, DummyOption, \
-    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, \
-    STRIPSOperator, Task, _GroundNSRT, _Option
+    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, LowLevelTrajectory, \
+    STRIPSOperator, Task, _GroundNSRT, _Option, Action, ParameterizedOption
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -405,6 +405,101 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     assert not skeleton
     return [], True
 
+def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
+                          plan: List[_Option],
+                          # atoms_sequence: List[Set[GroundAtom]],
+                          seed: int,
+                          timeout: float,
+                          max_horizon: int) -> Tuple[LowLevelTrajectory, bool]:
+    """Backtracking search over continuous values.
+
+    Returns a sequence of options and a boolean. If the boolean is True,
+    the option sequence is a complete low-level plan refining the given
+    skeleton. Otherwise, the option sequence is the longest partial
+    failed refinement, where the last step did not satisfy the skeleton,
+    but all previous steps did. Note that there are multiple low-level
+    plans in general; we return the first one found (arbitrarily).
+    """
+    start_time = time.time()
+    rng_sampler = np.random.default_rng(seed)
+    cur_idx = 0
+    # The number of actions taken by each option in the plan. This is to
+    # make sure that we do not exceed the task horizon.
+    num_actions_per_option = [0 for _ in plan]
+    traj: List[State] = [task.init] + [DefaultState for _ in plan]
+    actions: List[Action] = [None for _ in plan]
+    while cur_idx < len(plan):
+        if time.time() - start_time > timeout:
+            return [], False
+        state = traj[cur_idx]
+        option = plan[cur_idx]
+        # Increment cur_idx. It will be decremented later on if we get stuck.
+        cur_idx += 1
+        if option.initiable(state):
+            try:
+                print("TRY")
+                next_state, num_actions = \
+                    option_model.get_next_state_and_num_actions(state, option)
+            except EnvironmentFailure as e:
+                can_continue_on = False
+                # Remember only the most recent failure.
+                return [], False
+            else:  # an EnvironmentFailure was not raised
+                print("...")
+                num_actions_per_option[cur_idx - 1] = num_actions
+                traj[cur_idx] = next_state
+                actions[cur_idx-1] = Action([])
+                action_option = ParameterizedOption(
+                    option.parent.name, option.parent.types, option.parent.params_space, lambda s, m, o, p: Action(np.array([0.0])),
+                    lambda s, m, o, p: False, lambda s, m, o, p: True).ground(option.objects,option.params)
+                action_option.name = option.name
+                actions[cur_idx-1].set_option(action_option)
+                # Check if we have exceeded the horizon.
+                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                    print(f"Max horizon {max_horizon} exceeded:",np.sum(num_actions_per_option[:cur_idx]),"steps")
+                    can_continue_on = False
+                # elif CFG.sesame_check_expected_atoms:
+                #     # Check atoms against expected atoms_sequence constraint.
+                #     assert len(traj) == len(atoms_sequence)
+                #     # The expected atoms are ones that we definitely expect to
+                #     # be true at this point in the plan. They are not *all* the
+                #     # atoms that could be true.
+                #     expected_atoms = {
+                #         atom
+                #         for atom in atoms_sequence[cur_idx]
+                #         if atom.predicate.name != _NOT_CAUSES_FAILURE
+                #     }
+                #     # This "if all" statement is equivalent to, but faster
+                #     # than, checking whether expected_atoms is a subset of
+                #     # utils.abstract(traj[cur_idx], predicates).
+                #     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
+                #         can_continue_on = True
+                #         print("Success")
+                #         if cur_idx == len(plan):
+                #             return plan, True  # success!
+                #     else:
+                #         for a in expected_atoms:
+                #             if not a.holds(traj[cur_idx]):
+                #                 print(f"WARNING: did not pass expected atoms check {a}")
+                #         can_continue_on = False
+                #         return [], False
+                else:
+                    # If we're not checking expected_atoms, we need to
+                    # explicitly check the goal on the final timestep.
+                    can_continue_on = True
+                    if cur_idx == len(plan):
+                        if task.goal_holds(traj[cur_idx]):
+                            return LowLevelTrajectory(traj, actions), True  # success!
+                        can_continue_on = False
+                        return [], False
+        else:
+            # The option is not initiable.
+            can_continue_on = False
+        if not can_continue_on:  # we got stuck, time to return False!
+            return [], False
+    # Should only get here if the plan was empty.
+    assert not plan
+    return [], True
 
 def _update_nsrts_with_failure(
     discovered_failure: _DiscoveredFailure, ground_nsrts: List[_GroundNSRT]
