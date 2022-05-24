@@ -271,9 +271,9 @@ def test_stick_button():
                                                 fig.canvas,
                                                 x=1.0,
                                                 y=2.0)
-    with pytest.raises(AssertionError) as e:
+    with pytest.raises(AssertionError) as e2:
         event_to_action(state, event)
-    assert "Out-of-bounds click" in str(e)
+    assert "Out-of-bounds click" in str(e2)
     event.xdata = event.x
     event.ydata = event.y
     assert isinstance(event_to_action(state, event), Action)
