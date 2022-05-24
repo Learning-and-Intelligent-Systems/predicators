@@ -36,6 +36,8 @@ class GlobalSettings:
     # The method to use for segmentation. By default, segment using options.
     # If you are learning options, you should change this via the command line.
     segmenter = "option_changes"
+    # The method to use for generating demonstrations: "oracle" or "human".
+    demonstrator = "oracle"
 
     # cover env parameters
     cover_num_blocks = 2

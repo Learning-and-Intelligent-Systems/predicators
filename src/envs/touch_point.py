@@ -1,6 +1,7 @@
 """Toy environment for testing option learning."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+import logging
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -177,3 +178,22 @@ class TouchPointEnv(BaseEnv):
         ty = state.get(target, "y")
         dist = np.sqrt((rx - tx)**2 + (ry - ty)**2)
         return dist < self.action_magnitude * self.touch_multiplier
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        logging.info("Controls: mouse click to move")
+
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event) -> Action:
+            assert event.key is None, "Keyboard controls not allowed."
+            rx = state.get(self._robot, "x")
+            ry = state.get(self._robot, "y")
+            tx = event.xdata
+            ty = event.ydata
+            assert tx is not None and ty is not None, "Out-of-bounds click"
+            dx = tx - rx
+            dy = ty - ry
+            rot = np.arctan2(dy, dx)  # between -pi and pi
+            return Action(np.array([rot], dtype=np.float32))
+
+        return _event_to_action
