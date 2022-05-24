@@ -263,6 +263,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_failures = 0
     total_num_solve_failures = 0
     video_prefix = utils.get_config_path_str()
+    metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
@@ -279,11 +280,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
+        planning_time = solve_time
         num_found_policy += 1
         make_video = False
         solved = False
         caught_exception = False
-        if CFG.make_test_videos or CFG.make_failure_videos:
+        if CFG.make_test_videos:
             monitor = utils.VideoMonitor(env.render)
         else:
             monitor = None
@@ -297,15 +299,18 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            solve_time += execution_metrics["policy_call_time"]
+            execution_time = execution_metrics["policy_call_time"]
+            solve_time += execution_time
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
+            execution_time = -1
         except (ApproachTimeout, ApproachFailure) as e:
             log_message = ("Approach failed at policy execution time with "
                            f"error: {e}")
             total_num_execution_failures += 1
             caught_exception = True
+            execution_time = -1
         if solved:
             log_message = "SOLVED"
             num_solved += 1
@@ -323,7 +328,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
-    metrics: Metrics = defaultdict(float)
+        metrics[f"task{test_task_idx}_planning_time"] = planning_time
+        metrics[f"task{test_task_idx}_execution_time"] = execution_time
+
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
