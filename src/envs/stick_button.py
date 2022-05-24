@@ -581,6 +581,7 @@ class StickButtonEnv(BaseEnv):
 
     def get_event_to_action_fn(
             self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        assert CFG.stick_button_disable_angles
         logging.info("Controls: mouse click to move, any key to press")
 
         def _event_to_action(state: State,
