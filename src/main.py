@@ -108,6 +108,7 @@ def main() -> None:
         # to use the oracle predicates (e.g. demo data generation).
         offline_dataset = _generate_or_load_offline_dataset(
             env, train_tasks, options)
+        import ipdb; ipdb.set_trace()
     else:
         offline_dataset = None
 
