@@ -15,7 +15,7 @@ from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Task
+    ParameterizedOption, Task, State, Action
 from predicators.src.planning import _run_low_level_plan
 
 

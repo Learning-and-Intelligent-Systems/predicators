@@ -473,6 +473,7 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
                     option.parent.name, option.parent.types, option.parent.params_space, lambda s, m, o, p: Action(np.array([0.0])),
                     lambda s, m, o, p: False, lambda s, m, o, p: True).ground(option.objects,option.params)
                 action_option.name = option.name
+                action_option.memory = option.memory
                 actions[cur_idx-1].set_option(action_option)
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
