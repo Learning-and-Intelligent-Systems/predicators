@@ -1,7 +1,7 @@
 """Base class for an environment."""
 
 import abc
-from typing import List, Optional, Set
+from typing import Callable, List, Optional, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -205,3 +205,15 @@ class BaseEnv(abc.ABC):
         self._current_state = self.simulate(self._current_state, action)
         # Copy to prevent external changes to the environment's state.
         return self._current_state.copy()
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        """The optional environment-specific method that is used for generating
+        demonstrations from a human, with a GUI.
+
+        Returns a function that maps state and Matplotlib event to an
+        action in this environment; before returning this function, it's
+        recommended to log some instructions about the controls.
+        """
+        raise NotImplementedError("This environment did not implement an "
+                                  "interface for human demonstrations!")

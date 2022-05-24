@@ -1,6 +1,8 @@
 """An environment where a robot must press buttons with its hand or a stick."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
+import logging
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
+    Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -576,3 +578,30 @@ class StickButtonEnv(BaseEnv):
             if self._Above_holds(state, [stick, button]):
                 return False
         return True
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        assert CFG.stick_button_disable_angles
+        logging.info("Controls: mouse click to move, any key to press")
+
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event) -> Action:
+            if event.key is not None:
+                # Press action.
+                return Action(np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
+            # Move action.
+            rx = state.get(self._robot, "x")
+            ry = state.get(self._robot, "y")
+            tx = event.xdata
+            ty = event.ydata
+            assert tx is not None and ty is not None, "Out-of-bounds click"
+            # Move toward the target.
+            dx = np.clip(tx - rx, -self.max_speed, self.max_speed)
+            dy = np.clip(ty - ry, -self.max_speed, self.max_speed)
+            # Normalize.
+            dx = dx / self.max_speed
+            dy = dy / self.max_speed
+            # No need to rotate or press.
+            return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
+
+        return _event_to_action
