@@ -108,6 +108,7 @@ class CoffeeEnv(BaseEnv):
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
+    _pybullet_max_angular_norm: ClassVar[float] = np.pi / 10
 
     def __init__(self) -> None:
         super().__init__()
@@ -310,7 +311,6 @@ class CoffeeEnv(BaseEnv):
                     next_state.set(self._jug, "x", new_jug_x)
                     next_state.set(self._jug, "y", new_jug_y)
                     next_state.set(self._robot, "tilt", self.robot_init_tilt)
-                    next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
@@ -900,25 +900,31 @@ class CoffeeEnv(BaseEnv):
         jug_z = self._get_jug_z(state, jug)
         jug_pos = (jug_x, jug_y, jug_z)
         pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
+        # The wrist should be sideways for pouring.
+        dwrist = (np.pi/2 - state.get(robot, "wrist"))
         # If we're close enough to the pour position, pour.
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         if sq_dist_to_pour < self.pour_policy_tol:
             dtilt = pour_tilt - tilt
-            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
+            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt,
+                dwrist=dwrist)
         dtilt = move_tilt - tilt
         # If we're above the pour position, move down to pour.
         xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
         if xy_pour_sq_dist < self.safe_z_tol:
-            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
+            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt,
+                dwrist=dwrist)
         # If we're at a safe height, move toward above the pour position.
         if (robot_z - self.robot_init_z)**2 < self.safe_z_tol:
             return self._get_move_action((pour_x, pour_y, jug_z),
                                          jug_pos,
-                                         dtilt=dtilt)
+                                         dtilt=dtilt,
+                dwrist=dwrist)
         # Move to a safe moving height.
         return self._get_move_action((robot_x, robot_y, self.robot_init_z),
                                      robot_pos,
-                                     dtilt=dtilt)
+                                     dtilt=dtilt,
+                dwrist=dwrist)
 
     def _Pour_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
@@ -1026,6 +1032,7 @@ class CoffeeEnv(BaseEnv):
             state.get(self._robot, "y"),
             state.get(self._robot, "z")
         )
+        current_grip_orn = self._state_to_gripper_orn(state)
 
         # Get the next state expected after this action is taken.
         next_state = self.simulate(state, action)
@@ -1036,7 +1043,8 @@ class CoffeeEnv(BaseEnv):
         )
         finger_state = next_state.get(self._robot, "fingers")
         finger_joint = self._fingers_state_to_joint(finger_state)
-        grip_orn = self._state_to_gripper_orn(next_state)
+        target_grip_orn = self._state_to_gripper_orn(next_state)
+        grip_orn_delta = np.subtract(target_grip_orn, current_grip_orn)
 
         # If we are currently holding the jug, create a constraint.
         if self._Holding_holds(state, [self._robot, self._jug]):
@@ -1055,7 +1063,8 @@ class CoffeeEnv(BaseEnv):
 
         # Take actions to move toward the target pose.
         # TODO: refactor logic with pybullet robot code.
-        while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol:
+        while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol or \
+              np.sum(np.square(np.subtract(current_grip_orn, target_grip_orn))) > self._pybullet_move_to_pose_tol:
             # Run IK to determine the target joint positions.
             ee_delta = np.subtract(target, current)
             # Reduce the target to conform to the max velocity constraint.
@@ -1065,9 +1074,15 @@ class CoffeeEnv(BaseEnv):
             ee_action = np.add(current, ee_delta)
             # Keep validate as False because validate=True would update the
             # state of the robot during simulation, which overrides physics.
+            orn_delta = np.subtract(target_grip_orn, current_grip_orn)
+            orn_norm = np.linalg.norm(orn_delta)
+            if orn_norm > self._pybullet_max_angular_norm:
+                orn_delta = orn_delta * self._pybullet_max_angular_norm / orn_norm
+            orn_action = np.add(current_grip_orn, orn_delta)
+            current_grip_orn = orn_action
             joints_state = self._pybullet_robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False,
-                orientation=grip_orn)
+                orientation=orn_action)
             # Override the meaningless finger values in joint_action.
             joints_state[self._pybullet_robot.left_finger_joint_idx] = finger_joint
             joints_state[self._pybullet_robot.right_finger_joint_idx] = finger_joint
@@ -1414,5 +1429,5 @@ class CoffeeEnv(BaseEnv):
         wrist = state.get(self._robot, "wrist")
         tilt = state.get(self._robot, "tilt")
         if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
-            return p.getQuaternionFromEuler([0.0, np.pi / 2 + tilt, -np.pi / 2])
+            return p.getQuaternionFromEuler([0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
         return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
