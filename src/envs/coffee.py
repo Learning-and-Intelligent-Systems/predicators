@@ -11,8 +11,7 @@ import time
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot, \
-    pybullet_inverse_kinematics 
+from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
@@ -106,9 +105,6 @@ class CoffeeEnv(BaseEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
-    _gripper_down_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    _gripper_forward_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([0.0, np.pi, np.pi])
-    _gripper_tilt_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([-np.pi / 4, np.pi, np.pi])
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
@@ -1033,7 +1029,6 @@ class CoffeeEnv(BaseEnv):
             next_state.get(self._robot, "y"),
             next_state.get(self._robot, "z"),
         )
-        target_orn = self._gripper_forward_orn  # TODO vary
         # Take actions to move toward the target pose.
         # TODO: refactor logic with pybullet robot code.
         while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol:
@@ -1046,15 +1041,8 @@ class CoffeeEnv(BaseEnv):
             ee_action = np.add(current, ee_delta)
             # Keep validate as False because validate=True would update the
             # state of the robot during simulation, which overrides physics.
-            joints_state = pybullet_inverse_kinematics(
-                self._pybullet_robot.robot_id,
-                self._pybullet_robot.end_effector_id,
-                (ee_action[0], ee_action[1], ee_action[2]),
-                target_orn,  # TODO interpolate
-                self._pybullet_robot._arm_joints,
-                physics_client_id=self._physics_client_id,
-                validate=False,
-            )
+            joints_state = self._pybullet_robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Override the meaningless finger values in joint_action.
             joints_state[self._pybullet_robot.left_finger_joint_idx] = self._pybullet_robot.open_fingers
             joints_state[self._pybullet_robot.right_finger_joint_idx] = self._pybullet_robot.open_fingers
@@ -1112,7 +1100,8 @@ class CoffeeEnv(BaseEnv):
 
         # Load robot.
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        ee_orn = self._gripper_forward_orn
+        # TODO incorporate tilt and wrist
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
         self._pybullet_robot = create_single_arm_pybullet_robot(
             CFG.pybullet_robot, ee_home, ee_orn, self._physics_client_id)
 
