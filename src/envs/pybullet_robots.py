@@ -183,7 +183,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
 
     # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
+    _base_pose: ClassVar[Pose3D] = (0.6, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     @classmethod
