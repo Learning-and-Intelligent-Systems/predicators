@@ -1017,6 +1017,10 @@ class CoffeeEnv(BaseEnv):
 
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
+
+        if action is None:
+            return imgs
+
         # Create a controller to move the robot based on the action.
         next_state = self.simulate(state, action)
         target_pose = (
@@ -1058,9 +1062,6 @@ class CoffeeEnv(BaseEnv):
             state.simulator_state = self._pybullet_robot.get_joints()
             # Take an image.
             imgs.append(self._capture_pybullet_image())
-
-        import time
-        time.sleep(1)
 
         return imgs
 
@@ -1271,9 +1272,9 @@ class CoffeeEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
 
         # Reset the jug based on the state.
-        if self._Holding_holds(state, [self._robot, self._jug]):
+        # if self._Holding_holds(state, [self._robot, self._jug]):
             # TODO
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
         jx = state.get(self._jug, "x")
         jy = state.get(self._jug, "y")
         jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
