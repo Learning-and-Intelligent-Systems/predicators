@@ -1172,7 +1172,9 @@ class CoffeeEnv(BaseEnv):
             (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
             self.z_lb + self.jug_height / 2
         )
-        jug_orientation = self._default_obj_orn
+        # The jug orientation updates based on the rotation of the state.
+        rot = (self.jug_init_rot_lb + self.jug_init_rot_ub) / 2
+        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
 
         # Create the jug handle.
         handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
@@ -1275,6 +1277,9 @@ class CoffeeEnv(BaseEnv):
                                        physicsClientId=self._physics_client_id)
             self._cup_ids.append(cup_id)
 
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
+
     def _update_pybullet_from_state(self, state: State) -> None:
 
         # Reset cups based on the state.
@@ -1332,12 +1337,13 @@ class CoffeeEnv(BaseEnv):
             jx = state.get(self._jug, "x")
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
+            rot = state.get(self._jug, "rot")
+            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
             p.resetBasePositionAndOrientation(
                     self._jug_id,
                     [jx, jy, jz],
-                    self._default_obj_orn,
+                    jug_orientation,
                     physicsClientId=self._physics_client_id)
-        # 
 
         # Update the robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
