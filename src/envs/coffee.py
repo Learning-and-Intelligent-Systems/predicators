@@ -1116,4 +1116,40 @@ class CoffeeEnv(BaseEnv):
                                    baseOrientation=orientation,
                                    physicsClientId=self._physics_client_id)
 
+        ## Create cups.
+        self._cup_ids: Set[int] = set()
+        max_num_cups = max(max(CFG.coffee_num_cups_train), max(CFG.coffee_num_cups_test))
+        for num in range(max_num_cups):
+            # TODO make realistic.
+            # Create the collision shape.
+            # TODO: make different sizes?
+            cup_height = self.cup_capacity_ub
+            collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+                                                  radius=self.cup_radius,
+                                                  height=cup_height,
+                                                  physicsClientId=self._physics_client_id)
+
+            # Create the visual_shape.
+            visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                            radius=self.cup_radius,
+                                            length=cup_height,
+                                            rgbaColor=(0.6, 0.6, 0.4, 1.0),
+                                            physicsClientId=self._physics_client_id)
+
+            # Create the body.
+            # This pose doesn't matter because it gets overwritten in reset.
+            pose = (
+                (self.cup_init_x_lb + self.cup_init_x_ub) / 2,
+                (self.cup_init_y_lb + self.cup_init_y_ub) / 2,
+                self.z_lb + cup_height / 2
+            )
+            orientation = self._default_obj_orn
+            cup_id = p.createMultiBody(baseMass=0,
+                                       baseCollisionShapeIndex=collision_id,
+                                       baseVisualShapeIndex=visual_id,
+                                       basePosition=pose,
+                                       baseOrientation=orientation,
+                                       physicsClientId=self._physics_client_id)
+            self._cup_ids.add(cup_id)
+
 
