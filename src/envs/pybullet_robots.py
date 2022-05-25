@@ -283,7 +283,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     def closed_fingers(self) -> float:
         return 0.01
 
-    def reset_state(self, robot_state: Array) -> None:
+    def reset_state(self, robot_state: Array,
+                    orientation: Optional[Sequence[float]] = None) -> None:
         rx, ry, rz, rf = robot_state
         p.resetBasePositionAndOrientation(
             self._fetch_id,
@@ -295,7 +296,8 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         self.set_joints(self._initial_joints_state)
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
+        joints_state = self.inverse_kinematics((rx, ry, rz), validate=True,
+                                               orientation=orientation)
         self.set_joints(joints_state)
         # Handle setting the robot finger joints.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
@@ -361,12 +363,16 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
         return position
 
     def inverse_kinematics(self, end_effector_pose: Pose3D,
-                           validate: bool) -> JointsState:
+                           validate: bool,
+                           orientation: Optional[Sequence[float]] = None
+                           ) -> JointsState:
+        if orientation is None:
+            orientation = self._ee_orientation
         return pybullet_inverse_kinematics(
             self._fetch_id,
             self._ee_id,
             end_effector_pose,
-            self._ee_orientation,
+            orientation,
             self._arm_joints,
             physics_client_id=self._physics_client_id,
             validate=validate)

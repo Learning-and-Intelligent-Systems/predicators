@@ -795,22 +795,25 @@ class CoffeeEnv(BaseEnv):
         # Distance in the z direction to a safe move distance.
         safe_z_sq_dist = (self.robot_init_z - z)**2
         yx_waypoint_sq_dist = (waypoint_x - x)**2 + (target_y - y)**2
+        # Move the wrist back to the initial position, in case we just finished
+        # twisting.
+        dwrist = self.robot_init_wrist - state.get(robot, "wrist")
         # If at the correct y and z position and behind in the x direction,
         # move directly toward the target.
         if x < target_x and yz_handle_sq_dist < self.pick_policy_tol:
-            return self._get_move_action(handle_pos, robot_pos)
+            return self._get_move_action(handle_pos, robot_pos, dwrist=dwrist)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
         if yx_waypoint_sq_dist < self.pick_policy_tol:
             return self._get_move_action((waypoint_x, target_y, target_z),
-                                         robot_pos)
+                                         robot_pos, dwrist=dwrist)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
         if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
-                (waypoint_x, target_y, self.robot_init_z), robot_pos)
+                (waypoint_x, target_y, self.robot_init_z), robot_pos, dwrist=dwrist)
         # Move up to a safe height.
-        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
+        return self._get_move_action((x, y, self.robot_init_z), robot_pos, dwrist=dwrist)
 
     def _PickJug_terminal(self, state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -994,6 +997,8 @@ class CoffeeEnv(BaseEnv):
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel
+        dwrist = np.clip(dwrist, -self.max_angular_vel, self.max_angular_vel)
+        dwrist = dwrist / self.max_angular_vel
         return Action(
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
 
@@ -1031,6 +1036,8 @@ class CoffeeEnv(BaseEnv):
         )
         finger_state = next_state.get(self._robot, "fingers")
         finger_joint = self._fingers_state_to_joint(finger_state)
+        wrist = next_state.get(self._robot, "wrist")
+        grip_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
 
         # If we are currently holding the jug, create a constraint.
         if self._Holding_holds(state, [self._robot, self._jug]):
@@ -1059,7 +1066,8 @@ class CoffeeEnv(BaseEnv):
             # Keep validate as False because validate=True would update the
             # state of the robot during simulation, which overrides physics.
             joints_state = self._pybullet_robot.inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+                (ee_action[0], ee_action[1], ee_action[2]), validate=False,
+                orientation=grip_orn)
             # Override the meaningless finger values in joint_action.
             joints_state[self._pybullet_robot.left_finger_joint_idx] = finger_joint
             joints_state[self._pybullet_robot.right_finger_joint_idx] = finger_joint
@@ -1346,7 +1354,13 @@ class CoffeeEnv(BaseEnv):
                     physicsClientId=self._physics_client_id)
 
         # Update the robot.
-        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        wrist = state.get(self._robot, "wrist")
+        grip_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
+        self._pybullet_robot.reset_state(self._extract_robot_state(state),
+                                         orientation=grip_orn)
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
     def _capture_pybullet_image(self) -> Image:
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
