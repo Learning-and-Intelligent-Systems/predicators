@@ -56,6 +56,7 @@ def test_demo_dataset():
         assert traj.is_demo
         for action in traj.actions:
             assert action.has_option()
+    assert not dataset.has_annotations
     with pytest.raises(AssertionError):
         _ = dataset.annotations
     # Test that only options in the included_options flag are included
@@ -275,11 +276,13 @@ def test_dataset_with_annotations():
         dataset = Dataset(trajectories, [])
     annotations = ["label" for _ in trajectories]
     dataset = Dataset(list(trajectories), list(annotations))
+    assert dataset.has_annotations
     assert dataset.annotations == annotations
     # Can't add a data point without an annotation.
     with pytest.raises(AssertionError):
         dataset.append(trajectories)
     dataset.append(trajectories[0], annotations[0])
+    assert dataset.has_annotations
     assert len(dataset.trajectories) == len(dataset.annotations) == \
         len(trajectories) + 1
 

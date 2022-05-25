@@ -652,15 +652,6 @@ def test_operators_and_nsrts(state):
     Option Objects: []"""
 
 
-def test_datasets(state):
-    """Tests for ActionDatasets and OptionDatasets."""
-    action = np.zeros(3, dtype=np.float32)
-    transition = [state, action, state]
-    dataset = [transition]
-    assert len(dataset) == 1
-    assert dataset[0] == transition
-
-
 def test_action():
     """Tests for Action class."""
     cup_type = Type("cup_type", ["feat1"])
