@@ -35,8 +35,8 @@ class _DummyFailureApproach(BaseApproach):
 
 
 class _DummySolveTimeoutApproach(BaseApproach):
-    """Dummy approach that raises ApproachTimeout during planning
-    for testing."""
+    """Dummy approach that raises ApproachTimeout during planning for
+    testing."""
 
     @classmethod
     def get_name(cls) -> str:
@@ -51,8 +51,8 @@ class _DummySolveTimeoutApproach(BaseApproach):
 
 
 class _DummyExecutionTimeoutApproach(BaseApproach):
-    """Dummy approach that raises ApproachTimeout during execution
-    for testing."""
+    """Dummy approach that raises ApproachTimeout during execution for
+    testing."""
 
     @classmethod
     def get_name(cls) -> str:
@@ -173,7 +173,8 @@ def test_main():
 
 
 def test_bilevel_planning_approach_failure_and_timeout():
-    """Test coverage for ApproachFailure and ApproachTimeout in run_testing()."""
+    """Test coverage for ApproachFailure and ApproachTimeout in
+    run_testing()."""
     utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
@@ -183,20 +184,20 @@ def test_bilevel_planning_approach_failure_and_timeout():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
-
     approach = _DummyFailureApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+                                     env.action_space, train_tasks)
     assert not approach.is_learning_based
     _run_testing(env, approach)
 
-    approach = _DummySolveTimeoutApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = _DummySolveTimeoutApproach(env.predicates, env.options,
+                                          env.types, env.action_space,
+                                          train_tasks)
     assert not approach.is_learning_based
     _run_testing(env, approach)
 
-    approach = _DummyExecutionTimeoutApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = _DummyExecutionTimeoutApproach(env.predicates, env.options,
+                                              env.types, env.action_space,
+                                              train_tasks)
     assert not approach.is_learning_based
     _run_testing(env, approach)
 
