@@ -75,7 +75,10 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 idx,
                 termination_function=termination_function,
                 max_num_steps=CFG.horizon,
-                exceptions_to_break_on={utils.OptionExecutionFailure},
+                exceptions_to_break_on={
+                    utils.OptionExecutionFailure,
+                    utils.HumanDemonstrationFailure,
+                },
                 monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
@@ -138,8 +141,10 @@ def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
     fig.canvas.mpl_disconnect(keyboard_cid)
     fig.canvas.mpl_disconnect(mouse_cid)
     plt.close()
-    assert "action" in container, "Event handler failed. Its " \
-        "error message should be printed above."
+    if "action" not in container:
+        logging.warning("WARNING: Event handler failed. Its error message "
+                        "should be printed above. Terminating task.")
+        raise utils.HumanDemonstrationFailure("Event handler failed!")
     # Revert to the previous backend.
     matplotlib.use(cur_backend)
     return container["action"]
