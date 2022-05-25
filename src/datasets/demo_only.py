@@ -23,9 +23,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
-    # First, if `--load_data` was used, try to load existing data.
-    # We can load data from files that have either fewer or more
-    # demonstrations than we actually need.
     regex = r"(\d+)"
     dataset_fname_template = (
         f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
@@ -79,7 +76,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         # We are not using `--load_data`, so we must generate all needed data.
         start_idx = 0
         loaded_trajectories = []
-    # Now, generate any necessary amount of data.
+    # Now, generate any necessary amount of data. We can only get here if either
+    # we're in Case 3 of `--load_data` being used, or `--load_data` is not used.
     generated_trajectories = _create_trajs_from_start_idx(
         env, train_tasks, known_options, start_idx)
     logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
