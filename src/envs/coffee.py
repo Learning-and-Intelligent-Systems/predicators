@@ -41,7 +41,7 @@ class CoffeeEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = 0.2
-    z_ub: ClassVar[float] = 0.6
+    z_ub: ClassVar[float] = 0.75
     tilt_lb: ClassVar[float] = -np.pi / 4
     tilt_ub: ClassVar[float] = np.pi / 4
     pour_tilt: ClassVar[float] = -np.pi / 4
