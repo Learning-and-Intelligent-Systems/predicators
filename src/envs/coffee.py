@@ -104,6 +104,7 @@ class CoffeeEnv(BaseEnv):
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
     _table_pose: ClassVar[Pose3D] = (1.5, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
     def __init__(self) -> None:
         super().__init__()
@@ -1050,7 +1051,7 @@ class CoffeeEnv(BaseEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        # Load coffee jug.
+        ## Load coffee jug.
         
         # TODO make realistic.
         # Create the collision shape.
@@ -1067,11 +1068,47 @@ class CoffeeEnv(BaseEnv):
                                         physicsClientId=self._physics_client_id)
 
         # Create the body.
-        # TODO make hyperparameters
-        mass = 1.0
-        pose = (0.0, 0.0, 0.0)  # doesn't matter, gets overwritten on reset
-        orientation = (0.0, 0.0, 0.0, 1.0)
-        jug_id = p.createMultiBody(baseMass=mass,
+        # This pose doesn't matter because it gets overwritten in reset.
+        pose = (
+            (self.jug_init_x_lb + self.jug_init_x_ub) / 2,
+            (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
+            self.z_lb + self.jug_height / 2
+        )
+        orientation = self._default_obj_orn
+        self._jug_id = p.createMultiBody(baseMass=0,
+                                   baseCollisionShapeIndex=collision_id,
+                                   baseVisualShapeIndex=visual_id,
+                                   basePosition=pose,
+                                   baseOrientation=orientation,
+                                   physicsClientId=self._physics_client_id)
+
+        ## Load coffee machine.
+        
+        # TODO make realistic.
+        # Create the collision shape.
+        half_extents = (
+            self.machine_x_len / 2,
+            self.machine_y_len / 2,
+            self.machine_z_len / 2,
+        )
+        collision_id = p.createCollisionShape(p.GEOM_BOX,
+                                              halfExtents=half_extents,
+                                              physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(p.GEOM_BOX,
+                                        halfExtents=half_extents,
+                                        rgbaColor=(0.4, 0.4, 0.4, 1.0),
+                                        physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        pose = (
+            self.machine_x + self.machine_x_len / 2,
+            self.machine_y + self.machine_y_len / 2,
+            self.z_lb + self.machine_z_len / 2,
+        )
+        orientation = self._default_obj_orn
+        self._machine_id = p.createMultiBody(baseMass=0,
                                    baseCollisionShapeIndex=collision_id,
                                    baseVisualShapeIndex=visual_id,
                                    basePosition=pose,
