@@ -74,7 +74,7 @@ class CoffeeEnv(BaseEnv):
         float] = machine_x - machine_x_len - jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
-    jug_handle_radius: ClassVar[float] = jug_handle_height / 5  # for rendering
+    jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
     # Dispense area settings.
     dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
     dispense_area_x: ClassVar[float] = machine_x - 1.1 * jug_radius
@@ -1029,6 +1029,23 @@ class CoffeeEnv(BaseEnv):
             next_state.get(self._robot, "y"),
             next_state.get(self._robot, "z"),
         )
+        finger_state = next_state.get(self._robot, "fingers")
+        finger_joint = self._fingers_state_to_joint(finger_state)
+
+        # If we are currently holding the jug, create a constraint.
+        if self._Holding_holds(state, [self._robot, self._jug]):
+            base_link_to_world = np.r_[p.invertTransform(
+                *p.getLinkState(self._pybullet_robot.robot_id,
+                                self._pybullet_robot.end_effector_id,
+                                physicsClientId=self._physics_client_id)[:2])]
+            world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                self._jug_id, physicsClientId=self._physics_client_id)]
+            self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+                world_to_obj[3:]))
+        else:
+            self._held_obj_to_base_link = None
+
         # Take actions to move toward the target pose.
         # TODO: refactor logic with pybullet robot code.
         while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol:
@@ -1044,8 +1061,8 @@ class CoffeeEnv(BaseEnv):
             joints_state = self._pybullet_robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
             # Override the meaningless finger values in joint_action.
-            joints_state[self._pybullet_robot.left_finger_joint_idx] = self._pybullet_robot.open_fingers
-            joints_state[self._pybullet_robot.right_finger_joint_idx] = self._pybullet_robot.open_fingers
+            joints_state[self._pybullet_robot.left_finger_joint_idx] = finger_joint
+            joints_state[self._pybullet_robot.right_finger_joint_idx] = finger_joint
             action_arr = np.array(joints_state, dtype=np.float32)
             # This clipping is needed sometimes for the joint limits.
             action_arr = np.clip(action_arr, self._pybullet_robot.action_space.low,
@@ -1061,6 +1078,42 @@ class CoffeeEnv(BaseEnv):
             state.set(self._robot, "x", rx)
             state.set(self._robot, "y", ry)
             state.set(self._robot, "z", rz)
+            
+            # Update the held jug.
+            if self._held_obj_to_base_link:
+                world_to_base_link = p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physicsClientId=self._physics_client_id)[:2]
+                base_link_to_held_obj = p.invertTransform(
+                    *self._held_obj_to_base_link)
+                world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                         world_to_base_link[1],
+                                                         base_link_to_held_obj[0],
+                                                         base_link_to_held_obj[1])
+                p.resetBasePositionAndOrientation(
+                    self._jug_id,
+                    world_to_held_obj[0],
+                    world_to_held_obj[1],
+                    physicsClientId=self._physics_client_id)
+                jx, jy, jz = world_to_held_obj[0]
+            else:
+                jx = next_state.get(self._jug, "x")
+                jy = next_state.get(self._jug, "y")
+                jz = self.z_lb
+
+            # NOTE: I really can't figure out what is going on with the handle
+            # but hopefully it goes away once we switch to a real coffee pot.
+            rot = state.get(self._jug, "rot") - np.pi
+            hx = jx + np.cos(rot) * self.jug_handle_offset
+            hy = jy + np.sin(rot) * self.jug_handle_offset
+            hz = jz + self.jug_handle_height
+            p.resetBasePositionAndOrientation(
+                    self._jug_handle_id,
+                    [hx, hy, hz],
+                    self._default_obj_orn,
+                    physicsClientId=self._physics_client_id)
+            
             # Take an image.
             imgs.append(self._capture_pybullet_image())
 
