@@ -102,9 +102,10 @@ class CoffeeEnv(BaseEnv):
     _camera_pitch: ClassVar[float] = -24
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
-    _table_pose: ClassVar[Pose3D] = (1.5, 0.75, 0.0)
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
+    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
 
     def __init__(self) -> None:
         super().__init__()
@@ -412,7 +413,7 @@ class CoffeeEnv(BaseEnv):
             y = state.get(cup, "y")
             capacity = state.get(cup, "capacity_liquid")
             current = state.get(cup, "current_liquid")
-            z = self.z_lb + self.cup_radius
+            z = self.z_lb
             circ = utils.Circle(y, x, self.cup_radius)
             circ.plot(yx_ax, facecolor=color, edgecolor="black")
             # Cups are cylinders, so in the xz plane, they look like rects.
@@ -1002,6 +1003,8 @@ class CoffeeEnv(BaseEnv):
         if self._physics_client_id is None:
             self._initialize_pybullet()
 
+        self._update_pybullet_from_state(state)
+
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
 
@@ -1043,7 +1046,7 @@ class CoffeeEnv(BaseEnv):
 
         # Load table.
         self._table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/extended_table.urdf"),
+            utils.get_env_asset_path("urdf/table.urdf"),
             useFixedBase=True,
             physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
@@ -1117,7 +1120,7 @@ class CoffeeEnv(BaseEnv):
                                    physicsClientId=self._physics_client_id)
 
         ## Create cups.
-        self._cup_ids: Set[int] = set()
+        self._cup_ids: List[int] = []
         max_num_cups = max(max(CFG.coffee_num_cups_train), max(CFG.coffee_num_cups_test))
         for num in range(max_num_cups):
             # TODO make realistic.
@@ -1150,6 +1153,45 @@ class CoffeeEnv(BaseEnv):
                                        basePosition=pose,
                                        baseOrientation=orientation,
                                        physicsClientId=self._physics_client_id)
-            self._cup_ids.add(cup_id)
+            self._cup_ids.append(cup_id)
 
+    def _update_pybullet_from_state(self, state: State) -> None:
 
+        # Reset cups based on the state.
+        cup_objs = state.get_objects(self._cup_type)
+        self._cup_id_to_cup = {}
+        cup_height = self.cup_capacity_ub  # TODO maybe change
+        for i, cup_obj in enumerate(cup_objs):
+            cup_id = self._cup_ids[i]
+            self._cup_id_to_cup[cup_id] = cup_obj
+            cx = state.get(cup_obj, "x")
+            cy = state.get(cup_obj, "y")
+            cz = self.z_lb + cup_height / 2
+            p.resetBasePositionAndOrientation(
+                cup_id, [cx, cy, cz],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
+
+        # For any cups not involved, put them out of view.
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(cup_objs), len(self._cup_ids)):
+            cup_id = self._cup_ids[i]
+            assert cup_id not in self._cup_id_to_cup
+            p.resetBasePositionAndOrientation(
+                cup_id, [oov_x, oov_y, cup_height * i],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
+
+        # Reset the jug based on the state.
+        if self._Holding_holds(state, [self._robot, self._jug]):
+            # TODO
+            import ipdb; ipdb.set_trace()
+        jx = state.get(self._jug, "x")
+        jy = state.get(self._jug, "y")
+        jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
+        # TODO rotation, jug handle
+        p.resetBasePositionAndOrientation(
+                self._jug_id,
+                [jx, jy, jz],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
