@@ -1086,6 +1086,35 @@ class CoffeeEnv(BaseEnv):
                                    baseOrientation=orientation,
                                    physicsClientId=self._physics_client_id)
 
+        # Create the jug handle.
+        collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+                                              radius=self.jug_handle_radius,
+                                              height=self.jug_handle_height,
+                                              physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                        radius=self.jug_handle_radius,
+                                        length=self.jug_handle_radius,
+                                        rgbaColor=(0.4, 0.5, 0.6, 1.0),
+                                        physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        # This pose doesn't matter because it gets overwritten in reset.
+        pose = (
+            (self.jug_init_x_lb + self.jug_init_x_ub) / 2,
+            (self.jug_init_y_lb + self.jug_init_y_ub) / 2 - self.jug_handle_offset,
+            self.z_lb + self.jug_height / 2
+        )
+        orientation = self._default_obj_orn
+        self._jug_handle_id = p.createMultiBody(baseMass=0,
+                                               baseCollisionShapeIndex=collision_id,
+                                               baseVisualShapeIndex=visual_id,
+                                               basePosition=pose,
+                                               baseOrientation=orientation,
+                                               physicsClientId=self._physics_client_id)
+
+
         ## Load coffee machine.
         
         # TODO make realistic.
@@ -1189,9 +1218,15 @@ class CoffeeEnv(BaseEnv):
         jx = state.get(self._jug, "x")
         jy = state.get(self._jug, "y")
         jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
-        # TODO rotation, jug handle
         p.resetBasePositionAndOrientation(
                 self._jug_id,
                 [jx, jy, jz],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
+        # Render the jug handle.
+        hx, hy, hz = self._get_jug_handle_grasp(state, self._jug)
+        p.resetBasePositionAndOrientation(
+                self._jug_handle_id,
+                [hx, hy, hz],
                 self._default_obj_orn,
                 physicsClientId=self._physics_client_id)
