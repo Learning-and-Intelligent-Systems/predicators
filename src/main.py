@@ -273,9 +273,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
-            if type(e) == ApproachTimeout:
+            if isinstance(e, ApproachTimeout):
                 total_num_solve_timeouts += 1
-            elif type(e) == ApproachFailure:
+            elif isinstance(e, ApproachFailure):
                 total_num_solve_failures += 1
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
@@ -310,9 +310,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             log_message = ("Approach failed at policy execution time with "
                            f"error: {e}")
-            if type(e) == ApproachTimeout:
+            if isinstance(e, ApproachTimeout):
                 total_num_execution_timeouts += 1
-            elif type(e) == ApproachFailure:
+            elif isinstance(e, ApproachFailure):
                 total_num_execution_failures += 1
             caught_exception = True
         if solved:
