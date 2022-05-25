@@ -1036,20 +1036,20 @@ class CoffeeEnv(BaseEnv):
         )
         finger_state = next_state.get(self._robot, "fingers")
         finger_joint = self._fingers_state_to_joint(finger_state)
-        wrist = next_state.get(self._robot, "wrist")
-        grip_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
+        grip_orn = self._state_to_gripper_orn(next_state)
 
         # If we are currently holding the jug, create a constraint.
         if self._Holding_holds(state, [self._robot, self._jug]):
-            base_link_to_world = np.r_[p.invertTransform(
-                *p.getLinkState(self._pybullet_robot.robot_id,
-                                self._pybullet_robot.end_effector_id,
-                                physicsClientId=self._physics_client_id)[:2])]
-            world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                self._jug_id, physicsClientId=self._physics_client_id)]
-            self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
-                base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
-                world_to_obj[3:]))
+            if self._held_obj_to_base_link is None:
+                base_link_to_world = np.r_[p.invertTransform(
+                    *p.getLinkState(self._pybullet_robot.robot_id,
+                                    self._pybullet_robot.end_effector_id,
+                                    physicsClientId=self._physics_client_id)[:2])]
+                world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                    self._jug_id, physicsClientId=self._physics_client_id)]
+                self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                    base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+                    world_to_obj[3:]))
         else:
             self._held_obj_to_base_link = None
 
@@ -1141,7 +1141,6 @@ class CoffeeEnv(BaseEnv):
 
         # Load robot.
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        # TODO incorporate tilt and wrist
         ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
         self._pybullet_robot = create_single_arm_pybullet_robot(
             CFG.pybullet_robot, ee_home, ee_orn, self._physics_client_id)
@@ -1315,17 +1314,24 @@ class CoffeeEnv(BaseEnv):
                 self._default_obj_orn,
                 physicsClientId=self._physics_client_id)
 
+        # Update the robot.
+        grip_orn = self._state_to_gripper_orn(state)
+        self._pybullet_robot.reset_state(self._extract_robot_state(state),
+                                         orientation=grip_orn)
+
         # Reset the jug based on the state.
         if self._Holding_holds(state, [self._robot, self._jug]):
-            base_link_to_world = np.r_[p.invertTransform(
-                *p.getLinkState(self._pybullet_robot.robot_id,
-                                self._pybullet_robot.end_effector_id,
-                                physicsClientId=self._physics_client_id)[:2])]
-            world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                self._jug_id, physicsClientId=self._physics_client_id)]
-            self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
-                base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
-                world_to_obj[3:]))
+            if self._held_obj_to_base_link is None:
+                base_link_to_world = np.r_[p.invertTransform(
+                    *p.getLinkState(self._pybullet_robot.robot_id,
+                                    self._pybullet_robot.end_effector_id,
+                                    physicsClientId=self._physics_client_id)[:2])]
+                world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                    self._jug_id, physicsClientId=self._physics_client_id)]
+                self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                    base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+                    world_to_obj[3:]))
+           
             world_to_base_link = p.getLinkState(
                 self._pybullet_robot.robot_id,
                 self._pybullet_robot.end_effector_id,
@@ -1342,6 +1348,7 @@ class CoffeeEnv(BaseEnv):
                 world_to_held_obj[1],
                 physicsClientId=self._physics_client_id)
         else:
+            self._held_obj_to_base_link = None
             jx = state.get(self._jug, "x")
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
@@ -1352,12 +1359,6 @@ class CoffeeEnv(BaseEnv):
                     [jx, jy, jz],
                     jug_orientation,
                     physicsClientId=self._physics_client_id)
-
-        # Update the robot.
-        wrist = state.get(self._robot, "wrist")
-        grip_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
-        self._pybullet_robot.reset_state(self._extract_robot_state(state),
-                                         orientation=grip_orn)
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -1408,3 +1409,10 @@ class CoffeeEnv(BaseEnv):
         open_f = self._pybullet_robot.open_fingers
         closed_f = self._pybullet_robot.closed_fingers
         return closed_f if fingers_state == self.closed_fingers else open_f
+
+    def _state_to_gripper_orn(self, state: State) -> Array:
+        wrist = state.get(self._robot, "wrist")
+        tilt = state.get(self._robot, "tilt")
+        if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
+            return p.getQuaternionFromEuler([0.0, np.pi / 2 + tilt, -np.pi / 2])
+        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
