@@ -108,7 +108,7 @@ class CoffeeEnv(BaseEnv):
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _gripper_down_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     _gripper_forward_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([0.0, np.pi, np.pi])
-    _gripper_tilt_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+    _gripper_tilt_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler([-np.pi / 4, np.pi, np.pi])
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
