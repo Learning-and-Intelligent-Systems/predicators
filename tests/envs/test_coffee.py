@@ -227,7 +227,7 @@ def test_coffee():
     s = traj.states[-1]
 
     # Check that an EnvironmentFailure is raised when pouring into nothing.
-    pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    pour_act_lst = [0.0, 0.0, 0.0, -1.0, 0.0, 0.0]
     pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
     with pytest.raises(utils.EnvironmentFailure) as e:
         env.simulate(s, Action(pour_act_arr))

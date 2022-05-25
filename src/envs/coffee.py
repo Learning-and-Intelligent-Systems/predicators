@@ -41,8 +41,9 @@ class CoffeeEnv(BaseEnv):
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = 0.2
     z_ub: ClassVar[float] = 0.75
-    tilt_lb: ClassVar[float] = 0.0
+    tilt_lb: ClassVar[float] = -np.pi / 4
     tilt_ub: ClassVar[float] = np.pi / 4
+    pour_tilt: ClassVar[float] = -np.pi / 4
     wrist_lb: ClassVar[float] = -np.pi
     wrist_ub: ClassVar[float] = np.pi
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
@@ -57,7 +58,7 @@ class CoffeeEnv(BaseEnv):
     machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.6 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
-    machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
+    machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
     button_x: ClassVar[float] = machine_x
     button_y: ClassVar[float] = machine_y + machine_y_len / 2
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
@@ -81,14 +82,14 @@ class CoffeeEnv(BaseEnv):
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = jug_init_x_lb
     cup_init_x_ub: ClassVar[float] = jug_init_x_ub
-    cup_init_y_lb: ClassVar[float] = y_lb + cup_radius + init_padding
-    cup_init_y_ub: ClassVar[float] = machine_y - cup_radius - init_padding
+    cup_init_y_lb: ClassVar[float] = machine_y + cup_radius + init_padding
+    cup_init_y_ub: ClassVar[float] = y_ub - cup_radius - init_padding
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     # Simulation settings.
     pour_x_offset: ClassVar[float] = cup_radius
-    pour_y_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
+    pour_y_offset: ClassVar[float] = -1.5 * (cup_radius + jug_radius)
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
@@ -271,7 +272,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "x", self.button_x)
             next_state.set(self._robot, "y", self.button_y)
             next_state.set(self._robot, "z", self.button_z)
-            next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "tilt", self.robot_init_tilt)
             next_state.set(self._robot, "wrist", self.robot_init_wrist)
         # If the jug is already held, move its position, and process drops.
         elif jug_held:
@@ -281,7 +282,7 @@ class CoffeeEnv(BaseEnv):
             # Otherwise, move it, and process pouring.
             else:
                 # Check for pouring.
-                if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
+                if abs(tilt - self.pour_tilt) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
                     cup = self._get_cup_to_pour(next_state)
                     # If pouring into nothing, raise an error (spilling).
@@ -305,7 +306,7 @@ class CoffeeEnv(BaseEnv):
                     new_jug_y = state.get(self._jug, "y") + dy
                     next_state.set(self._jug, "x", new_jug_x)
                     next_state.set(self._jug, "y", new_jug_y)
-                    next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "tilt", self.robot_init_tilt)
                     next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
@@ -317,7 +318,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "x", handle_x)
             next_state.set(self._robot, "y", handle_y)
             next_state.set(self._robot, "z", handle_z)
-            next_state.set(self._robot, "tilt", self.tilt_lb)
+            next_state.set(self._robot, "tilt", self.robot_init_tilt)
             next_state.set(self._robot, "wrist", self.robot_init_wrist)
             # Grasp the jug.
             next_state.set(self._jug, "is_held", 1.0)
@@ -514,11 +515,12 @@ class CoffeeEnv(BaseEnv):
         )
         circ.plot(yz_ax, facecolor=color, edgecolor="black")
         ax_pad = 0.1
-        yx_ax.set_xlim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        # y axis goes right to left
+        yx_ax.set_xlim((self.y_ub + ax_pad), (self.y_lb - ax_pad))
         yx_ax.set_ylim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
         yx_ax.set_xlabel("y")
         yx_ax.set_ylabel("x")
-        yz_ax.set_xlim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        yz_ax.set_xlim((self.y_ub + ax_pad), (self.y_lb - ax_pad))
         yz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
         yz_ax.set_xlabel("y")
         yz_ax.set_ylabel("z")
@@ -879,8 +881,8 @@ class CoffeeEnv(BaseEnv):
         # pour, we need to start by rotating the cup to prevent any further
         # pouring until we've moved over the next cup.
         del memory, params  # unused
-        move_tilt = self.tilt_lb
-        pour_tilt = self.tilt_ub
+        move_tilt = self.robot_init_tilt
+        pour_tilt = self.pour_tilt
         robot, jug, cup = objects
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
