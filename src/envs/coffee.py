@@ -40,7 +40,7 @@ class CoffeeEnv(BaseEnv):
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
     z_lb: ClassVar[float] = 0.2
-    z_ub: ClassVar[float] = 0.6
+    z_ub: ClassVar[float] = 0.75
     tilt_lb: ClassVar[float] = -np.pi / 4
     tilt_ub: ClassVar[float] = np.pi / 4
     pour_tilt: ClassVar[float] = -np.pi / 4
@@ -72,7 +72,7 @@ class CoffeeEnv(BaseEnv):
                                      init_padding
     jug_init_x_ub: ClassVar[
         float] = machine_x - machine_x_len - jug_radius - init_padding
-    jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
+    jug_handle_offset: ClassVar[float] = 1.25 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
     # Dispense area settings.
@@ -1102,9 +1102,6 @@ class CoffeeEnv(BaseEnv):
 
         return imgs
 
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-
 
     def _initialize_pybullet(self) -> None:
         self._physics_client_id = p.connect(p.GUI)
@@ -1208,7 +1205,6 @@ class CoffeeEnv(BaseEnv):
                                    linkJointAxis=[(0, 0, 0)],
                                    linkJointTypes=[p.JOINT_FIXED],
                                    physicsClientId=self._physics_client_id)
-
 
         ## Load coffee machine.
         
