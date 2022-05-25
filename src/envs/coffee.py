@@ -55,7 +55,7 @@ class CoffeeEnv(BaseEnv):
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
-    machine_z_len: ClassVar[float] = 0.4 * (z_ub - z_lb)
+    machine_z_len: ClassVar[float] = 0.6 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
     button_x: ClassVar[float] = machine_x + machine_x_len / 2
@@ -514,7 +514,7 @@ class CoffeeEnv(BaseEnv):
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
         circ.plot(xz_ax, facecolor=color, edgecolor="black")
-        ax_pad = 0.5
+        ax_pad = 0.1
         xy_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
         xy_ax.set_ylim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
         xy_ax.set_xlabel("x")
