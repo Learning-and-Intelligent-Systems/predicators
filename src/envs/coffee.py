@@ -11,10 +11,10 @@ import time
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot
+from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot, create_move_end_effector_to_pose_option
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
 
 
 class CoffeeEnv(BaseEnv):
@@ -106,6 +106,9 @@ class CoffeeEnv(BaseEnv):
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
+    _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
+    _pybullet_max_vel_norm: ClassVar[float] = 0.05
+    _pybullet_finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
         super().__init__()
@@ -1000,13 +1003,69 @@ class CoffeeEnv(BaseEnv):
                                task: Task,
                                action: Optional[Action] = None,
                                caption: Optional[str] = None) -> Video:
+        assert CFG.pybullet_control_mode == "reset"
+
         if self._physics_client_id is None:
             self._initialize_pybullet()
 
+        # Update based on the input state.
         self._update_pybullet_from_state(state)
 
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        joints_state = self._pybullet_robot.get_joints()
+        state = utils.PyBulletState(state.data.copy(),
+                                    simulator_state=joints_state)
+
+        # Take the first image.
+        imgs = [self._capture_pybullet_image()]
+        # Create a controller to move the robot based on the action.
+        next_state = self.simulate(state, action)
+        target_pose = (
+            next_state.get(self._robot, "x"),
+            next_state.get(self._robot, "y"),
+            next_state.get(self._robot, "z"),
+        )
+        finger_status = "open"  # TODO
+        def _get_current_and_target_pose_and_finger_status(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D, str]:
+            assert not params
+            robot, = objects
+            current_pose = (
+                state.get(robot, "x"),
+                state.get(robot, "y"),
+                state.get(robot, "z")
+            )
+            return current_pose, target_pose, finger_status
+        param_option = create_move_end_effector_to_pose_option(
+            self._pybullet_robot, "MoveRobot", [self._robot_type],
+            Box(0, 1, (0, )),
+            _get_current_and_target_pose_and_finger_status,
+            self._pybullet_move_to_pose_tol,
+            self._pybullet_max_vel_norm,
+            self._pybullet_finger_action_nudge_magnitude
+        )
+        option = param_option.ground([self._robot], [])
+        assert option.initiable(state)
+        while not option.terminal(state):
+            pybullet_action = option.policy(state)
+            self._pybullet_robot.set_motors(pybullet_action.arr.tolist())
+            # Update the robot state. TODO, make this a separate function?
+            rx, ry, rz, _ = self._pybullet_robot.get_state()
+            state = state.copy()
+            state.set(self._robot, "x", rx)
+            state.set(self._robot, "y", ry)
+            state.set(self._robot, "z", rz)
+            state.simulator_state = self._pybullet_robot.get_joints()
+            # Take an image.
+            imgs.append(self._capture_pybullet_image())
+
+        import time
+        time.sleep(1)
+
+        return imgs
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
 
     def _initialize_pybullet(self) -> None:
@@ -1230,3 +1289,53 @@ class CoffeeEnv(BaseEnv):
                 [hx, hy, hz],
                 self._default_obj_orn,
                 physicsClientId=self._physics_client_id)
+
+        # Update the robot.
+        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+
+    def _capture_pybullet_image(self) -> Image:
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self._camera_target,
+            distance=self._camera_distance,
+            yaw=self._camera_yaw,
+            pitch=self._camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=self._physics_client_id)
+
+        width = CFG.pybullet_camera_width
+        height = CFG.pybullet_camera_height
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(width / height),
+            nearVal=0.1,
+            farVal=100.0,
+            physicsClientId=self._physics_client_id)
+
+        (_, _, px, _,
+         _) = p.getCameraImage(width=width,
+                               height=height,
+                               viewMatrix=view_matrix,
+                               projectionMatrix=proj_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               physicsClientId=self._physics_client_id)
+
+        rgb_array = np.array(px)
+        rgb_array = rgb_array[:, :, :3]
+        return rgb_array
+
+    def _extract_robot_state(self, state: State) -> Array:
+        return np.array([
+            state.get(self._robot, "x"),
+            state.get(self._robot, "y"),
+            state.get(self._robot, "z"),
+            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
+        ],
+                        dtype=np.float32)
+
+    def _fingers_state_to_joint(self, fingers_state: float) -> float:
+        assert fingers_state in (self.open_fingers, self.closed_fingers)
+        open_f = self._pybullet_robot.open_fingers
+        closed_f = self._pybullet_robot.closed_fingers
+        return closed_f if fingers_state == self.closed_fingers else open_f
