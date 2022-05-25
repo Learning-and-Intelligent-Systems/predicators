@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from contextlib import nullcontext as does_not_raise
 
 import pytest
 
@@ -157,6 +158,39 @@ def test_demo_dataset():
     assert len(dataset.trajectories) == 1
     assert os.path.exists(video_file)
     shutil.rmtree(video_dir)
+
+
+@pytest.mark.parametrize(
+    "num_train_tasks,load_data,demonstrator,expectation,do_wipe_data_dir",
+    [(7, True, "oracle", pytest.raises(ValueError), True),
+     (7, False, "oracle", does_not_raise(), False),
+     (7, True, "oracle", does_not_raise(), False),
+     (7, True, "human", pytest.raises(ValueError), False),
+     (3, True, "oracle", does_not_raise(), False),
+     (10, True, "oracle", does_not_raise(), False)])
+def test_demo_dataset_loading(num_train_tasks, load_data, demonstrator,
+                              expectation, do_wipe_data_dir):
+    """Test demo-only dataset creation using `--load_data`."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": num_train_tasks,
+        "load_data": load_data,
+        "demonstrator": demonstrator,
+    })
+    if do_wipe_data_dir:
+        shutil.rmtree(CFG.data_dir)
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    with expectation as e:
+        dataset = create_dataset(env, train_tasks, env.options)
+    if e is None:
+        assert len(dataset.trajectories) == num_train_tasks
+    else:
+        assert "Cannot load data" in str(e)
 
 
 def test_demo_replay_dataset():
