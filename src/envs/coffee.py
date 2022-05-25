@@ -6,12 +6,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+import pybullet as p
+import time
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video
 
 
 class CoffeeEnv(BaseEnv):
@@ -19,25 +22,25 @@ class CoffeeEnv(BaseEnv):
 
     # Tolerances.
     grasp_finger_tol: ClassVar[float] = 1e-2
-    grasp_position_tol: ClassVar[float] = 0.5
-    dispense_tol: ClassVar[float] = 1.0
+    grasp_position_tol: ClassVar[float] = 1e-2
+    dispense_tol: ClassVar[float] = 1e-2
     pour_angle_tol: ClassVar[float] = 1e-1
-    pour_pos_tol: ClassVar[float] = 1.0
-    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
-    pick_jug_y_padding: ClassVar[float] = 1.5
+    pour_pos_tol: ClassVar[float] = 1e-2
+    init_padding: ClassVar[float] = 0.05
+    pick_jug_y_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
-    safe_z_tol: ClassVar[float] = 1e-1
-    twist_policy_tol: ClassVar[float] = 1e-1
-    pick_policy_tol: ClassVar[float] = 1e-1
-    place_jug_in_machine_tol: ClassVar[float] = 1e-1
-    pour_policy_tol: ClassVar[float] = 1e-1
+    safe_z_tol: ClassVar[float] = 1e-2
+    twist_policy_tol: ClassVar[float] = 1e-3
+    pick_policy_tol: ClassVar[float] = 1e-3
+    place_jug_in_machine_tol: ClassVar[float] = 1e-3
+    pour_policy_tol: ClassVar[float] = 1e-3
     # Robot settings.
-    x_lb: ClassVar[float] = 0.0
-    x_ub: ClassVar[float] = 10.0
-    y_lb: ClassVar[float] = 0.0
-    y_ub: ClassVar[float] = 10.0
-    z_lb: ClassVar[float] = 0.0
-    z_ub: ClassVar[float] = 10.0
+    x_lb: ClassVar[float] = 1.1
+    x_ub: ClassVar[float] = 1.6
+    y_lb: ClassVar[float] = 0.4
+    y_ub: ClassVar[float] = 1.1
+    z_lb: ClassVar[float] = 0.2
+    z_ub: ClassVar[float] = 0.75
     tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
     wrist_lb: ClassVar[float] = -np.pi
@@ -57,7 +60,7 @@ class CoffeeEnv(BaseEnv):
     machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
     button_x: ClassVar[float] = machine_x + machine_x_len / 2
     button_y: ClassVar[float] = machine_y
-    button_z: ClassVar[float] = 3 * machine_z_len / 4
+    button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
     button_radius: ClassVar[float] = 0.2 * machine_x_len
     # Jug settings.
     jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
@@ -70,7 +73,7 @@ class CoffeeEnv(BaseEnv):
         float] = machine_y - machine_y_len - jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
-    jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
+    jug_handle_radius: ClassVar[float] = jug_handle_height / 5  # for rendering
     # Dispense area settings.
     dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
     dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
@@ -93,6 +96,14 @@ class CoffeeEnv(BaseEnv):
     max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
+    # PyBullet rendering settings.
+    _camera_distance: ClassVar[float] = 0.8
+    _camera_yaw: ClassVar[float] = 90.0
+    _camera_pitch: ClassVar[float] = -24
+    _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
+    _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
+    _table_pose: ClassVar[Pose3D] = (1.5, 0.75, 0.0)
+    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     def __init__(self) -> None:
         super().__init__()
@@ -194,9 +205,13 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
+        
         # Settings from CFG.
         self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
         self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
+
+        # For PyBullet rendering.
+        self._physics_client_id: Optional[int] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -366,6 +381,17 @@ class CoffeeEnv(BaseEnv):
         # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
         return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
 
+
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        assert CFG.coffee_render_mode in ("matplotlib", "pybullet")
+        if CFG.coffee_render_mode == "matplotlib":
+            return super().render_state(state, task, action, caption)
+        return self._render_state_pybullet(state, task, action, caption)
+
     def render_state_plt(
             self,
             state: State,
@@ -373,8 +399,8 @@ class CoffeeEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
-        fig_width = (2 * (self.x_ub - self.x_lb))
-        fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
+        fig_width = 10 * (2 * (self.x_ub - self.x_lb))
+        fig_height = 10 * max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
         fig_size = (fig_width, fig_height)
         fig, axes = plt.subplots(1, 2, figsize=fig_size)
         xy_ax, xz_ax = axes
@@ -628,7 +654,7 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height)
+        jug_top = (jug_x, jug_y, self.jug_height + self.z_lb)
         # To prevent false positives, if the distance to the handle is less
         # than the distance to the jug top, we are not twisting.
         handle_pos = self._get_jug_handle_grasp(state, jug)
@@ -694,7 +720,7 @@ class CoffeeEnv(BaseEnv):
         robot_pos = (x, y, z)
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_z = self.jug_height
+        jug_z = self.z_lb + self.jug_height
         jug_top = (jug_x, jug_y, jug_z)
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
         # If at the correct x and y position, move directly toward the target.
@@ -909,7 +935,7 @@ class CoffeeEnv(BaseEnv):
         rot = state.get(jug, "rot") - np.pi / 2
         target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
         target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
-        target_z = self.jug_handle_height
+        target_z = self.z_lb + self.jug_handle_height
         return (target_x, target_y, target_z)
 
     def _get_jug_z(self, state: State, jug: Object) -> float:
@@ -923,7 +949,7 @@ class CoffeeEnv(BaseEnv):
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + self.pour_x_offset
         target_y = state.get(cup, "y") + self.pour_y_offset
-        target_z = self.pour_z_offset
+        target_z = self.z_lb + self.pour_z_offset
         return (target_x, target_y, target_z)
 
     def _get_cup_to_pour(self, state: State) -> Optional[Object]:
@@ -965,3 +991,91 @@ class CoffeeEnv(BaseEnv):
         dtilt = dtilt / self.max_angular_vel
         return Action(
             np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
+
+    def _render_state_pybullet(self,
+                               state: State,
+                               task: Task,
+                               action: Optional[Action] = None,
+                               caption: Optional[str] = None) -> Video:
+        if self._physics_client_id is None:
+            self._initialize_pybullet()
+
+        while True:
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+
+
+    def _initialize_pybullet(self) -> None:
+        self._physics_client_id = p.connect(p.GUI)
+        # Disable the preview windows for faster rendering.
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.resetDebugVisualizerCamera(
+            self._camera_distance,
+            self._camera_yaw,
+            self._camera_pitch,
+            self._camera_target,
+            physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id)
+
+        # Load plane.
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id)
+
+        # Load robot.
+        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        # TODO incorporate tilt and wrist
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+        self._pybullet_robot = create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, ee_orn, self._physics_client_id)
+
+        # Load table.
+        self._table_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/extended_table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_pose,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id)
+
+        # Load coffee jug.
+        
+        # TODO make realistic.
+        # Create the collision shape.
+        collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+                                              radius=self.jug_radius,
+                                              height=self.jug_height,
+                                              physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+                                        radius=self.jug_radius,
+                                        length=self.jug_height,
+                                        rgbaColor=(0.4, 0.6, 0.6, 1.0),
+                                        physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        # TODO make hyperparameters
+        mass = 1.0
+        pose = (0.0, 0.0, 0.0)  # doesn't matter, gets overwritten on reset
+        orientation = (0.0, 0.0, 0.0, 1.0)
+        jug_id = p.createMultiBody(baseMass=mass,
+                                   baseCollisionShapeIndex=collision_id,
+                                   baseVisualShapeIndex=visual_id,
+                                   basePosition=pose,
+                                   baseOrientation=orientation,
+                                   physicsClientId=self._physics_client_id)
+
+

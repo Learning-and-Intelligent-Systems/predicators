@@ -160,6 +160,7 @@ class GlobalSettings:
     coffee_num_cups_test = [2, 3]
     coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
+    coffee_render_mode = "matplotlib"
 
     # parameters for random options approach
     random_options_max_tries = 100
