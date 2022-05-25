@@ -27,7 +27,7 @@ class CoffeeEnv(BaseEnv):
     pour_angle_tol: ClassVar[float] = 1e-1
     pour_pos_tol: ClassVar[float] = 1e-2
     init_padding: ClassVar[float] = 0.05
-    pick_jug_y_padding: ClassVar[float] = 0.05
+    pick_jug_x_padding: ClassVar[float] = 0.05
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
     safe_z_tol: ClassVar[float] = 1e-2
     twist_policy_tol: ClassVar[float] = 1e-3
@@ -53,43 +53,42 @@ class CoffeeEnv(BaseEnv):
     open_fingers: ClassVar[float] = 0.4
     closed_fingers: ClassVar[float] = 0.1
     # Machine settings.
-    machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
-    machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
+    machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
+    machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.6 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
     machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
-    button_x: ClassVar[float] = machine_x + machine_x_len / 2
-    button_y: ClassVar[float] = machine_y
+    button_x: ClassVar[float] = machine_x
+    button_y: ClassVar[float] = machine_y + machine_y_len / 2
     button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
-    button_radius: ClassVar[float] = 0.2 * machine_x_len
+    button_radius: ClassVar[float] = 0.2 * machine_y_len
     # Jug settings.
-    jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
+    jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
-    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
-    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
-    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + pick_jug_y_padding + \
+    jug_init_y_lb: ClassVar[float] = machine_y - machine_y_len + init_padding
+    jug_init_y_ub: ClassVar[float] = machine_y + machine_y_len - init_padding
+    jug_init_x_lb: ClassVar[float] = x_lb + jug_radius + pick_jug_x_padding + \
                                      init_padding
-    jug_init_y_ub: ClassVar[
-        float] = machine_y - machine_y_len - jug_radius - init_padding
+    jug_init_x_ub: ClassVar[
+        float] = machine_x - machine_x_len - jug_radius - init_padding
     jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
     jug_handle_height: ClassVar[float] = 3 * jug_height / 4
     jug_handle_radius: ClassVar[float] = jug_handle_height / 5  # for rendering
     # Dispense area settings.
-    dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
-    dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
+    dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
+    dispense_area_x: ClassVar[float] = machine_x - 1.1 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
-    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
-    cup_init_x_ub: ClassVar[
-        float] = machine_x - machine_x_len - cup_radius - init_padding
-    cup_init_y_lb: ClassVar[float] = jug_init_y_lb
-    cup_init_y_ub: ClassVar[float] = jug_init_y_ub
+    cup_init_x_lb: ClassVar[float] = jug_init_x_lb
+    cup_init_x_ub: ClassVar[float] = jug_init_x_ub
+    cup_init_y_lb: ClassVar[float] = y_lb + cup_radius + init_padding
+    cup_init_y_ub: ClassVar[float] = machine_y - cup_radius - init_padding
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     # Simulation settings.
-    pour_x_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
-    pour_y_offset: ClassVar[float] = cup_radius
+    pour_x_offset: ClassVar[float] = cup_radius
+    pour_y_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
@@ -404,7 +403,7 @@ class CoffeeEnv(BaseEnv):
         fig_height = 10 * max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
         fig_size = (fig_width, fig_height)
         fig, axes = plt.subplots(1, 2, figsize=fig_size)
-        xy_ax, xz_ax = axes
+        yx_ax, yz_ax = axes
         # Draw the cups.
         color = "none"  # transparent cups
         for cup in state.get_objects(self._cup_type):
@@ -413,44 +412,44 @@ class CoffeeEnv(BaseEnv):
             capacity = state.get(cup, "capacity_liquid")
             current = state.get(cup, "current_liquid")
             z = self.z_lb + self.cup_radius
-            circ = utils.Circle(x, y, self.cup_radius)
-            circ.plot(xy_ax, facecolor=color, edgecolor="black")
+            circ = utils.Circle(y, x, self.cup_radius)
+            circ.plot(yx_ax, facecolor=color, edgecolor="black")
             # Cups are cylinders, so in the xz plane, they look like rects.
-            rect = utils.Rectangle(x=x,
+            rect = utils.Rectangle(x=y,
                                    y=z,
                                    width=(self.cup_radius * 2),
                                    height=capacity,
                                    theta=0)
-            rect.plot(xz_ax, facecolor=color, edgecolor="black")
+            rect.plot(yz_ax, facecolor=color, edgecolor="black")
             # Draw an inner rect to represent the filled level.
             if current > 0:
-                rect = utils.Rectangle(x=x,
+                rect = utils.Rectangle(x=y,
                                        y=z,
                                        width=(self.cup_radius * 2),
                                        height=current,
                                        theta=0)
-                rect.plot(xz_ax, facecolor="lightblue", edgecolor="black")
+                rect.plot(yz_ax, facecolor="lightblue", edgecolor="black")
         # Draw the machine.
         color = "gray"
-        rect = utils.Rectangle(x=self.machine_x,
-                               y=self.machine_y,
-                               width=self.machine_x_len,
-                               height=self.machine_y_len,
+        rect = utils.Rectangle(x=self.machine_y,
+                               y=self.machine_x,
+                               width=self.machine_y_len,
+                               height=self.machine_x_len,
                                theta=0.0)
-        rect.plot(xy_ax, facecolor=color, edgecolor="black")
-        rect = utils.Rectangle(x=self.machine_x,
+        rect.plot(yx_ax, facecolor=color, edgecolor="black")
+        rect = utils.Rectangle(x=self.machine_y,
                                y=self.z_lb,
-                               width=self.machine_x_len,
+                               width=self.machine_y_len,
                                height=self.machine_z_len,
                                theta=0.0)
-        rect.plot(xz_ax, facecolor=color, edgecolor="black")
-        # Draw a button on the machine (xz plane only).
+        rect.plot(yz_ax, facecolor=color, edgecolor="black")
+        # Draw a button on the machine (yz plane only).
         machine_on = self._MachineOn_holds(state, [self._machine])
         color = "red" if machine_on else "brown"
-        circ = utils.Circle(x=self.button_x,
+        circ = utils.Circle(x=self.button_y,
                             y=self.button_z,
                             radius=self.button_radius)
-        circ.plot(xz_ax, facecolor=color, edgecolor="black")
+        circ.plot(yz_ax, facecolor=color, edgecolor="black")
         # Draw the jug.
         jug_full = self._JugFilled_holds(state, [self._jug])
         jug_held = self._Holding_holds(state, [self._robot, self._jug])
@@ -464,10 +463,10 @@ class CoffeeEnv(BaseEnv):
         x = state.get(self._jug, "x")
         y = state.get(self._jug, "y")
         z = self._get_jug_z(state, self._jug)
-        circ = utils.Circle(x=x, y=y, radius=self.jug_radius)
-        circ.plot(xy_ax, facecolor=color, edgecolor="black")
-        # The jug is a cylinder, so in the xz plane it looks like a rect.
-        rect = utils.Rectangle(x=(x - self.jug_radius),
+        circ = utils.Circle(x=y, y=x, radius=self.jug_radius)
+        circ.plot(yx_ax, facecolor=color, edgecolor="black")
+        # The jug is a cylinder, so in the yz plane it looks like a rect.
+        rect = utils.Rectangle(x=(y - self.jug_radius),
                                y=z,
                                width=(2 * self.jug_radius),
                                height=self.jug_height,
@@ -475,10 +474,10 @@ class CoffeeEnv(BaseEnv):
         # Rotate if held.
         if jug_held:
             tilt = state.get(self._robot, "tilt")
-            robot_x = state.get(self._robot, "x")
+            robot_y = state.get(self._robot, "y")
             robot_z = state.get(self._robot, "z")
-            rect = rect.rotate_about_point(robot_x, robot_z, tilt)
-        rect.plot(xz_ax, facecolor=color, edgecolor="black")
+            rect = rect.rotate_about_point(robot_y, robot_z, tilt)
+        rect.plot(yz_ax, facecolor=color, edgecolor="black")
         # Draw the jug handle.
         if jug_held:
             # Offset to account for handle.
@@ -489,40 +488,40 @@ class CoffeeEnv(BaseEnv):
             handle_x, handle_y, handle_z = self._get_jug_handle_grasp(
                 state, self._jug)
         color = "darkgray"
-        circ = utils.Circle(x=handle_x,
-                            y=handle_y,
+        circ = utils.Circle(x=handle_y,
+                            y=handle_x,
                             radius=self.jug_handle_radius)
-        circ.plot(xy_ax, facecolor=color, edgecolor="black")
-        circ = utils.Circle(x=handle_x,
+        circ.plot(yx_ax, facecolor=color, edgecolor="black")
+        circ = utils.Circle(x=handle_y,
                             y=handle_z,
                             radius=self.jug_handle_radius)
-        circ.plot(xz_ax, facecolor=color, edgecolor="black")
+        circ.plot(yz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
         circ = utils.Circle(
-            x=x,
-            y=y,
+            x=y,
+            y=x,
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
-        circ.plot(xy_ax, facecolor=color, edgecolor="black")
+        circ.plot(yx_ax, facecolor=color, edgecolor="black")
         circ = utils.Circle(
-            x=x,
+            x=y,
             y=z,
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
-        circ.plot(xz_ax, facecolor=color, edgecolor="black")
+        circ.plot(yz_ax, facecolor=color, edgecolor="black")
         ax_pad = 0.1
-        xy_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
-        xy_ax.set_ylim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
-        xy_ax.set_xlabel("x")
-        xy_ax.set_ylabel("y")
-        xz_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
-        xz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
-        xz_ax.set_xlabel("x")
-        xz_ax.set_ylabel("z")
+        yx_ax.set_xlim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        yx_ax.set_ylim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
+        yx_ax.set_xlabel("y")
+        yx_ax.set_ylabel("x")
+        yz_ax.set_xlim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        yz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
+        yz_ax.set_xlabel("y")
+        yz_ax.set_ylabel("z")
         plt.tight_layout()
         return fig
 
@@ -784,27 +783,27 @@ class CoffeeEnv(BaseEnv):
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
         target_x, target_y, target_z = handle_pos
-        # Distance to the handle in the x/z plane.
-        xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
-        # Distance to the penultimate waypoint in the x/y plane.
-        waypoint_y = target_y - self.pick_jug_y_padding
+        # Distance to the handle in the yz plane.
+        yz_handle_sq_dist = (target_y - y)**2 + (target_z - z)**2
+        # Distance to the penultimate waypoint in the yx plane.
+        waypoint_x = target_x - self.pick_jug_x_padding
         # Distance in the z direction to a safe move distance.
         safe_z_sq_dist = (self.robot_init_z - z)**2
-        xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
-        # If at the correct x and z position and behind in the y direction,
+        yx_waypoint_sq_dist = (waypoint_x - x)**2 + (target_y - y)**2
+        # If at the correct y and z position and behind in the x direction,
         # move directly toward the target.
-        if target_y > y and xz_handle_sq_dist < self.pick_policy_tol:
+        if x < target_x and yz_handle_sq_dist < self.pick_policy_tol:
             return self._get_move_action(handle_pos, robot_pos)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
-        if xy_waypoint_sq_dist < self.pick_policy_tol:
-            return self._get_move_action((target_x, waypoint_y, target_z),
+        if yx_waypoint_sq_dist < self.pick_policy_tol:
+            return self._get_move_action((waypoint_x, target_y, target_z),
                                          robot_pos)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
         if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
-                (target_x, waypoint_y, self.robot_init_z), robot_pos)
+                (waypoint_x, target_y, self.robot_init_z), robot_pos)
         # Move up to a safe height.
         return self._get_move_action((x, y, self.robot_init_z), robot_pos)
 
@@ -933,7 +932,7 @@ class CoffeeEnv(BaseEnv):
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
-        rot = state.get(jug, "rot") - np.pi / 2
+        rot = state.get(jug, "rot") - np.pi
         target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
         target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
         target_z = self.z_lb + self.jug_handle_height
