@@ -11,7 +11,7 @@ import time
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot, create_move_end_effector_to_pose_option
+from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
@@ -108,7 +108,6 @@ class CoffeeEnv(BaseEnv):
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
-    _pybullet_finger_action_nudge_magnitude: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
         super().__init__()
@@ -1011,55 +1010,57 @@ class CoffeeEnv(BaseEnv):
         # Update based on the input state.
         self._update_pybullet_from_state(state)
 
-        joints_state = self._pybullet_robot.get_joints()
-        state = utils.PyBulletState(state.data.copy(),
-                                    simulator_state=joints_state)
-
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
 
         if action is None:
             return imgs
 
-        # Create a controller to move the robot based on the action.
+        current = (
+            state.get(self._robot, "x"),
+            state.get(self._robot, "y"),
+            state.get(self._robot, "z")
+        )
+
+        # Get the next state expected after this action is taken.
         next_state = self.simulate(state, action)
-        target_pose = (
+        target = (
             next_state.get(self._robot, "x"),
             next_state.get(self._robot, "y"),
             next_state.get(self._robot, "z"),
         )
-        finger_status = "open"  # TODO
-        def _get_current_and_target_pose_and_finger_status(
-                state: State, objects: Sequence[Object],
-                params: Array) -> Tuple[Pose3D, Pose3D, str]:
-            assert not params
-            robot, = objects
-            current_pose = (
-                state.get(robot, "x"),
-                state.get(robot, "y"),
-                state.get(robot, "z")
-            )
-            return current_pose, target_pose, finger_status
-        param_option = create_move_end_effector_to_pose_option(
-            self._pybullet_robot, "MoveRobot", [self._robot_type],
-            Box(0, 1, (0, )),
-            _get_current_and_target_pose_and_finger_status,
-            self._pybullet_move_to_pose_tol,
-            self._pybullet_max_vel_norm,
-            self._pybullet_finger_action_nudge_magnitude
-        )
-        option = param_option.ground([self._robot], [])
-        assert option.initiable(state)
-        while not option.terminal(state):
-            pybullet_action = option.policy(state)
+        # Take actions to move toward the target pose.
+        # TODO: refactor logic with pybullet robot code.
+        while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol:
+            # Run IK to determine the target joint positions.
+            ee_delta = np.subtract(target, current)
+            # Reduce the target to conform to the max velocity constraint.
+            ee_norm = np.linalg.norm(ee_delta)
+            if ee_norm > self._pybullet_max_vel_norm:
+                ee_delta = ee_delta * self._pybullet_max_vel_norm / ee_norm
+            ee_action = np.add(current, ee_delta)
+            # Keep validate as False because validate=True would update the
+            # state of the robot during simulation, which overrides physics.
+            joints_state = self._pybullet_robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+            # Override the meaningless finger values in joint_action.
+            joints_state[self._pybullet_robot.left_finger_joint_idx] = self._pybullet_robot.open_fingers
+            joints_state[self._pybullet_robot.right_finger_joint_idx] = self._pybullet_robot.open_fingers
+            action_arr = np.array(joints_state, dtype=np.float32)
+            # This clipping is needed sometimes for the joint limits.
+            action_arr = np.clip(action_arr, self._pybullet_robot.action_space.low,
+                                 self._pybullet_robot.action_space.high)
+            assert self._pybullet_robot.action_space.contains(action_arr)
+            pybullet_action = Action(action_arr)
+            # Take action in PyBullet.
             self._pybullet_robot.set_motors(pybullet_action.arr.tolist())
             # Update the robot state. TODO, make this a separate function?
             rx, ry, rz, _ = self._pybullet_robot.get_state()
+            current = (rx, ry, rz)
             state = state.copy()
             state.set(self._robot, "x", rx)
             state.set(self._robot, "y", ry)
             state.set(self._robot, "z", rz)
-            state.simulator_state = self._pybullet_robot.get_joints()
             # Take an image.
             imgs.append(self._capture_pybullet_image())
 
