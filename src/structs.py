@@ -1040,6 +1040,11 @@ class Dataset:
         return self._trajectories
 
     @property
+    def has_annotations(self) -> bool:
+        """Whether this dataset has annotations in it."""
+        return self._annotations is not None
+
+    @property
     def annotations(self) -> List[Any]:
         """The annotations in the dataset."""
         assert self._annotations is not None
