@@ -1041,8 +1041,7 @@ class Dataset:
 
     @property
     def has_annotations(self) -> bool:
-        """Whether this dataset has annotations in it.
-        """
+        """Whether this dataset has annotations in it."""
         return self._annotations is not None
 
     @property
