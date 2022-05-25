@@ -1096,24 +1096,7 @@ class CoffeeEnv(BaseEnv):
                     world_to_held_obj[0],
                     world_to_held_obj[1],
                     physicsClientId=self._physics_client_id)
-                jx, jy, jz = world_to_held_obj[0]
-            else:
-                jx = next_state.get(self._jug, "x")
-                jy = next_state.get(self._jug, "y")
-                jz = self.z_lb
 
-            # NOTE: I really can't figure out what is going on with the handle
-            # but hopefully it goes away once we switch to a real coffee pot.
-            rot = state.get(self._jug, "rot") - np.pi
-            hx = jx + np.cos(rot) * self.jug_handle_offset
-            hy = jy + np.sin(rot) * self.jug_handle_offset
-            hz = jz + self.jug_handle_height
-            p.resetBasePositionAndOrientation(
-                    self._jug_handle_id,
-                    [hx, hy, hz],
-                    self._default_obj_orn,
-                    physicsClientId=self._physics_client_id)
-            
             # Take an image.
             imgs.append(self._capture_pybullet_image())
 
@@ -1173,13 +1156,13 @@ class CoffeeEnv(BaseEnv):
         
         # TODO make realistic.
         # Create the collision shape.
-        collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+        jug_collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
                                               radius=self.jug_radius,
                                               height=self.jug_height,
                                               physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+        jug_visual_id = p.createVisualShape(p.GEOM_CYLINDER,
                                         radius=self.jug_radius,
                                         length=self.jug_height,
                                         rgbaColor=(0.4, 0.6, 0.6, 1.0),
@@ -1187,46 +1170,44 @@ class CoffeeEnv(BaseEnv):
 
         # Create the body.
         # This pose doesn't matter because it gets overwritten in reset.
-        pose = (
+        jug_pose = (
             (self.jug_init_x_lb + self.jug_init_x_ub) / 2,
             (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
             self.z_lb + self.jug_height / 2
         )
-        orientation = self._default_obj_orn
-        self._jug_id = p.createMultiBody(baseMass=0,
-                                   baseCollisionShapeIndex=collision_id,
-                                   baseVisualShapeIndex=visual_id,
-                                   basePosition=pose,
-                                   baseOrientation=orientation,
-                                   physicsClientId=self._physics_client_id)
+        jug_orientation = self._default_obj_orn
 
         # Create the jug handle.
-        collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
+        handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
+        handle_orientation = self._default_obj_orn
+        handle_collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
                                               radius=self.jug_handle_radius,
                                               height=self.jug_handle_height,
                                               physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_CYLINDER,
+        handle_visual_id = p.createVisualShape(p.GEOM_CYLINDER,
                                         radius=self.jug_handle_radius,
                                         length=self.jug_handle_radius,
                                         rgbaColor=(0.4, 0.5, 0.6, 1.0),
                                         physicsClientId=self._physics_client_id)
 
-        # Create the body.
-        # This pose doesn't matter because it gets overwritten in reset.
-        pose = (
-            (self.jug_init_x_lb + self.jug_init_x_ub) / 2,
-            (self.jug_init_y_lb + self.jug_init_y_ub) / 2 - self.jug_handle_offset,
-            self.z_lb + self.jug_height / 2
-        )
-        orientation = self._default_obj_orn
-        self._jug_handle_id = p.createMultiBody(baseMass=0,
-                                               baseCollisionShapeIndex=collision_id,
-                                               baseVisualShapeIndex=visual_id,
-                                               basePosition=pose,
-                                               baseOrientation=orientation,
-                                               physicsClientId=self._physics_client_id)
+        self._jug_id = p.createMultiBody(baseMass=0,
+                                   baseCollisionShapeIndex=jug_collision_id,
+                                   baseVisualShapeIndex=jug_visual_id,
+                                   basePosition=jug_pose,
+                                   baseOrientation=jug_orientation,
+                                   linkMasses=[0],
+                                   linkCollisionShapeIndices=[handle_collision_id],
+                                   linkVisualShapeIndices=[handle_visual_id],
+                                   linkPositions=[handle_pose],
+                                   linkOrientations=[handle_orientation],
+                                   linkParentIndices=[0],
+                                   linkInertialFramePositions=[(0, 0, 0)],
+                                   linkInertialFrameOrientations=[(0, 0, 0, 1)],
+                                   linkJointAxis=[(0, 0, 0)],
+                                   linkJointTypes=[p.JOINT_FIXED],
+                                   physicsClientId=self._physics_client_id)
 
 
         ## Load coffee machine.
@@ -1326,24 +1307,41 @@ class CoffeeEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
 
         # Reset the jug based on the state.
-        # if self._Holding_holds(state, [self._robot, self._jug]):
-            # TODO
-            # import ipdb; ipdb.set_trace()
-        jx = state.get(self._jug, "x")
-        jy = state.get(self._jug, "y")
-        jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
-        p.resetBasePositionAndOrientation(
+        if self._Holding_holds(state, [self._robot, self._jug]):
+            base_link_to_world = np.r_[p.invertTransform(
+                *p.getLinkState(self._pybullet_robot.robot_id,
+                                self._pybullet_robot.end_effector_id,
+                                physicsClientId=self._physics_client_id)[:2])]
+            world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                self._jug_id, physicsClientId=self._physics_client_id)]
+            self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
+                base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
+                world_to_obj[3:]))
+            world_to_base_link = p.getLinkState(
+                self._pybullet_robot.robot_id,
+                self._pybullet_robot.end_effector_id,
+                physicsClientId=self._physics_client_id)[:2]
+            base_link_to_held_obj = p.invertTransform(
+                *self._held_obj_to_base_link)
+            world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
+                                                     world_to_base_link[1],
+                                                     base_link_to_held_obj[0],
+                                                     base_link_to_held_obj[1])
+            p.resetBasePositionAndOrientation(
                 self._jug_id,
-                [jx, jy, jz],
-                self._default_obj_orn,
+                world_to_held_obj[0],
+                world_to_held_obj[1],
                 physicsClientId=self._physics_client_id)
-        # Render the jug handle.
-        hx, hy, hz = self._get_jug_handle_grasp(state, self._jug)
-        p.resetBasePositionAndOrientation(
-                self._jug_handle_id,
-                [hx, hy, hz],
-                self._default_obj_orn,
-                physicsClientId=self._physics_client_id)
+        else:
+            jx = state.get(self._jug, "x")
+            jy = state.get(self._jug, "y")
+            jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
+            p.resetBasePositionAndOrientation(
+                    self._jug_id,
+                    [jx, jy, jz],
+                    self._default_obj_orn,
+                    physicsClientId=self._physics_client_id)
+        # 
 
         # Update the robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
