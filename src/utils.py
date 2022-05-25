@@ -979,6 +979,11 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class HumanDemonstrationFailure(ExceptionWithInfo):
+    """An exception raised when CFG.demonstrator == "human" and the human gives
+    a bad input."""
+
+
 class EnvironmentFailure(ExceptionWithInfo):
     """Exception raised when any type of failure occurs in an environment.
 
