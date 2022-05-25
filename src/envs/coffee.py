@@ -98,9 +98,9 @@ class CoffeeEnv(BaseEnv):
     max_finger_vel: ClassVar[float] = 1.0
     # PyBullet rendering settings.
     _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = 90.0
-    _camera_pitch: ClassVar[float] = -24
-    _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
+    _camera_yaw: ClassVar[float] = -24.0
+    _camera_pitch: ClassVar[float] = -24.0
+    _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
