@@ -74,7 +74,7 @@ class CoffeeEnv(BaseEnv):
                                      init_padding
     jug_init_x_ub: ClassVar[
         float] = machine_x - machine_x_len - jug_radius - init_padding
-    jug_handle_offset: ClassVar[float] = 1.25 * jug_radius
+    jug_handle_offset: ClassVar[float] = 1.75 * jug_radius
     jug_handle_height: ClassVar[float] = jug_height / 2
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
     # Dispense area settings.
