@@ -1287,9 +1287,10 @@ class CoffeeEnv(BaseEnv):
 
         # TODO make realistic.
         # Create the collision shape.
+        machine_y_pad = 0.05
         half_extents = (
             self.machine_x_len / 2,
-            self.machine_y_len / 2,
+            (self.machine_y_len + machine_y_pad) / 2,
             self.machine_z_len / 2,
         )
         collision_id = p.createCollisionShape(
