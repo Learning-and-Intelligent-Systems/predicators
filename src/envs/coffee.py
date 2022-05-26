@@ -84,7 +84,7 @@ class CoffeeEnv(BaseEnv):
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = jug_init_x_lb
     cup_init_x_ub: ClassVar[float] = jug_init_x_ub
-    cup_init_y_lb: ClassVar[float] = machine_y + cup_radius + init_padding
+    cup_init_y_lb: ClassVar[float] = machine_y + cup_radius + init_padding + jug_radius
     cup_init_y_ub: ClassVar[float] = y_ub - cup_radius - init_padding
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
@@ -1575,9 +1575,10 @@ class CoffeeEnv(BaseEnv):
                 physicsClientId=self._physics_client_id)
 
         # Update the button color.
-        if self._MachineOn_holds(state, [self._machine]):
+        if self._MachineOn_holds(state, [self._machine]) and \
+            self._JugInMachine_holds(state, [self._jug, self._machine]):
             button_color = (0.2, 0.5, 0.2, 1.0)
-            plate_color = (0.9, 0.3, 0.0, 0.5)
+            plate_color = (0.9, 0.3, 0.0, 0.7)
         else:
             button_color = (0.5, 0.2, 0.2, 1.0)
             plate_color = (0.6, 0.6, 0.6, 0.5)
