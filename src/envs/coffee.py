@@ -50,7 +50,7 @@ class CoffeeEnv(BaseEnv):
     wrist_ub: ClassVar[float] = np.pi
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
-    robot_init_z: ClassVar[float] = z_ub
+    robot_init_z: ClassVar[float] = z_ub - 0.1
     robot_init_tilt: ClassVar[float] = 0.0
     robot_init_wrist: ClassVar[float] = 0.0
     open_fingers: ClassVar[float] = 0.4
@@ -59,7 +59,7 @@ class CoffeeEnv(BaseEnv):
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
     machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
-    machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
+    machine_x: ClassVar[float] = x_ub - machine_x_len - 0.01
     machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
     button_x: ClassVar[float] = machine_x
     button_y: ClassVar[float] = machine_y + machine_y_len / 2
@@ -78,8 +78,8 @@ class CoffeeEnv(BaseEnv):
     jug_handle_height: ClassVar[float] = jug_height / 2
     jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
     # Dispense area settings.
+    dispense_area_x: ClassVar[float] = machine_x - 2.4 * jug_radius
     dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
-    dispense_area_x: ClassVar[float] = machine_x - 1.1 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
     cup_init_x_lb: ClassVar[float] = jug_init_x_lb
@@ -1305,6 +1305,64 @@ class CoffeeEnv(BaseEnv):
         )
         orientation = self._default_obj_orn
         self._machine_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+
+
+        ## Create the dispense area.
+        dispense_radius = 2 * self.jug_radius
+        dispense_height = 0.005
+        pose = (
+            self.dispense_area_x,
+            self.dispense_area_y,
+            self.z_lb + dispense_height
+        )
+        orientation = self._default_obj_orn
+        half_extents = [1.1*dispense_radius, 1.1*dispense_radius, dispense_height]
+        
+        # Create a square beneath the dispense area for visual niceness.
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=(0.3, 0.3, 0.3, 1.0),
+            physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        dispense_square_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=np.add(pose, (0, 0, -dispense_height)),
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+        
+        # Create the collision shape.
+        collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=dispense_radius,
+            height=dispense_height,
+            physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=dispense_radius,
+            length=dispense_height,
+            rgbaColor=(0.6, 0.6, 0.6, 0.8),
+            physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        self._dispense_area_id = p.createMultiBody(
             baseMass=0,
             baseCollisionShapeIndex=collision_id,
             baseVisualShapeIndex=visual_id,
