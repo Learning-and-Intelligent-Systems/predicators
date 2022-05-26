@@ -35,6 +35,7 @@ class CoffeeEnv(BaseEnv):
     pick_policy_tol: ClassVar[float] = 1e-3
     place_jug_in_machine_tol: ClassVar[float] = 1e-3
     pour_policy_tol: ClassVar[float] = 1e-3
+    jug_twist_offset: ClassVar[float] = 0.025
     # Robot settings.
     x_lb: ClassVar[float] = 1.1
     x_ub: ClassVar[float] = 1.6
@@ -658,7 +659,7 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height + self.z_lb)
+        jug_top = (jug_x, jug_y, self.jug_height + self.z_lb + self.jug_twist_offset)
         # To prevent false positives, if the distance to the handle is less
         # than the distance to the jug top, we are not twisting.
         handle_pos = self._get_jug_handle_grasp(state, jug)
@@ -724,7 +725,7 @@ class CoffeeEnv(BaseEnv):
         robot_pos = (x, y, z)
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_z = self.z_lb + self.jug_height
+        jug_z = self.z_lb + self.jug_height + self.jug_twist_offset
         jug_top = (jug_x, jug_y, jug_z)
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
         # If at the correct x and y position, move directly toward the target.
@@ -1472,7 +1473,7 @@ class CoffeeEnv(BaseEnv):
 
     def _fingers_state_to_joint(self, fingers_state: float) -> float:
         assert fingers_state in (self.open_fingers, self.closed_fingers)
-        open_f = self._pybullet_robot.open_fingers
+        open_f = self._pybullet_robot.open_fingers - 0.01
         closed_f = self._pybullet_robot.closed_fingers
         return closed_f if fingers_state == self.closed_fingers else open_f
 
