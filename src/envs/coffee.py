@@ -1182,9 +1182,9 @@ class CoffeeEnv(BaseEnv):
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
                                    False,
                                    physicsClientId=self._physics_client_id)
-        p.resetDebugVisualizerCamera(self._camera_distance,
-                                     self._camera_yaw,
-                                     self._camera_pitch,
+        p.resetDebugVisualizerCamera(self._camera_distance2,
+                                     self._camera_yaw2,
+                                     self._camera_pitch2,
                                      self._camera_target,
                                      physicsClientId=self._physics_client_id)
         p.resetSimulation(physicsClientId=self._physics_client_id)
@@ -1414,6 +1414,7 @@ class CoffeeEnv(BaseEnv):
         ## Create cups lazily.
         self._cup_capacities: List[float] = []
         self._cup_id_to_cup: Dict[int, Object] = {}
+        self._liquid_ids: Set[int] = set()
 
         # For randomizing colors.
         self._pybullet_rng = np.random.default_rng(CFG.seed)
@@ -1485,6 +1486,42 @@ class CoffeeEnv(BaseEnv):
 
                 self._cup_id_to_cup[cup_id] = cup_obj
                 self._cup_capacities.append(cup_height)
+
+        # Create liquid in cups.
+        for liquid_id in self._liquid_ids:
+            p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+        
+        for cup in state.get_objects(self._cup_type):
+            current_liquid = state.get(cup, "current_liquid")
+            if current_liquid == 0:
+                continue
+            cx = state.get(cup, "x")
+            cy = state.get(cup, "y")
+            cz = self.z_lb + current_liquid / 2 + 0.025
+
+            collision_id = p.createCollisionShape(
+                p.GEOM_CYLINDER,
+                radius=self.cup_radius,
+                height=current_liquid,
+                physicsClientId=self._physics_client_id)
+
+            visual_id = p.createVisualShape(
+                p.GEOM_CYLINDER,
+                radius=self.cup_radius,
+                length=current_liquid,
+                rgbaColor=(0.35, 0.1, 0.0, 1.0),
+                physicsClientId=self._physics_client_id)
+
+            pose = (cx, cy, cz)
+            orientation = self._default_obj_orn
+            liquid_id = p.createMultiBody(baseMass=0,
+                                       baseCollisionShapeIndex=collision_id,
+                                       baseVisualShapeIndex=visual_id,
+                                       basePosition=pose,
+                                       baseOrientation=orientation,
+                                       physicsClientId=self._physics_client_id)
+            self._liquid_ids.add(liquid_id)
+
 
         # Update the robot.
         grip_orn = self._state_to_gripper_orn(state)
