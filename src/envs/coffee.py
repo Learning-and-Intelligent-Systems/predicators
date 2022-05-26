@@ -1040,6 +1040,8 @@ class CoffeeEnv(BaseEnv):
                              "x"), state.get(self._robot,
                                              "y"), state.get(self._robot, "z"))
         current_grip_orn = self._state_to_gripper_orn(state)
+        original_grip_orn = current_grip_orn
+        original_jug_rot = state.get(self._jug, "rot")
 
         # Get the next state expected after this action is taken.
         next_state = self.simulate(state, action)
@@ -1052,6 +1054,7 @@ class CoffeeEnv(BaseEnv):
         finger_joint = self._fingers_state_to_joint(finger_state)
         target_grip_orn = self._state_to_gripper_orn(next_state)
         grip_orn_delta = np.subtract(target_grip_orn, current_grip_orn)
+        target_jug_rot = next_state.get(self._jug, "rot")
 
         # If we are currently holding the jug, create a constraint.
         if self._Holding_holds(state, [self._robot, self._jug]):
@@ -1130,6 +1133,20 @@ class CoffeeEnv(BaseEnv):
                     world_to_held_obj[0],
                     world_to_held_obj[1],
                     physicsClientId=self._physics_client_id)
+            # Handle twisting.
+            elif self._Twisting_holds(state, [self._robot, self._jug]):
+                total_norm = np.linalg.norm(np.subtract(target_grip_orn, original_grip_orn))
+                if total_norm > 0:
+                    progress_norm = np.linalg.norm(np.subtract(current_grip_orn, original_grip_orn))
+                    progress = progress_norm / total_norm
+                    current_rot = original_jug_rot + progress * (target_jug_rot - original_jug_rot)
+                    (jx, jy, jz), _ = p.getBasePositionAndOrientation(self._jug_id, physicsClientId=self._physics_client_id)
+                    jug_orientation = p.getQuaternionFromEuler(
+                        [0.0, 0.0, current_rot - np.pi / 2])
+                    p.resetBasePositionAndOrientation(
+                        self._jug_id, [jx, jy, jz],
+                        jug_orientation,
+                        physicsClientId=self._physics_client_id)
 
             # Take an image.
             imgs.append(self._capture_pybullet_image())
