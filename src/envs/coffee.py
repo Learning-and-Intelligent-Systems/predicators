@@ -1493,6 +1493,9 @@ class CoffeeEnv(BaseEnv):
         
         for cup in state.get_objects(self._cup_type):
             current_liquid = state.get(cup, "current_liquid")
+            scale = 1.5 * np.sqrt(state.get(cup, "capacity_liquid") / self.cup_capacity_ub)
+            liquid_height = current_liquid * scale
+            liquid_radius = self.cup_radius * scale
             if current_liquid == 0:
                 continue
             cx = state.get(cup, "x")
@@ -1501,14 +1504,14 @@ class CoffeeEnv(BaseEnv):
 
             collision_id = p.createCollisionShape(
                 p.GEOM_CYLINDER,
-                radius=self.cup_radius,
-                height=current_liquid,
+                radius=liquid_radius,
+                height=liquid_height,
                 physicsClientId=self._physics_client_id)
 
             visual_id = p.createVisualShape(
                 p.GEOM_CYLINDER,
-                radius=self.cup_radius,
-                length=current_liquid,
+                radius=liquid_radius,
+                length=liquid_height,
                 rgbaColor=(0.35, 0.1, 0.0, 1.0),
                 physicsClientId=self._physics_client_id)
 
