@@ -1149,7 +1149,7 @@ class CoffeeEnv(BaseEnv):
                     current_rot = original_jug_rot + progress * (target_jug_rot - original_jug_rot)
                     (jx, jy, jz), _ = p.getBasePositionAndOrientation(self._jug_id, physicsClientId=self._physics_client_id)
                     jug_orientation = p.getQuaternionFromEuler(
-                        [0.0, 0.0, current_rot - np.pi / 2])
+                        [0.0, 0.0, current_rot + np.pi])
                     p.resetBasePositionAndOrientation(
                         self._jug_id, [jx, jy, jz],
                         jug_orientation,
@@ -1206,21 +1206,21 @@ class CoffeeEnv(BaseEnv):
 
         ## Load coffee jug.
 
-        # TODO make realistic.
-        # Create the collision shape.
-        jug_collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=self.jug_radius,
-            height=self.jug_height,
-            physicsClientId=self._physics_client_id)
+        # # TODO make realistic.
+        # # Create the collision shape.
+        # jug_collision_id = p.createCollisionShape(
+        #     p.GEOM_CYLINDER,
+        #     radius=self.jug_radius,
+        #     height=self.jug_height,
+        #     physicsClientId=self._physics_client_id)
 
-        # Create the visual_shape.
-        jug_visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=self.jug_radius,
-            length=self.jug_height,
-            rgbaColor=(0.4, 0.6, 0.6, 1.0),
-            physicsClientId=self._physics_client_id)
+        # # Create the visual_shape.
+        # jug_visual_id = p.createVisualShape(
+        #     p.GEOM_CYLINDER,
+        #     radius=self.jug_radius,
+        #     length=self.jug_height,
+        #     rgbaColor=(0.4, 0.6, 0.6, 1.0),
+        #     physicsClientId=self._physics_client_id)
 
         # Create the body.
         # This pose doesn't matter because it gets overwritten in reset.
@@ -1229,42 +1229,52 @@ class CoffeeEnv(BaseEnv):
                     self.z_lb + self.jug_height / 2)
         # The jug orientation updates based on the rotation of the state.
         rot = (self.jug_init_rot_lb + self.jug_init_rot_ub) / 2
-        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
 
-        # Create the jug handle.
-        handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
-        handle_orientation = self._default_obj_orn
-        handle_collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=self.jug_handle_radius,
-            height=self.jug_handle_height,
+        self._jug_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/kettle.urdf"),
+            useFixedBase=True,
+            globalScaling=0.075,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(self._jug_id,
+            jug_pose,
+            jug_orientation,
             physicsClientId=self._physics_client_id)
 
-        # Create the visual_shape.
-        handle_visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=self.jug_handle_radius,
-            length=self.jug_handle_radius,
-            rgbaColor=(0.4, 0.5, 0.6, 1.0),
-            physicsClientId=self._physics_client_id)
+        # # Create the jug handle.
+        # handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
+        # handle_orientation = self._default_obj_orn
+        # handle_collision_id = p.createCollisionShape(
+        #     p.GEOM_CYLINDER,
+        #     radius=self.jug_handle_radius,
+        #     height=self.jug_handle_height,
+        #     physicsClientId=self._physics_client_id)
 
-        self._jug_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=jug_collision_id,
-            baseVisualShapeIndex=jug_visual_id,
-            basePosition=jug_pose,
-            baseOrientation=jug_orientation,
-            linkMasses=[0],
-            linkCollisionShapeIndices=[handle_collision_id],
-            linkVisualShapeIndices=[handle_visual_id],
-            linkPositions=[handle_pose],
-            linkOrientations=[handle_orientation],
-            linkParentIndices=[0],
-            linkInertialFramePositions=[(0, 0, 0)],
-            linkInertialFrameOrientations=[(0, 0, 0, 1)],
-            linkJointAxis=[(0, 0, 0)],
-            linkJointTypes=[p.JOINT_FIXED],
-            physicsClientId=self._physics_client_id)
+        # # Create the visual_shape.
+        # handle_visual_id = p.createVisualShape(
+        #     p.GEOM_CYLINDER,
+        #     radius=self.jug_handle_radius,
+        #     length=self.jug_handle_radius,
+        #     rgbaColor=(0.4, 0.5, 0.6, 1.0),
+        #     physicsClientId=self._physics_client_id)
+
+        # self._jug_id = p.createMultiBody(
+        #     baseMass=0,
+        #     baseCollisionShapeIndex=jug_collision_id,
+        #     baseVisualShapeIndex=jug_visual_id,
+        #     basePosition=jug_pose,
+        #     baseOrientation=jug_orientation,
+        #     linkMasses=[0],
+        #     linkCollisionShapeIndices=[handle_collision_id],
+        #     linkVisualShapeIndices=[handle_visual_id],
+        #     linkPositions=[handle_pose],
+        #     linkOrientations=[handle_orientation],
+        #     linkParentIndices=[0],
+        #     linkInertialFramePositions=[(0, 0, 0)],
+        #     linkInertialFrameOrientations=[(0, 0, 0, 1)],
+        #     linkJointAxis=[(0, 0, 0)],
+        #     linkJointTypes=[p.JOINT_FIXED],
+        #     physicsClientId=self._physics_client_id)
 
         ## Load coffee machine.
 
@@ -1451,7 +1461,7 @@ class CoffeeEnv(BaseEnv):
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
             rot = state.get(self._jug, "rot")
             jug_orientation = p.getQuaternionFromEuler(
-                [0.0, 0.0, rot - np.pi / 2])
+                [0.0, 0.0, rot + np.pi])
             p.resetBasePositionAndOrientation(
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
