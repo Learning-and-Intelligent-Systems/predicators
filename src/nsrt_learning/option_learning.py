@@ -304,7 +304,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                                dtype=np.float32)
         else:
             params_space = Box(0, 1, (0, ), dtype=np.float32)
-        self._operator = operator
+        self.operator = operator
         self._regressor = regressor
         self._changing_var_to_feat = changing_var_to_feat
         self._changing_var_order = changing_var_order
@@ -316,6 +316,18 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          policy=self._regressor_based_policy,
                          initiable=self._precondition_based_initiable,
                          terminal=self._effect_based_terminal)
+
+    def get_option_param_from_state(self, state: State, memory: Dict, objects: Sequence[Object]) -> Array:
+        var_to_obj = dict(zip(self.operator.parameters, objects))
+        curr_state_changing_feat = _create_absolute_option_param(
+            state,
+            self._changing_var_to_feat,
+            self._changing_var_order,
+            var_to_obj
+        )
+        subgoal_state_changing_feat = memory["absolute_params"]
+        relative_param = subgoal_state_changing_feat - curr_state_changing_feat
+        return relative_param
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
