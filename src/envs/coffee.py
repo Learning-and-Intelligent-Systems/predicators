@@ -1107,7 +1107,7 @@ class CoffeeEnv(BaseEnv):
             current_grip_orn = orn_action
             joints_state = self._pybullet_robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]),
-                validate=False,
+                validate=True,
                 orientation=orn_action)
             # Override the meaningless finger values in joint_action.
             joints_state[
