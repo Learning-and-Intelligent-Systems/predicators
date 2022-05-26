@@ -1291,7 +1291,7 @@ class CoffeeEnv(BaseEnv):
             p.GEOM_CYLINDER,
             radius=self.button_radius,
             length=button_height,
-            rgbaColor=(0.7, 0.2, 0.2, 1.0),
+            rgbaColor=(0.5, 0.2, 0.2, 1.0),
             physicsClientId=self._physics_client_id)
 
         # Create the body.
@@ -1417,6 +1417,14 @@ class CoffeeEnv(BaseEnv):
                 self._jug_id, [jx, jy, jz],
                 jug_orientation,
                 physicsClientId=self._physics_client_id)
+
+        # Update the button color.
+        if self._MachineOn_holds(state, [self._machine]):
+            color = (0.2, 0.5, 0.2, 1.0)
+        else:
+            color = (0.5, 0.2, 0.2, 1.0)
+        p.changeVisualShape(self._button_id, -1, rgbaColor=color,
+            physicsClientId=self._physics_client_id)
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
