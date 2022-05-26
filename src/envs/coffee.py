@@ -798,27 +798,29 @@ class CoffeeEnv(BaseEnv):
         # Move the wrist back to the initial position, in case we just finished
         # twisting.
         dwrist = self.robot_init_wrist - state.get(robot, "wrist")
+        # Open the fingers, in case we just pressed the button.
+        dfingers = self.open_fingers - state.get(robot, "fingers")
         # If at the correct y and z position and behind in the x direction,
         # move directly toward the target.
         if x < target_x and yz_handle_sq_dist < self.pick_policy_tol:
-            return self._get_move_action(handle_pos, robot_pos, dwrist=dwrist)
+            return self._get_move_action(handle_pos, robot_pos, dwrist=dwrist, dfingers=dfingers)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
         if yx_waypoint_sq_dist < self.pick_policy_tol:
             return self._get_move_action((waypoint_x, target_y, target_z),
                                          robot_pos,
-                                         dwrist=dwrist)
+                                         dwrist=dwrist, dfingers=dfingers)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
         if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
                 (waypoint_x, target_y, self.robot_init_z),
                 robot_pos,
-                dwrist=dwrist)
+                dwrist=dwrist, dfingers=dfingers)
         # Move up to a safe height.
         return self._get_move_action((x, y, self.robot_init_z),
                                      robot_pos,
-                                     dwrist=dwrist)
+                                     dwrist=dwrist, dfingers=dfingers)
 
     def _PickJug_terminal(self, state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -872,11 +874,15 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         robot_pos = (x, y, z)
         button_pos = (self.button_x, self.button_y, self.button_z)
+        # Close the fingers.
+        dfingers = self.closed_fingers - state.get(robot, "fingers")
         if (self.button_z - z)**2 < self.button_radius**2:
             # Move directly toward the button.
-            return self._get_move_action(button_pos, robot_pos)
+            return self._get_move_action(button_pos, robot_pos,
+                                         dfingers=dfingers)
         # Move only in the z direction.
-        return self._get_move_action((x, y, self.button_z), robot_pos)
+        return self._get_move_action((x, y, self.button_z), robot_pos,
+                                     dfingers=dfingers)
 
     def _TurnMachineOn_terminal(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
@@ -994,7 +1000,8 @@ class CoffeeEnv(BaseEnv):
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0,
-                         dwrist: float = 0.0) -> Action:
+                         dwrist: float = 0.0,
+                         dfingers: float = 0.0) -> Action:
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -1015,7 +1022,7 @@ class CoffeeEnv(BaseEnv):
         dwrist = np.clip(dwrist, -self.max_angular_vel, self.max_angular_vel)
         dwrist = dwrist / self.max_angular_vel
         return Action(
-            np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
+            np.array([dx, dy, dz, dtilt, dwrist, dfingers], dtype=np.float32))
 
     def _render_state_pybullet(self,
                                state: State,
