@@ -106,7 +106,6 @@ class CoffeeEnv(BaseEnv):
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
-    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
     _pybullet_max_angular_norm: ClassVar[float] = np.pi / 10
@@ -1278,43 +1277,13 @@ class CoffeeEnv(BaseEnv):
             baseOrientation=orientation,
             physicsClientId=self._physics_client_id)
 
-        ## Create cups.
-        self._cup_ids: List[int] = []
-        max_num_cups = max(max(CFG.coffee_num_cups_train),
-                           max(CFG.coffee_num_cups_test))
-        for num in range(max_num_cups):
-            # TODO make realistic.
-            # Create the collision shape.
-            # TODO: make different sizes?
-            cup_height = self.cup_capacity_ub
-            collision_id = p.createCollisionShape(
-                p.GEOM_CYLINDER,
-                radius=self.cup_radius,
-                height=cup_height,
-                physicsClientId=self._physics_client_id)
+        ## Create cups lazily.
+        self._cup_capacities: List[float] = []
+        self._cup_id_to_cup: Dict[int, Object] = {}
 
-            # Create the visual_shape.
-            visual_id = p.createVisualShape(
-                p.GEOM_CYLINDER,
-                radius=self.cup_radius,
-                length=cup_height,
-                rgbaColor=(0.6, 0.6, 0.4, 1.0),
-                physicsClientId=self._physics_client_id)
-
-            # Create the body.
-            # This pose doesn't matter because it gets overwritten in reset.
-            pose = ((self.cup_init_x_lb + self.cup_init_x_ub) / 2,
-                    (self.cup_init_y_lb + self.cup_init_y_ub) / 2,
-                    self.z_lb + cup_height / 2)
-            orientation = self._default_obj_orn
-            cup_id = p.createMultiBody(baseMass=0,
-                                       baseCollisionShapeIndex=collision_id,
-                                       baseVisualShapeIndex=visual_id,
-                                       basePosition=pose,
-                                       baseOrientation=orientation,
-                                       physicsClientId=self._physics_client_id)
-            self._cup_ids.append(cup_id)
-
+        # For randomizing colors.
+        self._pybullet_rng = np.random.default_rng(CFG.seed)
+        
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
@@ -1322,28 +1291,52 @@ class CoffeeEnv(BaseEnv):
 
         # Reset cups based on the state.
         cup_objs = state.get_objects(self._cup_type)
-        self._cup_id_to_cup = {}
-        cup_height = self.cup_capacity_ub  # TODO maybe change
-        for i, cup_obj in enumerate(cup_objs):
-            cup_id = self._cup_ids[i]
-            self._cup_id_to_cup[cup_id] = cup_obj
-            cx = state.get(cup_obj, "x")
-            cy = state.get(cup_obj, "y")
-            cz = self.z_lb + cup_height / 2
-            p.resetBasePositionAndOrientation(
-                cup_id, [cx, cy, cz],
-                self._default_obj_orn,
-                physicsClientId=self._physics_client_id)
+        cup_caps = sorted(state.get(c, "capacity_liquid") for c in cup_objs)
 
-        # For any cups not involved, put them out of view.
-        oov_x, oov_y = self._out_of_view_xy
-        for i in range(len(cup_objs), len(self._cup_ids)):
-            cup_id = self._cup_ids[i]
-            assert cup_id not in self._cup_id_to_cup
-            p.resetBasePositionAndOrientation(
-                cup_id, [oov_x, oov_y, cup_height * i],
-                self._default_obj_orn,
-                physicsClientId=self._physics_client_id)
+        # Remake the cups.
+        if sorted(self._cup_capacities) != cup_caps:
+            # Remove the old cups.
+            for old_cup_id in self._cup_id_to_cup:
+                p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
+            # Make new cups.
+            self._cup_id_to_cup = {}
+            self._cup_capacities = []
+            for cup_obj in cup_objs:
+                cup_height = state.get(cup_obj, "capacity_liquid")
+                cx = state.get(cup_obj, "x")
+                cy = state.get(cup_obj, "y")
+                cz = self.z_lb + cup_height / 2
+
+                collision_id = p.createCollisionShape(
+                    p.GEOM_CYLINDER,
+                    radius=self.cup_radius,
+                    height=cup_height,
+                    physicsClientId=self._physics_client_id)
+
+                # Create the visual_shape.
+                # Randomize cup colors.
+                cmap = matplotlib.cm.get_cmap('tab20b')
+                color = cmap(self._pybullet_rng.uniform())
+                visual_id = p.createVisualShape(
+                    p.GEOM_CYLINDER,
+                    radius=self.cup_radius,
+                    length=cup_height,
+                    rgbaColor=color,
+                    physicsClientId=self._physics_client_id)
+
+                # Create the body.
+                # This pose doesn't matter because it gets overwritten in reset.
+                pose = (cx, cy, cz)
+                orientation = self._default_obj_orn
+                cup_id = p.createMultiBody(baseMass=0,
+                                           baseCollisionShapeIndex=collision_id,
+                                           baseVisualShapeIndex=visual_id,
+                                           basePosition=pose,
+                                           baseOrientation=orientation,
+                                           physicsClientId=self._physics_client_id)
+
+                self._cup_id_to_cup[cup_id] = cup_obj
+                self._cup_capacities.append(cup_height)
 
         # Update the robot.
         grip_orn = self._state_to_gripper_orn(state)
