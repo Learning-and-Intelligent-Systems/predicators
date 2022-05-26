@@ -1490,6 +1490,7 @@ class CoffeeEnv(BaseEnv):
         # Create liquid in cups.
         for liquid_id in self._liquid_ids:
             p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
+        self._liquid_ids.clear()
         
         for cup in state.get_objects(self._cup_type):
             current_liquid = state.get(cup, "current_liquid")
