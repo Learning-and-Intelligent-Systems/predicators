@@ -97,7 +97,9 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         # Give up: we did not find any data file we can load from.
         raise ValueError(f"Cannot load data: {dataset_fname}")
     # Case 3: we already have a file with LESS data than we need. Load
-    # this data and generate some more.
+    # this data and generate some more. Specifically, we load from the
+    # file with the maximum data among all files that have less data
+    # than we need, then we generate the remaining demonstrations.
     train_tasks_start_idx = max(fnames_with_less_data)
     fname = fnames_with_less_data[train_tasks_start_idx]
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
