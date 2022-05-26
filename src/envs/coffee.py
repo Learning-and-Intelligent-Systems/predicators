@@ -1277,6 +1277,39 @@ class CoffeeEnv(BaseEnv):
             baseOrientation=orientation,
             physicsClientId=self._physics_client_id)
 
+        # Add a button. Could do this as a link on the machine, but since
+        # both never move, it doesn't matter.
+        button_height = self.button_radius / 2
+        collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=self.button_radius,
+            height=button_height,
+            physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=self.button_radius,
+            length=button_height,
+            rgbaColor=(0.7, 0.2, 0.2, 1.0),
+            physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        pose = (
+            self.button_x,
+            self.button_y,
+            self.button_z,
+        )
+        # Facing outward.
+        orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, 0.0])
+        self._button_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
+
         ## Create cups lazily.
         self._cup_capacities: List[float] = []
         self._cup_id_to_cup: Dict[int, Object] = {}
