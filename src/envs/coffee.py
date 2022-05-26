@@ -1527,10 +1527,14 @@ class CoffeeEnv(BaseEnv):
 
         # Update the button color.
         if self._MachineOn_holds(state, [self._machine]):
-            color = (0.2, 0.5, 0.2, 1.0)
+            button_color = (0.2, 0.5, 0.2, 1.0)
+            plate_color = (0.9, 0.3, 0.0, 0.5)
         else:
-            color = (0.5, 0.2, 0.2, 1.0)
-        p.changeVisualShape(self._button_id, -1, rgbaColor=color,
+            button_color = (0.5, 0.2, 0.2, 1.0)
+            plate_color = (0.6, 0.6, 0.6, 0.5)
+        p.changeVisualShape(self._button_id, -1, rgbaColor=button_color,
+            physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=plate_color,
             physicsClientId=self._physics_client_id)
 
         # while True:
