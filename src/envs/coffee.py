@@ -58,7 +58,7 @@ class CoffeeEnv(BaseEnv):
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
-    machine_z_len: ClassVar[float] = 0.6 * (z_ub - z_lb)
+    machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
     machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
     button_x: ClassVar[float] = machine_x
@@ -1294,7 +1294,7 @@ class CoffeeEnv(BaseEnv):
         visual_id = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=half_extents,
-            rgbaColor=(0.4, 0.4, 0.4, 1.0),
+            rgbaColor=(0.7, 0.7, 0.7, 1.0),
             physicsClientId=self._physics_client_id)
 
         # Create the body.
