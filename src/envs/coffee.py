@@ -58,7 +58,7 @@ class CoffeeEnv(BaseEnv):
     # Machine settings.
     machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
     machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
-    machine_z_len: ClassVar[float] = 0.6 * (z_ub - z_lb)
+    machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
     machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
     machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
     button_x: ClassVar[float] = machine_x
@@ -104,7 +104,7 @@ class CoffeeEnv(BaseEnv):
     _camera_pitch: ClassVar[float] = -24.0
     _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    _table_pose: ClassVar[Pose3D] = (1.45, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
@@ -1195,7 +1195,7 @@ class CoffeeEnv(BaseEnv):
 
         # Load table.
         self._table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
+            utils.get_env_asset_path("urdf/extended_table.urdf"),
             useFixedBase=True,
             physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
@@ -1270,37 +1270,50 @@ class CoffeeEnv(BaseEnv):
 
         # TODO make realistic.
         # Create the collision shape.
-        half_extents = (
-            self.machine_x_len / 2,
-            self.machine_y_len / 2,
-            self.machine_z_len / 2,
-        )
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=self._physics_client_id)
+        # half_extents = (
+        #     self.machine_x_len / 2,
+        #     self.machine_y_len / 2,
+        #     self.machine_z_len / 2,
+        # )
+        # collision_id = p.createCollisionShape(
+        #     p.GEOM_BOX,
+        #     halfExtents=half_extents,
+        #     physicsClientId=self._physics_client_id)
 
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            rgbaColor=(0.4, 0.4, 0.4, 1.0),
-            physicsClientId=self._physics_client_id)
+        # # Create the visual_shape.
+        # visual_id = p.createVisualShape(
+        #     p.GEOM_BOX,
+        #     halfExtents=half_extents,
+        #     rgbaColor=(0.4, 0.4, 0.4, 1.0),
+        #     physicsClientId=self._physics_client_id)
 
         # Create the body.
+        machine_x_offset = 0.15
+        machine_z_offset = -0.01
         pose = (
-            self.machine_x + self.machine_x_len / 2,
+            self.machine_x + self.machine_x_len / 2 + machine_x_offset,
             self.machine_y + self.machine_y_len / 2,
-            self.z_lb + self.machine_z_len / 2,
+            self.z_lb + self.machine_z_len / 2 + machine_z_offset,
         )
         orientation = self._default_obj_orn
-        self._machine_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
+        # self._machine_id = p.createMultiBody(
+        #     baseMass=0,
+        #     baseCollisionShapeIndex=collision_id,
+        #     baseVisualShapeIndex=visual_id,
+        #     basePosition=pose,
+        #     baseOrientation=orientation,
+        #     physicsClientId=self._physics_client_id)
+
+        self._machine_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/coffee_machine.urdf"),
+            useFixedBase=True,
+            globalScaling=0.22,
             physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(self._machine_id,
+            pose,
+            orientation,
+            physicsClientId=self._physics_client_id)
+
 
         # Add a button. Could do this as a link on the machine, but since
         # both never move, it doesn't matter.
