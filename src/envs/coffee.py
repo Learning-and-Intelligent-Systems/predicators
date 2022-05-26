@@ -1365,33 +1365,47 @@ class CoffeeEnv(BaseEnv):
                 cy = state.get(cup_obj, "y")
                 cz = self.z_lb + cup_height / 2
 
-                collision_id = p.createCollisionShape(
-                    p.GEOM_CYLINDER,
-                    radius=self.cup_radius,
-                    height=cup_height,
+                cup_id = p.loadURDF(
+                    utils.get_env_asset_path("urdf/cup.urdf"),
+                    useFixedBase=True,
+                    globalScaling=0.5 * (cup_height / self.cup_capacity_ub),
                     physicsClientId=self._physics_client_id)
+                # Rotate so handles face robot.
+                cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
+                p.resetBasePositionAndOrientation(cup_id,
+                    (cx, cy, cz),
+                    cup_orn,
+                    physicsClientId=self._physics_client_id)
+
+                # collision_id = p.createCollisionShape(
+                #     p.GEOM_CYLINDER,
+                #     radius=self.cup_radius,
+                #     height=cup_height,
+                #     physicsClientId=self._physics_client_id)
 
                 # Create the visual_shape.
                 # Randomize cup colors.
                 cmap = matplotlib.cm.get_cmap('tab20b')
                 color = cmap(self._pybullet_rng.uniform())
-                visual_id = p.createVisualShape(
-                    p.GEOM_CYLINDER,
-                    radius=self.cup_radius,
-                    length=cup_height,
-                    rgbaColor=color,
+                p.changeVisualShape(cup_id, -1, rgbaColor=color,
                     physicsClientId=self._physics_client_id)
 
+                # visual_id = p.createVisualShape(
+                #     p.GEOM_CYLINDER,
+                #     radius=self.cup_radius,
+                #     length=cup_height,
+                #     rgbaColor=color,
+                #     physicsClientId=self._physics_client_id)
+
                 # Create the body.
-                # This pose doesn't matter because it gets overwritten in reset.
-                pose = (cx, cy, cz)
-                orientation = self._default_obj_orn
-                cup_id = p.createMultiBody(baseMass=0,
-                                           baseCollisionShapeIndex=collision_id,
-                                           baseVisualShapeIndex=visual_id,
-                                           basePosition=pose,
-                                           baseOrientation=orientation,
-                                           physicsClientId=self._physics_client_id)
+                # pose = (cx, cy, cz)
+                # orientation = self._default_obj_orn
+                # cup_id = p.createMultiBody(baseMass=0,
+                #                            baseCollisionShapeIndex=collision_id,
+                #                            baseVisualShapeIndex=visual_id,
+                #                            basePosition=pose,
+                #                            baseOrientation=orientation,
+                #                            physicsClientId=self._physics_client_id)
 
                 self._cup_id_to_cup[cup_id] = cup_obj
                 self._cup_capacities.append(cup_height)
