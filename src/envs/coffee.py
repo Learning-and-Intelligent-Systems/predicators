@@ -1,20 +1,21 @@
 """An environment where a robot must brew and pour coffee."""
 
+import time
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from gym.spaces import Box
 import pybullet as p
-import time
+from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import create_single_arm_pybullet_robot
+from predicators.src.envs.pybullet_robots import \
+    create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video
 
 
 class CoffeeEnv(BaseEnv):
@@ -210,7 +211,7 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
-        
+
         # Settings from CFG.
         self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
         self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
@@ -384,7 +385,6 @@ class CoffeeEnv(BaseEnv):
     def action_space(self) -> Box:
         # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
         return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
-
 
     def render_state(self,
                      state: State,
@@ -806,14 +806,19 @@ class CoffeeEnv(BaseEnv):
         # move to the waypoint (in the z direction).
         if yx_waypoint_sq_dist < self.pick_policy_tol:
             return self._get_move_action((waypoint_x, target_y, target_z),
-                                         robot_pos, dwrist=dwrist)
+                                         robot_pos,
+                                         dwrist=dwrist)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
         if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
-                (waypoint_x, target_y, self.robot_init_z), robot_pos, dwrist=dwrist)
+                (waypoint_x, target_y, self.robot_init_z),
+                robot_pos,
+                dwrist=dwrist)
         # Move up to a safe height.
-        return self._get_move_action((x, y, self.robot_init_z), robot_pos, dwrist=dwrist)
+        return self._get_move_action((x, y, self.robot_init_z),
+                                     robot_pos,
+                                     dwrist=dwrist)
 
     def _PickJug_terminal(self, state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -901,30 +906,34 @@ class CoffeeEnv(BaseEnv):
         jug_pos = (jug_x, jug_y, jug_z)
         pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
         # The wrist should be sideways for pouring.
-        dwrist = (np.pi/2 - state.get(robot, "wrist"))
+        dwrist = (np.pi / 2 - state.get(robot, "wrist"))
         # If we're close enough to the pour position, pour.
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         if sq_dist_to_pour < self.pour_policy_tol:
             dtilt = pour_tilt - tilt
-            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt,
-                dwrist=dwrist)
+            return self._get_move_action(jug_pos,
+                                         jug_pos,
+                                         dtilt=dtilt,
+                                         dwrist=dwrist)
         dtilt = move_tilt - tilt
         # If we're above the pour position, move down to pour.
         xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
         if xy_pour_sq_dist < self.safe_z_tol:
-            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt,
-                dwrist=dwrist)
+            return self._get_move_action(pour_pos,
+                                         jug_pos,
+                                         dtilt=dtilt,
+                                         dwrist=dwrist)
         # If we're at a safe height, move toward above the pour position.
         if (robot_z - self.robot_init_z)**2 < self.safe_z_tol:
             return self._get_move_action((pour_x, pour_y, jug_z),
                                          jug_pos,
                                          dtilt=dtilt,
-                dwrist=dwrist)
+                                         dwrist=dwrist)
         # Move to a safe moving height.
         return self._get_move_action((robot_x, robot_y, self.robot_init_z),
                                      robot_pos,
                                      dtilt=dtilt,
-                dwrist=dwrist)
+                                     dwrist=dwrist)
 
     def _Pour_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
@@ -1027,11 +1036,9 @@ class CoffeeEnv(BaseEnv):
         if action is None:
             return imgs
 
-        current = (
-            state.get(self._robot, "x"),
-            state.get(self._robot, "y"),
-            state.get(self._robot, "z")
-        )
+        current = (state.get(self._robot,
+                             "x"), state.get(self._robot,
+                                             "y"), state.get(self._robot, "z"))
         current_grip_orn = self._state_to_gripper_orn(state)
 
         # Get the next state expected after this action is taken.
@@ -1049,15 +1056,16 @@ class CoffeeEnv(BaseEnv):
         # If we are currently holding the jug, create a constraint.
         if self._Holding_holds(state, [self._robot, self._jug]):
             if self._held_obj_to_base_link is None:
-                base_link_to_world = np.r_[p.invertTransform(
-                    *p.getLinkState(self._pybullet_robot.robot_id,
-                                    self._pybullet_robot.end_effector_id,
-                                    physicsClientId=self._physics_client_id)[:2])]
+                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physicsClientId=self._physics_client_id)[:2])]
                 world_to_obj = np.r_[p.getBasePositionAndOrientation(
                     self._jug_id, physicsClientId=self._physics_client_id)]
-                self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
-                    base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
-                    world_to_obj[3:]))
+                self._held_obj_to_base_link = p.invertTransform(
+                    *p.multiplyTransforms(base_link_to_world[:3],
+                                          base_link_to_world[3:],
+                                          world_to_obj[:3], world_to_obj[3:]))
         else:
             self._held_obj_to_base_link = None
 
@@ -1081,14 +1089,18 @@ class CoffeeEnv(BaseEnv):
             orn_action = np.add(current_grip_orn, orn_delta)
             current_grip_orn = orn_action
             joints_state = self._pybullet_robot.inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False,
+                (ee_action[0], ee_action[1], ee_action[2]),
+                validate=False,
                 orientation=orn_action)
             # Override the meaningless finger values in joint_action.
-            joints_state[self._pybullet_robot.left_finger_joint_idx] = finger_joint
-            joints_state[self._pybullet_robot.right_finger_joint_idx] = finger_joint
+            joints_state[
+                self._pybullet_robot.left_finger_joint_idx] = finger_joint
+            joints_state[
+                self._pybullet_robot.right_finger_joint_idx] = finger_joint
             action_arr = np.array(joints_state, dtype=np.float32)
             # This clipping is needed sometimes for the joint limits.
-            action_arr = np.clip(action_arr, self._pybullet_robot.action_space.low,
+            action_arr = np.clip(action_arr,
+                                 self._pybullet_robot.action_space.low,
                                  self._pybullet_robot.action_space.high)
             assert self._pybullet_robot.action_space.contains(action_arr)
             pybullet_action = Action(action_arr)
@@ -1101,7 +1113,7 @@ class CoffeeEnv(BaseEnv):
             state.set(self._robot, "x", rx)
             state.set(self._robot, "y", ry)
             state.set(self._robot, "z", rz)
-            
+
             # Update the held jug.
             if self._held_obj_to_base_link:
                 world_to_base_link = p.getLinkState(
@@ -1110,10 +1122,9 @@ class CoffeeEnv(BaseEnv):
                     physicsClientId=self._physics_client_id)[:2]
                 base_link_to_held_obj = p.invertTransform(
                     *self._held_obj_to_base_link)
-                world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
-                                                         world_to_base_link[1],
-                                                         base_link_to_held_obj[0],
-                                                         base_link_to_held_obj[1])
+                world_to_held_obj = p.multiplyTransforms(
+                    world_to_base_link[0], world_to_base_link[1],
+                    base_link_to_held_obj[0], base_link_to_held_obj[1])
                 p.resetBasePositionAndOrientation(
                     self._jug_id,
                     world_to_held_obj[0],
@@ -1124,7 +1135,6 @@ class CoffeeEnv(BaseEnv):
             imgs.append(self._capture_pybullet_image())
 
         return imgs
-
 
     def _initialize_pybullet(self) -> None:
         self._physics_client_id = p.connect(p.GUI)
@@ -1141,12 +1151,11 @@ class CoffeeEnv(BaseEnv):
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
                                    False,
                                    physicsClientId=self._physics_client_id)
-        p.resetDebugVisualizerCamera(
-            self._camera_distance,
-            self._camera_yaw,
-            self._camera_pitch,
-            self._camera_target,
-            physicsClientId=self._physics_client_id)
+        p.resetDebugVisualizerCamera(self._camera_distance,
+                                     self._camera_yaw,
+                                     self._camera_pitch,
+                                     self._camera_target,
+                                     physicsClientId=self._physics_client_id)
         p.resetSimulation(physicsClientId=self._physics_client_id)
 
         # Load plane.
@@ -1172,28 +1181,28 @@ class CoffeeEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         ## Load coffee jug.
-        
+
         # TODO make realistic.
         # Create the collision shape.
-        jug_collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
-                                              radius=self.jug_radius,
-                                              height=self.jug_height,
-                                              physicsClientId=self._physics_client_id)
+        jug_collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=self.jug_radius,
+            height=self.jug_height,
+            physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
-        jug_visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=self.jug_radius,
-                                        length=self.jug_height,
-                                        rgbaColor=(0.4, 0.6, 0.6, 1.0),
-                                        physicsClientId=self._physics_client_id)
+        jug_visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=self.jug_radius,
+            length=self.jug_height,
+            rgbaColor=(0.4, 0.6, 0.6, 1.0),
+            physicsClientId=self._physics_client_id)
 
         # Create the body.
         # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = (
-            (self.jug_init_x_lb + self.jug_init_x_ub) / 2,
-            (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
-            self.z_lb + self.jug_height / 2
-        )
+        jug_pose = ((self.jug_init_x_lb + self.jug_init_x_ub) / 2,
+                    (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
+                    self.z_lb + self.jug_height / 2)
         # The jug orientation updates based on the rotation of the state.
         rot = (self.jug_init_rot_lb + self.jug_init_rot_ub) / 2
         jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
@@ -1201,37 +1210,40 @@ class CoffeeEnv(BaseEnv):
         # Create the jug handle.
         handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
         handle_orientation = self._default_obj_orn
-        handle_collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
-                                              radius=self.jug_handle_radius,
-                                              height=self.jug_handle_height,
-                                              physicsClientId=self._physics_client_id)
+        handle_collision_id = p.createCollisionShape(
+            p.GEOM_CYLINDER,
+            radius=self.jug_handle_radius,
+            height=self.jug_handle_height,
+            physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
-        handle_visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                        radius=self.jug_handle_radius,
-                                        length=self.jug_handle_radius,
-                                        rgbaColor=(0.4, 0.5, 0.6, 1.0),
-                                        physicsClientId=self._physics_client_id)
+        handle_visual_id = p.createVisualShape(
+            p.GEOM_CYLINDER,
+            radius=self.jug_handle_radius,
+            length=self.jug_handle_radius,
+            rgbaColor=(0.4, 0.5, 0.6, 1.0),
+            physicsClientId=self._physics_client_id)
 
-        self._jug_id = p.createMultiBody(baseMass=0,
-                                   baseCollisionShapeIndex=jug_collision_id,
-                                   baseVisualShapeIndex=jug_visual_id,
-                                   basePosition=jug_pose,
-                                   baseOrientation=jug_orientation,
-                                   linkMasses=[0],
-                                   linkCollisionShapeIndices=[handle_collision_id],
-                                   linkVisualShapeIndices=[handle_visual_id],
-                                   linkPositions=[handle_pose],
-                                   linkOrientations=[handle_orientation],
-                                   linkParentIndices=[0],
-                                   linkInertialFramePositions=[(0, 0, 0)],
-                                   linkInertialFrameOrientations=[(0, 0, 0, 1)],
-                                   linkJointAxis=[(0, 0, 0)],
-                                   linkJointTypes=[p.JOINT_FIXED],
-                                   physicsClientId=self._physics_client_id)
+        self._jug_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=jug_collision_id,
+            baseVisualShapeIndex=jug_visual_id,
+            basePosition=jug_pose,
+            baseOrientation=jug_orientation,
+            linkMasses=[0],
+            linkCollisionShapeIndices=[handle_collision_id],
+            linkVisualShapeIndices=[handle_visual_id],
+            linkPositions=[handle_pose],
+            linkOrientations=[handle_orientation],
+            linkParentIndices=[0],
+            linkInertialFramePositions=[(0, 0, 0)],
+            linkInertialFrameOrientations=[(0, 0, 0, 1)],
+            linkJointAxis=[(0, 0, 0)],
+            linkJointTypes=[p.JOINT_FIXED],
+            physicsClientId=self._physics_client_id)
 
         ## Load coffee machine.
-        
+
         # TODO make realistic.
         # Create the collision shape.
         half_extents = (
@@ -1239,15 +1251,17 @@ class CoffeeEnv(BaseEnv):
             self.machine_y_len / 2,
             self.machine_z_len / 2,
         )
-        collision_id = p.createCollisionShape(p.GEOM_BOX,
-                                              halfExtents=half_extents,
-                                              physicsClientId=self._physics_client_id)
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
-        visual_id = p.createVisualShape(p.GEOM_BOX,
-                                        halfExtents=half_extents,
-                                        rgbaColor=(0.4, 0.4, 0.4, 1.0),
-                                        physicsClientId=self._physics_client_id)
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=(0.4, 0.4, 0.4, 1.0),
+            physicsClientId=self._physics_client_id)
 
         # Create the body.
         pose = (
@@ -1256,40 +1270,42 @@ class CoffeeEnv(BaseEnv):
             self.z_lb + self.machine_z_len / 2,
         )
         orientation = self._default_obj_orn
-        self._machine_id = p.createMultiBody(baseMass=0,
-                                   baseCollisionShapeIndex=collision_id,
-                                   baseVisualShapeIndex=visual_id,
-                                   basePosition=pose,
-                                   baseOrientation=orientation,
-                                   physicsClientId=self._physics_client_id)
+        self._machine_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)
 
         ## Create cups.
         self._cup_ids: List[int] = []
-        max_num_cups = max(max(CFG.coffee_num_cups_train), max(CFG.coffee_num_cups_test))
+        max_num_cups = max(max(CFG.coffee_num_cups_train),
+                           max(CFG.coffee_num_cups_test))
         for num in range(max_num_cups):
             # TODO make realistic.
             # Create the collision shape.
             # TODO: make different sizes?
             cup_height = self.cup_capacity_ub
-            collision_id = p.createCollisionShape(p.GEOM_CYLINDER,
-                                                  radius=self.cup_radius,
-                                                  height=cup_height,
-                                                  physicsClientId=self._physics_client_id)
+            collision_id = p.createCollisionShape(
+                p.GEOM_CYLINDER,
+                radius=self.cup_radius,
+                height=cup_height,
+                physicsClientId=self._physics_client_id)
 
             # Create the visual_shape.
-            visual_id = p.createVisualShape(p.GEOM_CYLINDER,
-                                            radius=self.cup_radius,
-                                            length=cup_height,
-                                            rgbaColor=(0.6, 0.6, 0.4, 1.0),
-                                            physicsClientId=self._physics_client_id)
+            visual_id = p.createVisualShape(
+                p.GEOM_CYLINDER,
+                radius=self.cup_radius,
+                length=cup_height,
+                rgbaColor=(0.6, 0.6, 0.4, 1.0),
+                physicsClientId=self._physics_client_id)
 
             # Create the body.
             # This pose doesn't matter because it gets overwritten in reset.
-            pose = (
-                (self.cup_init_x_lb + self.cup_init_x_ub) / 2,
-                (self.cup_init_y_lb + self.cup_init_y_ub) / 2,
-                self.z_lb + cup_height / 2
-            )
+            pose = ((self.cup_init_x_lb + self.cup_init_x_ub) / 2,
+                    (self.cup_init_y_lb + self.cup_init_y_ub) / 2,
+                    self.z_lb + cup_height / 2)
             orientation = self._default_obj_orn
             cup_id = p.createMultiBody(baseMass=0,
                                        baseCollisionShapeIndex=collision_id,
@@ -1337,16 +1353,17 @@ class CoffeeEnv(BaseEnv):
         # Reset the jug based on the state.
         if self._Holding_holds(state, [self._robot, self._jug]):
             if self._held_obj_to_base_link is None:
-                base_link_to_world = np.r_[p.invertTransform(
-                    *p.getLinkState(self._pybullet_robot.robot_id,
-                                    self._pybullet_robot.end_effector_id,
-                                    physicsClientId=self._physics_client_id)[:2])]
+                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physicsClientId=self._physics_client_id)[:2])]
                 world_to_obj = np.r_[p.getBasePositionAndOrientation(
                     self._jug_id, physicsClientId=self._physics_client_id)]
-                self._held_obj_to_base_link = p.invertTransform(*p.multiplyTransforms(
-                    base_link_to_world[:3], base_link_to_world[3:], world_to_obj[:3],
-                    world_to_obj[3:]))
-           
+                self._held_obj_to_base_link = p.invertTransform(
+                    *p.multiplyTransforms(base_link_to_world[:3],
+                                          base_link_to_world[3:],
+                                          world_to_obj[:3], world_to_obj[3:]))
+
             world_to_base_link = p.getLinkState(
                 self._pybullet_robot.robot_id,
                 self._pybullet_robot.end_effector_id,
@@ -1368,12 +1385,12 @@ class CoffeeEnv(BaseEnv):
             jy = state.get(self._jug, "y")
             jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
             rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot - np.pi / 2])
+            jug_orientation = p.getQuaternionFromEuler(
+                [0.0, 0.0, rot - np.pi / 2])
             p.resetBasePositionAndOrientation(
-                    self._jug_id,
-                    [jx, jy, jz],
-                    jug_orientation,
-                    physicsClientId=self._physics_client_id)
+                self._jug_id, [jx, jy, jz],
+                jug_orientation,
+                physicsClientId=self._physics_client_id)
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -1429,5 +1446,6 @@ class CoffeeEnv(BaseEnv):
         wrist = state.get(self._robot, "wrist")
         tilt = state.get(self._robot, "tilt")
         if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
-            return p.getQuaternionFromEuler([0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
+            return p.getQuaternionFromEuler(
+                [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
         return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
