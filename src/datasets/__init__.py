@@ -15,7 +15,10 @@ from predicators.src.structs import Dataset, ParameterizedOption, Task
 def create_dataset(env: BaseEnv, train_tasks: List[Task],
                    known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets for training, given a set of training tasks for
-    an environment."""
+    an environment.
+
+    Some or all of this data may be loaded from disk.
+    """
     if CFG.offline_data_method == "demo":
         return create_demo_data(env, train_tasks, known_options)
     if CFG.offline_data_method == "demo+replay":
