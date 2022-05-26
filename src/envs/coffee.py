@@ -91,7 +91,7 @@ class CoffeeEnv(BaseEnv):
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     # Simulation settings.
     pour_x_offset: ClassVar[float] = cup_radius
-    pour_y_offset: ClassVar[float] = -1.5 * (cup_radius + jug_radius)
+    pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
@@ -100,8 +100,11 @@ class CoffeeEnv(BaseEnv):
     max_finger_vel: ClassVar[float] = 1.0
     # PyBullet rendering settings.
     _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = -24.0
-    _camera_pitch: ClassVar[float] = -24.0
+    _camera_yaw: ClassVar[float] = -24  # 124
+    _camera_pitch: ClassVar[float] = -24  # 48
+    _camera_distance2: ClassVar[float] = 0.5 #0.8
+    _camera_yaw2: ClassVar[float] = 124.0  # -24  # 124
+    _camera_pitch2: ClassVar[float] = -48.0  # -24  # 48
     _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
@@ -218,6 +221,7 @@ class CoffeeEnv(BaseEnv):
 
         # For PyBullet rendering.
         self._physics_client_id: Optional[int] = None
+        self._in_pouring_phase = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -717,6 +721,7 @@ class CoffeeEnv(BaseEnv):
                                objects: Sequence[Object],
                                params: Array) -> Action:
         # This policy moves the robot to above the jug, then moves down.
+        self._in_pouring_phase = False
         del memory, params  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -775,6 +780,7 @@ class CoffeeEnv(BaseEnv):
         # This policy moves the robot to a safe height, then moves to behind
         # the handle in the y direction, then moves down in the z direction,
         # then moves forward in the y direction before finally grasping.
+        self._in_pouring_phase = False
         del memory, params  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -897,6 +903,7 @@ class CoffeeEnv(BaseEnv):
         # the cup is filled. Note that if starting out at the end of another
         # pour, we need to start by rotating the cup to prevent any further
         # pouring until we've moved over the next cup.
+        self._in_pouring_phase = True
         del memory, params  # unused
         move_tilt = self.robot_init_tilt
         pour_tilt = self.pour_tilt
@@ -1541,11 +1548,21 @@ class CoffeeEnv(BaseEnv):
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
     def _capture_pybullet_image(self) -> Image:
+
+        if self._in_pouring_phase:
+            camera_distance = self._camera_distance2
+            camera_yaw = self._camera_yaw2
+            camera_pitch = self._camera_pitch2
+        else:
+            camera_distance = self._camera_distance
+            camera_yaw = self._camera_yaw
+            camera_pitch = self._camera_pitch            
+
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=self._camera_target,
-            distance=self._camera_distance,
-            yaw=self._camera_yaw,
-            pitch=self._camera_pitch,
+            distance=camera_distance,
+            yaw=camera_yaw,
+            pitch=camera_pitch,
             roll=0,
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
