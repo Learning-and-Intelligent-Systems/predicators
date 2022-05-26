@@ -39,7 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
 
@@ -50,7 +50,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, ParameterizedOption, Task
+    InteractionResult, Metrics, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -104,8 +104,7 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = _generate_or_load_offline_dataset(
-            env, train_tasks, options)
+        offline_dataset = create_dataset(env, train_tasks, options)
     else:
         offline_dataset = None
     # Run the full pipeline.
@@ -185,28 +184,6 @@ def _run_pipeline(env: BaseEnv,
         results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
-
-
-def _generate_or_load_offline_dataset(
-        env: BaseEnv, train_tasks: List[Task],
-        known_options: Set[ParameterizedOption]) -> Dataset:
-    """Create offline dataset from training tasks."""
-    dataset_filename = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{CFG.included_options}__{CFG.seed}.data")
-    dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-    if CFG.load_data:
-        assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
-        with open(dataset_filepath, "rb") as f:
-            dataset = pkl.load(f)
-        logging.info("\n\nLOADED DATASET")
-    else:
-        dataset = create_dataset(env, train_tasks, known_options)
-        logging.info("\n\nCREATED DATASET")
-        os.makedirs(CFG.data_dir, exist_ok=True)
-        with open(dataset_filepath, "wb") as f:
-            pkl.dump(dataset, f)
-    return dataset
 
 
 def _generate_interaction_results(
