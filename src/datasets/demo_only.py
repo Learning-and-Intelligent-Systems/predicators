@@ -40,7 +40,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         trajectories = _generate_demonstrations(env,
                                                 train_tasks,
                                                 known_options,
-                                                train_task_start_idx=0)
+                                                train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
         with open(dataset_fname, "wb") as f:
@@ -98,8 +98,8 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         raise ValueError(f"Cannot load data: {dataset_fname}")
     # Case 3: we already have a file with LESS data than we need. Load
     # this data and generate some more.
-    train_task_start_idx = max(fnames_with_less_data)
-    fname = fnames_with_less_data[train_task_start_idx]
+    train_tasks_start_idx = max(fnames_with_less_data)
+    fname = fnames_with_less_data[train_tasks_start_idx]
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
     loaded_trajectories = dataset.trajectories
@@ -107,7 +107,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         env,
         train_tasks,
         known_options,
-        train_task_start_idx=train_task_start_idx)
+        train_tasks_start_idx=train_tasks_start_idx)
     logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
                  "DEMONSTRATIONS")
     logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
@@ -120,9 +120,9 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
 def _generate_demonstrations(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption],
-        train_task_start_idx: int) -> List[LowLevelTrajectory]:
+        train_tasks_start_idx: int) -> List[LowLevelTrajectory]:
     """Use the demonstrator to generate demonstrations, one per training task
-    starting from train_task_start_idx."""
+    starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
         oracle_approach = OracleApproach(
             env.predicates,
@@ -143,7 +143,7 @@ def _generate_demonstrations(
     trajectories = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     for idx, task in enumerate(train_tasks):
-        if idx < train_task_start_idx:  # ignore demos before this index
+        if idx < train_tasks_start_idx:  # ignore demos before this index
             continue
         # Note: we assume in main.py that demonstrations are only generated
         # for train tasks whose index is less than CFG.max_initial_demos. If

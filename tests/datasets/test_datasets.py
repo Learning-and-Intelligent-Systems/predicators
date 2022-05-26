@@ -219,6 +219,7 @@ def test_demo_dataset_loading_tricky_case(num_train_tasks, load_data,
     env = BlocksEnv()
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks, env.options)
+    # Note the use of <= here rather than ==.
     assert len(dataset.trajectories) <= num_train_tasks
     assert all(traj.train_task_idx < len(train_tasks)
                for traj in dataset.trajectories)
