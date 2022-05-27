@@ -40,7 +40,7 @@ class StickButtonEnv(BaseEnv):
     button_radius: ClassVar[float] = 0.02
     # Note that the stick_width is the longer dimension.
     stick_width: ClassVar[float] = 0.55
-    stick_height: ClassVar[float] = stick_width / 40
+    stick_height: ClassVar[float] = stick_width / 30
     # Note that the holder width is set in the class because it uses CFG.
     holder_height: ClassVar[float] = 2.5 * stick_height
     stick_tip_width: ClassVar[float] = stick_height
@@ -52,15 +52,15 @@ class StickButtonEnv(BaseEnv):
     robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
     robot_init_y: ClassVar[float] = (rz_x_ub + rz_x_lb) / 2.0
     robot_init_z: ClassVar[float] = 0.65
-    _camera_distance: ClassVar[float] = 1.0
+    _camera_distance: ClassVar[float] = 0.8
     _camera_yaw: ClassVar[float] = 140
-    _camera_pitch: ClassVar[float] = -48
+    _camera_pitch: ClassVar[float] = -72
     _camera_target: ClassVar[Pose3D] = (1.75, 0.75, 0.42)
     _table_pose: ClassVar[Pose3D] = (1.75, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
-    _pybullet_max_vel_norm: ClassVar[float] = 0.05
+    _pybullet_max_vel_norm: ClassVar[float] = 0.02
     _holder_base_z_len: ClassVar[float] = 0.05
     _holder_side_z_len: ClassVar[float] = 2 * _holder_base_z_len
     _holder_side_height: ClassVar[float] = 0.2 * holder_height
