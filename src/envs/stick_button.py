@@ -665,6 +665,45 @@ class StickButtonEnv(BaseEnv):
         if action is None:
             return imgs
 
+        next_state = self.simulate(state, action)
+
+        # Case 1: picking up the stick.
+        if not self._Grasped_holds(state, [self._robot, self._stick]) and \
+            self._Grasped_holds(next_state, [self._robot, self._stick]):
+
+            # Move down to pick.
+            target = (
+                state.get(self._robot, "y"),
+                state.get(self._stick, "x") + self.stick_height / 2,
+                self._z_lb + self._holder_base_z_len,
+            )
+            self._pybullet_move_robot_to_target(target, imgs,
+                self._pybullet_robot.open_fingers)
+
+            # Create a grasp constraint.
+            base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                self._pybullet_robot.end_effector_id,
+                physicsClientId=self._physics_client_id)[:2])]
+            world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                self._stick_id, physicsClientId=self._physics_client_id)]
+            self._held_obj_to_base_link = p.invertTransform(
+                *p.multiplyTransforms(base_link_to_world[:3],
+                                      base_link_to_world[3:],
+                                      world_to_obj[:3], world_to_obj[3:]))
+
+            # Move back up.
+            target = (
+                state.get(self._robot, "y"),
+                state.get(self._robot, "x"),
+                self.robot_init_z
+            )
+            self._pybullet_move_robot_to_target(target, imgs,
+                self._pybullet_robot.closed_fingers)
+
+            # while True:
+            #     p.stepSimulation(physicsClientId=self._physics_client_id)
+
         # TODO
         return imgs
 
@@ -1014,10 +1053,65 @@ class StickButtonEnv(BaseEnv):
         return np.array([
             state.get(self._robot, "y"),
             state.get(self._robot, "x"),
-            0.3,  # TODO
+            self.robot_init_z,
             self._state_to_fingers(state),
         ],
                         dtype=np.float32)
 
     def _state_to_fingers(self, state: State) -> float:
-        return self._pybullet_robot.open_fingers  # TODO
+        if self._Grasped_holds(state, [self._robot, self._stick]):
+            return self._pybullet_robot.closed_fingers
+        return self._pybullet_robot.open_fingers
+
+    def _pybullet_move_robot_to_target(self, target: Pose3D, imgs: Video, finger_joint: float) -> None:
+
+        while True:
+            rx, ry, rz, _ = self._pybullet_robot.get_state()
+            current = (rx, ry, rz)
+            sq_dist = np.sum(np.square(np.subtract(current, target)))
+            if sq_dist < self._pybullet_move_to_pose_tol:
+                break
+            # Run IK to determine the target joint positions.
+            ee_delta = np.subtract(target, current)
+            # Reduce the target to conform to the max velocity constraint.
+            ee_norm = np.linalg.norm(ee_delta)
+            if ee_norm > self._pybullet_max_vel_norm:
+                ee_delta = ee_delta * self._pybullet_max_vel_norm / ee_norm
+            ee_action = np.add(current, ee_delta)
+            joints_state = self._pybullet_robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]),
+                validate=False)
+            # Override the meaningless finger values in joint_action.
+            joints_state[
+                self._pybullet_robot.left_finger_joint_idx] = finger_joint
+            joints_state[
+                self._pybullet_robot.right_finger_joint_idx] = finger_joint
+            action_arr = np.array(joints_state, dtype=np.float32)
+            # This clipping is needed sometimes for the joint limits.
+            action_arr = np.clip(action_arr,
+                                 self._pybullet_robot.action_space.low,
+                                 self._pybullet_robot.action_space.high)
+            assert self._pybullet_robot.action_space.contains(action_arr)
+
+            # Take action in PyBullet.
+            self._pybullet_robot.set_motors(action_arr.tolist())
+
+            # Update the held object.
+            if self._held_obj_to_base_link:
+                world_to_base_link = p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physicsClientId=self._physics_client_id)[:2]
+                base_link_to_held_obj = p.invertTransform(
+                    *self._held_obj_to_base_link)
+                world_to_held_obj = p.multiplyTransforms(
+                    world_to_base_link[0], world_to_base_link[1],
+                    base_link_to_held_obj[0], base_link_to_held_obj[1])
+                p.resetBasePositionAndOrientation(
+                    self._stick_id,
+                    world_to_held_obj[0],
+                    world_to_held_obj[1],
+                    physicsClientId=self._physics_client_id)
+            
+            # Take an image.
+            imgs.append(self._capture_pybullet_image())
