@@ -20,30 +20,30 @@ from predicators.src.utils import _Geom2D
 class StickButtonEnv(BaseEnv):
     """An environment where a robot must press buttons with its hand or a
     stick."""
-    x_lb: ClassVar[float] = 0.0
-    y_lb: ClassVar[float] = 0.0
+    x_lb: ClassVar[float] = 0.4
+    y_lb: ClassVar[float] = 1.1
     theta_lb: ClassVar[float] = -np.pi  # radians
-    x_ub: ClassVar[float] = 10.0
-    y_ub: ClassVar[float] = 6.0
+    x_ub: ClassVar[float] = 1.1
+    y_ub: ClassVar[float] = 2.1
     theta_ub: ClassVar[float] = np.pi  # radians
     # Reachable zone boundaries.
     rz_x_lb: ClassVar[float] = x_lb
     rz_x_ub: ClassVar[float] = x_ub
     rz_y_lb: ClassVar[float] = y_lb
-    rz_y_ub: ClassVar[float] = y_lb + 3.0
-    max_speed: ClassVar[float] = 0.5  # shared by dx, dy
+    rz_y_ub: ClassVar[float] = 1.6
+    max_speed: ClassVar[float] = 0.05  # shared by dx, dy
     max_angular_speed: ClassVar[float] = np.pi / 4
-    robot_radius: ClassVar[float] = 0.1
-    button_radius: ClassVar[float] = 0.1
+    robot_radius: ClassVar[float] = 0.01
+    button_radius: ClassVar[float] = 0.01
     # Note that the stick_width is the longer dimension.
-    stick_width: ClassVar[float] = 3.0
-    stick_height: ClassVar[float] = 0.05
+    stick_width: ClassVar[float] = 0.55
+    stick_height: ClassVar[float] = stick_width / 60
     # Note that the holder width is set in the class because it uses CFG.
     holder_height: ClassVar[float] = 2.5 * stick_height
-    stick_tip_width: ClassVar[float] = 0.05
-    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
-    stick_init_lb: ClassVar[float] = 0.6
-    stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
+    stick_tip_width: ClassVar[float] = stick_height
+    init_padding: ClassVar[float] = 0.01  # used to space objects in init states
+    stick_init_lb: ClassVar[float] = rz_y_lb + robot_radius + init_padding
+    stick_init_ub: ClassVar[float] = stick_init_lb + 0.1 * (rz_y_ub - rz_y_lb)
     pick_grasp_tol: ClassVar[float] = 1e-3
     # PyBullet settings.
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
@@ -250,7 +250,7 @@ class StickButtonEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        figsize = (self.x_ub - self.x_lb, self.y_ub - self.y_lb)
+        figsize = (10 * (self.x_ub - self.x_lb), 10 * (self.y_ub - self.y_lb))
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         plt.suptitle(caption, wrap=True)
         # Draw a light green rectangle for the reachable zone.
@@ -626,6 +626,9 @@ class StickButtonEnv(BaseEnv):
                                task: Task,
                                action: Optional[Action] = None,
                                caption: Optional[str] = None) -> Video:
+        # NOTE: the axes are unfortunately not the same here. In the original
+        # environment, the x axis is the negative y axis, and the y axis is the
+        # x axis of the pybullet environment.
         assert CFG.pybullet_control_mode == "reset"
 
         if self._physics_client_id is None:
