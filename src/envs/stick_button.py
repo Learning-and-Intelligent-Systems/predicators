@@ -66,6 +66,7 @@ class StickButtonEnv(BaseEnv):
     _z_lb: ClassVar[float] = 0.2
     _stick_z_len: ClassVar[float] = stick_height
     _button_z_len: ClassVar[float] = button_radius * 0.25
+    _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
 
     def __init__(self) -> None:
         super().__init__()
@@ -720,7 +721,7 @@ class StickButtonEnv(BaseEnv):
         self._stick_id = self._create_pybullet_stick()
 
         # Load buttons.
-        self.button_ids = self._create_pybullet_buttons()
+        self._button_ids = self._create_pybullet_buttons()
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -829,11 +830,11 @@ class StickButtonEnv(BaseEnv):
 
         return stick_id
 
-    def _create_pybullet_buttons(self) -> Set[int]:
+    def _create_pybullet_buttons(self) -> List[int]:
         num_buttons = max(max(CFG.stick_button_num_buttons_train),
                           max(CFG.stick_button_num_buttons_test))
 
-        button_ids = set()
+        button_ids = []
 
         for i in range(num_buttons):
             collision_id = p.createCollisionShape(
@@ -868,12 +869,9 @@ class StickButtonEnv(BaseEnv):
                 baseOrientation=orientation,
                 physicsClientId=self._physics_client_id)
 
-            button_ids.add(button_id)
+            button_ids.append(button_id)
 
         return button_ids
-
-    def _update_pybullet_from_state(self, state: State) -> None:
-        pass  # TODO
 
     def _capture_pybullet_image(self) -> Image:
 
@@ -912,3 +910,49 @@ class StickButtonEnv(BaseEnv):
         rgb_array = rgb_array[:, :, :3]
         return rgb_array
 
+    def _update_pybullet_from_state(self, state: State) -> None:
+        # Reset buttons based on the state.
+        buttons = state.get_objects(self._button_type)
+        self._button_id_to_button = {}
+        for i, button in enumerate(buttons):
+            button_id = self._button_ids[i]
+            self._button_id_to_button[button_id] = button
+            bx = state.get(button, "y")
+            by = state.get(button, "x")
+            bz = self._z_lb + self._button_z_len / 2
+            p.resetBasePositionAndOrientation(
+                button_id, [bx, by, bz],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
+            # Change the color if pressed.
+            if self._Pressed_holds(state, [button]):
+                color = (0.2, 0.9, 0.2, 1.0)
+            else:
+                color = (0.9, 0.2, 0.2, 1.0)
+            p.changeVisualShape(button_id, -1, rgbaColor=color,
+                physicsClientId=self._physics_client_id)
+
+        # For any buttons not involved, put them out of view.
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(buttons), len(self._button_ids)):
+            button_id = self._button_ids[i]
+            assert button_id not in self._button_id_to_button
+            p.resetBasePositionAndOrientation(
+                button_id, [oov_x, oov_y, self._z_lb],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
+
+        # Update the robot.
+        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+
+    def _extract_robot_state(self, state: State) -> Array:
+        return np.array([
+            state.get(self._robot, "y"),
+            state.get(self._robot, "x"),
+            0.3,  # TODO
+            self._state_to_fingers(state),
+        ],
+                        dtype=np.float32)
+
+    def _state_to_fingers(self, state: State) -> float:
+        return self._pybullet_robot.open_fingers  # TODO
