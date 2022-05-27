@@ -8,12 +8,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
+import pybullet as p
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.envs.pybullet_robots import \
+    create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, Video
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video
 from predicators.src.utils import _Geom2D
 
 
@@ -46,9 +49,18 @@ class StickButtonEnv(BaseEnv):
     stick_init_ub: ClassVar[float] = stick_init_lb + 0.1 * (rz_y_ub - rz_y_lb)
     pick_grasp_tol: ClassVar[float] = 1e-3
     # PyBullet settings.
-    robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
-    robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
+    robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
+    robot_init_y: ClassVar[float] = (rz_x_ub + rz_x_lb) / 2.0
     robot_init_z: ClassVar[float] = 0.65
+    _camera_distance: ClassVar[float] = 0.8
+    _camera_yaw: ClassVar[float] = -24  # 124
+    _camera_pitch: ClassVar[float] = -24  # 48
+    _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
+    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
+    _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
+    _pybullet_max_vel_norm: ClassVar[float] = 0.05
 
     def __init__(self) -> None:
         super().__init__()
@@ -114,6 +126,9 @@ class StickButtonEnv(BaseEnv):
 
         assert 0 < CFG.stick_button_holder_scale < 1
         self._holder_width = self.stick_width * CFG.stick_button_holder_scale
+
+        # For PyBullet rendering.
+        self._physics_client_id: Optional[int] = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -661,9 +676,9 @@ class StickButtonEnv(BaseEnv):
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
                                    False,
                                    physicsClientId=self._physics_client_id)
-        p.resetDebugVisualizerCamera(self._camera_distance2,
-                                     self._camera_yaw2,
-                                     self._camera_pitch2,
+        p.resetDebugVisualizerCamera(self._camera_distance,
+                                     self._camera_yaw,
+                                     self._camera_pitch,
                                      self._camera_target,
                                      physicsClientId=self._physics_client_id)
         p.resetSimulation(physicsClientId=self._physics_client_id)
