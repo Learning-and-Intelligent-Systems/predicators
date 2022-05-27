@@ -65,6 +65,7 @@ class StickButtonEnv(BaseEnv):
     _holder_side_z_len: ClassVar[float] = 2 * _holder_base_z_len
     _z_lb: ClassVar[float] = 0.2
     _stick_z_len: ClassVar[float] = stick_height
+    _button_z_len: ClassVar[float] = button_radius * 0.25
 
     def __init__(self) -> None:
         super().__init__()
@@ -717,6 +718,8 @@ class StickButtonEnv(BaseEnv):
         # Load stick.
         self._stick_id = self._create_pybullet_stick()
 
+        # Load buttons.
+        self.button_ids = self._create_pybullet_buttons()
 
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -824,3 +827,47 @@ class StickButtonEnv(BaseEnv):
         p.changeVisualShape(stick_id, -1, textureUniqueId=texture_id)
 
         return stick_id
+
+    def _create_pybullet_buttons(self) -> Set[int]:
+        num_buttons = max(max(CFG.stick_button_num_buttons_train),
+                          max(CFG.stick_button_num_buttons_test))
+
+        button_ids = set()
+
+        for i in range(num_buttons):
+            collision_id = p.createCollisionShape(
+                p.GEOM_CYLINDER,
+                radius=self.button_radius,
+                height=self._button_z_len,
+                physicsClientId=self._physics_client_id)
+
+            # Create the visual_shape.
+            visual_id = p.createVisualShape(
+                p.GEOM_CYLINDER,
+                radius=self.button_radius,
+                length=self._button_z_len,
+                rgbaColor=(0.9, 0.2, 0.2, 1.0),
+                physicsClientId=self._physics_client_id)
+
+            # Create the body.
+            delta_x = (self.x_ub - self.x_lb) / (num_buttons - 1)
+            pose = (
+                (self.y_lb + self.y_ub) / 2,
+                self.x_lb + i * delta_x,
+                self._z_lb + self._button_z_len / 2,
+            )
+            
+            # Facing outward.
+            orientation = self._default_obj_orn
+            button_id = p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=collision_id,
+                baseVisualShapeIndex=visual_id,
+                basePosition=pose,
+                baseOrientation=orientation,
+                physicsClientId=self._physics_client_id)
+
+            button_ids.add(button_id)
+
+        return button_ids
+
