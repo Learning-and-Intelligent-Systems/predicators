@@ -281,7 +281,7 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
 
     @property
     def closed_fingers(self) -> float:
-        return 0.01
+        return 0.005
 
     def reset_state(self, robot_state: Array) -> None:
         rx, ry, rz, rf = robot_state

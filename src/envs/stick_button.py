@@ -52,7 +52,7 @@ class StickButtonEnv(BaseEnv):
     robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
     robot_init_y: ClassVar[float] = (rz_x_ub + rz_x_lb) / 2.0
     robot_init_z: ClassVar[float] = 0.65
-    _camera_distance: ClassVar[float] = 0.8
+    _camera_distance: ClassVar[float] = 1.0
     _camera_yaw: ClassVar[float] = 140
     _camera_pitch: ClassVar[float] = -72
     _camera_target: ClassVar[Pose3D] = (1.75, 0.75, 0.42)
@@ -746,7 +746,7 @@ class StickButtonEnv(BaseEnv):
                 target = (
                     state.get(self._robot, "y"),
                     state.get(self._robot, "x"),
-                    self._z_lb + self._button_press_z_offset,
+                    self._z_lb + self._button_press_z_offset - 0.01,
                 )
                 self._pybullet_move_robot_to_target(target, imgs,
                     self._pybullet_robot.closed_fingers)
