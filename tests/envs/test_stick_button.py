@@ -50,17 +50,22 @@ def test_stick_button():
     state.set(robot, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
     state.set(robot, "theta", np.pi / 2)
     reachable_button, unreachable_button = buttons
-    reachable_x = (env.rz_x_ub + env.rz_x_lb) / 4
+    reachable_x = env.rz_x_lb + (env.rz_x_ub - env.rz_x_lb) / 3
+    reachable_y = env.rz_y_lb + (env.rz_y_ub - env.rz_y_lb) / 2
     state.set(reachable_button, "x", reachable_x)
-    state.set(reachable_button, "y", (env.rz_y_ub + env.rz_y_lb) / 2)
+    state.set(reachable_button, "y", reachable_y)
+    assert env.rz_x_lb <= reachable_x <= env.rz_x_ub
+    assert env.rz_y_lb <= reachable_y <= env.rz_y_ub
     unreachable_x = robot_x
     state.set(unreachable_button, "x", unreachable_x)
-    unreachable_y = 0.75 * env.y_ub
+    unreachable_y = env.y_lb + 0.75 * (env.y_ub - env.y_lb)
     assert not env.rz_y_lb <= unreachable_y <= env.rz_y_ub
+    assert env.y_lb <= unreachable_y <= env.y_ub
     state.set(unreachable_button, "y", unreachable_y)
-    stick_x = 3 * (env.rz_x_ub + env.rz_x_lb) / 4
+    stick_x = env.rz_x_lb + 3 * (env.rz_x_ub - env.rz_x_lb) / 4
+    stick_y = env.rz_y_lb + (env.rz_y_ub - env.rz_y_lb) / 4
     state.set(stick, "x", stick_x)
-    state.set(stick, "y", (env.rz_y_ub + env.rz_y_lb) / 4)
+    state.set(stick, "y", stick_y)
     state.set(stick, "theta", np.pi / 4)
     task = Task(state, task.goal)
     env.render_state(state, task)
@@ -77,7 +82,7 @@ def test_stick_button():
             s = env.simulate(s, up_action)
 
     # Test for going to press the reachable button.
-    num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
+    num_steps_to_left = int((robot_x - reachable_x) / env.max_speed)
     action_arrs = [
         np.array([-1.0, 0.0, 0.0, 1.0], dtype=np.float32)
         for _ in range(num_steps_to_left)
