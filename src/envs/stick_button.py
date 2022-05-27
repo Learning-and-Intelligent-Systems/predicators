@@ -46,7 +46,7 @@ class StickButtonEnv(BaseEnv):
     stick_tip_width: ClassVar[float] = stick_height
     init_padding: ClassVar[float] = 0.01  # used to space objects in init states
     stick_init_lb: ClassVar[float] = rz_y_lb + robot_radius + init_padding
-    stick_init_ub: ClassVar[float] = stick_init_lb + 0.1 * (rz_y_ub - rz_y_lb)
+    stick_init_ub: ClassVar[float] = stick_init_lb + 0.2 * (rz_y_ub - rz_y_lb)
     pick_grasp_tol: ClassVar[float] = 1e-3
     # PyBullet settings.
     robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
@@ -61,6 +61,8 @@ class StickButtonEnv(BaseEnv):
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
+    _holder_z_len: ClassVar[float] = 0.05
+    _z_lb = 0.2
 
     def __init__(self) -> None:
         super().__init__()
@@ -705,6 +707,46 @@ class StickButtonEnv(BaseEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
+        # Load stick holder.
+        self._stick_holder_id = self._create_pybullet_stick_holder()
+
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
+
+    def _create_pybullet_stick_holder(self) -> None:
+        color = (0.7, 0.7, 0.7, 1.0)
+
+        # Create the main holder body.
+        main_half_extents = (
+            self._holder_width / 2,
+            self.holder_height / 2,
+            self._holder_z_len / 2,
+        )
+        main_collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=main_half_extents,
+            physicsClientId=self._physics_client_id)
+
+        # Create the visual_shape.
+        main_visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=main_half_extents,
+            rgbaColor=color,
+            physicsClientId=self._physics_client_id)
+
+        # Create the body.
+        x = (self.stick_init_lb + self.stick_init_ub) / 2 + self.holder_height / 2
+        y = (self.rz_x_lb + self.rz_x_ub) / 2 + self._holder_width / 2
+        z = self._z_lb + self._holder_z_len / 2
+        main_pose = (x, y, z)
+        main_orientation = self._default_obj_orn
+
+        return p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=main_collision_id,
+            baseVisualShapeIndex=main_visual_id,
+            basePosition=main_pose,
+            baseOrientation=main_orientation,
+            physicsClientId=self._physics_client_id)
+
 
