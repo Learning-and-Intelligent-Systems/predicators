@@ -36,11 +36,11 @@ class StickButtonEnv(BaseEnv):
     rz_y_ub: ClassVar[float] = 1.6
     max_speed: ClassVar[float] = 0.05  # shared by dx, dy
     max_angular_speed: ClassVar[float] = np.pi / 4
-    robot_radius: ClassVar[float] = 0.01
-    button_radius: ClassVar[float] = 0.01
+    robot_radius: ClassVar[float] = 0.02
+    button_radius: ClassVar[float] = 0.02
     # Note that the stick_width is the longer dimension.
     stick_width: ClassVar[float] = 0.55
-    stick_height: ClassVar[float] = stick_width / 60
+    stick_height: ClassVar[float] = stick_width / 40
     # Note that the holder width is set in the class because it uses CFG.
     holder_height: ClassVar[float] = 2.5 * stick_height
     stick_tip_width: ClassVar[float] = stick_height
