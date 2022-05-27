@@ -55,7 +55,7 @@ class StickButtonEnv(BaseEnv):
     _camera_distance: ClassVar[float] = 1.0
     _camera_yaw: ClassVar[float] = 140
     _camera_pitch: ClassVar[float] = -72
-    _camera_target: ClassVar[Pose3D] = (1.75, 0.75, 0.42)
+    _camera_target: ClassVar[Pose3D] = (1.5, 0.75, 0.42)
     _table_pose: ClassVar[Pose3D] = (1.75, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
@@ -667,12 +667,14 @@ class StickButtonEnv(BaseEnv):
             return imgs
 
         next_state = self.simulate(state, action)
+        hit_special_case = False
 
         # Case 1: robot is pressing the button directly.
         for button in state.get_objects(self._button_type):
             if self._Above_holds(next_state, [self._robot, button]) and \
                not self._Pressed_holds(state, [button]) and \
                self._Pressed_holds(next_state, [button]):
+                hit_special_case = True
 
                 # Move down to press.
                 target = (
@@ -702,6 +704,7 @@ class StickButtonEnv(BaseEnv):
         # Case 2: picking up the stick.
         if not self._Grasped_holds(state, [self._robot, self._stick]) and \
             self._Grasped_holds(next_state, [self._robot, self._stick]):
+            hit_special_case = True
 
             # Move down to pick.
             target = (
@@ -741,11 +744,12 @@ class StickButtonEnv(BaseEnv):
             if self._Above_holds(next_state, [self._stick, button]) and \
                not self._Pressed_holds(state, [button]) and \
                self._Pressed_holds(next_state, [button]):
+                hit_special_case = True
 
                 # Move down to press.
                 target = (
                     state.get(self._robot, "y"),
-                    state.get(self._robot, "x"),
+                    state.get(self._robot, "x") + self.button_radius / 2,
                     self._z_lb + self._button_press_z_offset - 0.01,
                 )
                 self._pybullet_move_robot_to_target(target, imgs,
@@ -766,6 +770,17 @@ class StickButtonEnv(BaseEnv):
                 )
                 self._pybullet_move_robot_to_target(target, imgs,
                     self._pybullet_robot.closed_fingers)
+
+        # Case 4: just moving normally
+        if not hit_special_case:
+            target = (
+                next_state.get(self._robot, "y"),
+                next_state.get(self._robot, "x"),
+                self.robot_init_z,
+            )
+            self._pybullet_move_robot_to_target(target, imgs,
+                self._state_to_fingers(next_state))
+
 
         # TODO
         return imgs
@@ -1141,7 +1156,7 @@ class StickButtonEnv(BaseEnv):
             ee_action = np.add(current, ee_delta)
             joints_state = self._pybullet_robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]),
-                validate=False)
+                validate=True)
             # Override the meaningless finger values in joint_action.
             joints_state[
                 self._pybullet_robot.left_finger_joint_idx] = finger_joint
