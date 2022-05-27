@@ -45,6 +45,10 @@ class StickButtonEnv(BaseEnv):
     stick_init_lb: ClassVar[float] = 0.6
     stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
     pick_grasp_tol: ClassVar[float] = 1e-3
+    # PyBullet settings.
+    robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
+    robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
+    robot_init_z: ClassVar[float] = 0.65
 
     def __init__(self) -> None:
         super().__init__()
@@ -622,5 +626,67 @@ class StickButtonEnv(BaseEnv):
                                task: Task,
                                action: Optional[Action] = None,
                                caption: Optional[str] = None) -> Video:
-        import ipdb
-        ipdb.set_trace()
+        assert CFG.pybullet_control_mode == "reset"
+
+        if self._physics_client_id is None:
+            self._initialize_pybullet()
+
+        # Update based on the input state.
+        self._update_pybullet_from_state(state)
+
+        # Take the first image.
+        imgs = [self._capture_pybullet_image()]
+
+        if action is None:
+            return imgs
+
+        import ipdb; ipdb.set_trace()
+
+
+    def _initialize_pybullet(self) -> None:
+        self._physics_client_id = p.connect(p.GUI)
+        # Disable the preview windows for faster rendering.
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.resetDebugVisualizerCamera(self._camera_distance2,
+                                     self._camera_yaw2,
+                                     self._camera_pitch2,
+                                     self._camera_target,
+                                     physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id)
+
+        # Load plane.
+        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id)
+
+        # Load robot.
+        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+        self._pybullet_robot = create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, ee_orn, self._physics_client_id)
+
+        # Load table.
+        self._table_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_pose,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id)
+
+        while True:
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+
