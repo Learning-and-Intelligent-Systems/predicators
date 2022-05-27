@@ -63,6 +63,7 @@ class StickButtonEnv(BaseEnv):
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
     _holder_base_z_len: ClassVar[float] = 0.05
     _holder_side_z_len: ClassVar[float] = 2 * _holder_base_z_len
+    _holder_side_height: ClassVar[float] = 0.2 * holder_height
     _z_lb: ClassVar[float] = 0.2
     _stick_z_len: ClassVar[float] = stick_height
     _button_z_len: ClassVar[float] = button_radius * 0.25
@@ -715,7 +716,7 @@ class StickButtonEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Load stick holder.
-        self._create_pybullet_stick_holder()
+        self._holder_id = self._create_pybullet_stick_holder()
 
         # Load stick.
         self._stick_id = self._create_pybullet_stick()
@@ -726,7 +727,7 @@ class StickButtonEnv(BaseEnv):
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
-    def _create_pybullet_stick_holder(self) -> None:
+    def _create_pybullet_stick_holder(self) -> int:
         color = (0.7, 0.7, 0.7, 1.0)
 
         # Create the main holder body.
@@ -752,47 +753,57 @@ class StickButtonEnv(BaseEnv):
         main_pose = (x, main_y, z)
         main_orientation = self._default_obj_orn
 
-        p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=main_collision_id,
-            baseVisualShapeIndex=main_visual_id,
-            basePosition=main_pose,
-            baseOrientation=main_orientation,
-            physicsClientId=self._physics_client_id)
-
         # Create the sides.
-        side_height = 0.2 * self.holder_height
+        side_height = self._holder_side_height
         side_half_extents = (
             self._holder_width / 2,
             side_height / 2,
             self._holder_side_z_len / 2,
         )
+        side_collision_ids = []
+        side_visual_ids = []
+        side_positions = []
+        side_orientations = []
         for y_offset in [self.holder_height / 2 + side_height / 2,
                          -(self.holder_height / 2 + side_height / 2)]:
             side_collision_id = p.createCollisionShape(
                 p.GEOM_BOX,
                 halfExtents=side_half_extents,
                 physicsClientId=self._physics_client_id)
+            side_collision_ids.append(side_collision_id)
 
             side_visual_id = p.createVisualShape(
                 p.GEOM_BOX,
                 halfExtents=side_half_extents,
                 rgbaColor=color,
                 physicsClientId=self._physics_client_id)
+            side_visual_ids.append(side_visual_id)
 
-            x = (self.stick_init_lb + self.stick_init_ub) / 2 + self._holder_width / 2
-            y = main_y + y_offset
-            z = self._z_lb + self._holder_side_z_len / 2
+            x = 0
+            y = y_offset
+            z = self._holder_side_z_len / 2 - self._holder_base_z_len / 2
             side_pose = (x, y, z)
+            side_positions.append(side_pose)
             side_orientation = self._default_obj_orn
+            side_orientations.append(side_orientation)
 
-            p.createMultiBody(
-                baseMass=0,
-                baseCollisionShapeIndex=side_collision_id,
-                baseVisualShapeIndex=side_visual_id,
-                basePosition=side_pose,
-                baseOrientation=side_orientation,
-                physicsClientId=self._physics_client_id)
+        return p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=main_collision_id,
+            baseVisualShapeIndex=main_visual_id,
+            basePosition=main_pose,
+            baseOrientation=main_orientation,
+            linkMasses=[0, 0],
+            linkCollisionShapeIndices=side_collision_ids,
+            linkVisualShapeIndices=side_visual_ids,
+            linkPositions=side_positions,
+            linkOrientations=side_orientations,
+            linkParentIndices=[0, 0],
+            linkInertialFramePositions=[(0, 0, 0), (0, 0, 0)],
+            linkInertialFrameOrientations=[(0, 0, 0, 1), (0, 0, 0, 1)],
+            linkJointAxis=[(0, 0, 0), (0, 0, 0)],
+            linkJointTypes=[p.JOINT_FIXED, p.JOINT_FIXED],
+            physicsClientId=self._physics_client_id)
 
     def _create_pybullet_stick(self) -> int:
         main_half_extents = (
@@ -942,10 +953,19 @@ class StickButtonEnv(BaseEnv):
                 self._default_obj_orn,
                 physicsClientId=self._physics_client_id)
 
+        # Update the stick holder.
+        x = state.get(self._holder, "y") + self._holder_width / 2
+        y = state.get(self._holder, "x") - self._holder_side_height / 2
+        z = self._z_lb + self._holder_base_z_len / 2
+        p.resetBasePositionAndOrientation(
+            self._holder_id, [x, y, z],
+            self._default_obj_orn,
+            physicsClientId=self._physics_client_id)
+
         # Update the robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
 
-        # If we are currently holding the jug, create a constraint.
+        # If we are currently holding the stick, create a constraint.
         if self._Grasped_holds(state, [self._robot, self._stick]):
             if self._held_obj_to_base_link is None:
                 base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
@@ -958,8 +978,16 @@ class StickButtonEnv(BaseEnv):
                     *p.multiplyTransforms(base_link_to_world[:3],
                                           base_link_to_world[3:],
                                           world_to_obj[:3], world_to_obj[3:]))
+        # Otherwise, update the state of the stick.
         else:
             self._held_obj_to_base_link = None
+            x = state.get(self._stick, "y") + self.stick_width / 2
+            y = state.get(self._stick, "x") + self.stick_height / 2
+            z = self._z_lb + self._stick_z_len / 2 + self._holder_base_z_len
+            p.resetBasePositionAndOrientation(
+                self._stick_id, [x, y, z],
+                self._default_obj_orn,
+                physicsClientId=self._physics_client_id)
 
         # Update the held object.
         if self._held_obj_to_base_link:
@@ -977,6 +1005,9 @@ class StickButtonEnv(BaseEnv):
                 world_to_held_obj[0],
                 world_to_held_obj[1],
                 physicsClientId=self._physics_client_id)
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
 
     def _extract_robot_state(self, state: State) -> Array:
