@@ -27,13 +27,13 @@ class StickButtonEnv(BaseEnv):
     y_lb: ClassVar[float] = 1.1
     theta_lb: ClassVar[float] = -np.pi  # radians
     x_ub: ClassVar[float] = 1.1
-    y_ub: ClassVar[float] = 2.1
+    y_ub: ClassVar[float] = 2.0
     theta_ub: ClassVar[float] = np.pi  # radians
     # Reachable zone boundaries.
     rz_x_lb: ClassVar[float] = x_lb
     rz_x_ub: ClassVar[float] = x_ub
     rz_y_lb: ClassVar[float] = y_lb
-    rz_y_ub: ClassVar[float] = 1.6
+    rz_y_ub: ClassVar[float] = 1.5
     max_speed: ClassVar[float] = 0.05  # shared by dx, dy
     max_angular_speed: ClassVar[float] = np.pi / 4
     robot_radius: ClassVar[float] = 0.02
@@ -944,6 +944,40 @@ class StickButtonEnv(BaseEnv):
 
         # Update the robot.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
+
+        # If we are currently holding the jug, create a constraint.
+        if self._Grasped_holds(state, [self._robot, self._stick]):
+            if self._held_obj_to_base_link is None:
+                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+                    self._pybullet_robot.robot_id,
+                    self._pybullet_robot.end_effector_id,
+                    physicsClientId=self._physics_client_id)[:2])]
+                world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                    self._stick_id, physicsClientId=self._physics_client_id)]
+                self._held_obj_to_base_link = p.invertTransform(
+                    *p.multiplyTransforms(base_link_to_world[:3],
+                                          base_link_to_world[3:],
+                                          world_to_obj[:3], world_to_obj[3:]))
+        else:
+            self._held_obj_to_base_link = None
+
+        # Update the held object.
+        if self._held_obj_to_base_link:
+            world_to_base_link = p.getLinkState(
+                self._pybullet_robot.robot_id,
+                self._pybullet_robot.end_effector_id,
+                physicsClientId=self._physics_client_id)[:2]
+            base_link_to_held_obj = p.invertTransform(
+                *self._held_obj_to_base_link)
+            world_to_held_obj = p.multiplyTransforms(
+                world_to_base_link[0], world_to_base_link[1],
+                base_link_to_held_obj[0], base_link_to_held_obj[1])
+            p.resetBasePositionAndOrientation(
+                self._stick_id,
+                world_to_held_obj[0],
+                world_to_held_obj[1],
+                physicsClientId=self._physics_client_id)
+
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
