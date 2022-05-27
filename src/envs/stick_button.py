@@ -736,6 +736,37 @@ class StickButtonEnv(BaseEnv):
             # while True:
             #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
+        # Case 3: stick pressing button
+        for button in state.get_objects(self._button_type):
+            if self._Above_holds(next_state, [self._stick, button]) and \
+               not self._Pressed_holds(state, [button]) and \
+               self._Pressed_holds(next_state, [button]):
+
+                # Move down to press.
+                target = (
+                    state.get(self._robot, "y"),
+                    state.get(self._robot, "x"),
+                    self._z_lb + self._button_press_z_offset,
+                )
+                self._pybullet_move_robot_to_target(target, imgs,
+                    self._pybullet_robot.closed_fingers)
+
+                # Change the button color.
+                button_to_button_id = {b: bid for bid, b in self._button_id_to_button.items()}
+                button_id = button_to_button_id[button]
+                color = (0.2, 0.9, 0.2, 1.0)
+                p.changeVisualShape(button_id, -1, rgbaColor=color,
+                    physicsClientId=self._physics_client_id)
+
+                # Move up.
+                target = (
+                    next_state.get(self._robot, "y"),
+                    next_state.get(self._robot, "x"),
+                    self.robot_init_z
+                )
+                self._pybullet_move_robot_to_target(target, imgs,
+                    self._pybullet_robot.closed_fingers)
+
         # TODO
         return imgs
 
@@ -920,16 +951,14 @@ class StickButtonEnv(BaseEnv):
 
         for i in range(num_buttons):
             collision_id = p.createCollisionShape(
-                p.GEOM_CYLINDER,
+                p.GEOM_SPHERE,
                 radius=self.button_radius,
-                height=self._button_z_len,
                 physicsClientId=self._physics_client_id)
 
             # Create the visual_shape.
             visual_id = p.createVisualShape(
-                p.GEOM_CYLINDER,
+                p.GEOM_SPHERE,
                 radius=self.button_radius,
-                length=self._button_z_len,
                 rgbaColor=(0.9, 0.2, 0.2, 1.0),
                 physicsClientId=self._physics_client_id)
 
@@ -938,7 +967,7 @@ class StickButtonEnv(BaseEnv):
             pose = (
                 (self.y_lb + self.y_ub) / 2,
                 self.x_lb + i * delta_x,
-                self._z_lb + self._button_z_len / 2,
+                self._z_lb + 2*self.button_radius,
             )
             
             # Facing outward.
