@@ -52,18 +52,19 @@ class StickButtonEnv(BaseEnv):
     robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
     robot_init_y: ClassVar[float] = (rz_x_ub + rz_x_lb) / 2.0
     robot_init_z: ClassVar[float] = 0.65
-    _camera_distance: ClassVar[float] = 0.5
-    _camera_yaw: ClassVar[float] = 124
+    _camera_distance: ClassVar[float] = 1.0
+    _camera_yaw: ClassVar[float] = 140
     _camera_pitch: ClassVar[float] = -48
-    _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
+    _camera_target: ClassVar[Pose3D] = (1.75, 0.75, 0.42)
+    _table_pose: ClassVar[Pose3D] = (1.75, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
     _holder_base_z_len: ClassVar[float] = 0.05
     _holder_side_z_len: ClassVar[float] = 2 * _holder_base_z_len
-    _z_lb = 0.2
+    _z_lb: ClassVar[float] = 0.2
+    _stick_z_len: ClassVar[float] = stick_height
 
     def __init__(self) -> None:
         super().__init__()
@@ -699,7 +700,7 @@ class StickButtonEnv(BaseEnv):
 
         # Load table.
         self._table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
+            utils.get_env_asset_path("urdf/extended_table.urdf"),
             useFixedBase=True,
             physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
@@ -707,9 +708,15 @@ class StickButtonEnv(BaseEnv):
             self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
+        p.changeVisualShape(self._table_id, -1, rgbaColor=(0.1, 0.1, 0.1, 1.0),
+            physicsClientId=self._physics_client_id)
 
         # Load stick holder.
         self._create_pybullet_stick_holder()
+
+        # Load stick.
+        self._stick_id = self._create_pybullet_stick()
+
 
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -781,3 +788,39 @@ class StickButtonEnv(BaseEnv):
                 basePosition=side_pose,
                 baseOrientation=side_orientation,
                 physicsClientId=self._physics_client_id)
+
+    def _create_pybullet_stick(self) -> int:
+        main_half_extents = (
+            self.stick_width / 2,
+            self.stick_height / 2,
+            self._stick_z_len / 2,
+        )
+        main_collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=main_half_extents,
+            physicsClientId=self._physics_client_id)
+
+        main_visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=main_half_extents,
+            physicsClientId=self._physics_client_id)
+
+        height_diff = self.holder_height - self.stick_height
+        x = (self.stick_init_lb + self.stick_init_ub) / 2 + self.stick_width / 2
+        y = (self.rz_x_lb + self.rz_x_ub) / 2 + self.stick_height / 2 + height_diff / 2
+        z = self._z_lb + self._stick_z_len / 2 + self._holder_base_z_len
+        main_pose = (x, y, z)
+        main_orientation = self._default_obj_orn
+
+        stick_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=main_collision_id,
+            baseVisualShapeIndex=main_visual_id,
+            basePosition=main_pose,
+            baseOrientation=main_orientation,
+            physicsClientId=self._physics_client_id)
+
+        texture_id = p.loadTexture(utils.get_env_asset_path("urdf/wood.png"))
+        p.changeVisualShape(stick_id, -1, textureUniqueId=texture_id)
+
+        return stick_id
