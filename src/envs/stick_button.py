@@ -52,16 +52,17 @@ class StickButtonEnv(BaseEnv):
     robot_init_x: ClassVar[float] = (rz_y_ub + rz_y_lb) / 2.0
     robot_init_y: ClassVar[float] = (rz_x_ub + rz_x_lb) / 2.0
     robot_init_z: ClassVar[float] = 0.65
-    _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = -24  # 124
-    _camera_pitch: ClassVar[float] = -24  # 48
+    _camera_distance: ClassVar[float] = 0.5
+    _camera_yaw: ClassVar[float] = 124
+    _camera_pitch: ClassVar[float] = -48
     _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
     _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
     _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
     _pybullet_max_vel_norm: ClassVar[float] = 0.05
-    _holder_z_len: ClassVar[float] = 0.05
+    _holder_base_z_len: ClassVar[float] = 0.05
+    _holder_side_z_len: ClassVar[float] = 2 * _holder_base_z_len
     _z_lb = 0.2
 
     def __init__(self) -> None:
@@ -708,7 +709,7 @@ class StickButtonEnv(BaseEnv):
             physicsClientId=self._physics_client_id)
 
         # Load stick holder.
-        self._stick_holder_id = self._create_pybullet_stick_holder()
+        self._create_pybullet_stick_holder()
 
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -720,28 +721,26 @@ class StickButtonEnv(BaseEnv):
         main_half_extents = (
             self._holder_width / 2,
             self.holder_height / 2,
-            self._holder_z_len / 2,
+            self._holder_base_z_len / 2,
         )
         main_collision_id = p.createCollisionShape(
             p.GEOM_BOX,
             halfExtents=main_half_extents,
             physicsClientId=self._physics_client_id)
 
-        # Create the visual_shape.
         main_visual_id = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=main_half_extents,
             rgbaColor=color,
             physicsClientId=self._physics_client_id)
 
-        # Create the body.
-        x = (self.stick_init_lb + self.stick_init_ub) / 2 + self.holder_height / 2
-        y = (self.rz_x_lb + self.rz_x_ub) / 2 + self._holder_width / 2
-        z = self._z_lb + self._holder_z_len / 2
-        main_pose = (x, y, z)
+        x = (self.stick_init_lb + self.stick_init_ub) / 2 + self._holder_width / 2
+        main_y = (self.rz_x_lb + self.rz_x_ub) / 2 + self.holder_height / 2
+        z = self._z_lb + self._holder_base_z_len / 2
+        main_pose = (x, main_y, z)
         main_orientation = self._default_obj_orn
 
-        return p.createMultiBody(
+        p.createMultiBody(
             baseMass=0,
             baseCollisionShapeIndex=main_collision_id,
             baseVisualShapeIndex=main_visual_id,
@@ -749,4 +748,36 @@ class StickButtonEnv(BaseEnv):
             baseOrientation=main_orientation,
             physicsClientId=self._physics_client_id)
 
+        # Create the sides.
+        side_height = 0.2 * self.holder_height
+        side_half_extents = (
+            self._holder_width / 2,
+            side_height / 2,
+            self._holder_side_z_len / 2,
+        )
+        for y_offset in [self.holder_height / 2 + side_height / 2,
+                         -(self.holder_height / 2 + side_height / 2)]:
+            side_collision_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=side_half_extents,
+                physicsClientId=self._physics_client_id)
 
+            side_visual_id = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=side_half_extents,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id)
+
+            x = (self.stick_init_lb + self.stick_init_ub) / 2 + self._holder_width / 2
+            y = main_y + y_offset
+            z = self._z_lb + self._holder_side_z_len / 2
+            side_pose = (x, y, z)
+            side_orientation = self._default_obj_orn
+
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=side_collision_id,
+                baseVisualShapeIndex=side_visual_id,
+                basePosition=side_pose,
+                baseOrientation=side_orientation,
+                physicsClientId=self._physics_client_id)
