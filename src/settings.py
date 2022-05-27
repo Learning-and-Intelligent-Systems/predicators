@@ -139,6 +139,7 @@ class GlobalSettings:
     stick_button_num_buttons_test = [3, 4]
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
+    stick_button_render_mode = "matplotlib"
 
     # screws env parameters
     screws_num_screws_train = [15, 20]

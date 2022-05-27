@@ -13,7 +13,7 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Predicate, State, Task, Type, Video
 from predicators.src.utils import _Geom2D
 
 
@@ -228,6 +228,17 @@ class StickButtonEnv(BaseEnv):
     def action_space(self) -> Box:
         # Normalized dx, dy, dtheta, press.
         return Box(low=-1., high=1., shape=(4, ), dtype=np.float32)
+
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        if CFG.stick_button_render_mode == "matplotlib":
+            return super().render_state(state, task, action, caption)
+        assert CFG.stick_button_render_mode == "pybullet"
+        assert CFG.stick_button_disable_angles
+        return self._render_state_pybullet(state, task, action, caption)
 
     def render_state_plt(
             self,
@@ -605,3 +616,11 @@ class StickButtonEnv(BaseEnv):
             return Action(np.array([dx, dy, 0.0, -1.0], dtype=np.float32))
 
         return _event_to_action
+
+    def _render_state_pybullet(self,
+                               state: State,
+                               task: Task,
+                               action: Optional[Action] = None,
+                               caption: Optional[str] = None) -> Video:
+        import ipdb
+        ipdb.set_trace()
