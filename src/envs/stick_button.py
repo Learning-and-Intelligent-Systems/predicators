@@ -67,6 +67,7 @@ class StickButtonEnv(BaseEnv):
     _z_lb: ClassVar[float] = 0.2
     _stick_z_len: ClassVar[float] = stick_height
     _button_z_len: ClassVar[float] = button_radius * 0.25
+    _button_press_z_offset: ClassVar[float] = _button_z_len + 0.035
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
 
     def __init__(self) -> None:
@@ -667,7 +668,38 @@ class StickButtonEnv(BaseEnv):
 
         next_state = self.simulate(state, action)
 
-        # Case 1: picking up the stick.
+        # Case 1: robot is pressing the button directly.
+        for button in state.get_objects(self._button_type):
+            if self._Above_holds(next_state, [self._robot, button]) and \
+               not self._Pressed_holds(state, [button]) and \
+               self._Pressed_holds(next_state, [button]):
+
+                # Move down to press.
+                target = (
+                    state.get(button, "y"),
+                    state.get(button, "x"),
+                    self._z_lb + self._button_press_z_offset,
+                )
+                self._pybullet_move_robot_to_target(target, imgs,
+                    self._pybullet_robot.closed_fingers)
+
+                # Change the button color.
+                button_to_button_id = {b: bid for bid, b in self._button_id_to_button.items()}
+                button_id = button_to_button_id[button]
+                color = (0.2, 0.9, 0.2, 1.0)
+                p.changeVisualShape(button_id, -1, rgbaColor=color,
+                    physicsClientId=self._physics_client_id)
+
+                # Move up.
+                target = (
+                    next_state.get(self._robot, "y"),
+                    next_state.get(self._robot, "x"),
+                    self.robot_init_z
+                )
+                self._pybullet_move_robot_to_target(target, imgs,
+                    self._pybullet_robot.closed_fingers)
+
+        # Case 2: picking up the stick.
         if not self._Grasped_holds(state, [self._robot, self._stick]) and \
             self._Grasped_holds(next_state, [self._robot, self._stick]):
 
@@ -694,8 +726,8 @@ class StickButtonEnv(BaseEnv):
 
             # Move back up.
             target = (
-                state.get(self._robot, "y"),
-                state.get(self._robot, "x"),
+                next_state.get(self._robot, "y"),
+                next_state.get(self._robot, "x"),
                 self.robot_init_z
             )
             self._pybullet_move_robot_to_target(target, imgs,
