@@ -16,7 +16,7 @@ from predicators.src.envs.pybullet_robots import \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
 from predicators.src.utils import _Geom2D
 
 
@@ -663,7 +663,8 @@ class StickButtonEnv(BaseEnv):
         if action is None:
             return imgs
 
-        import ipdb; ipdb.set_trace()
+        # TODO
+        return imgs
 
 
     def _initialize_pybullet(self) -> None:
@@ -721,8 +722,8 @@ class StickButtonEnv(BaseEnv):
         # Load buttons.
         self.button_ids = self._create_pybullet_buttons()
 
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
     def _create_pybullet_stick_holder(self) -> None:
         color = (0.7, 0.7, 0.7, 1.0)
@@ -870,4 +871,44 @@ class StickButtonEnv(BaseEnv):
             button_ids.add(button_id)
 
         return button_ids
+
+    def _update_pybullet_from_state(self, state: State) -> None:
+        pass  # TODO
+
+    def _capture_pybullet_image(self) -> Image:
+
+        camera_distance = self._camera_distance
+        camera_yaw = self._camera_yaw
+        camera_pitch = self._camera_pitch            
+
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self._camera_target,
+            distance=camera_distance,
+            yaw=camera_yaw,
+            pitch=camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=self._physics_client_id)
+
+        width = CFG.pybullet_camera_width
+        height = CFG.pybullet_camera_height
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(width / height),
+            nearVal=0.1,
+            farVal=100.0,
+            physicsClientId=self._physics_client_id)
+
+        (_, _, px, _,
+         _) = p.getCameraImage(width=width,
+                               height=height,
+                               viewMatrix=view_matrix,
+                               projectionMatrix=proj_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               physicsClientId=self._physics_client_id)
+
+        rgb_array = np.array(px)
+        rgb_array = rgb_array[:, :, :3]
+        return rgb_array
 
