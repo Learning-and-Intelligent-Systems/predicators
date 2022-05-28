@@ -1118,7 +1118,7 @@ class DoorsEnv(BaseEnv):
         overhead_img = self._capture_pybullet_image_view("overhead", width_scale=0.5)
         first_person_img = self._capture_pybullet_image_view("first_person", width_scale=0.4, height_scale=0.8)
 
-        padded_first_person_img = np.zeros_like(overhead_img)
+        padded_first_person_img = np.ones_like(overhead_img) * int(0.05 * 255)
         fr, fc, _ = np.subtract(padded_first_person_img.shape, first_person_img.shape) / 2
         r, c = int(fr), int(fc)
         padded_first_person_img[r:r+first_person_img.shape[0],
