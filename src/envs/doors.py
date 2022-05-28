@@ -9,12 +9,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
+import pybullet as p
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+    ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
 from predicators.src.utils import Rectangle, _Geom2D
 
 
@@ -32,6 +33,14 @@ class DoorsEnv(BaseEnv):
     doorway_pad: ClassVar[float] = 1e-3
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
+    # PyBullet settings.
+    _camera_distance: ClassVar[float] = 3.2
+    _camera_yaw: ClassVar[float] = -5
+    _camera_pitch: ClassVar[float] = -86
+    _camera_target: ClassVar[Pose3D] = (room_size * 2, room_size * 2, 0.)
+    _z_lb: ClassVar[float] = -0.1
+    _obstacle_z_len: ClassVar[float] = 0.4
+    _wall_z_len: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -116,6 +125,8 @@ class DoorsEnv(BaseEnv):
                                               Tuple[float, float]] = {}
         # See note in _sample_initial_state_from_map().
         self._task_id_count = itertools.count()
+        self._physics_client_id = None
+        self._last_rendered_task = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -193,6 +204,16 @@ class DoorsEnv(BaseEnv):
         ub = np.array([self.action_magnitude, self.action_magnitude, np.inf],
                       dtype=np.float32)
         return Box(lb, ub)
+
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> Video:
+        assert CFG.doors_render_mode in ("matplotlib", "pybullet")
+        if CFG.doors_render_mode == "matplotlib":
+            return super().render_state(state, task, action, caption)
+        return self._render_state_pybullet(state, task, action, caption)
 
     def render_state_plt(
             self,
@@ -934,3 +955,183 @@ class DoorsEnv(BaseEnv):
         # A made up complicated function.
         return np.tanh(target_rot) * (np.sin(mass) +
                                       np.cos(friction) * np.sqrt(mass))
+
+
+    def _initialize_pybullet(self) -> None:
+        self._physics_client_id = p.connect(p.GUI)
+        # Disable the preview windows for faster rendering.
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                                   False,
+                                   physicsClientId=self._physics_client_id)
+        p.resetDebugVisualizerCamera(self._camera_distance,
+                                     self._camera_yaw,
+                                     self._camera_pitch,
+                                     self._camera_target,
+                                     physicsClientId=self._physics_client_id)
+        p.resetSimulation(physicsClientId=self._physics_client_id)
+
+        # Load plane.
+        plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
+                   useFixedBase=True,
+                   physicsClientId=self._physics_client_id)
+        p.changeVisualShape(plane_id, -1, rgbaColor=(0.05, 0.05, 0.05, 1.0),
+            physicsClientId=self._physics_client_id)
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
+
+    def _render_state_pybullet(self,
+                               state: State,
+                               task: Task,
+                               action: Optional[Action] = None,
+                               caption: Optional[str] = None) -> Video:
+        assert CFG.pybullet_control_mode == "reset"
+
+        if self._physics_client_id is None:
+            self._initialize_pybullet()
+
+        # Update based on the input state.
+        self._update_pybullet_from_state(state, task)
+
+        # Take the first image.
+        imgs = [self._capture_pybullet_image()]
+
+        if action is None:
+            return imgs
+
+        # Maybe no need to do this...?
+        import ipdb; ipdb.set_trace()
+
+    
+    def _update_pybullet_from_state(self, state: State, task: Task) -> None:
+        if task != self._last_rendered_task:
+            self._pybullet_recreate_scene(state, task)
+            self._last_rendered_task = task
+
+        # TODO update robot
+
+    def _capture_pybullet_image(self) -> Image:
+        camera_distance = self._camera_distance
+        camera_yaw = self._camera_yaw
+        camera_pitch = self._camera_pitch            
+
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self._camera_target,
+            distance=camera_distance,
+            yaw=camera_yaw,
+            pitch=camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=self._physics_client_id)
+
+        width = CFG.pybullet_camera_width
+        height = CFG.pybullet_camera_height
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(width / height),
+            nearVal=0.1,
+            farVal=100.0,
+            physicsClientId=self._physics_client_id)
+
+        (_, _, px, _,
+         _) = p.getCameraImage(width=width,
+                               height=height,
+                               viewMatrix=view_matrix,
+                               projectionMatrix=proj_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               physicsClientId=self._physics_client_id)
+
+        rgb_array = np.array(px)
+        rgb_array = rgb_array[:, :, :3]
+        return rgb_array
+
+    def _pybullet_recreate_scene(self, state: State, task: Task) -> None:
+        # Draw rooms.
+        default_room_color = (0.6, 0.6, 0.6, 1.0)
+        goal_room_color = (0.85, 0.8, 0., 1.0)
+        goal_room = next(iter(task.goal)).objects[1]
+        for room in state.get_objects(self._room_type):
+            room_geom = self._object_to_geom(room, state)
+            if room == goal_room:
+                color = goal_room_color
+            else:
+                color = default_room_color
+            self._pybullet_create_rectangle(
+                room_geom,
+                z_len=1e-3,
+                color=color)
+
+        # Draw obstacles (including room walls).
+        wall_color = default_room_color
+        obstacle_color = (0.1, 0.1, 0.3, 1.0)
+        for obstacle in state.get_objects(self._obstacle_type):
+            obstacle_geom = self._object_to_geom(obstacle, state)
+            if "wall" in obstacle.name:
+                z_len = self._wall_z_len
+                color = wall_color
+            else:
+                z_len = self._obstacle_z_len
+                color = obstacle_color
+            self._pybullet_create_rectangle(
+                obstacle_geom,
+                z_len=z_len,
+                color=color)
+
+        while True:
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+
+        # Draw doors.
+        closed_door_color = "orangered"
+        open_door_color = "lightgreen"
+        doorway_color = "darkviolet"
+        for door in state.get_objects(self._door_type):
+            if self._DoorIsOpen_holds(state, [door]):
+                color = open_door_color
+            else:
+                color = closed_door_color
+            door_geom = self._object_to_geom(door, state)
+            door_geom.plot(ax, color=color)
+            if CFG.doors_draw_debug:
+                doorway_geom = self._door_to_doorway_geom(door, state)
+                doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
+
+    def _pybullet_create_rectangle(self, rect: _Geom2D, z_len: float, color: Tuple[float, float, float, float]) -> int:
+        half_extents = (
+            rect.width / 2,
+            rect.height / 2,
+            z_len / 2,
+        )
+        collision_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self._physics_client_id)
+
+        visual_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=color,
+            physicsClientId=self._physics_client_id)
+
+        x = rect.x + half_extents[0]
+        y = rect.y + half_extents[1]
+        z = self._z_lb + half_extents[2]
+        pose = (x, y, z)
+        orientation = p.getQuaternionFromEuler([0.0, 0.0, rect.theta])
+
+        return p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=visual_id,
+            basePosition=pose,
+            baseOrientation=orientation,
+            physicsClientId=self._physics_client_id)

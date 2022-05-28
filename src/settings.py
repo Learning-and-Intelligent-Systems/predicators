@@ -154,6 +154,7 @@ class GlobalSettings:
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
+    doors_render_mode = "matplotlib"
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
