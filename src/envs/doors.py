@@ -1086,8 +1086,14 @@ class DoorsEnv(BaseEnv):
 
 
     def _capture_pybullet_image(self) -> Image:
+        overhead_img = self._capture_pybullet_image_view("overhead", width_scale=0.5)
+        first_person_img = self._capture_pybullet_image_view("first_person", width_scale=0.5)
+        img = np.concatenate([overhead_img, first_person_img], axis=1)
+        return img
+
+    def _capture_pybullet_image_view(self, view: str, width_scale: float = 1, height_scale: float = 1) -> Image:
         camera_target, camera_distance, camera_yaw, camera_pitch = \
-            self._get_camera_params()
+            self._get_camera_params(view)
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
             cameraTargetPosition=camera_target,
@@ -1098,8 +1104,8 @@ class DoorsEnv(BaseEnv):
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
 
-        width = CFG.pybullet_camera_width
-        height = CFG.pybullet_camera_height
+        width = int(CFG.pybullet_camera_width * width_scale)
+        height = int(CFG.pybullet_camera_height * height_scale)
 
         proj_matrix = p.computeProjectionMatrixFOV(
             fov=60,
@@ -1242,23 +1248,27 @@ class DoorsEnv(BaseEnv):
             linkJointTypes=[p.JOINT_FIXED],
             physicsClientId=self._physics_client_id)
 
-    def _get_camera_params(self):
-        # camera_target = self._camera_target
-        # camera_distance = self._camera_distance
-        # camera_yaw = self._camera_yaw
-        # camera_pitch = self._camera_pitch
+    def _get_camera_params(self, view="overhead"):
+        if view == "overhead":
+            camera_target = self._camera_target
+            camera_distance = self._camera_distance
+            camera_yaw = self._camera_yaw
+            camera_pitch = self._camera_pitch
+        
+        else:
+            assert view == "first_person"
+            offset = np.array((0, 0, 1))
+            robot_pos, robot_orn = p.getBasePositionAndOrientation(
+                self._pybullet_robot._fetch_id,
+                physicsClientId=self._physics_client_id)
+            _, _, yaw = p.getEulerFromQuaternion(robot_orn)
+            orn_mat = np.array(p.getMatrixFromQuaternion(robot_orn)).reshape((3, 3))
 
-        offset = np.array((0, 0, 1))
-        robot_pos, robot_orn = p.getBasePositionAndOrientation(self._pybullet_robot._fetch_id,
-            physicsClientId=self._physics_client_id)
-        _, _, yaw = p.getEulerFromQuaternion(robot_orn)
-        orn_mat = np.array(p.getMatrixFromQuaternion(robot_orn)).reshape((3, 3))
+            camera_distance = 0.5
+            camera_yaw = yaw * (180 / np.pi) - 90
+            camera_pitch = 0
 
-        camera_distance = 0.5
-        camera_yaw = yaw * (180 / np.pi) - 90
-        camera_pitch = 0
-
-        unit_camera_target = np.array([-1, 0, 0])
-        camera_target = robot_pos + np.dot(orn_mat, unit_camera_target) + offset
+            unit_camera_target = np.array([-1, 0, 0])
+            camera_target = robot_pos + np.dot(orn_mat, unit_camera_target) + offset
 
         return (camera_target, camera_distance, camera_yaw, camera_pitch)
