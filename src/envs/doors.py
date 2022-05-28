@@ -26,12 +26,12 @@ class DoorsEnv(BaseEnv):
     room_size: ClassVar[float] = 1.0
     hallway_width: ClassVar[float] = 0.25
     wall_depth: ClassVar[float] = 0.01
-    robot_radius: ClassVar[float] = 0.075
+    robot_radius: ClassVar[float] = 0.08
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
     obstacle_initial_position_radius: ClassVar[float] = 0.1
     obstacle_size_lb: ClassVar[float] = 0.05
-    obstacle_size_ub: ClassVar[float] = 0.15
+    obstacle_size_ub: ClassVar[float] = 0.1
     doorway_pad: ClassVar[float] = 1e-3
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
