@@ -1031,7 +1031,21 @@ class DoorsEnv(BaseEnv):
                 p.removeBody(self._door_to_door_id[door], physicsClientId=self._physics_client_id)
                 del self._door_to_door_id[door]
 
-        # TODO update robot
+        # Update the robot.
+        x = state.get(self._robot, "x") * self._pybullet_scale
+        y = state.get(self._robot, "y") * self._pybullet_scale
+        z = 0.0
+
+        p.resetBasePositionAndOrientation(
+            self._pybullet_robot._fetch_id,
+            (x, y, z),
+            [0, 0, 0, 1],  # TODO
+            physicsClientId=self._physics_client_id
+        )
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
+
 
     def _capture_pybullet_image(self) -> Image:
         camera_distance = self._camera_distance
