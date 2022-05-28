@@ -34,10 +34,9 @@ class DoorsEnv(BaseEnv):
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
     # PyBullet settings.
-    _camera_distance: ClassVar[float] = 3.2
-    _camera_yaw: ClassVar[float] = -5
+    _camera_distance: ClassVar[float] = 6
+    _camera_yaw: ClassVar[float] = 0
     _camera_pitch: ClassVar[float] = -86
-    _camera_target: ClassVar[Pose3D] = (room_size * 2, room_size * 2, 0.)
     _z_lb: ClassVar[float] = -0.1
     _obstacle_z_len: ClassVar[float] = 0.4
     _wall_z_len: ClassVar[float] = 1.0
@@ -127,6 +126,8 @@ class DoorsEnv(BaseEnv):
         self._task_id_count = itertools.count()
         self._physics_client_id = None
         self._last_rendered_task = None
+        self._camera_target = (self.room_size * 2, self.room_size * 2, 0.)
+        self._static_pybullet_ids = set()
 
     @classmethod
     def get_name(cls) -> str:
@@ -1005,11 +1006,7 @@ class DoorsEnv(BaseEnv):
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
 
-        if action is None:
-            return imgs
-
-        # Maybe no need to do this...?
-        import ipdb; ipdb.set_trace()
+        return imgs
 
     
     def _update_pybullet_from_state(self, state: State, task: Task) -> None:
@@ -1056,20 +1053,38 @@ class DoorsEnv(BaseEnv):
         return rgb_array
 
     def _pybullet_recreate_scene(self, state: State, task: Task) -> None:
+        for old_id in self._static_pybullet_ids:
+            p.removeBody(old_id, physicsClientId=self._physics_client_id)
+        self._static_pybullet_ids.clear()
+
+        # Compute the camera target to center at the middle of the rooms.
+        all_xs = []
+        all_ys = []
+
         # Draw rooms.
         default_room_color = (0.6, 0.6, 0.6, 1.0)
         goal_room_color = (0.85, 0.8, 0., 1.0)
         goal_room = next(iter(task.goal)).objects[1]
         for room in state.get_objects(self._room_type):
             room_geom = self._object_to_geom(room, state)
+            cx, cy = room_geom.center
+            all_xs.append(cx)
+            all_ys.append(cy)
             if room == goal_room:
                 color = goal_room_color
             else:
                 color = default_room_color
-            self._pybullet_create_rectangle(
+            rect_id = self._pybullet_create_rectangle(
                 room_geom,
                 z_len=1e-3,
                 color=color)
+            self._static_pybullet_ids.add(rect_id)
+
+        self._camera_target = (
+            (np.max(all_xs) + np.min(all_xs)) / 2,
+            (np.max(all_ys) + np.min(all_ys)) / 2,
+            self._z_lb
+        )
 
         # Draw obstacles (including room walls).
         wall_color = default_room_color
@@ -1082,24 +1097,23 @@ class DoorsEnv(BaseEnv):
             else:
                 z_len = self._obstacle_z_len
                 color = obstacle_color
-            self._pybullet_create_rectangle(
+            rect_id = self._pybullet_create_rectangle(
                 obstacle_geom,
                 z_len=z_len,
                 color=color)
+            self._static_pybullet_ids.add(rect_id)
 
         # Draw doors.
-        door_color = (0.9, 0.3, 0.0, 0.75)
+        door_color = (0.95, 0.1, 0.0, 0.75)
         for door in state.get_objects(self._door_type):
             if self._DoorIsOpen_holds(state, [door]):
                 continue
             door_geom = self._object_to_geom(door, state)
-            self._pybullet_create_rectangle(
+            rect_id = self._pybullet_create_rectangle(
                 door_geom,
                 z_len=self._wall_z_len,
                 color=door_color)
-
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+            self._static_pybullet_ids.add(rect_id)
 
     def _pybullet_create_rectangle(self, rect: _Geom2D, z_len: float, color: Tuple[float, float, float, float]) -> int:
         
@@ -1122,7 +1136,7 @@ class DoorsEnv(BaseEnv):
         pose = (x, y, z)
         orientation = p.getQuaternionFromEuler([0.0, 0.0, rect.theta])
 
-        #  Real body.
+        # Real body.
         link_half_extents = (
             rect.width / 2,
             rect.height / 2,
