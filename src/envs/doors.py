@@ -1025,6 +1025,12 @@ class DoorsEnv(BaseEnv):
             self._pybullet_recreate_scene(state, task)
             self._last_rendered_task = task
 
+        # Update doors.
+        for door in state.get_objects(self._door_type):
+            if door in self._door_to_door_id and self._DoorIsOpen_holds(state, [door]):
+                p.removeBody(self._door_to_door_id[door], physicsClientId=self._physics_client_id)
+                del self._door_to_door_id[door]
+
         # TODO update robot
 
     def _capture_pybullet_image(self) -> Image:
@@ -1067,6 +1073,7 @@ class DoorsEnv(BaseEnv):
         for old_id in self._static_pybullet_ids:
             p.removeBody(old_id, physicsClientId=self._physics_client_id)
         self._static_pybullet_ids.clear()
+        self._door_to_door_id = {}
 
         # Compute the camera target to center at the middle of the rooms.
         all_xs = []
@@ -1122,14 +1129,14 @@ class DoorsEnv(BaseEnv):
         # Draw doors.
         door_color = (0.95, 0.1, 0.0, 0.75)
         for door in state.get_objects(self._door_type):
-            if self._DoorIsOpen_holds(state, [door]):
-                continue
+            assert not self._DoorIsOpen_holds(state, [door])
             door_geom = self._object_to_geom(door, state)
             rect_id = self._pybullet_create_rectangle(
                 door_geom,
                 z_len=self._wall_z_len,
                 color=door_color)
             self._static_pybullet_ids.add(rect_id)
+            self._door_to_door_id[door] = rect_id
 
     def _pybullet_create_rectangle(self, rect: _Geom2D, z_len: float, color: Tuple[float, float, float, float]) -> int:
         
