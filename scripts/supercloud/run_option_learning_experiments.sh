@@ -68,5 +68,11 @@ for ENV in ${ENVS[@]}; do
             # GNN metacontroller with nonparameterized options
             python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_nonparam_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc_nonparameterized --mlp_regressor_max_itr 60000
         fi
+
+        # Run bonus experiment with predicate learning for cover environment.
+        if [ $ENV = "cover_multistep_options" ]; then
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_predicate_learning_${NUM_TRAIN_TASKS} --approach grammar_search_invention --option_learner direct_bc --excluded_predicates all
+        fi
+
     done
 done
