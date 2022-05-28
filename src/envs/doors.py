@@ -501,6 +501,21 @@ class DoorsEnv(BaseEnv):
             for (dx, dy) in deltas
         ]
         memory["action_plan"] = action_plan
+        
+        # For PyBullet rendering.
+        door_geom = self._object_to_geom(door, state)
+        vertices = door_geom.vertices
+        if all(target_y < y for _, y in vertices):
+            face_direction = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+        elif all(target_y > y for _, y in vertices):
+            face_direction = p.getQuaternionFromEuler([0.0, 0.0, -np.pi / 2])
+        elif all(target_x < x for x, _ in vertices):
+            face_direction = p.getQuaternionFromEuler([0.0, 0.0, 0.0])
+        else:
+            assert all(target_x > x for x, _ in vertices)
+            face_direction = p.getQuaternionFromEuler([0.0, 0.0, np.pi])
+        memory["target_face_direction"] = face_direction
+
         return True
 
     def _MoveToDoor_terminal(self, state: State, memory: Dict,
@@ -1012,7 +1027,7 @@ class DoorsEnv(BaseEnv):
             self._initialize_pybullet()
 
         # Update based on the input state.
-        self._update_pybullet_from_state(state, task)
+        self._update_pybullet_from_state(state, task, action)
 
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
@@ -1020,7 +1035,7 @@ class DoorsEnv(BaseEnv):
         return imgs
 
     
-    def _update_pybullet_from_state(self, state: State, task: Task) -> None:
+    def _update_pybullet_from_state(self, state: State, task: Task, action: Optional[Action]) -> None:
         if task != self._last_rendered_task:
             self._pybullet_recreate_scene(state, task)
             self._last_rendered_task = task
@@ -1036,10 +1051,17 @@ class DoorsEnv(BaseEnv):
         y = state.get(self._robot, "y") * self._pybullet_scale
         z = 0.0
 
+        if action and "MoveToDoor" in action.get_option().parent.name:
+            orn = action.get_option().memory["target_face_direction"]
+        else:
+           _, orn = p.getBasePositionAndOrientation(self._pybullet_robot._fetch_id,
+            physicsClientId=self._physics_client_id) 
+
+
         p.resetBasePositionAndOrientation(
             self._pybullet_robot._fetch_id,
             (x, y, z),
-            [0, 0, 0, 1],  # TODO
+            orn,
             physicsClientId=self._physics_client_id
         )
 
