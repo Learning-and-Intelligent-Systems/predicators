@@ -44,13 +44,10 @@ def _segment_with_contact_changes(
     contacts and we look for changes in those contact predicates.
     """
 
-    _, all_atoms = trajectory
-    all_preds = {a.predicate for atoms in all_atoms for a in atoms}
-
     if CFG.env == "stick_button":
         keep_pred_names = {"Grasped", "Pressed"}
     elif CFG.env == "cover_multistep_options":
-        keep_pred_names = {a.name for a in all_preds}
+        keep_pred_names = {"Covers", "HandEmpty", "Holding"}
     elif CFG.env == "doors":
         keep_pred_names = {"TouchingDoor", "InRoom"}
     elif CFG.env == "touch_point":
@@ -61,10 +58,18 @@ def _segment_with_contact_changes(
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")
 
-    keep_preds = {p for p in all_preds if p.name in keep_pred_names}
+    traj, _ = trajectory
+    # If some predicates are excluded, we need to load predicates from the
+    # environment in case contact-based ones are excluded. Note that this is
+    # not really leaking information because the same effect could be achieved
+    # by implementing environment-specific contact detection functions that use
+    # the low-level states only; this is just a more concise way to do that.
+    env = get_or_create_env(CFG.env)
+    keep_preds = {p for p in env.predicates if p.name in keep_pred_names}
+    assert len(keep_preds) == len(keep_pred_names)
     all_keep_atoms = []
-    for atoms in all_atoms:
-        all_keep_atoms.append({a for a in atoms if a.predicate in keep_preds})
+    for state in traj.states:
+        all_keep_atoms.append(utils.abstract(state, keep_preds))
 
     def _switch_fn(t: int) -> bool:
         return all_keep_atoms[t] != all_keep_atoms[t + 1]
