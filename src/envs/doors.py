@@ -13,6 +13,8 @@ import pybullet as p
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.envs.pybullet_robots import \
+    create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Pose3D, Predicate, State, Task, Type, Video, Image
@@ -34,7 +36,8 @@ class DoorsEnv(BaseEnv):
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
     # PyBullet settings.
-    _camera_distance: ClassVar[float] = 6
+    _pybullet_scale: ClassVar[float] = 5.0
+    _camera_distance: ClassVar[float] = 6 * _pybullet_scale
     _camera_yaw: ClassVar[float] = 0
     _camera_pitch: ClassVar[float] = -86
     _z_lb: ClassVar[float] = -0.1
@@ -983,9 +986,17 @@ class DoorsEnv(BaseEnv):
         # Load plane.
         plane_id = p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
+                   globalScaling=10,
                    physicsClientId=self._physics_client_id)
         p.changeVisualShape(plane_id, -1, rgbaColor=(0.05, 0.05, 0.05, 1.0),
             physicsClientId=self._physics_client_id)
+
+         # Load robot.
+        ee_home = (1.35, 0.75, 0.65)
+        ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+        self._pybullet_robot = create_single_arm_pybullet_robot(
+            CFG.pybullet_robot, ee_home, ee_orn, self._physics_client_id)
+        self._pybullet_robot.reset_state(ee_home + (self._pybullet_robot.closed_fingers, ))
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -1081,10 +1092,15 @@ class DoorsEnv(BaseEnv):
             self._static_pybullet_ids.add(rect_id)
 
         self._camera_target = (
-            (np.max(all_xs) + np.min(all_xs)) / 2,
-            (np.max(all_ys) + np.min(all_ys)) / 2,
+            (np.max(all_xs) + np.min(all_xs)) / 2 * self._pybullet_scale,
+            (np.max(all_ys) + np.min(all_ys)) / 2 * self._pybullet_scale,
             self._z_lb
         )
+        p.resetDebugVisualizerCamera(self._camera_distance,
+                             self._camera_yaw,
+                             self._camera_pitch,
+                             self._camera_target,
+                             physicsClientId=self._physics_client_id)
 
         # Draw obstacles (including room walls).
         wall_color = default_room_color
@@ -1130,17 +1146,17 @@ class DoorsEnv(BaseEnv):
             rgbaColor=(0, 0, 0, 0),
             physicsClientId=self._physics_client_id)
 
-        x = rect.x
-        y = rect.y
+        x = rect.x * self._pybullet_scale
+        y = rect.y * self._pybullet_scale
         z = self._z_lb
         pose = (x, y, z)
         orientation = p.getQuaternionFromEuler([0.0, 0.0, rect.theta])
 
         # Real body.
         link_half_extents = (
-            rect.width / 2,
-            rect.height / 2,
-            z_len / 2,
+            rect.width / 2 * self._pybullet_scale,
+            rect.height / 2 * self._pybullet_scale,
+            z_len / 2 * self._pybullet_scale,
         )
         link_collision_id = p.createCollisionShape(
             p.GEOM_BOX,
