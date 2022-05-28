@@ -26,7 +26,7 @@ class DoorsEnv(BaseEnv):
     room_size: ClassVar[float] = 1.0
     hallway_width: ClassVar[float] = 0.25
     wall_depth: ClassVar[float] = 0.01
-    robot_radius: ClassVar[float] = 0.05
+    robot_radius: ClassVar[float] = 0.075
     action_magnitude: ClassVar[float] = 0.05
     robot_initial_position_radius: ClassVar[float] = 0.05
     obstacle_initial_position_radius: ClassVar[float] = 0.1
@@ -298,8 +298,16 @@ class DoorsEnv(BaseEnv):
                 r for r in rooms
                 if not self._InRoom_holds(state, [self._robot, r])
             ]
-            goal_room = candidate_goal_rooms[rng.choice(
-                len(candidate_goal_rooms))]
+            
+
+
+            # goal_room = candidate_goal_rooms[rng.choice(
+            #     len(candidate_goal_rooms))]
+            goal_room = candidate_goal_rooms[-1]
+            
+
+
+
             goal_atom = GroundAtom(self._InRoom, [self._robot, goal_room])
             goal = {goal_atom}
             assert not goal_atom.holds(state)
@@ -406,7 +414,14 @@ class DoorsEnv(BaseEnv):
                     }
             # Always start out near the center of the room. If there are
             # collisions, we'll just resample another problem.
-            start_idx = rng.choice(len(rooms))
+
+
+
+            # start_idx = rng.choice(len(rooms))
+            start_idx = 0
+
+
+
             start_room = rooms[start_idx]
             room_x = state_dict[start_room]["x"]
             room_y = state_dict[start_room]["y"]
@@ -938,34 +953,43 @@ class DoorsEnv(BaseEnv):
         # Sample a grid where any room can be reached from any other room.
         # To do this, perform a random tree search in the grid for a certain
         # number of steps, starting from a random location.
-        assert self._room_map_size > 1
-        room_map = np.zeros((self._room_map_size, self._room_map_size),
-                            dtype=bool)
-        min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
-        max_num_rooms = int(self._max_room_exists_frac * room_map.size)
-        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
 
-        def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:
-            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            r, c = room
-            for dr, dc in deltas:
-                nr, nc = r + dr, c + dc
-                if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
-                    yield (nr, nc)
+        room_map = np.array([
+            [1, 0, 0, 0, 0],
+            [1, 1, 1, 0, 1],
+            [1, 0, 1, 0, 1],
+            [0, 1, 1, 1, 1],
+            [1, 1, 0, 1, 1]
+        ])
 
-        start_r, start_c = rng.integers(self._room_map_size, size=2)
-        start_room = (start_r, start_c)
-        queue = [start_room]
-        visited = {start_room}
-        room_map[start_room] = 1
-        while room_map.sum() < num_rooms:
-            queue_idx = rng.integers(len(queue))
-            room = queue.pop(queue_idx)
-            for neighbor in _get_neighbors(room):
-                if neighbor not in visited:
-                    room_map[neighbor] = 1
-                    visited.add(neighbor)
-                    queue.append(neighbor)
+        # assert self._room_map_size > 1
+        # room_map = np.zeros((self._room_map_size, self._room_map_size),
+        #                     dtype=bool)
+        # min_num_rooms = max(2, int(self._min_room_exists_frac * room_map.size))
+        # max_num_rooms = int(self._max_room_exists_frac * room_map.size)
+        # num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+
+        # def _get_neighbors(room: Tuple[int, int]) -> Iterator[Tuple[int, int]]:
+        #     deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        #     r, c = room
+        #     for dr, dc in deltas:
+        #         nr, nc = r + dr, c + dc
+        #         if 0 <= nr < room_map.shape[0] and 0 <= nc < room_map.shape[1]:
+        #             yield (nr, nc)
+
+        # start_r, start_c = rng.integers(self._room_map_size, size=2)
+        # start_room = (start_r, start_c)
+        # queue = [start_room]
+        # visited = {start_room}
+        # room_map[start_room] = 1
+        # while room_map.sum() < num_rooms:
+        #     queue_idx = rng.integers(len(queue))
+        #     room = queue.pop(queue_idx)
+        #     for neighbor in _get_neighbors(room):
+        #         if neighbor not in visited:
+        #             room_map[neighbor] = 1
+        #             visited.add(neighbor)
+        #             queue.append(neighbor)
         return room_map
 
     @staticmethod
@@ -1092,8 +1116,15 @@ class DoorsEnv(BaseEnv):
 
     def _capture_pybullet_image(self) -> Image:
         overhead_img = self._capture_pybullet_image_view("overhead", width_scale=0.5)
-        first_person_img = self._capture_pybullet_image_view("first_person", width_scale=0.5)
-        img = np.concatenate([overhead_img, first_person_img], axis=1)
+        first_person_img = self._capture_pybullet_image_view("first_person", width_scale=0.4, height_scale=0.8)
+
+        padded_first_person_img = np.zeros_like(overhead_img)
+        fr, fc, _ = np.subtract(padded_first_person_img.shape, first_person_img.shape) / 2
+        r, c = int(fr), int(fc)
+        padded_first_person_img[r:r+first_person_img.shape[0],
+                                c:c+first_person_img.shape[1]] = first_person_img
+
+        img = np.concatenate([overhead_img, padded_first_person_img], axis=1)
         return img
 
     def _capture_pybullet_image_view(self, view: str, width_scale: float = 1, height_scale: float = 1) -> Image:
