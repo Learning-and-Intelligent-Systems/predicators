@@ -1032,6 +1032,11 @@ class DoorsEnv(BaseEnv):
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
 
+        # If opening the door, pause.
+        if action and action.get_option().parent.name == "OpenDoor":
+            last_img = imgs[-1]
+            imgs.extend([last_img for _ in range(5)])
+
         return imgs
 
     
