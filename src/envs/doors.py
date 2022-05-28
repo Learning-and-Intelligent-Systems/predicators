@@ -1071,17 +1071,26 @@ class DoorsEnv(BaseEnv):
             physicsClientId=self._physics_client_id
         )
 
+        camera_target, camera_distance, camera_yaw, camera_pitch = \
+            self._get_camera_params()
+
+        p.resetDebugVisualizerCamera(
+            camera_distance,
+            camera_yaw,
+            camera_pitch,
+            camera_target,
+            physicsClientId=self._physics_client_id)
+
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
 
     def _capture_pybullet_image(self) -> Image:
-        camera_distance = self._camera_distance
-        camera_yaw = self._camera_yaw
-        camera_pitch = self._camera_pitch            
+        camera_target, camera_distance, camera_yaw, camera_pitch = \
+            self._get_camera_params()
 
         view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=self._camera_target,
+            cameraTargetPosition=camera_target,
             distance=camera_distance,
             yaw=camera_yaw,
             pitch=camera_pitch,
@@ -1145,11 +1154,6 @@ class DoorsEnv(BaseEnv):
             (np.max(all_ys) + np.min(all_ys)) / 2 * self._pybullet_scale,
             self._z_lb
         )
-        p.resetDebugVisualizerCamera(self._camera_distance,
-                             self._camera_yaw,
-                             self._camera_pitch,
-                             self._camera_target,
-                             physicsClientId=self._physics_client_id)
 
         # Draw obstacles (including room walls).
         wall_color = default_room_color
@@ -1237,3 +1241,24 @@ class DoorsEnv(BaseEnv):
             linkJointAxis=[(0, 0, 0)],
             linkJointTypes=[p.JOINT_FIXED],
             physicsClientId=self._physics_client_id)
+
+    def _get_camera_params(self):
+        # camera_target = self._camera_target
+        # camera_distance = self._camera_distance
+        # camera_yaw = self._camera_yaw
+        # camera_pitch = self._camera_pitch
+
+        offset = np.array((0, 0, 1))
+        robot_pos, robot_orn = p.getBasePositionAndOrientation(self._pybullet_robot._fetch_id,
+            physicsClientId=self._physics_client_id)
+        _, _, yaw = p.getEulerFromQuaternion(robot_orn)
+        orn_mat = np.array(p.getMatrixFromQuaternion(robot_orn)).reshape((3, 3))
+
+        camera_distance = 0.5
+        camera_yaw = yaw * (180 / np.pi) - 90
+        camera_pitch = 0
+
+        unit_camera_target = np.array([-1, 0, 0])
+        camera_target = robot_pos + np.dot(orn_mat, unit_camera_target) + offset
+
+        return (camera_target, camera_distance, camera_yaw, camera_pitch)
