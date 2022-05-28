@@ -1056,10 +1056,30 @@ class DoorsEnv(BaseEnv):
         # Take the first image.
         imgs = [self._capture_pybullet_image()]
 
-        # If opening the door, pause.
+        # If opening the door, open it slowly.
         if action and action.get_option().parent.name == "OpenDoor":
-            last_img = imgs[-1]
-            imgs.extend([last_img for _ in range(5)])
+            door, _ = action.get_option().objects
+            door_id = self._door_to_door_id[door]
+            door_color = (0.95, 0.1, 0.0, 0.75)
+            door_geom = self._object_to_geom(door, state)
+            num_steps = 5
+            for t in range(num_steps):
+                p.removeBody(door_id, physicsClientId=self._physics_client_id)
+                self._static_pybullet_ids.remove(door_id)
+                shrunk_door_geom = utils.Rectangle(
+                    x=door_geom.x,
+                    y=door_geom.y,
+                    width=((num_steps - t - 1) / num_steps) * door_geom.width,
+                    height=door_geom.height,
+                    theta=door_geom.theta
+                )
+                door_id = self._pybullet_create_rectangle(
+                    shrunk_door_geom,
+                    z_len=self._wall_z_len,
+                    color=door_color)
+                self._static_pybullet_ids.add(door_id)
+                self._door_to_door_id[door] = door_id
+                imgs.append(self._capture_pybullet_image())
 
         return imgs
 
@@ -1068,12 +1088,6 @@ class DoorsEnv(BaseEnv):
         if task != self._last_rendered_task:
             self._pybullet_recreate_scene(state, task)
             self._last_rendered_task = task
-
-        # Update doors.
-        for door in state.get_objects(self._door_type):
-            if door in self._door_to_door_id and self._DoorIsOpen_holds(state, [door]):
-                p.removeBody(self._door_to_door_id[door], physicsClientId=self._physics_client_id)
-                del self._door_to_door_id[door]
 
         # Update the robot.
         x = state.get(self._robot, "x") * self._pybullet_scale
@@ -1199,7 +1213,7 @@ class DoorsEnv(BaseEnv):
 
         # Draw obstacles (including room walls).
         wall_color = default_room_color
-        obstacle_color = (0.1, 0.1, 0.3, 1.0)
+        obstacle_color = (0.1, 0.1, 0.3, 0.75)
         for obstacle in state.get_objects(self._obstacle_type):
             obstacle_geom = self._object_to_geom(obstacle, state)
             if "wall" in obstacle.name:
