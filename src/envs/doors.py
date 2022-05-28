@@ -506,14 +506,14 @@ class DoorsEnv(BaseEnv):
         door_geom = self._object_to_geom(door, state)
         vertices = door_geom.vertices
         if all(target_y < y for _, y in vertices):
-            face_direction = p.getQuaternionFromEuler([0.0, 0.0, np.pi / 2])
+            face_direction = np.pi / 2
         elif all(target_y > y for _, y in vertices):
-            face_direction = p.getQuaternionFromEuler([0.0, 0.0, -np.pi / 2])
+            face_direction = -np.pi / 2
         elif all(target_x < x for x, _ in vertices):
-            face_direction = p.getQuaternionFromEuler([0.0, 0.0, 0.0])
+            face_direction = 0.0
         else:
             assert all(target_x > x for x, _ in vertices)
-            face_direction = p.getQuaternionFromEuler([0.0, 0.0, np.pi])
+            face_direction = np.pi
         memory["target_face_direction"] = face_direction
 
         return True
@@ -1051,12 +1051,18 @@ class DoorsEnv(BaseEnv):
         y = state.get(self._robot, "y") * self._pybullet_scale
         z = 0.0
 
-        if action and "MoveToDoor" in action.get_option().parent.name:
-            orn = action.get_option().memory["target_face_direction"]
-        else:
-           _, orn = p.getBasePositionAndOrientation(self._pybullet_robot._fetch_id,
+        _, current_orn = p.getBasePositionAndOrientation(self._pybullet_robot._fetch_id,
             physicsClientId=self._physics_client_id) 
-
+        if action and "MoveToDoor" in action.get_option().parent.name:
+            _, _, current_rot = p.getEulerFromQuaternion(current_orn)
+            target_rot = action.get_option().memory["target_face_direction"]
+            angle_diff1 = (current_rot - target_rot) % (2 * np.pi)
+            angle_diff2 = (target_rot - current_rot) % (2 * np.pi)
+            delta_rot = -angle_diff1 if angle_diff1 < angle_diff2 else angle_diff2
+            rot = current_rot + np.clip(delta_rot, -np.pi / 8, np.pi / 8)
+            orn = p.getQuaternionFromEuler([0, 0, rot])
+        else:
+            orn = current_orn
 
         p.resetBasePositionAndOrientation(
             self._pybullet_robot._fetch_id,
