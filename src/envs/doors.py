@@ -1087,46 +1087,59 @@ class DoorsEnv(BaseEnv):
                 z_len=z_len,
                 color=color)
 
+        # Draw doors.
+        door_color = (0.9, 0.3, 0.0, 0.75)
+        for door in state.get_objects(self._door_type):
+            if self._DoorIsOpen_holds(state, [door]):
+                continue
+            door_geom = self._object_to_geom(door, state)
+            self._pybullet_create_rectangle(
+                door_geom,
+                z_len=self._wall_z_len,
+                color=door_color)
+
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
 
-        # Draw doors.
-        closed_door_color = "orangered"
-        open_door_color = "lightgreen"
-        doorway_color = "darkviolet"
-        for door in state.get_objects(self._door_type):
-            if self._DoorIsOpen_holds(state, [door]):
-                color = open_door_color
-            else:
-                color = closed_door_color
-            door_geom = self._object_to_geom(door, state)
-            door_geom.plot(ax, color=color)
-            if CFG.doors_draw_debug:
-                doorway_geom = self._door_to_doorway_geom(door, state)
-                doorway_geom.plot(ax, color=doorway_color, alpha=0.1)
-
     def _pybullet_create_rectangle(self, rect: _Geom2D, z_len: float, color: Tuple[float, float, float, float]) -> int:
-        half_extents = (
+        
+        # Create a fake main body and put the real body as a link, to deal with
+        # rotations correctly.
+        collision_id = p.createCollisionShape(
+            p.GEOM_SPHERE,
+            radius=1e-6,
+            physicsClientId=self._physics_client_id)
+
+        visual_id = p.createVisualShape(
+            p.GEOM_SPHERE,
+            radius=1e-6,
+            rgbaColor=(0, 0, 0, 0),
+            physicsClientId=self._physics_client_id)
+
+        x = rect.x
+        y = rect.y
+        z = self._z_lb
+        pose = (x, y, z)
+        orientation = p.getQuaternionFromEuler([0.0, 0.0, rect.theta])
+
+        #  Real body.
+        link_half_extents = (
             rect.width / 2,
             rect.height / 2,
             z_len / 2,
         )
-        collision_id = p.createCollisionShape(
+        link_collision_id = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=half_extents,
+            halfExtents=link_half_extents,
             physicsClientId=self._physics_client_id)
 
-        visual_id = p.createVisualShape(
+        link_visual_id = p.createVisualShape(
             p.GEOM_BOX,
-            halfExtents=half_extents,
+            halfExtents=link_half_extents,
             rgbaColor=color,
             physicsClientId=self._physics_client_id)
 
-        x = rect.x + half_extents[0]
-        y = rect.y + half_extents[1]
-        z = self._z_lb + half_extents[2]
-        pose = (x, y, z)
-        orientation = p.getQuaternionFromEuler([0.0, 0.0, rect.theta])
+        link_position = link_half_extents
 
         return p.createMultiBody(
             baseMass=0,
@@ -1134,4 +1147,14 @@ class DoorsEnv(BaseEnv):
             baseVisualShapeIndex=visual_id,
             basePosition=pose,
             baseOrientation=orientation,
+            linkMasses=[0],
+            linkCollisionShapeIndices=[link_collision_id],
+            linkVisualShapeIndices=[link_visual_id],
+            linkPositions=[link_position],
+            linkOrientations=[(0, 0, 0, 1)],
+            linkParentIndices=[0],
+            linkInertialFramePositions=[(0, 0, 0)],
+            linkInertialFrameOrientations=[(0, 0, 0, 1)],
+            linkJointAxis=[(0, 0, 0)],
+            linkJointTypes=[p.JOINT_FIXED],
             physicsClientId=self._physics_client_id)
