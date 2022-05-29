@@ -317,14 +317,12 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          initiable=self._precondition_based_initiable,
                          terminal=self._effect_based_terminal)
 
-    def get_option_param_from_state(self, state: State, memory: Dict, objects: Sequence[Object]) -> Array:
+    def get_option_param_from_state(self, state: State, memory: Dict,
+                                    objects: Sequence[Object]) -> Array:
         var_to_obj = dict(zip(self.operator.parameters, objects))
         curr_state_changing_feat = _create_absolute_option_param(
-            state,
-            self._changing_var_to_feat,
-            self._changing_var_order,
-            var_to_obj
-        )
+            state, self._changing_var_to_feat, self._changing_var_order,
+            var_to_obj)
         subgoal_state_changing_feat = memory["absolute_params"]
         relative_param = subgoal_state_changing_feat - curr_state_changing_feat
         return relative_param
@@ -336,13 +334,13 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             # The memory here is used to store the absolute params, based on
             # the relative params and the object states.
             memory["params"] = params  # store for sanity checking in policy
-            var_to_obj = dict(zip(self._operator.parameters, objects))
+            var_to_obj = dict(zip(self.operator.parameters, objects))
             state_params = _create_absolute_option_param(
                 state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
             memory["absolute_params"] = state_params + params
         # Check if initiable based on preconditions.
-        grounded_op = self._operator.ground(tuple(objects))
+        grounded_op = self.operator.ground(tuple(objects))
         return all(pre.holds(state) for pre in grounded_op.preconditions)
 
     def _regressor_based_policy(self, state: State, memory: Dict,
@@ -351,7 +349,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         if self._is_parameterized:
             # Compute the updated relative goal.
             assert np.allclose(params, memory["params"])
-            var_to_obj = dict(zip(self._operator.parameters, objects))
+            var_to_obj = dict(zip(self.operator.parameters, objects))
             state_params = _create_absolute_option_param(
                 state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
@@ -372,7 +370,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         if self._is_parameterized:
             assert np.allclose(params, memory["params"])
         # The hope is that we terminate in the effects.
-        grounded_op = self._operator.ground(tuple(objects))
+        grounded_op = self.operator.ground(tuple(objects))
         if all(e.holds(state) for e in grounded_op.add_effects) and \
             not any(e.holds(state) for e in grounded_op.delete_effects):
             return True
@@ -620,7 +618,7 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
 
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[Tuple[List[State], List[Action], List[int],
+        experience: List[Tuple[List[State], List[Action], List[int], List[Object],
                                List[Array]]]
     ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
