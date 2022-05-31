@@ -313,13 +313,17 @@ _DEBUG_PREDICATE_PREFIXES = {
         "NOT-((0:block).grasp<=[idx 0]",  # Holding
         "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
     ],
+    "cover_multistep_options": [
+        "NOT-((0:block).grasp<=[idx 0]",  # Holding
+        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+    ],
     "blocks": [
         "NOT-((0:robot).fingers<=[idx 0]",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
     "unittest": [
-        "((0:robot).hand<=[idx 0]0.65)",
+        "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
     ],
 }
@@ -483,9 +487,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
                                                 default_factory=list)
 
     def __post_init__(self) -> None:
-        if CFG.segmenter == "option_changes":
-            # If the segmenter is based on changes in options, then
-            # because it doesn't depend on atoms, we can be very
+        if CFG.segmenter != "atom_changes":
+            # If the segmenter doesn't depend on atoms, we can be very
             # efficient during pruning by pre-computing the segments.
             # Then, we only need to care about the initial and final
             # states in each segment, which we store into
@@ -521,21 +524,23 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
     ) -> FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]]:
         """Returns frozenset identifiers for each data point."""
         raw_identifiers = set()
-        if CFG.segmenter == "option_changes":
-            # Make use of the pre-computed segment-level state sequences.
-            for traj_idx, state_seq in enumerate(self._state_sequences):
-                for t, state in enumerate(state_seq):
-                    atoms = utils.abstract(state, {predicate})
-                    atom_args = frozenset(tuple(a.objects) for a in atoms)
-                    raw_identifiers.add((traj_idx, t, atom_args))
-        else:
-            assert CFG.segmenter == "atom_changes"
+        if CFG.segmenter == "atom_changes":
             # Get atoms for this predicate alone on the dataset, and then
             # go through the entire dataset.
             atom_dataset = utils.create_ground_atom_dataset(
                 self.dataset.trajectories, {predicate})
             for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
                 for t, atoms in enumerate(atom_traj):
+                    atom_args = frozenset(tuple(a.objects) for a in atoms)
+                    raw_identifiers.add((traj_idx, t, atom_args))
+        else:
+            # This list may expand in the future if we add other segmentation
+            # methods, but leaving this assertion in as a safeguard anyway.
+            assert CFG.segmenter in ("option_changes", "contacts")
+            # Make use of the pre-computed segment-level state sequences.
+            for traj_idx, state_seq in enumerate(self._state_sequences):
+                for t, state in enumerate(state_seq):
+                    atoms = utils.abstract(state, {predicate})
                     atom_args = frozenset(tuple(a.objects) for a in atoms)
                     raw_identifiers.add((traj_idx, t, atom_args))
         return frozenset(raw_identifiers)
