@@ -72,6 +72,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Pass over the demonstrations multiple times. Each time, backchain
         # to learn PNADs. Repeat until a fixed point is reached.
+        num_backchaining_iters = 0
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
             # Before each pass, clear the poss_keep_effects and
@@ -85,6 +86,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
+            num_backchaining_iters += 1
+        
+        # Test to check that there are only ever two iterations of backchaining
+        # that get run.
+        assert num_backchaining_iters == 2
 
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
