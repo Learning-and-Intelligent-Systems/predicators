@@ -149,24 +149,24 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # of our PNADs.
                 else:
                     nec_pnad_set_changed = True
-                    for pnad in pnads_for_option:
-                        new_pnad = self._try_specializing_pnad(
-                            necessary_add_effects, pnad, segment)
-                        if new_pnad is not None:
-                            assert new_pnad.option_spec == pnad.option_spec
-                            if len(param_opt_to_nec_pnads[option.parent]) > 0:
-                                param_opt_to_nec_pnads[option.parent].remove(
-                                    pnad)
-                            del pnad
-                            break
+                    # for pnad in pnads_for_option:
+                    #     new_pnad = self._try_specializing_pnad(
+                    #         necessary_add_effects, pnad, segment)
+                    #     if new_pnad is not None:
+                    #         assert new_pnad.option_spec == pnad.option_spec
+                    #         if len(param_opt_to_nec_pnads[option.parent]) > 0:
+                    #             param_opt_to_nec_pnads[option.parent].remove(
+                    #                 pnad)
+                    #         del pnad
+                    #         break
                     # If we were unable to specialize any of the PNADs, we need
                     # to spawn from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
-                    else:
-                        new_pnad = self._try_specializing_pnad(
-                            necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent], segment)
-                        assert new_pnad is not None
+                    # else:
+                    new_pnad = self._try_specializing_pnad(
+                        necessary_add_effects,
+                        param_opt_to_general_pnad[option.parent], segment)
+                    assert new_pnad is not None
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
@@ -179,11 +179,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
                     # Recompute all preconditions, now that we have recomputed
-                    # the datastores.
+                    # the datastores. If any PNAD now has an empty datastore,
+                    # delete it.
+                    pnads_without_datastore = []
                     for nec_pnad in param_opt_to_nec_pnads[option.parent]:
-                        pre = self._induce_preconditions_via_intersection(
-                            nec_pnad)
-                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+                        if len(nec_pnad.datastore) == 0:
+                            pnads_without_datastore.append(nec_pnad)
+                        else:
+                            pre = self._induce_preconditions_via_intersection(
+                                nec_pnad)
+                            nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+
+                    for pnad_to_remove in pnads_without_datastore:
+                        param_opt_to_nec_pnads[option.parent].remove(pnad_to_remove)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
