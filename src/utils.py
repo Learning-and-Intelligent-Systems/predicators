@@ -2150,7 +2150,7 @@ def save_video(outfile: str, video: Video) -> None:
     outdir = CFG.video_dir
     os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
-    imageio.mimwrite(outpath, video, fps=CFG.video_fps)
+    imageio.mimwrite(outpath, video, fps=CFG.video_fps)  # type: ignore
     logging.info(f"Wrote out to {outpath}")
 
 
