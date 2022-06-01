@@ -162,15 +162,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # matched to another PNAD.
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
-                    # If any PNAD now has an empty datastore, delete it. Then
-                    # recompute all preconditions.
+                    # If any PNAD now has an empty datastore, delete it.
+                    # TODO: see if this is necessary
                     param_opt_to_nec_pnads[option.parent] = [
                         pnad for pnad in param_opt_to_nec_pnads[option.parent]
                         if len(pnad.datastore) > 0
                     ]
-                    for pnad in param_opt_to_nec_pnads[option.parent]:
-                        pre = self._induce_preconditions_via_intersection(pnad)
-                        pnad.op = pnad.op.copy_with(preconditions=pre)
+                    # Recompute all preconditions, now that we have recomputed
+                    # the datastores.
+                    for nec_pnad in param_opt_to_nec_pnads[option.parent]:
+                        pre = self._induce_preconditions_via_intersection(
+                            nec_pnad)
+                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
