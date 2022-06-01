@@ -861,7 +861,7 @@ def test_strip_task():
     env = CoverEnv()
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
     task = env.get_train_tasks()[0]
-    block0, _, _, target0, _ = sorted(task.init)
+    block0, _, _, target0, _ = list(task.init)
     # Goal is Covers(block0, target0)
     assert len(task.goal) == 1
     original_goal_atom = next(iter(task.goal))
