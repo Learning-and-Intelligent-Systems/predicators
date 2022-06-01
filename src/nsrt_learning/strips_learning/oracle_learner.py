@@ -7,7 +7,7 @@ from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.src.settings import CFG
 from predicators.src.structs import Datastore, DummyOption, \
-    PartialNSRTAndDatastore, STRIPSOperator
+    PartialNSRTAndDatastore
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
