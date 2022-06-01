@@ -93,11 +93,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
     def _compute_sidelining_objective_value(
             self, trajectories: List[LowLevelTrajectory]) -> None:
         """Compute the value of the objective function that sidelining is
-        trying to approximately optimize. Store this into self._metrics. The
-        objective function is: (sum over training tasks of number.
+        trying to approximately optimize.
 
-        of task plans up to demonstrator's length) + lambda * (complexity
-        of operator set).
+        Store this into self._metrics.
         """
         logging.info("Computing sidelining objective value...")
         start_time = time.time()
@@ -105,7 +103,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         strips_ops = [nsrt.op for nsrt in self._nsrts]
         option_specs = [(nsrt.option, list(nsrt.option_vars))
                         for nsrt in self._nsrts]
-        # Calculate first term in objective.
+        # Calculate first term in objective. This is a sum over the training
+        # tasks of the number of possible task plans up to the demo length.
         num_plans_up_to_n = 0
         for segment_traj, ll_traj in zip(self._segmented_trajs, trajectories):
             if not ll_traj.is_demo:
@@ -133,8 +132,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 if len(skeleton) > len(segment_traj):
                     break
                 num_plans_up_to_n += 1
-        # Calculate second term in objective. We use the total number of atoms
-        # in all the operators as our measure of complexity.
+        # Calculate second term in objective. This is the complexity of the
+        # operator set. We measure this using the total number of atoms in all
+        # the operators.
         complexity = 0
         for op in strips_ops:
             complexity += len(op.preconditions)
