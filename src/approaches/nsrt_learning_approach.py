@@ -97,6 +97,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
         Store this into self._metrics.
         """
+        # Assert that we have an admissible heuristic, since we will
+        # assume in this function that task_plan() generates skeletons
+        # of increasing length.
+        assert CFG.sesame_task_planning_heuristic == "lmcut"
         logging.info("Computing sidelining objective value...")
         start_time = time.time()
         preds = self._get_current_predicates()
@@ -129,6 +133,9 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                             CFG.seed,
                                             timeout=10000000,
                                             max_skeletons_optimized=10000000):
+                # Here, we are assuming that task_plan() generates skeletons
+                # of increasing length. If the demonstration length is
+                # exceeded, we can break.
                 if len(skeleton) > len(segment_traj):
                     break
                 num_plans_up_to_n += 1
