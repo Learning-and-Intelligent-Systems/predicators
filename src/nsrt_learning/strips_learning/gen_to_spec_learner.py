@@ -150,7 +150,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # recompute all preconditions.
                     param_opt_to_nec_pnads[option.parent] = [
                         pnad for pnad in param_opt_to_nec_pnads[option.parent]
-                        if len(pnad.datastore) > 0]
+                        if len(pnad.datastore) > 0
+                    ]
                     for pnad in param_opt_to_nec_pnads[option.parent]:
                         pre = self._induce_preconditions_via_intersection(pnad)
                         pnad.op = pnad.op.copy_with(preconditions=pre)
@@ -288,7 +289,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         must achieve, create a new PNAD ("spawn" from the most general one) so
         that it has these necessary add effects.
 
-        Returns the newly constructed PNAD, without modifying the original.
+        Returns the newly constructed PNAD, without modifying the
+        original.
         """
         # Assert that this really is a general PNAD.
         assert len(pnad.op.add_effects) == 0, \

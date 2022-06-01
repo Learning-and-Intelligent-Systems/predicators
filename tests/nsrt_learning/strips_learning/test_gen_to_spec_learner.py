@@ -1,5 +1,7 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
+import pytest
+
 from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
@@ -12,10 +14,9 @@ from predicators.src.structs import Action, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
+    def spawn_new_pnad(self, necessary_add_effects, pnad, segment):
         """Exposed for testing."""
-        return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           segment)
+        return self._spawn_new_pnad(necessary_add_effects, pnad, segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -25,10 +26,13 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     def find_unification(necessary_add_effects,
                          pnad,
                          segment,
-                         find_partial_grounding=True):
+                         check_add_effects=True):
         """Exposed for testing."""
-        return (BackchainingSTRIPSLearner._find_unification(
-            necessary_add_effects, pnad, segment, find_partial_grounding))
+        return BackchainingSTRIPSLearner._find_unification(
+            necessary_add_effects,
+            pnad,
+            segment,
+            check_add_effects=check_add_effects)
 
 
 def test_backchaining_strips_learner():
@@ -261,8 +265,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_unification_and_try_specializing_pnad():
-    """Test the find_unification() and try_specializing_pnad() methods in the
+def test_find_unification_and_spawn_new_pnad():
+    """Test the find_unification() and spawn_new_pnad() methods in the
     BackchainingSTRIPSLearner."""
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -284,10 +288,17 @@ def test_find_unification_and_try_specializing_pnad():
     learner = _MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
                                              [[segment]],
                                              verify_harmlessness=True)
-    # Normal usage: the PNAD add effects can capture a subset of
-    # the necessary_add_effects.
+    # The necessary_add_effects are not a superset of any grounding's
+    # add effects, so a unification can't be found.
     ground_op = learner.find_unification(
         {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
+    assert ground_op is None
+    # But if we disable check_add_effects, then unification should work.
+    ground_op = learner.find_unification(
+        {Asleep([bob]), Happy([bob])},
+        pnad,
+        Segment(traj, set(), set(), Move),
+        check_add_effects=False)
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -300,10 +311,18 @@ def test_find_unification_and_try_specializing_pnad():
     ground_op = learner.find_unification(set(), pnad,
                                          Segment(traj, set(), set(), Move))
     assert ground_op is None
-    ground_op = learner.find_unification(set(), pnad,
+    # But if we disable check_add_effects, then unification should work.
+    ground_op = learner.find_unification(set(),
+                                         pnad,
                                          Segment(traj, set(), set(), Move),
-                                         False)
-    assert ground_op is None
+                                         check_add_effects=False)
+    assert ground_op is not None
+    assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
+    Parameters: [bob:human_type]
+    Preconditions: []
+    Add Effects: [Asleep(bob:human_type)]
+    Delete Effects: []
+    Side Predicates: []"""
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
     # The new preconditions are not satisfiable in the segment's init_atoms,
@@ -311,14 +330,16 @@ def test_find_unification_and_try_specializing_pnad():
     ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    new_pnad = learner.try_specializing_pnad(
-        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert new_pnad is None
+    with pytest.raises(AssertionError) as e:
+        learner.spawn_new_pnad(set(), pnad,
+                               Segment(traj, {Asleep([bob])}, set(), Move))
+    assert "Can't spawn from non-general PNAD" in str(e)
     # Make the preconditions be satisfiable in the segment's init_atoms.
-    # Now, we are back to normal usage.
-    ground_op = learner.find_unification({Asleep([bob])}, pnad,
+    ground_op = learner.find_unification({Asleep([bob])},
+                                         pnad,
                                          Segment(traj, {Happy([bob])}, set(),
-                                                 Move))
+                                                 Move),
+                                         check_add_effects=False)
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -326,9 +347,10 @@ def test_find_unification_and_try_specializing_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
-                                             Segment(traj, {Happy([bob])},
-                                                     set(), Move))
+    pnad.op = pnad.op.copy_with(add_effects=set())
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
+                                      Segment(traj, {Happy([bob])}, set(),
+                                              Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
