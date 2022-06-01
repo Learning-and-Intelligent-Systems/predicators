@@ -2184,7 +2184,7 @@ def update_config(args: Dict[str, Any]) -> None:
             args[k] = getattr(CFG, k)
     for d in [arg_specific_settings, args]:
         for k, v in d.items():
-            CFG.__setattr__(k, v)
+            setattr(CFG, k, v)
 
 
 def reset_config(args: Optional[Dict[str, Any]] = None,
