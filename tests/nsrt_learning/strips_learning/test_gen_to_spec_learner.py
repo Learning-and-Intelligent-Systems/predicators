@@ -8,7 +8,7 @@ from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
 from predicators.src.structs import Action, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, GroundAtom, DefaultState
+    Type
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -868,65 +868,3 @@ def test_keep_effect_adding_new_variables():
             seg, sub = pnad.datastore[0]
             assert seg is segmented_traj[1]
             assert sub == {potato_x0: potato3}
-
-
-@pytest.mark.parametrize("val", [0.0, 1.0])
-def test_multi_pass_backchaining(val):
-    """Test that the BackchainingSTRIPSLearner does multiple passes
-    of backchaining, which is needed to ensure harmlessness.
-    """
-    utils.reset_config({"segmenter": "atom_changes"})
-    # Set up the predicates.
-    A = Predicate("A", [], lambda s, o: s[0] > 0.5)
-    B = Predicate("B", [], lambda s, o: s[1] > 0.5)
-    C = Predicate("C", [], lambda s, o: s[2] > 0.5)
-    D = Predicate("D", [], lambda s, o: s[3] > 0.5)
-    E = Predicate("E", [], lambda s, o: s[4] > 0.5)
-    predicates = {A, B, C, D, E}
-
-    # Create the necessary options and actions.
-    Pick = utils.SingletonParameterizedOption("Pick",
-                                              lambda s, m, o, p: None,
-                                              types=[]).ground([], [])
-    pick_act = Action([], Pick)
-    Place = utils.SingletonParameterizedOption("Place",
-                                               lambda s, m, o, p: None,
-                                               types=[]).ground([], [])
-    place_act = Action([], Place)
-
-    # Create trajectories.
-    traj1 = LowLevelTrajectory(
-        [[1.0, 0.0, 0.0, 0.0, 0.0],
-         [1.0, 1.0, 1.0, 0.0, 0.0],
-         [1.0, 0.0, 1.0, 1.0, 1.0]],
-        [pick_act, place_act], True, 0)
-    goal1 = {GroundAtom(D, [])}
-    task1 = Task(DefaultState, goal1)  # note: initial state is unused
-
-    traj2 = LowLevelTrajectory(
-        [[1.0, 1.0, 0.0, 0.0, val],
-         [1.0, 0.0, 0.0, 1.0, 1.0]],
-        [place_act], True, 1)
-    goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
-    task2 = Task(DefaultState, goal2)  # note: initial state is unused
-
-    traj3 = LowLevelTrajectory(
-        [[1.0, 1.0, val, 0.0, 0.0],
-         [1.0, 0.0, 1.0, 1.0, 1.0]],
-        [place_act], True, 2)
-    goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
-    task3 = Task(DefaultState, goal3)  # note: initial state is unused
-
-    ground_atom_trajs = utils.create_ground_atom_dataset(
-        [traj1, traj2, traj3], predicates)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
-
-    # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
-                                             [task1, task2, task3],
-                                             predicates, segmented_trajs,
-                                             verify_harmlessness=True)
-    output_pnads = learner.learn()
-    for pnad in output_pnads:
-        print(pnad)
-    # TODO: assert stuff about output_pnads
