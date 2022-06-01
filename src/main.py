@@ -133,7 +133,8 @@ def _run_pipeline(env: BaseEnv,
             learning_start = time.time()
             approach.learn_from_offline_dataset(offline_dataset)
             learning_time = time.time() - learning_start
-        offline_learning_metrics = approach.metrics
+        offline_learning_metrics = {f"offline_learning_{k}": v
+                                    for k, v in approach.metrics.items()}
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, approach)
