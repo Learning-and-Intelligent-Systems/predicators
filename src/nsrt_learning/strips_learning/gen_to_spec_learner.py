@@ -350,6 +350,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        # Note: we don't need to copy anything related to keep effects into
+        # new_pnad here, because we only care about keep effects on the final
+        # iteration of backchaining, where this function is never called.
 
         return new_pnad
 
