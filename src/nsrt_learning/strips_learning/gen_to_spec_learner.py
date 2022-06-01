@@ -70,25 +70,41 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        # Run backchaining to update the PNADs' preconditions and add effects.
-        self._backchain(param_opt_to_nec_pnads, param_opt_to_general_pnad)
+        # Pass over the demonstrations multiple times. Each time, backchain
+        # to learn PNADs. Repeat until a fixed point is reached.
+        nec_pnad_set_changed = True
+        while nec_pnad_set_changed:
+            # Before each pass, clear the poss_keep_effects and
+            # seg_to_keep_effects_sub of all the PNADs. We do this because
+            # we only want the poss_keep_effects of the final pass, where
+            # the PNADs did not change.
+            for pnads in param_opt_to_nec_pnads.values():
+                for pnad in pnads:
+                    pnad.poss_keep_effects.clear()
+                    pnad.seg_to_keep_effects_sub.clear()
+            # Run one pass of backchaining.
+            nec_pnad_set_changed = self._backchain_one_pass(
+                param_opt_to_nec_pnads, param_opt_to_general_pnad)
+
         # Induce delete effects, side predicates, and keep effects if
         # necessary to finish learning.
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
         return final_pnads
 
-    def _backchain(
+    def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                            List[PartialNSRTAndDatastore]],
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
-    ) -> None:
-        """Go through each demonstration from the end back to the start (in an
-        arbitrary order), spawning new, more specific PNADs when needed.
+    ) -> bool:
+        """Take one pass through the demonstrations in the given order.
 
-        Note that this method updates param_opt_to_nec_pnads.
+        Go through each one from the end back to the start, making the
+        PNADs more specific whenever needed. Return whether any PNAD was
+        changed.
         """
+        nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
@@ -135,6 +151,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # for loop did not break), we need to spawn a new PNAD from
                 # the most general PNAD to cover these necessary add effects.
                 else:
+                    nec_pnad_set_changed = True
                     pnad = self._spawn_new_pnad(
                         necessary_add_effects,
                         param_opt_to_general_pnad[option.parent], segment)
@@ -194,6 +211,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
+        return nec_pnad_set_changed
 
     def _finish_learning(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
