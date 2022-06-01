@@ -133,6 +133,7 @@ def _run_pipeline(env: BaseEnv,
             learning_start = time.time()
             approach.learn_from_offline_dataset(offline_dataset)
             learning_time = time.time() - learning_start
+        offline_learning_metrics = approach.metrics
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, approach)
@@ -140,6 +141,7 @@ def _run_pipeline(env: BaseEnv,
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
+            results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
@@ -176,6 +178,7 @@ def _run_pipeline(env: BaseEnv,
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
+            results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
