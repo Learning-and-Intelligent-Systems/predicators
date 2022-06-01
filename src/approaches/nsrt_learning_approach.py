@@ -5,6 +5,7 @@ or options.
 """
 
 import logging
+import time
 from typing import Dict, List, Optional, Set
 
 import dill as pkl
@@ -15,6 +16,7 @@ from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
+from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, Type
@@ -61,6 +63,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
+        if CFG.compute_sidelining_objective_value:
+            self._compute_sidelining_objective_value(trajectories)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()
@@ -85,3 +89,61 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # Seed the option parameter spaces after loading.
         for nsrt in self._nsrts:
             nsrt.option.params_space.seed(CFG.seed)
+
+    def _compute_sidelining_objective_value(
+            self, trajectories: List[LowLevelTrajectory]) -> None:
+        """Compute the value of the objective function that sidelining is
+        trying to approximately optimize. Store this into self._metrics. The
+        objective function is: (sum over training tasks of number.
+
+        of task plans up to demonstrator's length) + lambda * (complexity
+        of operator set).
+        """
+        logging.info("Computing sidelining objective value...")
+        start_time = time.time()
+        preds = self._get_current_predicates()
+        strips_ops = [nsrt.op for nsrt in self._nsrts]
+        option_specs = [(nsrt.option, list(nsrt.option_vars))
+                        for nsrt in self._nsrts]
+        # Calculate first term in objective.
+        num_plans_up_to_n = 0
+        for segment_traj, ll_traj in zip(self._segmented_trajs, trajectories):
+            if not ll_traj.is_demo:
+                continue
+            task = self._train_tasks[ll_traj.train_task_idx]
+            init_atoms = utils.abstract(task.init, preds)
+            objects = set(task.init)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms,
+                objects,
+                strips_ops,
+                option_specs,
+                allow_noops=True)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
+                ground_nsrts, preds, objects)
+            for skeleton, _, _ in task_plan(init_atoms,
+                                            task.goal,
+                                            ground_nsrts,
+                                            reachable_atoms,
+                                            heuristic,
+                                            CFG.seed,
+                                            timeout=10000000,
+                                            max_skeletons_optimized=10000000):
+                if len(skeleton) > len(segment_traj):
+                    break
+                num_plans_up_to_n += 1
+        # Calculate second term in objective. We use the total number of atoms
+        # in all the operators as our measure of complexity.
+        complexity = 0
+        for op in strips_ops:
+            complexity += len(op.preconditions)
+            complexity += len(op.add_effects)
+            complexity += len(op.delete_effects)
+        time_taken = time.time() - start_time
+        self._metrics["sidelining_obj_num_plans_up_to_n"] = num_plans_up_to_n
+        self._metrics["sidelining_obj_complexity"] = complexity
+        self._metrics["sidelining_obj_time_taken"] = time_taken
+        logging.info(f"\tFinished in {time_taken:.3f} seconds")
+        logging.info(f"\tGot num_plans_up_to_n {num_plans_up_to_n} and "
+                     f"complexity {complexity}")
