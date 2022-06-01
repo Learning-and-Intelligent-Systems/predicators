@@ -72,7 +72,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Run backchaining to update the PNADs' preconditions and add effects.
         self._backchain(param_opt_to_nec_pnads, param_opt_to_general_pnad)
-        # Induce delete effects, side predicates and keep effects if
+        # Induce delete effects, side predicates, and keep effects if
         # necessary to finish learning.
         final_pnads = self._finish_learning(param_opt_to_nec_pnads)
         self._assert_all_data_in_exactly_one_datastore(final_pnads)
@@ -84,8 +84,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
     ) -> None:
-        """Go through each one demonstration the end back to the start, making
-        the PNADs more specific whenever needed.
+        """Go through each demonstration from the end back to the start (in an
+        arbitrary order), spawning new, more specific PNADs when needed.
 
         Note that this method updates param_opt_to_nec_pnads.
         """
@@ -132,9 +132,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         break
 
                 # If we weren't able to find a substitution (i.e, the above
-                # for loop did not break), we need to spawn from the most
-                # general PNAD and make a new PNAD to cover these necessary
-                # add effects.
+                # for loop did not break), we need to spawn a new PNAD from
+                # the most general PNAD to cover these necessary add effects.
                 else:
                     pnad = self._spawn_new_pnad(
                         necessary_add_effects,
