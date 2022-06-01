@@ -70,7 +70,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        # Run backchaining to update the PNADs preconditions and add effects.
+        # Run backchaining to update the PNADs' preconditions and add effects.
         self._backchain(param_opt_to_nec_pnads, param_opt_to_general_pnad)
         # Induce delete effects, side predicates and keep effects if
         # necessary to finish learning.
@@ -87,8 +87,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         """Go through each one demonstration the end back to the start, making
         the PNADs more specific whenever needed.
 
-        Note that this method places the correct pnads in
-        param_opt_to_nec_pnads.
+        Note that this method updates param_opt_to_nec_pnads.
         """
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
@@ -137,12 +136,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # general PNAD and make a new PNAD to cover these necessary
                 # add effects.
                 else:
-                    new_pnad = self._spawn_new_pnad(
+                    pnad = self._spawn_new_pnad(
                         necessary_add_effects,
                         param_opt_to_general_pnad[option.parent], segment)
-                    assert new_pnad is not None
-                    pnad = new_pnad
-                    del new_pnad  # unused from here
                     param_opt_to_nec_pnads[option.parent].append(pnad)
                     # Recompute datastores for ALL PNADs associated with this
                     # option. We need to do this because the new PNAD may now
@@ -150,21 +146,14 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # matched to another PNAD.
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
-                    # Recompute all preconditions, now that we have recomputed
-                    # the datastores. If any PNAD now has an empty datastore,
-                    # delete it.
-                    pnads_without_datastore = []
-                    for nec_pnad in param_opt_to_nec_pnads[option.parent]:
-                        if len(nec_pnad.datastore) == 0:
-                            pnads_without_datastore.append(nec_pnad)
-                        else:
-                            pre = self._induce_preconditions_via_intersection(
-                                nec_pnad)
-                            nec_pnad.op = nec_pnad.op.copy_with(
-                                preconditions=pre)
-                    for pnad_to_remove in pnads_without_datastore:
-                        param_opt_to_nec_pnads[option.parent].remove(
-                            pnad_to_remove)
+                    # If any PNAD now has an empty datastore, delete it. Then
+                    # recompute all preconditions.
+                    param_opt_to_nec_pnads[option.parent] = [
+                        pnad for pnad in param_opt_to_nec_pnads[option.parent]
+                        if len(pnad.datastore) > 0]
+                    for pnad in param_opt_to_nec_pnads[option.parent]:
+                        pre = self._induce_preconditions_via_intersection(pnad)
+                        pnad.op = pnad.op.copy_with(preconditions=pre)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
@@ -295,15 +284,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
     ) -> PartialNSRTAndDatastore:
-        """Given a  general PNAD and some necessary add effects that the PNAD
+        """Given a general PNAD and some necessary add effects that the PNAD
         must achieve, create a new PNAD ("spawn" from the most general one) so
-        that it has thes necessary add effects.
+        that it has these necessary add effects.
 
-        Returns the new constructed PNAD, without modifying the
-        original.
+        Returns the newly constructed PNAD, without modifying the original.
         """
         # Assert that this really is a general PNAD.
-        assert len(pnad.op.add_effects) == 0
+        assert len(pnad.op.add_effects) == 0, \
+            "Can't spawn from non-general PNAD"
 
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms.
@@ -311,9 +300,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                            pnad,
                                            segment,
                                            check_add_effects=False)
-        # Assert that such a grounding exists - this must be the
-        # case since we only ever call this method with a PNAD
-        # that is the most-general PNAD for the option.
+        # Assert that such a grounding exists - this must be the case
+        # since we only ever call this method with the most general
+        # PNAD for the option.
         assert ground_op is not None
 
         obj_to_var = dict(zip(ground_op.objects, pnad.op.parameters))
@@ -323,11 +312,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # parameters.
         all_objs = {o for eff in necessary_add_effects for o in eff.objects}
         missing_objs = sorted(all_objs - set(obj_to_var))
-        new_var_types = [o.type for o in missing_objs]
-        new_vars = utils.create_new_variables(new_var_types,
+        new_vars = utils.create_new_variables([o.type for o in missing_objs],
                                               existing_vars=pnad.op.parameters)
         obj_to_var.update(dict(zip(missing_objs, new_vars)))
-        # Finally, we can lift missing_effects.
+        # Finally, we can lift necessary_add_effects.
         updated_params = sorted(obj_to_var.values())
         updated_add_effects = {
             a.lift(obj_to_var)
