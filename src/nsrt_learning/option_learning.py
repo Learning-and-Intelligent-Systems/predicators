@@ -315,9 +315,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          params_space,
                          policy=self._regressor_based_policy,
                          initiable=self._precondition_based_initiable,
-                         terminal=self._effect_based_terminal)
+                         terminal=self._optimized_effect_based_terminal)
 
-    def get_option_param_from_state(self, state: State, memory: Dict,
+    def get_relative_option_param_from_state(self, state: State, memory: Dict,
                                     objects: Sequence[Object]) -> Array:
         var_to_obj = dict(zip(self.operator.parameters, objects))
         curr_state_changing_feat = _create_absolute_option_param(
@@ -364,7 +364,8 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                              self._action_space.high)
         return Action(np.array(action_arr, dtype=np.float32))
 
-    def _effect_based_terminal(self, state: State, memory: Dict,
+
+    def effect_based_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
         if self._is_parameterized:
@@ -374,12 +375,19 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         if all(e.holds(state) for e in grounded_op.add_effects) and \
             not any(e.holds(state) for e in grounded_op.delete_effects):
             return True
+        return False
+
+    def _optimized_effect_based_terminal(self, state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+        terminate = self.effect_based_terminal(state, memory, objects, params)
         # Optimization: remember the most recent state and terminate early if
         # the state is repeated, since this option will never get unstuck.
         if "last_state" in memory and memory["last_state"].allclose(state):
             return True
+        if terminate:
+            return True
         memory["last_state"] = state
-        # Not yet done.
         return False
 
 

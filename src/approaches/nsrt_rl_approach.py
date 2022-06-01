@@ -114,68 +114,59 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             curr_option = plan[curr_option_idx]
             if curr_option not in option_to_data:
                 option_to_data[curr_option] = []
-            curr_states = [traj.states[0]]
-            curr_actions = []
-            curr_rewards = []
-            curr_objects_vec = []
-            curr_relative_param = []
-            actions = (a for a in traj.actions)
+            actions = ((a, i) for a, i in enumerate(traj.actions))
+            experience = []
 
-            # for j, s in enumerate(traj.states[1:]):
-            for s, s_prime in zip(traj.states, traj.states[1:]):
-                # Store the state, action, and relative parameter.
-                curr_states.append(s)
-                curr_actions.append(next(actions))
-                curr_objects_vec =
+            # Loop through the trajectory and compute the experience tuples for
+            # each _Option in the plan.
+            for state, next_state in zip(traj.states, traj.states[1:]):
+                action, idx = next(actions)
+                state_features = state.vec(curr_option.objects)
                 relative_param = curr_option.parent.get_option_param_from_state(
                     s,
                     curr_option.memory,
                     curr_option.objects,
                 )
-                curr_relative_params.append(relative_param)
+                # The RLOptionLearner will need the input to the option's
+                # regressor for training.
+                input = np.hstack(([1.0], state_features, relative_param))
 
                 # Add pos_reward if we got within epsilon of the option's
                 # subgoal, otherwise we add neg_reward.
                 if np.allclose(relative_param, 0, atol=self._reward_epsilon):
                     subgoal_reached = True
-                    curr_rewards.append(self._pos_reward)
+                    reward = self._pos_reward
                 else:
                     subgoal_reached = False
-                    curr_rewards.append(self._neg_reward)
+                    reward = self._neg_reward
 
-                # Store transition data. If this is the last state and we didn't
-                # reach the subgoal, only assign a reward if this option had
-                # had sufficient time (steps) to succeed.
-                if not subgoal_reached and j + 1 == len(
-                        traj.states
-                ) - 1 and CFG.max_num_steps_interaction_request - (
-                        j + 1) < CFG.last_option_steps_threshold:
-                    pass
-                else:
-                    option_to_data[curr_option].append(
-                        (curr_states, curr_actions, curr_rewards, curr_objects_vec,
-                         curr_relative_param))
+                experience.append((state, action, reward, next_state))
 
-                # Advance to next option.
-                curr_option_idx += 1
-                if curr_option_idx < len(plan):
-                    curr_option = plan[curr_option_idx]
-                    if curr_option not in option_to_data:
-                        option_to_data[curr_option] = []
-                else:
-                    # If we run out of options in the plan, there should be
-                    # an _OptionPlanExhausted exception, and so there is
-                    # nothing more in the trajectory that we have not yet
-                    # assigned to an _Option already. That is, the current
-                    # state in this loop is the last state.
-                    assert s.allclose(traj.states[-1])
-
-                # Initialize trajectory for next option.
-                curr_states = [s]
-                curr_actions = []
-                curr_rewards = []
-                curr_objects_vec = []
-                curr_relative_param = []
+                # Store experience data in two cases: (1) the next state is a
+                # terminal state for the current option and (2) the current
+                # option did not reach its terminal state but had a sufficient
+                # number of steps to reach it so that it is reasonable to assign
+                # it a reward.
+                terminate = curr_option.effect_based_terminal(next_state)
+                had_sufficient_steps = next_state.isclose(traj.states[-1]) and (CFG.max_num_steps_interaction_request - (idx + 1) > CFG.valid_reward_steps_threshold)
+                if terminate:
+                    option_to_data[curr_option].append(experience)
+                    experience = []  # Reset for next option in the plan.
+                    curr_option_idx += 1
+                    if curr_option_idx < len(plan):
+                        curr_option = plan[curr_option_idx]
+                        if curr_option not in option_to_data:
+                            option_to_data[curr_option] = []
+                    else:
+                        # If we run out of options in the plan, there should be
+                        # an _OptionPlanExhausted exception, and so there is
+                        # nothing more in the trajectory that we have not yet
+                        # assigned to an _Option already. That is, the current
+                        # state in this loop is the last state.
+                        assert next_state.allclose(traj.states[-1])
+                elif had_sufficient_steps:
+                    assert curr_option == plan[-1]
+                    option_to_data[curr_option].append(experience)
 
         # Call the RL option learner on each option.
         for option, experience in option_to_data.items():

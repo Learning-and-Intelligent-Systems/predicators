@@ -160,7 +160,7 @@ class GlobalSettings:
     pos_reward = 0
     neg_reward = -1
     rl_option_learner = "dummy_rl"
-    last_option_steps_threshold = 10
+    valid_reward_steps_threshold = 10
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
