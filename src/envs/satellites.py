@@ -231,7 +231,45 @@ class SatellitesEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        import ipdb; ipdb.set_trace()
+        figsize = (1, 1)
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        plt.suptitle(caption, wrap=True)
+        # Draw the satellites and FOV triangles.
+        for sat in state.get_objects(self._sat_type):
+            if state.get(sat, "read_obj_id") != -1:
+                color = "green"
+            elif self._IsCalibrated_holds(state, [sat]):
+                color = "blue"
+            else:
+                color = "red"
+            x = state.get(sat, "x")
+            y = state.get(sat, "y")
+            circ = utils.Circle(x, y, self.radius)
+            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75,
+                      linewidth=0.1)
+            tri = self._get_fov_geom(state, sat)
+            tri.plot(ax, color="purple", alpha=0.25, linewidth=0)
+        # Draw the objects.
+        for obj in state.get_objects(self._obj_type):
+            color = "purple"
+            x = state.get(obj, "x")
+            y = state.get(obj, "y")
+            circ = utils.Circle(x, y, self.radius)
+            circ.plot(ax, color="black")
+            text_x = x - self.radius
+            text_y = y - self.radius
+            if state.get(obj, "has_chem_x") > 0.5 and \
+               state.get(obj, "has_chem_y") > 0.5:
+                ax.text(text_x, text_y, "X/Y", fontsize=1.5, color="white")
+            elif state.get(obj, "has_chem_x") > 0.5:
+                ax.text(text_x, text_y, "X", fontsize=2, color="white")
+            elif state.get(obj, "has_chem_y") > 0.5:
+                ax.text(text_x, text_y, "Y", fontsize=2, color="white")
+        ax.set_xlim(-0.1, 1.1)
+        ax.set_ylim(-0.1, 1.1)
+        ax.axis("off")
+        plt.tight_layout()
+        return fig
 
     def _get_tasks(self, num: int, num_sat_lst: List[int],
                    num_obj_lst: List[int],
@@ -339,7 +377,7 @@ class SatellitesEnv(BaseEnv):
         # Now check if the line of sight is occluded by another entity.
         dist_denom = np.sqrt((sat_x - obj_x) ** 2 + (sat_y - obj_y) ** 2)
         for ent in state:
-            if ent == sat or ent == obj:
+            if ent in (sat, obj):
                 continue
             ent_x = state.get(ent, "x")
             ent_y = state.get(ent, "y")
