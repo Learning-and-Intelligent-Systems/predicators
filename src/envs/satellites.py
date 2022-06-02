@@ -33,7 +33,7 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
-from predicators.src.utils import SingletonParameterizedOption, _Geom2D
+from predicators.src.utils import SingletonParameterizedOption, Triangle
 
 
 class SatellitesEnv(BaseEnv):
@@ -42,6 +42,8 @@ class SatellitesEnv(BaseEnv):
     sat_radius = 0.02
     obj_radius = 0.02
     init_padding = 0.05
+    fov_angle = np.pi / 4
+    fov_dist = 0.3
 
     def __init__(self) -> None:
         super().__init__()
@@ -103,16 +105,8 @@ class SatellitesEnv(BaseEnv):
             "ShootChemY",
             types=[self._sat_type, self._obj_type],
             policy=self._ShootChemY_policy)
-        self._TakeCameraReading = SingletonParameterizedOption(
-            "TakeCameraReading",
-            types=[self._sat_type, self._obj_type],
-            policy=self._UseInstrument_policy)
-        self._TakeInfraredReading = SingletonParameterizedOption(
-            "TakeInfraredReading",
-            types=[self._sat_type, self._obj_type],
-            policy=self._UseInstrument_policy)
-        self._TakeGeigerReading = SingletonParameterizedOption(
-            "TakeGeigerReading",
+        self._UseInstrument = SingletonParameterizedOption(
+            "UseInstrument",
             types=[self._sat_type, self._obj_type],
             policy=self._UseInstrument_policy)
 
@@ -122,6 +116,7 @@ class SatellitesEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
+        # TODO: disallow collisions while moving
         import ipdb; ipdb.set_trace()
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -161,8 +156,7 @@ class SatellitesEnv(BaseEnv):
     def options(self) -> Set[ParameterizedOption]:
         return {
             self._MoveTo, self._Calibrate, self._ShootChemX, self._ShootChemY,
-            self._TakeCameraReading, self._TakeInfraredReading,
-            self._TakeGeigerReading
+            self._UseInstrument
         }
 
     @property
@@ -273,13 +267,19 @@ class SatellitesEnv(BaseEnv):
         return tasks
 
     def _Sees_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        import ipdb; ipdb.set_trace()  # TODO: something involving view cones
+        sat, obj = objects
+        triangle = self._get_fov_geom(state, sat)
+        obj_x = state.get(obj, "x")
+        obj_y = state.get(obj, "y")
+        # Note: we say that Sees holds only if the center of the object
+        # is in the view cone, ignoring the object's radius.
+        return triangle.contains_point(obj_x, obj_y)
 
     @staticmethod
     def _CalibrationTarget_holds(state: State,
                                  objects: Sequence[Object]) -> bool:
         sat, obj = objects
-        return state.get(sat, "calibration_id") == state.get(obj, "id")
+        return state.get(sat, "calibration_obj_id") == state.get(obj, "id")
 
     @staticmethod
     def _IsCalibrated_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -325,19 +325,19 @@ class SatellitesEnv(BaseEnv):
                                   objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasCamera_holds(state, [sat]) and \
-            state.get("sat", "read_obj_id") == state.get(obj, "id")
+            state.get(sat, "read_obj_id") == state.get(obj, "id")
 
     def _InfraredReadingTaken_holds(self, state: State,
                                     objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasInfrared_holds(state, [sat]) and \
-            state.get("sat", "read_obj_id") == state.get(obj, "id")
+            state.get(sat, "read_obj_id") == state.get(obj, "id")
 
     def _GeigerReadingTaken_holds(self, state: State,
                                   objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasGeiger_holds(state, [sat]) and \
-            state.get("sat", "read_obj_id") == state.get(obj, "id")
+            state.get(sat, "read_obj_id") == state.get(obj, "id")
 
     @staticmethod
     def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -428,3 +428,16 @@ class SatellitesEnv(BaseEnv):
         ],
                        dtype=np.float32)
         return Action(arr)
+
+    def _get_fov_geom(self, state: State, sat: Object) -> Triangle:
+        """Get the FOV of the given satellite as a utils.Triangle."""
+        x1 = state.get(sat, "x")
+        y1 = state.get(sat, "y")
+        theta_mid = state.get(sat, "theta")
+        theta_low = theta_mid - self.fov_angle / 2.0
+        x2 = x1 + self.fov_dist * np.cos(theta_low)
+        y2 = y1 + self.fov_dist * np.sin(theta_low)
+        theta_high = theta_mid + self.fov_angle / 2.0
+        x3 = x1 + self.fov_dist * np.cos(theta_high)
+        y3 = y1 + self.fov_dist * np.sin(theta_high)
+        return Triangle(x1, y1, x2, y2, x3, y3)
