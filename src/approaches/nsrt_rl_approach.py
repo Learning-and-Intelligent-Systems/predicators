@@ -1,7 +1,7 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import Dict, List, Sequence, Set, cast, Tuple
+from typing import Dict, List, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -15,9 +15,9 @@ from predicators.src.nsrt_learning.option_learning import \
     _LearnedNeuralParameterizedOption, _RLOptionLearnerBase, \
     create_rl_option_learner
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Dataset, InteractionRequest, \
-    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Task, Type, _Option, State, Action, Array
+from predicators.src.structs import NSRT, Action, Array, Dataset, \
+    InteractionRequest, InteractionResult, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, State, Task, Type, _Option
 
 
 class NSRTReinforcementLearningApproach(NSRTLearningApproach):
@@ -91,18 +91,17 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             self._train_task_to_online_traj[i] = traj
 
         # This maps each unique _Option to its experience data from the previous
-        # online learning cycle. The experience data is a List of (states,
-        # actions, rewards, objects, relative_parameters) tuples. Each tuple
-        # contains information from a single instance the _Option was run. Each
-        # element of the tuple is a list: 'states' is the list of states visited
-        # ,'actions' is the list of actions taken, 'rewards' is the list of the
-        # rewards acculumated, and 'objects' and 'relative_params' are the list
-        # of objects and (relative) parameters that were passed into the _LearnedNeuralParameterizedOption
-        # regressor. The relative parameter is necessary to store because during
-        # learning, the RLOptionLearner will need to reconstruct the input to
-        # the regressor.
-        option_to_data: Dict[str, List[Tuple[List[State], List[Action],
-                                             List[int], , List[Object], List[Array]]]] = {}
+        # online learning cycle. The experience data is a list of list of tuples
+        # , where the inner list contains experience from one execution of the
+        # option. The tuple is a standard RL experience tuple of (state, action
+        # reward, next_state), with one additional element: the input vector
+        # that the option's regressor received for that state, which is the
+        # contacenation of the state vector for the option's objects and the
+        # relative parameter that the sampler provided. This input vector is
+        # necessary during learning to update the option's regressor.
+        option_to_data: Dict[ParameterizedOption,
+                             List[List[Tuple[State, Array, Action, int,
+                                             State]]]] = {}
 
         # For each training task, compute the experience data for each _Option
         # we see used in that training task.
@@ -112,51 +111,68 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
 
             curr_option_idx = 0
             curr_option = plan[curr_option_idx]
-            if curr_option not in option_to_data:
-                option_to_data[curr_option] = []
-            actions = ((a, i) for a, i in enumerate(traj.actions))
+            parent_option = cast(_LearnedNeuralParameterizedOption,
+                                 curr_option.parent)
+            if parent_option not in option_to_data:
+                option_to_data[parent_option] = []
+            actions = ((i, a) for i, a in enumerate(traj.actions))
             experience = []
 
             # Loop through the trajectory and compute the experience tuples for
             # each _Option in the plan.
-            for state, next_state in zip(traj.states, traj.states[1:]):
-                action, idx = next(actions)
+            for state, next_state in zip(traj.states[:-1], traj.states[1:]):
+                idx, action = next(actions)
                 state_features = state.vec(curr_option.objects)
-                relative_param = curr_option.parent.get_option_param_from_state(
-                    s,
+                relative_param = parent_option.get_rel_option_param_from_state(
+                    state,
                     curr_option.memory,
                     curr_option.objects,
                 )
                 # The RLOptionLearner will need the input to the option's
                 # regressor for training.
-                input = np.hstack(([1.0], state_features, relative_param))
+                input_vec = cast(
+                    Array, np.hstack(([1.0], state_features, relative_param)))
 
                 # Add pos_reward if we got within epsilon of the option's
-                # subgoal, otherwise we add neg_reward.
-                if np.allclose(relative_param, 0, atol=self._reward_epsilon):
-                    subgoal_reached = True
-                    reward = self._pos_reward
+                # subgoal, otherwise we add neg_reward. To do this, we can check
+                # the relative parameter for the next state.
+                next_rel_param = parent_option.get_rel_option_param_from_state(
+                    next_state,
+                    curr_option.memory,
+                    curr_option.objects,
+                )
+                reward: int = 0
+                if np.allclose(next_rel_param,
+                               0,
+                               atol=self._reward_epsilon):
+                    reward += self._pos_reward
                 else:
-                    subgoal_reached = False
-                    reward = self._neg_reward
+                    reward += self._neg_reward
 
-                experience.append((state, action, reward, next_state))
+                experience.append(
+                    (state, input_vec, action, reward, next_state))
 
                 # Store experience data in two cases: (1) the next state is a
                 # terminal state for the current option and (2) the current
                 # option did not reach its terminal state but had a sufficient
                 # number of steps to reach it so that it is reasonable to assign
                 # it a reward.
-                terminate = curr_option.effect_based_terminal(next_state)
-                had_sufficient_steps = next_state.isclose(traj.states[-1]) and (CFG.max_num_steps_interaction_request - (idx + 1) > CFG.valid_reward_steps_threshold)
+                terminate = parent_option.effect_based_terminal(
+                    next_state, curr_option.objects)
+                had_sufficient_steps = next_state.allclose(
+                    traj.states[-1]) and (
+                        CFG.max_num_steps_interaction_request -
+                        (idx + 1) > CFG.valid_reward_steps_threshold)
                 if terminate:
-                    option_to_data[curr_option].append(experience)
-                    experience = []  # Reset for next option in the plan.
+                    option_to_data[parent_option].append(experience)
                     curr_option_idx += 1
                     if curr_option_idx < len(plan):
                         curr_option = plan[curr_option_idx]
-                        if curr_option not in option_to_data:
-                            option_to_data[curr_option] = []
+                        parent_option = cast(_LearnedNeuralParameterizedOption,
+                                             curr_option.parent)
+                        experience = []  # Reset for next option in the plan.
+                        if parent_option not in option_to_data:
+                            option_to_data[parent_option] = []
                     else:
                         # If we run out of options in the plan, there should be
                         # an _OptionPlanExhausted exception, and so there is
@@ -166,10 +182,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                         assert next_state.allclose(traj.states[-1])
                 elif had_sufficient_steps:
                     assert curr_option == plan[-1]
-                    option_to_data[curr_option].append(experience)
+                    option_to_data[parent_option].append(experience)
 
         # Call the RL option learner on each option.
-        for option, experience in option_to_data.items():
+        for option, experiences in option_to_data.items():
             corresponding_nsrts = [
                 nsrt for nsrt in self._nsrts if nsrt.option.name == option.name
             ]
@@ -178,7 +194,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             corresponding_parent_option = cast(
                 _LearnedNeuralParameterizedOption, corresponding_nsrt.option)
             updated_option = self._option_learners[corresponding_nsrt].update(
-                corresponding_parent_option, experience)
+                corresponding_parent_option, experiences)
             replaced_nsrt = NSRT(
                 corresponding_nsrt.name, corresponding_nsrt.parameters,
                 corresponding_nsrt.preconditions,

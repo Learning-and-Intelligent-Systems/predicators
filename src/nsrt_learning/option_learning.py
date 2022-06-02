@@ -317,16 +317,6 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          initiable=self._precondition_based_initiable,
                          terminal=self._optimized_effect_based_terminal)
 
-    def get_relative_option_param_from_state(self, state: State, memory: Dict,
-                                    objects: Sequence[Object]) -> Array:
-        var_to_obj = dict(zip(self.operator.parameters, objects))
-        curr_state_changing_feat = _create_absolute_option_param(
-            state, self._changing_var_to_feat, self._changing_var_order,
-            var_to_obj)
-        subgoal_state_changing_feat = memory["absolute_params"]
-        relative_param = subgoal_state_changing_feat - curr_state_changing_feat
-        return relative_param
-
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
                                       params: Array) -> bool:
@@ -364,23 +354,12 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                              self._action_space.high)
         return Action(np.array(action_arr, dtype=np.float32))
 
-
-    def effect_based_terminal(self, state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> bool:
+    def _optimized_effect_based_terminal(self, state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> bool:
         if self._is_parameterized:
             assert np.allclose(params, memory["params"])
-        # The hope is that we terminate in the effects.
-        grounded_op = self.operator.ground(tuple(objects))
-        if all(e.holds(state) for e in grounded_op.add_effects) and \
-            not any(e.holds(state) for e in grounded_op.delete_effects):
-            return True
-        return False
-
-    def _optimized_effect_based_terminal(self, state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> bool:
-        terminate = self.effect_based_terminal(state, memory, objects, params)
+        terminate = self.effect_based_terminal(state, objects)
         # Optimization: remember the most recent state and terminate early if
         # the state is repeated, since this option will never get unstuck.
         if "last_state" in memory and memory["last_state"].allclose(state):
@@ -389,6 +368,28 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             return True
         memory["last_state"] = state
         return False
+
+    def effect_based_terminal(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        """Terminate when the option's corresponding operator's effects have
+        been reached."""
+        grounded_op = self.operator.ground(tuple(objects))
+        if all(e.holds(state) for e in grounded_op.add_effects) and \
+            not any(e.holds(state) for e in grounded_op.delete_effects):
+            return True
+        return False
+
+    def get_rel_option_param_from_state(self, state: State, memory: Dict,
+                                        objects: Sequence[Object]) -> Array:
+        """Get the relative parameter that is passed into the option's
+        regressor."""
+        var_to_obj = dict(zip(self.operator.parameters, objects))
+        curr_state_changing_feat = _create_absolute_option_param(
+            state, self._changing_var_to_feat, self._changing_var_order,
+            var_to_obj)
+        subgoal_state_changing_feat = memory["absolute_params"]
+        relative_param = subgoal_state_changing_feat - curr_state_changing_feat
+        return relative_param
 
 
 class _BehaviorCloningOptionLearner(_OptionLearnerBase):
@@ -612,11 +613,14 @@ class _RLOptionLearnerBase(abc.ABC):
     @abc.abstractmethod
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[Tuple[List[State], List[Action], List[int],
-                               List[Array]]]
+        experience: List[List[Tuple[State, Array, Action, int, State]]]
     ) -> _LearnedNeuralParameterizedOption:
         """Updates a _LearnedNeuralParameterizedOption via reinforcement
-        learning."""
+        learning.
+
+        The inner list of `experience` corresponds to the expeirence
+        from one execution of the option.
+        """
         raise NotImplementedError("Override me!")
 
 
@@ -626,15 +630,13 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
 
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[Tuple[List[State], List[Action], List[int], List[Object],
-                               List[Array]]]
+        experience: List[List[Tuple[State, Array, Action, int, State]]]
     ) -> _LearnedNeuralParameterizedOption:
         # Don't actually update the option at all.
-        # Update would be made to option._regressor, which might require
-        # changing the code in ml_models.py so that you can train without
-        # re-initializing the network. Update would also be made to the policy
-        # of the parameterized option itself, e.g. to perform both exploitation
-        # and exploration.
+        # Update would be made to option._regressor, which requires changing the
+        # code in ml_models.py so that you can train without re-initializing the
+        # network. Update would also be made to the policy of the parameterized
+        # option itself, e.g. to perform both exploitation and exploration.
         return copy.deepcopy(option)
 
 
