@@ -292,6 +292,44 @@ class Circle(_Geom2D):
 
 
 @dataclass(frozen=True)
+class Triangle(_Geom2D):
+    """A helper class for visualizing and collision checking triangles."""
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    x3: float
+    y3: float
+
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        patch = patches.Polygon(
+            [[self.x1, self.y1], [self.x2, self.y2], [self.x3, self.y3]],
+            **kwargs)
+        ax.add_patch(patch)
+
+    def __post_init__(self) -> None:
+        dist1 = np.sqrt((self.x1 - self.x2)**2 + (self.y1 - self.y2)**2)
+        dist2 = np.sqrt((self.x2 - self.x3)**2 + (self.y2 - self.y3)**2)
+        dist3 = np.sqrt((self.x3 - self.x1)**2 + (self.y3 - self.y1)**2)
+        dists = sorted([dist1, dist2, dist3])
+        assert dists[0] + dists[1] >= dists[2]
+        if dists[0] + dists[1] == dists[2]:
+            raise ValueError("Degenerate triangle!")
+
+    def contains_point(self, x: float, y: float) -> bool:
+        # Adapted from https://stackoverflow.com/questions/2049582/.
+        sign1 = ((x - self.x2) * (self.y1 - self.y2) - (self.x1 - self.x2) *
+                 (y - self.y2)) > 0
+        sign2 = ((x - self.x3) * (self.y2 - self.y3) - (self.x2 - self.x3) *
+                 (y - self.y3)) > 0
+        sign3 = ((x - self.x1) * (self.y3 - self.y1) - (self.x3 - self.x1) *
+                 (y - self.y1)) > 0
+        has_neg = (not sign1) or (not sign2) or (not sign3)
+        has_pos = sign1 or sign2 or sign3
+        return not has_neg or not has_pos
+
+
+@dataclass(frozen=True)
 class Rectangle(_Geom2D):
     """A helper class for visualizing and collision checking rectangles.
 
