@@ -2,7 +2,7 @@
 then specialize them based on the data."""
 
 import itertools
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
@@ -141,11 +141,16 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     ground_op = self._find_unification(necessary_add_effects,
                                                        pnad, segment)
                     if ground_op is not None:
-                        obj_to_var = dict(
-                            zip(ground_op.objects, pnad.op.parameters))
-                        if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                            param_opt_to_nec_pnads[option.parent].append(pnad)
-                        break
+                        # Check that this grounding is indeed harmless
+                        # w.r.t the necessary_image.
+                        is_harmless, conflicting_atoms = self._is_unification_harmless(necessary_image, ground_op, segment)
+                        if is_harmless:
+                            obj_to_var = dict(
+                                zip(ground_op.objects, pnad.op.parameters))
+                            if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                                param_opt_to_nec_pnads[option.parent].append(pnad)
+                            break
+                        import ipdb; ipdb.set_trace()
 
                 # If we weren't able to find a substitution (i.e, the above
                 # for loop did not break), we need to spawn a new PNAD from
@@ -168,12 +173,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         pnad for pnad in param_opt_to_nec_pnads[option.parent]
                         if len(pnad.datastore) > 0
                     ]
-                    # Recompute all preconditions, now that we have recomputed
-                    # the datastores.
+                    # Now that we've recomputed the datastores entirely,
+                    # we need to re-induce all the components of all the
+                    # PNADs whose datastores might have changed.
                     for nec_pnad in param_opt_to_nec_pnads[option.parent]:
-                        pre = self._induce_preconditions_via_intersection(
-                            nec_pnad)
-                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+                        self._induce_pnad_components_from_datastore(nec_pnad)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
@@ -215,6 +219,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     for a in pnad.op.preconditions
                 }
         return nec_pnad_set_changed
+
+    def _induce_pnad_components_from_datastore(self, pnad: PartialNSRTAndDatastore) -> None:
+        """
+        Given an input PNAD with a non-empty datastore, this method
+        induces (1) preconditions, (2) delete effects and (3) side
+        predicates for that PNAD based on its datastore. Note that this
+        method modifies the input PNAD in-place.
+        """
+        pre = self._induce_preconditions_via_intersection(pnad)
+        pnad = pnad.copy_with(preconditions=pre)
+        self._compute_pnad_delete_effects(pnad)
+        self._compute_pnad_side_predicates(pnad)
 
     def _finish_learning(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -298,6 +314,21 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     continue
             return ground_op
         return None
+
+    @staticmethod
+    def _is_unification_harmless(
+            necessary_image: Set[GroundAtom],
+            ground_op: _GroundSTRIPSOperator,
+            segment: Segment) -> Tuple[bool, Optional[Set[GroundAtom]]]:
+        """Given a particular ground operator, check whether it
+        will conflict with the necessary_image or not. If it does not,
+        return (True, None). Otherwise, return (False, conflicting_atoms).
+        """
+        state_after_op = utils.apply_operator(ground_op, segment.init_atoms)
+        if necessary_image.issubset(state_after_op):
+            return (True, None)
+        conflicting_atoms = necessary_image - state_after_op
+        return (False, conflicting_atoms)
 
     def _spawn_new_pnad(
         self,
