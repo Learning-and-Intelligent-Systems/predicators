@@ -39,6 +39,10 @@ class GlobalSettings:
     # The method to use for generating demonstrations: "oracle" or "human".
     demonstrator = "oracle"
     # DPI for rendering the state. Increase this if video quality is poor.
+    # Note that for unit testing, we use a much smaller value by default,
+    # which is set in utils.reset_config(). If you want higher-quality videos
+    # in unit tests, make sure to pass in a value for `render_state_dpi` into
+    # your call to utils.reset_config().
     render_state_dpi = 150
 
     # cover env parameters
