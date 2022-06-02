@@ -161,6 +161,12 @@ class GlobalSettings:
     coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
+    # satellites env parameters
+    satellites_num_sat_train = [2, 3]
+    satellites_num_sat_test = [4, 5]
+    satellites_num_obj_train = [3, 4]
+    satellites_num_obj_test = [5, 6]
+
     # parameters for random options approach
     random_options_max_tries = 100
 
