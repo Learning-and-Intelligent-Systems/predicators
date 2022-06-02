@@ -142,9 +142,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     curr_option.objects,
                 )
                 reward: int = 0
-                if np.allclose(next_rel_param,
-                               0,
-                               atol=self._reward_epsilon):
+                if np.allclose(next_rel_param, 0, atol=self._reward_epsilon):
                     reward += self._pos_reward
                 else:
                     reward += self._neg_reward
