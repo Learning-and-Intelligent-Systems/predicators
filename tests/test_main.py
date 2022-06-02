@@ -83,6 +83,7 @@ class _DummyCoverEnv(CoverEnv):
 
 def test_main():
     """Tests for main.py."""
+    utils.reset_config()
     sys.argv = [
         "dummy", "--env", "my_env", "--approach", "my_approach", "--seed",
         "123", "--num_test_tasks", "3"
