@@ -116,9 +116,12 @@ class SatellitesEnv(BaseEnv):
         # doing calibration, shooting Chemical X or Y, or using an instrument.
         cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y, \
             calibrate, shoot_chem_x, shoot_chem_y, use_instrument = action.arr
+        next_state = state.copy()
         sat = self._xy_to_entity(state, cur_sat_x, cur_sat_y)
         obj = self._xy_to_entity(state, obj_x, obj_y)
-        next_state = state.copy()
+        if sat is None or obj is None:
+            # Invalid first 4 dimensions of action.
+            return next_state
         if calibrate > 0.5:
             # Handle calibration.
             if not self._Sees_holds(state, [sat, obj]):
@@ -565,11 +568,11 @@ class SatellitesEnv(BaseEnv):
         return utils.Triangle(x1, y1, x2, y2, x3, y3)
 
     @staticmethod
-    def _xy_to_entity(state: State, x: float, y: float) -> Object:
+    def _xy_to_entity(state: State, x: float, y: float) -> Optional[Object]:
         """Given x/y coordinates, return the entity (satellite or object) at
         those coordinates."""
         for ent in state:
             if abs(state.get(ent, "x") - x) < 1e-6 and \
                abs(state.get(ent, "y") - y) < 1e-6:
                 return ent
-        raise Exception("No satellite or object at these coordinates!")
+        return None
