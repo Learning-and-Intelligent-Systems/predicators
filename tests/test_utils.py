@@ -310,6 +310,43 @@ def test_circle():
     # plt.savefig("/tmp/circle_unit_test.png")
 
 
+def test_triangle():
+    """Tests for Triangle()."""
+    _, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.set_xlim((-10.0, 10.0))
+    ax.set_ylim((-10.0, 10.0))
+
+    tri1 = utils.Triangle(5.0, 5.0, 7.5, 7.5, 5.0, 7.5)
+    assert tri1.contains_point(5.5, 6)
+    assert tri1.contains_point(5.9999, 6)
+    assert tri1.contains_point(5.8333, 6.6667)
+    assert tri1.contains_point(7.3, 7.4)
+    assert not tri1.contains_point(6, 6)
+    assert not tri1.contains_point(5.1, 5.1)
+    assert not tri1.contains_point(5.2, 5.1)
+    assert not tri1.contains_point(5.1, 7.6)
+    assert not tri1.contains_point(4.9, 7.3)
+    assert not tri1.contains_point(5.0, 7.5)
+    assert not tri1.contains_point(7.6, 7.6)
+    tri1.plot(ax, color="red", alpha=0.5)
+
+    tri2 = utils.Triangle(-3.0, -4.0, -6.2, -5.6, -9.0, -1.7)
+    tri2.plot(ax, color="blue", alpha=0.5)
+
+    # Almost degenerate triangle.
+    tri3 = utils.Triangle(0.0, 0.0, 1.0, 1.0, -1.0, -1.001)
+    assert tri3.contains_point(0.0, -0.001 / 3.0)
+    tri3.plot(ax, color="green", alpha=0.5)
+
+    # Degenerate triangle (a line).
+    with pytest.raises(ValueError) as e:
+        utils.Triangle(0.0, 0.0, 1.0, 1.0, -1.0, -1.0)
+    assert "Degenerate triangle" in str(e)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/triangle_unit_test.png")
+
+
 def test_rectangle():
     """Tests for Rectangle()."""
     _, ax = plt.subplots(1, 1, figsize=(10, 10))
