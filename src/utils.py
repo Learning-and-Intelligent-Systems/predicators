@@ -2226,7 +2226,8 @@ def update_config(args: Dict[str, Any]) -> None:
 
 
 def reset_config(args: Optional[Dict[str, Any]] = None,
-                 default_seed: int = 123) -> None:
+                 default_seed: int = 123,
+                 default_render_state_dpi: int = 10) -> None:
     """Reset to the default CFG, overriding with anything in args.
 
     This utility is meant for use in testing only.
@@ -2247,6 +2248,10 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     arg_dict.update(vars(default_args))
     if args is not None:
         arg_dict.update(args)
+    if args is None or "render_state_dpi" not in args:
+        # By default, use a small value for the rendering DPI, to avoid
+        # expensive rendering during testing.
+        arg_dict["render_state_dpi"] = default_render_state_dpi
     update_config(arg_dict)
 
 
