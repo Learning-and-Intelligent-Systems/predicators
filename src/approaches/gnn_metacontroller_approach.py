@@ -167,7 +167,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             for j in range(len(scores)):
                 if j not in allowed_idxs:
                     scores[j] = float("-inf")  # set its score to be really bad
-            if np.max(scores) == float("-inf"):  # type: ignore
+            if np.max(scores) == float("-inf"):
                 # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure(
                     "GNN metacontroller could not select an object")
@@ -206,8 +206,12 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
             if not opt.initiable(state):
                 # The option is not initiable. Continue on to the next sample.
                 continue
-            next_state, _ = self._option_model.get_next_state_and_num_actions(
-                state, opt)
+            try:
+                next_state, _ = \
+                    self._option_model.get_next_state_and_num_actions(state,
+                                                                      opt)
+            except utils.EnvironmentFailure:
+                continue
             expected_next_atoms = utils.apply_operator(ground_nsrt, atoms)
             if not all(a.holds(next_state) for a in expected_next_atoms):
                 # Some expected atom is not achieved. Continue on to the

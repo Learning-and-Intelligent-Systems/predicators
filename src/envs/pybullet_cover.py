@@ -11,6 +11,7 @@ from predicators.src.envs.cover import CoverEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
 from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot, \
+    create_change_fingers_option, create_move_end_effector_to_pose_option, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Object, \
@@ -72,9 +73,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         name="MoveEndEffectorToPose",
                         target_z=self._pickplace_z),
                     # Toggle fingers.
-                    self._pybullet_robot.create_change_fingers_option(
+                    create_change_fingers_option(self._pybullet_robot,
                         "ToggleFingers", types, params_space,
-                        toggle_fingers_func),
+                        toggle_fingers_func,
+                        self._max_vel_norm, self._grasp_tol),
                     # Move back up.
                     self._create_cover_move_option(
                         name="MoveEndEffectorBackUp",
@@ -134,9 +136,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> _SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
-        return create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, ee_home, self._ee_orn, self._move_to_pose_tol,
-            self._max_vel_norm, self._grasp_tol, physics_client_id)
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
+                                                self._ee_orn,
+                                                physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
@@ -330,6 +332,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 finger_status = "closed"
             return current_pose, target_pose, finger_status
 
-        return self._pybullet_robot.create_move_end_effector_to_pose_option(
-            name, types, params_space,
-            _get_current_and_target_pose_and_finger_status)
+        return create_move_end_effector_to_pose_option(
+            self._pybullet_robot, name, types, params_space,
+            _get_current_and_target_pose_and_finger_status,
+            self._move_to_pose_tol, self._max_vel_norm,
+            self._finger_action_nudge_magnitude)

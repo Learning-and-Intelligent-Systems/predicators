@@ -5,7 +5,6 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
-from matplotlib.ticker import MaxNLocator
 
 from predicators.scripts.analyze_results_directory import create_dataframes, \
     get_df_for_entry
@@ -50,7 +49,6 @@ DERIVED_KEYS = [("perc_solved",
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
     ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
-    # ("NUM_TRANSITIONS", "Num transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
@@ -134,11 +132,7 @@ def _main() -> None:
                                 yerr=y_stds,
                                 label=label,
                                 marker=marker)
-                # Automatically make x ticks integers for certain X KEYS.
-                if x_key in ("CYCLE", "NUM_TRANSITIONS"):
-                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                elif x_key == "NUM_TRAIN_TASKS":
-                    ax.set_xticks(xs)
+                ax.set_xticks(xs)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)

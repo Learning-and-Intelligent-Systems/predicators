@@ -1,4 +1,4 @@
-numpy>=1.21.0
+numpy>=1.22.3
 pytest
 gym==0.21.0
 matplotlib
@@ -15,3 +15,4 @@ requests
 slack_bolt
 pybullet>=3.2.0
 sklearn
+pyqt5

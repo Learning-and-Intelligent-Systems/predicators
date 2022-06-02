@@ -15,27 +15,14 @@ from predicators.src.structs import Action, Array, JointsState, Object, \
 
 
 class _SingleArmPyBulletRobot(abc.ABC):
-    """A single-arm fixed-base PyBullet robot with a two-finger gripper.
-
-    The action space for the robot is 4D. The first three dimensions are
-    a change in the (x, y, z) of the end effector. The last dimension is
-    a change in the finger joint(s), which are constrained to be
-    symmetric.
-    """
+    """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
 
     def __init__(self, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
-                 move_to_pose_tol: float, max_vel_norm: float,
-                 grasp_tol: float, physics_client_id: int) -> None:
+                 physics_client_id: int) -> None:
         # Initial position for the end effector.
         self._ee_home_pose = ee_home_pose
         # Orientation for the end effector.
         self._ee_orientation = ee_orientation
-        # The tolerance used in create_move_end_effector_to_pose_option().
-        self._move_to_pose_tol = move_to_pose_tol
-        # Used for the action space.
-        self._max_vel_norm = max_vel_norm
-        # Used for detecting when an object is considered grasped.
-        self._grasp_tol = grasp_tol
         self._physics_client_id = physics_client_id
         # These get overridden in initialize(), but type checking needs to be
         # aware that it exists.
@@ -56,6 +43,12 @@ class _SingleArmPyBulletRobot(abc.ABC):
         return Box(np.array(self.joint_lower_limits, dtype=np.float32),
                    np.array(self.joint_upper_limits, dtype=np.float32),
                    dtype=np.float32)
+
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the name of the robot."""
+        raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def _initialize(self) -> None:
@@ -185,33 +178,6 @@ class _SingleArmPyBulletRobot(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
-    def create_move_end_effector_to_pose_option(
-        self,
-        name: str,
-        types: Sequence[Type],
-        params_space: Box,
-        get_current_and_target_pose_and_finger_status: Callable[
-            [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for moving the
-        end effector to a target pose, given a function that takes in the
-        current state, objects, and parameters, and returns the current pose
-        and target pose of the end effector, and the finger status."""
-        raise NotImplementedError("Override me!")
-
-    @abc.abstractmethod
-    def create_change_fingers_option(
-        self, name: str, types: Sequence[Type], params_space: Box,
-        get_current_and_target_val: Callable[[State, Sequence[Object], Array],
-                                             Tuple[float, float]]
-    ) -> ParameterizedOption:
-        """A generic utility that creates a ParameterizedOption for changing
-        the robot fingers, given a function that takes in the current state,
-        objects, and parameters, and returns the current and target finger
-        joint values."""
-        raise NotImplementedError("Override me!")
-
 
 class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
@@ -219,7 +185,10 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
     # Parameters that aren't important enough to need to clog up settings.py
     _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
     _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
-    _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "fetch"
 
     def _initialize(self) -> None:
         self._fetch_id = p.loadURDF(
@@ -402,124 +371,151 @@ class FetchPyBulletRobot(_SingleArmPyBulletRobot):
             physics_client_id=self._physics_client_id,
             validate=validate)
 
-    def create_move_end_effector_to_pose_option(
-        self,
-        name: str,
-        types: Sequence[Type],
-        params_space: Box,
-        get_current_and_target_pose_and_finger_status: Callable[
-            [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
-    ) -> ParameterizedOption:
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            # First handle the main arm joints.
-            current, target, finger_status = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            # Run IK to determine the target joint positions.
-            ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
-            ee_norm = np.linalg.norm(ee_delta)  # type: ignore
-            if ee_norm > self._max_vel_norm:
-                ee_delta = ee_delta * self._max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # Keep validate as False because validate=True would update the
-            # state of the robot during simulation, which overrides physics.
-            joints_state = self.inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-            # Handle the fingers. Fingers drift if left alone.
-            # When the fingers are not explicitly being opened or closed, we
-            # nudge the fingers toward being open or closed according to the
-            # finger status.
-            if finger_status == "open":
-                finger_delta = self._finger_action_nudge_magnitude
-            else:
-                assert finger_status == "closed"
-                finger_delta = -self._finger_action_nudge_magnitude
-            # Extract the current finger state.
-            state = cast(utils.PyBulletState, state)
-            finger_state = state.joints_state[self.left_finger_joint_idx]
-            # The finger action is an absolute joint position for the fingers.
-            f_action = finger_state + finger_delta
-            # Override the meaningless finger values in joint_action.
-            joints_state[self.left_finger_joint_idx] = f_action
-            joints_state[self.right_finger_joint_idx] = f_action
-            action_arr = np.array(joints_state, dtype=np.float32)
-            # This clipping is needed sometimes for the joint limits.
-            action_arr = np.clip(action_arr, self.action_space.low,
-                                 self.action_space.high)
-            assert self.action_space.contains(action_arr)
-            return Action(action_arr)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current, target, _ = \
-                get_current_and_target_pose_and_finger_status(
-                    state, objects, params)
-            squared_dist = np.sum(np.square(np.subtract(current, target)))
-            return squared_dist < self._move_to_pose_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-    def create_change_fingers_option(
-        self, name: str, types: Sequence[Type], params_space: Box,
-        get_current_and_target_val: Callable[[State, Sequence[Object], Array],
-                                             Tuple[float, float]]
-    ) -> ParameterizedOption:
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            f_delta = target_val - current_val
-            f_delta = np.clip(f_delta, -self._max_vel_norm, self._max_vel_norm)
-            f_action = current_val + f_delta
-            # Don't change the rest of the joints.
-            state = cast(utils.PyBulletState, state)
-            target = np.array(state.joints_state, dtype=np.float32)
-            target[self.left_finger_joint_idx] = f_action
-            target[self.right_finger_joint_idx] = f_action
-            # This clipping is needed sometimes for the joint limits.
-            target = np.clip(target, self.action_space.low,
-                             self.action_space.high)
-            assert self.action_space.contains(target)
-            return Action(target)
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory  # unused
-            current_val, target_val = get_current_and_target_val(
-                state, objects, params)
-            squared_dist = (target_val - current_val)**2
-            return squared_dist < self._grasp_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
 
 def create_single_arm_pybullet_robot(
         robot_name: str, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
-        move_to_pose_tol: float, max_vel_norm: float, grasp_tol: float,
         physics_client_id: int) -> _SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
         return FetchPyBulletRobot(ee_home_pose, ee_orientation,
-                                  move_to_pose_tol, max_vel_norm, grasp_tol,
                                   physics_client_id)
     raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
+
+
+################################# Controllers #################################
+
+
+def create_move_end_effector_to_pose_option(
+    robot: _SingleArmPyBulletRobot,
+    name: str,
+    types: Sequence[Type],
+    params_space: Box,
+    get_current_and_target_pose_and_finger_status: Callable[
+        [State, Sequence[Object], Array], Tuple[Pose3D, Pose3D, str]],
+    move_to_pose_tol: float,
+    max_vel_norm: float,
+    finger_action_nudge_magnitude: float,
+) -> ParameterizedOption:
+    """A generic utility that creates a ParameterizedOption for moving the end
+    effector to a target pose, given a function that takes in the current
+    state, objects, and parameters, and returns the current pose and target
+    pose of the end effector, and the finger status."""
+
+    assert robot.get_name() == "fetch", "Move end effector to pose option " + \
+        f"not implemented for robot {robot.get_name()}."
+
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del memory  # unused
+        # First handle the main arm joints.
+        current, target, finger_status = \
+            get_current_and_target_pose_and_finger_status(
+                state, objects, params)
+        # Run IK to determine the target joint positions.
+        ee_delta = np.subtract(target, current)
+        # Reduce the target to conform to the max velocity constraint.
+        ee_norm = np.linalg.norm(ee_delta)
+        if ee_norm > max_vel_norm:
+            ee_delta = ee_delta * max_vel_norm / ee_norm
+        ee_action = np.add(current, ee_delta)
+        # Keep validate as False because validate=True would update the
+        # state of the robot during simulation, which overrides physics.
+        joints_state = robot.inverse_kinematics(
+            (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+        # Handle the fingers. Fingers drift if left alone.
+        # When the fingers are not explicitly being opened or closed, we
+        # nudge the fingers toward being open or closed according to the
+        # finger status.
+        if finger_status == "open":
+            finger_delta = finger_action_nudge_magnitude
+        else:
+            assert finger_status == "closed"
+            finger_delta = -finger_action_nudge_magnitude
+        # Extract the current finger state.
+        state = cast(utils.PyBulletState, state)
+        finger_state = state.joints_state[robot.left_finger_joint_idx]
+        # The finger action is an absolute joint position for the fingers.
+        f_action = finger_state + finger_delta
+        # Override the meaningless finger values in joint_action.
+        joints_state[robot.left_finger_joint_idx] = f_action
+        joints_state[robot.right_finger_joint_idx] = f_action
+        action_arr = np.array(joints_state, dtype=np.float32)
+        # This clipping is needed sometimes for the joint limits.
+        action_arr = np.clip(action_arr, robot.action_space.low,
+                             robot.action_space.high)
+        assert robot.action_space.contains(action_arr)
+        return Action(action_arr)
+
+    def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        del memory  # unused
+        current, target, _ = \
+            get_current_and_target_pose_and_finger_status(
+                state, objects, params)
+        squared_dist = np.sum(np.square(np.subtract(current, target)))
+        return squared_dist < move_to_pose_tol
+
+    return ParameterizedOption(name,
+                               types=types,
+                               params_space=params_space,
+                               policy=_policy,
+                               initiable=lambda _1, _2, _3, _4: True,
+                               terminal=_terminal)
+
+
+def create_change_fingers_option(
+    robot: _SingleArmPyBulletRobot,
+    name: str,
+    types: Sequence[Type],
+    params_space: Box,
+    get_current_and_target_val: Callable[[State, Sequence[Object], Array],
+                                         Tuple[float, float]],
+    max_vel_norm: float,
+    grasp_tol: float,
+) -> ParameterizedOption:
+    """A generic utility that creates a ParameterizedOption for changing the
+    robot fingers, given a function that takes in the current state, objects,
+    and parameters, and returns the current and target finger joint values."""
+
+    assert robot.get_name() == "fetch", "Change fingers option not " + \
+        f"implemented for robot {robot.get_name()}."
+
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        del memory  # unused
+        current_val, target_val = get_current_and_target_val(
+            state, objects, params)
+        f_delta = target_val - current_val
+        f_delta = np.clip(f_delta, -max_vel_norm, max_vel_norm)
+        f_action = current_val + f_delta
+        # Don't change the rest of the joints.
+        state = cast(utils.PyBulletState, state)
+        target = np.array(state.joints_state, dtype=np.float32)
+        target[robot.left_finger_joint_idx] = f_action
+        target[robot.right_finger_joint_idx] = f_action
+        # This clipping is needed sometimes for the joint limits.
+        target = np.clip(target, robot.action_space.low,
+                         robot.action_space.high)
+        assert robot.action_space.contains(target)
+        return Action(target)
+
+    def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        del memory  # unused
+        current_val, target_val = get_current_and_target_val(
+            state, objects, params)
+        squared_dist = (target_val - current_val)**2
+        return squared_dist < grasp_tol
+
+    return ParameterizedOption(name,
+                               types=types,
+                               params_space=params_space,
+                               policy=_policy,
+                               initiable=lambda _1, _2, _3, _4: True,
+                               terminal=_terminal)
+
+
+########################### Other utility functions ###########################
 
 
 def get_kinematic_chain(robot: int, end_effector: int,

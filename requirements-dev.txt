@@ -1,7 +1,7 @@
 -r requirements.txt
 pytest-cov>=2.12.1
 pytest-pylint>=0.18.0
-yapf
+yapf==0.32.0
 docformatter
 isort
 # Note: if https://github.com/python/mypy/issues/5485 gets resolved, we can install mypy from head again.

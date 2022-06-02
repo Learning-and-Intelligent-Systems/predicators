@@ -39,7 +39,8 @@ COLUMN_NAMES_AND_KEYS = [
     # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
     # ("AVG_PLAN_LEN", "avg_plan_length"),
     # ("NUM_EXECUTION_FAILURES", "num_execution_failures"),
-    # ("NUM_TRANSITIONS", "num_transitions"),
+    # ("NUM_OFFLINE_TRANSITIONS", "num_offline_transitions"),
+    # ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
     # ("QUERY_COST", "query_cost"),
 ]
 
@@ -102,8 +103,8 @@ def create_raw_dataframe(
             run_data_defaultdict.update(config)
         else:
             run_data_defaultdict = outdata
-        (env, approach, seed, excluded_predicates, experiment_id,
-         online_learning_cycle) = filepath[8:-4].split("__")
+        (env, approach, seed, excluded_predicates, included_options,
+         experiment_id, online_learning_cycle) = filepath[8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
         run_data = dict(
@@ -113,6 +114,7 @@ def create_raw_dataframe(
             "approach": approach,
             "seed": seed,
             "excluded_predicates": excluded_predicates,
+            "included_options": included_options,
             "experiment_id": experiment_id,
             "cycle": online_learning_cycle,
         })

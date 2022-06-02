@@ -8,19 +8,21 @@ from typing import Dict, List, Set, Tuple
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.nsrt_learning.option_learning import create_option_learner
+from predicators.src.nsrt_learning.option_learning import \
+    KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, Task
+    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
-    predicates: Set[Predicate], action_space: Box, sampler_learner: str
+    predicates: Set[Predicate], known_options: Set[ParameterizedOption],
+    action_space: Box, sampler_learner: str
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -76,7 +78,7 @@ def learn_nsrts_from_data(
         verbose=(CFG.option_learner != "no_learning"))
 
     # STEP 4: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads, action_space)  # in-place update
+    _learn_pnad_options(pnads, known_options, action_space)  # in-place update
 
     # STEP 5: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
@@ -99,9 +101,54 @@ def learn_nsrts_from_data(
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
+                        known_options: Set[ParameterizedOption],
                         action_space: Box) -> None:
     logging.info("\nDoing option learning...")
-    option_learner = create_option_learner(action_space)
+    # Separate the PNADs into two groups: those with known options, and those
+    # without. By assumption, for each PNAD, either all actions should have the
+    # same known parameterized option, or all actions should have no option.
+    known_option_pnads, unknown_option_pnads = [], []
+    for pnad in pnads:
+        if not pnad.datastore:
+            raise Exception("No data found for learning an option.")
+        example_segment, _ = pnad.datastore[0]
+        example_action = example_segment.actions[0]
+        pnad_options_known = example_action.has_option()
+        # Sanity check the assumption described above.
+        if pnad_options_known:
+            assert example_action.get_option().parent in known_options
+        for (segment, _) in pnad.datastore:
+            for action in segment.actions:
+                if pnad_options_known:
+                    assert action.has_option()
+                    param_option = action.get_option().parent
+                    assert param_option == example_action.get_option().parent
+                else:
+                    assert not action.has_option()
+        if pnad_options_known:
+            known_option_pnads.append(pnad)
+        else:
+            unknown_option_pnads.append(pnad)
+    # Use a KnownOptionsOptionLearner on the known option pnads.
+    known_option_learner = KnownOptionsOptionLearner()
+    unknown_option_learner = create_option_learner(action_space)
+    # "Learn" the known options.
+    _learn_pnad_options_with_learner(known_option_pnads, known_option_learner)
+    logging.info("\nOperators with known options:")
+    for pnad in known_option_pnads:
+        logging.info(pnad)
+    # Learn the unknown options.
+    _learn_pnad_options_with_learner(unknown_option_pnads,
+                                     unknown_option_learner)
+    logging.info("\nLearned operators with option specs:")
+    for pnad in unknown_option_pnads:
+        logging.info(pnad)
+
+
+def _learn_pnad_options_with_learner(
+        pnads: List[PartialNSRTAndDatastore],
+        option_learner: _OptionLearnerBase) -> None:
+    """Helper for _learn_pnad_options()."""
     strips_ops = []
     datastores = []
     for pnad in pnads:
@@ -120,9 +167,6 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
         for (segment, _) in datastore:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
-    logging.info("\nLearned operators with option specs:")
-    for pnad in pnads:
-        logging.info(pnad)
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],

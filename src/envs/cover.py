@@ -6,6 +6,7 @@ fail), but it still requires backtracking.
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -13,7 +14,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -138,11 +139,12 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         return Box(0, 1, (1, ))  # same as option param space
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
@@ -214,9 +216,7 @@ class CoverEnv(BaseEnv):
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
@@ -549,14 +549,14 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._Pick = ParameterizedOption(
             "Pick",
             types=[self._block_type, self._robot_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
+            params_space=Box(-np.inf, np.inf, (5, )),
             policy=self._Pick_policy,
             initiable=self._Pick_initiable,
             terminal=self._Pick_terminal)
         self._Place = ParameterizedOption(
             "Place",
             types=[self._block_type, self._robot_type, self._target_type],
-            params_space=Box(-np.inf, np.inf, (11, )),
+            params_space=Box(-np.inf, np.inf, (5, )),
             policy=self._Place_policy,
             initiable=self._Place_initiable,
             terminal=self._Place_terminal)
@@ -723,11 +723,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 return state.copy()
         return next_state
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -809,9 +810,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if caption is not None:
             plt.suptitle(caption, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],
@@ -990,28 +989,31 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                         p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
-        m["absolute_params"] = s.vec(o) + p
+        # Get the non-static object features.
+        block, robot = o
+        vec = [
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "y"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
         return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(
-            self,
-            s: State,
-            m: Dict,  # type: ignore
-            o: Sequence[Object],
-            p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict, o: Sequence[Object],
+                     p: Array) -> Action:
         assert np.allclose(p, m["params"])
         del p
         absolute_params = m["absolute_params"]
         # The object is the one we want to pick.
         assert len(o) == 2
         obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         by = s.get(obj, "y")
-        desired_x = absolute_params[7]
+        desired_x = absolute_params[1]
         desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
 
@@ -1043,8 +1045,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         assert robot.is_instance(self._robot_type)
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
-        # Only the block and robot are changing.
-        m["absolute_params"] = s.vec([block, robot]) + p
+        # Only the block and robot are changing. Get the non-static features.
+        vec = [
+            s.get(block, "x"),
+            s.get(block, "grasp"),
+            s.get(robot, "x"),
+            s.get(robot, "grip"),
+            s.get(robot, "holding"),
+        ]
+        m["absolute_params"] = vec + p
         # Place is initiable if we're holding the object.
         return self._Holding_holds(s, [block, robot])
 
@@ -1056,13 +1065,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to place at.
         assert len(o) == 3
         obj = o[0]
-        assert len(
-            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         bh = s.get(obj, "height")
-        desired_x = absolute_params[7]
+        desired_x = absolute_params[2]
         desired_y = bh + 1e-3
 
         at_desired_x = abs(desired_x - x) < 1e-5

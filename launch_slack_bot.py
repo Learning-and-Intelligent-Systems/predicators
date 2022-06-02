@@ -20,11 +20,12 @@ GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
 CONDA = "/state/partition1/llgrid/pkg/anaconda/anaconda3-2021b/bin/activate"
 
-SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV = {
-    "ronuchit": ("/home/gridsan/ronuchit/predicators/", "predicators"),
-    "tslvr": ("/home/gridsan/tslvr/predicators/", "predicators"),
-    "njk": ("/home/gridsan/njk/GitHub/research/predicators/", "predicators"),
-    "wshen": ("/home/gridsan/wshen/predicators/", "predicators"),
+SUPERCLOUD_USER_TO_DIR = {
+    "ronuchit": "/home/gridsan/ronuchit/predicators/",
+    "tslvr": "/home/gridsan/tslvr/predicators/",
+    "njk": "/home/gridsan/njk/GitHub/research/predicators/",
+    "wmcclinton": "/home/gridsan/wmcclinton/GitHub/predicators/",
+    "wshen": "/home/gridsan/wshen/predicators/",
 }
 
 # Load all environment variables. We do this early on to make sure they exist.
@@ -161,7 +162,7 @@ class SupercloudResponse(Response):
         self._user = user
         if "gridsan" not in os.getcwd():
             self._not_on_supercloud = True
-        elif user not in SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV:
+        elif user not in SUPERCLOUD_USER_TO_DIR:
             self._invalid_user = True
             self._not_on_supercloud = False
         else:
@@ -177,15 +178,14 @@ class SupercloudResponse(Response):
         if self._invalid_user:
             return [
                 f"Sorry <@{self._inquirer}>, {self._user} is not "
-                "registered. You may need to update "
-                "SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV."
+                "registered. You may need to update SUPERCLOUD_USER_TO_DIR."
             ]
         # There are a bunch of steps that need to be done correctly in order
         # for the SSHing to work out the way we want. The ultimate goal is
         # to launch each command in self._get_commands() sequentially, and
         # store all the stdout/stderr into output.txt.
         user = self._user
-        dir_name, conda_env = SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV[user]
+        dir_name = SUPERCLOUD_USER_TO_DIR[user]
         assert dir_name.endswith("predicators/")
         dir_name_up = dir_name[:-12]
         # 1) Always start by clearing the current output.txt.
@@ -196,7 +196,7 @@ class SupercloudResponse(Response):
                 f"ssh {user}@{SUPERCLOUD_LOGIN_SERVER} "
                 # 3) Change into the desired directory and source
                 # the user's conda environment.
-                f"'cd {dir_name} && source {CONDA} {conda_env} "
+                f"'cd {dir_name} && source {CONDA} predicators "
                 # 4) This step is tricky! For some reason, when you
                 # SSH, the PYTHONPATH isn't preserved, so we update
                 # it here to be the directory one level up from the
@@ -224,10 +224,10 @@ class SupercloudResponse(Response):
         """Helper method that SCPs over a file with the given path.
 
         The given path is relative to the directory stored in
-        SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV.
+        SUPERCLOUD_USER_TO_DIR.
         """
         user = self._user
-        dir_name, _ = SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV[user]
+        dir_name = SUPERCLOUD_USER_TO_DIR[user]
         cmd_str = f"scp {user}@{SUPERCLOUD_LOGIN_SERVER}:{dir_name}/{path} ."
         print(f"Running SCP command: {cmd_str}", flush=True)
         subprocess.getoutput(cmd_str)
@@ -235,7 +235,7 @@ class SupercloudResponse(Response):
     @abc.abstractmethod
     def _get_commands(self) -> List[str]:
         """Return a list of commands to run from within the directory stored in
-        SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV.
+        SUPERCLOUD_USER_TO_DIR.
 
         Each command's output will be appended to the end of output.txt.
         """
@@ -263,10 +263,10 @@ class SupercloudLaunchResponse(SupercloudResponse):
         num_launched = 0
         with open("output.txt", "r", encoding="utf-8") as f:
             for line in f.readlines():
-                if line.startswith("Started job, see log with"):
+                if line.startswith("Running command:"):
                     num_launched += 1
         return [
-            f"<@{self._inquirer}>: Launched {num_launched} experiments on "
+            f"<@{self._inquirer}>: Launched {num_launched} job arrays on "
             f"{self._user}'s supercloud."
         ]
 

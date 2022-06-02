@@ -93,7 +93,7 @@ def test_interaction():
     train_tasks = env.get_train_tasks()
     approach = _MockApproach(env.predicates, env.options, env.types,
                              env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     _run_pipeline(env, approach, train_tasks, dataset)
     utils.update_config({
         "approach": "nsrt_learning",

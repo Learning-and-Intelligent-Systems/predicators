@@ -9,6 +9,7 @@ this lid is NOT modeled by any of the given predicates.
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, \
     Union
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -17,7 +18,7 @@ from matplotlib import patches
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -365,11 +366,12 @@ class PaintingEnv(BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)
@@ -456,9 +458,7 @@ class PaintingEnv(BaseEnv):
             title += f";\n{caption}"
         plt.suptitle(title, fontsize=12, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     @property
     def _max_objs_in_goal(self) -> int:

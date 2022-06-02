@@ -32,7 +32,7 @@ def test_known_options_option_learner():
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
-    dataset = create_demo_replay_data(env, train_tasks)
+    dataset = create_demo_replay_data(env, train_tasks, env.options)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
@@ -72,10 +72,11 @@ def test_oracle_option_learner_cover():
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
         "option_learner": "oracle",
+        "segmenter": "atom_changes",
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
-    dataset = create_demo_replay_data(env, train_tasks)
+    dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
@@ -118,12 +119,13 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle",
+        "segmenter": "atom_changes",
         "blocks_num_blocks_train": [3],
         "blocks_num_blocks_test": [4],
     })
     env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
-    dataset = create_demo_replay_data(env, train_tasks)
+    dataset = create_demo_replay_data(env, train_tasks, known_options=set())
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
@@ -170,6 +172,7 @@ def test_learned_neural_parameterized_option():
     utils.reset_config({
         "env": "cover_multistep_options",
         "option_learner": "direct_bc",
+        "segmenter": "atom_changes",
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
     })
@@ -277,6 +280,7 @@ def test_option_learning_approach_multistep_cover():
         "env": "cover_multistep_options",
         "approach": "nsrt_learning",
         "option_learner": "direct_bc",
+        "segmenter": "atom_changes",
         "sampler_learner": "oracle",
         "num_train_tasks": 10,
         "num_test_tasks": 10,
@@ -285,7 +289,7 @@ def test_option_learning_approach_multistep_cover():
     train_tasks = env.get_train_tasks()
     approach = create_approach("nsrt_learning", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, known_options=set())
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0
@@ -314,13 +318,14 @@ def test_implicit_bc_option_learning_touch_point():
         "env": "touch_point",
         "approach": "nsrt_learning",
         "option_learner": "implicit_bc",
+        "segmenter": "atom_changes",
         "num_test_tasks": 10,
     })
     env = create_new_env("touch_point")
     train_tasks = env.get_train_tasks()
     approach = create_approach("nsrt_learning", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, known_options=set())
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     num_test_successes = 0

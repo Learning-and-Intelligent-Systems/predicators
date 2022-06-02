@@ -1,5 +1,7 @@
 """Test cases for planning algorithms."""
 
+from contextlib import nullcontext as does_not_raise
+
 import pytest
 from gym.spaces import Box
 
@@ -9,8 +11,8 @@ from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.option_model import _OracleOptionModel, \
-    create_option_model
+from predicators.src.option_model import _OptionModelBase, \
+    _OracleOptionModel, create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan, task_plan, task_plan_grounding
 from predicators.src.settings import CFG
@@ -18,32 +20,43 @@ from predicators.src.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 
-@pytest.mark.parametrize("sesame_check_expected_atoms", [True, False])
-def test_sesame_plan(sesame_check_expected_atoms):
+@pytest.mark.parametrize(
+    "sesame_check_expected_atoms,sesame_grounder,expectation",
+    [(True, "naive", does_not_raise()), (False, "naive", does_not_raise()),
+     (True, "fd_translator", does_not_raise()),
+     (True, "not a real grounder", pytest.raises(ValueError))])
+def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
+                     expectation):
     """Tests for sesame_plan()."""
     utils.reset_config({
         "env": "cover",
         "sesame_check_expected_atoms": sesame_check_expected_atoms,
+        "sesame_grounder": sesame_grounder,
         "num_test_tasks": 1,
     })
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
-    plan, metrics = sesame_plan(
-        task,
-        option_model,
-        nsrts,
-        env.predicates,
-        1,  # timeout
-        123,  # seed
-        CFG.sesame_task_planning_heuristic,
-        CFG.sesame_max_skeletons_optimized,
-        max_horizon=CFG.horizon,
-    )
-    assert len(plan) == 3
-    assert all(isinstance(act, _Option) for act in plan)
-    assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
+    with expectation as e:
+        plan, metrics = sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            1,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
+        )
+    if e is None:
+        assert len(plan) == 3
+        assert all(isinstance(act, _Option) for act in plan)
+        assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
+    else:
+        assert "Unrecognized sesame_grounder" in str(e)
 
 
 def test_task_plan():
@@ -131,6 +144,10 @@ def test_sesame_plan_failures():
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=-100)  # times out
+    utils.reset_config({"env": "cover", "sesame_grounder": "fd_translator"})
+    with pytest.raises(ApproachTimeout):
+        approach.solve(impossible_task, timeout=-100)  # times out
+    utils.reset_config({"env": "cover", "sesame_grounder": "naive"})
     old_max_samples_per_step = CFG.sesame_max_samples_per_step
     old_max_skeletons = CFG.sesame_max_skeletons_optimized
     CFG.sesame_max_samples_per_step = 1
@@ -153,11 +170,39 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
             max_horizon=0)
+
+    # Test that no plan is found when all of the options appear to terminate
+    # immediately, under the option model.
+
+    class _MockOptionModel(_OptionModelBase):
+        """A mock option model that always predicts a no-op."""
+
+        def __init__(self, simulator):
+            self._simulator = simulator
+
+        def get_next_state_and_num_actions(self, state, option):
+            return state, 0
+
+    option_model = _MockOptionModel(env.simulate)
+    with pytest.raises(PlanningFailure):
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            max_skeletons_optimized=1,
+            max_horizon=CFG.horizon)
+
     # Test for dr-reachability.
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(PlanningFailure):
@@ -167,6 +212,7 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -180,6 +226,7 @@ def test_sesame_plan_failures():
             option_model,
             nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -226,6 +273,7 @@ def test_sesame_plan_uninitiable_option():
             option_model,
             new_nsrts,
             env.predicates,
+            env.types,
             500,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -310,6 +358,7 @@ def test_planning_determinism():
             option_model,
             [sleep_nsrt, cry_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -323,6 +372,7 @@ def test_planning_determinism():
             option_model,
             [cry_nsrt, sleep_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -336,6 +386,7 @@ def test_planning_determinism():
             option_model,
             [sleep_nsrt, cry_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,
@@ -349,6 +400,7 @@ def test_planning_determinism():
             option_model,
             [cry_nsrt, sleep_nsrt],
             set(),
+            {robot_type},
             10,  # timeout
             123,  # seed
             CFG.sesame_task_planning_heuristic,

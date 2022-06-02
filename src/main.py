@@ -39,7 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 
@@ -50,7 +50,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Task
+    InteractionResult, Metrics, ParameterizedOption, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -90,11 +90,13 @@ def main() -> None:
     stripped_train_tasks = [
         utils.strip_task(task, preds) for task in train_tasks
     ]
-    # Don't pass in options if we are learning them.
     if CFG.option_learner == "no_learning":
+        # If we are not doing option learning, pass in all the environment's
+        # oracle options.
         options = env.options
     else:
-        options = set()
+        # Determine from the config which oracle options to include, if any.
+        options = utils.parse_config_included_options(env)
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, options, env.types,
                                env.action_space, stripped_train_tasks)
@@ -102,7 +104,8 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = _generate_or_load_offline_dataset(env, train_tasks)
+        offline_dataset = _generate_or_load_offline_dataset(
+            env, train_tasks, options)
     else:
         offline_dataset = None
     # Run the full pipeline.
@@ -115,13 +118,14 @@ def _run_pipeline(env: BaseEnv,
                   approach: BaseApproach,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
-    # If agent is learning-based, generate an offline dataset, allow the agent
-    # to learn from it, and then proceed with the online learning loop. Test
+    # If agent is learning-based, allow the agent to learn from the generated
+    # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
-        total_num_transitions = sum(
+        num_offline_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
+        num_online_transitions = 0
         total_query_cost = 0.0
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
@@ -133,7 +137,8 @@ def _run_pipeline(env: BaseEnv,
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, approach)
-            results["num_transitions"] = total_num_transitions
+            results["num_offline_transitions"] = num_offline_transitions
+            results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=None)
@@ -144,7 +149,7 @@ def _run_pipeline(env: BaseEnv,
                 continue
             logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
             logging.info("Getting interaction requests...")
-            if total_num_transitions > CFG.online_learning_max_transitions:
+            if num_online_transitions >= CFG.online_learning_max_transitions:
                 logging.info("Reached online_learning_max_transitions, "
                              "terminating")
                 break
@@ -155,7 +160,7 @@ def _run_pipeline(env: BaseEnv,
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
                 env, teacher, interaction_requests, i)
-            total_num_transitions += sum(
+            num_online_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
             logging.info(f"Query cost incurred this cycle: {query_cost}")
@@ -169,24 +174,27 @@ def _run_pipeline(env: BaseEnv,
                 learning_time += time.time() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
-            results["num_transitions"] = total_num_transitions
+            results["num_offline_transitions"] = num_offline_transitions
+            results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
-        results["num_transitions"] = 0
+        results["num_offline_transitions"] = 0
+        results["num_online_transitions"] = 0
         results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
 
 
-def _generate_or_load_offline_dataset(env: BaseEnv,
-                                      train_tasks: List[Task]) -> Dataset:
+def _generate_or_load_offline_dataset(
+        env: BaseEnv, train_tasks: List[Task],
+        known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline dataset from training tasks."""
     dataset_filename = (
         f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{CFG.seed}.data")
+        f"__{CFG.included_options}__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
         assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
@@ -194,7 +202,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
             dataset = pkl.load(f)
         logging.info("\n\nLOADED DATASET")
     else:
-        dataset = create_dataset(env, train_tasks)
+        dataset = create_dataset(env, train_tasks, known_options)
         logging.info("\n\nCREATED DATASET")
         os.makedirs(CFG.data_dir, exist_ok=True)
         with open(dataset_filepath, "wb") as f:

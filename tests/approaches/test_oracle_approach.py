@@ -10,8 +10,10 @@ from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
+from predicators.src.envs.coffee import CoffeeEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
+from predicators.src.envs.doors import DoorsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv
@@ -20,6 +22,7 @@ from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.screws import ScrewsEnv
 from predicators.src.envs.stick_button import StickButtonEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
@@ -28,24 +31,21 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, Variable
 
 ENV_NAME_AND_CLS = [
-    ("cover", CoverEnv),
-    ("cover_typed_options", CoverEnvTypedOptions),
+    ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
     ("cover_hierarchical_types", CoverEnvHierarchicalTypes),
     ("cover_regrasp", CoverEnvRegrasp),
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
-    ("cluttered_table_place", ClutteredTablePlaceEnv),
-    ("blocks", BlocksEnv),
-    ("painting", PaintingEnv),
-    ("tools", ToolsEnv),
-    ("playroom", PlayroomEnv),
+    ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
+    ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
+    ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
-    ("touch_point", TouchPointEnv),
-    ("stick_button", StickButtonEnv),
+    ("touch_point", TouchPointEnv), ("stick_button", StickButtonEnv),
+    ("doors", DoorsEnv), ("coffee", CoffeeEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -123,6 +123,14 @@ EXTRA_ARGS_ORACLE_APPROACH["stick_button"] = [
         "stick_button_disable_angles": True
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
+    "doors_room_map_size": 2,
+    "doors_min_room_exists_frac": 1.0,
+    "doors_max_room_exists_frac": 1.0,
+    "doors_birrt_smooth_amt": 0,
+    "doors_min_obstacles_per_room": 1,
+    "doors_max_obstacles_per_room": 1,
+}]
 
 
 def _policy_solves_task(policy, task, simulator):

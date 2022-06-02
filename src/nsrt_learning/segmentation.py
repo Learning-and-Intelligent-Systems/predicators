@@ -51,6 +51,12 @@ def _segment_with_contact_changes(
         keep_pred_names = {"Grasped", "Pressed"}
     elif CFG.env == "cover_multistep_options":
         keep_pred_names = {a.name for a in all_preds}
+    elif CFG.env == "doors":
+        keep_pred_names = {"TouchingDoor", "InRoom"}
+    elif CFG.env == "touch_point":
+        keep_pred_names = {"Touched"}
+    elif CFG.env == "coffee":
+        keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
     else:
         raise NotImplementedError("Contact-based segmentation not implemented "
                                   f"for environment {CFG.env}.")
@@ -94,7 +100,7 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     effects achieved, that marks the switch point between segments.
     """
     traj, all_atoms = trajectory
-    if traj.actions[0].has_option():
+    if CFG.option_learner == "no_learning":
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
     gt_nsrts = get_gt_nsrts(env.predicates, env.options)

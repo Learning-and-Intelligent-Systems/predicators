@@ -9,6 +9,7 @@ from predicators.src.envs import get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
     navigate_to_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs.doors import DoorsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
@@ -46,12 +47,18 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
     elif CFG.env == "repeated_nextto_single_option":
         nsrts = _get_repeated_nextto_single_option_gt_nsrts()
+    elif CFG.env == "screws":
+        nsrts = _get_screws_gt_nsrts()
     elif CFG.env.startswith("pddl_"):
         nsrts = _get_pddl_env_gt_nsrts(CFG.env)
     elif CFG.env == "touch_point":
         nsrts = _get_touch_point_gt_nsrts()
     elif CFG.env == "stick_button":
         nsrts = _get_stick_button_gt_nsrts()
+    elif CFG.env == "doors":
+        nsrts = _get_doors_gt_nsrts()
+    elif CFG.env == "coffee":
+        nsrts = _get_coffee_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -181,12 +188,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 desired_x = bx + (tm - tx)
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
-            # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from -1.0 to 1.0
-            block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
+            # This option changes the grasp for the block from -1.0 to 1.0, so
+            # the delta is 1.0 - (-1.0) = 2.0
+            block_param = [2.0]
+            # The grip changes from -1.0 to 1.0.
+            # The holding changes from -1.0 to 1.0.
             # x, y, grip, holding
-            # grip changes from -1.0 to 1.0
-            # holding changes from -1.0 to 1.0
             robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
@@ -271,21 +278,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                             break
                 assert thr_found
 
-            # The x, y, and held features of the block change, and the x, y,
-            # grasp, and holding features of the robot change.
-            # Note that the y features changing is a little surprising. One
-            # thing to keep in mind is that during replay data collection,
-            # the replays can start from any low-level state in a trajectory,
-            # so there are many cases where the robot is holding the object in
-            # mid-air, and it starts a new place option from there.
             assert len(objs) == 3
             block, robot, target = objs
             assert block.is_instance(block_type)
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
-            rx, ry = state.get(robot, "x"), state.get(robot, "y")
-            bh = state.get(block, "height")
-            grasp_offset = 1e-3
+            rx = state.get(robot, "x")
             tx, tw = state.get(target, "x"), state.get(target, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(tx)
@@ -294,14 +292,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
-            delta_y = bh - ry
-            # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from 1.0 to -1.0
-            block_param = [0.0, 0.0, 0.0, delta_x, -2.0, delta_y, 0.0]
-            # x, y, grip, holding
-            # grip changes from 1.0 to -1.0
-            # holding changes from 1.0 to -1.0
-            robot_param = [delta_x, delta_y + grasp_offset, -2.0, -2.0]
+            # This option changes the grasp for the block from 1.0 to -1.0, so
+            # the delta is -1.0 - 1.0 = -2.0.
+            # x, grasp
+            block_param = [delta_x, -2.0]
+            # The grip changes from 1.0 to -1.0.
+            # The holding changes from 1.0 to -1.0.
+            # x, grip, holding
+            robot_param = [delta_x, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
@@ -1906,6 +1904,94 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
+def _get_screws_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for ScrewsEnv."""
+    screw_type, gripper_type, receptacle_type = _get_types_by_names(
+        CFG.env, ["screw", "gripper", "receptacle"])
+    GripperCanPickScrew, AboveReceptacle, HoldingScrew, ScrewInReceptacle = \
+        _get_predicates_by_names(
+        CFG.env, [
+            "GripperCanPickScrew", "AboveReceptacle", "HoldingScrew",
+            "ScrewInReceptacle"
+        ])
+    MoveToScrew, MoveToReceptacle, MagnetizeGripper, DemagnetizeGripper = \
+        _get_options_by_names(
+        CFG.env, [
+            "MoveToScrew", "MoveToReceptacle", "MagnetizeGripper",
+            "DemagnetizeGripper"
+        ])
+
+    nsrts: Set[NSRT] = set()
+
+    # MoveToScrew
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, screw]
+    option_vars = [robot, screw]
+    option = MoveToScrew
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {LiftedAtom(GripperCanPickScrew, [robot, screw])}
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {GripperCanPickScrew}
+    move_to_screw_nsrt = NSRT("MoveToScrew", parameters, preconditions,
+                              add_effects, delete_effects, side_predicates,
+                              option, option_vars, null_sampler)
+    nsrts.add(move_to_screw_nsrt)
+
+    # MoveToReceptacle
+    robot = Variable("?robot", gripper_type)
+    receptacle = Variable("?receptacle", receptacle_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, receptacle, screw]
+    option_vars = [robot, receptacle, screw]
+    option = MoveToReceptacle
+    preconditions = {LiftedAtom(HoldingScrew, [robot, screw])}
+    add_effects = {LiftedAtom(AboveReceptacle, [robot, receptacle])}
+    side_predicates = {GripperCanPickScrew}
+    move_to_receptacle_nsrt = NSRT("MoveToReceptacle", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   side_predicates, option, option_vars,
+                                   null_sampler)
+    nsrts.add(move_to_receptacle_nsrt)
+
+    # MagnetizeGripper
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    parameters = [robot, screw]
+    option_vars = [robot]
+    option = MagnetizeGripper
+    preconditions = {LiftedAtom(GripperCanPickScrew, [robot, screw])}
+    add_effects = {LiftedAtom(HoldingScrew, [robot, screw])}
+    side_predicates = {HoldingScrew}
+    magnetize_gripper_nsrt = NSRT("MagnetizeGripper", parameters,
+                                  preconditions, add_effects, delete_effects,
+                                  side_predicates, option, option_vars,
+                                  null_sampler)
+    nsrts.add(magnetize_gripper_nsrt)
+
+    # DemagnetizeGripper
+    robot = Variable("?robot", gripper_type)
+    screw = Variable("?screw", screw_type)
+    receptacle = Variable("?receptacle", receptacle_type)
+    parameters = [robot, screw, receptacle]
+    option_vars = [robot]
+    option = DemagnetizeGripper
+    preconditions = {
+        LiftedAtom(HoldingScrew, [robot, screw]),
+        LiftedAtom(AboveReceptacle, [robot, receptacle])
+    }
+    add_effects = {LiftedAtom(ScrewInReceptacle, [screw, receptacle])}
+    delete_effects = {LiftedAtom(HoldingScrew, [robot, screw])}
+    side_predicates = {HoldingScrew}
+    demagnetize_gripper_nsrt = NSRT("DemagnetizeGripper", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    side_predicates, option, option_vars,
+                                    null_sampler)
+    nsrts.add(demagnetize_gripper_nsrt)
+
+    return nsrts
+
+
 def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for TouchPointEnv."""
     robot_type, target_type = _get_types_by_names(CFG.env, ["robot", "target"])
@@ -2091,6 +2177,372 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
                              side_predicates, option, option_vars,
                              null_sampler)
     nsrts.add(stick_button_nsrt)
+
+    return nsrts
+
+
+def _get_doors_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for DoorsEnv."""
+    robot_type, door_type, room_type = _get_types_by_names(
+        CFG.env, ["robot", "door", "room"])
+    InRoom, InDoorway, InMainRoom, TouchingDoor, DoorIsOpen, DoorInRoom, \
+        DoorsShareRoom = _get_predicates_by_names(CFG.env, ["InRoom",
+            "InDoorway", "InMainRoom", "TouchingDoor", "DoorIsOpen",
+            "DoorInRoom", "DoorsShareRoom"])
+    MoveToDoor, OpenDoor, MoveThroughDoor = _get_options_by_names(
+        CFG.env, ["MoveToDoor", "OpenDoor", "MoveThroughDoor"])
+
+    nsrts = set()
+
+    # MoveToDoorFromMainRoom
+    # This operator should only be used on the first step of a plan.
+    robot = Variable("?robot", robot_type)
+    room = Variable("?room", room_type)
+    door = Variable("?door", door_type)
+    parameters = [robot, room, door]
+    option_vars = [robot, door]
+    option = MoveToDoor
+    preconditions = {
+        LiftedAtom(InRoom, [robot, room]),
+        LiftedAtom(InMainRoom, [robot, room]),
+        LiftedAtom(DoorInRoom, [door, room]),
+    }
+    add_effects = {
+        LiftedAtom(TouchingDoor, [robot, door]),
+        LiftedAtom(InDoorway, [robot, door])
+    }
+    delete_effects = {LiftedAtom(InMainRoom, [robot, room])}
+    side_predicates: Set[Predicate] = set()
+    move_to_door_nsrt = NSRT("MoveToDoorFromMainRoom", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(move_to_door_nsrt)
+
+    # MoveToDoorFromDoorWay
+    robot = Variable("?robot", robot_type)
+    start_door = Variable("?start_door", door_type)
+    end_door = Variable("?end_door", door_type)
+    parameters = [robot, start_door, end_door]
+    option_vars = [robot, end_door]
+    option = MoveToDoor
+    preconditions = {
+        LiftedAtom(InDoorway, [robot, start_door]),
+        LiftedAtom(DoorsShareRoom, [start_door, end_door]),
+    }
+    add_effects = {
+        LiftedAtom(TouchingDoor, [robot, end_door]),
+        LiftedAtom(InDoorway, [robot, end_door])
+    }
+    delete_effects = {LiftedAtom(InDoorway, [robot, start_door])}
+    side_predicates = set()
+    move_to_door_nsrt = NSRT("MoveToDoorFromDoorWay", parameters,
+                             preconditions, add_effects, delete_effects,
+                             side_predicates, option, option_vars,
+                             null_sampler)
+    nsrts.add(move_to_door_nsrt)
+
+    # OpenDoor
+    robot = Variable("?robot", robot_type)
+    door = Variable("?door", door_type)
+    parameters = [door, robot]
+    option_vars = [door, robot]
+    option = OpenDoor
+    preconditions = {
+        LiftedAtom(TouchingDoor, [robot, door]),
+        LiftedAtom(InDoorway, [robot, door]),
+    }
+    add_effects = {LiftedAtom(DoorIsOpen, [door])}
+    delete_effects = {
+        LiftedAtom(TouchingDoor, [robot, door]),
+    }
+    side_predicates = set()
+
+    # Allow protected access because this is an oracle. Used in the sampler.
+    env = get_or_create_env(CFG.env)
+    assert isinstance(env, DoorsEnv)
+    get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
+
+    # Even though this option does not need to be parameterized, we make it so,
+    # because we want to match the parameter space of the option that will
+    # get learned during option learning. This is useful for when we want
+    # to use sampler_learner = "oracle" too.
+    def open_door_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+        del rng, goal  # unused
+        door, _ = objs
+        assert door.is_instance(door_type)
+        # Calculate the desired change in the doors "rotation" feature.
+        # Allow protected access because this is an oracle.
+        mass = state.get(door, "mass")
+        friction = state.get(door, "friction")
+        target_rot = state.get(door, "target_rot")
+        target_val = get_open_door_target_value(mass=mass,
+                                                friction=friction,
+                                                target_rot=target_rot)
+        current_val = state.get(door, "rot")
+        delta_rot = target_val - current_val
+        # The door always changes from closed to open.
+        delta_open = 1.0
+        return np.array([delta_rot, delta_open], dtype=np.float32)
+
+    open_door_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          open_door_sampler)
+    nsrts.add(open_door_nsrt)
+
+    # MoveThroughDoor
+    robot = Variable("?robot", robot_type)
+    start_room = Variable("?start_room", room_type)
+    end_room = Variable("?end_room", room_type)
+    door = Variable("?door", door_type)
+    parameters = [robot, start_room, door, end_room]
+    option_vars = [robot, door]
+    option = MoveThroughDoor
+    preconditions = {
+        LiftedAtom(InRoom, [robot, start_room]),
+        LiftedAtom(InDoorway, [robot, door]),
+        LiftedAtom(DoorIsOpen, [door]),
+        LiftedAtom(DoorInRoom, [door, start_room]),
+        LiftedAtom(DoorInRoom, [door, end_room]),
+    }
+    add_effects = {
+        LiftedAtom(InRoom, [robot, end_room]),
+    }
+    delete_effects = {
+        LiftedAtom(InRoom, [robot, start_room]),
+    }
+    side_predicates = set()
+    move_through_door_nsrt = NSRT("MoveThroughDoor", parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates,
+                                  option, option_vars, null_sampler)
+    nsrts.add(move_through_door_nsrt)
+
+    return nsrts
+
+
+def _get_coffee_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for CoffeeEnv."""
+    robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
+        CFG.env, ["robot", "jug", "cup", "machine"])
+    CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
+        JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
+        Twisting = \
+        _get_predicates_by_names(CFG.env, ["CupFilled",
+            "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
+            "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
+            "PressingButton", "Twisting"])
+    MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
+        Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
+            "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
+
+    nsrts = set()
+
+    # MoveToTwistJug
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    parameters = [robot, jug]
+    option_vars = [robot, jug]
+    option = MoveToTwistJug
+    preconditions = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    add_effects = {
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    side_predicates: Set[Predicate] = set()
+    move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates,
+                                  option, option_vars, null_sampler)
+    nsrts.add(move_to_twist_jug_nsrt)
+
+    # TwistJug
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    parameters = [robot, jug]
+    option_vars = [robot, jug]
+    option = TwistJug
+    preconditions = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+    }
+    delete_effects = {
+        LiftedAtom(Twisting, [robot, jug]),
+    }
+    side_predicates = set()
+
+    def twist_jug_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
+
+    twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          twist_jug_sampler)
+    nsrts.add(twist_jug_nsrt)
+
+    # PickJugFromTable
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    parameters = [robot, jug]
+    option_vars = [robot, jug]
+    option = PickJug
+    preconditions = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(HandEmpty, [robot])
+    }
+    add_effects = {
+        LiftedAtom(Holding, [robot, jug]),
+    }
+    delete_effects = {
+        LiftedAtom(OnTable, [jug]),
+        LiftedAtom(HandEmpty, [robot])
+    }
+    side_predicates = set()
+    pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    side_predicates, option, option_vars,
+                                    null_sampler)
+    nsrts.add(pick_jug_from_table_nsrt)
+
+    # PlaceJugInMachine
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    machine = Variable("?machine", machine_type)
+    parameters = [robot, jug, machine]
+    option_vars = [robot, jug, machine]
+    option = PlaceJugInMachine
+    preconditions = {
+        LiftedAtom(Holding, [robot, jug]),
+    }
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(JugInMachine, [jug, machine]),
+    }
+    delete_effects = {
+        LiftedAtom(Holding, [robot, jug]),
+    }
+    side_predicates = set()
+    place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
+                                     preconditions, add_effects,
+                                     delete_effects, side_predicates, option,
+                                     option_vars, null_sampler)
+    nsrts.add(place_jug_in_machine_nsrt)
+
+    # TurnMachineOn
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    machine = Variable("?machine", machine_type)
+    parameters = [robot, jug, machine]
+    option_vars = [robot, machine]
+    option = TurnMachineOn
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(JugInMachine, [jug, machine]),
+    }
+    add_effects = {
+        LiftedAtom(JugFilled, [jug]),
+        LiftedAtom(MachineOn, [machine]),
+        LiftedAtom(PressingButton, [robot, machine]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
+                                add_effects, delete_effects, side_predicates,
+                                option, option_vars, null_sampler)
+    nsrts.add(turn_machine_on_nsrt)
+
+    # PickJugFromMachine
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    machine = Variable("?machine", machine_type)
+    parameters = [robot, jug, machine]
+    option_vars = [robot, jug]
+    option = PickJug
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(JugInMachine, [jug, machine]),
+        LiftedAtom(PressingButton, [robot, machine]),
+    }
+    add_effects = {
+        LiftedAtom(Holding, [robot, jug]),
+    }
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(JugInMachine, [jug, machine]),
+        LiftedAtom(PressingButton, [robot, machine]),
+    }
+    side_predicates = set()
+    pick_jug_from_machine_nsrt = NSRT("PickJugFromMachine", parameters,
+                                      preconditions, add_effects,
+                                      delete_effects, side_predicates, option,
+                                      option_vars, null_sampler)
+    nsrts.add(pick_jug_from_machine_nsrt)
+
+    # PourFromNowhere
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    cup = Variable("?cup", cup_type)
+    parameters = [robot, jug, cup]
+    option_vars = [robot, jug, cup]
+    option = Pour
+    preconditions = {
+        LiftedAtom(Holding, [robot, jug]),
+        LiftedAtom(JugFilled, [jug]),
+        LiftedAtom(NotAboveCup, [robot, jug]),
+    }
+    add_effects = {
+        LiftedAtom(JugAboveCup, [jug, cup]),
+        LiftedAtom(RobotAboveCup, [robot, cup]),
+        LiftedAtom(CupFilled, [cup]),
+    }
+    delete_effects = {
+        LiftedAtom(NotAboveCup, [robot, jug]),
+    }
+    side_predicates = set()
+    pour_from_nowhere_nsrt = NSRT("PourFromNowhere", parameters, preconditions,
+                                  add_effects, delete_effects, side_predicates,
+                                  option, option_vars, null_sampler)
+    nsrts.add(pour_from_nowhere_nsrt)
+
+    # PourFromOtherCup
+    robot = Variable("?robot", robot_type)
+    jug = Variable("?jug", jug_type)
+    cup = Variable("?cup", cup_type)
+    other_cup = Variable("?other_cup", cup_type)
+    parameters = [robot, jug, cup, other_cup]
+    option_vars = [robot, jug, cup]
+    option = Pour
+    preconditions = {
+        LiftedAtom(Holding, [robot, jug]),
+        LiftedAtom(JugFilled, [jug]),
+        LiftedAtom(JugAboveCup, [jug, other_cup]),
+        LiftedAtom(RobotAboveCup, [robot, other_cup]),
+    }
+    add_effects = {
+        LiftedAtom(JugAboveCup, [jug, cup]),
+        LiftedAtom(RobotAboveCup, [robot, cup]),
+        LiftedAtom(CupFilled, [cup]),
+    }
+    delete_effects = {
+        LiftedAtom(JugAboveCup, [jug, other_cup]),
+        LiftedAtom(RobotAboveCup, [robot, other_cup]),
+    }
+    side_predicates = set()
+    pour_from_other_cup_nsrt = NSRT("PourFromOtherCup", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    side_predicates, option, option_vars,
+                                    null_sampler)
+    nsrts.add(pour_from_other_cup_nsrt)
 
     return nsrts
 

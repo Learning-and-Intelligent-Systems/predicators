@@ -33,6 +33,11 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    # The method to use for segmentation. By default, segment using options.
+    # If you are learning options, you should change this via the command line.
+    segmenter = "option_changes"
+    # The method to use for generating demonstrations: "oracle" or "human".
+    demonstrator = "oracle"
 
     # cover env parameters
     cover_num_blocks = 2
@@ -135,6 +140,27 @@ class GlobalSettings:
     stick_button_disable_angles = True
     stick_button_holder_scale = 0.1
 
+    # screws env parameters
+    screws_num_screws_train = [15, 20]
+    screws_num_screws_test = [25, 30]
+
+    # doors env parameters
+    doors_room_map_size = 5
+    doors_min_obstacles_per_room = 0
+    doors_max_obstacles_per_room = 3
+    doors_min_room_exists_frac = 0.25
+    doors_max_room_exists_frac = 0.75
+    doors_birrt_num_attempts = 10
+    doors_birrt_num_iters = 100
+    doors_birrt_smooth_amt = 50
+    doors_draw_debug = False
+
+    # coffee env parameters
+    coffee_num_cups_train = [1, 2]
+    coffee_num_cups_test = [2, 3]
+    coffee_render_dpi = 50
+    coffee_jug_init_rot_amt = 2 * np.pi / 3
+
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -166,6 +192,16 @@ class GlobalSettings:
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    # The algorithm used for grounding the planning problem. Choices are
+    # "naive" or "fd_translator". The former does a type-aware cross product
+    # of operators and objects to obtain ground operators, while the latter
+    # calls Fast Downward's translator to produce an SAS task, then extracts
+    # the ground operators from that. The latter is preferable when grounding
+    # is a bottleneck in your environment, but will not work when operators
+    # with no effects need to be part of the ground planning problem, like the
+    # OpenLid() operator in painting. So, we'll keep the former as the
+    # default.
+    sesame_grounder = "naive"
 
     # evaluation parameters
     log_dir = "logs"
@@ -183,6 +219,8 @@ class GlobalSettings:
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
     offline_data_max_skeletons_optimized = -1
+    # Number of replays used when offline_data_method is replay-based.
+    offline_data_num_replays = 500
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
@@ -197,7 +235,10 @@ class GlobalSettings:
     disable_harmlessness_check = False  # some methods may want this to be True
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
-    cluster_and_search_inner_search_max_expansions = 10000
+    cluster_and_intersect_prederror_max_groundings = 10
+    cluster_and_search_inner_search_max_expansions = 2500
+    cluster_and_search_inner_search_timeout = 30
+    cluster_and_search_score_func_max_groundings = 10000
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
 
@@ -228,6 +269,8 @@ class GlobalSettings:
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
+    sampler_learning_regressor_model = "neural_gaussian"
+    sampler_learning_max_negative_data = 100000
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
@@ -286,12 +329,14 @@ class GlobalSettings:
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For BEHAVIOR and PyBullet environments, actions are
-                    # lower level, so tasks take more actions to complete.
+                    # For certain environments, actions are lower level, so
+                    # tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
-                    # For the very simple TouchPoint environment, restrict
+                    "doors": 1000,
+                    "coffee": 1000,
+                    # For the very simple touch point environment, restrict
                     # the horizon to be shorter.
                     "touch_point": 15,
                 })[args.get("env", "")],
@@ -316,10 +361,11 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For the stick button environment, the only environment
-                    # failure is one that involves no objects, which we want
-                    # to be treated like a terminal environment state.
+                    # For these environments, the only environment failure
+                    # is one that involves no objects, which we want to be
+                    # treated like a terminal environment state.
                     "stick_button": "never",
+                    "coffee": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
@@ -330,16 +376,6 @@ class GlobalSettings:
                     # Interactive learning project needs ground atom data.
                     "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
-
-            # Number of replays used when offline_data_method is demo+replay.
-            offline_data_num_replays=defaultdict(
-                # Default number of random replays.
-                lambda: 500,
-                {
-                    # For the repeated_nextto environment, too many
-                    # replays makes learning slow.
-                    "repeated_nextto": 50,
-                })[args.get("env", "")],
 
             # The name of the option model used by the agent.
             option_model_name=defaultdict(
@@ -357,13 +393,13 @@ class GlobalSettings:
             sesame_max_skeletons_optimized=defaultdict(
                 lambda: 8,
                 {
-                    # For the tools environment, allow more skeletons.
+                    # For these environments, allow more skeletons.
+                    "coffee": 1000,
                     "tools": 1000,
-                    # For the stick button environment, allow more skeletons.
                     "stick_button": 1000,
                 })[args.get("env", "")],
 
-            # In SeSamE, the maximum effort put into sampling a single skeleton.
+            # In SeSamE, the maximum effort put into refining a single skeleton.
             # Concretely, this effort refers to the maximum number of calls to
             # the sampler on each step before backtracking.
             sesame_max_samples_per_step=defaultdict(
@@ -381,14 +417,6 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
-
-            # Segmentation parameters.
-            segmenter=defaultdict(
-                lambda: "atom_changes",
-                {
-                    # When options are given, use them to segment instead.
-                    "no_learning": "option_changes",
-                })[args.get("option_learner", "no_learning")],
         )
 
 

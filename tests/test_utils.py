@@ -5,13 +5,13 @@ import time
 from typing import Iterator, Tuple
 from typing import Type as TypingType
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from gym.spaces import Box
-from matplotlib import pyplot as plt
 
 from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv
+from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
@@ -23,7 +23,9 @@ from predicators.src.utils import GoalCountHeuristic, \
     _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
 
 
-def test_count_positives_for_ops():
+@pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",
+                         [(-1, 0, 0), (None, 1, 1)])
+def test_count_positives_for_ops(max_groundings, exp_num_true, exp_num_false):
     """Tests for count_positives_for_ops()."""
     utils.reset_config({"segmenter": "atom_changes"})
     cup_type = Type("cup_type", ["feat1"])
@@ -70,9 +72,9 @@ def test_count_positives_for_ops():
     ]
 
     num_true, num_false, _, _ = utils.count_positives_for_ops(
-        strips_ops, option_specs, segments)
-    assert num_true == 1
-    assert num_false == 1
+        strips_ops, option_specs, segments, max_groundings=max_groundings)
+    assert num_true == exp_num_true
+    assert num_false == exp_num_false
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():
@@ -2143,7 +2145,7 @@ def test_create_pddl():
 
 def test_VideoMonitor():
     """Tests for VideoMonitor()."""
-    env = CoverEnv()
+    env = CoverMultistepOptions()
     monitor = utils.VideoMonitor(env.render)
     policy = lambda _: Action(env.action_space.sample())
     task = env.get_task("test", 0)
@@ -2159,11 +2161,14 @@ def test_VideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
+    first_state_rendered = env.render_state(task.init, task)
+    assert np.allclose(first_state_rendered, video[0])
+    assert not np.allclose(first_state_rendered, video[1])
 
 
 def test_SimulateVideoMonitor():
     """Tests for SimulateVideoMonitor()."""
-    env = CoverEnv()
+    env = CoverMultistepOptions()
     task = env.get_task("test", 0)
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     policy = lambda _: Action(env.action_space.sample())
@@ -2179,6 +2184,9 @@ def test_SimulateVideoMonitor():
     assert len(traj.actions) == 2
     video = monitor.get_video()
     assert len(video) == len(traj.states)
+    first_state_rendered = env.render_state(task.init, task)
+    assert np.allclose(first_state_rendered, video[0])
+    assert not np.allclose(first_state_rendered, video[1])
 
 
 def test_save_video():
@@ -2200,12 +2208,13 @@ def test_get_config_path_str():
         "approach": "dummyapproach",
         "seed": 321,
         "excluded_predicates": "all",
+        "included_options": "Dummy1,Dummy2",
         "experiment_id": "foobar",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321__all__foobar"
+    assert s == "dummyenv__dummyapproach__321__all__Dummy1,Dummy2__foobar"
     s = utils.get_config_path_str("override_id")
-    assert s == "dummyenv__dummyapproach__321__all__override_id"
+    assert s == "dummyenv__dummyapproach__321__all__Dummy1,Dummy2__override_id"
 
 
 def test_get_approach_save_path_str():
@@ -2218,21 +2227,23 @@ def test_get_approach_save_path_str():
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "",
+        "included_options": "",
         "experiment_id": "",
     })
     save_path = utils.get_approach_save_path_str()
-    assert save_path == dirname + "/test_env__test_approach__123____.saved"
+    assert save_path == dirname + "/test_env__test_approach__123______.saved"
     os.rmdir(dirname)
     utils.reset_config({"approach_dir": old_approach_dir})
 
@@ -2247,29 +2258,31 @@ def test_get_approach_load_path_str():
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
         "load_experiment_id": "foo",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     load_path = utils.get_approach_load_path_str()
     assert load_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__foo.saved")
+                                   "test_pred1,test_pred2__Dummy1__foo.saved")
     utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
         "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
+        "included_options": "Dummy1",
         "experiment_id": "baz",
     })
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     load_path = utils.get_approach_load_path_str()
     assert load_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2__baz.saved")
+                                   "test_pred1,test_pred2__Dummy1__baz.saved")
     os.rmdir(dirname)
     utils.reset_config({"approach_dir": old_approach_dir})
 
@@ -2392,15 +2405,15 @@ def test_run_gbfs():
     # Test with an infinite branching factor.
     def _inf_grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
         # Change all costs to 1.
+        i = 0
         for (a, ns, _) in _grid_successor_fn(state):
             yield (a, ns, 1.)
         # Yield unnecessary and costly noops.
         # These lines should not be covered, and that's the point!
-        i = 0  # pragma: no cover
         while True:  # pragma: no cover
-            action = f"noop{i}"  # pragma: no cover
-            yield (action, state, 100.)  # pragma: no cover
-            i += 1  # pragma: no cover
+            action = f"noop{i}"
+            yield (action, state, 100.)
+            i += 1
 
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
                                                      _grid_check_goal_fn,
@@ -2421,6 +2434,16 @@ def test_run_gbfs():
         max_evals=2)  # note: need lazy_expansion to be False here
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
+
+    # Test timeout.
+    # We don't care about the return value. Since the goal check always
+    # returns False, the fact that this test doesn't hang means that
+    # the timeout is working correctly.
+    utils.run_gbfs(initial_state,
+                   lambda s: False,
+                   _inf_grid_successor_fn,
+                   _grid_heuristic_fn,
+                   timeout=0.01)
 
 
 def test_run_hill_climbing():
@@ -2676,6 +2699,71 @@ def test_parse_config_excluded_predicates():
         utils.parse_config_excluded_predicates(env)
 
 
+def test_parse_config_included_options():
+    """Tests for parse_config_included_options()."""
+    # Test including nothing.
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "included_options": "",
+    })
+    env = CoverMultistepOptions()
+    included = utils.parse_config_included_options(env)
+    assert not included
+    # Test including specific options.
+    utils.reset_config({
+        "included_options": "Pick",
+    })
+    Pick, Place = sorted(env.options)
+    assert Pick.name == "Pick"
+    assert Place.name == "Place"
+    included = utils.parse_config_included_options(env)
+    assert included == {Pick}
+    utils.reset_config({
+        "included_options": "Place",
+    })
+    included = utils.parse_config_included_options(env)
+    assert included == {Place}
+    utils.reset_config({
+        "included_options": "Pick,Place",
+    })
+    included = utils.parse_config_included_options(env)
+    assert included == {Pick, Place}
+    # Test including an unknown option.
+    utils.reset_config({
+        "included_options": "Pick,NotReal",
+    })
+    with pytest.raises(AssertionError) as e:
+        utils.parse_config_included_options(env)
+    assert "Unrecognized option in included_options!" in str(e)
+
+
 def test_null_sampler():
     """Tests for null_sampler()."""
     assert utils.null_sampler(None, None, None, None).shape == (0, )
+
+
+def test_behavior_state():
+    """Tests for BehaviorState."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
+    other_state = state.copy()
+    assert state.allclose(other_state)
+
+
+def test_nostdout(capfd):
+    """Tests for nostdout()."""
+
+    def _hello_world():
+        print("Hello world!")
+
+    for _ in range(2):
+        _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == "Hello world!\n"
+        with utils.nostdout():
+            _hello_world()
+        out, _ = capfd.readouterr()
+        assert out == ""

@@ -176,8 +176,28 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()  # type: ignore
+        y = tensor_y.detach().numpy()
         return y
+
+
+class DistributionRegressor(abc.ABC):
+    """ABC for classes that learn a continuous conditional sampler."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, y: Array) -> None:
+        """Train the model on the given data.
+
+        X is two-dimensional, y is one-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        """Return a sampled prediction on the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
 
 
 class BinaryClassifier(abc.ABC):
@@ -360,7 +380,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         tensor_X = tensor_x.unsqueeze(dim=0)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()  # type: ignore
+        y = tensor_y.detach().numpy()
         proba = y.item()
         assert 0 <= proba <= 1
         return proba
@@ -648,7 +668,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         assert self._grid_num_ticks_per_dim > 0
         dy = 1.0 / self._grid_num_ticks_per_dim
         ticks = [np.arange(0.0, 1.0, dy)] * self._y_dim
-        grid = np.meshgrid(*ticks)  # type: ignore
+        grid = np.meshgrid(*ticks)
         candidate_ys = np.transpose(grid).reshape((-1, self._y_dim))
         num_samples = candidate_ys.shape[0]
         assert num_samples == self._grid_num_ticks_per_dim**self._y_dim
@@ -663,7 +683,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         return candidate_ys[sample_idx]
 
 
-class NeuralGaussianRegressor(PyTorchRegressor):
+class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
 
     def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
@@ -748,6 +768,18 @@ class NeuralGaussianRegressor(PyTorchRegressor):
     @staticmethod
     def _split_prediction(Y: Tensor) -> Tuple[Tensor, Tensor]:
         return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
+
+
+class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
+    """A model that can be used as a DistributionRegressor, but that always
+    returns the same output given the same input.
+
+    Implemented as an MLPRegressor().
+    """
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        del rng  # unused
+        return self.predict(x)
 
 
 class KNeighborsRegressor(_ScikitLearnRegressor):
@@ -848,8 +880,8 @@ class LearnedPredicateClassifier:
 
 def _normalize_data(data: Array,
                     scale_clip: float = 1) -> Tuple[Array, Array, Array]:
-    shift = np.min(data, axis=0)  # type: ignore
-    scale = np.max(data - shift, axis=0)  # type: ignore
+    shift = np.min(data, axis=0)
+    scale = np.max(data - shift, axis=0)
     scale = np.clip(scale, scale_clip, None)
     return (data - shift) / scale, shift, scale
 

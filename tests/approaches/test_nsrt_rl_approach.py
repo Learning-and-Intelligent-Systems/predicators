@@ -31,7 +31,7 @@ def test_nsrt_reinforcement_learning_approach():
                                                  env.types, env.action_space,
                                                  train_tasks)
     teacher = Teacher(train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     interaction_requests = approach.get_interaction_requests()

@@ -3,7 +3,7 @@
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import create_approach
+from predicators.src.approaches import ApproachFailure, create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.settings import CFG
@@ -17,8 +17,10 @@ def _test_approach(env_name,
                    sampler_learner="neural",
                    option_learner="no_learning",
                    strips_learner="cluster_and_intersect",
+                   segmenter="option_changes",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
+                   solve_exceptions=None,
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -40,6 +42,7 @@ def _test_approach(env_name,
         "strips_learner": strips_learner,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
+        "segmenter": segmenter,
         "cover_initial_holding_prob": 0.0,
         **additional_settings,
     })
@@ -55,14 +58,25 @@ def _test_approach(env_name,
     else:
         preds = env.predicates
     train_tasks = env.get_train_tasks()
-    approach = create_approach(approach_name, preds, env.options, env.types,
+    if option_learner == "no_learning":
+        options = env.options
+    else:
+        options = utils.parse_config_included_options(env)
+    approach = create_approach(approach_name, preds, options, env.types,
                                env.action_space, train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, options)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]
     if try_solving:
-        policy = approach.solve(task, timeout=CFG.timeout)
+        if solve_exceptions is not None:
+            assert not check_solution
+            try:
+                policy = approach.solve(task, timeout=CFG.timeout)
+            except solve_exceptions:
+                pass
+        else:
+            policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
             traj = utils.run_policy_with_simulator(policy,
                                                    env.simulate,
@@ -77,7 +91,14 @@ def _test_approach(env_name,
                                 env.action_space, train_tasks)
     approach2.load(online_learning_cycle=None)
     if try_solving:
-        policy = approach2.solve(task, timeout=CFG.timeout)
+        if solve_exceptions is not None:
+            assert not check_solution
+            try:
+                policy = approach2.solve(task, timeout=CFG.timeout)
+            except solve_exceptions:
+                pass
+        else:
+            policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
             traj = utils.run_policy_with_simulator(policy,
                                                    env.simulate,
@@ -127,32 +148,53 @@ def test_unknown_strips_learner():
 
 def test_neural_option_learning():
     """Tests for NeuralOptionLearner class."""
+    # Test with some, but not all, options given.
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="direct_bc",
+                   segmenter="atom_changes",
                    check_solution=False,
                    additional_settings={
                        "cover_multistep_thr_percent": 0.99,
                        "cover_multistep_bhr_percent": 0.99,
+                       "included_options": "Pick"
                    })
+    # Test with oracle samplers.
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=True,
+                   sampler_learner="oracle",
+                   option_learner="direct_bc",
+                   segmenter="atom_changes",
+                   check_solution=False,
+                   offline_data_method="demo",
+                   solve_exceptions=(ApproachFailure, ),
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                   })
+    # Test with implicit bc option learning.
     _test_approach(env_name="touch_point",
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="implicit_bc",
+                   segmenter="atom_changes",
                    check_solution=False,
                    additional_settings={
                        "implicit_mlp_regressor_max_itr": 10,
                        "implicit_mlp_regressor_num_negative_data_per_input": 1,
                        "implicit_mlp_regressor_num_samples_per_inference": 1,
                    })
+    # Test with direct bc nonparameterized option learning.
     _test_approach(env_name="touch_point",
                    approach_name="nsrt_learning",
                    try_solving=True,
                    sampler_learner="random",
                    option_learner="direct_bc_nonparameterized",
+                   segmenter="atom_changes",
                    check_solution=False)
 
 
@@ -175,6 +217,7 @@ def test_oracle_samplers():
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
                    option_learner="oracle",
+                   segmenter="atom_changes",
                    check_solution=True,
                    num_train_tasks=3)
     with pytest.raises(Exception) as e:
@@ -186,6 +229,17 @@ def test_oracle_samplers():
                        check_solution=True,
                        num_train_tasks=3)
     assert "no match for ground truth NSRT" in str(e)
+
+
+def test_degenerate_mlp_sampler_learning():
+    """Tests for NSRTLearningApproach() with a degenerate MLP sampler."""
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="neural",
+                   additional_settings={
+                       "sampler_learning_regressor_model": "degenerate_mlp",
+                   })
 
 
 def test_grammar_search_invention_approach():
@@ -203,6 +257,7 @@ def test_grammar_search_invention_approach():
         "grammar_search_score_function": "prediction_error",
         "grammar_search_search_algorithm": "hill_climbing",
         "pretty_print_when_loading": True,
+        "grammar_search_gbfs_num_evals": 1,
     }
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
@@ -212,10 +267,8 @@ def test_grammar_search_invention_approach():
                    num_train_tasks=3,
                    additional_settings=additional_settings)
     # Test approach with unrecognized search algorithm.
-    additional_settings = {
-        "grammar_search_search_algorithm": "not a real search algorithm",
-        "grammar_search_gbfs_num_evals": 10,
-    }
+    additional_settings["grammar_search_search_algorithm"] = \
+        "not a real search algorithm"
     with pytest.raises(Exception) as e:
         _test_approach(env_name="cover",
                        approach_name="grammar_search_invention",
@@ -225,10 +278,7 @@ def test_grammar_search_invention_approach():
                        additional_settings=additional_settings)
     assert "Unrecognized grammar_search_search_algorithm" in str(e.value)
     # Test approach with gbfs.
-    additional_settings = {
-        "grammar_search_search_algorithm": "gbfs",
-        "grammar_search_gbfs_num_evals": 10,
-    }
+    additional_settings["grammar_search_search_algorithm"] = "gbfs"
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",

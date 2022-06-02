@@ -9,8 +9,9 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.ml_models import BinaryClassifier, MLPBinaryClassifier, \
-    NeuralGaussianRegressor
+from predicators.src.ml_models import BinaryClassifier, \
+    DegenerateMLPDistributionRegressor, DistributionRegressor, \
+    MLPBinaryClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -129,6 +130,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     positive_data, negative_data = _create_sampler_data(
         datastores, variables, preconditions, add_effects, delete_effects,
         param_option, datastore_idx)
+    logging.info(f"Generated {len(positive_data)} positive and "
+                 f"{len(negative_data)} negative examples")
 
     # Fit classifier to data
     logging.info("Fitting classifier...")
@@ -186,13 +189,25 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
-    regressor = NeuralGaussianRegressor(
-        seed=CFG.seed,
-        hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
-        max_train_iters=CFG.neural_gaus_regressor_max_itr,
-        clip_gradients=CFG.mlp_regressor_clip_gradients,
-        clip_value=CFG.mlp_regressor_gradient_clip_value,
-        learning_rate=CFG.learning_rate)
+
+    if CFG.sampler_learning_regressor_model == "neural_gaussian":
+        regressor: DistributionRegressor = NeuralGaussianRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+            max_train_iters=CFG.neural_gaus_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate)
+    else:
+        assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+        regressor = DegenerateMLPDistributionRegressor(
+            seed=CFG.seed,
+            hid_sizes=CFG.mlp_regressor_hid_sizes,
+            max_train_iters=CFG.mlp_regressor_max_itr,
+            clip_gradients=CFG.mlp_regressor_clip_gradients,
+            clip_value=CFG.mlp_regressor_gradient_clip_value,
+            learning_rate=CFG.learning_rate)
+
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
@@ -207,21 +222,39 @@ def _create_sampler_data(
     datastore_idx: int
 ) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
-    positive_data = []
-    negative_data = []
+    # Populate all positive data.
+    positive_data: List[SamplerDatapoint] = []
+    for (segment, var_to_obj) in datastores[datastore_idx]:
+        option = segment.get_option()
+        state = segment.states[0]
+        if CFG.sampler_learning_use_goals:
+            # Right now, we're making the assumption that all data is
+            # demonstration data when we're learning samplers with goals.
+            # In the future, we may weaken this assumption.
+            goal = segment.get_goal()
+        else:
+            goal = None
+        assert all(
+            pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
+            for pre in preconditions)
+        positive_data.append((state, var_to_obj, option, goal))
+
+    # Populate all negative data.
+    negative_data: List[SamplerDatapoint] = []
+
+    if CFG.sampler_disable_classifier:
+        # If we disable the classifier, then we never provide
+        # negative examples, so that it always outputs 1.
+        return positive_data, negative_data
+
     for idx, datastore in enumerate(datastores):
         for (segment, var_to_obj) in datastore:
-            # Note: it should ALWAYS be the case that the segment has
-            # an option here. If options are learned, then earlier calls
-            # to update_segment_from_option_spec() should have set the
-            # option correctly to a learned one.
             option = segment.get_option()
             state = segment.states[0]
             if CFG.sampler_learning_use_goals:
                 # Right now, we're making the assumption that all data is
                 # demonstration data when we're learning samplers with goals.
                 # In the future, we may weaken this assumption.
-                assert segment.has_goal()
                 goal = segment.get_goal()
             else:
                 goal = None
@@ -232,22 +265,21 @@ def _create_sampler_data(
             var_types = [var.type for var in variables]
             objects = list(state)
             for grounding in utils.get_object_combinations(objects, var_types):
+                if len(negative_data
+                       ) >= CFG.sampler_learning_max_negative_data:
+                    # If we already have more negative examples
+                    # than the maximum specified in the config,
+                    # we don't add any more negative examples.
+                    return positive_data, negative_data
+
                 # If we are currently at the datastore that we're learning a
-                # sampler for, and this datapoint matches the actual grounding,
-                # add it to the positive data and continue.
+                # sampler for, and this datapoint matches the positive
+                # grounding, this was already added to the positive data, so
+                # we can continue.
                 if idx == datastore_idx:
-                    actual_grounding = [var_to_obj[var] for var in variables]
-                    if grounding == actual_grounding:
-                        assert all(
-                            pre.predicate.holds(
-                                state, [var_to_obj[v] for v in pre.variables])
-                            for pre in preconditions)
-                        positive_data.append((state, var_to_obj, option, goal))
+                    positive_grounding = [var_to_obj[var] for var in variables]
+                    if grounding == positive_grounding:
                         continue
-                if CFG.sampler_disable_classifier:
-                    # We disable the classifier by not providing it any
-                    # negative examples, so that it always outputs 1.
-                    continue
                 sub = dict(zip(variables, grounding))
                 # When building data for a datastore with effects X, if we
                 # encounter a transition with effects Y, and if Y is a superset
@@ -259,11 +291,10 @@ def _create_sampler_data(
                 if ground_add_effects.issubset(trans_add_effects) and \
                    ground_delete_effects.issubset(trans_delete_effects):
                     continue
+
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-    logging.info(f"Generated {len(positive_data)} positive and "
-                 f"{len(negative_data)} negative examples")
-    assert len(positive_data) == len(datastores[datastore_idx])
+
     return positive_data, negative_data
 
 
@@ -272,7 +303,7 @@ class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
     _classifier: BinaryClassifier
-    _regressor: NeuralGaussianRegressor
+    _regressor: DistributionRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 

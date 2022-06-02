@@ -11,6 +11,7 @@ from predicators.src.approaches.gnn_metacontroller_approach import \
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.gnn.gnn_utils import get_single_model_prediction
+from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Task, Type
@@ -33,6 +34,16 @@ class _MockGNNMetacontrollerApproach(GNNMetacontrollerApproach):
         return self._gnn
 
 
+class _MockOptionModel(_OptionModelBase):
+    """A mock option model that raises an EnvironmentFailure."""
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        raise utils.EnvironmentFailure("Mock env failure")
+
+
 @pytest.mark.parametrize("env_name,num_epochs", [("cover", 100),
                                                  ("cover_typed_options", 20)])
 def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
@@ -51,7 +62,7 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     approach = create_approach("gnn_metacontroller", env.predicates,
                                env.options, env.types, env.action_space,
                                train_tasks)
-    dataset = create_dataset(env, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
     with pytest.raises(AssertionError):  # haven't learned yet!
@@ -61,6 +72,12 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     # Try executing the policy.
     if num_epochs > 50:
         policy(task.init)  # should be able to sample an option
+        # Cover the case where a sampled option leads to an EnvironmentFailure.
+        approach._option_model = _MockOptionModel(env.simulate)  # pylint: disable=protected-access
+        policy = approach.solve(task, timeout=CFG.timeout)
+        with pytest.raises(ApproachFailure) as e:
+            policy(task.init)
+        assert "GNN metacontroller could not sample an option" in str(e)
     else:
         with pytest.raises(ApproachFailure) as e:
             policy(task.init)  # should NOT be able to sample an option

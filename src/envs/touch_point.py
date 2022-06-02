@@ -1,7 +1,9 @@
 """Toy environment for testing option learning."""
 
-from typing import ClassVar, Dict, List, Optional, Sequence, Set
+import logging
+from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -9,7 +11,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -97,11 +99,12 @@ class TouchPointEnv(BaseEnv):
         # An angle in radians.
         return Box(-np.pi, np.pi, (1, ))
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> List[Image]:
+    def render_state_plt(
+            self,
+            state: State,
+            task: Task,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         robot_color = "red"
         target_color = "blue"
@@ -121,9 +124,7 @@ class TouchPointEnv(BaseEnv):
             title += f";\n{caption}"
         plt.suptitle(title, wrap=True)
         plt.tight_layout()
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        return fig
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         # There is only one goal in this environment.
@@ -177,3 +178,22 @@ class TouchPointEnv(BaseEnv):
         ty = state.get(target, "y")
         dist = np.sqrt((rx - tx)**2 + (ry - ty)**2)
         return dist < self.action_magnitude * self.touch_multiplier
+
+    def get_event_to_action_fn(
+            self) -> Callable[[State, matplotlib.backend_bases.Event], Action]:
+        logging.info("Controls: mouse click to move")
+
+        def _event_to_action(state: State,
+                             event: matplotlib.backend_bases.Event) -> Action:
+            assert event.key is None, "Keyboard controls not allowed."
+            rx = state.get(self._robot, "x")
+            ry = state.get(self._robot, "y")
+            tx = event.xdata
+            ty = event.ydata
+            assert tx is not None and ty is not None, "Out-of-bounds click"
+            dx = tx - rx
+            dy = ty - ry
+            rot = np.arctan2(dy, dx)  # between -pi and pi
+            return Action(np.array([rot], dtype=np.float32))
+
+        return _event_to_action

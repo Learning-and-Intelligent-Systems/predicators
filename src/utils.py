@@ -3,29 +3,32 @@
 from __future__ import annotations
 
 import abc
+import contextlib
 import functools
 import gc
 import heapq as hq
+import io
 import itertools
 import logging
 import os
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
-    FrozenSet, Generic, Hashable, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+    FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
 import imageio
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pathos.multiprocessing as mp
 from gym.spaces import Box
 from matplotlib import patches
-from matplotlib import pyplot as plt
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
@@ -39,6 +42,8 @@ from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
     STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option, _TypedEntity
+from predicators.third_party.fast_downward_translator.translate import \
+    main as downward_translate
 
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -50,6 +55,7 @@ def count_positives_for_ops(
     strips_ops: List[STRIPSOperator],
     option_specs: List[OptionSpec],
     segments: List[Segment],
+    max_groundings: Optional[int] = None,
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
@@ -63,7 +69,7 @@ def count_positives_for_ops(
     # The following two lists are just useful for debugging.
     true_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
     false_positive_idxs: List[Set[int]] = [set() for _ in strips_ops]
-    for idx, segment in enumerate(segments):
+    for seg_idx, segment in enumerate(segments):
         objects = set(segment.states[0])
         segment_option = segment.get_option()
         option_objects = segment_option.objects
@@ -82,17 +88,21 @@ def count_positives_for_ops(
             # segment. So, determine all of the operator variables
             # that are not in the option vars, and consider all
             # groundings of them.
-            for ground_op in all_ground_operators_given_partial(
-                    op, objects, option_var_to_obj):
+            for grounding_idx, ground_op in enumerate(
+                    all_ground_operators_given_partial(op, objects,
+                                                       option_var_to_obj)):
+                if max_groundings is not None and \
+                   grounding_idx > max_groundings:
+                    break
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(segment.init_atoms):
                     continue
                 if ground_op.add_effects == segment.add_effects and \
                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
-                    true_positive_idxs[op_idx].add(idx)
+                    true_positive_idxs[op_idx].add(seg_idx)
                 else:
-                    false_positive_idxs[op_idx].add(idx)
+                    false_positive_idxs[op_idx].add(seg_idx)
                     num_false_positives += 1
         if covered_by_some_op:
             num_true_positives += 1
@@ -470,7 +480,7 @@ def line_segment_intersects_circle(seg: LineSegment,
     b = (seg.x2, seg.y2)
     ba = np.subtract(b, a)
     ca = np.subtract(c, a)
-    da = ba * np.dot(ca, ba) / np.dot(ba, ba)  # type: ignore
+    da = ba * np.dot(ca, ba) / np.dot(ba, ba)
     # The point on the extended line that is the closest to the center.
     d = dx, dy = (a[0] + da[0], a[1] + da[1])
     # Optionally plot the important points.
@@ -503,6 +513,10 @@ def line_segment_intersects_rectangle(seg: LineSegment,
 
 def rectangle_intersects_circle(rect: Rectangle, circ: Circle) -> bool:
     """Checks if a rectangle intersects a circle."""
+    # Optimization: if the circumscribed circle of the rectangle doesn't
+    # intersect with the circle, then there can't be an intersection.
+    if not circles_intersect(rect.circumscribed_circle, circ):
+        return False
     # Case 1: the circle's center is in the rectangle.
     if rect.contains_point(circ.x, circ.y):
         return True
@@ -789,6 +803,16 @@ class SingletonParameterizedOption(ParameterizedOption):
                          terminal=_terminal)
 
 
+class BehaviorState(State):
+    """A Behavior state that stores the index of the temporary behavior state
+    folder in addition to the features that are exposed in the object-centric
+    state."""
+
+    def allclose(self, other: State) -> bool:
+        # Ignores the simulator state.
+        return State(self.data).allclose(State(other.data))
+
+
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint states in addition to the
     features that are exposed in the object-centric state."""
@@ -852,20 +876,25 @@ def run_policy(
     metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 start_time = time.time()
                 act = policy(state)
                 metrics["policy_call_time"] += time.time() - start_time
-                state = env.step(act)
+                # Note: it's important to call monitor.observe() before
+                # env.step(), because the monitor may use the environment's
+                # internal state.
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = env.step(act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
@@ -910,18 +939,20 @@ def run_policy_with_simulator(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
+            monitor_observed = False
             try:
                 act = policy(state)
-                state = simulator(state, act)
                 if monitor is not None:
                     monitor.observe(state, act)
+                    monitor_observed = True
+                state = simulator(state, act)
                 actions.append(act)
                 states.append(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
                     break
-                if monitor is not None:
+                if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
@@ -1209,6 +1240,7 @@ def _run_heuristic_search(
         get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
+        timeout: int = 10000000,
         lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
@@ -1229,9 +1261,10 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
+    start_time = time.time()
 
-    while len(queue) > 0 and num_expansions < max_expansions and \
-        num_evals < max_evals:
+    while len(queue) > 0 and time.time() - start_time < timeout and \
+          num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -1242,8 +1275,10 @@ def _run_heuristic_search(
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
+            if time.time() - start_time >= timeout:
+                break
             child_path_cost = node.cumulative_cost + cost
-            # If we already found a better path to child, don't bother.
+            # If we already found a better path to this child, don't bother.
             if state_to_best_path_cost[child_state] <= child_path_cost:
                 continue
             # Add new node.
@@ -1294,12 +1329,13 @@ def run_gbfs(initial_state: _S,
              heuristic: Callable[[_S], float],
              max_expansions: int = 10000000,
              max_evals: int = 10000000,
+             timeout: int = 10000000,
              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
                                  get_priority, max_expansions, max_evals,
-                                 lazy_expansion)
+                                 timeout, lazy_expansion)
 
 
 def run_hill_climbing(
@@ -1580,6 +1616,27 @@ def all_ground_nsrts(nsrt: NSRT,
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
         yield nsrt.ground(choice)
+
+
+def all_ground_nsrts_fd_translator(
+        nsrts: Set[NSRT], objects: Collection[Object],
+        predicates: Set[Predicate], types: Set[Type],
+        init_atoms: Set[GroundAtom],
+        goal: Set[GroundAtom]) -> Iterator[_GroundNSRT]:
+    """Get all possible groundings of the given set of NSRTs with the given
+    objects, using Fast Downward's translator for efficiency."""
+    nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+    obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+    dom_str = create_pddl_domain(nsrts, predicates, types, "mydomain")
+    prob_str = create_pddl_problem(objects, init_atoms, goal, "mydomain",
+                                   "myproblem")
+    with nostdout():
+        sas_task = downward_translate(dom_str, prob_str)
+    for operator in sas_task.operators:
+        split_name = operator.name[1:-1].split()  # strip out ( and )
+        nsrt = nsrt_name_to_nsrt[split_name[0]]
+        objs = [obj_name_to_obj[name] for name in split_name[1:]]
+        yield nsrt.ground(objs)
 
 
 def all_ground_predicates(pred: Predicate,
@@ -2005,7 +2062,7 @@ class VideoMonitor(Monitor):
     because the environment should use its current internal state to
     render.
     """
-    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
+    _render_fn: Callable[[Optional[Action], Optional[str]], Video]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
@@ -2025,7 +2082,7 @@ class SimulateVideoMonitor(Monitor):
     opposed to VideoMonitor, which is meant for use with run_policy.
     """
     _task: Task
-    _render_state_fn: Callable[[State, Task, Optional[Action]], List[Image]]
+    _render_state_fn: Callable[[State, Task, Optional[Action]], Video]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
@@ -2077,9 +2134,7 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.frombuffer(
-        fig.canvas.tostring_argb(),  # type: ignore
-        dtype=np.uint8).copy()
+    data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).copy()
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (4, ))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
@@ -2161,7 +2216,7 @@ def get_config_path_str(experiment_id: Optional[str] = None) -> str:
     if experiment_id is None:
         experiment_id = CFG.experiment_id
     return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
-            f"__{experiment_id}")
+            f"__{CFG.included_options}__{experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
@@ -2275,6 +2330,23 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
+def parse_config_included_options(env: BaseEnv) -> Set[ParameterizedOption]:
+    """Parse the CFG.included_options string, given an environment.
+
+    Return the set of included oracle options.
+
+    Note that "all" is not implemented because setting the option_learner flag
+    to "no_learning" is the preferred way to include all options.
+    """
+    if not CFG.included_options:
+        return set()
+    included_names = set(CFG.included_options.split(","))
+    assert included_names.issubset({option.name for option in env.options}), \
+        "Unrecognized option in included_options!"
+    included_options = {o for o in env.options if o.name in included_names}
+    return included_options
+
+
 def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
@@ -2293,3 +2365,29 @@ def get_all_subclasses(cls: Any) -> Set[Any]:
     """Get all subclasses of the given class."""
     return set(cls.__subclasses__()).union(
         [s for c in cls.__subclasses__() for s in get_all_subclasses(c)])
+
+
+class _DummyFile(io.StringIO):
+    """Dummy file object used by nostdout()."""
+
+    def write(self, _: Any) -> int:
+        """Mock write() method."""
+        return 0
+
+    def flush(self) -> None:
+        """Mock flush() method."""
+
+
+@contextlib.contextmanager
+def nostdout() -> Generator[None, None, None]:
+    """Suppress output for a block of code.
+
+    To use, wrap code in the statement `with utils.nostdout():`. Note
+    that calls to the logging library, which this codebase uses
+    primarily, are unaffected. So, this utility is mostly helpful when
+    calling third-party code.
+    """
+    save_stdout = sys.stdout
+    sys.stdout = _DummyFile()
+    yield
+    sys.stdout = save_stdout

@@ -43,6 +43,7 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         learned_pnads = self._learn()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+            logging.info("\nRunning harmlessness check...")
             assert self._check_harmlessness(learned_pnads)
         min_data = max(CFG.min_data_for_nsrt,
                        self._num_segments * CFG.min_perc_data_for_nsrt / 100)
@@ -213,8 +214,20 @@ class BaseSTRIPSLearner(abc.ABC):
                     if param_opt != segment_param_option:
                         continue
                     isub = dict(zip(opt_vars, segment_option_objs))
+                    if segment in pnad.seg_to_keep_effects_sub:
+                        # If there are any variables only in the keep effects,
+                        # their mappings should be put into isub, since their
+                        # grounding is underconstrained by the segment itself.
+                        keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
+                        for var in pnad.op.parameters:
+                            if var in keep_eff_sub:
+                                assert var not in isub
+                                isub[var] = keep_eff_sub[var]
                     for ground_op in utils.all_ground_operators_given_partial(
                             pnad.op, objects, isub):
+                        if len(ground_op.objects) != len(set(
+                                ground_op.objects)):
+                            continue
                         # If the preconditions don't hold in the segment's
                         # initial atoms, skip.
                         if not ground_op.preconditions.issubset(
