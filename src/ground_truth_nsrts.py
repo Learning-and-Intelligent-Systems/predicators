@@ -60,7 +60,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_doors_gt_nsrts()
     elif CFG.env == "coffee":
         nsrts = _get_coffee_gt_nsrts()
-    elif CFG.env == "satellites":
+    elif CFG.env in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")

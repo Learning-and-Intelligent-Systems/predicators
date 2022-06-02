@@ -576,3 +576,23 @@ class SatellitesEnv(BaseEnv):
                abs(state.get(ent, "y") - y) < 1e-6:
                 return ent
         return None
+
+
+class SatellitesSimpleEnv(SatellitesEnv):
+    """A simple version of the SatellitesEnv that only ever has 1 object."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "satellites_simple"
+
+    def _generate_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               num_sat_lst=CFG.satellites_num_sat_train,
+                               num_obj_lst=[1],
+                               rng=self._train_rng)
+
+    def _generate_test_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               num_sat_lst=CFG.satellites_num_sat_test,
+                               num_obj_lst=[1],
+                               rng=self._test_rng)
