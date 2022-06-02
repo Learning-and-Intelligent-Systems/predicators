@@ -1,13 +1,11 @@
 """Test cases for the satellites environment."""
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pytest
 
 from predicators.src import utils
 from predicators.src.envs.satellites import SatellitesEnv
-from predicators.src.structs import Action, GroundAtom, Task
+from predicators.src.structs import Action
 
 
 def test_satellites():
