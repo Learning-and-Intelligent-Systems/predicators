@@ -38,6 +38,8 @@ class GlobalSettings:
     segmenter = "option_changes"
     # The method to use for generating demonstrations: "oracle" or "human".
     demonstrator = "oracle"
+    # DPI for rendering the state. Increase this if video quality is poor.
+    render_state_dpi = 150
 
     # cover env parameters
     cover_num_blocks = 2
@@ -158,7 +160,6 @@ class GlobalSettings:
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
-    coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
     # parameters for random options approach

@@ -2173,7 +2173,7 @@ def create_video_from_partial_refinements(
                               f"{CFG.failure_video_mode}.")
 
 
-def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
+def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
     fig.canvas.draw()
