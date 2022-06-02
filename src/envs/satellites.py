@@ -19,9 +19,7 @@ an infrared reading, the object must first be shot with Chemical Y. Geiger
 readings can be taken without any sort of chemical reaction.
 """
 
-import logging
-from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
-    Tuple
+from typing import ClassVar, Dict, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -38,10 +36,10 @@ from predicators.src.structs import Action, Array, GroundAtom, Object, \
 class SatellitesEnv(BaseEnv):
     """A 2D continuous satellites domain loosely inspired by the IPC domain of
     the same name."""
-    radius = 0.02
-    init_padding = 0.05
-    fov_angle = np.pi / 4
-    fov_dist = 0.3
+    radius: ClassVar[float] = 0.02
+    init_padding: ClassVar[float] = 0.05
+    fov_angle: ClassVar[float] = np.pi / 4
+    fov_dist: ClassVar[float] = 0.3
 
     def __init__(self) -> None:
         super().__init__()
@@ -245,7 +243,10 @@ class SatellitesEnv(BaseEnv):
             x = state.get(sat, "x")
             y = state.get(sat, "y")
             circ = utils.Circle(x, y, self.radius)
-            circ.plot(ax, facecolor=color, edgecolor="black", alpha=0.75,
+            circ.plot(ax,
+                      facecolor=color,
+                      edgecolor="black",
+                      alpha=0.75,
                       linewidth=0.1)
             tri = self._get_fov_geom(state, sat)
             tri.plot(ax, color="purple", alpha=0.25, linewidth=0)
@@ -319,11 +320,11 @@ class SatellitesEnv(BaseEnv):
                 }
             # Ensure that at least one satellite shoots Chemical X.
             if not some_sat_shoots_chem_x:
-                sat = rng.choice(sats)
+                sat = sats[rng.choice(len(sats))]
                 state_dict[sat]["shoots_chem_x"] = 1.0
             # Ensure that at least one satellite shoots Chemical Y.
             if not some_sat_shoots_chem_y:
-                sat = rng.choice(sats)
+                sat = sats[rng.choice(len(sats))]
                 state_dict[sat]["shoots_chem_y"] = 1.0
             objs = [Object(f"obj{i}", self._obj_type) for i in range(num_obj)]
             # Sample initial positions for objects, making sure to keep
@@ -351,7 +352,7 @@ class SatellitesEnv(BaseEnv):
             for sat in sats:
                 # For each satellite, choose an object for it to read, and
                 # add a goal atom based on the satellite's instrument.
-                goal_obj_for_sat = rng.choice(objs)
+                goal_obj_for_sat = objs[rng.choice(len(objs))]
                 if self._HasCamera_holds(init_state, [sat]):
                     goal_pred = self._CameraReadingTaken
                 elif self._HasInfrared_holds(init_state, [sat]):
@@ -375,14 +376,14 @@ class SatellitesEnv(BaseEnv):
         if not triangle.contains_point(obj_x, obj_y):
             return False
         # Now check if the line of sight is occluded by another entity.
-        dist_denom = np.sqrt((sat_x - obj_x) ** 2 + (sat_y - obj_y) ** 2)
+        dist_denom = np.sqrt((sat_x - obj_x)**2 + (sat_y - obj_y)**2)
         for ent in state:
             if ent in (sat, obj):
                 continue
             ent_x = state.get(ent, "x")
             ent_y = state.get(ent, "y")
-            dist = abs((obj_x - sat_x) * (sat_y - ent_y) -
-                        (sat_x - ent_x) * (obj_y - sat_y)) / dist_denom
+            dist = abs((obj_x - sat_x) * (sat_y - ent_y) - (sat_x - ent_x) *
+                       (obj_y - sat_y)) / dist_denom
             if dist < self.radius * 2:
                 return False
         return True
@@ -542,8 +543,7 @@ class SatellitesEnv(BaseEnv):
         return Action(arr)
 
     def _get_all_circles(self, state: State) -> Set[utils.Circle]:
-        """Get all entities in the state as utils.Circle objects.
-        """
+        """Get all entities in the state as utils.Circle objects."""
         circles = set()
         for ent in state:
             x = state.get(ent, "x")
@@ -566,8 +566,8 @@ class SatellitesEnv(BaseEnv):
 
     @staticmethod
     def _xy_to_entity(state: State, x: float, y: float) -> Object:
-        """Given x/y coordinates, return the entity (satellite or object)
-        at those coordinates."""
+        """Given x/y coordinates, return the entity (satellite or object) at
+        those coordinates."""
         for ent in state:
             if abs(state.get(ent, "x") - x) < 1e-6 and \
                abs(state.get(ent, "y") - y) < 1e-6:

@@ -13,9 +13,9 @@ from predicators.src.envs.doors import DoorsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.satellites import SatellitesEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.satellites import SatellitesEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, GroundAtom, LiftedAtom, \
@@ -2574,11 +2574,11 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
     parameters = [sat, obj]
     option_vars = [sat, obj]
     option = MoveTo
-    preconditions = set()
+    preconditions: Set[LiftedAtom] = set()
     add_effects = {
         LiftedAtom(Sees, [sat, obj]),
     }
-    delete_effects = set()
+    delete_effects: Set[LiftedAtom] = set()
     side_predicates = {Sees}
 
     def moveto_sampler(state: State, goal: Set[GroundAtom],
