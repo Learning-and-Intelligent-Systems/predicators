@@ -13,6 +13,7 @@ from predicators.src.envs.doors import DoorsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.satellites import SatellitesEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
@@ -2581,12 +2582,19 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
     side_predicates = {Sees}
 
     def moveto_sampler(state: State, goal: Set[GroundAtom],
-                       _rng: np.random.Generator,
+                       rng: np.random.Generator,
                        objs: Sequence[Object]) -> Array:
         del goal  # unused
-        import ipdb; ipdb.set_trace()
-        y = state.get(objs[1], "pose_y")
-        return np.array([y], dtype=np.float32)
+        _, obj = objs
+        obj_x = state.get(obj, "x")
+        obj_y = state.get(obj, "y")
+        min_dist = SatellitesEnv.radius * 4
+        max_dist = SatellitesEnv.fov_dist - SatellitesEnv.radius * 2
+        dist = rng.uniform(min_dist, max_dist)
+        angle = rng.uniform(-np.pi, np.pi)
+        x = obj_x + dist * np.cos(angle)
+        y = obj_y + dist * np.sin(angle)
+        return np.array([x, y], dtype=np.float32)
 
     moveto_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
                        delete_effects, side_predicates, option, option_vars,

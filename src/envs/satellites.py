@@ -33,14 +33,12 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
-from predicators.src.utils import SingletonParameterizedOption, Triangle
 
 
 class SatellitesEnv(BaseEnv):
     """A 2D continuous satellites domain loosely inspired by the IPC domain of
     the same name."""
-    sat_radius = 0.02
-    obj_radius = 0.02
+    radius = 0.02
     init_padding = 0.05
     fov_angle = np.pi / 4
     fov_dist = 0.3
@@ -88,24 +86,24 @@ class SatellitesEnv(BaseEnv):
                                              self._GeigerReadingTaken_holds)
 
         # Options
-        self._MoveTo = SingletonParameterizedOption(
+        self._MoveTo = utils.SingletonParameterizedOption(
             "MoveTo",
             types=[self._sat_type, self._obj_type],
             params_space=Box(0, 1, (2, )),  # target absolute x/y
             policy=self._MoveTo_policy)
-        self._Calibrate = SingletonParameterizedOption(
+        self._Calibrate = utils.SingletonParameterizedOption(
             "Calibrate",
             types=[self._sat_type, self._obj_type],
             policy=self._Calibrate_policy)
-        self._ShootChemX = SingletonParameterizedOption(
+        self._ShootChemX = utils.SingletonParameterizedOption(
             "ShootChemX",
             types=[self._sat_type, self._obj_type],
             policy=self._ShootChemX_policy)
-        self._ShootChemY = SingletonParameterizedOption(
+        self._ShootChemY = utils.SingletonParameterizedOption(
             "ShootChemY",
             types=[self._sat_type, self._obj_type],
             policy=self._ShootChemY_policy)
-        self._UseInstrument = SingletonParameterizedOption(
+        self._UseInstrument = utils.SingletonParameterizedOption(
             "UseInstrument",
             types=[self._sat_type, self._obj_type],
             policy=self._UseInstrument_policy)
@@ -116,8 +114,70 @@ class SatellitesEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        # TODO: disallow collisions while moving
-        import ipdb; ipdb.set_trace()
+        # Note: target_sat_x and target_sat_y are only used if we're not
+        # doing calibration, shooting Chemical X or Y, or using an instrument.
+        cur_sat_x, cur_sat_y, obj_x, obj_y, target_sat_x, target_sat_y, \
+            calibrate, shoot_chem_x, shoot_chem_y, use_instrument = action.arr
+        sat = self._xy_to_entity(state, cur_sat_x, cur_sat_y)
+        obj = self._xy_to_entity(state, obj_x, obj_y)
+        next_state = state.copy()
+        if calibrate > 0.5:
+            # Handle calibration.
+            if not self._Sees_holds(state, [sat, obj]):
+                # Cannot calibrate if the satellite cannot see the object.
+                return next_state
+            if not self._CalibrationTarget_holds(state, [sat, obj]):
+                # Cannot calibrate against the wrong object.
+                return next_state
+            next_state.set(sat, "is_calibrated", 1.0)
+        elif shoot_chem_x > 0.5:
+            # Handle shooting Chemical X.
+            if not self._Sees_holds(state, [sat, obj]):
+                # Cannot shoot if the satellite cannot see the object.
+                return next_state
+            if not self._ShootsChemX_holds(state, [sat]):
+                # Cannot shoot if the satellite doesn't have this chemical.
+                return next_state
+            next_state.set(obj, "has_chem_x", 1.0)
+        elif shoot_chem_y > 0.5:
+            # Handle shooting Chemical Y.
+            if not self._Sees_holds(state, [sat, obj]):
+                # Cannot shoot if the satellite cannot see the object.
+                return next_state
+            if not self._ShootsChemY_holds(state, [sat]):
+                # Cannot shoot if the satellite doesn't have this chemical.
+                return next_state
+            next_state.set(obj, "has_chem_y", 1.0)
+        elif use_instrument > 0.5:
+            # Handle using the instrument on this satellite.
+            if not self._Sees_holds(state, [sat, obj]):
+                # Cannot take a reading if the satellite cannot see the object.
+                return next_state
+            if not self._IsCalibrated_holds(state, [sat]):
+                # Cannot take a reading if the satellite is not calibrated.
+                return next_state
+            if self._HasCamera_holds(state, [sat]) and \
+               not self._HasChemX_holds(state, [obj]):
+                # Cannot take a camera reading without Chemical X.
+                return next_state
+            if self._HasInfrared_holds(state, [sat]) and \
+               not self._HasChemY_holds(state, [obj]):
+                # Cannot take an infrared reading without Chemical Y.
+                return next_state
+            next_state.set(sat, "read_obj_id", state.get(obj, "id"))
+        else:
+            # Handle moving.
+            cur_circles = self._get_all_circles(state)
+            proposed_circle = utils.Circle(target_sat_x, target_sat_y,
+                                           self.radius)
+            if any(circ.intersects(proposed_circle) for circ in cur_circles):
+                # Cannot move to a location that is in collision.
+                return next_state
+            next_state.set(sat, "x", target_sat_x)
+            next_state.set(sat, "y", target_sat_y)
+            theta = np.arctan2(obj_y - target_sat_y, obj_x - target_sat_x)
+            next_state.set(sat, "theta", theta)
+        return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks,
@@ -177,6 +237,7 @@ class SatellitesEnv(BaseEnv):
                    num_obj_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
+        radius = self.radius + self.init_padding
         for _ in range(num):
             state_dict = {}
             num_sat = num_sat_lst[rng.choice(len(num_sat_lst))]
@@ -185,7 +246,6 @@ class SatellitesEnv(BaseEnv):
             # Sample initial positions for satellites, making sure to keep
             # them far enough apart from one another.
             collision_geoms: Set[utils.Circle] = set()
-            radius = self.sat_radius + self.init_padding
             some_sat_shoots_chem_x = False
             some_sat_shoots_chem_y = False
             for sat in sats:
@@ -215,7 +275,7 @@ class SatellitesEnv(BaseEnv):
                     "instrument": instrument,
                     "calibration_obj_id": calibration_obj_id,
                     "is_calibrated": 0.0,
-                    "read_obj_id": 0.0,
+                    "read_obj_id": -1.0,  # dummy, different from all obj IDs
                     "shoots_chem_x": shoots_chem_x,
                     "shoots_chem_y": shoots_chem_y
                 }
@@ -230,7 +290,6 @@ class SatellitesEnv(BaseEnv):
             objs = [Object(f"obj{i}", self._obj_type) for i in range(num_obj)]
             # Sample initial positions for objects, making sure to keep
             # them far enough apart from one another and from satellites.
-            radius = self.obj_radius + self.init_padding
             for i, obj in enumerate(objs):
                 # Assuming that the dimensions are forgiving enough that
                 # infinite loops are impossible.
@@ -269,11 +328,26 @@ class SatellitesEnv(BaseEnv):
     def _Sees_holds(self, state: State, objects: Sequence[Object]) -> bool:
         sat, obj = objects
         triangle = self._get_fov_geom(state, sat)
+        sat_x = state.get(sat, "x")
+        sat_y = state.get(sat, "y")
         obj_x = state.get(obj, "x")
         obj_y = state.get(obj, "y")
-        # Note: we say that Sees holds only if the center of the object
+        # Note: we require only that the center of the object
         # is in the view cone, ignoring the object's radius.
-        return triangle.contains_point(obj_x, obj_y)
+        if not triangle.contains_point(obj_x, obj_y):
+            return False
+        # Now check if the line of sight is occluded by another entity.
+        dist_denom = np.sqrt((sat_x - obj_x) ** 2 + (sat_y - obj_y) ** 2)
+        for ent in state:
+            if ent == sat or ent == obj:
+                continue
+            ent_x = state.get(ent, "x")
+            ent_y = state.get(ent, "y")
+            dist = abs((obj_x - sat_x) * (sat_y - ent_y) -
+                        (sat_x - ent_x) * (obj_y - sat_y)) / dist_denom
+            if dist < self.radius * 2:
+                return False
+        return True
 
     @staticmethod
     def _CalibrationTarget_holds(state: State,
@@ -429,7 +503,17 @@ class SatellitesEnv(BaseEnv):
                        dtype=np.float32)
         return Action(arr)
 
-    def _get_fov_geom(self, state: State, sat: Object) -> Triangle:
+    def _get_all_circles(self, state: State) -> Set[utils.Circle]:
+        """Get all entities in the state as utils.Circle objects.
+        """
+        circles = set()
+        for ent in state:
+            x = state.get(ent, "x")
+            y = state.get(ent, "y")
+            circles.add(utils.Circle(x, y, self.radius))
+        return circles
+
+    def _get_fov_geom(self, state: State, sat: Object) -> utils.Triangle:
         """Get the FOV of the given satellite as a utils.Triangle."""
         x1 = state.get(sat, "x")
         y1 = state.get(sat, "y")
@@ -440,4 +524,14 @@ class SatellitesEnv(BaseEnv):
         theta_high = theta_mid + self.fov_angle / 2.0
         x3 = x1 + self.fov_dist * np.cos(theta_high)
         y3 = y1 + self.fov_dist * np.sin(theta_high)
-        return Triangle(x1, y1, x2, y2, x3, y3)
+        return utils.Triangle(x1, y1, x2, y2, x3, y3)
+
+    @staticmethod
+    def _xy_to_entity(state: State, x: float, y: float) -> Object:
+        """Given x/y coordinates, return the entity (satellite or object)
+        at those coordinates."""
+        for ent in state:
+            if abs(state.get(ent, "x") - x) < 1e-6 and \
+               abs(state.get(ent, "y") - y) < 1e-6:
+                return ent
+        raise Exception("No satellite or object at these coordinates!")
