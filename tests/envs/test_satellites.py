@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.envs.satellites import SatellitesEnv
+from predicators.src.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.src.structs import Action
 
 
 def test_satellites():
-    """Tests for SatellitesEnv()."""
+    """Tests for SatellitesEnv() and SatellitesSimpleEnv()."""
     utils.reset_config({
         "env": "satellites",
         "satellites_num_sat_train": [1],
@@ -52,6 +52,19 @@ def test_satellites():
     # so we'll just call render_state_plt() instead of render_state() here.
     env.render_state_plt(state, task)
     plt.close()
+    # Make sure that simple version of env works as expected.
+    utils.reset_config({
+        "env": "satellites_simple",
+        "satellites_num_sat_train": [1],
+        "satellites_num_obj_train": [100],
+        "satellites_num_sat_test": [1],
+        "satellites_num_obj_test": [100],
+    })
+    env = SatellitesSimpleEnv()
+    for task in env.get_train_tasks():
+        assert len(task.init.get_objects(obj_type)) == 1
+    for task in env.get_test_tasks():
+        assert len(task.init.get_objects(obj_type)) == 1
 
 
 def test_satellites_simulate_failures():
