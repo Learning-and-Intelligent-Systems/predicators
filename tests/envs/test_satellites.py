@@ -56,9 +56,9 @@ def test_satellites():
     utils.reset_config({
         "env": "satellites_simple",
         "satellites_num_sat_train": [1],
-        "satellites_num_obj_train": [100],
+        "satellites_num_obj_train": [100],  # should be unused
         "satellites_num_sat_test": [1],
-        "satellites_num_obj_test": [100],
+        "satellites_num_obj_test": [100],  # should be unused
     })
     env = SatellitesSimpleEnv()
     for task in env.get_train_tasks():
