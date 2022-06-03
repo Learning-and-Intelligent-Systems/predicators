@@ -5,8 +5,8 @@ There are some number of satellites, each carrying an instrument. The possible
 instruments are: (1) a camera, (2) an infrared sensor, (3) a Geiger counter.
 Additionally, each satellite may be able to shoot Chemical X and/or Chemical
 Y. The satellites have a viewing cone within which they can see everything
-that is not occluded. The goal is to take some number of readings with
-calibrated instruments.
+that is not occluded. The goal is for specific satellites to take readings
+of specific objects with calibrated instruments.
 
 The interesting challenges in this domain come from 2 things. (1) Because
 there are multiple satellites and also random objects floating around,
