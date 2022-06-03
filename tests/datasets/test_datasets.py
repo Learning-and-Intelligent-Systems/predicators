@@ -2,11 +2,13 @@
 
 import os
 import shutil
+from contextlib import nullcontext as does_not_raise
 
 import pytest
 
 from predicators.src import utils
 from predicators.src.datasets import create_dataset
+from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
@@ -56,6 +58,7 @@ def test_demo_dataset():
         assert traj.is_demo
         for action in traj.actions:
             assert action.has_option()
+    assert not dataset.has_annotations
     with pytest.raises(AssertionError):
         _ = dataset.annotations
     # Test that only options in the included_options flag are included
@@ -156,6 +159,70 @@ def test_demo_dataset():
     assert len(dataset.trajectories) == 1
     assert os.path.exists(video_file)
     shutil.rmtree(video_dir)
+
+
+@pytest.mark.parametrize(
+    "num_train_tasks,load_data,demonstrator,expectation,do_wipe_data_dir",
+    [(7, True, "oracle", pytest.raises(ValueError), True),
+     (7, False, "oracle", does_not_raise(), False),
+     (7, True, "oracle", does_not_raise(), False),
+     (7, True, "human", pytest.raises(ValueError), False),
+     (3, True, "oracle", does_not_raise(), False),
+     (10, True, "oracle", does_not_raise(), False)])
+def test_demo_dataset_loading(num_train_tasks, load_data, demonstrator,
+                              expectation, do_wipe_data_dir):
+    """Test demo-only dataset creation using `--load_data`."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "option_learner": "no_learning",
+        "num_train_tasks": num_train_tasks,
+        "load_data": load_data,
+        "demonstrator": demonstrator,
+    })
+    if do_wipe_data_dir:
+        shutil.rmtree(CFG.data_dir)
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    with expectation as e:
+        dataset = create_dataset(env, train_tasks, env.options)
+    if e is None:
+        assert len(dataset.trajectories) == num_train_tasks
+        assert all(traj.train_task_idx < len(train_tasks)
+                   for traj in dataset.trajectories)
+    else:
+        assert "Cannot load data" in str(e)
+
+
+@pytest.mark.parametrize(
+    "num_train_tasks,load_data,demonstrator,do_wipe_data_dir",
+    [(10, False, "oracle", True), (20, True, "oracle", False),
+     (8, True, "oracle", False)])
+def test_demo_dataset_loading_tricky_case(num_train_tasks, load_data,
+                                          demonstrator, do_wipe_data_dir):
+    """Test a tricky case of demo-only dataset creation using `--load_data`."""
+    utils.reset_config({
+        "env": "blocks",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        # Add a strong timeout to make planning fail sometimes.
+        "offline_data_planning_timeout": 0.01,
+        "option_learner": "no_learning",
+        "num_train_tasks": num_train_tasks,
+        "load_data": load_data,
+        "demonstrator": demonstrator,
+    })
+    if do_wipe_data_dir:
+        shutil.rmtree(CFG.data_dir)
+    env = BlocksEnv()
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks, env.options)
+    # Note the use of <= here rather than ==.
+    assert len(dataset.trajectories) <= num_train_tasks
+    assert all(traj.train_task_idx < len(train_tasks)
+               for traj in dataset.trajectories)
 
 
 def test_demo_replay_dataset():
@@ -275,11 +342,13 @@ def test_dataset_with_annotations():
         dataset = Dataset(trajectories, [])
     annotations = ["label" for _ in trajectories]
     dataset = Dataset(list(trajectories), list(annotations))
+    assert dataset.has_annotations
     assert dataset.annotations == annotations
     # Can't add a data point without an annotation.
     with pytest.raises(AssertionError):
         dataset.append(trajectories)
     dataset.append(trajectories[0], annotations[0])
+    assert dataset.has_annotations
     assert len(dataset.trajectories) == len(dataset.annotations) == \
         len(trajectories) + 1
 

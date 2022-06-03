@@ -586,6 +586,12 @@ def test_operators_and_nsrts(state):
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Side Predicates: [On]
     Option Spec: Pick()"""
+    assert str(nsrt.op) == repr(nsrt.op) == """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
     assert isinstance(hash(nsrt), int)
     nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
                  delete_effects, side_predicates, parameterized_option, [],
@@ -650,15 +656,6 @@ def test_operators_and_nsrts(state):
     Side Predicates: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
-
-
-def test_datasets(state):
-    """Tests for ActionDatasets and OptionDatasets."""
-    action = np.zeros(3, dtype=np.float32)
-    transition = [state, action, state]
-    dataset = [transition]
-    assert len(dataset) == 1
-    assert dataset[0] == transition
 
 
 def test_action():

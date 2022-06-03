@@ -38,6 +38,12 @@ class GlobalSettings:
     segmenter = "option_changes"
     # The method to use for generating demonstrations: "oracle" or "human".
     demonstrator = "oracle"
+    # DPI for rendering the state. Increase this if video quality is poor.
+    # Note that for unit testing, we use a much smaller value by default,
+    # which is set in utils.reset_config(). If you want higher-quality videos
+    # in unit tests, make sure to pass in a value for `render_state_dpi` into
+    # your call to utils.reset_config().
+    render_state_dpi = 150
 
     # cover env parameters
     cover_num_blocks = 2
@@ -158,8 +164,13 @@ class GlobalSettings:
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
-    coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
+
+    # satellites env parameters
+    satellites_num_sat_train = [2, 3]
+    satellites_num_obj_train = [3, 4]
+    satellites_num_sat_test = [3, 4]
+    satellites_num_obj_test = [4, 5]
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -226,6 +237,7 @@ class GlobalSettings:
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
     cluster_and_intersect_prederror_max_groundings = 10
