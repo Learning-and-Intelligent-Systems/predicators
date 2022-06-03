@@ -22,6 +22,7 @@ from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.src.envs.screws import ScrewsEnv
 from predicators.src.envs.stick_button import StickButtonEnv
 from predicators.src.envs.tools import ToolsEnv
@@ -40,6 +41,7 @@ ENV_NAME_AND_CLS = [
     ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
+    ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),

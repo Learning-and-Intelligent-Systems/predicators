@@ -166,6 +166,12 @@ class GlobalSettings:
     coffee_num_cups_test = [2, 3]
     coffee_jug_init_rot_amt = 2 * np.pi / 3
 
+    # satellites env parameters
+    satellites_num_sat_train = [2, 3]
+    satellites_num_obj_train = [3, 4]
+    satellites_num_sat_test = [3, 4]
+    satellites_num_obj_test = [4, 5]
+
     # parameters for random options approach
     random_options_max_tries = 100
 
