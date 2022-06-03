@@ -9,7 +9,7 @@ that is not occluded. The goal is to take some number of readings with
 calibrated instruments.
 
 The interesting challenges in this domain come from 2 things. (1) Because
-there are multiple satellites and also random objects floating around, so
+there are multiple satellites and also random objects floating around,
 moving to a particular target will not guarantee that the satellite can
 actually see this target. It may be that the target is occluded, and this will
 not be modeled at the high level. (2) Some coordination amongst the satellites
@@ -40,10 +40,19 @@ class SatellitesEnv(BaseEnv):
     init_padding: ClassVar[float] = 0.05
     fov_angle: ClassVar[float] = np.pi / 4
     fov_dist: ClassVar[float] = 0.3
+    id_tol: ClassVar[float] = 1e-3
+    location_tol: ClassVar[float] = 1e-3
 
     def __init__(self) -> None:
         super().__init__()
         # Types
+        ## `instrument` can be camera (0.0 - 0.33), infrared (0.33 - 0.66), or
+        ## Geiger (0.66 - 1.0). `calibration_obj_id` is the ID of the object
+        ## that this satellite can be calibrated against. `read_obj_id` is the
+        ## ID of the object that this satellite has read (used its instrument
+        ## on), if any. The `read_obj_id` for every satellite is always -1 (a
+        ## dummy value) in the initial state of every task. The task goals
+        ## require setting each `read_obj_id` to particular values.
         self._sat_type = Type("satellite", [
             "x", "y", "theta", "instrument", "calibration_obj_id",
             "is_calibrated", "read_obj_id", "shoots_chem_x", "shoots_chem_y"
@@ -383,6 +392,8 @@ class SatellitesEnv(BaseEnv):
         for ent in state:
             if ent in (sat, obj):
                 continue
+            # Compute the projection distance of this entity onto the line
+            # segment connecting `sat` and `obj`.
             ent_x = state.get(ent, "x")
             ent_y = state.get(ent, "y")
             dist = abs((obj_x - sat_x) * (sat_y - ent_y) - (sat_x - ent_x) *
@@ -391,11 +402,12 @@ class SatellitesEnv(BaseEnv):
                 return False
         return True
 
-    @staticmethod
-    def _CalibrationTarget_holds(state: State,
+    def _CalibrationTarget_holds(self, state: State,
                                  objects: Sequence[Object]) -> bool:
         sat, obj = objects
-        return state.get(sat, "calibration_obj_id") == state.get(obj, "id")
+        return abs(
+            state.get(sat, "calibration_obj_id") -
+            state.get(obj, "id")) < self.id_tol
 
     @staticmethod
     def _IsCalibrated_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -441,19 +453,22 @@ class SatellitesEnv(BaseEnv):
                                   objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasCamera_holds(state, [sat]) and \
-            state.get(sat, "read_obj_id") == state.get(obj, "id")
+            abs(state.get(sat, "read_obj_id") -
+                state.get(obj, "id")) < self.id_tol
 
     def _InfraredReadingTaken_holds(self, state: State,
                                     objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasInfrared_holds(state, [sat]) and \
-            state.get(sat, "read_obj_id") == state.get(obj, "id")
+            abs(state.get(sat, "read_obj_id") -
+                state.get(obj, "id")) < self.id_tol
 
     def _GeigerReadingTaken_holds(self, state: State,
                                   objects: Sequence[Object]) -> bool:
         sat, obj = objects
         return self._HasGeiger_holds(state, [sat]) and \
-            state.get(sat, "read_obj_id") == state.get(obj, "id")
+            abs(state.get(sat, "read_obj_id") -
+                state.get(obj, "id")) < self.id_tol
 
     @staticmethod
     def _MoveTo_policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -567,13 +582,13 @@ class SatellitesEnv(BaseEnv):
         y3 = y1 + self.fov_dist * np.sin(theta_high)
         return utils.Triangle(x1, y1, x2, y2, x3, y3)
 
-    @staticmethod
-    def _xy_to_entity(state: State, x: float, y: float) -> Optional[Object]:
+    def _xy_to_entity(self, state: State, x: float,
+                      y: float) -> Optional[Object]:
         """Given x/y coordinates, return the entity (satellite or object) at
         those coordinates."""
         for ent in state:
-            if abs(state.get(ent, "x") - x) < 1e-6 and \
-               abs(state.get(ent, "y") - y) < 1e-6:
+            if abs(state.get(ent, "x") - x) < self.location_tol and \
+               abs(state.get(ent, "y") - y) < self.location_tol:
                 return ent
         return None
 
