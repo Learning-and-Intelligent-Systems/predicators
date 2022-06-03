@@ -15,6 +15,7 @@ from predicators.src.envs.pddl_env import _PDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.satellites import SatellitesEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, GroundAtom, LiftedAtom, \
@@ -59,6 +60,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_doors_gt_nsrts()
     elif CFG.env == "coffee":
         nsrts = _get_coffee_gt_nsrts()
+    elif CFG.env in ("satellites", "satellites_simple"):
+        nsrts = _get_satellites_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2543,6 +2546,191 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
                                     side_predicates, option, option_vars,
                                     null_sampler)
     nsrts.add(pour_from_other_cup_nsrt)
+
+    return nsrts
+
+
+def _get_satellites_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for SatellitesEnv."""
+    sat_type, obj_type = _get_types_by_names(CFG.env, ["satellite", "object"])
+    Sees, CalibrationTarget, IsCalibrated, HasCamera, HasInfrared, HasGeiger, \
+        ShootsChemX, ShootsChemY, HasChemX, HasChemY, CameraReadingTaken, \
+        InfraredReadingTaken, GeigerReadingTaken = _get_predicates_by_names(
+            CFG.env, ["Sees", "CalibrationTarget", "IsCalibrated",
+                      "HasCamera", "HasInfrared", "HasGeiger",
+                      "ShootsChemX", "ShootsChemY", "HasChemX", "HasChemY",
+                      "CameraReadingTaken", "InfraredReadingTaken",
+                      "GeigerReadingTaken"])
+    MoveTo, Calibrate, ShootChemX, ShootChemY, UseInstrument = \
+        _get_options_by_names(
+            CFG.env, ["MoveTo", "Calibrate", "ShootChemX", "ShootChemY",
+                      "UseInstrument"])
+
+    nsrts = set()
+
+    # MoveTo
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = MoveTo
+    preconditions: Set[LiftedAtom] = set()
+    add_effects = {
+        LiftedAtom(Sees, [sat, obj]),
+    }
+    delete_effects: Set[LiftedAtom] = set()
+    side_predicates = {Sees}
+
+    def moveto_sampler(state: State, goal: Set[GroundAtom],
+                       rng: np.random.Generator,
+                       objs: Sequence[Object]) -> Array:
+        del goal  # unused
+        _, obj = objs
+        obj_x = state.get(obj, "x")
+        obj_y = state.get(obj, "y")
+        min_dist = SatellitesEnv.radius * 4
+        max_dist = SatellitesEnv.fov_dist - SatellitesEnv.radius * 2
+        dist = rng.uniform(min_dist, max_dist)
+        angle = rng.uniform(-np.pi, np.pi)
+        x = obj_x + dist * np.cos(angle)
+        y = obj_y + dist * np.sin(angle)
+        return np.array([x, y], dtype=np.float32)
+
+    moveto_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
+                       delete_effects, side_predicates, option, option_vars,
+                       moveto_sampler)
+    nsrts.add(moveto_nsrt)
+
+    # Calibrate
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = Calibrate
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(CalibrationTarget, [sat, obj]),
+    }
+    add_effects = {
+        LiftedAtom(IsCalibrated, [sat]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    calibrate_nsrt = NSRT("Calibrate", parameters, preconditions, add_effects,
+                          delete_effects, side_predicates, option, option_vars,
+                          null_sampler)
+    nsrts.add(calibrate_nsrt)
+
+    # ShootChemX
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = ShootChemX
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(ShootsChemX, [sat]),
+    }
+    add_effects = {
+        LiftedAtom(HasChemX, [obj]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    shoot_chem_x_nsrt = NSRT("ShootChemX", parameters, preconditions,
+                             add_effects, delete_effects, side_predicates,
+                             option, option_vars, null_sampler)
+    nsrts.add(shoot_chem_x_nsrt)
+
+    # ShootChemY
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = ShootChemY
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(ShootsChemY, [sat]),
+    }
+    add_effects = {
+        LiftedAtom(HasChemY, [obj]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    shoot_chem_y_nsrt = NSRT("ShootChemY", parameters, preconditions,
+                             add_effects, delete_effects, side_predicates,
+                             option, option_vars, null_sampler)
+    nsrts.add(shoot_chem_y_nsrt)
+
+    # TakeCameraReading
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = UseInstrument
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(IsCalibrated, [sat]),
+        LiftedAtom(HasCamera, [sat]),
+        # taking a camera reading requires Chemical X
+        LiftedAtom(HasChemX, [obj]),
+    }
+    add_effects = {
+        LiftedAtom(CameraReadingTaken, [sat, obj]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    take_camera_reading_nsrt = NSRT("TakeCameraReading", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    side_predicates, option, option_vars,
+                                    null_sampler)
+    nsrts.add(take_camera_reading_nsrt)
+
+    # TakeInfraredReading
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = UseInstrument
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(IsCalibrated, [sat]),
+        LiftedAtom(HasInfrared, [sat]),
+        # taking an infrared reading requires Chemical Y
+        LiftedAtom(HasChemY, [obj]),
+    }
+    add_effects = {
+        LiftedAtom(InfraredReadingTaken, [sat, obj]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    take_infrared_reading_nsrt = NSRT("TakeInfraredReading", parameters,
+                                      preconditions, add_effects,
+                                      delete_effects, side_predicates, option,
+                                      option_vars, null_sampler)
+    nsrts.add(take_infrared_reading_nsrt)
+
+    # TakeGeigerReading
+    sat = Variable("?sat", sat_type)
+    obj = Variable("?obj", obj_type)
+    parameters = [sat, obj]
+    option_vars = [sat, obj]
+    option = UseInstrument
+    preconditions = {
+        LiftedAtom(Sees, [sat, obj]),
+        LiftedAtom(IsCalibrated, [sat]),
+        LiftedAtom(HasGeiger, [sat]),
+        # taking a Geiger reading doesn't require any chemical
+    }
+    add_effects = {
+        LiftedAtom(GeigerReadingTaken, [sat, obj]),
+    }
+    delete_effects = set()
+    side_predicates = set()
+    take_geiger_reading_nsrt = NSRT("TakeGeigerReading", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    side_predicates, option, option_vars,
+                                    null_sampler)
+    nsrts.add(take_geiger_reading_nsrt)
 
     return nsrts
 
