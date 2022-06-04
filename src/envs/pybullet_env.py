@@ -188,7 +188,8 @@ class PyBulletEnv(BaseEnv):
         self._held_obj_id = None
 
         # Reset robot.
-        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        robot_state = self._extract_robot_state(state)
+        self._pybullet_robot.reset_state(robot_state)
 
     def render(
             self,

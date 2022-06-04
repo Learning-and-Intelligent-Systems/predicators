@@ -8,16 +8,19 @@ import time
 from itertools import chain
 from typing import Sequence, List, NamedTuple, TYPE_CHECKING, Dict
 
+import numpy as np
+
 from predicators.src import utils
 from predicators.src.pybullet_helpers.utils import matrix_from_quat
 from predicators.src.structs import JointsState, Pose3D
+from pybullet_tools.ikfast.ikfast import get_ik_joints
 from pybullet_tools.utils import (
     get_joint_positions,
     interval_generator,
     INF,
     joints_from_names,
     get_min_limits,
-    get_max_limits,
+    get_max_limits, get_length, get_difference_fn, wait_for_user,
 )
 
 """
@@ -65,6 +68,7 @@ def _install_ikfast_module(ikfast_dir: str) -> None:
     ]
     # Execute the command.
     cmd = "; ".join(cmds)
+    logging.debug(f"Executing command: {cmd}")
     os.system(cmd)
 
 
@@ -161,6 +165,7 @@ def ikfast_inverse_kinematics(
     # ipdb> self._joint_upper_limits[6]
     # 2.8973
     robot_obj = robot
+    current_conf = np.array(robot_obj.get_joints())[:7]
     robot = robot.robot_id
 
     max_distance = INF
@@ -194,9 +199,13 @@ def ikfast_inverse_kinematics(
         if solutions is None:
             continue
 
-        for conf in random.sample(solutions, len(solutions)):
-            # Check configuration is good
-            if not violates_limit(conf):
-                return conf
+        # Return closest solution
+        # TODO: circular checking instead of plain norm
+        valid_confs = [conf for conf in solutions if not violates_limit(conf)]
+        if valid_confs:
+            dists = [np.linalg.norm(np.array(conf) - current_conf) for conf in valid_confs]
+            min_idx = np.argmin(dists)
+            return valid_confs[min_idx]
 
+    wait_for_user("ok ikfast failed")
     raise RuntimeError("IK Failed!")

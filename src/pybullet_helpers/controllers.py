@@ -33,7 +33,7 @@ def create_move_end_effector_to_pose_option(
     state, objects, and parameters, and returns the current pose and target
     pose of the end effector, and the finger status."""
 
-    assert robot.get_name() == "fetch", (
+    assert robot.get_name() in {"fetch", "panda"}, (
         "Move end effector to pose option "
         + f"not implemented for robot {robot.get_name()}."
     )
@@ -58,6 +58,10 @@ def create_move_end_effector_to_pose_option(
         joints_state = robot.inverse_kinematics(
             (ee_action[0], ee_action[1], ee_action[2]), validate=False
         )
+        initial = robot.get_joints()
+        # robot.set_joints(joints_state)
+        # print(robot.get_state(), target)
+        # robot.set_joints(initial)
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
         # nudge the fingers toward being open or closed according to the
@@ -118,7 +122,7 @@ def create_change_fingers_option(
     robot fingers, given a function that takes in the current state, objects,
     and parameters, and returns the current and target finger joint values."""
 
-    assert robot.get_name() == "fetch", (
+    assert robot.get_name() in {"fetch", "panda"}, (
         "Change fingers option not " + f"implemented for robot {robot.get_name()}."
     )
 

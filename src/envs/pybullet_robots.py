@@ -32,6 +32,7 @@ from predicators.src.structs import (
     JointsState,
     Pose3D,
 )
+from pybullet_tools.utils import get_bodies, get_pose_distance, wait_for_user
 
 
 class SingleArmPyBulletRobot(abc.ABC):
@@ -40,8 +41,8 @@ class SingleArmPyBulletRobot(abc.ABC):
     # TODO: temporary hack, handle this better
     # Parameters that aren't important enough to need to clog up settings.py
     # _base_pose: ClassVar[Pose3D] = (0, 0, 0)
-    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)  # fetch
-    # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)  # panda
+    # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)  # fetch
+    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)  # panda
 
     _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
@@ -132,7 +133,6 @@ class SingleArmPyBulletRobot(abc.ABC):
             ].decode("utf-8")
             for i in range(self.num_joints)
         ]
-        print("ROBOT:", joint_names)
         return joint_names
 
     @property
@@ -454,6 +454,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         # Store current joint positions so we can reset
         initial_joint_states = self.get_joints()
 
+        # Set joint states, forward kinematics to determine end-effector position
         self.set_joints(joints_state)
         ee_pos = self.get_state()[:3]
         target_pos = target_pose
@@ -478,7 +479,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
             self._tool_link,
             self._physics_client_id,
         )
-        print("X_TE", tool_from_ee)
+        # print("X_TE", tool_from_ee)
 
         # X_BE = (X_WB)^-1 * X_WT * X_TE
         base_from_ee = p.multiplyTransforms(
@@ -535,8 +536,6 @@ def create_single_arm_pybullet_robot(
 
 
 if __name__ == "__main__":
-    from pybullet_tools.utils import wait_for_user, get_bodies, get_pose_distance
-
     logging.basicConfig(
         level=logging.DEBUG, format="%(message)s", handlers=[logging.StreamHandler()]
     )
