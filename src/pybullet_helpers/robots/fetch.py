@@ -18,6 +18,10 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
         return "gripper_axis"
 
     @property
+    def tool_link_name(self) -> str:
+        return "gripper_link"
+
+    @property
     def left_finger_joint_name(self) -> str:
         return "l_gripper_finger_joint"
 
