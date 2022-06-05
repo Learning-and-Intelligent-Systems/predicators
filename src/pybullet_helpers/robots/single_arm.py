@@ -387,7 +387,9 @@ class SingleArmPyBulletRobot(abc.ABC):
             sols = closest_inverse_kinematics(
                 self, tool_link, world_from_target, max_time=0.05, max_candidates=100
             )
-            sol = next(sols)
+            sol = next(sols, None)
+            if sol is None:
+                raise ValueError(f"No IK solution found for target pose {end_effector_pose} using IKFast")
 
             # Add fingers to state
             final_joint_state = list(sol)
@@ -429,6 +431,8 @@ def create_single_arm_pybullet_robot(
     """Create a single-arm PyBullet robot."""
     available_robots = set()
     # TODO: fix this bad hack
+    from .fetch import FetchPyBulletRobot
+    from .panda import PandaPyBulletRobot
 
     for cls in utils.get_all_concrete_subclasses(SingleArmPyBulletRobot):
         available_robots.add(cls.get_name())

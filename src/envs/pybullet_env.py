@@ -319,6 +319,9 @@ class PyBulletEnv(BaseEnv):
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
                     assert -1.0 <= score <= 1.0
+
+                    # Take absolute as object/gripper could be rotated 180 degrees
+                    # in the given axis.
                     if np.abs(score) < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
