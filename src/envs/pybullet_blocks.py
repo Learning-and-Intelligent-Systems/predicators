@@ -18,6 +18,7 @@ from predicators.src.pybullet_helpers.controllers import create_move_end_effecto
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, Object, ParameterizedOption, \
     Pose3D, State
+from pybullet_tools.utils import wait_for_user
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -214,6 +215,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       self._obj_friction, self._default_orn,
                                       self._physics_client_id))
 
+        # wait_for_user("ready")
+
+
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
@@ -310,6 +314,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # x-axis aligned gripper for panda
+        return {
+            self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
+            self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
+        }
+        # y-axis aligned gripper for fetch
         return {
             self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
             self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),

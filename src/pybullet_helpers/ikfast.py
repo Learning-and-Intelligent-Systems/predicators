@@ -207,5 +207,4 @@ def ikfast_inverse_kinematics(
             min_idx = np.argmin(dists)
             return valid_confs[min_idx]
 
-    wait_for_user("ok ikfast failed")
     raise RuntimeError("IK Failed!")

@@ -32,7 +32,7 @@ from predicators.src.structs import (
     JointsState,
     Pose3D,
 )
-from pybullet_tools.utils import get_bodies, get_pose_distance, wait_for_user
+from pybullet_tools.utils import get_bodies, get_pose_distance, wait_for_user, draw_pose, Pose
 
 
 class SingleArmPyBulletRobot(abc.ABC):
@@ -42,7 +42,7 @@ class SingleArmPyBulletRobot(abc.ABC):
     # Parameters that aren't important enough to need to clog up settings.py
     # _base_pose: ClassVar[Pose3D] = (0, 0, 0)
     # _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)  # fetch
-    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.25)  # panda
+    _base_pose: ClassVar[Pose3D] = (0.8, 0.7441, 0.25)  # panda
 
     _base_orientation: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
 
@@ -407,7 +407,10 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         )
 
         # TODO!!! fix this. Hardcoded constant at the moment, we just want it facing down
-        self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
+        # self._ee_orientation = [-1.0, 0.0, 0.0, 0.0]
+        # in wxyz i think
+        self._ee_orientation = p.getQuaternionFromEuler([-np.pi, 0, np.pi / 2])
+        self._ee_orientation_euler = p.getEulerFromQuaternion(self._ee_orientation)
         # Extract IDs for individual robot links and joints.
 
         # TODO: change this, because it's highly confusing that this is not
@@ -471,6 +474,7 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> List[float]:
+
         # TODO explain what IKFast is doing
         # X_TE
         tool_from_ee = get_relative_link_pose(
@@ -492,12 +496,18 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
             *tool_from_ee,
         )
 
-        joints_state = ikfast_inverse_kinematics(
-            self,
-            base_from_ee[0],
-            base_from_ee[1],
-            physics_client_id=self._physics_client_id,
-        )
+        try:
+            joints_state = ikfast_inverse_kinematics(
+                self,
+                base_from_ee[0],
+                base_from_ee[1],
+                physics_client_id=self._physics_client_id,
+            )
+        except Exception as e:
+            pose = Pose(point=end_effector_pose)
+            handles = draw_pose(pose)
+            wait_for_user("ik fast failed")
+            raise e
 
         # Add fingers to state
         final_joint_state = list(joints_state)
