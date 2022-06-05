@@ -29,7 +29,7 @@ by Caelan Garrett (https://github.com/caelan/pybullet-planning/).
 """
 
 if TYPE_CHECKING:
-    from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot
+    from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 
 
 class IKFastInfo(NamedTuple):

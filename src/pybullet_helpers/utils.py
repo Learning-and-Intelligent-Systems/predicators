@@ -9,7 +9,7 @@ from predicators.src.structs import JointsState, Pose3D
 
 if TYPE_CHECKING:
     # FIXME: hack while refactoring
-    from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot
+    from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 
 
 def matrix_from_quat(quat: Sequence[float], physics_client_id: int):

@@ -1,10 +1,10 @@
-from typing import Callable, Dict, Sequence, Tuple, cast
+from typing import Callable, Dict, Sequence, Tuple, cast, Set
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot
+from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 from predicators.src.structs import (
     Action,
     Array,
@@ -14,6 +14,8 @@ from predicators.src.structs import (
     State,
     Type,
 )
+
+_SUPPORTED_ROBOTS: Set[str] = {"fetch", "panda"}
 
 
 def create_move_end_effector_to_pose_option(
@@ -33,7 +35,7 @@ def create_move_end_effector_to_pose_option(
     state, objects, and parameters, and returns the current pose and target
     pose of the end effector, and the finger status."""
 
-    assert robot.get_name() in {"fetch", "panda"}, (
+    assert robot.get_name() in _SUPPORTED_ROBOTS, (
         "Move end effector to pose option "
         + f"not implemented for robot {robot.get_name()}."
     )
@@ -122,7 +124,7 @@ def create_change_fingers_option(
     robot fingers, given a function that takes in the current state, objects,
     and parameters, and returns the current and target finger joint values."""
 
-    assert robot.get_name() in {"fetch", "panda"}, (
+    assert robot.get_name() in _SUPPORTED_ROBOTS, (
         "Change fingers option not " + f"implemented for robot {robot.get_name()}."
     )
 

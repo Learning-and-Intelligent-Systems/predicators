@@ -11,8 +11,7 @@ from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
-from predicators.src.envs.pybullet_robots import SingleArmPyBulletRobot, \
-    create_single_arm_pybullet_robot
+from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot, create_single_arm_pybullet_robot
 from predicators.src.pybullet_helpers.controllers import create_move_end_effector_to_pose_option, \
     create_change_fingers_option
 from predicators.src.settings import CFG

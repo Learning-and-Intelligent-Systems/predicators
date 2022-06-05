@@ -110,6 +110,8 @@ class GlobalSettings:
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
     pybullet_robot = "panda"
+    # pybullet_robot = "fetch"
+
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
