@@ -5,7 +5,13 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_tools.utils import Pose, euler_from_quat, link_from_name
+from pybullet_tools.utils import (
+    Pose,
+    euler_from_quat,
+    link_from_name,
+    draw_pose,
+    wait_for_user,
+)
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
@@ -362,6 +368,33 @@ class SingleArmPyBulletRobot(abc.ABC):
         """
         return None
 
+    def _ikfast_inverse_kinematics(self, end_effector_pose: Pose3D) -> JointsState:
+        tool_link = link_from_name(self.robot_id, self.tool_link_name)
+        world_from_target = Pose(
+            end_effector_pose, euler_from_quat(self._ee_orientation)
+        )
+        sols = closest_inverse_kinematics(
+            self,
+            tool_link,
+            world_from_target,
+            max_time=CFG.ikfast_max_time,
+            max_candidates=CFG.ikfast_max_candidates,
+        )
+        sol = next(sols, None)
+        if sol is None:
+            raise ValueError(
+                f"No IK solution found for target pose {end_effector_pose} using IKFast"
+            )
+
+        # Add fingers to state
+        final_joint_state = list(sol)
+        first_finger_idx, second_finger_idx = sorted(
+            [self.left_finger_joint_idx, self.right_finger_joint_idx]
+        )
+        final_joint_state.insert(first_finger_idx, self.open_fingers)
+        final_joint_state.insert(second_finger_idx, self.open_fingers)
+        return final_joint_state
+
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> JointsState:
@@ -379,26 +412,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         should not be used within simulation.
         """
         if self.ikfast_info():
-            # Use IKFast
-            tool_link = link_from_name(self.robot_id, self.tool_link_name)
-            world_from_target = Pose(
-                end_effector_pose, euler_from_quat(self._ee_orientation)
-            )
-            sols = closest_inverse_kinematics(
-                self, tool_link, world_from_target, max_time=0.05, max_candidates=100
-            )
-            sol = next(sols, None)
-            if sol is None:
-                raise ValueError(f"No IK solution found for target pose {end_effector_pose} using IKFast")
-
-            # Add fingers to state
-            final_joint_state = list(sol)
-            first_finger_idx, second_finger_idx = sorted(
-                [self.left_finger_joint_idx, self.right_finger_joint_idx]
-            )
-            final_joint_state.insert(first_finger_idx, self.open_fingers)
-            final_joint_state.insert(second_finger_idx, self.open_fingers)
-
+            final_joint_state = self._ikfast_inverse_kinematics(end_effector_pose)
             if validate:
                 self._validate_joints_state(
                     final_joint_state, target_pose=end_effector_pose

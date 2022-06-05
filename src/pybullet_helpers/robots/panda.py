@@ -20,7 +20,13 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
 
     @property
     def end_effector_name(self) -> str:
-        # TODO explain or change this
+        """
+        The tool joint is offset from the final arm joint such that it represents
+        the point in the center of the two fingers of the gripper.
+
+        This differs from the "panda_hand" joint which represents the center of the
+        gripper itself including the gripper body (I think).
+        """
         return "tool_joint"
 
     @property

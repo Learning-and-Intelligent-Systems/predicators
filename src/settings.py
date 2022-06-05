@@ -118,6 +118,10 @@ class GlobalSettings:
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
 
+    # IKFast parameters
+    ikfast_max_time = 0.05
+    ikfast_max_candidates = 100
+
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
     pddl_blocks_procedural_train_max_num_blocks = 4
