@@ -332,6 +332,25 @@ class SingleArmPyBulletRobot(abc.ABC):
         position = ee_link_state[4]
         return position
 
+    def _validate_joints_state(self, joints_state: JointsState, target_pose: Pose3D):
+        """Validate that the given joint states matches the target pose."""
+        # Store current joint positions so we can reset
+        initial_joint_states = self.get_joints()
+
+        # Set joint states, forward kinematics to determine end-effector position
+        self.set_joints(joints_state)
+        ee_pos = self.get_state()[:3]
+        target_pos = target_pose
+        pos_is_close = np.allclose(ee_pos, target_pos, atol=CFG.pybullet_ik_tol)
+
+        # Reset joint positions before returning/raising error
+        self.set_joints(initial_joint_states)
+
+        if not pos_is_close:
+            raise ValueError(
+                f"Joint states do not match target pose {target_pos} from {ee_pos}"
+            )
+
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> JointsState:

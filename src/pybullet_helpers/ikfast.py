@@ -77,7 +77,7 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     If IKFast has been previously installed, there should be a file with
     extension .so, starting with name module_name, in the ikfast_dir.
 
-    We check if this file exists, if not we install IKFast to compile it.
+    We check if this file exists, if not we install IKFast by compiling it.
     """
     ikfast_dir = os.path.join(
         utils.get_env_asset_path("ikfast"), ikfast_info.module_dir
@@ -141,8 +141,8 @@ def ikfast_inverse_kinematics(
 ) -> JointsState:
     """Runs IK and returns a joints state.
 
-    TODO: describe the assumptions about the target position and orientation
-    in terms of what joints they're referring to.
+    Target position and orientation must be the end-effector link pose specified
+    relative to the base link frame.
 
     Note that this will automatically compile IKFast for the given robot if it
     hasn't been compiled already when this function is called for the first time.

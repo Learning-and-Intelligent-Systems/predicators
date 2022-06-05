@@ -6,7 +6,10 @@ import pybullet as p
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import ikfast_inverse_kinematics
 from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
-from predicators.src.pybullet_helpers.utils import get_link_from_name, get_relative_link_pose
+from predicators.src.pybullet_helpers.utils import (
+    get_link_from_name,
+    get_relative_link_pose,
+)
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState, Pose3D
 from pybullet_tools.utils import Pose, draw_pose, wait_for_user
@@ -68,24 +71,6 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     def closed_fingers(self) -> float:
         return 0.03
 
-    def _validate(self, joints_state: JointsState, target_pose: Pose3D):
-        # Store current joint positions so we can reset
-        initial_joint_states = self.get_joints()
-
-        # Set joint states, forward kinematics to determine end-effector position
-        self.set_joints(joints_state)
-        ee_pos = self.get_state()[:3]
-        target_pos = target_pose
-        pos_is_close = np.allclose(ee_pos, target_pos, atol=CFG.pybullet_ik_tol)
-
-        # Reset joint positions before returning/raising error
-        self.set_joints(initial_joint_states)
-
-        if not pos_is_close:
-            raise ValueError(
-                f"IK failed to reach target position {target_pos} from {ee_pos}"
-            )
-
     def inverse_kinematics(
         self, end_effector_pose: Pose3D, validate: bool
     ) -> List[float]:
@@ -132,8 +117,8 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
 
-        # TODO: retry on validate fail?
         if validate:
-            self._validate(final_joint_state, target_pose=end_effector_pose)
-
+            self._validate_joints_state(
+                final_joint_state, target_pose=end_effector_pose
+            )
         return final_joint_state
