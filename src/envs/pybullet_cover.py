@@ -27,9 +27,13 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     # Robot parameters.
-    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
-        [np.pi / 2, np.pi / 2, -np.pi])
-    _move_to_pose_tol: ClassVar[float] = 1e-7
+    _ee_orn: ClassVar[Dict[str, Sequence[float]]] = {
+        # Fetch and Panda gripper down and parallel to x-axis
+        "fetch": p.getQuaternionFromEuler(
+        [np.pi / 2, np.pi / 2, -np.pi]),
+        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])}
+
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
     _obj_len_hgt: ClassVar[float] = 0.045
@@ -136,8 +140,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
+        ee_orn = self._ee_orn[CFG.pybullet_robot]
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                self._ee_orn,
+                                                ee_orn,
                                                 physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
