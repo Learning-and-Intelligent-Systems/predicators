@@ -1075,9 +1075,9 @@ class Segment:
     trajectory: LowLevelTrajectory
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
-    necessary_image: Set[GroundAtom] = field(default=set())
     _option: _Option = field(repr=False, default=DummyOption)
     _goal: Optional[Set[GroundAtom]] = field(default=None)
+    necessary_image: Set[GroundAtom] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1

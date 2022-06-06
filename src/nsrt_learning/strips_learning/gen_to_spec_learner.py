@@ -113,6 +113,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     harmless_pnads.append(pnad)
             # Recompute datastore, preconditions, and effects for each pnad.
             self._recompute_datastores_from_segments(harmless_pnads, check_necessary_image=True)
+            # Induce all components of the pnad given this datastore.
+            for pnads in param_opt_to_nec_pnads.values():
+                for pnad in pnads:
+                    if len(pnad.datastore) == 0:
+                        param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
+                        continue
+                    self._induce_pnad_components_from_datastore(pnad)
+                    
+
             # TODO: fix the termination condition.
             import ipdb; ipdb.set_trace()
 
@@ -257,7 +266,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                 # For every segement we will also save the necessary image.
                 # This will be used in the optimization phase.
-                segment.necessary_image = necessary_image
+                segment.necessary_image = necessary_image.copy()
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
