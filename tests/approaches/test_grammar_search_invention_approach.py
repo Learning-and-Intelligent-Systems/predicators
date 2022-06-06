@@ -13,23 +13,27 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, LowLevelTrajectory, Object, \
-    Predicate, State, Type
+from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
+    Object, Predicate, State, Type
 
 
-def test_predicate_grammar():
+@pytest.mark.parametrize("segmenter", ["atom_changes", "contacts"])
+def test_predicate_grammar(segmenter):
     """Tests for _PredicateGrammar class."""
-    utils.reset_config({"env": "cover", "segmenter": "atom_changes"})
+    utils.reset_config({"env": "cover", "segmenter": segmenter})
     env = CoverEnv()
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     other_state = state.copy()
     robby = [o for o in state if o.type.name == "robot"][0]
+    block = [o for o in state if o.name == "block0"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
+    state.set(block, "grasp", -1)
+    other_state.set(block, "grasp", 1)
     dataset = Dataset([
         LowLevelTrajectory([state, other_state],
-                           [np.zeros(1, dtype=np.float32)])
+                           [Action(np.zeros(1, dtype=np.float32))])
     ])
     base_grammar = _PredicateGrammar()
     assert not base_grammar.generate(max_num=0)
@@ -44,6 +48,7 @@ def test_predicate_grammar():
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
     feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+    assert feature_ranges[block.type]["grasp"] == (-1, 1)
     forall_grammar = _create_grammar(dataset, env.predicates)
     # Test edge case where there are no low-level features in the dataset.
     dummy_type = Type("dummy", [])
@@ -68,7 +73,7 @@ def test_predicate_grammar():
     # is because the given predicates are considered too when determining
     # if a candidate predicate is unique.
     # Set a small upper bound so that this terminates quickly.
-    utils.update_config({"grammar_search_predicate_cost_upper_bound": 2})
+    utils.update_config({"grammar_search_predicate_cost_upper_bound": 3})
     empty_data_grammar = _create_grammar(Dataset([]), env.predicates)
     assert len(empty_data_grammar.generate(max_num=10)) == 0
     # Reset to default just in case.
@@ -77,7 +82,7 @@ def test_predicate_grammar():
     utils.reset_config({"env": "unittest"})
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": True})
     debug_grammar = _create_grammar(dataset, set())
-    assert len(debug_grammar.generate(max_num=10)) == 2
+    assert len(debug_grammar.generate(max_num=10)) == 3
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
 
 

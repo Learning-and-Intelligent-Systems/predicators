@@ -39,7 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
 
@@ -50,7 +50,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, ParameterizedOption, Task
+    InteractionResult, Metrics, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -104,8 +104,7 @@ def main() -> None:
         # Create the offline dataset. Note that this needs to be done using
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
-        offline_dataset = _generate_or_load_offline_dataset(
-            env, train_tasks, options)
+        offline_dataset = create_dataset(env, train_tasks, options)
     else:
         offline_dataset = None
     # Run the full pipeline.
@@ -118,8 +117,8 @@ def _run_pipeline(env: BaseEnv,
                   approach: BaseApproach,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
-    # If agent is learning-based, generate an offline dataset, allow the agent
-    # to learn from it, and then proceed with the online learning loop. Test
+    # If agent is learning-based, allow the agent to learn from the generated
+    # offline dataset, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
         assert offline_dataset is not None, "Missing offline dataset"
@@ -134,6 +133,10 @@ def _run_pipeline(env: BaseEnv,
             learning_start = time.time()
             approach.learn_from_offline_dataset(offline_dataset)
             learning_time = time.time() - learning_start
+        offline_learning_metrics = {
+            f"offline_learning_{k}": v
+            for k, v in approach.metrics.items()
+        }
         # Run evaluation once before online learning starts.
         if CFG.skip_until_cycle < 0:
             results = _run_testing(env, approach)
@@ -141,6 +144,7 @@ def _run_pipeline(env: BaseEnv,
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
+            results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
@@ -177,6 +181,7 @@ def _run_pipeline(env: BaseEnv,
             results["num_online_transitions"] = num_online_transitions
             results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
+            results.update(offline_learning_metrics)
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
@@ -185,28 +190,6 @@ def _run_pipeline(env: BaseEnv,
         results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
-
-
-def _generate_or_load_offline_dataset(
-        env: BaseEnv, train_tasks: List[Task],
-        known_options: Set[ParameterizedOption]) -> Dataset:
-    """Create offline dataset from training tasks."""
-    dataset_filename = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{CFG.included_options}__{CFG.seed}.data")
-    dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-    if CFG.load_data:
-        assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
-        with open(dataset_filepath, "rb") as f:
-            dataset = pkl.load(f)
-        logging.info("\n\nLOADED DATASET")
-    else:
-        dataset = create_dataset(env, train_tasks, known_options)
-        logging.info("\n\nCREATED DATASET")
-        os.makedirs(CFG.data_dir, exist_ok=True)
-        with open(dataset_filepath, "wb") as f:
-            pkl.dump(dataset, f)
-    return dataset
 
 
 def _generate_interaction_results(
@@ -260,8 +243,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     num_solved = 0
     approach.reset_metrics()
     total_suc_time = 0.0
-    total_num_execution_failures = 0
+    total_num_solve_timeouts = 0
     total_num_solve_failures = 0
+    total_num_execution_timeouts = 0
+    total_num_execution_failures = 0
+
     video_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
@@ -271,7 +257,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
-            total_num_solve_failures += 1
+            if isinstance(e, ApproachTimeout):
+                total_num_solve_timeouts += 1
+            elif isinstance(e, ApproachFailure):
+                total_num_solve_failures += 1
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
@@ -308,7 +297,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             log_message = ("Approach failed at policy execution time with "
                            f"error: {e}")
-            total_num_execution_failures += 1
+            if isinstance(e, ApproachTimeout):
+                total_num_execution_timeouts += 1
+            elif isinstance(e, ApproachFailure):
+                total_num_execution_failures += 1
             caught_exception = True
             execution_time = -1
         if solved:
@@ -340,8 +332,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             "min_num_skeletons_optimized"] < float("inf") else 0
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
-    metrics["num_execution_failures"] = total_num_execution_failures
+    metrics["num_solve_timeouts"] = total_num_solve_timeouts
     metrics["num_solve_failures"] = total_num_solve_failures
+    metrics["num_execution_timeouts"] = total_num_execution_timeouts
+    metrics["num_execution_failures"] = total_num_execution_failures
     # Handle computing averages of total approach metrics wrt the
     # number of found policies. Note: this is different from computing
     # an average wrt the number of solved tasks, which might be more

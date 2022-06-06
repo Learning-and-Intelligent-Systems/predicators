@@ -2,8 +2,11 @@
 
 import functools
 import logging
+import os
+import re
 from typing import Callable, List, Set
 
+import dill as pkl
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -20,6 +23,108 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
+    regex = r"(\d+)"
+    dataset_fname_template = (
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+        f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    dataset_fname = os.path.join(
+        CFG.data_dir,
+        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+    os.makedirs(CFG.data_dir, exist_ok=True)
+    if CFG.load_data:
+        dataset = _create_demo_data_with_loading(env, train_tasks,
+                                                 known_options,
+                                                 dataset_fname_template,
+                                                 dataset_fname)
+    else:
+        trajectories = _generate_demonstrations(env,
+                                                train_tasks,
+                                                known_options,
+                                                train_tasks_start_idx=0)
+        logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
+        dataset = Dataset(trajectories)
+        with open(dataset_fname, "wb") as f:
+            pkl.dump(dataset, f)
+    return dataset
+
+
+def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
+                                   known_options: Set[ParameterizedOption],
+                                   dataset_fname_template: str,
+                                   dataset_fname: str) -> Dataset:
+    """Create demonstration data while handling loading from disk.
+
+    This method takes care of three cases: the demonstrations on disk
+    are exactly the desired number, too many, or too few.
+    """
+    if os.path.exists(dataset_fname):
+        # Case 1: we already have a file with the exact name that we need
+        # (i.e., the correct amount of data).
+        with open(dataset_fname, "rb") as f:
+            dataset = pkl.load(f)
+        logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
+                     "DEMONSTRATIONS")
+        return dataset
+    fnames_with_less_data = {}  # used later, in Case 3
+    for fname in os.listdir(CFG.data_dir):
+        regex_match = re.match(dataset_fname_template, fname)
+        if not regex_match:
+            continue
+        num_train_tasks = int(regex_match.groups()[0])
+        assert num_train_tasks != CFG.num_train_tasks  # would be Case 1
+        # Case 2: we already have a file with MORE data than we need. Load
+        # and truncate this data.
+        if num_train_tasks > CFG.num_train_tasks:
+            with open(os.path.join(CFG.data_dir, fname), "rb") as f:
+                dataset = pkl.load(f)
+            logging.info("\n\nLOADED AND TRUNCATED DATASET OF "
+                         f"{len(dataset.trajectories)} DEMONSTRATIONS")
+            assert not dataset.has_annotations
+            # To truncate, note that we can't simply take the first
+            # `CFG.num_train_tasks` elements of `dataset.trajectories`,
+            # because some of these might have a `train_task_idx` that is
+            # out of range (if there were errors in the course of
+            # collecting those demonstrations). The correct thing to do
+            # here is to truncate based on the value of `train_task_idx`.
+            return Dataset([
+                traj for traj in dataset.trajectories
+                if traj.train_task_idx < CFG.num_train_tasks
+            ])
+        # Save the names of all datasets that have less data than
+        # we need, to be used in Case 3.
+        fnames_with_less_data[num_train_tasks] = fname
+    if not fnames_with_less_data:
+        # Give up: we did not find any data file we can load from.
+        raise ValueError(f"Cannot load data: {dataset_fname}")
+    # Case 3: we already have a file with LESS data than we need. Load
+    # this data and generate some more. Specifically, we load from the
+    # file with the maximum data among all files that have less data
+    # than we need, then we generate the remaining demonstrations.
+    train_tasks_start_idx = max(fnames_with_less_data)
+    fname = fnames_with_less_data[train_tasks_start_idx]
+    with open(os.path.join(CFG.data_dir, fname), "rb") as f:
+        dataset = pkl.load(f)
+    loaded_trajectories = dataset.trajectories
+    generated_trajectories = _generate_demonstrations(
+        env,
+        train_tasks,
+        known_options,
+        train_tasks_start_idx=train_tasks_start_idx)
+    logging.info(f"\n\nLOADED DATASET OF {len(loaded_trajectories)} "
+                 "DEMONSTRATIONS")
+    logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
+    dataset = Dataset(loaded_trajectories + generated_trajectories)
+    with open(dataset_fname, "wb") as f:
+        pkl.dump(dataset, f)
+    return dataset
+
+
+def _generate_demonstrations(
+        env: BaseEnv, train_tasks: List[Task],
+        known_options: Set[ParameterizedOption],
+        train_tasks_start_idx: int) -> List[LowLevelTrajectory]:
+    """Use the demonstrator to generate demonstrations, one per training task
+    starting from train_tasks_start_idx."""
     if CFG.demonstrator == "oracle":
         oracle_approach = OracleApproach(
             env.predicates,
@@ -40,6 +145,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     trajectories = []
     num_tasks = min(len(train_tasks), CFG.max_initial_demos)
     for idx, task in enumerate(train_tasks):
+        if idx < train_tasks_start_idx:  # ignore demos before this index
+            continue
         # Note: we assume in main.py that demonstrations are only generated
         # for train tasks whose index is less than CFG.max_initial_demos. If
         # you modify code around here, make sure that this invariant holds.
@@ -75,7 +182,10 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 idx,
                 termination_function=termination_function,
                 max_num_steps=CFG.horizon,
-                exceptions_to_break_on={utils.OptionExecutionFailure},
+                exceptions_to_break_on={
+                    utils.OptionExecutionFailure,
+                    utils.HumanDemonstrationFailure,
+                },
                 monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
@@ -109,7 +219,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             video = monitor.get_video()
             outfile = f"{CFG.env}__{CFG.seed}__demo__task{idx}.mp4"
             utils.save_video(outfile, video)
-    return Dataset(trajectories)
+    return trajectories
 
 
 def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
@@ -138,8 +248,10 @@ def _human_demonstrator_policy(env: BaseEnv, idx: int, num_tasks: int,
     fig.canvas.mpl_disconnect(keyboard_cid)
     fig.canvas.mpl_disconnect(mouse_cid)
     plt.close()
-    assert "action" in container, "Event handler failed. Its " \
-        "error message should be printed above."
+    if "action" not in container:
+        logging.warning("WARNING: Event handler failed. Its error message "
+                        "should be printed above. Terminating task.")
+        raise utils.HumanDemonstrationFailure("Event handler failed!")
     # Revert to the previous backend.
     matplotlib.use(cur_backend)
     return container["action"]
