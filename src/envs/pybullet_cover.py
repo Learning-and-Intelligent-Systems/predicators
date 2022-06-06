@@ -10,9 +10,10 @@ from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
-from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot, create_single_arm_pybullet_robot
-from predicators.src.pybullet_helpers.controllers import create_move_end_effector_to_pose_option, \
-    create_change_fingers_option
+from predicators.src.pybullet_helpers.controllers import \
+    create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.src.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot, create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Object, \
     ParameterizedOption, Pose3D, State, Type
@@ -29,9 +30,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     # Robot parameters.
     _ee_orn: ClassVar[Dict[str, Sequence[float]]] = {
         # Fetch and Panda gripper down and parallel to x-axis
-        "fetch": p.getQuaternionFromEuler(
-        [np.pi / 2, np.pi / 2, -np.pi]),
-        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])}
+        "fetch": p.getQuaternionFromEuler([np.pi / 2, np.pi / 2, -np.pi]),
+        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])
+    }
 
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
@@ -142,8 +143,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
         ee_orn = self._ee_orn[CFG.pybullet_robot]
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                ee_orn,
-                                                physics_client_id)
+                                                ee_orn, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):

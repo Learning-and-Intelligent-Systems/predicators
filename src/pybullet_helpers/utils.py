@@ -1,23 +1,24 @@
-from typing import Collection, Iterator, List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Collection, Iterator, List, Optional, \
+    Sequence, Tuple
 
 import numpy as np
 import pybullet as p
 
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import JointsState, Pose3D
+from predicators.src.structs import Array, JointsState, Pose3D
 
 if TYPE_CHECKING:
     # FIXME: hack while refactoring
-    from predicators.src.pybullet_helpers.robots.single_arm import (
-        SingleArmPyBulletRobot,
-    )
+    from predicators.src.pybullet_helpers.robots.single_arm import \
+        SingleArmPyBulletRobot
 
 
-def matrix_from_quat(quat: Sequence[float], physics_client_id: int):
+def matrix_from_quat(quat: Sequence[float], physics_client_id: int) -> Array:
     return np.array(
-        p.getMatrixFromQuaternion(quat, physicsClientId=physics_client_id)
-    ).reshape(3, 3)
+        p.getMatrixFromQuaternion(quat,
+                                  physicsClientId=physics_client_id)).reshape(
+                                      3, 3)
 
 
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
@@ -27,7 +28,9 @@ def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     if name == base_name:
         return -1  # base link
     for link in range(p.getNumJoints(body, physicsClientId=physics_client_id)):
-        joint_info = p.getJointInfo(body, link, physicsClientId=physics_client_id)
+        joint_info = p.getJointInfo(body,
+                                    link,
+                                    physicsClientId=physics_client_id)
         joint_name = joint_info[12].decode("UTF-8")
         print(joint_name)
         if joint_name == name:
@@ -35,17 +38,16 @@ def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     raise ValueError(f"Body {body} has no link with name {name}.")
 
 
-def get_link_pose(
-    body: int, link: int, physics_client_id: int
-) -> Tuple[Pose3D, Sequence[float]]:
+def get_link_pose(body: int, link: int,
+                  physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
     """Get the position and orientation for a link."""
     link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
     return link_state[0], link_state[1]
 
 
 def get_relative_link_pose(
-    body: int, link1: int, link2: int, physics_client_id: int
-) -> Tuple[Pose3D, Sequence[float]]:
+        body: int, link1: int, link2: int,
+        physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
     """Get the pose of one link relative to another link on the same body."""
     # X_WL1
     world_from_link1 = get_link_pose(body, link1, physics_client_id)
@@ -53,23 +55,21 @@ def get_relative_link_pose(
     world_from_link2 = get_link_pose(body, link2, physics_client_id)
     # X_L2L1 = (X_WL2)^-1 * (X_WL1)
     link2_from_link1 = p.multiplyTransforms(
-        *p.invertTransform(*world_from_link2), *world_from_link1
-    )
+        *p.invertTransform(*world_from_link2), *world_from_link1)
     return link2_from_link1
 
 
-def get_kinematic_chain(
-    robot: int, end_effector: int, physics_client_id: int
-) -> List[int]:
+def get_kinematic_chain(robot: int, end_effector: int,
+                        physics_client_id: int) -> List[int]:
     """Get all of the free joints from robot base to end effector.
 
     Includes the end effector.
     """
     kinematic_chain = []
     while end_effector > -1:
-        joint_info = p.getJointInfo(
-            robot, end_effector, physicsClientId=physics_client_id
-        )
+        joint_info = p.getJointInfo(robot,
+                                    end_effector,
+                                    physicsClientId=physics_client_id)
         if joint_info[3] > -1:
             kinematic_chain.append(end_effector)
         end_effector = joint_info[-1]
@@ -96,7 +96,9 @@ def pybullet_inverse_kinematics(
     free_joints = []
     num_joints = p.getNumJoints(robot, physicsClientId=physics_client_id)
     for idx in range(num_joints):
-        joint_info = p.getJointInfo(robot, idx, physicsClientId=physics_client_id)
+        joint_info = p.getJointInfo(robot,
+                                    idx,
+                                    physicsClientId=physics_client_id)
         if joint_info[3] > -1:
             free_joints.append(idx)
     assert set(joints).issubset(set(free_joints))
@@ -104,8 +106,7 @@ def pybullet_inverse_kinematics(
     # Record the initial state of the joints so that we can reset them after.
     if validate:
         initial_joints_states = p.getJointStates(
-            robot, free_joints, physicsClientId=physics_client_id
-        )
+            robot, free_joints, physicsClientId=physics_client_id)
         assert len(initial_joints_states) == len(free_joints)
 
     # Running IK once is often insufficient, so we run it multiple times until
@@ -125,9 +126,10 @@ def pybullet_inverse_kinematics(
         # Update the robot state and check if the desired position and
         # orientation are reached.
         for joint, joint_val in zip(free_joints, free_joint_vals):
-            p.resetJointState(
-                robot, joint, targetValue=joint_val, physicsClientId=physics_client_id
-            )
+            p.resetJointState(robot,
+                              joint,
+                              targetValue=joint_val,
+                              physicsClientId=physics_client_id)
         # TODO can this be replaced with get_link_pose?
         ee_link_state = p.getLinkState(
             robot,
@@ -181,7 +183,8 @@ def run_motion_planning(
     _sample_fn = lambda _: joint_space.sample()
     num_interp = CFG.pybullet_birrt_extend_num_interp
 
-    def _extend_fn(pt1: JointsState, pt2: JointsState) -> Iterator[JointsState]:
+    def _extend_fn(pt1: JointsState,
+                   pt2: JointsState) -> Iterator[JointsState]:
         pt1_arr = np.array(pt1)
         pt2_arr = np.array(pt2)
         num = int(np.ceil(max(abs(pt1_arr - pt2_arr)))) * num_interp
@@ -194,16 +197,16 @@ def run_motion_planning(
         robot.set_joints(pt)
         p.performCollisionDetection(physicsClientId=physics_client_id)
         for body in collision_bodies:
-            if p.getContactPoints(
-                robot.robot_id, body, physicsClientId=physics_client_id
-            ):
+            if p.getContactPoints(robot.robot_id,
+                                  body,
+                                  physicsClientId=physics_client_id):
                 return True
         return False
 
     def _distance_fn(from_pt: JointsState, to_pt: JointsState) -> float:
         from_ee = robot.forward_kinematics(from_pt)
         to_ee = robot.forward_kinematics(to_pt)
-        return sum(np.subtract(from_ee, to_ee) ** 2)
+        return sum(np.subtract(from_ee, to_ee)**2)
 
     birrt = utils.BiRRT(
         _sample_fn,

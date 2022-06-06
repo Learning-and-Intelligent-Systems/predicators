@@ -1,5 +1,6 @@
 from predicators.src import utils
-from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
+from predicators.src.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot
 
 
 class FetchPyBulletRobot(SingleArmPyBulletRobot):
@@ -11,7 +12,8 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
 
     @classmethod
     def urdf_path(cls) -> str:
-        return utils.get_env_asset_path("urdf/fetch_description/robots/fetch.urdf")
+        return utils.get_env_asset_path(
+            "urdf/fetch_description/robots/fetch.urdf")
 
     @property
     def end_effector_name(self) -> str:

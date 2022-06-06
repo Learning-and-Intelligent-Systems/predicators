@@ -1,8 +1,6 @@
-"""
-This implementation is heavily based on the pybullet-planning repository
-by Caelan Garrett (https://github.com/caelan/pybullet-planning/).
-"""
-from typing import NamedTuple, List
+"""This implementation is heavily based on the pybullet-planning repository by
+Caelan Garrett (https://github.com/caelan/pybullet-planning/)."""
+from typing import List, NamedTuple
 
 
 class IKFastInfo(NamedTuple):

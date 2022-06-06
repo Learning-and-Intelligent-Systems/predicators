@@ -11,13 +11,13 @@ from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
-from predicators.src.pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot, create_single_arm_pybullet_robot
-from predicators.src.pybullet_helpers.controllers import create_move_end_effector_to_pose_option, \
-    create_change_fingers_option
+from predicators.src.pybullet_helpers.controllers import \
+    create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.src.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot, create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, Object, ParameterizedOption, \
     Pose3D, State
-from pybullet_tools.utils import wait_for_user
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -34,10 +34,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     # Robot parameters.
     _ee_orn: ClassVar[Dict[str, Sequence[float]]] = {
         # Fetch gripper down, since its thin we don't need to rotate 90 degrees.
-        "fetch": p.getQuaternionFromEuler(
-        [0.0, np.pi / 2, -np.pi]),
+        "fetch": p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi]),
         # Panda gripper down and gripper rotated 90 degrees as it's big and causes collisions.
-        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])}
+        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])
+    }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:
@@ -220,14 +220,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
         # wait_for_user("ready")
 
-
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         ee_orn = self._ee_orn[CFG.pybullet_robot]
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                ee_orn,
-                                                physics_client_id)
+                                                ee_orn, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
@@ -319,9 +317,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
         if CFG.pybullet_robot == "panda":
-            normal = np.array([1., 0., 0.])  # gripper rotated 90deg so aligned in x-axis
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
         elif CFG.pybullet_robot == "fetch":
-            normal = np.array([0., 1., 0.])  # gripper aligned in y-axis
+            # gripper parallel to y-axis
+            normal = np.array([0., 1., 0.], dtype=np.float32)
         else:
             raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
 
