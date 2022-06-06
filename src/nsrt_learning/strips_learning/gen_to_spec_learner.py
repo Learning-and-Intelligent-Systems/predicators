@@ -102,22 +102,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # to learn PNADs. Repeat until a fixed point is reached.
         nec_pnad_set_changed = True
         while nec_pnad_set_changed:
-            # Before each pass, clear the poss_keep_effects and
-            # seg_to_keep_effects_sub of all the PNADs. We do this because
-            # we only want the poss_keep_effects of the final pass, where
-            # the PNADs did not change.
-            for pnads in param_opt_to_nec_pnads.values():
-                for pnad in pnads:
-                    pnad.poss_keep_effects.clear()
-                    pnad.seg_to_keep_effects_sub.clear()
-
             # Run one iteration of constraint satisfaction.
-            # TODO: Save the necessary image for every segment.
             nec_pnad_set_changed = self._satisfy_constraint(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
             # Run one iteration of objective optimization.
-            # TODO: write an objective optimization function.
+            # Add pnads that satisfy harmlessness constraints to list
+            harmless_pnads = []
+            for pnads in param_opt_to_nec_pnads.values():
+                for pnad in pnads:
+                    harmless_pnads.append(pnad)
+            # Recompute datastore, preconditions, and effects for each pnad.
+            self._recompute_datastores_from_segments(harmless_pnads, check_necessary_image=True)
             # TODO: fix the termination condition.
+            import ipdb; ipdb.set_trace()
 
         # Induce delete effects, side predicates, and keep effects if
         # necessary to finish learning.
@@ -258,23 +255,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
-                # # Every atom in the necessary_image that wasn't in the
-                # # necessary_add_effects is a possible keep effect. This
-                # # may add new variables, whose mappings for this segment
-                # # we keep track of in the seg_to_keep_effects_sub dict.
-                # for atom in necessary_image - necessary_add_effects:
-                #     keep_eff_sub = {}
-                #     for obj in atom.objects:
-                #         if obj in obj_to_var:
-                #             continue
-                #         new_var = utils.create_new_variables(
-                #             [obj.type], obj_to_var.values())[0]
-                #         obj_to_var[obj] = new_var
-                #         keep_eff_sub[new_var] = obj
-                #     pnad.poss_keep_effects.add(atom.lift(obj_to_var))
-                #     if segment not in pnad.seg_to_keep_effects_sub:
-                #         pnad.seg_to_keep_effects_sub[segment] = {}
-                #     pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
+                # For every segement we will also save the necessary image.
+                # This will be used in the optimization phase.
+                segment.necessary_image = necessary_image
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but

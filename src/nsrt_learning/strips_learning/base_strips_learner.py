@@ -182,7 +182,7 @@ class BaseSTRIPSLearner(abc.ABC):
         return _check_goal(state_seq[-1])
 
     def _recompute_datastores_from_segments(
-            self, pnads: List[PartialNSRTAndDatastore]) -> None:
+            self, pnads: List[PartialNSRTAndDatastore], check_necessary_image: bool = False) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
         Uses a "rationality" heuristic, where for each segment, we
@@ -214,15 +214,6 @@ class BaseSTRIPSLearner(abc.ABC):
                     if param_opt != segment_param_option:
                         continue
                     isub = dict(zip(opt_vars, segment_option_objs))
-                    if segment in pnad.seg_to_keep_effects_sub:
-                        # If there are any variables only in the keep effects,
-                        # their mappings should be put into isub, since their
-                        # grounding is underconstrained by the segment itself.
-                        keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
-                        for var in pnad.op.parameters:
-                            if var in keep_eff_sub:
-                                assert var not in isub
-                                isub[var] = keep_eff_sub[var]
                     for ground_op in utils.all_ground_operators_given_partial(
                             pnad.op, objects, isub):
                         if len(ground_op.objects) != len(set(
@@ -239,6 +230,13 @@ class BaseSTRIPSLearner(abc.ABC):
                             ground_op, segment.init_atoms)
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
+                        # If flag is true, then we need to check whether the 
+                        # grounding is consistent with the necessary image
+                        # in order to ensure keep effects are correctly ground.
+                        if check_necessary_image:
+                            assert len(segment.necessary_image) > 0
+                            if not ground_op.add_effects.issubset(segment.necessary_image):
+                                continue
                         # This ground PNAD covers this segment. Score it!
                         score = self._score_segment_ground_op_match(
                             segment, ground_op)
