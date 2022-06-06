@@ -28,8 +28,8 @@ GROUPS = [
     "NUM_TRAIN_TASKS", "CYCLE"
 ]
 
-SEEDS = list(range(456, 458))  #list(range(456, 466))
-TASK_IDS = list(range(3))  #list(range(50))
+SEEDS = list(range(456, 466))
+TASK_IDS = list(range(50))
 FILL_BETWEEN_ALPHA = 0.25
 
 # All column names and keys to load into the pandas tables before plotting.
@@ -57,9 +57,9 @@ DERIVED_KEYS = [("perc_solved",
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 TITLE_ENVS = [
-    # ("Cover", "cover_multistep_options"),
-    # ("Stick Button", "stick_button"),
-    # ("Doors", "doors"),
+    ("Cover", "cover_multistep_options"),
+    ("Stick Button", "stick_button"),
+    ("Doors", "doors"),
     ("Coffee", "coffee"),
 ]
 
@@ -75,10 +75,10 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
 PLOT_GROUPS = {
     title: [
         ("BPNS (Ours)", "darkgreen", "o", partial(_select_data, env, "main")),
-        # ("Max Skeletons=1", "gray", "o",
-        #  partial(_select_data, env, "direct_bc_max_skel1")),
-        # ("Max Samples=1", "brown", "o",
-        #  partial(_select_data, env, "direct_bc_max_samp1")),
+        ("Max Skeletons=1", "gray", "o",
+         partial(_select_data, env, "direct_bc_max_skel1")),
+        ("Max Samples=1", "brown", "o",
+         partial(_select_data, env, "direct_bc_max_samp1")),
     ]
     for (title, env) in TITLE_ENVS
 }
@@ -111,6 +111,7 @@ def _load_results_for_seed(df: pd.DataFrame, selector: Callable[[pd.DataFrame],
     assert seed_xs[-1] < TIMEOUT
     seed_xs.append(TIMEOUT)
     seed_ys.append(seed_ys[-1])
+    seed_ys = np.array(seed_ys) / len(TASK_IDS)  # convert to percent solved
     return seed_xs, seed_ys
 
 
