@@ -5,13 +5,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_tools.utils import (
-    Pose,
-    euler_from_quat,
-    link_from_name,
-    draw_pose,
-    wait_for_user,
-)
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
@@ -22,6 +15,11 @@ from predicators.src.pybullet_helpers.utils import (
 )
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D
+from pybullet_tools.utils import (
+    Pose,
+    euler_from_quat,
+    link_from_name,
+)
 
 
 class SingleArmPyBulletRobot(abc.ABC):
@@ -343,7 +341,11 @@ class SingleArmPyBulletRobot(abc.ABC):
         return position
 
     def _validate_joints_state(self, joints_state: JointsState, target_pose: Pose3D):
-        """Validate that the given joint states matches the target pose."""
+        """
+        Validate that the given joint states matches the target pose.
+        This method should NOT be used during simulation mode as it resets
+        the joint states.
+        """
         # Store current joint positions so we can reset
         initial_joint_states = self.get_joints()
 
@@ -369,6 +371,9 @@ class SingleArmPyBulletRobot(abc.ABC):
         return None
 
     def _ikfast_inverse_kinematics(self, end_effector_pose: Pose3D) -> JointsState:
+        """
+        Use IKFast to compute the inverse kinematics for the given end-effector pose.
+        """
         tool_link = link_from_name(self.robot_id, self.tool_link_name)
         world_from_target = Pose(
             end_effector_pose, euler_from_quat(self._ee_orientation)
@@ -412,12 +417,12 @@ class SingleArmPyBulletRobot(abc.ABC):
         should not be used within simulation.
         """
         if self.ikfast_info():
-            final_joint_state = self._ikfast_inverse_kinematics(end_effector_pose)
+            joint_positions = self._ikfast_inverse_kinematics(end_effector_pose)
             if validate:
                 self._validate_joints_state(
-                    final_joint_state, target_pose=end_effector_pose
+                    joint_positions, target_pose=end_effector_pose
                 )
-            return final_joint_state
+            return joint_positions
         else:
             return pybullet_inverse_kinematics(
                 self.robot_id,
@@ -445,8 +450,6 @@ def create_single_arm_pybullet_robot(
     """Create a single-arm PyBullet robot."""
     available_robots = set()
     # TODO: fix this bad hack
-    from .fetch import FetchPyBulletRobot
-    from .panda import PandaPyBulletRobot
 
     for cls in utils.get_all_concrete_subclasses(SingleArmPyBulletRobot):
         available_robots.add(cls.get_name())
