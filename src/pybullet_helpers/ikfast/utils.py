@@ -1,55 +1,38 @@
 import logging
 import time
-from dataclasses import dataclass
 from itertools import chain, islice
-from typing import Sequence, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence
 
 import numpy as np
-
-from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.src.structs import JointsState
-from pybullet_tools.ikfast.ikfast import get_ik_joints, get_base_from_ee
+from pybullet_tools.ikfast.ikfast import get_base_from_ee, get_ik_joints
 from pybullet_tools.ikfast.utils import compute_inverse_kinematics
 from pybullet_tools.utils import (
     INF,
-    joints_from_names,
-    get_joint_positions,
-    get_min_limits,
-    get_max_limits,
-    interval_generator,
+    Pose,
     elapsed_time,
+    get_difference_fn,
+    get_joint_positions,
+    get_length,
+    get_max_limits,
+    get_min_limits,
+    interval_generator,
+    joints_from_names,
     randomize,
     violates_limits,
-    get_length,
-    get_difference_fn,
 )
+
+from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
+from predicators.src.structs import JointsState
 
 if TYPE_CHECKING:
     from predicators.src.pybullet_helpers.robots.single_arm import (
         SingleArmPyBulletRobot,
     )
 
-
-@dataclass(frozen=True)
-class Pose:
-    # xyz position
-    position: Sequence[float]
-    # xyzw quaternion
-    orientation: Sequence[float]
-
-    def __post_init__(self):
-        assert len(self.position) == 3
-        assert len(self.orientation) == 4
-
-
-def _violates_limits(robot, q):
-    violates_lower_limit = [
-        qs < limit for qs, limit in zip(q, robot.joint_lower_limits)
-    ]
-    violates_upper_limit = [
-        qs > limit for qs, limit in zip(q, robot.joint_upper_limits)
-    ]
-    return any(violates_lower_limit) or any(violates_upper_limit)
+"""
+Note: I copied this from Caelan's stuff and hacked it to get it working for us
+Should discuss how we want to do things in terms of pybullet utils.
+"""
 
 
 def ikfast_inverse_kinematics(

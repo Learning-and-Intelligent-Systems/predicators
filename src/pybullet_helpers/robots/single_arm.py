@@ -15,7 +15,7 @@ from pybullet_tools.utils import (
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
-from predicators.src.pybullet_helpers.ikfast.helpers import closest_inverse_kinematics
+from predicators.src.pybullet_helpers.ikfast.utils import closest_inverse_kinematics
 from predicators.src.pybullet_helpers.utils import (
     get_kinematic_chain,
     pybullet_inverse_kinematics,

@@ -15,7 +15,6 @@ def _install_ikfast_module(ikfast_dir: str) -> None:
     setup.py file for the robot. See the panda_arm subdirectory for an
     example.
     """
-    # TODO: consider directly calling setup.py instead of using an OS command.
     cmds = [
         # Go to the subdirectory with the setup.py file.
         f"cd {ikfast_dir}",
@@ -40,8 +39,6 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     )
     glob_pattern = os.path.join(ikfast_dir, f"{ikfast_info.module_name}*.so")
     so_filepaths = glob.glob(glob_pattern)
-    if len(so_filepaths) > 1:
-        raise ValueError("More than one .so file found for IKFast.")
 
     # We need to install.
     if not so_filepaths:
@@ -50,10 +47,9 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
         )
         _install_ikfast_module(ikfast_dir)
         so_filepaths = glob.glob(glob_pattern)
-        if len(so_filepaths) != 1:
-            raise RuntimeError(
-                f"Encountered {len(so_filepaths)} .so files after installing IKFast."
-            )
+
+    if len(so_filepaths) != 1:
+        raise ValueError(f"Found {len(so_filepaths)} .so files in {ikfast_dir}")
 
     module_filepath = so_filepaths[0]
     return module_filepath
@@ -79,6 +75,7 @@ def import_ikfast(ikfast_info: IKFastInfo):
         ikfast_info.module_name, module_filepath
     )
     assert spec is not None, "IKFast module could not be found."
+
     ikfast = importlib.util.module_from_spec(spec)
     sys.modules[ikfast_info.module_name] = ikfast
     spec.loader.exec_module(ikfast)
