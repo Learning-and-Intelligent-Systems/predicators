@@ -303,6 +303,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # Both fetch and panda have grippers parallel to x-axis
         return {
             self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
             self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
