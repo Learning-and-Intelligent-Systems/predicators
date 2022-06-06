@@ -105,13 +105,14 @@ def _load_results_for_seed(df: pd.DataFrame, selector: Callable[[pd.DataFrame],
         if np.isnan(result):
             continue  # timeout
         all_time_results.append(result)
-    assert len(all_time_results) > 0
+    if not all_time_results:
+        return [0, TIMEOUT], [0, 0]
     seed_xs = [0] + sorted(all_time_results)
     seed_ys = list(range(len(seed_xs)))
     assert seed_xs[-1] < TIMEOUT
     seed_xs.append(TIMEOUT)
     seed_ys.append(seed_ys[-1])
-    seed_ys = np.array(seed_ys) / len(TASK_IDS)  # convert to percent solved
+    seed_ys = 100 * np.array(seed_ys) / len(TASK_IDS)  # convert to percent solved
     return seed_xs, seed_ys
 
 
