@@ -46,6 +46,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                 train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
+        import ipdb; ipdb.set_trace()
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset
@@ -176,15 +177,22 @@ def _generate_demonstrations(
             #                                event_to_action)
             #     termination_function = task.goal_holds
 
-            # import ipdb; ipdb.set_trace()
-            #  
+            # #
             import dill as pickle
-            file = open('plan.pkl', 'rb')
+            # file = open('plan_new.pkl', 'wb')
+            # plan_to_pickle = []
+            # for i in range(len(last_plan)):
+            #     plan_to_pickle.append([last_plan[i].name, last_plan[i].objects, last_plan[i].params])
+            # pickle.dump(plan_to_pickle, file)
+            # file.close()
+            # # #  
+            file = open('plan_new.pkl', 'rb')
             pickled_plan = pickle.load(file)
             file.close()
             plan = []
             for i in range(len(pickled_plan)):
                 curr_option = None
+                print(pickled_plan[i][0])
                 for option in env.options:
                     if option.name == pickled_plan[i][0]:
                         curr_option = option
