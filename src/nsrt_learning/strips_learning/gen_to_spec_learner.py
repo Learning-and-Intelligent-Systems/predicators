@@ -116,7 +116,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Induce delete effects, side predicates, and keep effects if
         # necessary to finish learning.
-        # final_pnads = self._finish_learning(param_opt_to_nec_pnads)
         final_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in param_opt_to_nec_pnads.values():
             for i, pnad in enumerate(pnad_list):
@@ -255,23 +254,23 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
-                # # Every atom in the necessary_image that wasn't in the
-                # # necessary_add_effects is a possible keep effect. This
-                # # may add new variables, whose mappings for this segment
-                # # we keep track of in the seg_to_keep_effects_sub dict.
-                # for atom in necessary_image - necessary_add_effects:
-                #     keep_eff_sub = {}
-                #     for obj in atom.objects:
-                #         if obj in obj_to_var:
-                #             continue
-                #         new_var = utils.create_new_variables(
-                #             [obj.type], obj_to_var.values())[0]
-                #         obj_to_var[obj] = new_var
-                #         keep_eff_sub[new_var] = obj
-                #     pnad.poss_keep_effects.add(atom.lift(obj_to_var))
-                #     if segment not in pnad.seg_to_keep_effects_sub:
-                #         pnad.seg_to_keep_effects_sub[segment] = {}
-                #     pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
+                # Every atom in the necessary_image that wasn't in the
+                # necessary_add_effects is a possible keep effect. This
+                # may add new variables, whose mappings for this segment
+                # we keep track of in the seg_to_keep_effects_sub dict.
+                for atom in necessary_image - necessary_add_effects:
+                    keep_eff_sub = {}
+                    for obj in atom.objects:
+                        if obj in obj_to_var:
+                            continue
+                        new_var = utils.create_new_variables(
+                            [obj.type], obj_to_var.values())[0]
+                        obj_to_var[obj] = new_var
+                        keep_eff_sub[new_var] = obj
+                    pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+                    if segment not in pnad.seg_to_keep_effects_sub:
+                        pnad.seg_to_keep_effects_sub[segment] = {}
+                    pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -319,47 +318,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad.op = pnad.op.copy_with(preconditions=pre)
         self._compute_pnad_delete_effects(pnad)
         self._compute_pnad_side_predicates(pnad)
-
-    def _finish_learning(
-        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]]
-    ) -> List[PartialNSRTAndDatastore]:
-        """Given the current PNADs where add effects and preconditions are
-        correct, learn the remaining components."""
-        # Make a list of all final PNADs. Note
-        # that these final PNADs only come from the
-        # param_opt_to_nec_pnads dict, since we can be assured
-        # that our backchaining process ensured that the
-        # PNADs in this dict cover all of the data!
-        nec_pnads = []
-        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
-            for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                nec_pnads.append(pnad)
-
-        # At this point, all PNADs have correct parameters, preconditions,
-        # and add effects. We now compute the delete effects, side
-        # predicates, and keep effects. The order is important: each
-        # of these depends on the previous one.
-        pnads_with_keep_effects = set()
-        for pnad in nec_pnads:
-            self._compute_pnad_delete_effects(pnad)
-            self._compute_pnad_side_predicates(pnad)
-            pnads_with_keep_effects |= self._get_pnads_with_keep_effects(pnad)
-        for pnad in pnads_with_keep_effects:
-            nec_pnads.append(pnad)
-
-        # Recompute datastores and induce preconditions one final time.
-        # Filter out PNADs that have an empty datastore.
-        self._recompute_datastores_from_segments(nec_pnads)
-        final_pnads = []
-        for pnad in nec_pnads:
-            if pnad.datastore:
-                pre = self._induce_preconditions_via_intersection(pnad)
-                pnad.op = pnad.op.copy_with(preconditions=pre)
-                final_pnads.append(pnad)
-
-        return final_pnads
 
     @classmethod
     def get_name(cls) -> str:
@@ -525,54 +483,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for atom in next_atoms - segment.final_atoms:
                 side_predicates.add(atom.predicate)
         pnad.op = pnad.op.copy_with(side_predicates=side_predicates)
-
-    @staticmethod
-    def _get_pnads_with_keep_effects(
-            pnad: PartialNSRTAndDatastore) -> Set[PartialNSRTAndDatastore]:
-        """Return a new set of PNADs that include keep effects into the given
-        PNAD."""
-        # The keep effects that we want are the subset of possible keep
-        # effects which are not already in the PNAD's add effects, and
-        # whose predicates were determined to be side predicates.
-        keep_effects = {
-            eff
-            for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
-            and eff.predicate in pnad.op.side_predicates
-        }
-        new_pnads_with_keep_effects = set()
-        # Given these keep effects, we need to create a combinatorial number of
-        # PNADs, one for each unique combination of keep effects. Moreover, we
-        # need to ensure that they are named differently from each other. Some
-        # of these PNADs will be filtered out later if they are not useful to
-        # cover any datapoints.
-        i = 0
-        for r in range(1, len(keep_effects) + 1):
-            for keep_effects_subset in itertools.combinations(keep_effects, r):
-                # These keep effects (keep_effects_subset) could involve new
-                # variables, which we need to add to the PNAD parameters.
-                params_set = set(pnad.op.parameters)
-                for eff in keep_effects_subset:
-                    for var in eff.variables:
-                        params_set.add(var)
-                parameters = sorted(params_set)
-                # The keep effects go into both the PNAD preconditions and the
-                # PNAD add effects.
-                preconditions = pnad.op.preconditions | set(
-                    keep_effects_subset)
-                add_effects = pnad.op.add_effects | set(keep_effects_subset)
-                # Create the new PNAD.
-                new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
-                                                parameters=parameters,
-                                                preconditions=preconditions,
-                                                add_effects=add_effects)
-                new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
-                                                   pnad.option_spec)
-                # Remember to copy seg_to_keep_effects_sub into the new_pnad!
-                new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
-                new_pnads_with_keep_effects.add(new_pnad)
-                i += 1
-
-        return new_pnads_with_keep_effects
 
     @staticmethod
     def _spawn_to_fix_nec_image_violation(
