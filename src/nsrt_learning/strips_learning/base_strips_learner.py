@@ -182,7 +182,9 @@ class BaseSTRIPSLearner(abc.ABC):
         return _check_goal(state_seq[-1])
 
     def _recompute_datastores_from_segments(
-            self, pnads: List[PartialNSRTAndDatastore], check_necessary_image: bool = False) -> None:
+            self,
+            pnads: List[PartialNSRTAndDatastore],
+            check_necessary_image: bool = False) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
         Uses a "rationality" heuristic, where for each segment, we
@@ -230,12 +232,13 @@ class BaseSTRIPSLearner(abc.ABC):
                             ground_op, segment.init_atoms)
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
-                        # If flag is true, then we need to check whether the 
+                        # If flag is true, then we need to check whether the
                         # grounding is consistent with the necessary image
                         # in order to ensure keep effects are correctly ground.
                         if check_necessary_image:
                             assert segment.necessary_image is not None
-                            if not ground_op.add_effects.issubset(segment.necessary_image):
+                            if not ground_op.add_effects.issubset(
+                                    segment.necessary_image):
                                 continue
                         # This ground PNAD covers this segment. Score it!
                         score = self._score_segment_ground_op_match(
@@ -282,7 +285,8 @@ class BaseSTRIPSLearner(abc.ABC):
         try:
             assert len(pnad.datastore) > 0
         except AssertionError:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
         for i, (segment, var_to_obj) in enumerate(pnad.datastore):
             objects = set(var_to_obj.values())
             obj_to_var = {o: v for v, o in var_to_obj.items()}

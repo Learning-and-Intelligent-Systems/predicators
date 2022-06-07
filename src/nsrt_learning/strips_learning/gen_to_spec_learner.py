@@ -1,7 +1,6 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
-import itertools
 from typing import Dict, List, Optional, Set, Tuple
 
 from predicators.src import utils
@@ -13,6 +12,7 @@ from predicators.src.structs import GroundAtom, Object, ParameterizedOption, \
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a general-to-specific STRIPS learner."""
+
     def _initialize_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
     ) -> PartialNSRTAndDatastore:
@@ -100,31 +100,37 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Pass over the demonstrations multiple times. Each time, backchain
         # to learn PNADs. Repeat until a fixed point is reached.
-        nec_pnad_set_changed = True
-        while nec_pnad_set_changed:
+        curr_iter_harmless_pnads = []
+        while True:
             # Run one iteration of constraint satisfaction.
-            nec_pnad_set_changed = self._satisfy_constraint(
+            self._satisfy_constraint(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
-            # Run one iteration of objective optimization.
             # Add pnads that satisfy harmlessness constraints to list
-            harmless_pnads = []
+            new_iter_harmless_pnads = []
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
-                    harmless_pnads.append(pnad)
-            # Recompute datastore, preconditions, and effects for each pnad.
-            self._recompute_datastores_from_segments(harmless_pnads, check_necessary_image=True)
-            # Induce all components of the pnad given this datastore.
-            for pnads in harmless_pnads:
+                    new_iter_harmless_pnads.append(pnad)
+            
+            # If the harmless PNAD set has not changed from the previous
+            # iteration, then we have reached a fixed point.
+            if curr_iter_harmless_pnads == new_iter_harmless_pnads:
+                break
+            
+            # If not, deep copy this set of PNADs.
+            curr_iter_harmless_pnads = new_iter_harmless_pnads[:]
+            # Run one step of objective optimization.
+            # Recompute datastore, preconditions, and effects for each PNAD.
+            self._recompute_datastores_from_segments(
+                new_iter_harmless_pnads, check_necessary_image=True)
+
+            # Induce all components of the PNAD given this datastore.
+            for pnad in new_iter_harmless_pnads:
                 if len(pnad.datastore) == 0:
                     param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
                     continue
                 self._induce_pnad_components_from_datastore(pnad)
-                    
-            # TODO: think hard to come up with an actual termination condition
-            # for this 2-step case.
 
-        # Induce delete effects, side predicates, and keep effects if
-        # necessary to finish learning.
+        # Rename PNADs so that they all have unique names.
         final_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in param_opt_to_nec_pnads.values():
             for i, pnad in enumerate(pnad_list):
@@ -138,14 +144,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                            List[PartialNSRTAndDatastore]],
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
-    ) -> bool:
+    ) -> None:
         """Take one pass through the demonstrations in the given order.
 
-        Go through each one from the end back to the start, inducing PNADs
-        to cover any data that is currently uncovered. Return whether any
-        PNAD was changed.
+        Go through each one from the end back to the start, inducing
+        PNADs to cover any data that is currently uncovered. Return
+        whether any PNAD was changed.
         """
-        nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
@@ -180,8 +185,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # demonstrated option are able to match this transition.
                 first_violating_atoms, first_violating_pnad, first_violating_obj_to_var = None, None, None
                 for pnad in pnads_for_option:
-                    ground_op = self._find_unification(necessary_add_effects,
-                                                       pnad, segment, check_add_effects=True, necessary_image=necessary_image)
+                    ground_op = self._find_unification(
+                        necessary_add_effects,
+                        pnad,
+                        segment,
+                        check_add_effects=True,
+                        necessary_image=necessary_image)
                     if ground_op is not None:
                         # Check that this grounding is indeed harmless
                         # w.r.t the necessary_image.
@@ -203,7 +212,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # for loop did not break), we need to spawn a new PNAD from
                 # the most general PNAD to cover these necessary add effects.
                 else:
-                    nec_pnad_set_changed = True
                     # In this case, we need to spawn a new operator to
                     # cover some necessary add effects.
                     if first_violating_atoms is None:
@@ -215,14 +223,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         # TODO: Make sure to pass in the necessary image here correctly
                         # so all the keep effects are ground correctly!
                         param_opt_to_nec_pnads[option.parent].append(pnad)
-                        self._recompute_datastores_from_segments(param_opt_to_nec_pnads[option.parent])
+                        self._recompute_datastores_from_segments(
+                            param_opt_to_nec_pnads[option.parent])
                         # Compute the preconditions, delete effects and side predicates
                         # for the new PNAD.
                         self._induce_pnad_components_from_datastore(pnad)
                         # After all this, the unification call that failed earlier
                         # (leading us into the current else statement) should work.
-                        ground_op = self._find_unification(necessary_add_effects,
-                                                        pnad, segment, check_add_effects=True, necessary_image=necessary_image)
+                        ground_op = self._find_unification(
+                            necessary_add_effects,
+                            pnad,
+                            segment,
+                            check_add_effects=True,
+                            necessary_image=necessary_image)
                         assert ground_op is not None
                         is_harmless, violating_atoms = self._is_unification_harmless(
                             necessary_image, ground_op, segment)
@@ -246,25 +259,34 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                             first_violating_pnad, first_violating_obj_to_var,
                             first_violating_atoms)
                         param_opt_to_nec_pnads[option.parent].append(pnad)
-                        self._recompute_datastores_from_segments(param_opt_to_nec_pnads[option.parent])
+                        self._recompute_datastores_from_segments(
+                            param_opt_to_nec_pnads[option.parent])
                         # Compute the preconditions, delete effects and side predicates
                         # for the new PNAD.
-                        self._induce_pnad_components_from_datastore(pnad)                        
-                    
+                        self._induce_pnad_components_from_datastore(pnad)
+
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
-                    ground_op = self._find_unification(necessary_add_effects,
-                                                    pnad, segment, check_add_effects=True, necessary_image=necessary_image)
+                    ground_op = self._find_unification(
+                        necessary_add_effects,
+                        pnad,
+                        segment,
+                        check_add_effects=True,
+                        necessary_image=necessary_image)
                     assert ground_op is not None
                     is_harmless, violating_atoms = self._is_unification_harmless(
                         necessary_image, ground_op, segment)
-                    assert is_harmless
+                    try:
+                        assert is_harmless
+                    except AssertionError:
+                        import ipdb; ipdb.set_trace()
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
                 # For every segement we will also save the necessary image.
                 # This will be used in the optimization phase.
                 segment.necessary_image = necessary_image.copy()
+                # import ipdb; ipdb.set_trace()
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -279,7 +301,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
-        return nec_pnad_set_changed
 
     def _induce_pnad_components_from_datastore(
             self, pnad: PartialNSRTAndDatastore) -> None:
@@ -300,11 +321,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
     @staticmethod
     def _find_unification(
-            necessary_add_effects: Set[GroundAtom],
-            pnad: PartialNSRTAndDatastore,
-            segment: Segment,
-            check_add_effects: bool = True,
-            necessary_image: Set[GroundAtom] = set()) -> Optional[_GroundSTRIPSOperator]:
+        necessary_add_effects: Set[GroundAtom],
+        pnad: PartialNSRTAndDatastore,
+        segment: Segment,
+        check_add_effects: bool = True,
+        necessary_image: Set[GroundAtom] = set()
+    ) -> Optional[_GroundSTRIPSOperator]:
         """Find a mapping from the variables in the PNAD add effects and option
         to the objects in necessary_add_effects and the segment's option.
 
@@ -327,6 +349,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Loop over all groundings.
         for ground_op in utils.all_ground_operators_given_partial(
                 pnad.op, objects, isub):
+            # Disallow any grounding that substitutes the same object
+            # for multiple variables.
+            if len(ground_op.objects) != len(set(ground_op.objects)):
+                continue
             if not ground_op.preconditions.issubset(segment.init_atoms):
                 continue
             if check_add_effects:
