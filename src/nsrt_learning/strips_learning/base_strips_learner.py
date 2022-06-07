@@ -237,8 +237,8 @@ class BaseSTRIPSLearner(abc.ABC):
                         # in order to ensure keep effects are correctly ground.
                         if check_necessary_image:
                             assert segment.necessary_image is not None
-                            if not ground_op.add_effects.issubset(
-                                    segment.necessary_image):
+                            if not segment.necessary_image.issubset(
+                                    next_atoms):
                                 continue
                         # This ground PNAD covers this segment. Score it!
                         score = self._score_segment_ground_op_match(
@@ -262,31 +262,19 @@ class BaseSTRIPSLearner(abc.ABC):
         A lower score is a CLOSER match. We use a heuristic to estimate
         the quality of the match, where we check how many ground atoms
         are different between the segment's add/delete effects and the
-        operator's add/delete effects. However, we must be careful to
-        treat keep effects specially, since they will not appear in
-        segment.add_effects. In general, we favor more keep effects
-        (hence we subtract len(keep_effects)), since we can only ever
-        call this function on ground operators whose preconditions are
-        satisfied in segment.init_atoms.
+        operator's add/delete effects.
         """
-        keep_effects = ground_op.preconditions & ground_op.add_effects
-        nonkeep_add_effects = ground_op.add_effects - keep_effects
-        return len(segment.add_effects - nonkeep_add_effects) + \
-            len(nonkeep_add_effects - segment.add_effects) + \
+        return len(segment.add_effects - ground_op.add_effects) + \
+            len(ground_op.add_effects - segment.add_effects) + \
             len(segment.delete_effects - ground_op.delete_effects) + \
-            len(ground_op.delete_effects - segment.delete_effects) - \
-            len(keep_effects)
+            len(ground_op.delete_effects - segment.delete_effects)
 
     @staticmethod
     def _induce_preconditions_via_intersection(
             pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
         """Given a PNAD with a nonempty datastore, compute the preconditions
         for the PNAD's operator by intersecting all lifted preimages."""
-        try:
-            assert len(pnad.datastore) > 0
-        except AssertionError:
-            import ipdb
-            ipdb.set_trace()
+        assert len(pnad.datastore) > 0
         for i, (segment, var_to_obj) in enumerate(pnad.datastore):
             objects = set(var_to_obj.values())
             obj_to_var = {o: v for v, o in var_to_obj.items()}

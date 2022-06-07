@@ -6,9 +6,9 @@ from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
-from predicators.src.structs import Action, LowLevelTrajectory, \
+from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type, GroundAtom
+    Type
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -229,6 +229,8 @@ def test_backchaining_strips_learner_order_dependence():
         [[segment3], [segment2], [segment1]],
         verify_harmlessness=True)
     reverse_order_pnads = learner.learn()
+
+    import ipdb; ipdb.set_trace()
 
     # First, check that the two sets of PNADs have the same number of PNADs.
     assert len(natural_order_pnads) == len(reverse_order_pnads) == 2
@@ -875,16 +877,16 @@ def test_keep_effect_adding_new_variables():
             assert seg is segmented_traj[1]
             assert sub == {potato_x0: potato3}
 
+
 # New hard tests courtesy of @ronuchit.
-# @pytest.mark.parametrize("val", [0.0, 1.0])
-@pytest.mark.parametrize("val", [1.0])
+@pytest.mark.parametrize("val", [0.0, 1.0])
 def test_multi_pass_backchaining(val):
-    """Test that the BackchainingSTRIPSLearner does multiple passes
-    of backchaining, which is needed to ensure harmlessness.
-    """
+    """Test that the BackchainingSTRIPSLearner does multiple passes of
+    backchaining, which is needed to ensure harmlessness."""
     utils.reset_config({"segmenter": "atom_changes"})
     # Set up the types, objects, and, predicates.
-    dummy_type = Type("dummy_type", ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
     dummy = dummy_type("dummy")
     A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
     B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
@@ -907,33 +909,31 @@ def test_multi_pass_backchaining(val):
     s10 = State({dummy: [1.0, 0.0, 0.0, 0.0, 0.0]})
     s11 = State({dummy: [1.0, 1.0, 1.0, 0.0, 0.0]})
     s12 = State({dummy: [1.0, 0.0, 1.0, 1.0, 1.0]})
-    traj1 = LowLevelTrajectory(
-        [s10, s11, s12], [pick_act, place_act], True, 0)
+    traj1 = LowLevelTrajectory([s10, s11, s12], [pick_act, place_act], True, 0)
     goal1 = {GroundAtom(D, [])}
     task1 = Task(s10, goal1)
 
     s20 = State({dummy: [1.0, 1.0, 0.0, 0.0, val]})
     s21 = State({dummy: [1.0, 0.0, 0.0, 1.0, 1.0]})
-    traj2 = LowLevelTrajectory(
-        [s20, s21], [place_act], True, 1)
+    traj2 = LowLevelTrajectory([s20, s21], [place_act], True, 1)
     goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
     task2 = Task(s20, goal2)
 
     s30 = State({dummy: [1.0, 1.0, val, 0.0, 0.0]})
     s31 = State({dummy: [1.0, 0.0, 1.0, 1.0, 1.0]})
-    traj3 = LowLevelTrajectory(
-        [s30, s31], [place_act], True, 2)
+    traj3 = LowLevelTrajectory([s30, s31], [place_act], True, 2)
     goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
 
-    ground_atom_trajs = utils.create_ground_atom_dataset(
-        [traj1, traj2, traj3], predicates)
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2, traj3],
+                                                         predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the three demos.
     learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
                                              [task1, task2, task3],
-                                             predicates, segmented_trajs,
+                                             predicates,
+                                             segmented_trajs,
                                              verify_harmlessness=True)
     output_pnads = learner.learn()
     for pnad in output_pnads:

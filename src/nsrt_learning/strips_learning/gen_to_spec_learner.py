@@ -103,19 +103,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         curr_iter_harmless_pnads = []
         while True:
             # Run one iteration of constraint satisfaction.
-            self._satisfy_constraint(
-                param_opt_to_nec_pnads, param_opt_to_general_pnad)
+            self._satisfy_constraint(param_opt_to_nec_pnads,
+                                     param_opt_to_general_pnad)
             # Add pnads that satisfy harmlessness constraints to list
             new_iter_harmless_pnads = []
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
                     new_iter_harmless_pnads.append(pnad)
-            
+
             # If the harmless PNAD set has not changed from the previous
             # iteration, then we have reached a fixed point.
             if curr_iter_harmless_pnads == new_iter_harmless_pnads:
                 break
-            
+
             # If not, deep copy this set of PNADs.
             curr_iter_harmless_pnads = new_iter_harmless_pnads[:]
             # Run one step of objective optimization.
@@ -166,15 +166,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
                 option = segment.get_option()
-                # Find the necessary PNADs associated with this option.
-                # If there are none, then use the general PNAD
-                # associated with this option.
-                if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                    pnads_for_option = [
-                        param_opt_to_general_pnad[option.parent]
-                    ]
-                else:
-                    pnads_for_option = param_opt_to_nec_pnads[option.parent]
+                # # Find the necessary PNADs associated with this option.
+                pnads_for_option = param_opt_to_nec_pnads[option.parent]
 
                 # Compute the ground atoms that must be added on this timestep.
                 # They must be a subset of the current PNAD's add effects.
@@ -183,84 +176,98 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
-                first_violating_atoms, first_violating_pnad, first_violating_obj_to_var = None, None, None
                 for pnad in pnads_for_option:
                     ground_op = self._find_unification(
                         necessary_add_effects,
                         pnad,
                         segment,
                         check_add_effects=True,
+                        check_harmlessness=True,
                         necessary_image=necessary_image)
                     if ground_op is not None:
-                        # Check that this grounding is indeed harmless
-                        # w.r.t the necessary_image.
-                        is_harmless, violating_atoms = self._is_unification_harmless(
-                            necessary_image, ground_op, segment)
                         obj_to_var = dict(
                             zip(ground_op.objects, pnad.op.parameters))
-                        if is_harmless:
-                            if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                                param_opt_to_nec_pnads[option.parent].append(
-                                    pnad)
-                            break
-                        if not first_violating_atoms:
-                            first_violating_atoms = violating_atoms
-                            first_violating_pnad = pnad
-                            first_violating_obj_to_var = obj_to_var
+                        break
 
                 # If we weren't able to find a substitution (i.e, the above
-                # for loop did not break), we need to spawn a new PNAD from
-                # the most general PNAD to cover these necessary add effects.
+                # for loop did not break), we need to spawn a new PNAD. However,
+                # there are two cases here: (1) if the only reason we couldn't
+                # find a substitution is because of a necessary image violation,
+                # then we simply need to add a keep effect to a particular
+                # existing PNAD, (2) otherwise we simply need to spawn a new
+                # PNAD that covers these necessary add effects.
                 else:
-                    # In this case, we need to spawn a new operator to
-                    # cover some necessary add effects.
-                    if first_violating_atoms is None:
-                        pnad = self._spawn_new_pnad(
-                            necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent], segment)
-                        # Add this newly-created PNAD to our necessary dictionary and
-                        # recompute components of all PNADs associated with the same option.
-                        # TODO: Make sure to pass in the necessary image here correctly
-                        # so all the keep effects are ground correctly!
-                        param_opt_to_nec_pnads[option.parent].append(pnad)
-                        self._recompute_datastores_from_segments(
-                            param_opt_to_nec_pnads[option.parent])
-                        # Compute the preconditions, delete effects and side predicates
-                        # for the new PNAD.
-                        self._induce_pnad_components_from_datastore(pnad)
-                        # After all this, the unification call that failed earlier
-                        # (leading us into the current else statement) should work.
+                    violating_pnad, violating_obj_to_var, violating_atoms = None, None, None
+                    for pnad in pnads_for_option:
                         ground_op = self._find_unification(
                             necessary_add_effects,
                             pnad,
                             segment,
                             check_add_effects=True,
+                            check_harmlessness=False,
+                            necessary_image=necessary_image)
+                        if ground_op is not None:
+                            obj_to_var = dict(
+                                zip(ground_op.objects, pnad.op.parameters))
+                            violating_pnad = pnad
+                            violating_obj_to_var = obj_to_var
+                            violating_atoms = self._get_violating_atoms(
+                                necessary_image, ground_op, segment)
+
+                    # Case (2)
+                    if violating_atoms is None:
+                        pnad = self._spawn_new_pnad(
+                            necessary_add_effects,
+                            param_opt_to_general_pnad[option.parent], segment)
+                        # Add this newly-created PNAD to our necessary dictionary and
+                        # recompute components of all PNADs associated with the same option.
+                        param_opt_to_nec_pnads[option.parent].append(pnad)
+                        self._recompute_datastores_from_segments([pnad])
+
+                        # Compute the preconditions, delete effects and side predicates
+                        # for the new PNAD.
+                        self._induce_pnad_components_from_datastore(pnad)
+                        # After all this, we should be able to find a
+                        # unification that satisfies the necessary add
+                        # effects (though it may not be harmless!).
+                        ground_op = self._find_unification(
+                            necessary_add_effects,
+                            pnad,
+                            segment,
+                            check_add_effects=True,
+                            check_harmlessness=False,
                             necessary_image=necessary_image)
                         assert ground_op is not None
-                        is_harmless, violating_atoms = self._is_unification_harmless(
-                            necessary_image, ground_op, segment)
-                        if not is_harmless:
-                            first_violating_pnad = pnad
-                            first_violating_atoms = violating_atoms
-                            first_violating_obj_to_var = dict(
+
+                        # Now we check if we can find a harmless
+                        # unification.
+                        harmless_ground_op = self._find_unification(
+                            necessary_add_effects,
+                            pnad,
+                            segment,
+                            check_add_effects=True,
+                            check_harmlessness=True,
+                            necessary_image=necessary_image)
+
+                        if harmless_ground_op is None:
+                            violating_pnad = pnad
+                            violating_atoms = self._get_violating_atoms(
+                                necessary_image, ground_op, segment)
+                            violating_obj_to_var = dict(
                                 zip(ground_op.objects, pnad.op.parameters))
                             # Delete the PNAD from the necessary dictionary.
                             param_opt_to_nec_pnads[option.parent].remove(pnad)
 
-                    # In this case, there is already a PNAD that matches the
-                    # necessary_add_effects, but it unfortunately conflicts
-                    # with the necessary_image. We need to spawn a new PNAD
-                    # that doesn't have this problem, so we add the conflicting
-                    # atoms to the necessary add effects.
-                    if first_violating_atoms is not None:
-                        assert first_violating_pnad is not None
-                        assert first_violating_obj_to_var is not None
+                    # Case (1). Note that we might hit this case after inducing
+                    # the operator for Case (2), and hence this code comes after.
+                    if violating_atoms is not None:
+                        assert violating_pnad is not None
+                        assert violating_obj_to_var is not None
                         pnad = self._spawn_to_fix_nec_image_violation(
-                            first_violating_pnad, first_violating_obj_to_var,
-                            first_violating_atoms)
+                            violating_pnad, violating_obj_to_var,
+                            violating_atoms)
                         param_opt_to_nec_pnads[option.parent].append(pnad)
-                        self._recompute_datastores_from_segments(
-                            param_opt_to_nec_pnads[option.parent])
+                        self._recompute_datastores_from_segments([pnad])
                         # Compute the preconditions, delete effects and side predicates
                         # for the new PNAD.
                         self._induce_pnad_components_from_datastore(pnad)
@@ -272,21 +279,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         pnad,
                         segment,
                         check_add_effects=True,
+                        check_harmlessness=True,
                         necessary_image=necessary_image)
                     assert ground_op is not None
-                    is_harmless, violating_atoms = self._is_unification_harmless(
-                        necessary_image, ground_op, segment)
-                    try:
-                        assert is_harmless
-                    except AssertionError:
-                        import ipdb; ipdb.set_trace()
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
                 # For every segement we will also save the necessary image.
                 # This will be used in the optimization phase.
                 segment.necessary_image = necessary_image.copy()
-                # import ipdb; ipdb.set_trace()
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -325,6 +326,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad: PartialNSRTAndDatastore,
         segment: Segment,
         check_add_effects: bool = True,
+        check_harmlessness: bool = False,
         necessary_image: Set[GroundAtom] = set()
     ) -> Optional[_GroundSTRIPSOperator]:
         """Find a mapping from the variables in the PNAD add effects and option
@@ -360,27 +362,28 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     continue
                 if not necessary_add_effects.issubset(ground_op.add_effects):
                     continue
-                if len(necessary_image) > 0:
-                    if not ground_op.add_effects.issubset(necessary_image):
+                if check_harmlessness:
+                    next_atoms = utils.apply_operator(ground_op,
+                                                      segment.init_atoms)
+                    if not necessary_image.issubset(next_atoms):
                         continue
             return ground_op
         return None
 
     @staticmethod
-    def _is_unification_harmless(
-            necessary_image: Set[GroundAtom], ground_op: _GroundSTRIPSOperator,
-            segment: Segment) -> Tuple[bool, Optional[Set[GroundAtom]]]:
+    def _get_violating_atoms(necessary_image: Set[GroundAtom],
+                             ground_op: _GroundSTRIPSOperator,
+                             segment: Segment) -> Set[GroundAtom]:
         """Given a particular ground operator, check whether it will conflict
         with the necessary_image or not.
 
         If it does not, return (True, None). Otherwise, return (False,
         conflicting_atoms).
         """
-        state_after_op = utils.apply_operator(ground_op, segment.init_atoms)
-        if necessary_image.issubset(state_after_op):
-            return (True, None)
-        conflicting_atoms = necessary_image - state_after_op
-        return (False, conflicting_atoms)
+        next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+        conflicting_atoms = necessary_image - next_atoms
+        assert len(conflicting_atoms) > 0
+        return conflicting_atoms
 
     def _spawn_new_pnad(
         self,
