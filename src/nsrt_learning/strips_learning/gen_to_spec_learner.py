@@ -114,12 +114,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # Recompute datastore, preconditions, and effects for each pnad.
             self._recompute_datastores_from_segments(harmless_pnads, check_necessary_image=True)
             # Induce all components of the pnad given this datastore.
-            for pnads in param_opt_to_nec_pnads.values():
-                for pnad in pnads:
-                    if len(pnad.datastore) == 0:
-                        param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
-                        continue
-                    self._induce_pnad_components_from_datastore(pnad)
+            for pnads in harmless_pnads:
+                if len(pnad.datastore) == 0:
+                    param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
+                    continue
+                self._induce_pnad_components_from_datastore(pnad)
                     
             # TODO: think hard to come up with an actual termination condition
             # for this 2-step case.

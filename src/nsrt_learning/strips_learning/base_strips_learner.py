@@ -279,7 +279,10 @@ class BaseSTRIPSLearner(abc.ABC):
             pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
         """Given a PNAD with a nonempty datastore, compute the preconditions
         for the PNAD's operator by intersecting all lifted preimages."""
-        assert len(pnad.datastore) > 0
+        try:
+            assert len(pnad.datastore) > 0
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
         for i, (segment, var_to_obj) in enumerate(pnad.datastore):
             objects = set(var_to_obj.values())
             obj_to_var = {o: v for v, o in var_to_obj.items()}
