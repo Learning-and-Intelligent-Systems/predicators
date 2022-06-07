@@ -755,6 +755,13 @@ class NSRT:
     def _hash(self) -> int:
         return hash(str(self))
 
+    @property
+    def op(self) -> STRIPSOperator:
+        """Return the STRIPSOperator associated with this NSRT."""
+        return STRIPSOperator(self.name, self.parameters, self.preconditions,
+                              self.add_effects, self.delete_effects,
+                              self.side_predicates)
+
     def __str__(self) -> str:
         return self._str
 
@@ -764,10 +771,7 @@ class NSRT:
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
         file."""
-        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
-                            self.add_effects, self.delete_effects,
-                            self.side_predicates)
-        return op.pddl_str()
+        return self.op.pddl_str()
 
     def pretty_str(self, name_map: Dict[str, str]) -> str:
         """Display the NSRT in a nice human-readable format, given a mapping to
