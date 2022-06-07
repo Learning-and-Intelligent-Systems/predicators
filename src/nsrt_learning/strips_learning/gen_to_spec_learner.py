@@ -121,9 +121,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         continue
                     self._induce_pnad_components_from_datastore(pnad)
                     
-
-            # TODO: fix the termination condition.
-            import ipdb; ipdb.set_trace()
+            # TODO: think hard to come up with an actual termination condition
+            # for this 2-step case.
 
         # Induce delete effects, side predicates, and keep effects if
         # necessary to finish learning.

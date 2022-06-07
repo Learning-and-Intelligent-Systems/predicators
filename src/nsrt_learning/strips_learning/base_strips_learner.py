@@ -234,10 +234,7 @@ class BaseSTRIPSLearner(abc.ABC):
                         # grounding is consistent with the necessary image
                         # in order to ensure keep effects are correctly ground.
                         if check_necessary_image:
-                            try:
-                                assert segment.necessary_image is not None and len(segment.necessary_image) > 0
-                            except AssertionError:
-                                import ipdb; ipdb.set_trace()
+                            assert segment.necessary_image is not None
                             if not ground_op.add_effects.issubset(segment.necessary_image):
                                 continue
                         # This ground PNAD covers this segment. Score it!

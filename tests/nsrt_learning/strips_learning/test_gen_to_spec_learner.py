@@ -114,17 +114,22 @@ def test_backchaining_strips_learner():
                                              {Asleep, Sad},
                                              [[segment3], [segment4]],
                                              verify_harmlessness=True)
-    # NOTE: running learner.learn here leads to an infinite loop seemingly.
-    # pnads = learner.learn()
-    # assert len(pnads) == 1
-    # expected_str = """STRIPS-Cry0:
-    # Parameters: [?x0:human_type]
-    # Preconditions: []
-    # Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
-    # Delete Effects: []
-    # Side Predicates: []
-    # Option Spec: Cry()"""
-    # assert str(pnads[0]) == repr(pnads[0]) == expected_str
+    pnads = learner.learn()
+    # import ipdb; ipdb.set_trace()
+    # NOTE: This test reveals that we don't necessarily want to enforce that
+    # the grounding we find must be a subset of the necessary image.
+    # In this case, we have one operator which has more effects than the
+    # necessary image. Unclear if we actually want to support this or if
+    # the correct thing here is to return 2 different operators!
+    assert len(pnads) == 1
+    expected_str = """STRIPS-Cry0:
+    Parameters: [?x0:human_type]
+    Preconditions: []
+    Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Cry()"""
+    assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
 def test_backchaining_strips_learner_order_dependence():
