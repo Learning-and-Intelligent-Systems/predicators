@@ -246,6 +246,14 @@ def test_learned_neural_parameterized_option():
     assert option.initiable(state)
     assert not option.terminal(state)
     assert option.terminal(state)
+    # Test the method to get the relative parameter from the current state.
+    random_param = np.random.rand(param_dim)
+    option = param_option.ground([block0, robot], random_param)
+    assert option.initiable(state)
+    assert np.allclose(random_param,
+                       option.parent.get_rel_option_param_from_state(
+                           state, option.memory, option.objects),
+                       atol=1e-07)
 
 
 def test_create_option_learner():
