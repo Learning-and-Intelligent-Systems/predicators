@@ -108,7 +108,6 @@ def main() -> None:
         # the non-stripped train tasks because dataset generation may need
         # to use the oracle predicates (e.g. demo data generation).
         offline_dataset = create_dataset(env, train_tasks, options)
-        import ipdb; ipdb.set_trace()
     else:
         offline_dataset = None
 
