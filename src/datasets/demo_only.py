@@ -185,7 +185,7 @@ def _generate_demonstrations(
             #     plan_to_pickle.append([last_plan[i].name, last_plan[i].objects, last_plan[i].params])
             # pickle.dump(plan_to_pickle, file)
             # file.close()
-            # # #  
+            # # #
             file = open('plan_new.pkl', 'rb')
             pickled_plan = pickle.load(file)
             file.close()

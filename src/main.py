@@ -34,6 +34,7 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
+import imp
 import logging
 import os
 import sys
