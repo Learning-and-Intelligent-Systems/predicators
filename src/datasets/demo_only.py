@@ -46,7 +46,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                 train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
-        import ipdb; ipdb.set_trace()
+        
+        # NOTE: This is necessary because BEHAVIOR options save
+        # the BEHAVIOR environment object in their memory, and this
+        # can't be pickled.
+        if CFG.env == "behavior":
+            for traj in dataset.trajectories:
+                for act in traj.actions:
+                    act.get_option().memory = dict()
+
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset
@@ -203,7 +211,6 @@ def _generate_demonstrations(
                     task, oracle_approach._option_model, plan, oracle_approach._seed,
                     CFG.offline_data_planning_timeout, CFG.horizon)
             assert suc
-            #
 
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)

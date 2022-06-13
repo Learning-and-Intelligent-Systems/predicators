@@ -450,6 +450,7 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
     actions: List[Action] = [None for _ in plan]
     while cur_idx < len(plan):
         if time.time() - start_time > timeout:
+            import ipdb; ipdb.set_trace()
             return [], False
         state = traj[cur_idx]
         option = plan[cur_idx]
