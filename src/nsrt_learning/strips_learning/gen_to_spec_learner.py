@@ -135,6 +135,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         PNADs more specific whenever needed. Return whether any PNAD was
         changed.
         """
+        # Reset all segments' necessary_add_effects so that they aren't
+        # accidentally used from a previous iteration of backchaining.
+        self._reset_all_segment_add_effs()
         nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
@@ -165,6 +168,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
+                # Update the segment's necessary_add_effects.
+                segment.necessary_add_effects = necessary_add_effects
 
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
@@ -257,6 +262,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
+        # TODO: Maybe we should call recompute_datastores at the end
+        # now that all the segments have assigned necessary_add_effects.
         return nec_pnad_set_changed
 
     def _finish_learning(
@@ -276,6 +283,17 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 self._compute_pnad_side_predicates(pnad)
                 pnads_with_keep_effects |= self._get_pnads_with_keep_effects(pnad)
             param_opt_to_nec_pnads[option].extend(list(pnads_with_keep_effects))
+
+    def _reset_all_segment_add_effs(self) -> None:
+        """Reset all segment's necessary_add_effects to None."""
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            for t in range(len(atoms_seq) - 2, -1, -1):
+                segment = seg_traj[t]
+
 
     @staticmethod
     def _reset_pnads_del_and_side(param_opt_to_nec_pnads: Dict[ParameterizedOption,

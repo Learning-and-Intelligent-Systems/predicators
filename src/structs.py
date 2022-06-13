@@ -1077,6 +1077,7 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DummyOption)
     _goal: Optional[Set[GroundAtom]] = field(default=None)
+    necessary_add_effects: Set[GroundAtom] = None
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1133,6 +1134,9 @@ class Segment:
         """Set the goal associated with this segment."""
         self._goal = goal
 
+    def reset_necessary_add_effects(self) -> None:
+        """Reset the necessary add effects."""
+        self.necessary_add_effects = None
 
 @dataclass(eq=False, repr=False)
 class PartialNSRTAndDatastore:
