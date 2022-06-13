@@ -126,7 +126,7 @@ class BaseEnv(abc.ABC):
         define a render_state_plt() function.
         """
         fig = self.render_state_plt(state, task, action, caption)
-        img = utils.fig2data(fig)
+        img = utils.fig2data(fig, dpi=CFG.render_state_dpi)
         plt.close()
         return [img]
 

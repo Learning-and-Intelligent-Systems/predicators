@@ -12,6 +12,8 @@ ALL_ENVS=(
     "repeated_nextto_painting"
     "screws"
     "painting"
+    "satellites"
+    "satellites_simple"
 )
 
 for ENV in ${ALL_ENVS[@]}; do
