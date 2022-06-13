@@ -908,7 +908,6 @@ def test_multi_pass_backchaining(val):
                                              [task1, task2, task3],
                                              predicates, segmented_trajs,
                                              verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
     output_pnads = learner.learn()
-    for pnad in output_pnads:
-        print(pnad)
-    # TODO: assert stuff about output_pnads
+    # TODO: consider asserting more stuff about output_pnads
