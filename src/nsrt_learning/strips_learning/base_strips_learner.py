@@ -184,6 +184,7 @@ class BaseSTRIPSLearner(abc.ABC):
     def _recompute_datastores_from_segments(
             self,
             pnads: List[PartialNSRTAndDatastore],
+            check_seg_add_effects: bool = True,
             check_necessary_image: bool = False) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
@@ -232,6 +233,13 @@ class BaseSTRIPSLearner(abc.ABC):
                             ground_op, segment.init_atoms)
                         if not next_atoms.issubset(segment.final_atoms):
                             continue
+                        # Finally, if none of the segment's add effects are
+                        # in the ground operator's add effects, skip.
+                        if check_seg_add_effects:
+                            if len(segment.add_effects) > 0 and len(ground_op.add_effects) > 0:
+                                if not len(segment.add_effects & ground_op.add_effects) > 0:
+                                    continue
+
                         # If flag is true, then we need to check whether the
                         # grounding is consistent with the necessary image
                         # in order to ensure keep effects are correctly ground.
@@ -243,6 +251,7 @@ class BaseSTRIPSLearner(abc.ABC):
                         # This ground PNAD covers this segment. Score it!
                         score = self._score_segment_ground_op_match(
                             segment, ground_op)
+                            
                         if score < best_score:  # we want a closer match
                             best_score = score
                             best_pnad = pnad

@@ -67,7 +67,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Recompute datastore. This simply clusters by option, since the
         # side predicates contain all predicates, and effects are trivial.
-        self._recompute_datastores_from_segments([pnad])
+        self._recompute_datastores_from_segments([pnad], check_seg_add_effects=False)
 
         # Induce all components of the pnad given this datastore.
         self._induce_pnad_components_from_datastore(pnad)
@@ -115,20 +115,24 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # iteration, then we have reached a fixed point.
             if curr_iter_harmless_pnads == new_iter_harmless_pnads:
                 break
-
             # If not, deep copy this set of PNADs.
             curr_iter_harmless_pnads = new_iter_harmless_pnads[:]
+
+            import ipdb; ipdb.set_trace()
+
             # Run one step of objective optimization.
             # Recompute datastore, preconditions, and effects for each PNAD.
             self._recompute_datastores_from_segments(
-                new_iter_harmless_pnads, check_necessary_image=True)
+                curr_iter_harmless_pnads, check_necessary_image=True)
 
             # Induce all components of the PNAD given this datastore.
-            for pnad in new_iter_harmless_pnads:
+            for pnad in curr_iter_harmless_pnads:
                 if len(pnad.datastore) == 0:
                     param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
                     continue
                 self._induce_pnad_components_from_datastore(pnad)
+
+            # import ipdb; ipdb.set_trace()
 
         # Rename PNADs so that they all have unique names.
         final_pnads: List[PartialNSRTAndDatastore] = []
@@ -166,7 +170,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
                 option = segment.get_option()
-                # # Find the necessary PNADs associated with this option.
+                # Find the necessary PNADs associated with this option.
                 pnads_for_option = param_opt_to_nec_pnads[option.parent]
 
                 # Compute the ground atoms that must be added on this timestep.
@@ -258,6 +262,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                             # Delete the PNAD from the necessary dictionary.
                             param_opt_to_nec_pnads[option.parent].remove(pnad)
 
+                        # if pnad.op.name == 'Place':
+                        #     import ipdb; ipdb.set_trace()
+
                     # Case (1). Note that we might hit this case after inducing
                     # the operator for Case (2), and hence this code comes after.
                     if violating_atoms is not None:
@@ -288,6 +295,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # For every segement we will also save the necessary image.
                 # This will be used in the optimization phase.
                 segment.necessary_image = necessary_image.copy()
+
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -510,13 +518,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for var in eff.variables:
                 params_set.add(var)
         parameters = sorted(params_set)
-        # The keep effects go into both the PNAD preconditions and the
-        # PNAD add effects.
-        preconditions = pnad.op.preconditions | set(keep_effects)
+        # The keep effects go into the PNAD add effects.
+        # preconditions = pnad.op.preconditions | set(keep_effects)
         add_effects = pnad.op.add_effects | set(keep_effects)
         # Create the new PNAD.
         new_pnad_op = pnad.op.copy_with(parameters=parameters,
-                                        preconditions=preconditions,
+                                        preconditions=set(),
                                         add_effects=add_effects)
         new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
 
