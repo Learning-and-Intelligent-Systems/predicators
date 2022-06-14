@@ -89,6 +89,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Run one pass of backchaining.
                 nec_pnad_set_changed = self._backchain_one_pass(
                     param_opt_to_nec_pnads, param_opt_to_general_pnad)
+            
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._finish_learning(param_opt_to_nec_pnads)
@@ -189,7 +190,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                             param_opt_to_nec_pnads[option.parent].remove(
                                 pnad)
                         del pnad
-                        break
                     # If we were unable to specialize any of the PNADs, we need
                     # to spawn from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
