@@ -136,6 +136,7 @@ def _main() -> None:
                                 yerr=y_stds,
                                 label=label,
                                 color=color,
+                                linewidth=3,
                                 marker=marker)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
