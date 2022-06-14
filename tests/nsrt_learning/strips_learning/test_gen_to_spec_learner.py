@@ -467,26 +467,26 @@ def test_keep_effect_data_partitioning():
     # a keep effect, while the other shouldn't.
     assert len(output_pnads) == 4
     correct_pnads = set([
-        """STRIPS-Run0:
+        """STRIPS-Run:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigured(?x0:machine_type), """ + \
         """MachineOn(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn0:
+    Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Configure0:
+    Option Spec: TurnOn()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
@@ -498,6 +498,9 @@ def test_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
 
 
@@ -669,46 +672,46 @@ def test_combinatorial_keep_effect_data_partitioning():
     # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
     assert len(output_pnads) == 7
     correct_pnads = set([
-        """STRIPS-Run0:
+        """STRIPS-Run:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn0:
+    Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Fix0:
+    Option Spec: TurnOn()""", """STRIPS-Fix:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Fix()""", """STRIPS-Configure0:
+    Option Spec: Fix()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
+    Side Predicates: [MachineOn]
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP1:
+    Side Predicates: [MachineOn]
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP2:
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
@@ -721,7 +724,11 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
+    
 
     # Now, run the learner on 3/4 of the demos and verify that it produces only
     # 3 PNADs for the Configure action.
@@ -730,11 +737,12 @@ def test_combinatorial_keep_effect_data_partitioning():
                                              predicates,
                                              segmented_trajs[:-1],
                                              verify_harmlessness=True)
+    learner.reset_all_segment_add_effs()
     output_pnads = learner.learn()
     assert len(output_pnads) == 6
 
     correct_pnads = correct_pnads - set([
-        """STRIPS-Configure0-KEEP1:
+        """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
@@ -746,6 +754,9 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
 
 
