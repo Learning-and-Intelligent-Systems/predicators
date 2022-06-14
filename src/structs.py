@@ -1138,9 +1138,6 @@ class Segment:
         """Set the goal associated with this segment."""
         self._goal = goal
 
-    def reset_necessary_add_effects(self) -> None:
-        """Reset the necessary add effects."""
-        self.necessary_add_effects = None
 
 @dataclass(eq=False, repr=False)
 class PartialNSRTAndDatastore:

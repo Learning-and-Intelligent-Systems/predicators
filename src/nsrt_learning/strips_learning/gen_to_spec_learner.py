@@ -102,7 +102,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     pnad.op = pnad.op.copy_with(
                         preconditions=self._induce_preconditions_via_intersection(pnad))
                 else:
-                    param_opt_to_nec_pnads[pnad.option_spec[0].parent].remove(pnad)
+                    param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
 
             # Check if the finalized PNAD set has converged.
             if set(new_finalized_pnads) == curr_finalized_pnads:
@@ -288,6 +288,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
+                segment.necessary_add_effects = None
 
 
     @staticmethod
@@ -343,6 +344,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         necessary add effects.
         """
         objects = list(segment.states[0])
+
         option_objs = segment.get_option().objects
         # Loop over all ground operators, looking for the most
         # rational match for this segment.

@@ -2,6 +2,7 @@
 
 import abc
 import logging
+from tkinter import N
 from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
@@ -254,6 +255,7 @@ class BaseSTRIPSLearner(abc.ABC):
                             best_pnad = pnad
                             best_sub = dict(
                                 zip(pnad.op.parameters, ground_op.objects))
+
                 if best_pnad is not None:
                     assert best_sub is not None
                     best_pnad.add_to_datastore((segment, best_sub),
