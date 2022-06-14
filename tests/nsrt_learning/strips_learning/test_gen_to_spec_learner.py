@@ -820,13 +820,13 @@ def test_keep_effect_adding_new_variables():
     # have a keep effect that keeps potato3 intact (in the datastore's sub).
     assert len(output_pnads) == 2
     correct_pnads = set([
-        """STRIPS-Press0-KEEP0:
+        """STRIPS-Press:
     Parameters: [?x0:button_type, ?x1:potato_type]
     Preconditions: [PotatoIntact(?x1:potato_type)]
     Add Effects: [ButtonPressed(?x0:button_type), PotatoIntact(?x1:potato_type)]
     Delete Effects: []
     Side Predicates: [PotatoIntact]
-    Option Spec: Press(?x0:button_type)""", """STRIPS-Pick0:
+    Option Spec: Press(?x0:button_type)""", """STRIPS-Pick:
     Parameters: [?x0:potato_type]
     Preconditions: [PotatoIntact(?x0:potato_type)]
     Add Effects: [PotatoHeld(?x0:potato_type)]
@@ -839,6 +839,9 @@ def test_keep_effect_adding_new_variables():
     potato_x0 = potato_type("?x0")
     potato_x1 = potato_type("?x1")
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
         if pnad.option_spec[0].name == "Press":
             # We need that potato3 in particular is left intact during the

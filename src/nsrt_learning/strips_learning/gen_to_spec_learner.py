@@ -78,31 +78,45 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # to learn PNADs. Repeat until a fixed point is reached.
             nec_pnad_set_changed = True
             while nec_pnad_set_changed:
-                # Before each pass, clear the poss_keep_effects and
-                # seg_to_keep_effects_sub of all the PNADs. We do this because
-                # we only want the poss_keep_effects of the final pass, where
-                # the PNADs did not change.
+                # Before each pass, clear the poss_keep_effects 
+                # of all the PNADs. We do this because we only want the
+                # poss_keep_effects of the final pass, where the PNADs did
+                # not change. However, we cannot simply clear the the
+                # sub_dict because some of these substitutions might be
+                # necessary if this happens to be a PNAD that already
+                # has keep effects. Thus, we call a method that handles
+                # this correctly.
                 for pnads in param_opt_to_nec_pnads.values():
                     for pnad in pnads:
                         pnad.poss_keep_effects.clear()
-                        pnad.seg_to_keep_effects_sub.clear()
+                        self._clear_unnecessary_keep_effs_sub(pnad)
                 # Run one pass of backchaining.
                 nec_pnad_set_changed = self._backchain_one_pass(
                     param_opt_to_nec_pnads, param_opt_to_general_pnad)
             
+            # import ipdb; ipdb.set_trace()
+
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._finish_learning(param_opt_to_nec_pnads)
 
+            # import ipdb; ipdb.set_trace()
+
             # Recompute datastores and preconditions for all PNADs.
             new_finalized_pnads = [pnad for pnad_list in param_opt_to_nec_pnads.values() for pnad in pnad_list]
             self._recompute_datastores_from_segments(new_finalized_pnads)
+            new_pnads_with_datastores = []
             for pnad in new_finalized_pnads:
                 if len(pnad.datastore) > 0:
                     pnad.op = pnad.op.copy_with(
                         preconditions=self._induce_preconditions_via_intersection(pnad))
+                    new_pnads_with_datastores.append(pnad)
                 else:
                     param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
+
+            new_finalized_pnads = new_pnads_with_datastores
+            
+            # import ipdb; ipdb.set_trace()
 
             # Check if the finalized PNAD set has converged.
             if set(new_finalized_pnads) == curr_finalized_pnads:
@@ -227,10 +241,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         zip(ground_op.objects, pnad.op.parameters))
 
                 # Every atom in the necessary_image that wasn't in the
-                # necessary_add_effects is a possible keep effect. This
+                # ground_op's add effects is a possible keep effect. This
                 # may add new variables, whose mappings for this segment
                 # we keep track of in the seg_to_keep_effects_sub dict.
-                for atom in necessary_image - necessary_add_effects:
+                for atom in necessary_image - ground_op.add_effects:                    
                     keep_eff_sub = {}
                     for obj in atom.objects:
                         if obj in obj_to_var:
@@ -290,6 +304,17 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 segment = seg_traj[t]
                 segment.necessary_add_effects = None
 
+    @staticmethod
+    def _clear_unnecessary_keep_effs_sub(pnad) -> None:
+        """Clear unnecessary substitution values from the
+        PNAD's seg_to_keep_effects_sub_dict. A substitution is unnecessary
+        if it concerns a variable that isn't in the PNAD's op parameters."""
+        for segment, keep_eff_sub in pnad.seg_to_keep_effects_sub.items():
+            new_keep_eff_sub_dict = {}
+            for var, obj in keep_eff_sub.items():
+                if var in pnad.op.parameters:
+                    new_keep_eff_sub_dict[var] = obj
+            pnad.seg_to_keep_effects_sub[segment] = new_keep_eff_sub_dict
 
     @staticmethod
     def _reset_pnads_del_and_side(param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -355,6 +380,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             param_opt, opt_vars = pnad.option_spec
             assert param_opt == segment.get_option().parent
             isub = dict(zip(opt_vars, option_objs))
+            # Handle keep effect substitution correctly
+            # NOTE: code copied directly from _recompute_datastores.
+            if segment in pnad.seg_to_keep_effects_sub:
+                # If there are any variables only in the keep effects,
+                # their mappings should be put into isub, since their
+                # grounding is underconstrained by the segment itself.
+                keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
+                for var in pnad.op.parameters:
+                    if var in keep_eff_sub:
+                        assert var not in isub
+                        isub[var] = keep_eff_sub[var]
+
             # Loop over all groundings.
             for ground_pnad in utils.all_ground_operators_given_partial(
                     pnad.op, objects, isub):
@@ -519,8 +556,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     keep_effects_subset)
                 add_effects = pnad.op.add_effects | set(keep_effects_subset)
                 # Create the new PNAD.
-                new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP",
-                                                parameters=parameters,
+                new_pnad_op = pnad.op.copy_with(parameters=parameters,
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
