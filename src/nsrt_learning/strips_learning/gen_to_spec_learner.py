@@ -87,11 +87,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         pnad.poss_keep_effects.clear()
                         pnad.seg_to_keep_effects_sub.clear()
                 # Run one pass of backchaining.
-                # TODO: Very likely we will have to modify this to do correct
-                # backchaining with keep effects, since we are now going to be
-                # having operators that might include keep effects. In particular,
-                # this will probably be important during find_unification; we
-                # probably want to pick the unification that has the best score!
                 nec_pnad_set_changed = self._backchain_one_pass(
                     param_opt_to_nec_pnads, param_opt_to_general_pnad)
             # Induce delete effects, side predicates and potentially
@@ -321,47 +316,62 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "backchaining"
 
-    @staticmethod
     def _find_unification(
+        self,
         necessary_add_effects: Set[GroundAtom],
-        pnad: PartialNSRTAndDatastore,
+        pnads: List[PartialNSRTAndDatastore],
         segment: Segment,
         ground_eff_subset_necessary_eff: bool = False
     ) -> Optional[_GroundSTRIPSOperator]:
-        """Find a mapping from the variables in the PNAD add effects and option
-        to the objects in necessary_add_effects and the segment's option.
+        """Find a mapping from the variables in one of the PNAD's add effects
+        and option to the objects in necessary_add_effects and the segment's
+        option.
 
-        If one exists, we don't need to modify this PNAD. Otherwise, we
+        If a mapping exists, we don't need to modify this PNAD. Otherwise, we
         must make its add effects more specific. Note that we are
         assuming all variables in the parameters of the PNAD will appear
         in either the option arguments or the add effects. This is in
         contrast to strips_learning.py, where delete effect variables
         also contribute to parameters. If
-        ground_eff_subset_necessary_eff is True, we want to find a
+        ground_eff_subset_necessary_eff is True, we want to find the best
         grounding that achieves some subset of the
-        necessary_add_effects. Else, we want to find a grounding that is
-        some superset of the necessary_add_effects and also such that
-        the ground operator's add effects are always true in the
-        segment's final atoms.
+        necessary_add_effects. Else, we want to find the best grounding
+        that is some superset of the necessary_add_effects and also such
+        that the ground operator's add effects are always true in the
+        segment's final atoms. Note that we score the groundings and pick
+        the best one since there may be multiple operators that fit these
+        necessary add effects.
         """
         objects = list(segment.states[0])
         option_objs = segment.get_option().objects
-        isub = dict(zip(pnad.option_spec[1], option_objs))
-        # Loop over all groundings.
-        for ground_op in utils.all_ground_operators_given_partial(
-                pnad.op, objects, isub):
-            if not ground_op.preconditions.issubset(segment.init_atoms):
-                continue
-            if ground_eff_subset_necessary_eff:
-                if not ground_op.add_effects.issubset(necessary_add_effects):
+        # Loop over all ground operators, looking for the most
+        # rational match for this segment.
+        best_score = float("inf")
+        best_ground_pnad = None
+        for pnad in pnads:
+            param_opt, opt_vars = pnad.option_spec
+            assert param_opt == segment.get_option().parent
+            isub = dict(zip(opt_vars, option_objs))
+            # Loop over all groundings.
+            for ground_pnad in utils.all_ground_operators_given_partial(
+                    pnad.op, objects, isub):
+                if not ground_pnad.preconditions.issubset(segment.init_atoms):
                     continue
-            else:
-                if not ground_op.add_effects.issubset(segment.final_atoms):
-                    continue
-                if not necessary_add_effects.issubset(ground_op.add_effects):
-                    continue
-            return ground_op
-        return None
+                if ground_eff_subset_necessary_eff:
+                    if not ground_pnad.add_effects.issubset(necessary_add_effects):
+                        continue
+                else:
+                    if not ground_pnad.add_effects.issubset(segment.final_atoms):
+                        continue
+                    if not necessary_add_effects.issubset(ground_pnad.add_effects):
+                        continue
+                # This ground PNAD covers this segment. Score it!
+                score = self._score_segment_ground_op_match(
+                    segment, ground_pnad)
+                if score < best_score:  # we want a closer match
+                    best_score = score
+                    best_ground_pnad = ground_pnad
+        return best_ground_pnad
 
     def _try_specializing_pnad(
         self,
