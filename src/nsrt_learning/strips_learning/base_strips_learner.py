@@ -2,7 +2,6 @@
 
 import abc
 import logging
-from tkinter import N
 from typing import FrozenSet, Iterator, List, Set, Tuple
 
 from predicators.src import utils
