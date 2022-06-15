@@ -319,9 +319,9 @@ def test_find_unification_and_try_specializing_pnad():
     _, ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    new_pnad, _ = learner.try_specializing_pnad(
+    specialization_result = learner.try_specializing_pnad(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert new_pnad is None
+    assert specialization_result is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
