@@ -513,11 +513,13 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
                         if task.goal_holds(traj[cur_idx]):
                             return LowLevelTrajectory(traj, actions), True  # success!
                         can_continue_on = False
+                        import ipdb; ipdb.set_trace()
                         return [], False
         else:
             # The option is not initiable.
             can_continue_on = False
         if not can_continue_on:  # we got stuck, time to return False!
+            import ipdb; ipdb.set_trace()
             return [], False
     # Should only get here if the plan was empty.
     assert not plan

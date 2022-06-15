@@ -165,36 +165,40 @@ def _generate_demonstrations(
         if idx >= CFG.max_initial_demos:
             break
         try:
-            # ## TODO Uncomment after debugging simulator
-            # if CFG.demonstrator == "oracle":
-            #     oracle_approach.solve(
-            #         task, timeout=CFG.offline_data_planning_timeout)
-            #     # Since we're running the oracle approach, we know that the
-            #     # policy is actually a plan under the hood, and we can
-            #     # retrieve it with get_last_plan(). We do this because we want
-            #     # to run the full plan.
-            #     last_plan = oracle_approach.get_last_plan()
-            #     policy = utils.option_plan_to_policy(last_plan)
-            #     # We will stop run_policy() when OptionExecutionFailure() is
-            #     # hit, which should only happen when the goal has been
-            #     # reached, as verified by the assertion later.
-            #     termination_function = lambda s: False
-            # else:  # pragma: no cover
-            #     policy = functools.partial(_human_demonstrator_policy, env,
-            #                                idx, num_tasks, task,
-            #                                event_to_action)
-            #     termination_function = task.goal_holds
+            ## TODO Uncomment after debugging simulator
+            if CFG.demonstrator == "oracle":
+                oracle_approach.solve(
+                    task, timeout=CFG.offline_data_planning_timeout)
+                # Since we're running the oracle approach, we know that the
+                # policy is actually a plan under the hood, and we can
+                # retrieve it with get_last_plan(). We do this because we want
+                # to run the full plan.
+                last_plan = oracle_approach.get_last_plan()
+                policy = utils.option_plan_to_policy(last_plan)
+                # We will stop run_policy() when OptionExecutionFailure() is
+                # hit, which should only happen when the goal has been
+                # reached, as verified by the assertion later.
+                termination_function = lambda s: False
+            else:  # pragma: no cover
+                policy = functools.partial(_human_demonstrator_policy, env,
+                                           idx, num_tasks, task,
+                                           event_to_action)
+                termination_function = task.goal_holds
 
-            # #
+            #
+            # # Save Plan File
             import dill as pickle
-            # file = open('plan_new.pkl', 'wb')
-            # plan_to_pickle = []
-            # for i in range(len(last_plan)):
-            #     plan_to_pickle.append([last_plan[i].name, last_plan[i].objects, last_plan[i].params])
-            # pickle.dump(plan_to_pickle, file)
-            # file.close()
-            # # #
-            file = open('plan_new.pkl', 'rb')
+            import numpy as np
+            plan_num = np.random.randint(0, 10000000)
+            file = open(f'plan_{plan_num}.pkl', 'wb')
+            plan_to_pickle = []
+            for i in range(len(last_plan)):
+                plan_to_pickle.append([last_plan[i].name, last_plan[i].objects, last_plan[i].params])
+            pickle.dump(plan_to_pickle, file)
+            file.close()
+            # 
+            # Load Plan File
+            file = open(f'plan_{plan_num}.pkl', 'rb')
             pickled_plan = pickle.load(file)
             file.close()
             plan = []
@@ -207,10 +211,13 @@ def _generate_demonstrations(
                 plan.append(curr_option.ground(pickled_plan[i][1], pickled_plan[i][2]))
             #
 
-            traj, suc = _run_low_level_plan(
+            traj, success = _run_low_level_plan(
                     task, oracle_approach._option_model, plan, oracle_approach._seed,
                     CFG.offline_data_planning_timeout, CFG.horizon)
-            assert suc
+
+            if not success:
+                print("Warning: low level plan execution failed")
+                continue
 
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)

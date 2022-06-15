@@ -31,9 +31,10 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-    if os.path.exists("tmp_behavior_states/"):
-        shutil.rmtree("tmp_behavior_states/")
-    os.makedirs("tmp_behavior_states/")
+    # When not loading dataset + should be seed dependent
+    # if os.path.exists("tmp_behavior_states/"):
+    #     shutil.rmtree("tmp_behavior_states/")
+    # os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
