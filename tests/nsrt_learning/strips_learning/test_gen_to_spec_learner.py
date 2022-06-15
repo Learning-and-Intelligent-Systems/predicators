@@ -6,9 +6,9 @@ from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
-from predicators.src.structs import Action, GroundAtom, \
-    LowLevelTrajectory, PartialNSRTAndDatastore, Predicate, Segment, State, \
-    STRIPSOperator, Task, Type
+from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
+    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
+    Type
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -927,5 +927,4 @@ def test_multi_pass_backchaining(val):
                                              segmented_trajs,
                                              verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
-    output_pnads = learner.learn()
-    # TODO: consider asserting more stuff about output_pnads
+    _ = learner.learn()

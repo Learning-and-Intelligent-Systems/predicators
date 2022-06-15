@@ -70,7 +70,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        curr_finalized_pnads = set()
+        curr_finalized_pnads: Set[PartialNSRTAndDatastore] = set()
         finalized_pnads_converged = False
 
         while not finalized_pnads_converged:
@@ -94,13 +94,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 nec_pnad_set_changed = self._backchain_one_pass(
                     param_opt_to_nec_pnads, param_opt_to_general_pnad)
 
-            # import ipdb; ipdb.set_trace()
-
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._finish_learning(param_opt_to_nec_pnads)
-
-            # import ipdb; ipdb.set_trace()
 
             # Recompute datastores and preconditions for all PNADs.
             new_finalized_pnads = [
@@ -119,8 +115,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
 
             new_finalized_pnads = new_pnads_with_datastores
-
-            # import ipdb; ipdb.set_trace()
 
             # Check if the finalized PNAD set has converged.
             if set(new_finalized_pnads) == curr_finalized_pnads:
@@ -201,9 +195,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # of our PNADs.
                 else:
                     nec_pnad_set_changed = True
-                    new_pnad, pnad = self._try_specializing_pnad(
+                    specialization_output = self._try_specializing_pnad(
                         necessary_add_effects, pnads_for_option, segment)
-                    if new_pnad is not None:
+                    if specialization_output is not None:
+                        new_pnad, pnad = specialization_output
                         assert new_pnad.option_spec == pnad.option_spec
                         if len(param_opt_to_nec_pnads[option.parent]) > 0:
                             param_opt_to_nec_pnads[option.parent].remove(pnad)
@@ -212,11 +207,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # to spawn from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
                     else:
-                        new_pnad, _ = self._try_specializing_pnad(
+                        specialization_output = self._try_specializing_pnad(
                             necessary_add_effects,
                             [param_opt_to_general_pnad[option.parent]],
                             segment)
-                        assert new_pnad is not None
+                        assert specialization_output is not None
+                        new_pnad, pnad = specialization_output
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
@@ -276,14 +272,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     a.ground(var_to_obj)
                     for a in pnad.op.preconditions
                 }
-        # TODO: Maybe we should call recompute_datastores at the end
-        # now that all the segments have assigned necessary_add_effects.
         return nec_pnad_set_changed
 
     def _finish_learning(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                            List[PartialNSRTAndDatastore]]
-    ) -> bool:
+    ) -> None:
         """Given the current PNADs where add effects and preconditions are
         correct, learn the remaining components such that the resulting PNADs
         are guaranteed to be harmless w.r.t the dataset.
@@ -315,7 +309,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 segment.necessary_add_effects = None
 
     @staticmethod
-    def _clear_unnecessary_keep_effs_sub(pnad) -> None:
+    def _clear_unnecessary_keep_effs_sub(
+            pnad: PartialNSRTAndDatastore) -> None:
         """Clear unnecessary substitution values from the PNAD's
         seg_to_keep_effects_sub_dict.
 
@@ -344,10 +339,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     @staticmethod
     def _get_uniquely_named_nec_pnads(
         param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                     List[PartialNSRTAndDatastore]]):
+                                     List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
         """Given the param_opt_to_nec_pnads dict, return a list of PNADs that
         have unique names and can be used for planning."""
-        uniquely_named_nec_pnads = []
+        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
                 pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
@@ -439,7 +435,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         necessary_add_effects: Set[GroundAtom],
         pnads: List[PartialNSRTAndDatastore],
         segment: Segment,
-    ) -> Tuple[Optional[PartialNSRTAndDatastore], PartialNSRTAndDatastore]:
+    ) -> Optional[Tuple[PartialNSRTAndDatastore, PartialNSRTAndDatastore]]:
         """Given a list of PNAD and some necessary add effects that one of the
         PNADs must achieve, try to make the PNAD's add effects more specific
         ("specialize") so that they cover these necessary add effects.
@@ -460,7 +456,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             ground_eff_subset_necessary_eff=True)
         # If no such grounding exists, specializing is not possible.
         if ground_op is None:
-            return None, pnad
+            return None
+        assert pnad is not None
         # To figure out the effects we need to add to this PNAD,
         # we first look at the ground effects that are missing
         # from this arbitrary ground operator.
