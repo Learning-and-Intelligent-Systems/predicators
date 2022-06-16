@@ -16,7 +16,8 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
 from predicators.src.envs.doors import DoorsEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
-    ProceduralTasksBlocksPDDLEnv
+    ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
+    ProceduralTasksEasyDeliveryPDDLEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
@@ -46,8 +47,11 @@ ENV_NAME_AND_CLS = [
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
     ("pddl_blocks_fixed_tasks", FixedTasksBlocksPDDLEnv),
     ("pddl_blocks_procedural_tasks", ProceduralTasksBlocksPDDLEnv),
-    ("touch_point", TouchPointEnv), ("stick_button", StickButtonEnv),
-    ("doors", DoorsEnv), ("coffee", CoffeeEnv)
+    ("pddl_delivery_procedural_tasks", ProceduralTasksDeliveryPDDLEnv),
+    ("pddl_easy_delivery_procedural_tasks",
+     ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
+    ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
+    ("coffee", CoffeeEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -133,6 +137,38 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
+    {
+        "pddl_delivery_procedural_train_min_num_locs": 2,
+        "pddl_delivery_procedural_train_max_num_locs": 3,
+        "pddl_delivery_procedural_train_min_want_locs": 1,
+        "pddl_delivery_procedural_train_max_want_locs": 1,
+        "pddl_delivery_procedural_train_min_extra_newspapers": 0,
+        "pddl_delivery_procedural_train_max_extra_newspapers": 1,
+        "pddl_delivery_procedural_test_min_num_locs": 2,
+        "pddl_delivery_procedural_test_max_num_locs": 3,
+        "pddl_delivery_procedural_test_min_want_locs": 1,
+        "pddl_delivery_procedural_test_max_want_locs": 1,
+        "pddl_delivery_procedural_test_min_extra_newspapers": 0,
+        "pddl_delivery_procedural_test_max_extra_newspapers": 1,
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
+    {
+        "pddl_easy_delivery_procedural_train_min_num_locs": 2,
+        "pddl_easy_delivery_procedural_train_max_num_locs": 3,
+        "pddl_easy_delivery_procedural_train_min_want_locs": 1,
+        "pddl_easy_delivery_procedural_train_max_want_locs": 1,
+        "pddl_easy_delivery_procedural_train_min_extra_newspapers": 0,
+        "pddl_easy_delivery_procedural_train_max_extra_newspapers": 1,
+        "pddl_easy_delivery_procedural_test_min_num_locs": 2,
+        "pddl_easy_delivery_procedural_test_max_num_locs": 3,
+        "pddl_easy_delivery_procedural_test_min_want_locs": 1,
+        "pddl_easy_delivery_procedural_test_max_want_locs": 1,
+        "pddl_easy_delivery_procedural_test_min_extra_newspapers": 0,
+        "pddl_easy_delivery_procedural_test_max_extra_newspapers": 1,
+    },
+]
 
 
 def _policy_solves_task(policy, task, simulator):
