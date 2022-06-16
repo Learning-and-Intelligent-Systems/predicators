@@ -108,3 +108,79 @@ def _blocks_piles_to_strs(
                 all_strs.add(f"(on {top} {bottom})")
 
     return all_strs
+
+
+def create_delivery_pddl_generator(
+        min_num_locs: int, max_num_locs: int, min_num_want_locs: int,
+        max_num_want_locs: int, min_num_extra_newspapers: int,
+        max_num_extra_newspapers: int) -> PDDLProblemGenerator:
+    """Create a generator for delivery problems."""
+    return functools.partial(_generate_delivery_problems, min_num_locs,
+                             max_num_locs, min_num_want_locs,
+                             max_num_want_locs, min_num_extra_newspapers,
+                             max_num_extra_newspapers)
+
+
+def _generate_delivery_problems(min_num_locs: int, max_num_locs: int,
+                                min_num_want_locs: int, max_num_want_locs: int,
+                                min_num_extra_newspapers: int,
+                                max_num_extra_newspapers: int,
+                                num_problems: int,
+                                rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_num_locs, max_num_locs + 1)
+        num_want_locs = rng.integers(min_num_want_locs, max_num_want_locs + 1)
+        num_extra_newspapers = rng.integers(min_num_extra_newspapers,
+                                            max_num_extra_newspapers + 1)
+        num_newspapers = num_want_locs + num_extra_newspapers
+        problem = _generate_delivery_problem(num_locs, num_want_locs,
+                                             num_newspapers, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_delivery_problem(num_locs: int, num_want_locs: int,
+                               num_newspapers: int,
+                               rng: np.random.Generator) -> str:
+    init_strs = set()
+    goal_strs = set()
+
+    # Create locations.
+    locs = [f"loc-{i}" for i in range(num_locs)]
+    home_loc = locs[0]
+    possible_targets = [l for l in locs if l != home_loc]
+    target_locs = rng.choice(possible_targets, num_want_locs, replace=False)
+    # Add the initial state and goal atoms about the locations.
+    for loc in locs:
+        if loc == home_loc:
+            init_strs.add(f"(isHomeBase {loc})")
+            init_strs.add(f"(at {loc})")
+            init_strs.add(f"(safe {loc})")
+        if loc in target_locs:
+            init_strs.add(f"(wantsPaper {loc})")
+            init_strs.add(f"(safe {loc})")
+            goal_strs.add(f"(satisfied {loc})")
+
+    # Create papers.
+    papers = [f"paper-{i}" for i in range(num_newspapers)]
+    # Add the initial state atoms about the papers.
+    for paper in papers:
+        init_strs.add(f"(unpacked {paper})")
+
+    # Finalize PDDL problem str.
+    locs_str = "\n        ".join(locs)
+    papers_str = "\n        ".join(papers)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem delivery-procgen)
+    (:domain delivery)
+    (:objects
+        {locs_str} - loc
+        {papers_str} - paper
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str

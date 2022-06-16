@@ -8,7 +8,8 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
-    ProceduralTasksBlocksPDDLEnv, _FixedTasksPDDLEnv, _PDDLEnv
+    ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
+    _FixedTasksPDDLEnv, _PDDLEnv
 
 
 @pytest.fixture(scope="module", name="domain_str")
@@ -298,3 +299,31 @@ def test_procedural_tasks_blocks_pddl_env():
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"on", "ontable"})
+
+
+def test_procedural_tasks_delivery_pddl_env():
+    """Tests for ProceduralTasksDeliveryPDDLEnv class."""
+    # Note that the procedural generation itself is tested in
+    # test_pddl_procedural_generation.
+    utils.reset_config({
+        "env": "pddl_delivery_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = ProceduralTasksDeliveryPDDLEnv()
+    assert {t.name for t in env.types} == {"object", "loc", "paper"}
+    assert {p.name
+            for p in env.predicates} == {
+                "ishomebase", "wantspaper", "safe", "unpacked", "satisfied",
+                "carrying", "at"
+            }
+    assert {p.name for p in env.goal_predicates} == {"satisfied"}
+    assert {o.name for o in env.options} == {"pick-up", "move", "deliver"}
+    assert {o.name
+            for o in env.strips_operators} == {"pick-up", "move", "deliver"}
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 2
+    task = train_tasks[0]
+    assert {a.predicate.name for a in task.goal}.issubset({"satisfied"})

@@ -140,6 +140,32 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
+    # pddl delivery env parameters
+    pddl_delivery_procedural_train_min_num_locs = 5
+    pddl_delivery_procedural_train_max_num_locs = 10
+    pddl_delivery_procedural_train_min_want_locs = 2
+    pddl_delivery_procedural_train_max_want_locs = 4
+    pddl_delivery_procedural_train_min_extra_newspapers = 0
+    pddl_delivery_procedural_train_max_extra_newspapers = 1
+    pddl_delivery_procedural_test_min_num_locs = 31
+    pddl_delivery_procedural_test_max_num_locs = 40
+    pddl_delivery_procedural_test_min_want_locs = 20
+    pddl_delivery_procedural_test_max_want_locs = 30
+    pddl_delivery_procedural_test_min_extra_newspapers = 0
+    pddl_delivery_procedural_test_max_extra_newspapers = 10
+    pddl_easy_delivery_procedural_train_min_num_locs = 3
+    pddl_easy_delivery_procedural_train_max_num_locs = 5
+    pddl_easy_delivery_procedural_train_min_want_locs = 1
+    pddl_easy_delivery_procedural_train_max_want_locs = 2
+    pddl_easy_delivery_procedural_train_min_extra_newspapers = 0
+    pddl_easy_delivery_procedural_train_max_extra_newspapers = 1
+    pddl_easy_delivery_procedural_test_min_num_locs = 4
+    pddl_easy_delivery_procedural_test_max_num_locs = 6
+    pddl_easy_delivery_procedural_test_min_want_locs = 2
+    pddl_easy_delivery_procedural_test_max_want_locs = 3
+    pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
+    pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
