@@ -139,6 +139,12 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
 }]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
     {
+        "pddl_delivery_procedural_train_min_num_locs": 2,
+        "pddl_delivery_procedural_train_max_num_locs": 3,
+        "pddl_delivery_procedural_train_min_want_locs": 1,
+        "pddl_delivery_procedural_train_max_want_locs": 1,
+        "pddl_delivery_procedural_train_min_extra_newspapers": 0,
+        "pddl_delivery_procedural_train_max_extra_newspapers": 1,
         "pddl_delivery_procedural_test_min_num_locs": 2,
         "pddl_delivery_procedural_test_max_num_locs": 3,
         "pddl_delivery_procedural_test_min_want_locs": 1,
@@ -149,6 +155,12 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
 ]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
     {
+        "pddl_easy_delivery_procedural_train_min_num_locs": 2,
+        "pddl_easy_delivery_procedural_train_max_num_locs": 3,
+        "pddl_easy_delivery_procedural_train_min_want_locs": 1,
+        "pddl_easy_delivery_procedural_train_max_want_locs": 1,
+        "pddl_easy_delivery_procedural_train_min_extra_newspapers": 0,
+        "pddl_easy_delivery_procedural_train_max_extra_newspapers": 1,
         "pddl_easy_delivery_procedural_test_min_num_locs": 2,
         "pddl_easy_delivery_procedural_test_max_num_locs": 3,
         "pddl_easy_delivery_procedural_test_min_want_locs": 1,
