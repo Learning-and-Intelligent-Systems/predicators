@@ -20,7 +20,7 @@ from pyperplan.pddl.pddl import Domain as PyperplanDomain
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -306,6 +306,81 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
         return create_blocks_pddl_generator(min_blocks, max_blocks,
                                             min_blocks_goal, max_blocks_goal,
                                             new_pile_prob)
+
+
+class _DeliveryPDDLEnv(_PDDLEnv):
+    """A custom newspaper delivery domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/delivery/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksDeliveryPDDLEnv(_DeliveryPDDLEnv):
+    """The delivery PDDL domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_delivery_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_locs = CFG.pddl_delivery_procedural_train_min_num_locs
+        max_num_locs = CFG.pddl_delivery_procedural_train_max_num_locs
+        min_want_locs = CFG.pddl_delivery_procedural_train_min_want_locs
+        max_want_locs = CFG.pddl_delivery_procedural_train_max_want_locs
+        min_ex_news = CFG.pddl_delivery_procedural_train_min_extra_newspapers
+        max_ex_news = CFG.pddl_delivery_procedural_train_max_extra_newspapers
+        return create_delivery_pddl_generator(min_num_locs, max_num_locs,
+                                              min_want_locs, max_want_locs,
+                                              min_ex_news, max_ex_news)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_locs = CFG.pddl_delivery_procedural_test_min_num_locs
+        max_num_locs = CFG.pddl_delivery_procedural_test_max_num_locs
+        min_want_locs = CFG.pddl_delivery_procedural_test_min_want_locs
+        max_want_locs = CFG.pddl_delivery_procedural_test_max_want_locs
+        min_ex_news = CFG.pddl_delivery_procedural_test_min_extra_newspapers
+        max_ex_news = CFG.pddl_delivery_procedural_test_max_extra_newspapers
+        return create_delivery_pddl_generator(min_num_locs, max_num_locs,
+                                              min_want_locs, max_want_locs,
+                                              min_ex_news, max_ex_news)
+
+
+class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
+    """Delivery with fewer objects."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_easy_delivery_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_locs = CFG.pddl_easy_delivery_procedural_train_min_num_locs
+        max_num_locs = CFG.pddl_easy_delivery_procedural_train_max_num_locs
+        min_want_locs = CFG.pddl_easy_delivery_procedural_train_min_want_locs
+        max_want_locs = CFG.pddl_easy_delivery_procedural_train_max_want_locs
+        min_news = CFG.pddl_easy_delivery_procedural_train_min_extra_newspapers
+        max_news = CFG.pddl_easy_delivery_procedural_train_max_extra_newspapers
+        return create_delivery_pddl_generator(min_num_locs, max_num_locs,
+                                              min_want_locs, max_want_locs,
+                                              min_news, max_news)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_locs = CFG.pddl_easy_delivery_procedural_test_min_num_locs
+        max_num_locs = CFG.pddl_easy_delivery_procedural_test_max_num_locs
+        min_want_locs = CFG.pddl_easy_delivery_procedural_test_min_want_locs
+        max_want_locs = CFG.pddl_easy_delivery_procedural_test_max_want_locs
+        min_news = CFG.pddl_easy_delivery_procedural_test_min_extra_newspapers
+        max_news = CFG.pddl_easy_delivery_procedural_test_max_extra_newspapers
+        return create_delivery_pddl_generator(min_num_locs, max_num_locs,
+                                              min_want_locs, max_want_locs,
+                                              min_news, max_news)
 
 
 ###############################################################################
