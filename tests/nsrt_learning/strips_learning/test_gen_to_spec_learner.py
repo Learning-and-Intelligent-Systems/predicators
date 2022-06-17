@@ -14,10 +14,10 @@ from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
+    def try_specializing_pnad(self, necessary_add_effects, pnad, ground_op):
         """Exposed for testing."""
-        return self._try_specializing_pnad(necessary_add_effects, [pnad],
-                                           segment)
+        return self._try_specializing_pnad(necessary_add_effects, pnad,
+                                           ground_op)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -319,9 +319,6 @@ def test_find_unification_and_try_specializing_pnad():
     _, ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    specialization_result = learner.try_specializing_pnad(
-        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert specialization_result is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
@@ -334,10 +331,7 @@ def test_find_unification_and_try_specializing_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad, _ = learner.try_specializing_pnad({Asleep([bob])}, pnad,
-                                                Segment(
-                                                    traj, {Happy([bob])},
-                                                    set(), Move))
+    new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad, ground_op)
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
@@ -927,4 +921,55 @@ def test_multi_pass_backchaining(val):
                                              segmented_trajs,
                                              verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
-    _ = learner.learn()
+    learned_pnads = learner.learn()
+    assert len(learned_pnads) == 3
+    if val == 0.0:
+        correct_pnads = [
+            """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A()]
+    Add Effects: [B()]
+    Delete Effects: []
+    Side Predicates: [C]
+    Option Spec: Pick()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B()]
+    Add Effects: [D(), E()]
+    Delete Effects: [B()]
+    Side Predicates: []
+    Option Spec: Place()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B()]
+    Add Effects: [C(), D()]
+    Delete Effects: [B()]
+    Side Predicates: [E]
+    Option Spec: Place()"""
+        ]
+    else:
+        correct_pnads = [
+            """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A()]
+    Add Effects: [B(), C()]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Pick()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B(), C()]
+    Add Effects: [D()]
+    Delete Effects: [B()]
+    Side Predicates: [E]
+    Option Spec: Place()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B(), E()]
+    Add Effects: [D(), E()]
+    Delete Effects: [B()]
+    Side Predicates: []
+    Option Spec: Place()"""
+        ]
+
+    for pnad in learned_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
+        assert str(pnad) in correct_pnads

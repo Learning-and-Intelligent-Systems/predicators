@@ -6,8 +6,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
-from predicators.src.structs import GroundAtom, ParameterizedOption, \
-    PartialNSRTAndDatastore, Segment, STRIPSOperator, _GroundSTRIPSOperator
+from predicators.src.structs import GroundAtom, GroundNSRTOrSTRIPSOperator, \
+    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator, \
+    _GroundSTRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -73,6 +74,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         curr_finalized_pnads: Set[PartialNSRTAndDatastore] = set()
         finalized_pnads_converged = False
 
+        # We loop until the harmless PNADs induced by our procedure
+        # converge to a fixed point (i.e, they don't change after two
+        # subsequent iterations).
         while not finalized_pnads_converged:
             # Pass over the demonstrations multiple times. Each time, backchain
             # to learn PNADs. Repeat until a fixed point is reached.
@@ -81,11 +85,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Before each pass, clear the poss_keep_effects
                 # of all the PNADs. We do this because we only want the
                 # poss_keep_effects of the final pass, where the PNADs did
-                # not change. However, we cannot simply clear the the
-                # sub_dict because some of these substitutions might be
-                # necessary if this happens to be a PNAD that already
-                # has keep effects. Thus, we call a method that handles
-                # this correctly.
+                # not change. However, we cannot simply clear the
+                # pnad.seg_to_keep_effects_sub because some of these
+                # substitutions might be necessary if this happens to be
+                # a PNAD that already has keep effects. Thus, we call a
+                # method that handles this correctly.
                 for pnads in param_opt_to_nec_pnads.values():
                     for pnad in pnads:
                         pnad.poss_keep_effects.clear()
@@ -191,14 +195,23 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
                 # If we weren't able to find a substitution (i.e, the above
-                # for loop did not break), we need to try specializing each
-                # of our PNADs.
+                # _find_unification call didn't yield a PNAD), we need to
+                # try specializing each of our PNADs.
                 else:
                     nec_pnad_set_changed = True
-                    specialization_output = self._try_specializing_pnad(
-                        necessary_add_effects, pnads_for_option, segment)
-                    if specialization_output is not None:
-                        new_pnad, pnad = specialization_output
+                    # Get an arbitrary grounding of the PNAD's operator whose
+                    # preconditions hold in segment.init_atoms and whose add
+                    # effects are a subset of necessary_add_effects.
+                    pnad, ground_op = self._find_unification(
+                        necessary_add_effects,
+                        pnads_for_option,
+                        segment,
+                        ground_eff_subset_necessary_eff=True)
+                    # If no such grounding exists, specializing is not possible.
+                    if pnad is not None:
+                        assert ground_op is not None
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects, pnad, ground_op)
                         assert new_pnad.option_spec == pnad.option_spec
                         if len(param_opt_to_nec_pnads[option.parent]) > 0:
                             param_opt_to_nec_pnads[option.parent].remove(pnad)
@@ -207,12 +220,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # to spawn from the most general PNAD and make a new PNAD
                     # to cover these necessary add effects.
                     else:
-                        specialization_output = self._try_specializing_pnad(
+                        pnad, ground_op = self._find_unification(
                             necessary_add_effects,
                             [param_opt_to_general_pnad[option.parent]],
-                            segment)
-                        assert specialization_output is not None
-                        new_pnad, pnad = specialization_output
+                            segment,
+                            ground_eff_subset_necessary_eff=True)
+                        new_pnad = self._try_specializing_pnad(
+                            necessary_add_effects, pnad, ground_op)
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
@@ -284,8 +298,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         Note that this may require spawning new PNADs with keep effects.
         """
-        # Go thru all PNADs in the param_opt_to_nec_pnads dict and induce
-        # delete effects and side predicates.
+        # Go through all PNADs in the param_opt_to_nec_pnads dict and induce
+        # delete effects, side predicates, and keep effects.
         for option, nec_pnad_list in sorted(param_opt_to_nec_pnads.items(),
                                             key=str):
             pnads_with_keep_effects = set()
@@ -298,14 +312,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 list(pnads_with_keep_effects))
 
     def _reset_all_segment_add_effs(self) -> None:
-        """Reset all segment's necessary_add_effects to None."""
+        """Reset all segments' necessary_add_effects to None."""
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
                 continue
-            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-            for t in range(len(atoms_seq) - 2, -1, -1):
-                segment = seg_traj[t]
+            for segment in seg_traj:
                 segment.necessary_add_effects = None
 
     @staticmethod
@@ -346,7 +358,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=pnad.op.name + str(i))
+                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
                 uniquely_named_nec_pnads.append(pnad)
         return uniquely_named_nec_pnads
 
@@ -433,31 +445,16 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def _try_specializing_pnad(
         self,
         necessary_add_effects: Set[GroundAtom],
-        pnads: List[PartialNSRTAndDatastore],
-        segment: Segment,
-    ) -> Optional[Tuple[PartialNSRTAndDatastore, PartialNSRTAndDatastore]]:
-        """Given a list of PNAD and some necessary add effects that one of the
-        PNADs must achieve, try to make the PNAD's add effects more specific
+        pnad: PartialNSRTAndDatastore,
+        ground_op: GroundNSRTOrSTRIPSOperator,
+    ) -> PartialNSRTAndDatastore:
+        """Given a PNAD, some necessary add effects and a grounding of the PNAD
+        such that the PNAD's add effects are a subset of the necessary add
+        effects, try to make the PNAD's add effects more specific
         ("specialize") so that they cover these necessary add effects.
 
-        Returns the new constructed PNAD, as well as the unmodified PNAD
-        that was specialized to construct this new PNAD. If no PNAD has
-        a grounding that can even partially satisfy the necessary add
-        effects, then returns None.
+        Returns the newly constructed PNAD.
         """
-
-        # Get an arbitrary grounding of the PNAD's operator whose
-        # preconditions hold in segment.init_atoms and whose add
-        # effects are a subset of necessary_add_effects.
-        pnad, ground_op = self._find_unification(
-            necessary_add_effects,
-            pnads,
-            segment,
-            ground_eff_subset_necessary_eff=True)
-        # If no such grounding exists, specializing is not possible.
-        if ground_op is None:
-            return None
-        assert pnad is not None
         # To figure out the effects we need to add to this PNAD,
         # we first look at the ground effects that are missing
         # from this arbitrary ground operator.
@@ -490,7 +487,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # new_pnad here, because we only care about keep effects on the final
         # iteration of backchaining, where this function is never called.
 
-        return new_pnad, pnad
+        return new_pnad
 
     @staticmethod
     def _compute_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
