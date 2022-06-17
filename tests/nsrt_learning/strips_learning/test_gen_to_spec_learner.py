@@ -22,14 +22,23 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
         """Exposed for testing."""
         return self._recompute_datastores_from_segments(pnads)
 
-    def find_best_matching_pnad_and_sub(self,
-                                        segment,
-                                        objects,
-                                        pnads,
-                                        ground_eff_subset_necessary_eff=False):
+    def find_unification(self,
+                         necessary_add_effects,
+                         pnad,
+                         segment,
+                         ground_eff_subset_necessary_eff=False):
         """Exposed for testing."""
-        return (self._find_best_matching_pnad_and_sub(
-            segment, objects, pnads, ground_eff_subset_necessary_eff))
+        segment.necessary_add_effects = necessary_add_effects
+        objects = list(segment.states[0])
+        best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
+            segment, objects, [pnad], ground_eff_subset_necessary_eff)
+        if best_pnad is not None:
+            assert best_sub is not None
+            ground_best_pnad = pnad.op.ground(
+                tuple(best_sub[var] for var in pnad.op.parameters))
+        else:
+            ground_best_pnad = None
+        return best_pnad, ground_best_pnad
 
     def reset_all_segment_add_effs(self):
         """Exposed for testing."""
