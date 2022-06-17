@@ -2,12 +2,12 @@
 then specialize them based on the data."""
 
 import itertools
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.src.structs import GroundAtom, GroundNSRTOrSTRIPSOperator, \
-    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator
+    ParameterizedOption, PartialNSRTAndDatastore, STRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -200,7 +200,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
-                objects = list(segment.states[0])
+                objects = set(segment.states[0])
                 pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                     segment, objects, pnads_for_option)
                 if pnad is not None:
