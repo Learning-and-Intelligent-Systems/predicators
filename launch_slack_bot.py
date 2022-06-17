@@ -1,4 +1,8 @@
-"""Predicatorobot slack bot code."""
+"""Predicatorobot slack bot code.
+
+To launch on supercloud (e.g., after a downtime has ended):
+`rm -f nohup.out && nohup python launch_slack_bot.py &`
+"""
 
 import abc
 import os
