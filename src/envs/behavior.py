@@ -372,7 +372,8 @@ class BehaviorEnv(BaseEnv):
     @functools.lru_cache(maxsize=None)
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
-            if self._ig_object_name(ig_obj) == name:
+            # Name is extended with sub-type in some behavior tasks
+            if self._ig_object_name(ig_obj).startswith(name):
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")
 
@@ -477,7 +478,7 @@ class BehaviorEnv(BaseEnv):
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
             if isinstance(ig_obj.body_id, list):
-                assert len(ig_obj.body_id) == 1
+                # assert len(ig_obj.body_id) == 1 # For some reason sofa is a 4 part body
                 ig_obj.body_id = ig_obj.body_id[0]
 
             if np.any(self.igibson_behavior_env.robots[0].is_grasping(

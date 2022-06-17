@@ -2765,7 +2765,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
     # We start by creating reachable predicates for all possible type
     # combinations. These predicates will be used as side predicates
-    # for navigateTo operators
+    # for navigateTo and grasp operators
     reachable_predicates = set()
     for reachable_pred_types in itertools.product(env.types, env.types):
         reachable_predicates.add(
@@ -2850,7 +2850,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
                 preconditions = {handempty, targ_reachable, ontop}
-                add_effects = {targ_holding}
+                add_effects = {targ_holding, targ_reachable} # targ_reachable is a keep_effect
                 delete_effects = {handempty, ontop}
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_pick)}",
@@ -2858,7 +2858,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     preconditions,
                     add_effects,
                     delete_effects,
-                    set(),
+                    reachable_predicates,
                     option,
                     option_vars,
                     lambda s, g, r, o: grasp_obj_param_sampler(r),
