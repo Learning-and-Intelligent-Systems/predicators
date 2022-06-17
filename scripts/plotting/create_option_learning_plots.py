@@ -2,6 +2,7 @@
 
 import os
 from functools import partial
+from typing import Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -69,7 +70,8 @@ TITLE_ENVS = [
 ]
 
 
-def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
+def _select_data(env: str, approach: str,
+                 df: pd.DataFrame) -> Union[pd.DataFrame, pd.Series]:
     return df["EXPERIMENT_ID"].apply(
         lambda v: v.startswith(f"{env}_{approach}_"))
 

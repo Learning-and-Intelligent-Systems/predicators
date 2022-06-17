@@ -59,7 +59,7 @@ if args.sidelining:
 
 
 def pd_create_equal_selector(
-        key: str, value: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
+        key: str, value: str) -> Callable[[pd.DataFrame], pd.Series]:
     """Create a mask for a dataframe by checking key == value."""
     return lambda df: df[key] == value
 

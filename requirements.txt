@@ -5,6 +5,7 @@ matplotlib
 imageio
 imageio-ffmpeg
 pandas
+pandas-stubs
 torch
 scipy
 tabulate
