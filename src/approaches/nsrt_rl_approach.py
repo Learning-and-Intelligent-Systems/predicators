@@ -1,7 +1,8 @@
 """A bilevel planning approach that learns NSRTs from an offline dataset, and
 continues learning options through reinforcement learning."""
 
-from typing import Dict, List, Sequence, Set, Tuple, cast
+from collections import defaultdict
+from typing import DefaultDict, Dict, List, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -177,9 +178,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # concatenation of the state vector for the option's objects and the
         # relative parameter that the sampler provided. This input vector is
         # necessary during learning to update the option's regressor.
-        option_to_data: Dict[ParameterizedOption,
-                             List[List[Tuple[State, Array, Action, int,
-                                             State]]]] = {}
+        option_to_data: DefaultDict[ParameterizedOption, List[List[Tuple[
+            State, Array, Action, int, State]]]] = defaultdict(list)
 
         # For each InteractionResult, compute the experience data for each
         # _Option we see used in that interaction.
@@ -187,7 +187,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             option_to_data_from_result = self._get_experience_from_result(
                 i, result)
             for option, experience in option_to_data_from_result.items():
-                option_to_data.setdefault(option, []).extend(experience)
+                option_to_data[option].append(experience)
 
         # Call the RL option learner on each option.
         for option, experiences in option_to_data.items():
