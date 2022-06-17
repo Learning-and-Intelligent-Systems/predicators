@@ -14,9 +14,9 @@ from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def specialize_pnad(self, necessary_add_effects, pnad, ground_op):
+    def spawn_new_pnad(self, necessary_add_effects, pnad, ground_op):
         """Exposed for testing."""
-        return self._specialize_pnad(necessary_add_effects, pnad, ground_op)
+        return self._spawn_new_pnad(necessary_add_effects, pnad, ground_op)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -26,12 +26,12 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         ground_eff_subset_necessary_eff=True):
+                         check_add_effects=True):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
         objects = list(segment.states[0])
         best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
-            segment, objects, [pnad], ground_eff_subset_necessary_eff)
+            segment, objects, [pnad], check_add_effects)
         if best_pnad is not None:
             assert best_sub is not None
             ground_best_pnad = best_pnad.op.ground(
@@ -106,8 +106,7 @@ def test_backchaining_strips_learner():
                              expected_strs):
         assert str(pnad) == repr(pnad) == exp_str
 
-    # Test sidelining where an existing operator needs to
-    # be specialized.
+    # Test sidelining where an existing operator needs to be spawned.
     goal3 = {Asleep([bob])}
     act3 = Action([], Cry)
     traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
@@ -277,8 +276,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_specialize_pnad():
-    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner.
+def test_spawn_new_pnad():
+    """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
 
     Also, test the finding of a unification necessary for specializing,
     which involves calling the _find_best_matching_pnad_and_sub method
@@ -344,7 +343,7 @@ def test_specialize_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = learner.specialize_pnad({Asleep([bob])}, pnad, ground_op)
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad, ground_op)
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
