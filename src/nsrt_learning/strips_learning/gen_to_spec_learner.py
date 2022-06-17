@@ -165,7 +165,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
     ) -> bool:
-        """Take one pass through the demonstrations.
+        """Take one pass through the demonstrations in the given order.
 
         Go through each one from the end back to the start, making the
         PNADs more specific whenever needed. Return whether any PNAD was
