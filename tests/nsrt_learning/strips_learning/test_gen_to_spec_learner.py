@@ -22,14 +22,14 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
         """Exposed for testing."""
         return self._recompute_datastores_from_segments(pnads)
 
-    def find_unification(self,
-                         necessary_add_effects,
-                         pnad,
-                         segment,
-                         find_partial_grounding=True):
+    def find_best_matching_pnad_and_sub(self,
+                                        segment,
+                                        objects,
+                                        pnads,
+                                        ground_eff_subset_necessary_eff=False):
         """Exposed for testing."""
-        return (self._find_unification(necessary_add_effects, [pnad], segment,
-                                       find_partial_grounding))
+        return (self._find_best_matching_pnad_and_sub(
+            segment, objects, pnads, ground_eff_subset_necessary_eff))
 
     def reset_all_segment_add_effs(self):
         """Exposed for testing."""
@@ -268,9 +268,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_unification_and_specialize_pnad():
-    """Test the find_unification() and specialize_pnad() methods in the
-    BackchainingSTRIPSLearner."""
+def test_find_best_match_and_specialize_pnad():
+    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner."""
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
