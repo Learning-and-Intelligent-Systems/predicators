@@ -322,7 +322,8 @@ def test_specialize_pnad():
     assert ground_op is None
     _, ground_op = learner.find_unification(set(), pnad,
                                             Segment(traj, set(), set(), Move),
-                                            False)
+                                            ground_eff_subset_necessary_eff=\
+                                                False)
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})

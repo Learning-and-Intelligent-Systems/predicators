@@ -220,10 +220,11 @@ class BaseSTRIPSLearner(abc.ABC):
         return Nones.
 
         If ground_eff_subset_necessary_eff is True, then we are calling
-        this function from backchaining and trying to find a
-        substitution that matches a subset of the necessary add effects.
-        If not, we are trying to find a substitution that matches all
-        the necessary add effects (if they have been specified).
+        this function from backchaining during either specialization or
+        spawning a new PNAD and trying to find a substitution that matches
+        a subset of the necessary add effects. If not, we are trying to find
+        a substitution that matches all the necessary add effects (if they
+        have been specified in the segment).
         """
         if segment.has_option():
             segment_option = segment.get_option()
