@@ -26,9 +26,14 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     regex = r"(\d+)"
-    dataset_fname_template = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-        f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    if CFG.env == "behavior":
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_task_name}__{CFG.behavior_scene_name}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
@@ -164,62 +169,67 @@ def _generate_demonstrations(
         if idx >= CFG.max_initial_demos:
             break
         try:
-            if CFG.demonstrator == "oracle":
-                oracle_approach.solve(
-                    task, timeout=CFG.offline_data_planning_timeout)
-                # Since we're running the oracle approach, we know that the
-                # policy is actually a plan under the hood, and we can
-                # retrieve it with get_last_plan(). We do this because we want
-                # to run the full plan.
-                last_plan = oracle_approach.get_last_plan()
-                policy = utils.option_plan_to_policy(last_plan)
-                # We will stop run_policy() when OptionExecutionFailure() is
-                # hit, which should only happen when the goal has been
-                # reached, as verified by the assertion later.
-                termination_function = lambda s: False
-            else:  # pragma: no cover
-                policy = functools.partial(_human_demonstrator_policy, env,
-                                           idx, num_tasks, task,
-                                           event_to_action)
-                termination_function = task.goal_holds
-            if CFG.env == "behavior":
-                # For BEHAVIOR we are generating the trajectory by running our plan on our option models
-                # # Uncomment if you want to load a plan from file
-                # file = open(f'plan.pkl', 'rb')
-                # pkld_plan = pkl.load(file)
-                # file.close()
-                # last_plan = []
-                # print("Loaded Plan:")
-                # for i in range(len(pkld_plan)):
-                #     curr_option = None
-                #     print(pkld_plan[i][0])
-                #     for option in env.options:
-                #         if option.name == pkld_plan[i][0]:
-                #             curr_option = option
-                #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
-                traj, success = _run_low_level_plan(
-                    task, oracle_approach._option_model, last_plan,
-                    CFG.offline_data_planning_timeout, CFG.horizon)
-                if not success:
-                    print("Warning: low level plan execution failed")
-                    continue
-            else:
-                if CFG.make_demo_videos:
-                    monitor = utils.VideoMonitor(env.render)
+            continue_plan_search = True
+            while continue_plan_search:
+                if CFG.demonstrator == "oracle":
+                    oracle_approach.solve(
+                        task, timeout=CFG.offline_data_planning_timeout)
+                    # Since we're running the oracle approach, we know that the
+                    # policy is actually a plan under the hood, and we can
+                    # retrieve it with get_last_plan(). We do this because we want
+                    # to run the full plan.
+                    last_plan = oracle_approach.get_last_plan()
+                    policy = utils.option_plan_to_policy(last_plan)
+                    # We will stop run_policy() when OptionExecutionFailure() is
+                    # hit, which should only happen when the goal has been
+                    # reached, as verified by the assertion later.
+                    termination_function = lambda s: False
+                else:  # pragma: no cover
+                    policy = functools.partial(_human_demonstrator_policy, env,
+                                            idx, num_tasks, task,
+                                            event_to_action)
+                    termination_function = task.goal_holds
+                if CFG.env == "behavior":
+                    # For BEHAVIOR we are generating the trajectory by running our plan on our option models
+                    # # Uncomment if you want to load a plan from file
+                    # file = open(f'plan.pkl', 'rb')
+                    # pkld_plan = pkl.load(file)
+                    # file.close()
+                    # last_plan = []
+                    # print("Loaded Plan:")
+                    # for i in range(len(pkld_plan)):
+                    #     curr_option = None
+                    #     print(pkld_plan[i][0])
+                    #     for option in env.options:
+                    #         if option.name == pkld_plan[i][0]:
+                    #             curr_option = option
+                    #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
+                    traj, success = _run_low_level_plan(
+                        task, oracle_approach._option_model, last_plan,
+                        CFG.offline_data_planning_timeout, CFG.horizon)
+                    if not success:
+                        print("Warning: low level plan execution failed")
+                        continue
+                    else:
+                        continue_plan_search = False
                 else:
-                    monitor = None
-                traj, _ = utils.run_policy(
-                    policy,
-                    env,
-                    "train",
-                    idx,
-                    termination_function=termination_function,
-                    max_num_steps=CFG.horizon,
-                    exceptions_to_break_on={
-                        utils.OptionExecutionFailure,
-                        utils.HumanDemonstrationFailure,
-                    },
-                    monitor=monitor)
+                    if CFG.make_demo_videos:
+                        monitor = utils.VideoMonitor(env.render)
+                    else:
+                        monitor = None
+                    traj, _ = utils.run_policy(
+                        policy,
+                        env,
+                        "train",
+                        idx,
+                        termination_function=termination_function,
+                        max_num_steps=CFG.horizon,
+                        exceptions_to_break_on={
+                            utils.OptionExecutionFailure,
+                            utils.HumanDemonstrationFailure,
+                        },
+                        monitor=monitor)
+                    continue_plan_search = False
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
