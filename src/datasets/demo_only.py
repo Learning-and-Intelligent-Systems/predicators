@@ -17,6 +17,8 @@ from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
+from predicators.src.planning import _run_low_level_plan
+from src.envs import behavior
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
@@ -43,6 +45,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                 train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
+
+        # NOTE: This is necessary because BEHAVIOR options save
+        # the BEHAVIOR environment object in their memory, and this
+        # can't be pickled.
+        if CFG.env == "behavior":
+            for traj in dataset.trajectories:
+                for act in traj.actions:
+                    act.get_option().memory = dict()
+
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset
@@ -171,22 +182,44 @@ def _generate_demonstrations(
                                            idx, num_tasks, task,
                                            event_to_action)
                 termination_function = task.goal_holds
-            if CFG.make_demo_videos:
-                monitor = utils.VideoMonitor(env.render)
+            if CFG.env == "behavior":
+                # For BEHAVIOR we are generating the trajectory by running our plan on our option models
+                # # Uncomment if you want to load a plan from file
+                # file = open(f'plan.pkl', 'rb')
+                # pkld_plan = pkl.load(file)
+                # file.close()
+                # last_plan = []
+                # print("Loaded Plan:")
+                # for i in range(len(pkld_plan)):
+                #     curr_option = None
+                #     print(pkld_plan[i][0])
+                #     for option in env.options:
+                #         if option.name == pkld_plan[i][0]:
+                #             curr_option = option
+                #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
+                traj, success = _run_low_level_plan(
+                        task, oracle_approach._option_model, last_plan,
+                        CFG.offline_data_planning_timeout, CFG.horizon)
+                if not success:
+                    print("Warning: low level plan execution failed")
+                    continue
             else:
-                monitor = None
-            traj, _ = utils.run_policy(
-                policy,
-                env,
-                "train",
-                idx,
-                termination_function=termination_function,
-                max_num_steps=CFG.horizon,
-                exceptions_to_break_on={
-                    utils.OptionExecutionFailure,
-                    utils.HumanDemonstrationFailure,
-                },
-                monitor=monitor)
+                if CFG.make_demo_videos:
+                    monitor = utils.VideoMonitor(env.render)
+                else:
+                    monitor = None
+                traj, _ = utils.run_policy(
+                    policy,
+                    env,
+                    "train",
+                    idx,
+                    termination_function=termination_function,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
