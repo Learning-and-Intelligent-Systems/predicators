@@ -14,10 +14,9 @@ from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, ground_op):
+    def specialize_pnad(self, necessary_add_effects, pnad, ground_op):
         """Exposed for testing."""
-        return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           ground_op)
+        return self._specialize_pnad(necessary_add_effects, pnad, ground_op)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -269,8 +268,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_unification_and_try_specializing_pnad():
-    """Test the find_unification() and try_specializing_pnad() methods in the
+def test_find_unification_and_specialize_pnad():
+    """Test the find_unification() and specialize_pnad() methods in the
     BackchainingSTRIPSLearner."""
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -331,7 +330,7 @@ def test_find_unification_and_try_specializing_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad, ground_op)
+    new_pnad = learner.specialize_pnad({Asleep([bob])}, pnad, ground_op)
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
