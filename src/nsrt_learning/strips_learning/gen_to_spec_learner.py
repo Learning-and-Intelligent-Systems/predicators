@@ -2,13 +2,12 @@
 then specialize them based on the data."""
 
 import itertools
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.src.structs import GroundAtom, GroundNSRTOrSTRIPSOperator, \
-    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator, \
-    _GroundSTRIPSOperator
+    ParameterizedOption, PartialNSRTAndDatastore, STRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -110,14 +109,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             if set(cur_itr_pnads_filtered) == prev_itr_pnads:
                 break
 
-            # We need to go back to backchaining. In preparation, delete the
-            # delete effects and side predicates of all PNADs.
-            # NOTE: this implicitly changes param_opt_to_nec_pnads
-            # as well, since we're directly modifying the PNAD objects.
-            for pnad in cur_itr_pnads_filtered:
-                pnad.op = pnad.op.copy_with(delete_effects=set(),
-                                            side_predicates=set())
-
             prev_itr_pnads = set(cur_itr_pnads_filtered)
 
         # Assign a unique name to each PNAD.
@@ -209,30 +200,36 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
-                pnad, ground_op = self._find_unification(
-                    necessary_add_effects, pnads_for_option, segment)
+                objects = set(segment.states[0])
+                pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                    segment, objects, pnads_for_option)
                 if pnad is not None:
-                    assert ground_op is not None
-                    obj_to_var = dict(
-                        zip(ground_op.objects, pnad.op.parameters))
+                    assert var_to_obj is not None
+                    obj_to_var = {v: k for k, v in var_to_obj.items()}
+                    assert len(var_to_obj) == len(obj_to_var)
+                    ground_op = pnad.op.ground(
+                        tuple(var_to_obj[var] for var in pnad.op.parameters))
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
                 # If we weren't able to find a substitution (i.e, the above
-                # _find_unification call didn't yield a PNAD), we need to
+                # _find_best_matching call didn't yield a PNAD), we need to
                 # try specializing each of our current PNADs.
                 else:
                     nec_pnad_set_changed = True
                     # Get an arbitrary grounding of the PNAD's operator whose
                     # preconditions hold in segment.init_atoms and whose add
                     # effects are a subset of necessary_add_effects.
-                    pnad, ground_op = self._find_unification(
-                        necessary_add_effects,
-                        pnads_for_option,
+                    pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                         segment,
+                        objects,
+                        pnads_for_option,
                         ground_eff_subset_necessary_eff=True)
                     # If some grounding exists for a PNAD, specialize it.
                     if pnad is not None:
-                        assert ground_op is not None
+                        assert var_to_obj is not None
+                        ground_op = pnad.op.ground(
+                            tuple(var_to_obj[var]
+                                  for var in pnad.op.parameters))
                         new_pnad = self._specialize_pnad(
                             necessary_add_effects, pnad, ground_op)
                         assert new_pnad.option_spec == pnad.option_spec
@@ -243,14 +240,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # We call this process "spawning".
                     else:
                         # pnad was None, so ground_op should be None too
-                        assert ground_op is None
-                        pnad, ground_op = self._find_unification(
-                            necessary_add_effects,
-                            [param_opt_to_general_pnad[option.parent]],
+                        assert var_to_obj is None
+                        pnad, var_to_obj = \
+                            self._find_best_matching_pnad_and_sub(
                             segment,
+                            objects,
+                            [param_opt_to_general_pnad[option.parent]],
                             ground_eff_subset_necessary_eff=True)
                         assert pnad is not None
-                        assert ground_op is not None
+                        assert var_to_obj is not None
+                        ground_op = pnad.op.ground(
+                            tuple(var_to_obj[var]
+                                  for var in pnad.op.parameters))
                         new_pnad = self._specialize_pnad(
                             necessary_add_effects, pnad, ground_op)
 
@@ -273,13 +274,16 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
-                    best_score_pnad, ground_op = self._find_unification(
-                        necessary_add_effects,
-                        param_opt_to_nec_pnads[option.parent], segment)
-                    assert ground_op is not None
+                    best_score_pnad, var_to_obj = \
+                        self._find_best_matching_pnad_and_sub(
+                        segment, objects,
+                        param_opt_to_nec_pnads[option.parent])
+                    assert var_to_obj is not None
                     assert best_score_pnad == pnad
-                    obj_to_var = dict(
-                        zip(ground_op.objects, pnad.op.parameters))
+                    obj_to_var = {v: k for k, v in var_to_obj.items()}
+                    assert len(var_to_obj) == len(obj_to_var)
+                    ground_op = pnad.op.ground(
+                        tuple(var_to_obj[var] for var in pnad.op.parameters))
 
                 # Every atom in the necessary_image that wasn't in the
                 # ground_op's add effects is a possible keep effect. This
@@ -302,8 +306,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
                 # must now include its ground preconditions.
-                var_to_obj = {v: k for k, v in obj_to_var.items()}
-                assert len(var_to_obj) == len(obj_to_var)
                 necessary_image -= {
                     a.ground(var_to_obj)
                     for a in pnad.op.add_effects
@@ -377,82 +379,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     @classmethod
     def get_name(cls) -> str:
         return "backchaining"
-
-    def _find_unification(
-        self,
-        necessary_add_effects: Set[GroundAtom],
-        pnads: List[PartialNSRTAndDatastore],
-        segment: Segment,
-        ground_eff_subset_necessary_eff: bool = False
-    ) -> Tuple[Optional[PartialNSRTAndDatastore],
-               Optional[_GroundSTRIPSOperator]]:
-        """Find a mapping from the variables in one of the PNAD's add effects
-        and option to the objects in necessary_add_effects and the segment's
-        option.
-
-        If a mapping exists, we don't need to modify this PNAD.
-        Otherwise, we must make its add effects more specific. Note that
-        we are assuming all variables in the parameters of the PNAD will
-        appear in either the option arguments or the add effects. This
-        is in contrast to strips_learning.py, where delete effect
-        variables also contribute to parameters. If
-        ground_eff_subset_necessary_eff is True, we want to find the
-        best grounding that achieves some subset of the
-        necessary_add_effects. Else, we want to find the best grounding
-        that is some superset of the necessary_add_effects and also such
-        that the ground operator's add effects are always true in the
-        segment's final atoms. Note that we score the groundings and
-        pick the best one since there may be multiple operators that fit
-        these necessary add effects.
-        """
-        objects = list(segment.states[0])
-
-        option_objs = segment.get_option().objects
-        # Loop over all ground operators, looking for the most
-        # rational match for this segment.
-        best_score = float("inf")
-        best_pnad = None
-        best_ground_pnad = None
-        for pnad in pnads:
-            param_opt, opt_vars = pnad.option_spec
-            assert param_opt == segment.get_option().parent
-            isub = dict(zip(opt_vars, option_objs))
-            # Handle keep effect substitution correctly
-            # NOTE: code copied directly from _recompute_datastores.
-            if segment in pnad.seg_to_keep_effects_sub:
-                # If there are any variables only in the keep effects,
-                # their mappings should be put into isub, since their
-                # grounding is underconstrained by the segment itself.
-                keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
-                for var in pnad.op.parameters:
-                    if var in keep_eff_sub:
-                        assert var not in isub
-                        isub[var] = keep_eff_sub[var]
-
-            # Loop over all groundings.
-            for ground_pnad in utils.all_ground_operators_given_partial(
-                    pnad.op, objects, isub):
-                if not ground_pnad.preconditions.issubset(segment.init_atoms):
-                    continue
-                if ground_eff_subset_necessary_eff:
-                    if not ground_pnad.add_effects.issubset(
-                            necessary_add_effects):
-                        continue
-                else:
-                    if not ground_pnad.add_effects.issubset(
-                            segment.final_atoms):
-                        continue
-                    if not necessary_add_effects.issubset(
-                            ground_pnad.add_effects):
-                        continue
-                # This ground PNAD covers this segment. Score it!
-                score = self._score_segment_ground_op_match(
-                    segment, ground_pnad)
-                if score < best_score:  # we want a closer match
-                    best_score = score
-                    best_pnad = pnad
-                    best_ground_pnad = ground_pnad
-        return (best_pnad, best_ground_pnad)
 
     @staticmethod
     def _specialize_pnad(

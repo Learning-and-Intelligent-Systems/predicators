@@ -26,10 +26,19 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         find_partial_grounding=True):
+                         ground_eff_subset_necessary_eff=True):
         """Exposed for testing."""
-        return (self._find_unification(necessary_add_effects, [pnad], segment,
-                                       find_partial_grounding))
+        segment.necessary_add_effects = necessary_add_effects
+        objects = list(segment.states[0])
+        best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
+            segment, objects, [pnad], ground_eff_subset_necessary_eff)
+        if best_pnad is not None:
+            assert best_sub is not None
+            ground_best_pnad = best_pnad.op.ground(
+                tuple(best_sub[var] for var in best_pnad.op.parameters))
+        else:
+            ground_best_pnad = None
+        return best_pnad, ground_best_pnad
 
     def reset_all_segment_add_effs(self):
         """Exposed for testing."""
@@ -268,9 +277,13 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_unification_and_specialize_pnad():
-    """Test the find_unification() and specialize_pnad() methods in the
-    BackchainingSTRIPSLearner."""
+def test_specialize_pnad():
+    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner.
+
+    Also, test the finding of a unification necessary for specializing,
+    which involves calling the _find_best_matching_pnad_and_sub method
+    of the BaseSTRIPSLearner.
+    """
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -309,7 +322,8 @@ def test_find_unification_and_specialize_pnad():
     assert ground_op is None
     _, ground_op = learner.find_unification(set(), pnad,
                                             Segment(traj, set(), set(), Move),
-                                            False)
+                                            ground_eff_subset_necessary_eff=\
+                                                False)
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
