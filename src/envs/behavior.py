@@ -30,9 +30,11 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-    if os.path.exists("tmp_behavior_states/"):
-        shutil.rmtree("tmp_behavior_states/")
-    os.makedirs("tmp_behavior_states/")
+    # if os.path.exists("tmp_behavior_states/"):
+    #     shutil.rmtree("tmp_behavior_states/")
+    # os.makedirs("tmp_behavior_states/")
+    if not os.path.exists("tmp_behavior_states/"):
+        os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
@@ -178,7 +180,7 @@ class BehaviorEnv(BaseEnv):
                 self.set_igibson_behavior_env(curr_env_seed)
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
-            os.makedirs(f"tmp_behavior_states/{self.task_num}", exist_ok=True)
+            os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{self.task_num}", exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -405,7 +407,7 @@ class BehaviorEnv(BaseEnv):
         if save_state:
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
-                f"tmp_behavior_states/{self.task_num}/")
+                f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{self.task_num}/")
 
         return utils.BehaviorState(state_data,
                                    f"{self.task_num}-{simulator_state}")
@@ -560,7 +562,7 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
         )  # overwrite the old task_init checkpoint file!
     env.task_num = new_task_num
     load_checkpoint(env.igibson_behavior_env.simulator,
-                    f"tmp_behavior_states/{env.task_num}",
+                    f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{env.task_num}",
                     int(s.simulator_state.split("-")[1]))
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(

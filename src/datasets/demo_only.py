@@ -204,6 +204,7 @@ def _generate_demonstrations(
                     #         if option.name == pkld_plan[i][0]:
                     #             curr_option = option
                     #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
+                    
                     traj, success = _run_low_level_plan(
                         task, oracle_approach._option_model, last_plan,
                         CFG.offline_data_planning_timeout, CFG.horizon)
