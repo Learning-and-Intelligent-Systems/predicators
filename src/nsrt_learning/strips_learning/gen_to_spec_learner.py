@@ -207,7 +207,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     assert var_to_obj is not None
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
-                    ground_op = pnad.op.ground(tuple(var_to_obj.values()))
+                    ground_op = pnad.op.ground(
+                        tuple(var_to_obj[var] for var in pnad.op.parameters))
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
                 # If we weren't able to find a substitution (i.e, the above
@@ -226,7 +227,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # If some grounding exists for a PNAD, specialize it.
                     if pnad is not None:
                         assert var_to_obj is not None
-                        ground_op = pnad.op.ground(tuple(var_to_obj.values()))
+                        ground_op = pnad.op.ground(
+                            tuple(var_to_obj[var]
+                                  for var in pnad.op.parameters))
                         new_pnad = self._specialize_pnad(
                             necessary_add_effects, pnad, ground_op)
                         assert new_pnad.option_spec == pnad.option_spec
@@ -246,7 +249,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                             ground_eff_subset_necessary_eff=True)
                         assert pnad is not None
                         assert var_to_obj is not None
-                        ground_op = pnad.op.ground(tuple(var_to_obj.values()))
+                        ground_op = pnad.op.ground(
+                            tuple(var_to_obj[var]
+                                  for var in pnad.op.parameters))
                         new_pnad = self._specialize_pnad(
                             necessary_add_effects, pnad, ground_op)
 
@@ -279,7 +284,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     assert best_score_pnad == pnad
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
-                    ground_op = pnad.op.ground(tuple(var_to_obj.values()))
+                    ground_op = pnad.op.ground(
+                        tuple(var_to_obj[var] for var in pnad.op.parameters))
 
                 # Every atom in the necessary_image that wasn't in the
                 # ground_op's add effects is a possible keep effect. This

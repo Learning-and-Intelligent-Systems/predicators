@@ -26,7 +26,7 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         ground_eff_subset_necessary_eff=False):
+                         ground_eff_subset_necessary_eff=True):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
         objects = list(segment.states[0])
@@ -34,8 +34,8 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
             segment, objects, [pnad], ground_eff_subset_necessary_eff)
         if best_pnad is not None:
             assert best_sub is not None
-            ground_best_pnad = pnad.op.ground(
-                tuple(best_sub[var] for var in pnad.op.parameters))
+            ground_best_pnad = best_pnad.op.ground(
+                tuple(best_sub[var] for var in best_pnad.op.parameters))
         else:
             ground_best_pnad = None
         return best_pnad, ground_best_pnad
@@ -277,8 +277,13 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_best_match_and_specialize_pnad():
-    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner."""
+def test_specialize_pnad():
+    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner.
+
+    Also, test the finding of a unification necessary for specializing,
+    which involves calling the _find_best_matching_pnad_and_sub method
+    of the BaseSTRIPSLearner.
+    """
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
