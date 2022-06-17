@@ -18,9 +18,10 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, DefaultState, DummyOption, \
-    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, LowLevelTrajectory, \
-    STRIPSOperator, Task, Type, _GroundNSRT, _Option, Action, ParameterizedOption
+from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
+    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
+    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
+    _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -416,16 +417,16 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     assert not skeleton
     return [], True
 
+
 def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
-                          plan: List[_Option],
-                          timeout: float,
-                          max_horizon: int) -> Tuple[LowLevelTrajectory, bool]:
+                        plan: List[_Option], timeout: float,
+                        max_horizon: int) -> Tuple[LowLevelTrajectory, bool]:
     """Runs a plan on an option model to generate a low level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
-    the option sequence successfully executed to achieve the goal and 
-    generated a LowLevelTrajectory. Otherwise, it returns and empty 
-    list and False.
+    the option sequence successfully executed to achieve the goal and
+    generated a LowLevelTrajectory. Otherwise, it returns and empty list
+    and False.
     """
     start_time = time.time()
     cur_idx = 0
@@ -450,16 +451,21 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
             else:  # an EnvironmentFailure was not raised
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
-                actions[cur_idx-1] = Action([])
+                actions[cur_idx - 1] = Action([])
                 action_option = ParameterizedOption(
-                    option.parent.name, option.parent.types, option.parent.params_space, lambda s, m, o, p: Action(np.array([0.0])),
-                    lambda s, m, o, p: False, lambda s, m, o, p: True).ground(option.objects,option.params)
+                    option.parent.name, option.parent.types,
+                    option.parent.params_space,
+                    lambda s, m, o, p: Action(np.array([0.0])),
+                    lambda s, m, o, p: False,
+                    lambda s, m, o, p: True).ground(option.objects,
+                                                    option.params)
                 action_option.name = option.name
                 action_option.memory = option.memory
-                actions[cur_idx-1].set_option(action_option)
+                actions[cur_idx - 1].set_option(action_option)
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
-                    print(f"Max horizon {max_horizon} exceeded:",np.sum(num_actions_per_option[:cur_idx]),"steps")
+                    print(f"Max horizon {max_horizon} exceeded:",
+                          np.sum(num_actions_per_option[:cur_idx]), "steps")
                     can_continue_on = False
                 else:
                     # Since we're not checking the expected_atoms, we need to
@@ -467,7 +473,8 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(plan):
                         if task.goal_holds(traj[cur_idx]):
-                            return LowLevelTrajectory(traj, actions), True  # success!
+                            return LowLevelTrajectory(
+                                traj, actions), True  # success!
                         can_continue_on = False
                         return [], False
         else:
@@ -480,6 +487,7 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
     if task.goal_holds(task.init):
         return [], True  # empty plan successfully achieved goal
     return [], False
+
 
 def _update_nsrts_with_failure(
     discovered_failure: _DiscoveredFailure, ground_nsrts: List[_GroundNSRT]

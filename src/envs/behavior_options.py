@@ -711,7 +711,9 @@ def create_grasp_option_model(
         # turn it off for the final system and use a real grasp
         # sampler
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
-            assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1), bypass_force_check=True)
+            assisted_grasp_action,
+            override_ag_data=(grasp_obj_body_id, -1),
+            bypass_force_check=True)
         # 3.2 step the environment a few timesteps to complete grasp
         for _ in range(5):
             env.step(a)

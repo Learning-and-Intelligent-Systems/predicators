@@ -14,10 +14,10 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs import BaseEnv
+from predicators.src.planning import _run_low_level_plan
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
-from predicators.src.planning import _run_low_level_plan
 from src.envs import behavior
 
 
@@ -198,8 +198,8 @@ def _generate_demonstrations(
                 #             curr_option = option
                 #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
                 traj, success = _run_low_level_plan(
-                        task, oracle_approach._option_model, last_plan,
-                        CFG.offline_data_planning_timeout, CFG.horizon)
+                    task, oracle_approach._option_model, last_plan,
+                    CFG.offline_data_planning_timeout, CFG.horizon)
                 if not success:
                     print("Warning: low level plan execution failed")
                     continue
