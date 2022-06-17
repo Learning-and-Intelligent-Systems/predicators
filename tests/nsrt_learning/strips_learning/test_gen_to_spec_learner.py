@@ -1,10 +1,12 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
+import pytest
+
 from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
-from predicators.src.structs import Action, LowLevelTrajectory, \
+from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
 
@@ -12,23 +14,26 @@ from predicators.src.structs import Action, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def try_specializing_pnad(self, necessary_add_effects, pnad, segment):
+    def specialize_pnad(self, necessary_add_effects, pnad, ground_op):
         """Exposed for testing."""
-        return self._try_specializing_pnad(necessary_add_effects, pnad,
-                                           segment)
+        return self._specialize_pnad(necessary_add_effects, pnad, ground_op)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
         return self._recompute_datastores_from_segments(pnads)
 
-    @staticmethod
-    def find_unification(necessary_add_effects,
+    def find_unification(self,
+                         necessary_add_effects,
                          pnad,
                          segment,
                          find_partial_grounding=True):
         """Exposed for testing."""
-        return (BackchainingSTRIPSLearner._find_unification(
-            necessary_add_effects, pnad, segment, find_partial_grounding))
+        return (self._find_unification(necessary_add_effects, [pnad], segment,
+                                       find_partial_grounding))
+
+    def reset_all_segment_add_effs(self):
+        """Exposed for testing."""
+        return self._reset_all_segment_add_effs()
 
 
 def test_backchaining_strips_learner():
@@ -218,6 +223,8 @@ def test_backchaining_strips_learner_order_dependence():
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment3], [segment2], [segment1]],
         verify_harmlessness=True)
+    # Be sure to reset the segment add effects before doing this.
+    learner.reset_all_segment_add_effs()
     reverse_order_pnads = learner.learn()
 
     # First, check that the two sets of PNADs have the same number of PNADs.
@@ -261,8 +268,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_find_unification_and_try_specializing_pnad():
-    """Test the find_unification() and try_specializing_pnad() methods in the
+def test_find_unification_and_specialize_pnad():
+    """Test the find_unification() and specialize_pnad() methods in the
     BackchainingSTRIPSLearner."""
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -286,7 +293,7 @@ def test_find_unification_and_try_specializing_pnad():
                                              verify_harmlessness=True)
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
-    ground_op = learner.find_unification(
+    _, ground_op = learner.find_unification(
         {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
@@ -297,28 +304,25 @@ def test_find_unification_and_try_specializing_pnad():
     Side Predicates: []"""
     # The necessary_add_effects is empty, but the PNAD has an add effect,
     # so no grounding is possible.
-    ground_op = learner.find_unification(set(), pnad,
-                                         Segment(traj, set(), set(), Move))
+    _, ground_op = learner.find_unification(set(), pnad,
+                                            Segment(traj, set(), set(), Move))
     assert ground_op is None
-    ground_op = learner.find_unification(set(), pnad,
-                                         Segment(traj, set(), set(), Move),
-                                         False)
+    _, ground_op = learner.find_unification(set(), pnad,
+                                            Segment(traj, set(), set(), Move),
+                                            False)
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
     # The new preconditions are not satisfiable in the segment's init_atoms,
     # so no grounding is possible.
-    ground_op = learner.find_unification(
+    _, ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    new_pnad = learner.try_specializing_pnad(
-        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert new_pnad is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
-    ground_op = learner.find_unification({Asleep([bob])}, pnad,
-                                         Segment(traj, {Happy([bob])}, set(),
-                                                 Move))
+    _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
+                                            Segment(traj, {Happy([bob])},
+                                                    set(), Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -326,9 +330,7 @@ def test_find_unification_and_try_specializing_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = learner.try_specializing_pnad({Asleep([bob])}, pnad,
-                                             Segment(traj, {Happy([bob])},
-                                                     set(), Move))
+    new_pnad = learner.specialize_pnad({Asleep([bob])}, pnad, ground_op)
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
@@ -459,26 +461,26 @@ def test_keep_effect_data_partitioning():
     # a keep effect, while the other shouldn't.
     assert len(output_pnads) == 4
     correct_pnads = set([
-        """STRIPS-Run0:
+        """STRIPS-Run:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigured(?x0:machine_type), """ + \
         """MachineOn(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn0:
+    Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Configure0:
+    Option Spec: TurnOn()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
@@ -490,6 +492,9 @@ def test_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
 
 
@@ -661,46 +666,46 @@ def test_combinatorial_keep_effect_data_partitioning():
     # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
     assert len(output_pnads) == 7
     correct_pnads = set([
-        """STRIPS-Run0:
+        """STRIPS-Run:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Run()""", """STRIPS-TurnOn0:
+    Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: TurnOn()""", """STRIPS-Fix0:
+    Option Spec: TurnOn()""", """STRIPS-Fix:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineWorking(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: []
-    Option Spec: Fix()""", """STRIPS-Configure0:
+    Option Spec: Fix()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP0:
+    Side Predicates: [MachineOn]
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP1:
+    Side Predicates: [MachineOn]
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
     Side Predicates: [MachineOn, MachineWorking]
-    Option Spec: Configure()""", """STRIPS-Configure0-KEEP2:
+    Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
@@ -713,6 +718,9 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
 
     # Now, run the learner on 3/4 of the demos and verify that it produces only
@@ -722,11 +730,12 @@ def test_combinatorial_keep_effect_data_partitioning():
                                              predicates,
                                              segmented_trajs[:-1],
                                              verify_harmlessness=True)
+    learner.reset_all_segment_add_effs()
     output_pnads = learner.learn()
     assert len(output_pnads) == 6
 
     correct_pnads = correct_pnads - set([
-        """STRIPS-Configure0-KEEP1:
+        """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
@@ -738,6 +747,9 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Verify that all the output PNADs are correct.
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
 
 
@@ -812,13 +824,13 @@ def test_keep_effect_adding_new_variables():
     # have a keep effect that keeps potato3 intact (in the datastore's sub).
     assert len(output_pnads) == 2
     correct_pnads = set([
-        """STRIPS-Press0-KEEP0:
+        """STRIPS-Press:
     Parameters: [?x0:button_type, ?x1:potato_type]
     Preconditions: [PotatoIntact(?x1:potato_type)]
     Add Effects: [ButtonPressed(?x0:button_type), PotatoIntact(?x1:potato_type)]
     Delete Effects: []
     Side Predicates: [PotatoIntact]
-    Option Spec: Press(?x0:button_type)""", """STRIPS-Pick0:
+    Option Spec: Press(?x0:button_type)""", """STRIPS-Pick:
     Parameters: [?x0:potato_type]
     Preconditions: [PotatoIntact(?x0:potato_type)]
     Add Effects: [PotatoHeld(?x0:potato_type)]
@@ -831,6 +843,9 @@ def test_keep_effect_adding_new_variables():
     potato_x0 = potato_type("?x0")
     potato_x1 = potato_type("?x1")
     for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
         if pnad.option_spec[0].name == "Press":
             # We need that potato3 in particular is left intact during the
@@ -846,3 +861,114 @@ def test_keep_effect_adding_new_variables():
             seg, sub = pnad.datastore[0]
             assert seg is segmented_traj[1]
             assert sub == {potato_x0: potato3}
+
+
+@pytest.mark.parametrize("val", [0.0, 1.0])
+def test_multi_pass_backchaining(val):
+    """Test that the BackchainingSTRIPSLearner does multiple passes of
+    backchaining, which is needed to ensure harmlessness."""
+    utils.reset_config({"segmenter": "atom_changes"})
+    # Set up the types, objects, and, predicates.
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy = dummy_type("dummy")
+    A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
+    B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
+    C = Predicate("C", [], lambda s, o: s[dummy][2] > 0.5)
+    D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
+    E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
+    predicates = {A, B, C, D, E}
+
+    # Create the necessary options and actions.
+    Pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
+                                              types=[]).ground([], [])
+    pick_act = Action([], Pick)
+    Place = utils.SingletonParameterizedOption("Place",
+                                               lambda s, m, o, p: None,
+                                               types=[]).ground([], [])
+    place_act = Action([], Place)
+
+    # Create trajectories.
+    s10 = State({dummy: [1.0, 0.0, 0.0, 0.0, 0.0]})
+    s11 = State({dummy: [1.0, 1.0, 1.0, 0.0, 0.0]})
+    s12 = State({dummy: [1.0, 0.0, 1.0, 1.0, 1.0]})
+    traj1 = LowLevelTrajectory([s10, s11, s12], [pick_act, place_act], True, 0)
+    goal1 = {GroundAtom(D, [])}
+    task1 = Task(s10, goal1)
+
+    s20 = State({dummy: [1.0, 1.0, 0.0, 0.0, val]})
+    s21 = State({dummy: [1.0, 0.0, 0.0, 1.0, 1.0]})
+    traj2 = LowLevelTrajectory([s20, s21], [place_act], True, 1)
+    goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
+    task2 = Task(s20, goal2)
+
+    s30 = State({dummy: [1.0, 1.0, val, 0.0, 0.0]})
+    s31 = State({dummy: [1.0, 0.0, 1.0, 1.0, 1.0]})
+    traj3 = LowLevelTrajectory([s30, s31], [place_act], True, 2)
+    goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
+    task3 = Task(s30, goal3)
+
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2, traj3],
+                                                         predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+
+    # Now, run the learner on the three demos.
+    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
+                                             [task1, task2, task3],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
+    learned_pnads = learner.learn()
+    assert len(learned_pnads) == 3
+    if val == 0.0:
+        correct_pnads = [
+            """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A()]
+    Add Effects: [B()]
+    Delete Effects: []
+    Side Predicates: [C]
+    Option Spec: Pick()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B()]
+    Add Effects: [D(), E()]
+    Delete Effects: [B()]
+    Side Predicates: []
+    Option Spec: Place()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B()]
+    Add Effects: [C(), D()]
+    Delete Effects: [B()]
+    Side Predicates: [E]
+    Option Spec: Place()"""
+        ]
+    else:
+        correct_pnads = [
+            """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A()]
+    Add Effects: [B(), C()]
+    Delete Effects: []
+    Side Predicates: []
+    Option Spec: Pick()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B(), C()]
+    Add Effects: [D()]
+    Delete Effects: [B()]
+    Side Predicates: [E]
+    Option Spec: Place()""", """STRIPS-Place:
+    Parameters: []
+    Preconditions: [A(), B(), E()]
+    Add Effects: [D(), E()]
+    Delete Effects: [B()]
+    Side Predicates: []
+    Option Spec: Place()"""
+        ]
+
+    for pnad in learned_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
+        assert str(pnad) in correct_pnads
