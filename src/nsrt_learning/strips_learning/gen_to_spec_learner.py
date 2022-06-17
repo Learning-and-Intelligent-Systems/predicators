@@ -2,12 +2,13 @@
 then specialize them based on the data."""
 
 import itertools
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
-from predicators.src.structs import GroundAtom, ParameterizedOption, \
-    PartialNSRTAndDatastore, Segment, STRIPSOperator, _GroundSTRIPSOperator
+from predicators.src.structs import GroundAtom, GroundNSRTOrSTRIPSOperator, \
+    ParameterizedOption, PartialNSRTAndDatastore, Segment, STRIPSOperator, \
+    _GroundSTRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -70,25 +71,93 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        # Pass over the demonstrations multiple times. Each time, backchain
-        # to learn PNADs. Repeat until a fixed point is reached.
-        nec_pnad_set_changed = True
-        while nec_pnad_set_changed:
-            # Before each pass, clear the poss_keep_effects and
-            # seg_to_keep_effects_sub of all the PNADs. We do this because
-            # we only want the poss_keep_effects of the final pass, where
-            # the PNADs did not change.
+        prev_itr_pnads: Set[PartialNSRTAndDatastore] = set()
+
+        # We loop until the harmless PNADs induced by our procedure
+        # converge to a fixed point (i.e, they don't change after two
+        # subsequent iterations).
+        while True:
+            # Run multiple passes of backchaining over the data until
+            # convergence to a fixed point. Note that this process creates
+            # operators with only parameters, preconditions, and add effects.
+            self._backchain_multipass(param_opt_to_nec_pnads,
+                                      param_opt_to_general_pnad)
+
+            # Induce delete effects, side predicates and potentially
+            # keep effects.
+            self._induce_delete_side_keep(param_opt_to_nec_pnads)
+
+            # Recompute datastores and preconditions for all PNADs.
+            # Filter out PNADs that don't have datastores.
+            cur_itr_pnads_unfiltered = [
+                pnad for pnads in param_opt_to_nec_pnads.values()
+                for pnad in pnads
+            ]
+            self._recompute_datastores_from_segments(cur_itr_pnads_unfiltered)
+            cur_itr_pnads_filtered = []
+            for pnad in cur_itr_pnads_unfiltered:
+                if len(pnad.datastore) > 0:
+                    new_pre = self._induce_preconditions_via_intersection(pnad)
+                    # NOTE: this implicitly changes param_opt_to_nec_pnads
+                    # as well, since we're directly modifying the PNAD objects.
+                    pnad.op = pnad.op.copy_with(preconditions=new_pre)
+                    cur_itr_pnads_filtered.append(pnad)
+                else:
+                    param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
+            del cur_itr_pnads_unfiltered  # should be unused after this
+
+            # Check if the PNAD set has converged. If so, break.
+            if set(cur_itr_pnads_filtered) == prev_itr_pnads:
+                break
+
+            # We need to go back to backchaining. In preparation, delete the
+            # delete effects and side predicates of all PNADs.
+            # NOTE: this implicitly changes param_opt_to_nec_pnads
+            # as well, since we're directly modifying the PNAD objects.
+            for pnad in cur_itr_pnads_filtered:
+                pnad.op = pnad.op.copy_with(delete_effects=set(),
+                                            side_predicates=set())
+
+            prev_itr_pnads = set(cur_itr_pnads_filtered)
+
+        # Assign a unique name to each PNAD.
+        final_pnads = self._get_uniquely_named_nec_pnads(
+            param_opt_to_nec_pnads)
+        # Assert data has been correctly partitioned amongst PNADs.
+        self._assert_all_data_in_exactly_one_datastore(final_pnads)
+        return final_pnads
+
+    def _backchain_multipass(
+        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                           List[PartialNSRTAndDatastore]],
+        param_opt_to_general_pnad: Dict[ParameterizedOption,
+                                        PartialNSRTAndDatastore]
+    ) -> None:
+        """Take multiple passes through the demonstrations, running
+        self._backchain_one_pass() each time.
+
+        Keep going until the PNADs reach a fixed point. Note that this
+        process creates operators with only parameters, preconditions,
+        and add effects.
+        """
+        while True:
+            # Before each pass, clear the poss_keep_effects
+            # of all the PNADs. We do this because we only want the
+            # poss_keep_effects of the final pass, where the PNADs did
+            # not change. However, we cannot simply clear the
+            # pnad.seg_to_keep_effects_sub because some of these
+            # substitutions might be necessary if this happens to be
+            # a PNAD that already has keep effects. Thus, we call a
+            # method that handles this correctly.
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
                     pnad.poss_keep_effects.clear()
-                    pnad.seg_to_keep_effects_sub.clear()
+                    self._clear_unnecessary_keep_effs_sub(pnad)
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads, param_opt_to_general_pnad)
-
-        final_pnads = self._finish_learning(param_opt_to_nec_pnads)
-        self._assert_all_data_in_exactly_one_datastore(final_pnads)
-        return final_pnads
+            if not nec_pnad_set_changed:
+                break
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
@@ -96,12 +165,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         param_opt_to_general_pnad: Dict[ParameterizedOption,
                                         PartialNSRTAndDatastore]
     ) -> bool:
-        """Take one pass through the demonstrations.
+        """Take one pass through the demonstrations in the given order.
 
         Go through each one from the end back to the start, making the
         PNADs more specific whenever needed. Return whether any PNAD was
         changed.
         """
+        # Reset all segments' necessary_add_effects so that they aren't
+        # accidentally used from a previous iteration of backchaining.
+        self._reset_all_segment_add_effs()
         nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
@@ -132,41 +204,55 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # They must be a subset of the current PNAD's add effects.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 assert necessary_add_effects.issubset(segment.add_effects)
+                # Update the segment's necessary_add_effects.
+                segment.necessary_add_effects = necessary_add_effects
 
                 # We start by checking if any of the PNADs associated with the
                 # demonstrated option are able to match this transition.
-                for pnad in pnads_for_option:
-                    ground_op = self._find_unification(necessary_add_effects,
-                                                       pnad, segment)
-                    if ground_op is not None:
-                        obj_to_var = dict(
-                            zip(ground_op.objects, pnad.op.parameters))
-                        if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                            param_opt_to_nec_pnads[option.parent].append(pnad)
-                        break
+                pnad, ground_op = self._find_unification(
+                    necessary_add_effects, pnads_for_option, segment)
+                if pnad is not None:
+                    assert ground_op is not None
+                    obj_to_var = dict(
+                        zip(ground_op.objects, pnad.op.parameters))
+                    if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                        param_opt_to_nec_pnads[option.parent].append(pnad)
                 # If we weren't able to find a substitution (i.e, the above
-                # for loop did not break), we need to try specializing each
-                # of our PNADs.
+                # _find_unification call didn't yield a PNAD), we need to
+                # try specializing each of our current PNADs.
                 else:
                     nec_pnad_set_changed = True
-                    for pnad in pnads_for_option:
-                        new_pnad = self._try_specializing_pnad(
-                            necessary_add_effects, pnad, segment)
-                        if new_pnad is not None:
-                            assert new_pnad.option_spec == pnad.option_spec
-                            if len(param_opt_to_nec_pnads[option.parent]) > 0:
-                                param_opt_to_nec_pnads[option.parent].remove(
-                                    pnad)
-                            del pnad
-                            break
-                    # If we were unable to specialize any of the PNADs, we need
-                    # to spawn from the most general PNAD and make a new PNAD
-                    # to cover these necessary add effects.
+                    # Get an arbitrary grounding of the PNAD's operator whose
+                    # preconditions hold in segment.init_atoms and whose add
+                    # effects are a subset of necessary_add_effects.
+                    pnad, ground_op = self._find_unification(
+                        necessary_add_effects,
+                        pnads_for_option,
+                        segment,
+                        ground_eff_subset_necessary_eff=True)
+                    # If some grounding exists for a PNAD, specialize it.
+                    if pnad is not None:
+                        assert ground_op is not None
+                        new_pnad = self._specialize_pnad(
+                            necessary_add_effects, pnad, ground_op)
+                        assert new_pnad.option_spec == pnad.option_spec
+                        if len(param_opt_to_nec_pnads[option.parent]) > 0:
+                            param_opt_to_nec_pnads[option.parent].remove(pnad)
+                    # If we were unable to specialize any of the current PNADs,
+                    # make a new PNAD by specializing the most general PNAD.
+                    # We call this process "spawning".
                     else:
-                        new_pnad = self._try_specializing_pnad(
+                        # pnad was None, so ground_op should be None too
+                        assert ground_op is None
+                        pnad, ground_op = self._find_unification(
                             necessary_add_effects,
-                            param_opt_to_general_pnad[option.parent], segment)
-                        assert new_pnad is not None
+                            [param_opt_to_general_pnad[option.parent]],
+                            segment,
+                            ground_eff_subset_necessary_eff=True)
+                        assert pnad is not None
+                        assert ground_op is not None
+                        new_pnad = self._specialize_pnad(
+                            necessary_add_effects, pnad, ground_op)
 
                     pnad = new_pnad
                     del new_pnad  # unused from here
@@ -187,17 +273,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
-                    ground_op = self._find_unification(necessary_add_effects,
-                                                       pnad, segment)
+                    best_score_pnad, ground_op = self._find_unification(
+                        necessary_add_effects,
+                        param_opt_to_nec_pnads[option.parent], segment)
                     assert ground_op is not None
+                    assert best_score_pnad == pnad
                     obj_to_var = dict(
                         zip(ground_op.objects, pnad.op.parameters))
 
                 # Every atom in the necessary_image that wasn't in the
-                # necessary_add_effects is a possible keep effect. This
+                # ground_op's add effects is a possible keep effect. This
                 # may add new variables, whose mappings for this segment
                 # we keep track of in the seg_to_keep_effects_sub dict.
-                for atom in necessary_image - necessary_add_effects:
+                for atom in necessary_image - ground_op.add_effects:
                     keep_eff_sub = {}
                     for obj in atom.objects:
                         if obj in obj_to_var:
@@ -226,122 +314,159 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 }
         return nec_pnad_set_changed
 
-    def _finish_learning(
+    def _induce_delete_side_keep(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                            List[PartialNSRTAndDatastore]]
-    ) -> List[PartialNSRTAndDatastore]:
+    ) -> None:
         """Given the current PNADs where add effects and preconditions are
-        correct, learn the remaining components."""
-        # Make a list of all final PNADs. Note
-        # that these final PNADs only come from the
-        # param_opt_to_nec_pnads dict, since we can be assured
-        # that our backchaining process ensured that the
-        # PNADs in this dict cover all of the data!
-        nec_pnads = []
+        correct, learn the remaining components: delete effects, side
+        predicates, and keep_effects.
+
+        Note that this may require spawning new PNADs with keep effects.
+        """
+        for option, nec_pnad_list in sorted(param_opt_to_nec_pnads.items(),
+                                            key=str):
+            pnads_with_keep_effects = set()
+            for pnad in nec_pnad_list:
+                self._compute_pnad_delete_effects(pnad)
+                self._compute_pnad_side_predicates(pnad)
+                pnads_with_keep_effects |= self._get_pnads_with_keep_effects(
+                    pnad)
+            param_opt_to_nec_pnads[option].extend(
+                list(pnads_with_keep_effects))
+
+    def _reset_all_segment_add_effs(self) -> None:
+        """Reset all segments' necessary_add_effects to None."""
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            for segment in seg_traj:
+                segment.necessary_add_effects = None
+
+    @staticmethod
+    def _clear_unnecessary_keep_effs_sub(
+            pnad: PartialNSRTAndDatastore) -> None:
+        """Clear unnecessary substitution values from the PNAD's
+        seg_to_keep_effects_sub_dict.
+
+        A substitution is unnecessary if it concerns a variable that
+        isn't in the PNAD's op parameters.
+        """
+        for segment, keep_eff_sub in pnad.seg_to_keep_effects_sub.items():
+            new_keep_eff_sub_dict = {}
+            for var, obj in keep_eff_sub.items():
+                if var in pnad.op.parameters:
+                    new_keep_eff_sub_dict[var] = obj
+            pnad.seg_to_keep_effects_sub[segment] = new_keep_eff_sub_dict
+
+    @staticmethod
+    def _get_uniquely_named_nec_pnads(
+        param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                     List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
+        """Given the param_opt_to_nec_pnads dict, return a list of PNADs that
+        have unique names and can be used for planning."""
+        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
                 pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                nec_pnads.append(pnad)
-
-        # At this point, all PNADs have correct parameters, preconditions,
-        # and add effects. We now compute the delete effects, side
-        # predicates, and keep effects. The order is important: each
-        # of these depends on the previous one.
-        pnads_with_keep_effects = set()
-        for pnad in nec_pnads:
-            self._compute_pnad_delete_effects(pnad)
-            self._compute_pnad_side_predicates(pnad)
-            pnads_with_keep_effects |= self._get_pnads_with_keep_effects(pnad)
-        for pnad in pnads_with_keep_effects:
-            nec_pnads.append(pnad)
-
-        # Recompute datastores and induce preconditions one final time.
-        # Filter out PNADs that have an empty datastore.
-        self._recompute_datastores_from_segments(nec_pnads)
-        final_pnads = []
-        for pnad in nec_pnads:
-            if pnad.datastore:
-                pre = self._induce_preconditions_via_intersection(pnad)
-                pnad.op = pnad.op.copy_with(preconditions=pre)
-                final_pnads.append(pnad)
-
-        return final_pnads
+                uniquely_named_nec_pnads.append(pnad)
+        return uniquely_named_nec_pnads
 
     @classmethod
     def get_name(cls) -> str:
         return "backchaining"
 
-    @staticmethod
     def _find_unification(
-        necessary_add_effects: Set[GroundAtom],
-        pnad: PartialNSRTAndDatastore,
-        segment: Segment,
-        ground_eff_subset_necessary_eff: bool = False
-    ) -> Optional[_GroundSTRIPSOperator]:
-        """Find a mapping from the variables in the PNAD add effects and option
-        to the objects in necessary_add_effects and the segment's option.
-
-        If one exists, we don't need to modify this PNAD. Otherwise, we
-        must make its add effects more specific. Note that we are
-        assuming all variables in the parameters of the PNAD will appear
-        in either the option arguments or the add effects. This is in
-        contrast to strips_learning.py, where delete effect variables
-        also contribute to parameters. If
-        ground_eff_subset_necessary_eff is True, we want to find a
-        grounding that achieves some subset of the
-        necessary_add_effects. Else, we want to find a grounding that is
-        some superset of the necessary_add_effects and also such that
-        the ground operator's add effects are always true in the
-        segment's final atoms.
-        """
-        objects = list(segment.states[0])
-        option_objs = segment.get_option().objects
-        isub = dict(zip(pnad.option_spec[1], option_objs))
-        # Loop over all groundings.
-        for ground_op in utils.all_ground_operators_given_partial(
-                pnad.op, objects, isub):
-            if not ground_op.preconditions.issubset(segment.init_atoms):
-                continue
-            if ground_eff_subset_necessary_eff:
-                if not ground_op.add_effects.issubset(necessary_add_effects):
-                    continue
-            else:
-                if not ground_op.add_effects.issubset(segment.final_atoms):
-                    continue
-                if not necessary_add_effects.issubset(ground_op.add_effects):
-                    continue
-            return ground_op
-        return None
-
-    def _try_specializing_pnad(
         self,
         necessary_add_effects: Set[GroundAtom],
-        pnad: PartialNSRTAndDatastore,
+        pnads: List[PartialNSRTAndDatastore],
         segment: Segment,
-    ) -> Optional[PartialNSRTAndDatastore]:
-        """Given a PNAD and some necessary add effects that the PNAD must
-        achieve, try to make the PNAD's add effects more specific
-        ("specialize") so that they cover these necessary add effects.
+        ground_eff_subset_necessary_eff: bool = False
+    ) -> Tuple[Optional[PartialNSRTAndDatastore],
+               Optional[_GroundSTRIPSOperator]]:
+        """Find a mapping from the variables in one of the PNAD's add effects
+        and option to the objects in necessary_add_effects and the segment's
+        option.
 
-        Returns the new constructed PNAD, without modifying the
-        original. If the PNAD does not have a grounding that can even
-        partially satisfy the necessary add effects, then returns None.
-        If check_datastore_change is set to True, then additionally
-        checks whether the newly created PNAD covers a smaller set of
-        datapoints than the original, and returns None in this case.
+        If a mapping exists, we don't need to modify this PNAD.
+        Otherwise, we must make its add effects more specific. Note that
+        we are assuming all variables in the parameters of the PNAD will
+        appear in either the option arguments or the add effects. This
+        is in contrast to strips_learning.py, where delete effect
+        variables also contribute to parameters. If
+        ground_eff_subset_necessary_eff is True, we want to find the
+        best grounding that achieves some subset of the
+        necessary_add_effects. Else, we want to find the best grounding
+        that is some superset of the necessary_add_effects and also such
+        that the ground operator's add effects are always true in the
+        segment's final atoms. Note that we score the groundings and
+        pick the best one since there may be multiple operators that fit
+        these necessary add effects.
         """
+        objects = list(segment.states[0])
 
-        # Get an arbitrary grounding of the PNAD's operator whose
-        # preconditions hold in segment.init_atoms and whose add
-        # effects are a subset of necessary_add_effects.
-        ground_op = self._find_unification(
-            necessary_add_effects,
-            pnad,
-            segment,
-            ground_eff_subset_necessary_eff=True)
-        # If no such grounding exists, specializing is not possible.
-        if ground_op is None:
-            return None
+        option_objs = segment.get_option().objects
+        # Loop over all ground operators, looking for the most
+        # rational match for this segment.
+        best_score = float("inf")
+        best_pnad = None
+        best_ground_pnad = None
+        for pnad in pnads:
+            param_opt, opt_vars = pnad.option_spec
+            assert param_opt == segment.get_option().parent
+            isub = dict(zip(opt_vars, option_objs))
+            # Handle keep effect substitution correctly
+            # NOTE: code copied directly from _recompute_datastores.
+            if segment in pnad.seg_to_keep_effects_sub:
+                # If there are any variables only in the keep effects,
+                # their mappings should be put into isub, since their
+                # grounding is underconstrained by the segment itself.
+                keep_eff_sub = pnad.seg_to_keep_effects_sub[segment]
+                for var in pnad.op.parameters:
+                    if var in keep_eff_sub:
+                        assert var not in isub
+                        isub[var] = keep_eff_sub[var]
+
+            # Loop over all groundings.
+            for ground_pnad in utils.all_ground_operators_given_partial(
+                    pnad.op, objects, isub):
+                if not ground_pnad.preconditions.issubset(segment.init_atoms):
+                    continue
+                if ground_eff_subset_necessary_eff:
+                    if not ground_pnad.add_effects.issubset(
+                            necessary_add_effects):
+                        continue
+                else:
+                    if not ground_pnad.add_effects.issubset(
+                            segment.final_atoms):
+                        continue
+                    if not necessary_add_effects.issubset(
+                            ground_pnad.add_effects):
+                        continue
+                # This ground PNAD covers this segment. Score it!
+                score = self._score_segment_ground_op_match(
+                    segment, ground_pnad)
+                if score < best_score:  # we want a closer match
+                    best_score = score
+                    best_pnad = pnad
+                    best_ground_pnad = ground_pnad
+        return (best_pnad, best_ground_pnad)
+
+    @staticmethod
+    def _specialize_pnad(
+        necessary_add_effects: Set[GroundAtom],
+        pnad: PartialNSRTAndDatastore,
+        ground_op: GroundNSRTOrSTRIPSOperator,
+    ) -> PartialNSRTAndDatastore:
+        """Given a PNAD, some necessary add effects and a grounding of the PNAD
+        such that the PNAD's add effects are a subset of the necessary add
+        effects, make the PNAD's add effects more specific ("specialize") so
+        that they cover these necessary add effects.
+
+        Returns the newly constructed PNAD.
+        """
         # To figure out the effects we need to add to this PNAD,
         # we first look at the ground effects that are missing
         # from this arbitrary ground operator.
@@ -441,7 +566,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # need to ensure that they are named differently from each other. Some
         # of these PNADs will be filtered out later if they are not useful to
         # cover any datapoints.
-        i = 0
         for r in range(1, len(keep_effects) + 1):
             for keep_effects_subset in itertools.combinations(keep_effects, r):
                 # These keep effects (keep_effects_subset) could involve new
@@ -457,8 +581,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     keep_effects_subset)
                 add_effects = pnad.op.add_effects | set(keep_effects_subset)
                 # Create the new PNAD.
-                new_pnad_op = pnad.op.copy_with(name=f"{pnad.op.name}-KEEP{i}",
-                                                parameters=parameters,
+                new_pnad_op = pnad.op.copy_with(parameters=parameters,
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
                 new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
@@ -466,7 +589,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # Remember to copy seg_to_keep_effects_sub into the new_pnad!
                 new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
                 new_pnads_with_keep_effects.add(new_pnad)
-                i += 1
 
         return new_pnads_with_keep_effects
 
