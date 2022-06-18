@@ -219,7 +219,7 @@ class BaseSTRIPSLearner(abc.ABC):
         ground it. If no PNAD from the input list matches the segment, then
         return Nones.
 
-        If check_add_effects is True, we want to find a grounding that
+        If check_only_add_effects is True, we want to find a grounding that
         is some superset of the necessary_add_effects and also such that
         the ground operator's add effects are always true in the
         segment's final atoms. Otherwise, we want to disregard any
