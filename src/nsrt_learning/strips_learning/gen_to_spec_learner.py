@@ -6,8 +6,8 @@ from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
-from predicators.src.structs import Segment, \
-    ParameterizedOption, PartialNSRTAndDatastore, STRIPSOperator
+from predicators.src.structs import ParameterizedOption, \
+    PartialNSRTAndDatastore, Segment, STRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -228,11 +228,22 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
                     # Recompute all preconditions, now that we have recomputed
-                    # the datastores.
+                    # the datastores. While doing this, keep track of any
+                    # PNADs that get empty datastores.
+                    pnads_to_remove = []
                     for nec_pnad in param_opt_to_nec_pnads[option.parent]:
-                        pre = self._induce_preconditions_via_intersection(
-                            nec_pnad)
-                        nec_pnad.op = nec_pnad.op.copy_with(preconditions=pre)
+                        if len(nec_pnad.datastore) > 0:
+                            pre = self._induce_preconditions_via_intersection(
+                                nec_pnad)
+                            nec_pnad.op = nec_pnad.op.copy_with(
+                                preconditions=pre)
+                        else:
+                            pnads_to_remove.append(nec_pnad)
+
+                    # Remove PNADs that are no longer necessary because they have
+                    # no data in their datastores.
+                    for rem_pnad in pnads_to_remove:
+                        param_opt_to_nec_pnads[option.parent].remove(rem_pnad)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
@@ -342,9 +353,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "backchaining"
 
-    def _spawn_new_pnad(
-            self, pnad: PartialNSRTAndDatastore,
-            segment: Segment) -> PartialNSRTAndDatastore:
+    def _spawn_new_pnad(self, pnad: PartialNSRTAndDatastore,
+                        segment: Segment) -> PartialNSRTAndDatastore:
         """Given a general PNAD and some segment with necessary add effects
         that the PNAD must achieve, create a new PNAD ("spawn" from the most
         general one) so that it has these necessary add effects.
@@ -363,7 +373,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # preconditions hold in segment.init_atoms.
         objects = list(segment.states[0])
         _, var_to_obj = self._find_best_matching_pnad_and_sub(
-            segment, objects, [pnad], check_add_effects=False)
+            segment, objects, [pnad], check_only_add_effects=True)
         # Assert that such a grounding exists - this must be the case
         # since we only ever call this method with the most general
         # PNAD for the option.
