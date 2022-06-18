@@ -882,8 +882,7 @@ def test_keep_effect_adding_new_variables():
             assert sub == {potato_x0: potato3}
 
 
-# @pytest.mark.parametrize("val", [0.0, 1.0])
-@pytest.mark.parametrize("val", [1.0])
+@pytest.mark.parametrize("val", [0.0, 1.0])
 def test_multi_pass_backchaining(val):
     """Test that the BackchainingSTRIPSLearner does multiple passes of
     backchaining, which is needed to ensure harmlessness."""

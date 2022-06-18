@@ -240,8 +240,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         else:
                             pnads_to_remove.append(nec_pnad)
 
-                    # Remove PNADs that are no longer necessary because they have
-                    # no data in their datastores.
+                    # Remove PNADs that are no longer necessary because they
+                    # have no data in their datastores.
                     for rem_pnad in pnads_to_remove:
                         param_opt_to_nec_pnads[option.parent].remove(rem_pnad)
 
@@ -371,7 +371,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms.
-        objects = list(segment.states[0])
+        objects = set(segment.states[0])
         _, var_to_obj = self._find_best_matching_pnad_and_sub(
             segment, objects, [pnad], check_only_add_effects=True)
         # Assert that such a grounding exists - this must be the case
