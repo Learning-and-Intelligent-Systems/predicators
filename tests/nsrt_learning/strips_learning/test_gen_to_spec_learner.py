@@ -14,9 +14,10 @@ from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def specialize_pnad(self, necessary_add_effects, pnad, ground_op):
+    def spawn_new_pnad(self, necessary_add_effects, pnad, segment):
         """Exposed for testing."""
-        return self._specialize_pnad(necessary_add_effects, pnad, ground_op)
+        segment.necessary_add_effects = necessary_add_effects
+        return self._spawn_new_pnad(pnad, segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -26,12 +27,14 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         ground_eff_subset_necessary_eff=True):
+                         check_only_add_effects=True):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
         objects = list(segment.states[0])
         best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
-            segment, objects, [pnad], ground_eff_subset_necessary_eff)
+            segment,
+            objects, [pnad],
+            check_only_add_effects=check_only_add_effects)
         if best_pnad is not None:
             assert best_sub is not None
             ground_best_pnad = best_pnad.op.ground(
@@ -106,8 +109,7 @@ def test_backchaining_strips_learner():
                              expected_strs):
         assert str(pnad) == repr(pnad) == exp_str
 
-    # Test sidelining where an existing operator needs to
-    # be specialized.
+    # Test sidelining where an existing operator needs to be spawned.
     goal3 = {Asleep([bob])}
     act3 = Action([], Cry)
     traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
@@ -277,8 +279,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(reverse_order_pnads[i]) in correct_pnads
 
 
-def test_specialize_pnad():
-    """Test the specialize_pnad() method in the BackchainingSTRIPSLearner.
+def test_spawn_new_pnad():
+    """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
 
     Also, test the finding of a unification necessary for specializing,
     which involves calling the _find_best_matching_pnad_and_sub method
@@ -307,7 +309,8 @@ def test_specialize_pnad():
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
     _, ground_op = learner.find_unification(
-        {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
+        {Asleep([bob]), Happy([bob])}, pnad,
+        Segment(traj, set(), {Asleep([bob]), Happy([bob])}, Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -320,10 +323,10 @@ def test_specialize_pnad():
     _, ground_op = learner.find_unification(set(), pnad,
                                             Segment(traj, set(), set(), Move))
     assert ground_op is None
-    _, ground_op = learner.find_unification(set(), pnad,
+    _, ground_op = learner.find_unification(set(),
+                                            pnad,
                                             Segment(traj, set(), set(), Move),
-                                            ground_eff_subset_necessary_eff=\
-                                                False)
+                                            check_only_add_effects=False)
     assert ground_op is None
     # Change the PNAD to have non-trivial preconditions.
     pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
@@ -332,11 +335,20 @@ def test_specialize_pnad():
     _, ground_op = learner.find_unification(
         set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
     assert ground_op is None
-    # Make the preconditions be satisfiable in the segment's init_atoms.
-    # Now, we are back to normal usage.
+    # Make the preconditions be satisfiable in the segment's init_atoms,
+    # but make it impossible for the necessary_add_effects to be satisfied
+    # in the segment's final_atoms unless a delete effect is added. Thus,
+    # no grounding is possible.
     _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
                                             Segment(traj, {Happy([bob])},
                                                     set(), Move))
+    assert ground_op is None
+    # Make the preconditions be satisfiable in the segment's init_atoms.
+    # Now, we are back to normal usage.
+    _, ground_op = learner.find_unification(
+        {Asleep([bob])}, pnad,
+        Segment(traj, {Happy([bob])},
+                {Happy([bob]), Asleep([bob])}, Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -344,7 +356,10 @@ def test_specialize_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: []"""
-    new_pnad = learner.specialize_pnad({Asleep([bob])}, pnad, ground_op)
+    pnad.op = pnad.op.copy_with(add_effects=set())
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
+                                      Segment(traj, {Happy([bob])}, set(),
+                                              Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
