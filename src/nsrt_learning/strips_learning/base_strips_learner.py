@@ -277,10 +277,10 @@ class BaseSTRIPSLearner(abc.ABC):
                     # If the segment has a non-None necessary_add_effects,
                     # and the ground operator's add effects don't fit this,
                     # skip.
-                    if segment.necessary_add_effects is not None:
-                        if not segment.necessary_add_effects.issubset(
-                                ground_op.add_effects):
-                            continue
+                    if segment.necessary_add_effects is not None and \
+                       not segment.necessary_add_effects.issubset(
+                           ground_op.add_effects):
+                        continue
 
                 # This ground PNAD covers this segment. Score it!
                 score = self._score_segment_ground_op_match(segment, ground_op)
