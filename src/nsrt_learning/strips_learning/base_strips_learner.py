@@ -219,12 +219,17 @@ class BaseSTRIPSLearner(abc.ABC):
         ground it. If no PNAD from the input list matches the segment, then
         return Nones.
 
-        If check_only_add_effects is True, we want to find a grounding that
-        is some superset of the necessary_add_effects and also such that
-        the ground operator's add effects are always true in the
-        segment's final atoms. Otherwise, we want to disregard any
-        checks on add effects entirely (we will only make this call when
-        spawning from a general PNAD, which has no add effects).
+        If check_only_add_effects is True, we must be calling this function
+        during spawning of a new PNAD during backchaining. In this case,
+        we want to find a grounding that is some superset of the
+        necessary_add_effects and also such that the ground operator's add
+        effects are always true in the segment's final atoms. Otherwise, we
+        want to find a grounding such that calling utils.apply_operator() from
+        the segment.init_atoms results in a subset of the segment's final
+        atoms, and - if the segment.necessary_add_effects are not empty - that
+        these are satisfied by calling utils.apply_operator() from the
+        segment.init_atoms. This effectively checks that the grounding can be
+        applied to this segment in a harmless way.
         """
         if segment.has_option():
             segment_option = segment.get_option()
@@ -261,11 +266,13 @@ class BaseSTRIPSLearner(abc.ABC):
                     continue
                 # When this boolean is True, we are simply attempting to
                 # find a substitution that satisfies some subset of the
-                # segment's necessary add effect (which must have been set).
+                # segment's necessary add effects (which must have been set).
                 if check_only_add_effects:
                     assert segment.necessary_add_effects is not None
                     if not ground_op.add_effects.issubset(
                             segment.necessary_add_effects):
+                        continue
+                    if not ground_op.add_effects.issubset(segment.final_atoms):
                         continue
                 else:
                     # If the atoms resulting from apply_operator() don't
@@ -281,7 +288,6 @@ class BaseSTRIPSLearner(abc.ABC):
                        not segment.necessary_add_effects.issubset(
                            ground_op.add_effects):
                         continue
-
                 # This ground PNAD covers this segment. Score it!
                 score = self._score_segment_ground_op_match(segment, ground_op)
                 if score < best_score:  # we want a closer match

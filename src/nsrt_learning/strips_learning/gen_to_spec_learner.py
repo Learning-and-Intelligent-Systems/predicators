@@ -357,7 +357,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         segment: Segment) -> PartialNSRTAndDatastore:
         """Given a general PNAD and some segment with necessary add effects
         that the PNAD must achieve, create a new PNAD ("spawn" from the most
-        general one) so that it has these necessary add effects.
+        general one) so that it has the necessary add effects contained in the
+        given segment.
 
         Returns the newly constructed PNAD, without modifying the
         original.
