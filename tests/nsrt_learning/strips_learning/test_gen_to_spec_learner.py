@@ -339,10 +339,9 @@ def test_spawn_new_pnad():
     # but make it impossible for the necessary_add_effects to be satisfied
     # in the segment's final_atoms unless a delete effect is added. Thus,
     # no grounding is possible.
-    _, ground_op = learner.find_unification(
-        {Asleep([bob])}, pnad,
-        Segment(traj, {Happy([bob])},
-                set(), Move))
+    _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
+                                            Segment(traj, {Happy([bob])},
+                                                    set(), Move))
     assert ground_op is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
