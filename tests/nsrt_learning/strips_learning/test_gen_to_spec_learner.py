@@ -309,7 +309,8 @@ def test_spawn_new_pnad():
     # Normal usage: the PNAD add effects can capture a subset of
     # the necessary_add_effects.
     _, ground_op = learner.find_unification(
-        {Asleep([bob]), Happy([bob])}, pnad, Segment(traj, set(), set(), Move))
+        {Asleep([bob]), Happy([bob])}, pnad,
+        Segment(traj, set(), {Asleep([bob]), Happy([bob])}, Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
@@ -336,9 +337,10 @@ def test_spawn_new_pnad():
     assert ground_op is None
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
-    _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
-                                            Segment(traj, {Happy([bob])},
-                                                    set(), Move))
+    _, ground_op = learner.find_unification(
+        {Asleep([bob])}, pnad,
+        Segment(traj, {Happy([bob])},
+                {Happy([bob]), Asleep([bob])}, Move))
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
