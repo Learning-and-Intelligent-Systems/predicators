@@ -5,12 +5,13 @@ Example command line:
         --env pddl_easy_delivery_procedural_tasks
 """
 
-from typing import Callable
+from typing import Callable, cast
 
-from predicators.src import utils
+import numpy as np
+
 from predicators.src.approaches import BaseApproach
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, DummyOption, State, Task
+from predicators.src.envs.pddl_env import _PDDLEnvState
+from predicators.src.structs import Action, GroundAtom, State, Task
 
 
 class DeliverySpecificApproach(BaseApproach):
@@ -25,17 +26,34 @@ class DeliverySpecificApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        options = sorted(self._initial_options, key=lambda o: o.name)
 
         def _policy(state: State) -> Action:
+            options = {o.name: o for o in self._initial_options}
+            predicates = {p.name: p for p in self._initial_predicates}
+            types = {t.name: t for t in self._types}
+            state = cast(_PDDLEnvState, state)
             ground_atoms = state.get_ground_atoms()
-            # TODO: Add code here!
-            # selected_option = ...
-            # object_args = ...
-            import ipdb; ipdb.set_trace()
-            ground_option = selected_option.ground(object_args, [])
+            locations = state.get_objects(types["loc"])
+            papers = state.get_objects(types["paper"])
+            at = predicates["at"]
+            wants_paper = predicates["wantspaper"]
+            move = options["move"]
+            # TODO: Fix the code here!
+            selected_option = move
+            move_to_loc = None
+            move_from_loc = None
+            for loc in locations:
+                if GroundAtom(at, [loc]) in ground_atoms:
+                    move_from_loc = loc
+                elif GroundAtom(wants_paper, [loc]) in ground_atoms:
+                    move_to_loc = loc
+            assert move_to_loc is not None
+            assert move_from_loc is not None
+            object_args = [move_from_loc, move_to_loc]
+            # Below this line should not need changing.
+            params = np.zeros(0, dtype=np.float32)
+            ground_option = selected_option.ground(object_args, params)
             assert ground_option.initiable(state)
             return ground_option.policy(state)
-
 
         return _policy
