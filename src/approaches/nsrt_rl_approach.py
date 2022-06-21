@@ -187,7 +187,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             option_to_data_from_result = self._get_experience_from_result(
                 i, result)
             for option, experience in option_to_data_from_result.items():
-                option_to_data[option].append(experience)
+                option_to_data[option].extend(experience)
 
         # Call the RL option learner on each option.
         for option, experiences in option_to_data.items():
