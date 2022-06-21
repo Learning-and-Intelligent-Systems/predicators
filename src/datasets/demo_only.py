@@ -18,7 +18,6 @@ from predicators.src.planning import _run_low_level_plan
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
-from src.envs import behavior
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task],
