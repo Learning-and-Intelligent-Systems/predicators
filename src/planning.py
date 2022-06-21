@@ -442,9 +442,11 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
         option = plan[cur_idx]
         cur_idx += 1
         if option.initiable(state):
+            print(option.name)
             try:
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
+                print('Success')
             except EnvironmentFailure as e:
                 can_continue_on = False
                 return [], False

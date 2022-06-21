@@ -192,7 +192,7 @@ def _generate_demonstrations(
                 if CFG.env == "behavior":
                     # For BEHAVIOR we are generating the trajectory by running our plan on our option models
                     # # Uncomment if you want to load a plan from file
-                    # file = open(f'plan.pkl', 'rb')
+                    # file = open(f'plan_sorting_books.pkl', 'rb')
                     # pkld_plan = pkl.load(file)
                     # file.close()
                     # last_plan = []
@@ -204,7 +204,6 @@ def _generate_demonstrations(
                     #         if option.name == pkld_plan[i][0]:
                     #             curr_option = option
                     #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
-                    
                     traj, success = _run_low_level_plan(
                         task, oracle_approach._option_model, last_plan,
                         CFG.offline_data_planning_timeout, CFG.horizon)

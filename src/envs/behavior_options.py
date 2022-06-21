@@ -1,6 +1,7 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
+from bdb import set_trace
 import logging
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
@@ -712,6 +713,8 @@ def create_grasp_option_model(
         # TODO bypass_force_check is basically a hack we should
         # turn it off for the final system and use a real grasp
         # sampler
+        if env.robots[0].parts["right_hand"].object_in_hand is None:
+            env.robots[0].parts["right_hand"].trigger_fraction = 0
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
             assisted_grasp_action,
             override_ag_data=(grasp_obj_body_id, -1),
