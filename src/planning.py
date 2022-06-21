@@ -446,7 +446,7 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
                 print('Success')
-            except EnvironmentFailure as e:
+            except EnvironmentFailure :
                 can_continue_on = False
                 return LowLevelTrajectory([], [], False), False
             else:  # an EnvironmentFailure was not raised
@@ -485,7 +485,8 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
     # Should only get here if the plan was empty.
     assert not plan
     if task.goal_holds(task.init):
-        return LowLevelTrajectory([], [], False), True  # empty plan successfully achieved goal
+        # Empty plan successfully achieved goal
+        return LowLevelTrajectory([], [], False), True 
     return LowLevelTrajectory([], [], False), False
 
 

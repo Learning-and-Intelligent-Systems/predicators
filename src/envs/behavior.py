@@ -178,7 +178,8 @@ class BehaviorEnv(BaseEnv):
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(
-                f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{self.task_num}",
+                f"tmp_behavior_states/{CFG.behavior_scene_name}__\
+                    {CFG.behavior_task_name}__{self.task_num}",
                 exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()

@@ -27,7 +27,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     regex = r"(\d+)"
     if CFG.env == "behavior":
         dataset_fname_template = (
-            f"{CFG.env}__{CFG.behavior_task_name}__{CFG.behavior_scene_name}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{CFG.env}__{CFG.behavior_task_name}__{CFG.behavior_scene_name}\
+                __{CFG.offline_data_method}__{CFG.demonstrator}__"
             f"{regex}__{CFG.included_options}__{CFG.seed}.data")
     else:
         dataset_fname_template = (
@@ -175,14 +176,14 @@ def _generate_demonstrations(
                     if timeout == -1:
                         timeout = CFG.timeout
                     oracle_approach.solve(task, timeout=timeout)
-                    # Since we're running the oracle approach, we know that the
-                    # policy is actually a plan under the hood, and we can
-                    # retrieve it with get_last_plan(). We do this because we want
-                    # to run the full plan.
+                    # Since we're running the oracle approach, we know that
+                    # the policy is actually a plan under the hood, and we 
+                    # can retrieve it with get_last_plan(). We do this 
+                    # because we want to run the full plan.
                     last_plan = oracle_approach.get_last_plan()
                     policy = utils.option_plan_to_policy(last_plan)
-                    # We will stop run_policy() when OptionExecutionFailure() is
-                    # hit, which should only happen when the goal has been
+                    # We will stop run_policy() when OptionExecutionFailure()
+                    # is hit, which should only happen when the goal has been
                     # reached, as verified by the assertion later.
                     termination_function = lambda s: False
                 else:  # pragma: no cover
@@ -191,7 +192,8 @@ def _generate_demonstrations(
                                                event_to_action)
                     termination_function = task.goal_holds
                 if CFG.env == "behavior":
-                    # For BEHAVIOR we are generating the trajectory by running our plan on our option models
+                    # For BEHAVIOR we are generating the trajectory by running
+                    # our plan on our option models
                     # # Uncomment if you want to load a plan from file
                     # file = open(f'plan_sorting_books.pkl', 'rb')
                     # pkld_plan = pkl.load(file)
