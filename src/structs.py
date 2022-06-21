@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import math
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
@@ -660,6 +661,15 @@ class STRIPSOperator:
         return STRIPSOperator(self.name, new_params, self.preconditions,
                               new_add_effects, new_delete_effects,
                               self.side_predicates | {effect.predicate})
+
+    def get_complexity(self) -> float:
+        """Get the complexity of this operator.
+
+        We only care about the arity of the operator, since that is what
+        affects grounding. We'll use the factorial of the arity as a
+        measure of grounding effort.
+        """
+        return float(math.factorial(len(self.parameters)))
 
 
 @dataclass(frozen=True, repr=False, eq=False)

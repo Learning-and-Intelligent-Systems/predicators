@@ -504,6 +504,7 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Side Predicates: [On]"""
+    assert strips_operator.get_complexity() == 2  # 2 factorial
     assert isinstance(hash(strips_operator), int)
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects,
@@ -524,6 +525,11 @@ def test_operators_and_nsrts(state):
         strips_operator.effect_to_side_predicate(next(iter(delete_effects)),
                                                  [],
                                                  "add")  # not an add effect!
+    strips_operator_malformed = strips_operator.copy_with(parameters=[])
+    assert strips_operator_malformed.get_complexity() == 1  # 0 factorial
+    strips_operator_three_params = strips_operator.copy_with(
+        parameters=[1, 2, 3])
+    assert strips_operator_three_params.get_complexity() == 6  # 3 factorial
     sidelined_add = strips_operator.effect_to_side_predicate(
         next(iter(add_effects)), [], "add")
     assert str(sidelined_add) == repr(sidelined_add) == \
