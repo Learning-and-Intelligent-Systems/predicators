@@ -35,12 +35,10 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
             segment,
             objects, [pnad],
             check_only_preconditions=check_only_preconditions)
-        if best_pnad is not None:
-            assert best_sub is not None
-            ground_best_pnad = best_pnad.op.ground(
-                tuple(best_sub[var] for var in best_pnad.op.parameters))
-        else:
-            ground_best_pnad = None
+        assert best_pnad is not None
+        assert best_sub is not None
+        ground_best_pnad = best_pnad.op.ground(
+            tuple(best_sub[var] for var in best_pnad.op.parameters))
         return best_pnad, ground_best_pnad
 
     def reset_all_segment_add_effs(self):
