@@ -1,8 +1,8 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
-from bdb import set_trace
 import logging
+from bdb import set_trace
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np

@@ -3860,3 +3860,90 @@ PRIMITIVE: navigate to cologne_0 with params [ 0.13745277 -0.09581466] fail
 PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.01965628 -0.2535583 ]
 WARNING: Position commanded is in collision!
 PRIMITIVE: navigate to cologne_0 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.09855489  0.40020823]
+PRIMITIVE: navigate to sock_1 with params [-0.09855489  0.40020823] failed; birrt failed to sample a plan!
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.09855489  0.40020823]
+PRIMITIVE: navigate to cologne_0 with params [-0.09855489  0.40020823] failed; birrt failed to sample a plan!
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to cologne_0 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [-0.09855489  0.40020823]
+PRIMITIVE: navigate to cologne_0 with params [-0.09855489  0.40020823] failed; birrt failed to sample a plan!
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is in collision!
+PRIMITIVE: navigate to cologne_0 with params [ 0.01965628 -0.2535583 ] fail

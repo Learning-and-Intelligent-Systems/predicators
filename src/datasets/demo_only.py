@@ -187,8 +187,8 @@ def _generate_demonstrations(
                     termination_function = lambda s: False
                 else:  # pragma: no cover
                     policy = functools.partial(_human_demonstrator_policy, env,
-                                            idx, num_tasks, task,
-                                            event_to_action)
+                                               idx, num_tasks, task,
+                                               event_to_action)
                     termination_function = task.goal_holds
                 if CFG.env == "behavior":
                     # For BEHAVIOR we are generating the trajectory by running our plan on our option models
