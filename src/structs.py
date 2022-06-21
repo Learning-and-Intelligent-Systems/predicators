@@ -667,7 +667,7 @@ class STRIPSOperator:
         We only care about the arity of the operator, since that is what
         affects grounding. We'll use 2^arity as a measure of grounding effort.
         """
-        return float(2 ** len(self.parameters))
+        return float(2**len(self.parameters))
 
 
 @dataclass(frozen=True, repr=False, eq=False)
