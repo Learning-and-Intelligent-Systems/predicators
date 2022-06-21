@@ -222,10 +222,11 @@ class BaseSTRIPSLearner(abc.ABC):
         If check_only_preconditions is True, we must be calling this function
         during spawning of a new PNAD during backchaining. In this case,
         we want to find a grounding whose preconditions are satisfied in
-        the segment.init_atoms. Otherwise, we want to find a grounding such
-        that calling utils.apply_operator() from the segment.init_atoms
-        results in a subset of the segment's final atoms, and - if the
-        segment.necessary_add_effects are not empty - that these are satisfied
+        the segment.init_atoms. Otherwise, we want to find a grounding that
+        not only satisfies the above check, but also is such that calling
+        utils.apply_operator() from the segment.init_atoms results in a subset
+        of the segment's final atoms, and - if the
+        segment.necessary_add_effects are not None - that these are satisfied
         by calling utils.apply_operator() from the segment.init_atoms. This
         effectively checks that the grounding can be applied to this segment
         in a harmless way.
@@ -273,8 +274,7 @@ class BaseSTRIPSLearner(abc.ABC):
                     # If the segment has a non-None necessary_add_effects,
                     # and the ground operator's add effects don't fit this,
                     # skip.
-                    if not check_only_preconditions and \
-                        segment.necessary_add_effects is not None and \
+                    if segment.necessary_add_effects is not None and \
                         not segment.necessary_add_effects.issubset(
                             ground_op.add_effects):
                         continue
