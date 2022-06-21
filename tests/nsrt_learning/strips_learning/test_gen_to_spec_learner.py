@@ -1006,8 +1006,7 @@ def test_multi_pass_backchaining(val):
         assert str(pnad) in correct_pnads
 
 
-# @pytest.mark.parametrize("repeat", range(1000))
-@pytest.mark.parametrize("repeat", [935])
+@pytest.mark.parametrize("repeat", range(10000))
 def test_backchaining_randomly_generated(repeat):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({"segmenter": "atom_changes"})
@@ -1031,25 +1030,41 @@ def test_backchaining_randomly_generated(repeat):
 
     # Create trajectories.
     s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s11 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s12 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+    while True:
+        # Sample s11 until it is different from s10.
+        s11 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        if s11[dummy] != s10[dummy]:
+            break
+    while True:
+        # Sample s12 until it is different from s11.
+        s12 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+        if s12[dummy] != s11[dummy]:
+            break
     traj1 = LowLevelTrajectory([s10, s11, s12], [act, act], True, 0)
     goal1 = {GroundAtom(D, [])}
     task1 = Task(s10, goal1)
 
     s20 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s21 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s21.set(dummy, "feat4", 1.0)  # ensure goal is achieved
-    s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
+    while True:
+        # Sample s21 until it is different from s20.
+        s21 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s21.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+        s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
+        if s21[dummy] != s20[dummy]:
+            break
     traj2 = LowLevelTrajectory([s20, s21], [act], True, 1)
     goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
     task2 = Task(s20, goal2)
 
     s30 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s31 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-    s31.set(dummy, "feat3", 1.0)  # ensure goal is achieved
-    s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+    while True:
+        # Sample s31 until it is different from s30.
+        s31 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s31.set(dummy, "feat3", 1.0)  # ensure goal is achieved
+        s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+        if s31[dummy] != s30[dummy]:
+            break
     traj3 = LowLevelTrajectory([s30, s31], [act], True, 2)
     goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
