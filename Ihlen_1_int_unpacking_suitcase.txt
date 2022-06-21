@@ -3947,3 +3947,167 @@ PRIMITIVE: navigate to cologne_0 with params [ 0.13745277 -0.09581466] fail
 PRIMITIVE: Attempting to navigate to cologne_0 with params [ 0.01965628 -0.2535583 ]
 WARNING: Position commanded is in collision!
 PRIMITIVE: navigate to cologne_0 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [-0.09855489  0.40020823]
+PRIMITIVE: navigate to sock_1 with params [-0.09855489  0.40020823] failed; birrt failed to sample a plan!
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to sock_1 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to sock_1 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.09855489  0.40020823]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.09855489  0.40020823] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [-0.09855489  0.40020823]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [-0.09855489  0.40020823] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [ 0.01965628 -0.2535583 ] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [ 0.1781211  -0.92088765]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [ 0.1781211  -0.92088765] fail
+PRIMITIVE: Attempting to navigate to notebook_0 with params [-0.60205203  0.0732253 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to notebook_0 with params [-0.60205203  0.0732253 ] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.6090375   0.19592838]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.6090375   0.19592838] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.17090122  0.05713698]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.17090122  0.05713698] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.34542486 -0.18060279]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.34542486 -0.18060279] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.87076485 -0.55877024]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.87076485 -0.55877024] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.6767184  -0.11836529]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.6767184  -0.11836529] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [0.9149706  0.22358036]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [0.9149706  0.22358036] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [-0.09855489  0.40020823]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [-0.09855489  0.40020823] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.36293095 -0.109166  ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.36293095 -0.109166  ] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.13745277 -0.09581466]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.13745277 -0.09581466] fail
+PRIMITIVE: Attempting to navigate to toothbrush_0 with params [ 0.01965628 -0.2535583 ]
+WARNING: Position commanded is blocked!
+PRIMITIVE: navigate to toothbrush_0 with params [ 0.01965628 -0.2535583 ] fail
+WARNING: Approach failed to solve with error: Planning reached max_skeletons_optimized!
+
+
+CREATED 0 DEMONSTRATIONS
+
+Learning NSRTs on 0 trajectories...
+
+Running harmlessness check...
+
+Doing option learning...
+
+Operators with known options:
+
+Learned operators with option specs:
+
+Doing sampler learning...
+
+Learned NSRTs:
+
+Task 1 / 1: Approach failed to solve with error: Goal {ontop-sock.n.01-sofa.n.01(sock.n.01_2:sock.n.01, sofa.n.01_1:sofa.n.01), ontop-toothbrush.n.01-sofa.n.01(toothbrush.n.01_1:toothbrush.n.01, sofa.n.01_1:sofa.n.01), ontop-perfume.n.02-sofa.n.01(perfume.n.02_1:perfume.n.02, sofa.n.01_1:sofa.n.01), ontop-sock.n.01-sofa.n.01(sock.n.01_1:sock.n.01, sofa.n.01_1:sofa.n.01), ontop-carton.n.02-floor.n.01(carton.n.02_1:carton.n.02, floor.n.01_1:room_floor_living_room_0:floor.n.01), ontop-notebook.n.01-sofa.n.01(notebook.n.01_1:notebook.n.01, sofa.n.01_1:sofa.n.01)} not dr-reachable
+Tasks solved: 0 / 1
+Average time for successes: inf seconds
+Test results: defaultdict(<class 'float'>, {'num_solved': 0, 'num_total': 1, 'avg_suc_time': inf, 'min_skeletons_optimized': 0, 'max_skeletons_optimized': 0.0, 'num_solve_timeouts': 0, 'num_solve_failures': 1, 'num_execution_timeouts': 0, 'num_execution_failures': 0, 'avg_num_skeletons_optimized': inf, 'avg_num_nodes_expanded': inf, 'avg_num_nodes_created': inf, 'avg_num_nsrts': inf, 'avg_num_preds': inf, 'avg_plan_length': inf, 'avg_num_failures_discovered': inf, 'num_offline_transitions': 0, 'num_online_transitions': 0, 'query_cost': 0.0, 'learning_time': 0.0003600120544433594})
+Wrote out test results to results/behavior__nsrt_learning__0________None.pkl
+
+
+ONLINE LEARNING CYCLE 0
+
+Getting interaction requests...
+Did not receive any interaction requests, terminating
+
+
+Main script terminated in 1493.77521 seconds
+
+Merged vertex data shape:
+(3208221, 14)
+Enable pbr: True
+Warning: end configuration is in collision
+Warning: end configuration is in collision
+Warning: end configuration is in collision
+Texture 1 is w:2048 by h:2048 by depth:15 3D array texture. ID 17
+Texture 2 is w:512 by h:512 by depth:322 3D array texture. ID 18
+Max layer number: 2048
+Max texture size: 16384
+multidrawcount 458
