@@ -140,8 +140,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                     break
                 num_plans_up_to_n += 1
         # Calculate second term in objective. This is the complexity of the
-        # operator set. We measure this using the total number of atoms in all
-        # the operators.
+        # operator set, measured as the sum of all operator complexities.
         complexity = 0.0
         for op in strips_ops:
             complexity += op.get_complexity()
