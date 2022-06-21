@@ -175,11 +175,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     @staticmethod
     def _get_operator_penalty(strips_ops: Collection[STRIPSOperator]) -> float:
         """Get a score penalty based on the operator complexities."""
-        size = 0
+        complexity = 0.0
         for op in strips_ops:
-            size += len(op.parameters) + len(op.preconditions) + \
-                    len(op.add_effects) + len(op.delete_effects)
-        return CFG.grammar_search_operator_size_weight * size
+            complexity += op.get_complexity()
+        return CFG.grammar_search_operator_complexity_weight * complexity
 
 
 @dataclass(frozen=True, eq=False, repr=False)
