@@ -2,10 +2,13 @@
 
 import pytest
 
+import numpy as np
+
 from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
@@ -1001,3 +1004,68 @@ def test_multi_pass_backchaining(val):
         # and make comparison easier.
         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
+
+
+# @pytest.mark.parametrize("repeat", range(1000))
+@pytest.mark.parametrize("repeat", [935])
+def test_backchaining_randomly_generated(repeat):
+    """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
+    utils.reset_config({"segmenter": "atom_changes"})
+    rng = np.random.default_rng(CFG.seed + repeat)
+    # Set up the types, objects, and, predicates.
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy = dummy_type("dummy")
+    A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
+    B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
+    C = Predicate("C", [], lambda s, o: s[dummy][2] > 0.5)
+    D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
+    E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
+    predicates = {A, B, C, D, E}
+
+    # Create the necessary options and actions.
+    Option = utils.SingletonParameterizedOption("Option",
+                                                lambda s, m, o, p: None,
+                                                types=[]).ground([], [])
+    act = Action([], Option)
+
+    # Create trajectories.
+    s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s11 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s12 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+    traj1 = LowLevelTrajectory([s10, s11, s12], [act, act], True, 0)
+    goal1 = {GroundAtom(D, [])}
+    task1 = Task(s10, goal1)
+
+    s20 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s21 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s21.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+    s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
+    traj2 = LowLevelTrajectory([s20, s21], [act], True, 1)
+    goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
+    task2 = Task(s20, goal2)
+
+    s30 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s31 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s31.set(dummy, "feat3", 1.0)  # ensure goal is achieved
+    s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+    traj3 = LowLevelTrajectory([s30, s31], [act], True, 2)
+    goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
+    task3 = Task(s30, goal3)
+
+    num_demos = rng.choice([1, 2, 3])
+    trajs = [traj1, traj2, traj3][:num_demos]
+    tasks = [task1, task2, task3][:num_demos]
+
+    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+
+    # Now, run the learner on the three demos.
+    learner = _MockBackchainingSTRIPSLearner(trajs,
+                                             tasks,
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
+    learner.learn()

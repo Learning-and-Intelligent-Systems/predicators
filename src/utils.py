@@ -1839,10 +1839,10 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
-    for atom in op.add_effects:
-        new_atoms.add(atom)
     for atom in op.delete_effects:
         new_atoms.discard(atom)
+    for atom in op.add_effects:
+        new_atoms.add(atom)
     return new_atoms
 
 

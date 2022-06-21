@@ -39,6 +39,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         # Determine the initial preconditions via a lifted intersection.
         preconditions = self._induce_preconditions_via_intersection(pnad)
         pnad.op = pnad.op.copy_with(preconditions=preconditions)
+        print(pnad)
 
         return pnad
 
@@ -217,8 +218,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # these necessary add effects.
                 else:
                     nec_pnad_set_changed = True
-                    pnad = self._spawn_new_pnad(
-                        param_opt_to_general_pnad[option.parent], segment)
+                    try:
+                        pnad = self._spawn_new_pnad(
+                            param_opt_to_general_pnad[option.parent], segment)
+                    except:
+                        import ipdb; ipdb.set_trace()
                     param_opt_to_nec_pnads[option.parent].append(pnad)
 
                     # Recompute datastores for ALL PNADs associated with this
