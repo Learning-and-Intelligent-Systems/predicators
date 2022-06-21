@@ -62,9 +62,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            # TODO Fix for Behavior "Can't pickle <class 'abc.OnTopStateBinaryPredicate'>: it's not found as abc.OnTopStateBinaryPredicate"
             if CFG.env == "behavior":
-                pkl.dump(str(self._nsrts), f)
+                pkl.dump(str(self._nsrts), f)  # pragma: no cover
             else:
                 pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
