@@ -525,8 +525,8 @@ def test_operators_and_nsrts(state):
         strips_operator.effect_to_side_predicate(next(iter(delete_effects)),
                                                  [],
                                                  "add")  # not an add effect!
-    strips_operator_malformed = strips_operator.copy_with(parameters=[])
-    assert strips_operator_malformed.get_complexity() == 1  # 0 factorial
+    strips_operator_zero_params = strips_operator.copy_with(parameters=[])
+    assert strips_operator_zero_params.get_complexity() == 1  # 0 factorial
     strips_operator_three_params = strips_operator.copy_with(
         parameters=[1, 2, 3])
     assert strips_operator_three_params.get_complexity() == 6  # 3 factorial
