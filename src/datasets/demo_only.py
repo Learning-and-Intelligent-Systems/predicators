@@ -25,7 +25,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     regex = r"(\d+)"
-    if CFG.env == "behavior":
+    if CFG.env == "behavior":  # pragma: no cover
         dataset_fname_template = (
             f"{CFG.env}__{CFG.behavior_task_name}__{CFG.behavior_scene_name}__{CFG.offline_data_method}__{CFG.demonstrator}__"
             f"{regex}__{CFG.included_options}__{CFG.seed}.data")
@@ -53,7 +53,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         # NOTE: This is necessary because BEHAVIOR options save
         # the BEHAVIOR environment object in their memory, and this
         # can't be pickled.
-        if CFG.env == "behavior":
+        if CFG.env == "behavior":  # pragma: no cover
             for traj in dataset.trajectories:
                 for act in traj.actions:
                     act.get_option().memory = dict()
@@ -190,7 +190,7 @@ def _generate_demonstrations(
                                                idx, num_tasks, task,
                                                event_to_action)
                     termination_function = task.goal_holds
-                if CFG.env == "behavior":
+                if CFG.env == "behavior":  # pragma: no cover
                     # For BEHAVIOR we are generating the trajectory by running our plan on our option models
                     # # Uncomment if you want to load a plan from file
                     # file = open(f'plan_sorting_books.pkl', 'rb')

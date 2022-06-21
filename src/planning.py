@@ -418,9 +418,10 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     return [], True
 
 
-def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
-                        plan: List[_Option], timeout: float,
-                        max_horizon: int) -> Tuple[LowLevelTrajectory, bool]:
+def _run_low_level_plan(
+        task: Task, option_model: _OptionModelBase, plan: List[_Option],
+        timeout: float, max_horizon: int
+) -> Tuple[LowLevelTrajectory, bool]:  # pragma: no cover
     """Runs a plan on an option model to generate a low level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
@@ -437,7 +438,7 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
     actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
     while cur_idx < len(plan):
         if time.time() - start_time > timeout:
-            return LowLevelTrajectory([], [], False) , False
+            return LowLevelTrajectory([], [], False), False
         state = traj[cur_idx]
         option = plan[cur_idx]
         cur_idx += 1
@@ -485,7 +486,8 @@ def _run_low_level_plan(task: Task, option_model: _OptionModelBase,
     # Should only get here if the plan was empty.
     assert not plan
     if task.goal_holds(task.init):
-        return LowLevelTrajectory([], [], False), True  # empty plan successfully achieved goal
+        return LowLevelTrajectory(
+            [], [], False), True  # empty plan successfully achieved goal
     return LowLevelTrajectory([], [], False), False
 
 
