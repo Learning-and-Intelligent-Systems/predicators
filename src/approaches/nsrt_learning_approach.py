@@ -144,13 +144,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                     break
                 num_plans_up_to_n += 1
         # Calculate second term in objective. This is the complexity of the
-        # operator set. We measure this using the total number of atoms in all
-        # the operators.
-        complexity = 0
+        # operator set, measured as the sum of all operator complexities.
+        complexity = 0.0
         for op in strips_ops:
-            complexity += len(op.preconditions)
-            complexity += len(op.add_effects)
-            complexity += len(op.delete_effects)
+            complexity += op.get_complexity()
         time_taken = time.time() - start_time
         self._metrics["sidelining_obj_num_plans_up_to_n"] = num_plans_up_to_n
         self._metrics["sidelining_obj_complexity"] = complexity

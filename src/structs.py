@@ -661,6 +661,14 @@ class STRIPSOperator:
                               new_add_effects, new_delete_effects,
                               self.side_predicates | {effect.predicate})
 
+    def get_complexity(self) -> float:
+        """Get the complexity of this operator.
+
+        We only care about the arity of the operator, since that is what
+        affects grounding. We'll use 2^arity as a measure of grounding effort.
+        """
+        return float(2**len(self.parameters))
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundSTRIPSOperator:
