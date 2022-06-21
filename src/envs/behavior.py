@@ -480,7 +480,9 @@ class BehaviorEnv(BaseEnv):
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
             if isinstance(ig_obj.body_id, list):
-                # assert len(ig_obj.body_id) == 1 # For some reason sofa is a 4 part body
+                # TODO For some reason sofa is a 4 part body, so we use the
+                # first body in the list as the sofa's obj body
+                # assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
 
             if np.any(self.igibson_behavior_env.robots[0].is_grasping(
