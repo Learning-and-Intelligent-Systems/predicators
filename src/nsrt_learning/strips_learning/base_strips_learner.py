@@ -255,7 +255,6 @@ class BaseSTRIPSLearner(abc.ABC):
                     if var in keep_eff_sub:
                         assert var not in isub
                         isub[var] = keep_eff_sub[var]
-
             for ground_op in utils.all_ground_operators_given_partial(
                     pnad.op, objects, isub):
                 if len(ground_op.objects) != len(set(ground_op.objects)):

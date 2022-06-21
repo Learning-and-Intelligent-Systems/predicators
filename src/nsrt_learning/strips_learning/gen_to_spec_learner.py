@@ -385,11 +385,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Assert that such a grounding exists - this must be the case
         # since we only ever call this method with the most general
         # PNAD for the option.
-        try:
-            assert var_to_obj is not None
-        except AssertionError:
-            import ipdb
-            ipdb.set_trace()
+        assert var_to_obj is not None
         obj_to_var = {v: k for k, v in var_to_obj.items()}
         assert len(var_to_obj) == len(obj_to_var)
         # Before we can lift the necessary_add_effects, we need to add new
