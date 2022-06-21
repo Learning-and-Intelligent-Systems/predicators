@@ -86,6 +86,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
+            # Harmlessness should now hold, but it's slow to check.
+            # assert self._check_harmlessness(
+            #     self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
             cur_itr_pnads_unfiltered = [
@@ -350,8 +354,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                uniquely_named_nec_pnads.append(pnad)
+                new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
+                new_pnad = PartialNSRTAndDatastore(new_op,
+                                                   list(pnad.datastore),
+                                                   pnad.option_spec)
+                uniquely_named_nec_pnads.append(new_pnad)
         return uniquely_named_nec_pnads
 
     @classmethod
