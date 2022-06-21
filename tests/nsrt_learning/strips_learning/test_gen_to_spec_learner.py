@@ -12,6 +12,7 @@ from predicators.src.settings import CFG
 from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
+from predicators.tests.conftest import longrun
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -1006,7 +1007,9 @@ def test_multi_pass_backchaining(val):
         assert str(pnad) in correct_pnads
 
 
-@pytest.mark.parametrize("repeat", range(10000))
+@longrun
+# @pytest.mark.parametrize("repeat", range(1000))
+@pytest.mark.parametrize("repeat", [12732])
 def test_backchaining_randomly_generated(repeat):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({"segmenter": "atom_changes"})
@@ -1023,10 +1026,10 @@ def test_backchaining_randomly_generated(repeat):
     predicates = {A, B, C, D, E}
 
     # Create the necessary options and actions.
-    Option = utils.SingletonParameterizedOption("Option",
-                                                lambda s, m, o, p: None,
-                                                types=[]).ground([], [])
-    act = Action([], Option)
+    Pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
+                                              types=[]).ground([], [])
+    act1 = Action([], Pick)
 
     # Create trajectories.
     s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
@@ -1041,7 +1044,7 @@ def test_backchaining_randomly_generated(repeat):
         s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
         if s12[dummy] != s11[dummy]:
             break
-    traj1 = LowLevelTrajectory([s10, s11, s12], [act, act], True, 0)
+    traj1 = LowLevelTrajectory([s10, s11, s12], [act1, act1], True, 0)
     goal1 = {GroundAtom(D, [])}
     task1 = Task(s10, goal1)
 
@@ -1053,7 +1056,7 @@ def test_backchaining_randomly_generated(repeat):
         s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
         if s21[dummy] != s20[dummy]:
             break
-    traj2 = LowLevelTrajectory([s20, s21], [act], True, 1)
+    traj2 = LowLevelTrajectory([s20, s21], [act1], True, 1)
     goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
     task2 = Task(s20, goal2)
 
@@ -1065,7 +1068,7 @@ def test_backchaining_randomly_generated(repeat):
         s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
         if s31[dummy] != s30[dummy]:
             break
-    traj3 = LowLevelTrajectory([s30, s31], [act], True, 2)
+    traj3 = LowLevelTrajectory([s30, s31], [act1], True, 2)
     goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
 
