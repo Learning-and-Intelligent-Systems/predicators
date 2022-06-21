@@ -666,10 +666,9 @@ class STRIPSOperator:
         """Get the complexity of this operator.
 
         We only care about the arity of the operator, since that is what
-        affects grounding. We'll use the factorial of the arity as a
-        measure of grounding effort.
+        affects grounding. We'll use 2^arity as a measure of grounding effort.
         """
-        return float(math.factorial(len(self.parameters)))
+        return float(2**len(self.parameters))
 
 
 @dataclass(frozen=True, repr=False, eq=False)

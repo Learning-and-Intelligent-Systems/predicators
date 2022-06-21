@@ -120,7 +120,7 @@ def test_nsrt_learning_approach():
     assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
     assert "sidelining_obj_complexity" in approach.metrics
     assert approach.metrics["sidelining_obj_num_plans_up_to_n"] == 1.0
-    assert approach.metrics["sidelining_obj_complexity"] == 21.0
+    assert approach.metrics["sidelining_obj_complexity"] == 34.0
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    strips_learner="cluster_and_search",
