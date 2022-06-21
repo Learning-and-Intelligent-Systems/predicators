@@ -172,8 +172,10 @@ def _generate_demonstrations(
             continue_plan_search = True
             while continue_plan_search:
                 if CFG.demonstrator == "oracle":
-                    oracle_approach.solve(
-                        task, timeout=CFG.offline_data_planning_timeout)
+                    timeout = CFG.offline_data_planning_timeout
+                    if timeout == -1:
+                        timeout = CFG.timeout
+                    oracle_approach.solve(task, timeout=timeout)
                     # Since we're running the oracle approach, we know that the
                     # policy is actually a plan under the hood, and we can
                     # retrieve it with get_last_plan(). We do this because we want
