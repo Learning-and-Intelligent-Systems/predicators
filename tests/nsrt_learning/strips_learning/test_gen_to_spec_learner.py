@@ -1009,7 +1009,7 @@ def test_multi_pass_backchaining(val):
 
 @longrun
 # @pytest.mark.parametrize("repeat", range(1000))
-@pytest.mark.parametrize("repeat", [12732])
+@pytest.mark.parametrize("repeat", [12732, 25948])
 def test_backchaining_randomly_generated(repeat):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({"segmenter": "atom_changes"})
