@@ -963,6 +963,7 @@ def test_lifted_decision_lists():
 
     assert pick_rule == pick_rule2
     assert pick_rule < place_rule
+    assert place_rule > pick_rule
 
     # Make sure rules are hashable.
     rules = {pick_rule, place_rule}
@@ -1003,6 +1004,7 @@ def test_lifted_decision_lists():
     ground_pick_rule2 = pick_rule.ground((cup1, plate1, robot))
     assert ground_pick_rule == ground_pick_rule2
     assert ground_pick_rule < ground_place_rule
+    assert ground_place_rule > ground_pick_rule
 
     # Make sure ground rules are hashable.
     rule_set = {ground_pick_rule, ground_place_rule}
