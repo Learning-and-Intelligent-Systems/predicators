@@ -1,8 +1,7 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
-import pytest
-
 import numpy as np
+import pytest
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
