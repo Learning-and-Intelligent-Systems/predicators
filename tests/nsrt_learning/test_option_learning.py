@@ -275,7 +275,7 @@ def test_create_rl_option_learner():
         "env": "cover_multistep_options",
         "approach": "nsrt_rl",
         "num_train_tasks": 3,
-        "rl_option_learner": "not a real option learner"
+        "nsrt_rl_option_learner": "not a real option learner"
     })
     with pytest.raises(NotImplementedError):
         create_rl_option_learner()

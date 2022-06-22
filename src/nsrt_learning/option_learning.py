@@ -39,7 +39,7 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
 
 def create_rl_option_learner() -> _RLOptionLearnerBase:
     """Create an RL option learner given its name."""
-    if CFG.rl_option_learner == "dummy_rl":
+    if CFG.nsrt_rl_option_learner == "dummy_rl":
         return _DummyRLOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 

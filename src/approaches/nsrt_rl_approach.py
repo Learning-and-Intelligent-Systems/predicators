@@ -2,7 +2,8 @@
 continues learning options through reinforcement learning."""
 
 from collections import defaultdict
-from typing import DefaultDict, Dict, List, Sequence, Set, Tuple, cast
+from typing import DefaultDict, Dict, List, Optional, Sequence, Set, Tuple, \
+    cast
 
 import numpy as np
 from gym.spaces import Box
@@ -34,10 +35,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         self._online_learning_cycle = 0
         self._initial_trajectories: List[LowLevelTrajectory] = []
         self._option_learners: Dict[NSRT, _RLOptionLearnerBase] = {}
-        self._requests: List[Tuple[int, List[_Option]]] = []
-        self._reward_epsilon = CFG.reward_epsilon
-        self._pos_reward = CFG.pos_reward
-        self._neg_reward = CFG.neg_reward
+        self._requests_info: Optional[List[Tuple[int, List[_Option]]]] = None
+        self._reward_epsilon = CFG.nsrt_rl_reward_epsilon
+        self._pos_reward = CFG.nsrt_rl_pos_reward
+        self._neg_reward = CFG.nsrt_rl_neg_reward
 
     @classmethod
     def get_name(cls) -> str:
@@ -61,18 +62,18 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # skeleton. The teacher will collect a trajectory on the training task
         # using this policy.
         requests = []
-        self._requests = []
+        self._requests_info = []
         for i in range(len(self._train_tasks)):
             task = self._train_tasks[i]
             try:
                 _act_policy = self.solve(task, CFG.timeout)
-                self._requests.append((i, self._last_plan))
+                self._requests_info.append((i, self._last_plan))
             except (ApproachTimeout, ApproachFailure) as e:
                 partial_refinements = e.info.get("partial_refinements")
                 assert partial_refinements is not None
                 _, plan = max(partial_refinements, key=lambda x: len(x[1]))
                 _act_policy = utils.option_plan_to_policy(plan)
-                self._requests.append((i, plan))
+                self._requests_info.append((i, plan))
             request = InteractionRequest(train_task_idx=i,
                                          act_policy=_act_policy,
                                          query_policy=lambda s: None,
@@ -87,15 +88,16 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         option_to_data: Dict[ParameterizedOption,
                              List[List[Tuple[State, Array, Action, int,
                                              State]]]] = {}
-        train_task_idx, plan = self._requests[idx]
+        assert self._requests_info is not None
+        train_task_idx, plan = self._requests_info[idx]
         traj = LowLevelTrajectory(result.states,
                                   result.actions,
                                   _is_demo=False,
                                   _train_task_idx=train_task_idx)
-        curr_option_idx = 0
-        curr_option = plan[curr_option_idx]
+        cur_option_idx = 0
+        cur_option = plan[cur_option_idx]
         parent_option = cast(_LearnedNeuralParameterizedOption,
-                             curr_option.parent)
+                             cur_option.parent)
         if parent_option not in option_to_data:
             option_to_data[parent_option] = []
         experience = []
@@ -106,11 +108,11 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         for state, next_state in zip(traj.states[:-1], traj.states[1:]):
             action = traj.actions[j]
             j += 1
-            state_features = state.vec(curr_option.objects)
+            state_features = state.vec(cur_option.objects)
             relative_param = parent_option.get_rel_option_param_from_state(
                 state,
-                curr_option.memory,
-                curr_option.objects,
+                cur_option.memory,
+                cur_option.objects,
             )
             # The RLOptionLearner will need the input to the option's
             # regressor for training.
@@ -121,8 +123,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             # the relative parameter for the next state.
             next_rel_param = parent_option.get_rel_option_param_from_state(
                 next_state,
-                curr_option.memory,
-                curr_option.objects,
+                cur_option.memory,
+                cur_option.objects,
             )
             reward = 0
             if np.allclose(next_rel_param, 0, atol=self._reward_epsilon):
@@ -138,17 +140,18 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             # number of steps to reach it so that it is reasonable to assign
             # it a reward.
             terminate = parent_option.effect_based_terminal(
-                next_state, curr_option.objects)
-            had_sufficient_steps = next_state.allclose(
-                traj.states[-1]) and (CFG.max_num_steps_interaction_request - j
-                                      > CFG.valid_reward_steps_threshold)
+                next_state, cur_option.objects)
+            had_sufficient_steps = (
+                next_state.allclose(traj.states[-1])
+                and (CFG.max_num_steps_interaction_request - j >
+                     CFG.nsrt_rl_valid_reward_steps_threshold))
             if terminate:
                 option_to_data[parent_option].append(experience)
-                curr_option_idx += 1
-                if curr_option_idx < len(plan):
-                    curr_option = plan[curr_option_idx]
+                cur_option_idx += 1
+                if cur_option_idx < len(plan):
+                    cur_option = plan[cur_option_idx]
                     parent_option = cast(_LearnedNeuralParameterizedOption,
-                                         curr_option.parent)
+                                         cur_option.parent)
                     experience = []  # Reset for next option in the plan.
                     if parent_option not in option_to_data:
                         option_to_data[parent_option] = []
@@ -160,7 +163,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     # state in this loop is the last state.
                     assert next_state.allclose(traj.states[-1])
             elif had_sufficient_steps:
-                assert curr_option == plan[-1]
+                assert cur_option == plan[-1]
                 option_to_data[parent_option].append(experience)
 
         return option_to_data
