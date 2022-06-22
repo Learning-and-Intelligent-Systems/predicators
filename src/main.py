@@ -250,6 +250,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_failures = 0
 
     video_prefix = utils.get_config_path_str()
+    metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
@@ -269,6 +270,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
+        metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
         make_video = False
         solved = False
@@ -287,7 +289,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            solve_time += execution_metrics["policy_call_time"]
+            exec_time = execution_metrics["policy_call_time"]
+            metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -302,7 +305,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if solved:
             log_message = "SOLVED"
             num_solved += 1
-            total_suc_time += solve_time
+            total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{video_prefix}__task{test_task_idx+1}.mp4"
         else:
@@ -316,7 +319,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
-    metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
@@ -360,9 +362,15 @@ def _save_test_results(results: Metrics,
         "results": results.copy(),
         "git_commit_hash": utils.get_git_commit_hash()
     }
+    # Dump the CFG, results, and git commit hash to a pickle file.
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    logging.info(f"Test results: {outdata['results']}")
+    # Before printing the results, filter out keys that start with the
+    # special prefix "PER_TASK_", to prevent an annoyingly long printout.
+    del_keys = [k for k in results if k.startswith("PER_TASK_")]
+    for k in del_keys:
+        del results[k]
+    logging.info(f"Test results: {results}")
     logging.info(f"Wrote out test results to {outfile}")
 
 
