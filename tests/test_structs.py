@@ -7,9 +7,9 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.structs import NSRT, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
-    LiftedAtom, LowLevelTrajectory, Object, ParameterizedOption, \
+    LDLRule, LiftedAtom, LowLevelTrajectory, Object, ParameterizedOption, \
     PartialNSRTAndDatastore, Predicate, Query, Segment, State, \
-    STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    STRIPSOperator, Task, Type, Variable, _Atom, _GroundLDLRule, _GroundNSRT, \
     _GroundSTRIPSOperator, _Option
 
 
@@ -882,3 +882,128 @@ def test_query():
         _ = query.cost
     demo_query = DemonstrationQuery(0)
     assert demo_query.cost == 1
+
+
+def test_lifted_decision_lists():
+    """Tests for LDLRule, _GroundLDLRule, TODO."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    robot_type = Type("robot_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    on_table = Predicate("OnTable", [cup_type], lambda s, o: True)
+    holding = Predicate("Holding", [cup_type], lambda s, o: True)
+    hand_empty = Predicate("HandEmpty", [robot_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    robot_var = robot_type("?robot")
+    pick_option = utils.SingletonParameterizedOption(
+        "Pick", lambda _1, _2, _3, _4: Action(np.zeros(1)))
+    place_option = utils.SingletonParameterizedOption(
+        "Place",
+        lambda _1, _2, _3, _4: Action(np.zeros(1)),
+        types=[plate_type])
+
+    pick_nsrt = NSRT("Pick",
+                     parameters=[cup_var],
+                     preconditions={on_table([cup_var])},
+                     add_effects={holding([cup_var])},
+                     delete_effects={on_table([cup_var])},
+                     side_predicates=set(),
+                     option=pick_option,
+                     option_vars=[],
+                     _sampler=utils.null_sampler)
+
+    place_nsrt = NSRT("Place",
+                      parameters=[cup_var, plate_var],
+                      preconditions={holding([cup_var])},
+                      add_effects={on([cup_var, plate_var])},
+                      delete_effects={not_on([cup_var, plate_var])},
+                      side_predicates=set(),
+                      option=place_option,
+                      option_vars=[plate_var],
+                      _sampler=utils.null_sampler)
+
+    # LDLRule
+    pick_rule = LDLRule(
+        "MyPickRule",
+        parameters=[cup_var, plate_var, robot_var],
+        state_preconditions={on_table([cup_var]),
+                             hand_empty([robot_var])},
+        goal_preconditions={on([cup_var, plate_var])},
+        nsrt=pick_nsrt)
+
+    assert str(pick_rule) == repr(pick_rule) == """LDLRule-MyPickRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
+    State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Pick(?cup:cup_type)"""
+
+    place_rule = LDLRule("MyPlaceRule",
+                         parameters=[cup_var, plate_var],
+                         state_preconditions={holding([cup_var])},
+                         goal_preconditions={on([cup_var, plate_var])},
+                         nsrt=place_nsrt)
+
+    assert str(place_rule) == repr(place_rule) == """LDLRule-MyPlaceRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    State Pre: [Holding(?cup:cup_type)]
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Place(?cup:cup_type, ?plate:plate_type)"""
+
+    assert pick_rule != place_rule
+
+    pick_rule2 = LDLRule(
+        "MyPickRule",
+        parameters=[cup_var, plate_var, robot_var],
+        state_preconditions={on_table([cup_var]),
+                             hand_empty([robot_var])},
+        goal_preconditions={on([cup_var, plate_var])},
+        nsrt=pick_nsrt)
+
+    assert pick_rule == pick_rule2
+    assert pick_rule < place_rule
+
+    # Make sure rules are hashable.
+    rules = {pick_rule, place_rule}
+    assert rules == {pick_rule, place_rule}
+
+    # Test that errors are raised if rules are malformed.
+    with pytest.raises(AssertionError):
+        _ = LDLRule("MissingStatePreconditionsRule",
+                    parameters=[cup_var, plate_var, robot_var],
+                    state_preconditions=set(),
+                    goal_preconditions={on([cup_var, plate_var])},
+                    nsrt=pick_nsrt)
+    with pytest.raises(AssertionError):
+        _ = LDLRule(
+            "MissingParametersRule",
+            parameters=[plate_var, robot_var],
+            state_preconditions={on_table([cup_var]),
+                                 hand_empty([robot_var])},
+            goal_preconditions={on([cup_var, plate_var])},
+            nsrt=pick_nsrt)
+
+    # _GroundLDLRule
+    cup1 = cup_type("cup1")
+    plate1 = plate_type("plate1")
+    robot = robot_type("robot")
+    ground_pick_rule = pick_rule.ground((cup1, plate1, robot))
+
+    assert str(ground_pick_rule) == repr(
+        ground_pick_rule) == """GroundLDLRule-MyPickRule:
+    Parameters: [cup1:cup_type, plate1:plate_type, robot:robot_type]
+    State Pre: [HandEmpty(robot:robot_type), OnTable(cup1:cup_type)]
+    Goal Pre: [On(cup1:cup_type, plate1:plate_type)]
+    NSRT: Pick(cup1:cup_type)"""
+
+    ground_place_rule = place_rule.ground((cup1, plate1))
+
+    assert ground_pick_rule != ground_place_rule
+    ground_pick_rule2 = pick_rule.ground((cup1, plate1, robot))
+    assert ground_pick_rule == ground_pick_rule2
+    assert ground_pick_rule < ground_place_rule
+
+    # Make sure ground rules are hashable.
+    rules = {ground_pick_rule, ground_place_rule}
+    assert rules == {ground_pick_rule, ground_place_rule}
