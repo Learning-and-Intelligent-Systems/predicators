@@ -87,7 +87,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
-            # Harmlessness should now hold, but it's slow to check..
+            # Harmlessness should now hold, but it's slow to check.
             if CFG.backchaining_check_intermediate_harmlessness:
                 assert self._check_harmlessness(
                     self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
