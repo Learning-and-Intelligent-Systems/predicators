@@ -1,5 +1,7 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
+import itertools
+
 import numpy as np
 import pytest
 
@@ -1007,12 +1009,15 @@ def test_multi_pass_backchaining(val):
 
 
 @longrun
-# @pytest.mark.parametrize("repeat", range(1000))
-@pytest.mark.parametrize("repeat", [12732, 25948])
-def test_backchaining_randomly_generated(repeat):
+# @pytest.mark.parametrize("use_single_option,seed_offset",
+#                          itertools.product([True, False], range(1000)))
+@pytest.mark.parametrize("use_single_option,seed_offset", [(True, 12732),
+                                                           (True, 25948),
+                                                           (False, 108)])
+def test_backchaining_randomly_generated(use_single_option, seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({"segmenter": "atom_changes"})
-    rng = np.random.default_rng(CFG.seed + repeat)
+    rng = np.random.default_rng(CFG.seed + seed_offset)
     # Set up the types, objects, and, predicates.
     dummy_type = Type("dummy_type",
                       ["feat1", "feat2", "feat3", "feat4", "feat5"])
@@ -1029,6 +1034,10 @@ def test_backchaining_randomly_generated(repeat):
                                               lambda s, m, o, p: None,
                                               types=[]).ground([], [])
     act1 = Action([], Pick)
+    Place = utils.SingletonParameterizedOption("Place",
+                                               lambda s, m, o, p: None,
+                                               types=[]).ground([], [])
+    act2 = Action([], Place)
 
     # Create trajectories.
     s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
@@ -1043,7 +1052,12 @@ def test_backchaining_randomly_generated(repeat):
         s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
         if s12[dummy] != s11[dummy]:
             break
-    traj1 = LowLevelTrajectory([s10, s11, s12], [act1, act1], True, 0)
+    if use_single_option:
+        acts = [act1, act1]
+    else:
+        poss_acts = [[act1, act1], [act1, act2], [act2, act1], [act2, act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj1 = LowLevelTrajectory([s10, s11, s12], acts, True, 0)
     goal1 = {GroundAtom(D, [])}
     task1 = Task(s10, goal1)
 
@@ -1055,7 +1069,12 @@ def test_backchaining_randomly_generated(repeat):
         s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
         if s21[dummy] != s20[dummy]:
             break
-    traj2 = LowLevelTrajectory([s20, s21], [act1], True, 1)
+    if use_single_option:
+        acts = [act1]
+    else:
+        poss_acts = [[act1], [act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj2 = LowLevelTrajectory([s20, s21], acts, True, 1)
     goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
     task2 = Task(s20, goal2)
 
@@ -1067,7 +1086,12 @@ def test_backchaining_randomly_generated(repeat):
         s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
         if s31[dummy] != s30[dummy]:
             break
-    traj3 = LowLevelTrajectory([s30, s31], [act1], True, 2)
+    if use_single_option:
+        acts = [act1]
+    else:
+        poss_acts = [[act1], [act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj3 = LowLevelTrajectory([s30, s31], acts, True, 2)
     goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
 
