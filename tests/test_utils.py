@@ -1926,6 +1926,31 @@ def test_nsrt_application():
     atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
     next_atoms = utils.apply_operator(ground_nsrt, atoms)
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
+    # Tests when the add effects and delete effects have overlap. The add
+    # effects should take precedence.
+    add_effects = {pred2([cup_var, plate_var]), pred3([cup_var, plate_var])}
+    delete_effects = {pred2([cup_var, plate_var])}
+    nsrt4 = NSRT("Pick",
+                 parameters,
+                 preconditions1,
+                 add_effects,
+                 delete_effects,
+                 side_predicates=set(),
+                 option=None,
+                 option_vars=[],
+                 _sampler=None)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt4, objects))
+    applicable = list(
+        utils.get_applicable_operators(ground_nsrts, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_nsrt = applicable[0]
+    atoms = {pred1([cup1, plate1])}
+    next_atoms = utils.apply_operator(ground_nsrt, atoms)
+    assert next_atoms == {
+        pred1([cup1, plate1]),
+        pred2([cup1, plate1]),
+        pred3([cup1, plate1])
+    }
 
 
 def test_operator_application():
