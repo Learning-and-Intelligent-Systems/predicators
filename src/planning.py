@@ -418,10 +418,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     return [], True
 
 
-def _run_low_level_plan(
+def _run_plan_with_option_model(
         task: Task, option_model: _OptionModelBase, plan: List[_Option],
-        timeout: float, max_horizon: int
-) -> Tuple[LowLevelTrajectory, bool]:  # pragma: no cover
+        timeout: float) -> Tuple[LowLevelTrajectory, bool]:  # pragma: no cover
     """Runs a plan on an option model to generate a low level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
@@ -430,28 +429,22 @@ def _run_low_level_plan(
     and False.
     """
     start_time = time.time()
-    cur_idx = 0
-    # The number of actions taken by each option in the plan. This is to
-    # make sure that we do not exceed the task horizon.
-    num_actions_per_option = [0 for _ in plan]
     traj: List[State] = [task.init] + [DefaultState for _ in plan]
     actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
-    while cur_idx < len(plan):
+    for idx in range(len(plan)):
         if time.time() - start_time > timeout:
             return LowLevelTrajectory([], [], False), False
-        state = traj[cur_idx]
-        option = plan[cur_idx]
-        cur_idx += 1
+        state = traj[idx]
+        option = plan[idx]
+        cur_idx = idx + 1
         if option.initiable(state):
             try:
-                next_state, num_actions = \
+                next_state, _ = \
                     option_model.get_next_state_and_num_actions(state, option)
                 print('Success')
             except EnvironmentFailure:
-                can_continue_on = False
                 return LowLevelTrajectory([], [], False), False
             else:  # an EnvironmentFailure was not raised
-                num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
                 # Need to make a new option without policy, initiable, and
                 # terminal in order to make it a picklable trajectory
@@ -465,25 +458,15 @@ def _run_low_level_plan(
                 action_option.name = option.name
                 action_option.memory = option.memory
                 actions[cur_idx - 1].set_option(action_option)
-                # Check if we have exceeded the horizon.
-                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
-                    print(f"Max horizon {max_horizon} exceeded:",
-                          np.sum(num_actions_per_option[:cur_idx]), "steps")
-                    can_continue_on = False
-                else:
-                    # Since we're not checking the expected_atoms, we need to
-                    # explicitly check if the goal is achieved.
-                    can_continue_on = True
-                    if cur_idx == len(plan):
-                        if task.goal_holds(traj[cur_idx]):
-                            return LowLevelTrajectory(
-                                traj, actions), True  # success!
-                        can_continue_on = False
-                        return LowLevelTrajectory([], [], False), False
+                # Since we're not checking the expected_atoms, we need to
+                # explicitly check if the goal is achieved.
+                if cur_idx == len(plan):
+                    if task.goal_holds(traj[cur_idx]):
+                        return LowLevelTrajectory(traj,
+                                                  actions), True  # success!
+                    return LowLevelTrajectory([], [], False), False
         else:
             # The option is not initiable.
-            can_continue_on = False
-        if not can_continue_on:  # we got stuck, time to return False!
             return LowLevelTrajectory([], [], False), False
     # Should only get here if the plan was empty.
     assert not plan
