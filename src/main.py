@@ -365,7 +365,7 @@ def _save_test_results(results: Metrics,
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
     # Before printing the results, filter out keys that start with the
-    # special prefix "PER_TASK_".
+    # special prefix "PER_TASK_", to prevent an annoyingly long printout.
     del_keys = [k for k in outdata["results"] if k.startswith("PER_TASK_")]
     for k in del_keys:
         del outdata["results"][k]
