@@ -9,8 +9,8 @@ from predicators.src.structs import NSRT, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
     LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
     ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \
-    State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundLDLRule, \
-    _GroundNSRT, _GroundSTRIPSOperator, _Option
+    State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
