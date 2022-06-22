@@ -70,7 +70,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        prev_itr_pnads: Set[PartialNSRTAndDatastore] = set()
+        prev_itr_ops: Set[STRIPSOperator] = set()
 
         # We loop until the harmless PNADs induced by our procedure
         # converge to a fixed point (i.e, they don't change after two
@@ -110,10 +110,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             del cur_itr_pnads_unfiltered  # should be unused after this
 
             # Check if the PNAD set has converged. If so, break.
-            if set(cur_itr_pnads_filtered) == prev_itr_pnads:
+            if {pnad.op for pnad in cur_itr_pnads_filtered} == prev_itr_ops:
                 break
 
-            prev_itr_pnads = set(cur_itr_pnads_filtered)
+            prev_itr_ops = {pnad.op for pnad in cur_itr_pnads_filtered}
 
         # Assign a unique name to each PNAD.
         final_pnads = self._get_uniquely_named_nec_pnads(
