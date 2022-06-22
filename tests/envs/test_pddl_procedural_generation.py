@@ -3,7 +3,7 @@
 import numpy as np
 
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator
 
 
 def _split_pddl_problem_str(problem_str):
@@ -71,3 +71,31 @@ def test_create_blocks_pddl_generator():
         assert goal_str.count("ontable ") == 2
         assert init_str.count("on ") == 0
         assert goal_str.count("on ") == 0
+
+
+def test_create_delivery_pddl_generator():
+    """Tests for create_delivery_pddl_generator()."""
+    gen = create_delivery_pddl_generator(min_num_locs=2,
+                                         max_num_locs=2,
+                                         min_num_want_locs=1,
+                                         max_num_want_locs=1,
+                                         min_num_extra_newspapers=1,
+                                         max_num_extra_newspapers=1)
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+        # There should be exactly 2 locations.
+        for i in range(2):
+            assert f"loc-{i}" in obj_str
+        assert "loc-2" not in obj_str
+        assert " - loc" in obj_str
+        # There should be exactly 3 papers.
+        for i in range(2):
+            assert f"paper-{i}" in obj_str
+        assert "paper-3" not in obj_str
+        assert " - paper" in obj_str
+        # One at in init.
+        assert init_str.count("at ") == 1
+        # The goal should have exactly one satisfied.
+        assert goal_str.count("satisfied ") == 1

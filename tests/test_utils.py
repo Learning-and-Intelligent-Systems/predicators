@@ -310,6 +310,43 @@ def test_circle():
     # plt.savefig("/tmp/circle_unit_test.png")
 
 
+def test_triangle():
+    """Tests for Triangle()."""
+    _, ax = plt.subplots(1, 1, figsize=(8, 8))
+    ax.set_xlim((-10.0, 10.0))
+    ax.set_ylim((-10.0, 10.0))
+
+    tri1 = utils.Triangle(5.0, 5.0, 7.5, 7.5, 5.0, 7.5)
+    assert tri1.contains_point(5.5, 6)
+    assert tri1.contains_point(5.9999, 6)
+    assert tri1.contains_point(5.8333, 6.6667)
+    assert tri1.contains_point(7.3, 7.4)
+    assert not tri1.contains_point(6, 6)
+    assert not tri1.contains_point(5.1, 5.1)
+    assert not tri1.contains_point(5.2, 5.1)
+    assert not tri1.contains_point(5.1, 7.6)
+    assert not tri1.contains_point(4.9, 7.3)
+    assert not tri1.contains_point(5.0, 7.5)
+    assert not tri1.contains_point(7.6, 7.6)
+    tri1.plot(ax, color="red", alpha=0.5)
+
+    tri2 = utils.Triangle(-3.0, -4.0, -6.2, -5.6, -9.0, -1.7)
+    tri2.plot(ax, color="blue", alpha=0.5)
+
+    # Almost degenerate triangle.
+    tri3 = utils.Triangle(0.0, 0.0, 1.0, 1.0, -1.0, -1.001)
+    assert tri3.contains_point(0.0, -0.001 / 3.0)
+    tri3.plot(ax, color="green", alpha=0.5)
+
+    # Degenerate triangle (a line).
+    with pytest.raises(ValueError) as e:
+        utils.Triangle(0.0, 0.0, 1.0, 1.0, -1.0, -1.0)
+    assert "Degenerate triangle" in str(e)
+
+    # Uncomment for debugging.
+    # plt.savefig("/tmp/triangle_unit_test.png")
+
+
 def test_rectangle():
     """Tests for Rectangle()."""
     _, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -861,7 +898,7 @@ def test_strip_task():
     env = CoverEnv()
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
     task = env.get_train_tasks()[0]
-    block0, _, _, target0, _ = sorted(task.init)
+    block0, _, _, target0, _ = list(task.init)
     # Goal is Covers(block0, target0)
     assert len(task.goal) == 1
     original_goal_atom = next(iter(task.goal))
@@ -1889,6 +1926,31 @@ def test_nsrt_application():
     atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
     next_atoms = utils.apply_operator(ground_nsrt, atoms)
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
+    # Tests when the add effects and delete effects have overlap. The add
+    # effects should take precedence.
+    add_effects = {pred2([cup_var, plate_var]), pred3([cup_var, plate_var])}
+    delete_effects = {pred2([cup_var, plate_var])}
+    nsrt4 = NSRT("Pick",
+                 parameters,
+                 preconditions1,
+                 add_effects,
+                 delete_effects,
+                 side_predicates=set(),
+                 option=None,
+                 option_vars=[],
+                 _sampler=None)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt4, objects))
+    applicable = list(
+        utils.get_applicable_operators(ground_nsrts, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_nsrt = applicable[0]
+    atoms = {pred1([cup1, plate1])}
+    next_atoms = utils.apply_operator(ground_nsrt, atoms)
+    assert next_atoms == {
+        pred1([cup1, plate1]),
+        pred2([cup1, plate1]),
+        pred3([cup1, plate1])
+    }
 
 
 def test_operator_application():

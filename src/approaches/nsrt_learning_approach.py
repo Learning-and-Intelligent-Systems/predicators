@@ -5,6 +5,7 @@ or options.
 """
 
 import logging
+import time
 from typing import Dict, List, Optional, Set
 
 import dill as pkl
@@ -15,6 +16,7 @@ from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
+from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, Type
@@ -61,6 +63,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
+        if CFG.compute_sidelining_objective_value:
+            self._compute_sidelining_objective_value(trajectories)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()
@@ -85,3 +89,65 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # Seed the option parameter spaces after loading.
         for nsrt in self._nsrts:
             nsrt.option.params_space.seed(CFG.seed)
+
+    def _compute_sidelining_objective_value(
+            self, trajectories: List[LowLevelTrajectory]) -> None:
+        """Compute the value of the objective function that sidelining is
+        trying to approximately optimize.
+
+        Store this into self._metrics.
+        """
+        # Assert that we have an admissible heuristic, since we will
+        # assume in this function that task_plan() generates skeletons
+        # of increasing length.
+        assert CFG.sesame_task_planning_heuristic == "lmcut"
+        logging.info("Computing sidelining objective value...")
+        start_time = time.time()
+        preds = self._get_current_predicates()
+        strips_ops = [nsrt.op for nsrt in self._nsrts]
+        option_specs = [(nsrt.option, list(nsrt.option_vars))
+                        for nsrt in self._nsrts]
+        # Calculate first term in objective. This is a sum over the training
+        # tasks of the number of possible task plans up to the demo length.
+        num_plans_up_to_n = 0
+        for segment_traj, ll_traj in zip(self._segmented_trajs, trajectories):
+            if not ll_traj.is_demo:
+                continue
+            task = self._train_tasks[ll_traj.train_task_idx]
+            init_atoms = utils.abstract(task.init, preds)
+            objects = set(task.init)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms,
+                objects,
+                strips_ops,
+                option_specs,
+                allow_noops=True)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
+                ground_nsrts, preds, objects)
+            for skeleton, _, _ in task_plan(init_atoms,
+                                            task.goal,
+                                            ground_nsrts,
+                                            reachable_atoms,
+                                            heuristic,
+                                            CFG.seed,
+                                            timeout=10000000,
+                                            max_skeletons_optimized=10000000):
+                # Here, we are assuming that task_plan() generates skeletons
+                # of increasing length. If the demonstration length is
+                # exceeded, we can break.
+                if len(skeleton) > len(segment_traj):
+                    break
+                num_plans_up_to_n += 1
+        # Calculate second term in objective. This is the complexity of the
+        # operator set, measured as the sum of all operator complexities.
+        complexity = 0.0
+        for op in strips_ops:
+            complexity += op.get_complexity()
+        time_taken = time.time() - start_time
+        self._metrics["sidelining_obj_num_plans_up_to_n"] = num_plans_up_to_n
+        self._metrics["sidelining_obj_complexity"] = complexity
+        self._metrics["sidelining_obj_time_taken"] = time_taken
+        logging.info(f"\tFinished in {time_taken:.3f} seconds")
+        logging.info(f"\tGot num_plans_up_to_n {num_plans_up_to_n} and "
+                     f"complexity {complexity}")

@@ -38,6 +38,12 @@ class GlobalSettings:
     segmenter = "option_changes"
     # The method to use for generating demonstrations: "oracle" or "human".
     demonstrator = "oracle"
+    # DPI for rendering the state. Increase this if video quality is poor.
+    # Note that for unit testing, we use a much smaller value by default,
+    # which is set in utils.reset_config(). If you want higher-quality videos
+    # in unit tests, make sure to pass in a value for `render_state_dpi` into
+    # your call to utils.reset_config().
+    render_state_dpi = 150
 
     # cover env parameters
     cover_num_blocks = 2
@@ -134,6 +140,32 @@ class GlobalSettings:
     pddl_blocks_fixed_train_indices = list(range(1, 6))
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
+    # pddl delivery env parameters
+    pddl_delivery_procedural_train_min_num_locs = 5
+    pddl_delivery_procedural_train_max_num_locs = 10
+    pddl_delivery_procedural_train_min_want_locs = 2
+    pddl_delivery_procedural_train_max_want_locs = 4
+    pddl_delivery_procedural_train_min_extra_newspapers = 0
+    pddl_delivery_procedural_train_max_extra_newspapers = 1
+    pddl_delivery_procedural_test_min_num_locs = 31
+    pddl_delivery_procedural_test_max_num_locs = 40
+    pddl_delivery_procedural_test_min_want_locs = 20
+    pddl_delivery_procedural_test_max_want_locs = 30
+    pddl_delivery_procedural_test_min_extra_newspapers = 0
+    pddl_delivery_procedural_test_max_extra_newspapers = 10
+    pddl_easy_delivery_procedural_train_min_num_locs = 3
+    pddl_easy_delivery_procedural_train_max_num_locs = 5
+    pddl_easy_delivery_procedural_train_min_want_locs = 1
+    pddl_easy_delivery_procedural_train_max_want_locs = 2
+    pddl_easy_delivery_procedural_train_min_extra_newspapers = 0
+    pddl_easy_delivery_procedural_train_max_extra_newspapers = 1
+    pddl_easy_delivery_procedural_test_min_num_locs = 4
+    pddl_easy_delivery_procedural_test_max_num_locs = 6
+    pddl_easy_delivery_procedural_test_min_want_locs = 2
+    pddl_easy_delivery_procedural_test_max_want_locs = 3
+    pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
+    pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -158,8 +190,13 @@ class GlobalSettings:
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
-    coffee_render_dpi = 50
     coffee_jug_init_rot_amt = 2 * np.pi / 3
+
+    # satellites env parameters
+    satellites_num_sat_train = [2, 3]
+    satellites_num_obj_train = [3, 4]
+    satellites_num_sat_test = [3, 4]
+    satellites_num_obj_test = [4, 5]
 
     # parameters for random options approach
     random_options_max_tries = 100
@@ -214,7 +251,8 @@ class GlobalSettings:
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
-    offline_data_planning_timeout = 10
+    # If -1, defaults to CFG.timeout.
+    offline_data_planning_timeout = -1
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
@@ -233,6 +271,7 @@ class GlobalSettings:
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
     cluster_and_intersect_prederror_max_groundings = 10
@@ -295,7 +334,7 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_operator_size_weight = 0.0
+    grammar_search_operator_complexity_weight = 0.0
     grammar_search_pred_complexity_weight = 1e-4
     grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6

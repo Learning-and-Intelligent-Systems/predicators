@@ -197,8 +197,8 @@ def test_learned_neural_parameterized_option():
                              clip_gradients=False,
                              clip_value=5,
                              learning_rate=1e-3)
-    param_dim = sum([len(v) for v in changing_var_to_feat.values()])
-    input_dim = sum([p.type.dim for p in pick_operator.parameters]) + param_dim
+    param_dim = sum(len(v) for v in changing_var_to_feat.values())
+    input_dim = sum(p.type.dim for p in pick_operator.parameters) + param_dim
     # The plus 1 is for the bias term.
     X_arr_regressor = np.zeros((1, 1 + input_dim), dtype=np.float32)
     Y_arr_regressor = np.zeros((1, ) + env.action_space.shape,

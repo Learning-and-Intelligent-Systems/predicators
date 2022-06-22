@@ -37,11 +37,12 @@ from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, JointsState, LiftedAtom, \
-    LiftedOrGroundAtom, LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, \
-    Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
-    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, _TypedEntity
+    GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
+    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
+    NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
+    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -289,6 +290,44 @@ class Circle(_Geom2D):
 
     def contains_point(self, x: float, y: float) -> bool:
         return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+
+
+@dataclass(frozen=True)
+class Triangle(_Geom2D):
+    """A helper class for visualizing and collision checking triangles."""
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    x3: float
+    y3: float
+
+    def plot(self, ax: plt.Axes, **kwargs: Any) -> None:
+        patch = patches.Polygon(
+            [[self.x1, self.y1], [self.x2, self.y2], [self.x3, self.y3]],
+            **kwargs)
+        ax.add_patch(patch)
+
+    def __post_init__(self) -> None:
+        dist1 = np.sqrt((self.x1 - self.x2)**2 + (self.y1 - self.y2)**2)
+        dist2 = np.sqrt((self.x2 - self.x3)**2 + (self.y2 - self.y3)**2)
+        dist3 = np.sqrt((self.x3 - self.x1)**2 + (self.y3 - self.y1)**2)
+        dists = sorted([dist1, dist2, dist3])
+        assert dists[0] + dists[1] >= dists[2]
+        if dists[0] + dists[1] == dists[2]:
+            raise ValueError("Degenerate triangle!")
+
+    def contains_point(self, x: float, y: float) -> bool:
+        # Adapted from https://stackoverflow.com/questions/2049582/.
+        sign1 = ((x - self.x2) * (self.y1 - self.y2) - (self.x1 - self.x2) *
+                 (y - self.y2)) > 0
+        sign2 = ((x - self.x3) * (self.y2 - self.y3) - (self.x2 - self.x3) *
+                 (y - self.y3)) > 0
+        sign3 = ((x - self.x1) * (self.y3 - self.y1) - (self.x3 - self.x1) *
+                 (y - self.y1)) > 0
+        has_neg = (not sign1) or (not sign2) or (not sign3)
+        has_pos = sign1 or sign2 or sign3
+        return not has_neg or not has_pos
 
 
 @dataclass(frozen=True)
@@ -979,6 +1018,11 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class HumanDemonstrationFailure(ExceptionWithInfo):
+    """An exception raised when CFG.demonstrator == "human" and the human gives
+    a bad input."""
+
+
 class EnvironmentFailure(ExceptionWithInfo):
     """Exception raised when any type of failure occurs in an environment.
 
@@ -1666,6 +1710,15 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
+def all_ground_ldl_rules(
+        rule: LDLRule,
+        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+    """Get all possible groundings of the given rule with the given objects."""
+    types = [p.type for p in rule.parameters]
+    for choice in get_object_combinations(objects, types):
+        yield rule.ground(tuple(choice))
+
+
 _T = TypeVar("_T")  # element of a set
 
 
@@ -1796,10 +1849,10 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
-    for atom in op.add_effects:
-        new_atoms.add(atom)
     for atom in op.delete_effects:
         new_atoms.discard(atom)
+    for atom in op.add_effects:
+        new_atoms.add(atom)
     return new_atoms
 
 
@@ -2130,7 +2183,7 @@ def create_video_from_partial_refinements(
                               f"{CFG.failure_video_mode}.")
 
 
-def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
+def fig2data(fig: matplotlib.figure.Figure, dpi: int) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
     fig.canvas.draw()
@@ -2145,7 +2198,7 @@ def save_video(outfile: str, video: Video) -> None:
     outdir = CFG.video_dir
     os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
-    imageio.mimwrite(outpath, video, fps=CFG.video_fps)
+    imageio.mimwrite(outpath, video, fps=CFG.video_fps)  # type: ignore
     logging.info(f"Wrote out to {outpath}")
 
 
@@ -2179,11 +2232,12 @@ def update_config(args: Dict[str, Any]) -> None:
             args[k] = getattr(CFG, k)
     for d in [arg_specific_settings, args]:
         for k, v in d.items():
-            CFG.__setattr__(k, v)
+            setattr(CFG, k, v)
 
 
 def reset_config(args: Optional[Dict[str, Any]] = None,
-                 default_seed: int = 123) -> None:
+                 default_seed: int = 123,
+                 default_render_state_dpi: int = 10) -> None:
     """Reset to the default CFG, overriding with anything in args.
 
     This utility is meant for use in testing only.
@@ -2204,6 +2258,10 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     arg_dict.update(vars(default_args))
     if args is not None:
         arg_dict.update(args)
+    if args is None or "render_state_dpi" not in args:
+        # By default, use a small value for the rendering DPI, to avoid
+        # expensive rendering during testing.
+        arg_dict["render_state_dpi"] = default_render_state_dpi
     update_config(arg_dict)
 
 
@@ -2391,3 +2449,21 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = _DummyFile()
     yield
     sys.stdout = save_stdout
+
+
+def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+              goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
+    """Queries a lifted decision list representing a goal-conditioned policy.
+
+    Given an abstract state and goal, the rules are grounded in order. The
+    first applicable ground rule is used to return a ground NSRT.
+
+    If no rule is applicable, returns None.
+    """
+    objects = {o for a in atoms | goal for o in a.objects}
+    for rule in ldl.rules:
+        for ground_rule in all_ground_ldl_rules(rule, objects):
+            if ground_rule.state_preconditions.issubset(atoms) and \
+               ground_rule.goal_preconditions.issubset(goal):
+                return ground_rule.ground_nsrt
+    return None
