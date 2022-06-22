@@ -212,6 +212,9 @@ def test_contact_based_segmentation(env):
         "doors_min_room_exists_frac": 1.0,
         "doors_max_room_exists_frac": 1.0,
         "doors_birrt_smooth_amt": 0,
+        # Exclude all predicates, because contact-based segmentation should
+        # be invariant to excluded predicates.
+        "excluded_predicates": "all",
     })
     env = create_new_env(env, do_cache=False)
     train_tasks = env.get_train_tasks()

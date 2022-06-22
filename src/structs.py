@@ -661,6 +661,15 @@ class STRIPSOperator:
                               new_add_effects, new_delete_effects,
                               self.side_predicates | {effect.predicate})
 
+    def get_complexity(self) -> float:
+        """Get the complexity of this operator.
+
+        We only care about the arity of the operator, since that is what
+        affects grounding. We'll use 2^arity as a measure of grounding
+        effort.
+        """
+        return float(2**len(self.parameters))
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundSTRIPSOperator:
@@ -755,6 +764,13 @@ class NSRT:
     def _hash(self) -> int:
         return hash(str(self))
 
+    @property
+    def op(self) -> STRIPSOperator:
+        """Return the STRIPSOperator associated with this NSRT."""
+        return STRIPSOperator(self.name, self.parameters, self.preconditions,
+                              self.add_effects, self.delete_effects,
+                              self.side_predicates)
+
     def __str__(self) -> str:
         return self._str
 
@@ -764,10 +780,7 @@ class NSRT:
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
         file."""
-        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
-                            self.add_effects, self.delete_effects,
-                            self.side_predicates)
-        return op.pddl_str()
+        return self.op.pddl_str()
 
     def pretty_str(self, name_map: Dict[str, str]) -> str:
         """Display the NSRT in a nice human-readable format, given a mapping to
@@ -1040,6 +1053,11 @@ class Dataset:
         return self._trajectories
 
     @property
+    def has_annotations(self) -> bool:
+        """Whether this dataset has annotations in it."""
+        return self._annotations is not None
+
+    @property
     def annotations(self) -> List[Any]:
         """The annotations in the dataset."""
         assert self._annotations is not None
@@ -1072,6 +1090,8 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DummyOption)
     _goal: Optional[Set[GroundAtom]] = field(default=None)
+    # Field used by the backchaining algorithm (gen_to_spec_learner.py)
+    necessary_add_effects: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1311,6 +1331,139 @@ class PathToStateResponse(Response):
     """A response to a PathToStateQuery; provides a LowLevelTrajectory if one
     can be found by the teacher, otherwise returns None."""
     teacher_traj: Optional[LowLevelTrajectory]
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class LDLRule:
+    """A lifted decision list rule."""
+    name: str
+    parameters: Sequence[Variable]  # a superset of the NSRT parameters
+    state_preconditions: Set[LiftedAtom]  # a superset of the NSRT preconds
+    goal_preconditions: Set[LiftedAtom]
+    nsrt: NSRT
+
+    def __post_init__(self) -> None:
+        assert set(self.parameters).issuperset(self.nsrt.parameters)
+        assert self.state_preconditions.issuperset(self.nsrt.preconditions)
+        # The preconditions and goal preconditions should only use variables in
+        # the rule parameters.
+        for atom in self.state_preconditions | self.goal_preconditions:
+            assert all(v in self.parameters for v in atom.variables)
+
+    @lru_cache(maxsize=None)
+    def ground(self, objects: Tuple[Object]) -> _GroundLDLRule:
+        """Ground into a _GroundLDLRule, given objects.
+
+        Insist that objects are tuple for hashing in cache.
+        """
+        assert isinstance(objects, tuple)
+        assert len(objects) == len(self.parameters)
+        assert all(
+            o.is_instance(p.type) for o, p in zip(objects, self.parameters))
+        sub = dict(zip(self.parameters, objects))
+        state_pre = {atom.ground(sub) for atom in self.state_preconditions}
+        goal_pre = {atom.ground(sub) for atom in self.goal_preconditions}
+        nsrt_objects = [sub[v] for v in self.nsrt.parameters]
+        ground_nsrt = self.nsrt.ground(nsrt_objects)
+        return _GroundLDLRule(self, list(objects), state_pre, goal_pre,
+                              ground_nsrt)
+
+    @cached_property
+    def _str(self) -> str:
+        nsrt_param_str = ", ".join([str(v) for v in self.nsrt.parameters])
+        return f"""LDLRule-{self.name}:
+    Parameters: {self.parameters}
+    State Pre: {sorted(self.state_preconditions, key=str)}
+    Goal Pre: {sorted(self.goal_preconditions, key=str)}
+    NSRT: {self.nsrt.name}({nsrt_param_str})"""
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, LDLRule)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, LDLRule)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, LDLRule)
+        return str(self) > str(other)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class _GroundLDLRule:
+    """A ground LDL rule is an LDLRule + objects.
+
+    Should not be instantiated externally.
+    """
+    parent: LDLRule
+    objects: Sequence[Object]
+    state_preconditions: Set[GroundAtom]
+    goal_preconditions: Set[GroundAtom]
+    ground_nsrt: _GroundNSRT
+
+    @cached_property
+    def _str(self) -> str:
+        nsrt_obj_str = ", ".join([str(o) for o in self.ground_nsrt.objects])
+        return f"""GroundLDLRule-{self.name}:
+    Parameters: {self.objects}
+    State Pre: {sorted(self.state_preconditions, key=str)}
+    Goal Pre: {sorted(self.goal_preconditions, key=str)}
+    NSRT: {self.ground_nsrt.name}({nsrt_obj_str})"""
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    @property
+    def name(self) -> str:
+        """Name of this ground LRL rule."""
+        return self.parent.name
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _GroundLDLRule)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundLDLRule)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundLDLRule)
+        return str(self) > str(other)
+
+
+@dataclass(frozen=True)
+class LiftedDecisionList:
+    """A goal-conditioned policy from abstract states to ground NSRTs
+    implemented with a lifted decision list.
+
+    The logic described above is implemented in utils.query_ldl().
+    """
+    name: str
+    rules: Sequence[LDLRule]
 
 
 # Convenience higher-order types useful throughout the code

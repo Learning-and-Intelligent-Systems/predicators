@@ -8,19 +8,19 @@ from typing import Callable
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, BaseApproach, \
-    create_approach
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach, create_approach
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _run_testing, main
 from predicators.src.structs import Action, State, Task
 
 
-class _DummyApproach(BaseApproach):
+class _DummyFailureApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
 
     @classmethod
     def get_name(cls) -> str:
-        return "dummy"
+        return "dummy_failure"
 
     @property
     def is_learning_based(self):
@@ -30,6 +30,42 @@ class _DummyApproach(BaseApproach):
 
         def _policy(s: State) -> Action:
             raise ApproachFailure("Option plan exhausted.")
+
+        return _policy
+
+
+class _DummySolveTimeoutApproach(BaseApproach):
+    """Dummy approach that raises ApproachTimeout during planning for
+    testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy_solve_timeout"
+
+    @property
+    def is_learning_based(self):
+        return False
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        raise ApproachTimeout("Planning timed out.")
+
+
+class _DummyExecutionTimeoutApproach(BaseApproach):
+    """Dummy approach that raises ApproachTimeout during execution for
+    testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy_execution_timeout"
+
+    @property
+    def is_learning_based(self):
+        return False
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
+        def _policy(s: State) -> Action:
+            raise ApproachTimeout("Policy timed out.")
 
         return _policy
 
@@ -47,6 +83,7 @@ class _DummyCoverEnv(CoverEnv):
 
 def test_main():
     """Tests for main.py."""
+    utils.reset_config()
     sys.argv = [
         "dummy", "--env", "my_env", "--approach", "my_approach", "--seed",
         "123", "--num_test_tasks", "3"
@@ -136,8 +173,9 @@ def test_main():
     main()
 
 
-def test_bilevel_planning_approach_failure():
-    """Test coverage for ApproachFailure in run_testing()."""
+def test_bilevel_planning_approach_failure_and_timeout():
+    """Test coverage for ApproachFailure and ApproachTimeout in
+    run_testing()."""
     utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
@@ -147,11 +185,21 @@ def test_bilevel_planning_approach_failure():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    approach = _DummyApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
+    approach = _DummyFailureApproach(env.predicates, env.options, env.types,
+                                     env.action_space, train_tasks)
     assert not approach.is_learning_based
-    task = train_tasks[0]
-    approach.solve(task, timeout=500)
+    _run_testing(env, approach)
+
+    approach = _DummySolveTimeoutApproach(env.predicates, env.options,
+                                          env.types, env.action_space,
+                                          train_tasks)
+    assert not approach.is_learning_based
+    _run_testing(env, approach)
+
+    approach = _DummyExecutionTimeoutApproach(env.predicates, env.options,
+                                              env.types, env.action_space,
+                                              train_tasks)
+    assert not approach.is_learning_based
     _run_testing(env, approach)
 
 

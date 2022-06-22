@@ -106,13 +106,21 @@ def _test_approach(env_name,
                                                    task.goal_holds,
                                                    max_num_steps=CFG.horizon)
             assert task.goal_holds(traj.states[-1])
+    return approach
 
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
-    _test_approach(env_name="blocks",
-                   approach_name="nsrt_learning",
-                   try_solving=False)
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              additional_settings={
+                                  "compute_sidelining_objective_value": True,
+                              })
+    assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
+    assert "sidelining_obj_complexity" in approach.metrics
+    assert approach.metrics["sidelining_obj_num_plans_up_to_n"] == 1.0
+    assert approach.metrics["sidelining_obj_complexity"] == 34.0
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    strips_learner="cluster_and_search",
@@ -251,7 +259,7 @@ def test_grammar_search_invention_approach():
     additional_settings = {
         "grammar_search_true_pos_weight": 10,
         "grammar_search_false_pos_weight": 1,
-        "grammar_search_operator_size_weight": 1e-2,
+        "grammar_search_operator_complexity_weight": 1e-2,
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
