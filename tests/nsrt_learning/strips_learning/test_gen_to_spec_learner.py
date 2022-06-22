@@ -32,20 +32,18 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         check_only_add_effects=True):
+                         check_only_preconditions=True):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
         objects = list(segment.states[0])
         best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
             segment,
             objects, [pnad],
-            check_only_add_effects=check_only_add_effects)
-        if best_pnad is not None:
-            assert best_sub is not None
-            ground_best_pnad = best_pnad.op.ground(
-                tuple(best_sub[var] for var in best_pnad.op.parameters))
-        else:
-            ground_best_pnad = None
+            check_only_preconditions=check_only_preconditions)
+        assert best_pnad is not None
+        assert best_sub is not None
+        ground_best_pnad = best_pnad.op.ground(
+            tuple(best_sub[var] for var in best_pnad.op.parameters))
         return best_pnad, ground_best_pnad
 
     def reset_all_segment_add_effs(self):
@@ -298,7 +296,8 @@ def test_spawn_new_pnad():
     human_var = human_type("?x0")
     params = [human_var]
     add_effects = {Asleep([human_var])}
-    op = STRIPSOperator("MoveOp", params, set(), add_effects, set(), set())
+    op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
+                        set([Asleep, Happy]))
     pnad = PartialNSRTAndDatastore(op, [], (opt, []))
     bob = human_type("bob")
     state = State({bob: [0.0]})
@@ -322,32 +321,7 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: []"""
-    # The necessary_add_effects is empty, but the PNAD has an add effect,
-    # so no grounding is possible.
-    _, ground_op = learner.find_unification(set(), pnad,
-                                            Segment(traj, set(), set(), Move))
-    assert ground_op is None
-    _, ground_op = learner.find_unification(set(),
-                                            pnad,
-                                            Segment(traj, set(), set(), Move),
-                                            check_only_add_effects=False)
-    assert ground_op is None
-    # Change the PNAD to have non-trivial preconditions.
-    pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
-    # The new preconditions are not satisfiable in the segment's init_atoms,
-    # so no grounding is possible.
-    _, ground_op = learner.find_unification(
-        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert ground_op is None
-    # Make the preconditions be satisfiable in the segment's init_atoms,
-    # but make it impossible for the necessary_add_effects to be satisfied
-    # in the segment's final_atoms unless a delete effect is added. Thus,
-    # no grounding is possible.
-    _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
-                                            Segment(traj, {Happy([bob])},
-                                                    set(), Move))
-    assert ground_op is None
+    Side Predicates: [Asleep, Happy]"""
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification(
@@ -357,14 +331,14 @@ def test_spawn_new_pnad():
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
-    Preconditions: [Happy(bob:human_type)]
+    Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: []"""
-    pnad.op = pnad.op.copy_with(add_effects=set())
+    Side Predicates: [Asleep, Happy]"""
+    pnad.op = pnad.op.copy_with(add_effects=set(), side_predicates=[Happy])
     new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
-                                      Segment(traj, {Happy([bob])}, set(),
-                                              Move))
+                                      Segment(traj, {Happy([bob])},
+                                              {Asleep([bob])}, Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
