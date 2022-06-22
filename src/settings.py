@@ -111,6 +111,7 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
+    behavior_instance_id = 19
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos

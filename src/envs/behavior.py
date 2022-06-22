@@ -176,8 +176,8 @@ class BehaviorEnv(BaseEnv):
                 self.set_igibson_behavior_env(curr_env_seed)
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
-            os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__\
-                    {CFG.behavior_task_name}__{self.task_num}",
+            os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+                        "{CFG.behavior_task_name}__{self.task_num}",
                         exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
@@ -340,6 +340,7 @@ class BehaviorEnv(BaseEnv):
                 action_timestep=CFG.behavior_action_timestep,
                 physics_timestep=CFG.behavior_physics_timestep,
                 action_filter="mobile_manipulation",
+                instance_id=CFG.behavior_instance_id,
                 rng=self._rng,
             )
             self.igibson_behavior_env.step(
@@ -405,9 +406,8 @@ class BehaviorEnv(BaseEnv):
         if save_state:
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
-                f"tmp_behavior_states/{CFG.behavior_scene_name}__\
-                    {CFG.behavior_task_name}__{self.task_num}/"
-            )
+                f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+                "{CFG.behavior_task_name}__{self.task_num}/")
 
         return utils.BehaviorState(state_data,
                                    f"{self.task_num}-{simulator_state}")
@@ -564,8 +564,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     env.task_num = new_task_num
     load_checkpoint(
         env.igibson_behavior_env.simulator,
-        f"tmp_behavior_states/{CFG.behavior_scene_name}__\
-            {CFG.behavior_task_name}__{env.task_num}",
+        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+        "{CFG.behavior_task_name}__{env.task_num}",
         int(s.simulator_state.split("-")[1]))
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(

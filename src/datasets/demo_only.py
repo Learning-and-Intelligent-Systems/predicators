@@ -57,7 +57,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         if CFG.env == "behavior":  # pragma: no cover
             for traj in dataset.trajectories:
                 for act in traj.actions:
-                    act.get_option().memory = dict()
+                    act.get_option().memory = {}
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
@@ -209,7 +209,7 @@ def _generate_demonstrations(
                     #     last_plan.append(curr_option.ground(pkld_plan[i][1],\
                     #        pkld_plan[i][2]))
                     traj, success = _run_low_level_plan(
-                        task, oracle_approach._option_model, last_plan,
+                        task, oracle_approach.get_option_model(), last_plan,
                         CFG.offline_data_planning_timeout, CFG.horizon)
                     if success:
                         continue_plan_search = False
