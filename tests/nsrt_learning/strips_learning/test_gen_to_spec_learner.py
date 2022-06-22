@@ -1,14 +1,19 @@
 """Tests for general-to-specific STRIPS operator learning."""
 
+import itertools
+
+import numpy as np
 import pytest
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
+from predicators.tests.conftest import longrun
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
@@ -27,20 +32,18 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
                          necessary_add_effects,
                          pnad,
                          segment,
-                         check_only_add_effects=True):
+                         check_only_preconditions=True):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
         objects = list(segment.states[0])
         best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
             segment,
             objects, [pnad],
-            check_only_add_effects=check_only_add_effects)
-        if best_pnad is not None:
-            assert best_sub is not None
-            ground_best_pnad = best_pnad.op.ground(
-                tuple(best_sub[var] for var in best_pnad.op.parameters))
-        else:
-            ground_best_pnad = None
+            check_only_preconditions=check_only_preconditions)
+        assert best_pnad is not None
+        assert best_sub is not None
+        ground_best_pnad = best_pnad.op.ground(
+            tuple(best_sub[var] for var in best_pnad.op.parameters))
         return best_pnad, ground_best_pnad
 
     def reset_all_segment_add_effs(self):
@@ -293,7 +296,8 @@ def test_spawn_new_pnad():
     human_var = human_type("?x0")
     params = [human_var]
     add_effects = {Asleep([human_var])}
-    op = STRIPSOperator("MoveOp", params, set(), add_effects, set(), set())
+    op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
+                        set([Asleep, Happy]))
     pnad = PartialNSRTAndDatastore(op, [], (opt, []))
     bob = human_type("bob")
     state = State({bob: [0.0]})
@@ -317,32 +321,7 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: []"""
-    # The necessary_add_effects is empty, but the PNAD has an add effect,
-    # so no grounding is possible.
-    _, ground_op = learner.find_unification(set(), pnad,
-                                            Segment(traj, set(), set(), Move))
-    assert ground_op is None
-    _, ground_op = learner.find_unification(set(),
-                                            pnad,
-                                            Segment(traj, set(), set(), Move),
-                                            check_only_add_effects=False)
-    assert ground_op is None
-    # Change the PNAD to have non-trivial preconditions.
-    pnad.op = pnad.op.copy_with(preconditions={Happy([human_var])})
-    # The new preconditions are not satisfiable in the segment's init_atoms,
-    # so no grounding is possible.
-    _, ground_op = learner.find_unification(
-        set(), pnad, Segment(traj, {Asleep([bob])}, set(), Move))
-    assert ground_op is None
-    # Make the preconditions be satisfiable in the segment's init_atoms,
-    # but make it impossible for the necessary_add_effects to be satisfied
-    # in the segment's final_atoms unless a delete effect is added. Thus,
-    # no grounding is possible.
-    _, ground_op = learner.find_unification({Asleep([bob])}, pnad,
-                                            Segment(traj, {Happy([bob])},
-                                                    set(), Move))
-    assert ground_op is None
+    Side Predicates: [Asleep, Happy]"""
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification(
@@ -352,14 +331,14 @@ def test_spawn_new_pnad():
     assert ground_op is not None
     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
     Parameters: [bob:human_type]
-    Preconditions: [Happy(bob:human_type)]
+    Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: []"""
-    pnad.op = pnad.op.copy_with(add_effects=set())
+    Side Predicates: [Asleep, Happy]"""
+    pnad.op = pnad.op.copy_with(add_effects=set(), side_predicates=[Happy])
     new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
-                                      Segment(traj, {Happy([bob])}, set(),
-                                              Move))
+                                      Segment(traj, {Happy([bob])},
+                                              {Asleep([bob])}, Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
@@ -1001,3 +980,154 @@ def test_multi_pass_backchaining(val):
         # and make comparison easier.
         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
         assert str(pnad) in correct_pnads
+
+
+@longrun
+@pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
+                         itertools.product([True, False], [1, 2, 3, 4],
+                                           range(250)))
+def test_backchaining_randomly_generated(use_single_option, num_demos,
+                                         seed_offset):
+    """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
+    utils.reset_config({"segmenter": "atom_changes"})
+    rng = np.random.default_rng(CFG.seed + seed_offset)
+    # Set up the types, objects, and, predicates.
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy = dummy_type("dummy")
+    A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
+    B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
+    C = Predicate("C", [], lambda s, o: s[dummy][2] > 0.5)
+    D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
+    E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
+    predicates = {A, B, C, D, E}
+    pred_to_feat = {A: "feat1", B: "feat2", C: "feat3", D: "feat4", E: "feat5"}
+
+    # Create the necessary options and actions.
+    Pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
+                                              types=[]).ground([], [])
+    act1 = Action([], Pick)
+    Place = utils.SingletonParameterizedOption("Place",
+                                               lambda s, m, o, p: None,
+                                               types=[]).ground([], [])
+    act2 = Action([], Place)
+
+    # Create trajectories.
+
+    # Create trajectory 1 (length 3).
+    # Sample a goal.
+    goal1 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
+    s10 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+    while True:
+        # Sample s11 until it is different from s10.
+        s11 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        if s11[dummy] != s10[dummy]:
+            break
+    while True:
+        # Sample s12 until it is different from s11.
+        s12 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        # Force the goal to be achieved.
+        for atom in goal1:
+            s12.set(dummy, pred_to_feat[atom.predicate], 1.0)
+        if s12[dummy] != s11[dummy]:
+            break
+    if use_single_option:
+        acts = [act1, act1]
+    else:
+        poss_acts = [[act1, act1], [act1, act2], [act2, act1], [act2, act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj1 = LowLevelTrajectory([s10, s11, s12], acts, True, 0)
+    task1 = Task(s10, goal1)
+
+    # Create trajectory 2 (length 2).
+    # Sample a goal.
+    goal2 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
+    s20 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+    while True:
+        # Sample s21 until it is different from s20.
+        s21 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        # Force the goal to be achieved.
+        for atom in goal2:
+            s21.set(dummy, pred_to_feat[atom.predicate], 1.0)
+        if s21[dummy] != s20[dummy]:
+            break
+    if use_single_option:
+        acts = [act1]
+    else:
+        poss_acts = [[act1], [act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj2 = LowLevelTrajectory([s20, s21], acts, True, 1)
+    task2 = Task(s20, goal2)
+
+    # Create trajectory 3 (length 2).
+    # Sample a goal.
+    goal3 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
+    s30 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+    while True:
+        # Sample s31 until it is different from s30.
+        s31 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        # Force the goal to be achieved.
+        for atom in goal3:
+            s31.set(dummy, pred_to_feat[atom.predicate], 1.0)
+        if s31[dummy] != s30[dummy]:
+            break
+    if use_single_option:
+        acts = [act1]
+    else:
+        poss_acts = [[act1], [act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj3 = LowLevelTrajectory([s30, s31], acts, True, 2)
+    task3 = Task(s30, goal3)
+
+    # Create trajectory 4 (length 3).
+    # Sample a goal.
+    goal4 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
+    s40 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+    while True:
+        # Sample s41 until it is different from s40.
+        s41 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        if s41[dummy] != s40[dummy]:
+            break
+    while True:
+        # Sample s42 until it is different from s41.
+        s42 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
+        # Force the goal to be achieved.
+        for atom in goal4:
+            s42.set(dummy, pred_to_feat[atom.predicate], 1.0)
+        if s42[dummy] != s41[dummy]:
+            break
+    if use_single_option:
+        acts = [act1, act1]
+    else:
+        poss_acts = [[act1, act1], [act1, act2], [act2, act1], [act2, act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj4 = LowLevelTrajectory([s40, s41, s42], acts, True, 3)
+    task4 = Task(s40, goal4)
+
+    trajs = [traj1, traj2, traj3, traj4][:num_demos]
+    tasks = [task1, task2, task3, task4][:num_demos]
+
+    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+
+    # Now, run the learner on the demos.
+    learner = _MockBackchainingSTRIPSLearner(trajs,
+                                             tasks,
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
+    learner.learn()
