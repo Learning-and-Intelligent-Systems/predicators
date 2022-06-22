@@ -1009,12 +1009,11 @@ def test_multi_pass_backchaining(val):
 
 
 @longrun
-# @pytest.mark.parametrize("use_single_option,seed_offset",
-#                          itertools.product([True, False], range(1000)))
-@pytest.mark.parametrize("use_single_option,seed_offset", [(True, 12732),
-                                                           (True, 25948),
-                                                           (False, 108)])
-def test_backchaining_randomly_generated(use_single_option, seed_offset):
+@pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
+                         itertools.product([True, False], [1, 2, 3, 4],
+                                           range(250)))
+def test_backchaining_randomly_generated(use_single_option, num_demos,
+                                         seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({"segmenter": "atom_changes"})
     rng = np.random.default_rng(CFG.seed + seed_offset)
@@ -1028,6 +1027,7 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
     D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
     E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
     predicates = {A, B, C, D, E}
+    pred_to_feat = {A: "feat1", B: "feat2", C: "feat3", D: "feat4", E: "feat5"}
 
     # Create the necessary options and actions.
     Pick = utils.SingletonParameterizedOption("Pick",
@@ -1040,6 +1040,13 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
     act2 = Action([], Place)
 
     # Create trajectories.
+
+    # Create trajectory 1 (length 3).
+    # Sample a goal.
+    goal1 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
     s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
     while True:
         # Sample s11 until it is different from s10.
@@ -1049,7 +1056,9 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
     while True:
         # Sample s12 until it is different from s11.
         s12 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-        s12.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+        # Force the goal to be achieved.
+        for atom in goal1:
+            s12.set(dummy, pred_to_feat[atom.predicate], 1.0)
         if s12[dummy] != s11[dummy]:
             break
     if use_single_option:
@@ -1058,15 +1067,21 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
         poss_acts = [[act1, act1], [act1, act2], [act2, act1], [act2, act2]]
         acts = poss_acts[rng.integers(len(poss_acts))]
     traj1 = LowLevelTrajectory([s10, s11, s12], acts, True, 0)
-    goal1 = {GroundAtom(D, [])}
     task1 = Task(s10, goal1)
 
+    # Create trajectory 2 (length 2).
+    # Sample a goal.
+    goal2 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
     s20 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
     while True:
         # Sample s21 until it is different from s20.
         s21 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-        s21.set(dummy, "feat4", 1.0)  # ensure goal is achieved
-        s21.set(dummy, "feat5", 1.0)  # ensure goal is achieved
+        # Force the goal to be achieved.
+        for atom in goal2:
+            s21.set(dummy, pred_to_feat[atom.predicate], 1.0)
         if s21[dummy] != s20[dummy]:
             break
     if use_single_option:
@@ -1075,15 +1090,21 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
         poss_acts = [[act1], [act2]]
         acts = poss_acts[rng.integers(len(poss_acts))]
     traj2 = LowLevelTrajectory([s20, s21], acts, True, 1)
-    goal2 = {GroundAtom(D, []), GroundAtom(E, [])}
     task2 = Task(s20, goal2)
 
+    # Create trajectory 3 (length 2).
+    # Sample a goal.
+    goal3 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
     s30 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
     while True:
         # Sample s31 until it is different from s30.
         s31 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
-        s31.set(dummy, "feat3", 1.0)  # ensure goal is achieved
-        s31.set(dummy, "feat4", 1.0)  # ensure goal is achieved
+        # Force the goal to be achieved.
+        for atom in goal3:
+            s31.set(dummy, pred_to_feat[atom.predicate], 1.0)
         if s31[dummy] != s30[dummy]:
             break
     if use_single_option:
@@ -1092,12 +1113,38 @@ def test_backchaining_randomly_generated(use_single_option, seed_offset):
         poss_acts = [[act1], [act2]]
         acts = poss_acts[rng.integers(len(poss_acts))]
     traj3 = LowLevelTrajectory([s30, s31], acts, True, 2)
-    goal3 = {GroundAtom(C, []), GroundAtom(D, [])}
     task3 = Task(s30, goal3)
 
-    num_demos = rng.choice([1, 2, 3])
-    trajs = [traj1, traj2, traj3][:num_demos]
-    tasks = [task1, task2, task3][:num_demos]
+    # Create trajectory 4 (length 3).
+    # Sample a goal.
+    goal4 = {
+        GroundAtom(pred, [])
+        for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
+    }
+    s40 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    while True:
+        # Sample s41 until it is different from s40.
+        s41 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        if s41[dummy] != s40[dummy]:
+            break
+    while True:
+        # Sample s42 until it is different from s41.
+        s42 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        # Force the goal to be achieved.
+        for atom in goal4:
+            s42.set(dummy, pred_to_feat[atom.predicate], 1.0)
+        if s42[dummy] != s41[dummy]:
+            break
+    if use_single_option:
+        acts = [act1, act1]
+    else:
+        poss_acts = [[act1, act1], [act1, act2], [act2, act1], [act2, act2]]
+        acts = poss_acts[rng.integers(len(poss_acts))]
+    traj4 = LowLevelTrajectory([s40, s41, s42], acts, True, 3)
+    task4 = Task(s40, goal4)
+
+    trajs = [traj1, traj2, traj3, traj4][:num_demos]
+    tasks = [task1, task2, task3, task4][:num_demos]
 
     ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
