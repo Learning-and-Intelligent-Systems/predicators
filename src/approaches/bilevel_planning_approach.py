@@ -12,7 +12,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
-from predicators.src.option_model import _OptionModelBase, create_option_model
+from predicators.src.option_model import create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
@@ -51,7 +51,7 @@ class BilevelPlanningApproach(BaseApproach):
         preds = self._get_current_predicates()
         try:
             plan, metrics = sesame_plan(task,
-                                        self._option_model,
+                                        self.option_model,
                                         nsrts,
                                         preds,
                                         self._types,
