@@ -1,12 +1,14 @@
-"""Create bar plots for per-task metrics that start with NO_PRINT.
+"""Create histograms for per-task metrics that start with "PER_TASK_".
 
 Assumes that files in the results/ directory can be grouped by
-experiment ID alone."""
+experiment ID alone.
+"""
 
+import glob
 import os
 import re
-import glob
 from collections import defaultdict
+
 import dill as pkl
 import matplotlib.pyplot as plt
 
@@ -36,9 +38,9 @@ def _main() -> None:
             run_data_defaultdict)  # want to crash if key not found!
         run_data.update({"experiment_id": experiment_id})
         for key in run_data:
-            if not key.startswith("NO_PRINT_"):
+            if not key.startswith("PER_TASK_"):
                 continue
-            match = re.match(r"NO_PRINT_task\d+_(solve|exec)_time", key)
+            match = re.match(r"PER_TASK_task\d+_(solve|exec)_time", key)
             assert match is not None
             solve_or_exec = match.groups()[0]
             if solve_or_exec == "solve":

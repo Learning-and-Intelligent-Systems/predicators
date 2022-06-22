@@ -269,7 +269,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
-        metrics[f"NO_PRINT_task{test_task_idx}_solve_time"] = solve_time
+        metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
         make_video = False
         solved = False
@@ -289,7 +289,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
-            metrics[f"NO_PRINT_task{test_task_idx}_exec_time"] = exec_time
+            metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -361,9 +361,12 @@ def _save_test_results(results: Metrics,
         "results": results.copy(),
         "git_commit_hash": utils.get_git_commit_hash()
     }
+    # Dump the CFG, results, and git commit hash to a pickle file.
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    del_keys = [k for k in outdata["results"] if k.startswith("NO_PRINT_")]
+    # Before printing the results, filter out keys that start with the
+    # special prefix "PER_TASK_".
+    del_keys = [k for k in outdata["results"] if k.startswith("PER_TASK_")]
     for k in del_keys:
         del outdata["results"][k]
     logging.info(f"Test results: {outdata['results']}")
