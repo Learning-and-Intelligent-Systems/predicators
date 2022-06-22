@@ -1713,7 +1713,7 @@ def all_possible_ground_atoms(state: State,
 def all_ground_ldl_rules(
         rule: LDLRule,
         objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
-    """Get all possible groundings of the given NSRT with the given objects."""
+    """Get all possible groundings of the given rule with the given objects."""
     types = [p.type for p in rule.parameters]
     for choice in get_object_combinations(objects, types):
         yield rule.ground(tuple(choice))

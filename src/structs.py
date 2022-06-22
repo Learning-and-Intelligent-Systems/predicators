@@ -1460,11 +1460,6 @@ class LiftedDecisionList:
     """A goal-conditioned policy from abstract states to ground NSRTs
     implemented with a lifted decision list.
 
-    Given an abstract state and goal, the rules are grounded in order. The
-    first applicable ground rule is used to return a ground NSRT.
-
-    If no rule is applicable, returns None.
-
     The logic described above is implemented in utils.query_ldl().
     """
     name: str
