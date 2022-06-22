@@ -275,14 +275,14 @@ class BaseSTRIPSLearner(abc.ABC):
                     # and the ground operator's add effects don't fit this,
                     # skip.
                     if segment.necessary_add_effects is not None and \
-                        not segment.necessary_add_effects.issubset(
-                            ground_op.add_effects):
+                       not segment.necessary_add_effects.issubset(
+                           ground_op.add_effects):
                         continue
                 else:
                     # If check_only_preconditions is True, we must be
                     # calling this from spawning during backchaining
                     # with a most-general PNAD that has no add effects
-                    # and all other atoms sidelined, and thus this
+                    # and all other predicates sidelined, and thus this
                     # assertion must hold.
                     assert next_atoms.issubset(segment.final_atoms)
                 # This ground PNAD covers this segment. Score it!
