@@ -386,7 +386,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # preconditions hold in segment.init_atoms.
         objects = set(segment.states[0])
         _, var_to_obj = self._find_best_matching_pnad_and_sub(
-            segment, objects, [pnad], check_only_add_effects=True)
+            segment, objects, [pnad], check_only_preconditions=True)
         # Assert that such a grounding exists - this must be the case
         # since we only ever call this method with the most general
         # PNAD for the option.
