@@ -169,6 +169,8 @@ def _generate_demonstrations(
         if idx >= CFG.max_initial_demos:
             break
         try:
+            # Will run until we find a plan that successfuly generates a
+            # low-level trajectory that achieves our gaol
             continue_plan_search = True
             while continue_plan_search:
                 if CFG.demonstrator == "oracle":
@@ -209,11 +211,11 @@ def _generate_demonstrations(
                     #     last_plan.append(curr_option.ground(pkld_plan[i][1],\
                     #        pkld_plan[i][2]))
                     traj, success = _run_low_level_plan(
-                        task, oracle_approach.option_model, last_plan,
+                        task, oracle_approach.get_option_model(), last_plan,
                         CFG.offline_data_planning_timeout, CFG.horizon)
-                    if success:
-                        continue_plan_search = False
-                    else:
+                    # Is successful if we found a low-level plan that achieves
+                    # our goal using option models
+                    if not success:
                         print("Warning: low level plan execution failed")
                         continue
                 else:
@@ -233,7 +235,7 @@ def _generate_demonstrations(
                             utils.HumanDemonstrationFailure,
                         },
                         monitor=monitor)
-                    continue_plan_search = False
+                continue_plan_search = False
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "

@@ -453,6 +453,8 @@ def _run_low_level_plan(
             else:  # an EnvironmentFailure was not raised
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
+                # Need to make a new option without policy, initiable, and
+                # terminal in order to make it a picklable trajectory
                 action_option = ParameterizedOption(
                     option.parent.name, option.parent.types,
                     option.parent.params_space,

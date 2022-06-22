@@ -62,7 +62,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            if CFG.env == "behavior":
+            if CFG.dump_nsrts_as_strings:
                 pkl.dump(str(self._nsrts), f)  # pragma: no cover
             else:
                 pkl.dump(self._nsrts, f)

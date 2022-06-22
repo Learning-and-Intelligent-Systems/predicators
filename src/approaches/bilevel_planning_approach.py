@@ -12,7 +12,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
-from predicators.src.option_model import create_option_model
+from predicators.src.option_model import _OptionModelBase, create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
@@ -39,7 +39,7 @@ class BilevelPlanningApproach(BaseApproach):
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
-        self.option_model = create_option_model(CFG.option_model_name)
+        self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []
 
@@ -51,7 +51,7 @@ class BilevelPlanningApproach(BaseApproach):
         preds = self._get_current_predicates()
         try:
             plan, metrics = sesame_plan(task,
-                                        self.option_model,
+                                        self._option_model,
                                         nsrts,
                                         preds,
                                         self._types,
@@ -105,3 +105,7 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
+
+    def get_option_model(self) -> _OptionModelBase:
+        """Get the current option model."""
+        return self._option_model  # pragma: no cover
