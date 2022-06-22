@@ -447,7 +447,7 @@ def _run_low_level_plan(
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
                 print('Success')
-            except EnvironmentFailure :
+            except EnvironmentFailure:
                 can_continue_on = False
                 return LowLevelTrajectory([], [], False), False
             else:  # an EnvironmentFailure was not raised

@@ -4,7 +4,6 @@
 import functools
 import itertools
 import os
-import shutil
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import matplotlib
@@ -177,10 +176,9 @@ class BehaviorEnv(BaseEnv):
                 self.set_igibson_behavior_env(curr_env_seed)
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
-            os.makedirs(
-                f"tmp_behavior_states/{CFG.behavior_scene_name}__\
+            os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__\
                     {CFG.behavior_task_name}__{self.task_num}",
-                exist_ok=True)
+                        exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -407,7 +405,8 @@ class BehaviorEnv(BaseEnv):
         if save_state:
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
-                f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{self.task_num}/"
+                f"tmp_behavior_states/{CFG.behavior_scene_name}__\
+                    {CFG.behavior_task_name}__{self.task_num}/"
             )
 
         return utils.BehaviorState(state_data,
@@ -481,7 +480,7 @@ class BehaviorEnv(BaseEnv):
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
             if isinstance(ig_obj.body_id, list):
-                # TODO For some reason sofa is a 4 part body, so we use the
+                # For some reason sofa is a 4 part body, so we use the
                 # first body in the list as the sofa's obj body
                 ig_obj.body_id = ig_obj.body_id[0]
 
@@ -565,7 +564,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     env.task_num = new_task_num
     load_checkpoint(
         env.igibson_behavior_env.simulator,
-        f"tmp_behavior_states/{CFG.behavior_scene_name}__{CFG.behavior_task_name}__{env.task_num}",
+        f"tmp_behavior_states/{CFG.behavior_scene_name}__\
+            {CFG.behavior_task_name}__{env.task_num}",
         int(s.simulator_state.split("-")[1]))
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(

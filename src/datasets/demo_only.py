@@ -177,8 +177,8 @@ def _generate_demonstrations(
                         timeout = CFG.timeout
                     oracle_approach.solve(task, timeout=timeout)
                     # Since we're running the oracle approach, we know that
-                    # the policy is actually a plan under the hood, and we 
-                    # can retrieve it with get_last_plan(). We do this 
+                    # the policy is actually a plan under the hood, and we
+                    # can retrieve it with get_last_plan(). We do this
                     # because we want to run the full plan.
                     last_plan = oracle_approach.get_last_plan()
                     policy = utils.option_plan_to_policy(last_plan)
@@ -192,7 +192,8 @@ def _generate_demonstrations(
                                                event_to_action)
                     termination_function = task.goal_holds
                 if CFG.env == "behavior":  # pragma: no cover
-                    # For BEHAVIOR we are generating the trajectory by running our plan on our option models
+                    # For BEHAVIOR we are generating the trajectory by running
+                    # our plan on our option models
                     # # Uncomment if you want to load a plan from file
                     # file = open(f'plan_sorting_books.pkl', 'rb')
                     # pkld_plan = pkl.load(file)
@@ -205,15 +206,16 @@ def _generate_demonstrations(
                     #     for option in env.options:
                     #         if option.name == pkld_plan[i][0]:
                     #             curr_option = option
-                    #     last_plan.append(curr_option.ground(pkld_plan[i][1], pkld_plan[i][2]))
+                    #     last_plan.append(curr_option.ground(pkld_plan[i][1],\
+                    #        pkld_plan[i][2]))
                     traj, success = _run_low_level_plan(
                         task, oracle_approach._option_model, last_plan,
                         CFG.offline_data_planning_timeout, CFG.horizon)
-                    if not success:
+                    if success:
+                        continue_plan_search = False
+                    else:
                         print("Warning: low level plan execution failed")
                         continue
-                    else:
-                        continue_plan_search = False
                 else:
                     if CFG.make_demo_videos:
                         monitor = utils.VideoMonitor(env.render)

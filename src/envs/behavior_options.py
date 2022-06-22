@@ -2,7 +2,6 @@
 # pylint: disable=import-error
 
 import logging
-from bdb import set_trace
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -710,7 +709,7 @@ def create_grasp_option_model(
         else:
             grasp_obj_body_id = obj_to_grasp.body_id
         # 3.1 Call code that does assisted grasping
-        # TODO bypass_force_check is basically a hack we should
+        # bypass_force_check is basically a hack we should
         # turn it off for the final system and use a real grasp
         # sampler
         if env.robots[0].parts["right_hand"].object_in_hand is None:
