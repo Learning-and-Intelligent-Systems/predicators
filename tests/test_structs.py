@@ -7,10 +7,10 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.structs import NSRT, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
-    LDLRule, LiftedAtom, LowLevelTrajectory, Object, ParameterizedOption, \
-    PartialNSRTAndDatastore, Predicate, Query, Segment, State, \
-    STRIPSOperator, Task, Type, Variable, _Atom, _GroundLDLRule, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option
+    LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
+    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \
+    State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundLDLRule, \
+    _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -885,7 +885,7 @@ def test_query():
 
 
 def test_lifted_decision_lists():
-    """Tests for LDLRule, _GroundLDLRule, TODO."""
+    """Tests for LDLRule, _GroundLDLRule, LiftedDecisionList."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     robot_type = Type("robot_type", ["feat1"])
@@ -1005,5 +1005,25 @@ def test_lifted_decision_lists():
     assert ground_pick_rule < ground_place_rule
 
     # Make sure ground rules are hashable.
-    rules = {ground_pick_rule, ground_place_rule}
-    assert rules == {ground_pick_rule, ground_place_rule}
+    rule_set = {ground_pick_rule, ground_place_rule}
+    assert rule_set == {ground_pick_rule, ground_place_rule}
+
+    # LiftedDecisionList
+    rules = [place_rule, pick_rule]
+    ldl = LiftedDecisionList("MyPolicy", rules)
+    assert ldl.name == "MyPolicy"
+    assert ldl.rules == rules
+
+    atoms = {on_table([cup1]), hand_empty([robot])}
+    goal = {on([cup1, plate1])}
+
+    expected_nsrt = pick_nsrt.ground([cup1])
+    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+
+    atoms = {holding([cup1])}
+
+    expected_nsrt = place_nsrt.ground([cup1, plate1])
+    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+
+    atoms = set()
+    assert utils.query_ldl(ldl, atoms, goal) is None

@@ -1455,6 +1455,22 @@ class _GroundLDLRule:
         return str(self) > str(other)
 
 
+@dataclass(frozen=True)
+class LiftedDecisionList:
+    """A goal-conditioned policy from abstract states to ground NSRTs
+    implemented with a lifted decision list.
+
+    Given an abstract state and goal, the rules are grounded in order. The
+    first applicable ground rule is used to return a ground NSRT.
+
+    If no rule is applicable, returns None.
+
+    The logic described above is implemented in utils.query_ldl().
+    """
+    name: str
+    rules: Sequence[LDLRule]
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]

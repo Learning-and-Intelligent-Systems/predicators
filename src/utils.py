@@ -37,11 +37,12 @@ from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, JointsState, LiftedAtom, \
-    LiftedOrGroundAtom, LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, \
-    Object, OptionSpec, ParameterizedOption, Predicate, Segment, State, \
-    STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option, _TypedEntity
+    GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
+    LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
+    NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
+    Segment, State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
+    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1709,6 +1710,15 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
+def all_ground_ldl_rules(
+        rule: LDLRule,
+        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+    """Get all possible groundings of the given NSRT with the given objects."""
+    types = [p.type for p in rule.parameters]
+    for choice in get_object_combinations(objects, types):
+        yield rule.ground(tuple(choice))
+
+
 _T = TypeVar("_T")  # element of a set
 
 
@@ -2439,3 +2449,21 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = _DummyFile()
     yield
     sys.stdout = save_stdout
+
+
+def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+              goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
+    """Queries a lifted decision list representing a goal-conditioned policy.
+
+    Given an abstract state and goal, the rules are grounded in order. The
+    first applicable ground rule is used to return a ground NSRT.
+
+    If no rule is applicable, returns None.
+    """
+    objects = {o for a in atoms | goal for o in a.objects}
+    for rule in ldl.rules:
+        for ground_rule in all_ground_ldl_rules(rule, objects):
+            if ground_rule.state_preconditions.issubset(atoms) and \
+               ground_rule.goal_preconditions.issubset(goal):
+                return ground_rule.ground_nsrt
+    return None
