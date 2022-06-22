@@ -1149,7 +1149,7 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
     ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
-    # Now, run the learner on the three demos.
+    # Now, run the learner on the demos.
     learner = _MockBackchainingSTRIPSLearner(trajs,
                                              tasks,
                                              predicates,
