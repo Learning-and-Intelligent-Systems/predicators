@@ -1047,15 +1047,15 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
         GroundAtom(pred, [])
         for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
     }
-    s10 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s10 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
     while True:
         # Sample s11 until it is different from s10.
-        s11 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s11 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         if s11[dummy] != s10[dummy]:
             break
     while True:
         # Sample s12 until it is different from s11.
-        s12 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s12 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         # Force the goal to be achieved.
         for atom in goal1:
             s12.set(dummy, pred_to_feat[atom.predicate], 1.0)
@@ -1075,10 +1075,10 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
         GroundAtom(pred, [])
         for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
     }
-    s20 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s20 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
     while True:
         # Sample s21 until it is different from s20.
-        s21 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s21 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         # Force the goal to be achieved.
         for atom in goal2:
             s21.set(dummy, pred_to_feat[atom.predicate], 1.0)
@@ -1098,10 +1098,10 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
         GroundAtom(pred, [])
         for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
     }
-    s30 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s30 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
     while True:
         # Sample s31 until it is different from s30.
-        s31 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s31 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         # Force the goal to be achieved.
         for atom in goal3:
             s31.set(dummy, pred_to_feat[atom.predicate], 1.0)
@@ -1121,15 +1121,15 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
         GroundAtom(pred, [])
         for pred in rng.permutation([A, B, C, D, E])[:rng.integers(1, 5)]
     }
-    s40 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+    s40 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
     while True:
         # Sample s41 until it is different from s40.
-        s41 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s41 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         if s41[dummy] != s40[dummy]:
             break
     while True:
         # Sample s42 until it is different from s41.
-        s42 = State({dummy: [rng.choice([0.0, 1.0]) for _ in range(5)]})
+        s42 = State({dummy: list(rng.choice([0.0, 1.0], size=5))})
         # Force the goal to be achieved.
         for atom in goal4:
             s42.set(dummy, pred_to_feat[atom.predicate], 1.0)
