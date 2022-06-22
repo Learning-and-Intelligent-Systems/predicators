@@ -39,7 +39,7 @@ class BilevelPlanningApproach(BaseApproach):
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
-        self._option_model = create_option_model(CFG.option_model_name)
+        self.option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []
 
@@ -105,7 +105,3 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
-
-    def get_option_model(self) -> _OptionModelBase:
-        """Get the current option model."""
-        return self._option_model
