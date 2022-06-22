@@ -70,11 +70,14 @@ def test_nsrt_reinforcement_learning_approach(nsrt_rl_reward_epsilon):
     state = interaction_results[-1].states[0]
     arbitrary_action = interaction_results[0].actions[0]
     arbitrary_plan = approach.get_requests_info()[0][1]
-    interaction_results[-1] = InteractionResult([state, state],
-                                                [arbitrary_action],
-                                                [None, None])
+    interaction_results[-1] = InteractionResult(
+        [state, state, state], [arbitrary_action, arbitrary_action],
+        [None, None, None])
     approach.set_requests_info_idx(-1, (2, arbitrary_plan))
-    approach.learn_from_interaction_results(interaction_results)
-    arbitrary_plan[0].parent.effect_based_terminal = lambda s, o: True
     # Now learn from the interaction results (including the hacked last one).
+    approach.learn_from_interaction_results(interaction_results)
+    # Change the last interaction result to have a 2-step plan where both
+    # options are immediately terminal, and repeat learning from it.
+    arbitrary_plan[0].parent.effect_based_terminal = lambda s, o: True
+    arbitrary_plan.append(arbitrary_plan[-1])
     approach.learn_from_interaction_results([interaction_results[-1]])
