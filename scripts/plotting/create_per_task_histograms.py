@@ -57,7 +57,7 @@ def _main() -> None:
         ax2.hist(exec_data[experiment_id])
         ax1.set_title("Per-task solve time histogram")
         ax2.set_title("Per-task execution time histogram")
-        outfile = os.path.join(outdir, f"{experiment_id}_per_task.png")
+        outfile = os.path.join(outdir, f"{experiment_id}__per_task.png")
         plt.savefig(outfile, dpi=DPI)
         print(f"\tFound {len(solve_data[experiment_id])} task solve times and "
               f"{len(exec_data[experiment_id])} task execution times")
