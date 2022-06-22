@@ -6,6 +6,7 @@ from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import ParameterizedOption, \
     PartialNSRTAndDatastore, Segment, STRIPSOperator
 
@@ -87,8 +88,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
             # Harmlessness should now hold, but it's slow to check.
-            # assert self._check_harmlessness(
-            #     self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+            if CFG.backchaining_check_intermediate_harmlessness:
+                assert self._check_harmlessness(
+                    self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
 
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
