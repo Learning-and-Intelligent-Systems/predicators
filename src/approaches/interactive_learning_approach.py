@@ -462,7 +462,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             x = state.vec(atom.objects)
             ps = self._pred_to_ensemble[
                 atom.predicate.name].predict_member_probas(x)
-            entropy_sum += utils.entropy(np.mean(ps))
+            entropy_sum += utils.entropy(float(np.mean(ps)))
         return entropy_sum
 
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
@@ -474,8 +474,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             x = state.vec(atom.objects)
             ps = self._pred_to_ensemble[
                 atom.predicate.name].predict_member_probas(x)
-            entropy = utils.entropy(np.mean(ps))
-            objective += entropy - np.mean([utils.entropy(p) for p in ps])
+            entropy = utils.entropy(float(np.mean(ps)))
+            mean_entropy = float(np.mean([utils.entropy(p) for p in ps]))
+            objective += entropy - mean_entropy
         return objective
 
     def _score_atom_set_variance(self, atom_set: Set[GroundAtom],
@@ -487,5 +488,5 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             x = state.vec(atom.objects)
             ps = self._pred_to_ensemble[
                 atom.predicate.name].predict_member_probas(x)
-            objective += np.var(ps)
+            objective += float(np.var(ps))
         return objective
