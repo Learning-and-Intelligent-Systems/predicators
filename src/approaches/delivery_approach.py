@@ -11,7 +11,7 @@ import numpy as np
 
 from predicators.src.approaches import BaseApproach
 from predicators.src.envs.pddl_env import _PDDLEnvState
-from predicators.src.structs import Action, GroundAtom, State, Task, Object
+from predicators.src.structs import Action, GroundAtom, Object, State, Task
 
 
 class DeliverySpecificApproach(BaseApproach):
@@ -26,6 +26,7 @@ class DeliverySpecificApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
         def _policy(state: State) -> Action:
             options = {o.name: o for o in self._initial_options}
             predicates = {p.name: p for p in self._initial_predicates}
@@ -72,8 +73,10 @@ class DeliverySpecificApproach(BaseApproach):
                         move_to_loc = loc
             move = options["move"]
             selected_option = move
-            object_args = [cast(Object, move_from_loc), cast(Object,
-            move_to_loc)]
+            object_args = [
+                cast(Object, move_from_loc),
+                cast(Object, move_to_loc)
+            ]
             assert move_to_loc is not None
             assert move_from_loc is not None
             # Below this line should not need changing.
@@ -81,4 +84,5 @@ class DeliverySpecificApproach(BaseApproach):
             ground_option = selected_option.ground(object_args, params)
             assert ground_option.initiable(state)
             return ground_option.policy(state)
+
         return _policy
