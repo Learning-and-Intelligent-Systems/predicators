@@ -47,26 +47,6 @@ class DeliverySpecificApproach(NSRTLearningApproach):
         # TODO: Fix the code here!
 
         rules = [
-            LDLRule("Deliver",
-                    parameters=[paper_var, loc_var],
-                    pos_state_preconditions={
-                        LiftedAtom(at, [loc_var]),
-                        LiftedAtom(wants_paper, [loc_var]),
-                        LiftedAtom(carrying, [paper_var])
-                    },
-                    neg_state_preconditions={LiftedAtom(satisfied, [loc_var])},
-                    goal_preconditions=set(),
-                    nsrt=deliver),
-            LDLRule("PickUp",
-                    parameters=[paper_var, loc_var],
-                    pos_state_preconditions={
-                        LiftedAtom(at, [loc_var]),
-                        LiftedAtom(is_home_base, [loc_var]),
-                        LiftedAtom(unpacked, [paper_var])
-                    },
-                    neg_state_preconditions=set(),
-                    goal_preconditions=set(),
-                    nsrt=pick_up),
             LDLRule("Move",
                     parameters=[from_var, to_var],
                     pos_state_preconditions={
