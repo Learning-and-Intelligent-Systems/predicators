@@ -227,9 +227,16 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     segment, objects, pnads_for_option)
 
                 if pnad is not None:
-                    segs_in_pnad = [datapoint[0] for datapoint in pnad.datastore]
+                    segs_in_pnad = [datapoint[0] for datapoint in pnad.datastore]                        
+                    # In this case, we potentially want to recompute_datastores
+                    # to see if this will just resolve the issue.
+                    if segment not in segs_in_pnad:
+                        self._recompute_datastores_from_segments(pnads_for_option)
+                        # Since we're not changing anything aside from the PNADs'
+                        # datastores, we're guaranteed that the result of
+                        # _find_best_matching_pnad_and_sub will stay the same.
+                        segs_in_pnad = [datapoint[0] for datapoint in pnad.datastore]
 
-                # TODO: Make this much more beautiful.                
                 if pnad is not None and segment in segs_in_pnad:
                     assert var_to_obj is not None
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
@@ -238,9 +245,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         tuple(var_to_obj[var] for var in pnad.op.parameters))
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
-                    # if str(segment.necessary_add_effects) == "{A()}":
-                    #     import ipdb; ipdb.set_trace()
-                # If we weren't able to find a substitution (i.e, the above
+
+                # If we weren't able to find a substitution such that the given
+                # segment is in the particular PNAD's datastore (i.e, the above
                 # _find_best_matching call didn't yield a PNAD), we need to
                 # spawn a new PNAD from the most general PNAD to cover
                 # these necessary add effects.
@@ -281,7 +288,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         segment, objects,
                         param_opt_to_nec_pnads[option.parent])
                     assert var_to_obj is not None
-                    assert best_score_pnad == pnad
+                    try:
+                        assert best_score_pnad == pnad
+                    except AssertionError:
+                        import ipdb; ipdb.set_trace()
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
                     ground_op = pnad.op.ground(
