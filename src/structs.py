@@ -1338,16 +1338,18 @@ class LDLRule:
     """A lifted decision list rule."""
     name: str
     parameters: Sequence[Variable]  # a superset of the NSRT parameters
-    state_preconditions: Set[LiftedAtom]  # a superset of the NSRT preconds
+    pos_state_preconditions: Set[LiftedAtom]  # a superset of the NSRT preconds
+    neg_state_preconditions: Set[LiftedAtom]
     goal_preconditions: Set[LiftedAtom]
     nsrt: NSRT
 
     def __post_init__(self) -> None:
         assert set(self.parameters).issuperset(self.nsrt.parameters)
-        assert self.state_preconditions.issuperset(self.nsrt.preconditions)
+        assert self.pos_state_preconditions.issuperset(self.nsrt.preconditions)
         # The preconditions and goal preconditions should only use variables in
         # the rule parameters.
-        for atom in self.state_preconditions | self.goal_preconditions:
+        for atom in self.pos_state_preconditions | \
+            self.neg_state_preconditions | self.goal_preconditions:
             assert all(v in self.parameters for v in atom.variables)
 
     @lru_cache(maxsize=None)
@@ -1361,11 +1363,12 @@ class LDLRule:
         assert all(
             o.is_instance(p.type) for o, p in zip(objects, self.parameters))
         sub = dict(zip(self.parameters, objects))
-        state_pre = {atom.ground(sub) for atom in self.state_preconditions}
+        pos_pre = {atom.ground(sub) for atom in self.pos_state_preconditions}
+        neg_pre = {atom.ground(sub) for atom in self.neg_state_preconditions}
         goal_pre = {atom.ground(sub) for atom in self.goal_preconditions}
         nsrt_objects = [sub[v] for v in self.nsrt.parameters]
         ground_nsrt = self.nsrt.ground(nsrt_objects)
-        return _GroundLDLRule(self, list(objects), state_pre, goal_pre,
+        return _GroundLDLRule(self, list(objects), pos_pre, neg_pre, goal_pre,
                               ground_nsrt)
 
     @cached_property
@@ -1373,7 +1376,8 @@ class LDLRule:
         nsrt_param_str = ", ".join([str(v) for v in self.nsrt.parameters])
         return f"""LDLRule-{self.name}:
     Parameters: {self.parameters}
-    State Pre: {sorted(self.state_preconditions, key=str)}
+    Pos State Pre: {sorted(self.pos_state_preconditions, key=str)}
+    Neg State Pre: {sorted(self.neg_state_preconditions, key=str)}
     Goal Pre: {sorted(self.goal_preconditions, key=str)}
     NSRT: {self.nsrt.name}({nsrt_param_str})"""
 
@@ -1411,7 +1415,8 @@ class _GroundLDLRule:
     """
     parent: LDLRule
     objects: Sequence[Object]
-    state_preconditions: Set[GroundAtom]
+    pos_state_preconditions: Set[GroundAtom]
+    neg_state_preconditions: Set[GroundAtom]
     goal_preconditions: Set[GroundAtom]
     ground_nsrt: _GroundNSRT
 
@@ -1420,7 +1425,8 @@ class _GroundLDLRule:
         nsrt_obj_str = ", ".join([str(o) for o in self.ground_nsrt.objects])
         return f"""GroundLDLRule-{self.name}:
     Parameters: {self.objects}
-    State Pre: {sorted(self.state_preconditions, key=str)}
+    Pos State Pre: {sorted(self.pos_state_preconditions, key=str)}
+    Neg State Pre: {sorted(self.neg_state_preconditions, key=str)}
     Goal Pre: {sorted(self.goal_preconditions, key=str)}
     NSRT: {self.ground_nsrt.name}({nsrt_obj_str})"""
 
