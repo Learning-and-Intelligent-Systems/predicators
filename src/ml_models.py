@@ -425,6 +425,13 @@ class MLPRegressor(PyTorchRegressor):
 class Critic(MLPRegressor):
     """A critic network to be used in actor-critic RL methods."""
 
+    def initialize_net(self, input_dim, output_dim) -> None:
+        self._linears.append(nn.Linear(input_dim, self._hid_sizes[0]))
+        for i in range(len(self._hid_sizes) - 1):
+            self._linears.append(
+                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(self._hid_sizes[-1], output_dim))
+
     def forward(self, state: Tensor, action: Tensor) -> Tensor:
         tensor_X = torch.cat([state, action], dim=1)
         for _, linear in enumerate(self._linears[:-1]):

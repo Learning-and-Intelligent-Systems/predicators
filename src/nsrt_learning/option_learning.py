@@ -9,6 +9,10 @@ from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 from gym.spaces import Box
+import torch
+import torch.autograd
+import torch.optim as optim
+import torch.nn as nn
 
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
@@ -692,15 +696,15 @@ class ReplayBuffer:
         self.terminal_memory[index] = done
         self.counter += 1
 
-    def sample_buffer(self, batch_size):
+    def sample(self, batch_size):
         filled = min(self.counter, self.size)
         batch = rng.choice(filled, batch_size)
         states = self.state_memory[batch]
         actions = self.action_memory[batch]
         rewards = self.reward_memory[batch]
         next_states = self.next_state_memory[batch]
-        dones = self.terminal_memory[batch]
-        return states, actions, rewards, next_states, dones
+        done = self.terminal_memory[batch]
+        return states, actions, rewards, next_states, done
 
 
 class OUNoise:
@@ -766,14 +770,44 @@ class _DDPGAgent(_RLOptionLearnerBase):
             # already.
             self._actor = option.regressor
             self._target_actor = copy.deepcopy(self._actor)
+            input_dim = self._actor._x_dim
+            output_dim = self._actor._y_dim
             self._critic = CriticNetwork(seed=CFG.seed, hid_sizes=CFG.rl_critic_regressor_hid_sizes, max_train_iters=CFG.mlp_regressor_max_itr, clip_gradients=CFG.mlp_regressor_clip_gradients, clip_value=CFG.mlp_regressor_gradient_clip_value, learning_rate=CFG.learning_rate)
+            self._critic.initialize_net(input_dim, output_dim)
+            self._critic_loss_fn  = nn.MSELoss()
             self._target_critic = copy.deepcopy(self._critic)
+            self._actor_optimizer  = optim.Adam(self.actor.parameters(), lr=CFG.actor_learning_rate)
+            self._critic_optimizer = optim.Adam(self.critic.parameters(), lr=CFG.critic_learning_rate)
 
             self._initialized = True
 
-        # Sample replay buffer.
+        # Store experience in replay buffer
 
 
+        # Learn.
+        # Sample batch.
+        if self._replay_buffer.counter < self._batch_size:
+            return copy.deepcopy(option)
+        states, actions, rewards, next_states, done = self._replay_buffer.sample(self._batch_size)
+        states = torch.FloatTensor(states)
+        actions = torch.FloatTensor(actions)
+        rewards = torch.FloatTensor(rewards)
+        next_states = torch.FloatTensor(next_states)
+        done = torch.FloatTensor(done)
+
+        # Critic loss
+        Q_values = self._critic.forward(states, actions)
+        next_actions = self._target_actor.forward(next_states)
+        next_Q_values = self._target_critic.forward(next_states, next_actions.detach())
+        next_Q_values[dones] = 0.0
+        Q_target_values = rewards + self._gamma * next_Q_values
+        critic_loss = self._critic_loss_fn(Q_values, Q_target_values)
+
+        # Actor loss
+        actor_loss = -self._critic.forward(states, self._actor.forward(states)).mean()
+
+        # Update networks
+        
 
 
 def _create_absolute_option_param(state: State,
