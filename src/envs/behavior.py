@@ -55,12 +55,11 @@ class BehaviorEnv(BaseEnv):
         self._config_file = modify_config_file(
             os.path.join(igibson.root_path,
                          CFG.behavior_config_file), CFG.behavior_task_name,
-            CFG.behavior_scene_name, CFG.behavior_randomize_init_state)
+            CFG.behavior_scene_name, False) # behavior_randomize_init_state = False in config file
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.set_igibson_behavior_env(task_instance_id=0, seed=self._seed)
-        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
         # a unique id for saving and loading each task's state
         self.task_num: int = 0
@@ -174,7 +173,7 @@ class BehaviorEnv(BaseEnv):
             # hacky workaround for that.
             curr_env_seed = rng.integers(0, (2**32) - 1)
             if CFG.behavior_randomize_init_state:
-                if testing:
+                if not testing:
                     self.set_igibson_behavior_env(task_instance_id=self.task_num, seed=curr_env_seed)
                 else:
                     self.set_igibson_behavior_env(task_instance_id=self.task_num+10, seed=curr_env_seed)
@@ -361,6 +360,7 @@ class BehaviorEnv(BaseEnv):
             raise RuntimeError("ERROR: Failed to sample iGibson BEHAVIOR "
                                "environment that meets bddl initial "
                                "conditions!")
+        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
