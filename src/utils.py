@@ -2464,7 +2464,7 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
     for rule in ldl.rules:
         for ground_rule in all_ground_ldl_rules(rule, objects):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
-               not ground_rule.neg_state_preconditions & (atoms) and \
+               not ground_rule.neg_state_preconditions & atoms and \
                ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
