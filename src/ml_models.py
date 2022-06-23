@@ -422,6 +422,17 @@ class MLPRegressor(PyTorchRegressor):
         return nn.MSELoss()
 
 
+class Critic(MLPRegressor):
+    """A critic network to be used in actor-critic RL methods."""
+
+    def forward(self, state: Tensor, action: Tensor) -> Tensor:
+        tensor_X = torch.cat([state, action], dim=1)
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X
+
+
 class ImplicitMLPRegressor(PyTorchRegressor):
     """A regressor implemented via an energy function.
 

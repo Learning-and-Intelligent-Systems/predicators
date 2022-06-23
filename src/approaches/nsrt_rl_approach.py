@@ -51,7 +51,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # each one will maintain its own unique state associated with the
         # learning process.
         self._option_learners = {
-            n: create_rl_option_learner()
+            n: create_rl_option_learner(self._action_space)
             for n in self._nsrts
         }
 
@@ -84,7 +84,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
     def _get_experience_from_result(
         self, idx: int, result: InteractionResult
     ) -> Dict[ParameterizedOption, List[List[Tuple[State, Array, Action, int,
-                                                   State]]]]:
+                                                   State, Array, bool]]]]:
         option_to_data: Dict[ParameterizedOption,
                              List[List[Tuple[State, Array, Action, int,
                                              State]]]] = {}
@@ -108,15 +108,22 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         for state, next_state in zip(traj.states[:-1], traj.states[1:]):
             action = traj.actions[j]
             j += 1
+            # The RLOptionLearner will need the input to the option's
+            # regressor (e.g. for training its actor and critic networks).
             state_features = state.vec(cur_option.objects)
-            relative_param = parent_option.get_rel_option_param_from_state(
+            next_state_features = next_state.vec(cur_option.objects)
+            rel_param = parent_option.get_rel_option_param_from_state(
                 state,
                 cur_option.memory,
                 cur_option.objects,
             )
-            # The RLOptionLearner will need the input to the option's
-            # regressor for training.
-            input_vec = np.hstack(([1.0], state_features, relative_param))
+            next_rel_param = parent_option.get_rel_option_param_from_state(
+                next_state,
+                cur_option.memory,
+                cur_option.objects,
+            )
+            input_vec = np.hstack(([1.0], state_features, rel_param))
+            next_input_vec = np.hstack(([1.0], next_state_features, next_rel_param))
 
             # Add pos_reward if we got within epsilon of the option's
             # subgoal, otherwise we add neg_reward. To do this, we can check
@@ -132,8 +139,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             else:
                 reward += self._neg_reward
 
-            experience.append((state, input_vec, action, reward, next_state))
-
             # Store experience data in two cases: (1) the next state is a
             # terminal state for the current option and (2) the current
             # option did not reach its terminal state but had a sufficient
@@ -141,6 +146,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             # it a reward.
             terminate = parent_option.effect_based_terminal(
                 next_state, cur_option.objects)
+            experience.append((state, input_vec, action, reward, next_state, next_input_vec, terminate))
             had_sufficient_steps = (
                 next_state.allclose(traj.states[-1])
                 and (CFG.max_num_steps_interaction_request - j >
@@ -176,13 +182,13 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # online learning cycle. The experience data is a list of list of tuples
         # , where the inner list contains experience from one execution of the
         # option. The tuple is a standard RL experience tuple of (state, action
-        # reward, next_state), with one additional element: the input vector
-        # that the option's regressor received for that state, which is the
-        # concatenation of the state vector for the option's objects and the
+        # reward, next_state, done), with one additional element: the input
+        # vector that the option's regressor received for that state, which is
+        # the concatenation of the state vector for the option's objects and the
         # relative parameter that the sampler provided. This input vector is
         # necessary during learning to update the option's regressor.
         option_to_data: DefaultDict[ParameterizedOption, List[List[Tuple[
-            State, Array, Action, int, State]]]] = defaultdict(list)
+            State, Array, Action, int, State, Array, bool]]]] = defaultdict(list)
 
         # For each InteractionResult, compute the experience data for each
         # _Option we see used in that interaction.
