@@ -97,12 +97,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
             # Harmlessness should now hold, but it's slow to check.
-            try:
-                assert self._check_harmlessness(
-                    self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
-            except AssertionError:
-                import ipdb; ipdb.set_trace()
-
+            assert self._check_harmlessness(
+                self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
             cur_itr_pnads_unfiltered = [
