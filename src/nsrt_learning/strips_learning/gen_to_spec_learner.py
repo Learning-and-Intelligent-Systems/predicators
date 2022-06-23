@@ -67,11 +67,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for param_opt in parameterized_options:
             pnad = self._create_general_pnad_for_option(param_opt)
             param_opt_to_nec_pnads[param_opt] = []
-        self._assert_all_data_in_exactly_one_datastore(
-            [
-                self._create_general_pnad_for_option(param_opt)
-                for param_opt in parameterized_options
-            ])
+        self._assert_all_data_in_exactly_one_datastore([
+            self._create_general_pnad_for_option(param_opt)
+            for param_opt in parameterized_options
+        ])
 
         prev_itr_ops: Set[STRIPSOperator] = set()
 
