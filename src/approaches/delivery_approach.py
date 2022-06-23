@@ -8,13 +8,13 @@ Example command line:
 
 from typing import Callable, cast
 
-import numpy as np
-
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.nsrt_learning_approach import NSRTLearningApproach
-from predicators.src.envs.pddl_env import _PDDLEnvState
-from predicators.src.structs import Action, GroundAtom, State, Task, LiftedDecisionList, LDLRule
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.envs.pddl_env import _PDDLEnvState
+from predicators.src.structs import Action, LDLRule, LiftedAtom, \
+    LiftedDecisionList, State, Task
 
 
 class DeliverySpecificApproach(NSRTLearningApproach):
@@ -26,29 +26,58 @@ class DeliverySpecificApproach(NSRTLearningApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         goal = task.goal
-        options = {o.name: o for o in self._initial_options}
+
         predicates = {p.name: p for p in self._initial_predicates}
-        types = {t.name: t for t in self._types}
+        at = predicates["at"]
+        carrying = predicates["carrying"]
+        is_home_base = predicates["ishomebase"]
+        safe = predicates["safe"]
+        satisfied = predicates["satisfied"]
+        wants_paper = predicates["wantspaper"]
+        unpacked = predicates["unpacked"]
+
         nsrts = {n.name: n for n in self._get_current_nsrts()}
         deliver = nsrts["deliver"]
         move = nsrts["move"]
-        pick_up = nsrts["pick_up"]
+        pick_up = nsrts["pick-up"]
+
         paper_var, loc_var = deliver.parameters
         from_var, to_var = move.parameters
 
         # TODO: Fix the code here!
 
         rules = [
-            LDLRule(
-                "Deliver",
-                parameters=[paper_var, loc_var],
-                state_preconditions={at([loc_var]),
-                                     wants_paper([loc_var])},
-                goal_preconditions=set(),
-                nsrt=pick_nsrt
-            ),
+            LDLRule("Deliver",
+                    parameters=[paper_var, loc_var],
+                    pos_state_preconditions={
+                        LiftedAtom(at, [loc_var]),
+                        LiftedAtom(wants_paper, [loc_var]),
+                        LiftedAtom(carrying, [paper_var])
+                    },
+                    neg_state_preconditions={LiftedAtom(satisfied, [loc_var])},
+                    goal_preconditions=set(),
+                    nsrt=deliver),
+            LDLRule("PickUp",
+                    parameters=[paper_var, loc_var],
+                    pos_state_preconditions={
+                        LiftedAtom(at, [loc_var]),
+                        LiftedAtom(is_home_base, [loc_var]),
+                        LiftedAtom(unpacked, [paper_var])
+                    },
+                    neg_state_preconditions=set(),
+                    goal_preconditions=set(),
+                    nsrt=pick_up),
+            LDLRule("Move",
+                    parameters=[from_var, to_var],
+                    pos_state_preconditions={
+                        LiftedAtom(at, [from_var]),
+                        LiftedAtom(safe, [from_var])
+                    },
+                    neg_state_preconditions={LiftedAtom(satisfied, [to_var])},
+                    goal_preconditions={LiftedAtom(satisfied, [to_var])},
+                    nsrt=move),
         ]
-        
+
         # Below this line should not need changing.
 
         ldl_policy = LiftedDecisionList("DeliveryPolicy", rules)
