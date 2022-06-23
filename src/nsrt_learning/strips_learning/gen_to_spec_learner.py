@@ -288,10 +288,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         segment, objects,
                         param_opt_to_nec_pnads[option.parent])
                     assert var_to_obj is not None
-                    try:
-                        assert best_score_pnad == pnad
-                    except AssertionError:
-                        import ipdb; ipdb.set_trace()
+                    assert best_score_pnad == pnad
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
                     ground_op = pnad.op.ground(
