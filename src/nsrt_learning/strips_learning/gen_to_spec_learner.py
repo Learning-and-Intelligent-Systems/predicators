@@ -6,6 +6,7 @@ from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import ParameterizedOption, \
     PartialNSRTAndDatastore, Segment, STRIPSOperator
 
@@ -82,23 +83,15 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._backchain_multipass(param_opt_to_nec_pnads,
                                       param_opt_to_general_pnad)
 
-            # curr_nec_pnads = self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads)
-            # for backchained_pnad in curr_nec_pnads:
-            #     for datapoint in backchained_pnad.datastore:
-            #         seg_nec_add_effects = datapoint[0].necessary_add_effects
-            #         assert seg_nec_add_effects is not None
-            #         try:
-            #             assert seg_nec_add_effects.issubset(backchained_pnad.op.add_effects)
-            #         except AssertionError:
-            #             import ipdb; ipdb.set_trace()
-
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
             # Harmlessness should now hold, but it's slow to check.
-            assert self._check_harmlessness(
-                self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+            if CFG.backchaining_check_intermediate_harmlessness:
+                assert self._check_harmlessness(
+                    self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
             cur_itr_pnads_unfiltered = [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
@@ -33,6 +34,13 @@ def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     if CFG.option_learner == "direct_bc_nonparameterized":
         return _DirectBehaviorCloningOptionLearner(action_space,
                                                    is_parameterized=False)
+    raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
+
+
+def create_rl_option_learner() -> _RLOptionLearnerBase:
+    """Create an RL option learner given its name."""
+    if CFG.nsrt_rl_option_learner == "dummy_rl":
+        return _DummyRLOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -305,7 +313,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                                dtype=np.float32)
         else:
             params_space = Box(0, 1, (0, ), dtype=np.float32)
-        self._operator = operator
+        self.operator = operator
         self._regressor = regressor
         self._changing_var_to_feat = changing_var_to_feat
         self._changing_var_order = changing_var_order
@@ -316,7 +324,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          params_space,
                          policy=self._regressor_based_policy,
                          initiable=self._precondition_based_initiable,
-                         terminal=self._effect_based_terminal)
+                         terminal=self._optimized_effect_based_terminal)
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
@@ -325,13 +333,13 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
             # The memory here is used to store the absolute params, based on
             # the relative params and the object states.
             memory["params"] = params  # store for sanity checking in policy
-            var_to_obj = dict(zip(self._operator.parameters, objects))
+            var_to_obj = dict(zip(self.operator.parameters, objects))
             state_params = _create_absolute_option_param(
                 state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
             memory["absolute_params"] = state_params + params
         # Check if initiable based on preconditions.
-        grounded_op = self._operator.ground(tuple(objects))
+        grounded_op = self.operator.ground(tuple(objects))
         return all(pre.holds(state) for pre in grounded_op.preconditions)
 
     def _regressor_based_policy(self, state: State, memory: Dict,
@@ -340,7 +348,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         if self._is_parameterized:
             # Compute the updated relative goal.
             assert np.allclose(params, memory["params"])
-            var_to_obj = dict(zip(self._operator.parameters, objects))
+            var_to_obj = dict(zip(self.operator.parameters, objects))
             state_params = _create_absolute_option_param(
                 state, self._changing_var_to_feat, self._changing_var_order,
                 var_to_obj)
@@ -355,23 +363,42 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                              self._action_space.high)
         return Action(np.array(action_arr, dtype=np.float32))
 
-    def _effect_based_terminal(self, state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> bool:
+    def _optimized_effect_based_terminal(self, state: State, memory: Dict,
+                                         objects: Sequence[Object],
+                                         params: Array) -> bool:
         if self._is_parameterized:
             assert np.allclose(params, memory["params"])
-        # The hope is that we terminate in the effects.
-        grounded_op = self._operator.ground(tuple(objects))
-        if all(e.holds(state) for e in grounded_op.add_effects) and \
-            not any(e.holds(state) for e in grounded_op.delete_effects):
-            return True
+        terminate = self.effect_based_terminal(state, objects)
         # Optimization: remember the most recent state and terminate early if
         # the state is repeated, since this option will never get unstuck.
         if "last_state" in memory and memory["last_state"].allclose(state):
             return True
+        if terminate:
+            return True
         memory["last_state"] = state
-        # Not yet done.
         return False
+
+    def effect_based_terminal(self, state: State,
+                              objects: Sequence[Object]) -> bool:
+        """Terminate when the option's corresponding operator's effects have
+        been reached."""
+        grounded_op = self.operator.ground(tuple(objects))
+        if all(e.holds(state) for e in grounded_op.add_effects) and \
+            not any(e.holds(state) for e in grounded_op.delete_effects):
+            return True
+        return False
+
+    def get_rel_option_param_from_state(self, state: State, memory: Dict,
+                                        objects: Sequence[Object]) -> Array:
+        """Get the relative parameter that is passed into the option's
+        regressor."""
+        var_to_obj = dict(zip(self.operator.parameters, objects))
+        curr_state_changing_feat = _create_absolute_option_param(
+            state, self._changing_var_to_feat, self._changing_var_order,
+            var_to_obj)
+        subgoal_state_changing_feat = memory["absolute_params"]
+        relative_param = subgoal_state_changing_feat - curr_state_changing_feat
+        return relative_param
 
 
 class _BehaviorCloningOptionLearner(_OptionLearnerBase):
@@ -584,12 +611,46 @@ class _ImplicitBehaviorCloningOptionLearner(_BehaviorCloningOptionLearner):
             grid_num_ticks_per_dim=num_ticks)
 
 
+class _RLOptionLearnerBase(abc.ABC):
+    """Struct defining an option learner that learns via reinforcement
+    learning, which has an abstract method for updating the policy associated
+    with an option."""
+
+    @abc.abstractmethod
+    def update(
+        self, option: _LearnedNeuralParameterizedOption,
+        experience: List[List[Tuple[State, Array, Action, int, State]]]
+    ) -> _LearnedNeuralParameterizedOption:
+        """Updates a _LearnedNeuralParameterizedOption via reinforcement
+        learning.
+
+        The inner list of `experience` corresponds to the expeirence
+        from one execution of the option.
+        """
+        raise NotImplementedError("Override me!")
+
+
+class _DummyRLOptionLearner(_RLOptionLearnerBase):
+    """Does not update the policy associated with a
+    _LearnedNeuralParameterizedOption."""
+
+    def update(
+        self, option: _LearnedNeuralParameterizedOption,
+        experience: List[List[Tuple[State, Array, Action, int, State]]]
+    ) -> _LearnedNeuralParameterizedOption:
+        # Don't actually update the option at all.
+        # Update would be made to option._regressor, which requires changing the
+        # code in ml_models.py so that you can train without re-initializing the
+        # network. Update would also be made to the policy of the parameterized
+        # option itself, e.g. to perform both exploitation and exploration.
+        return copy.deepcopy(option)
+
+
 def _create_absolute_option_param(state: State,
                                   changing_var_to_feat: Dict[Variable,
                                                              List[int]],
                                   var_order: Sequence[Variable],
                                   var_to_obj: VarToObjSub) -> Array:
-
     vec = []
     for v in var_order:
         obj = var_to_obj[v]

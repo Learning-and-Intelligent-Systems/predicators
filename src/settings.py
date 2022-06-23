@@ -218,6 +218,13 @@ class GlobalSettings:
     # parameters for GNN metacontroller approach
     gnn_metacontroller_max_samples = 100
 
+    # parameters for NSRT reinforcement learning approach
+    nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
+    nsrt_rl_pos_reward = 0
+    nsrt_rl_neg_reward = -1
+    nsrt_rl_option_learner = "dummy_rl"
+    nsrt_rl_valid_reward_steps_threshold = 10
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
@@ -264,6 +271,7 @@ class GlobalSettings:
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    backchaining_check_intermediate_harmlessness = False
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1

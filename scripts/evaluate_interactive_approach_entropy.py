@@ -59,8 +59,9 @@ def _calculate(approach: InteractiveLearningApproach, states: List[State],
         state = states[i]
         x = state.vec(objects_lst[i])
         ps = approach._pred_to_ensemble[pred_name].predict_member_probas(x)  # pylint: disable=protected-access
-        entropy = utils.entropy(np.mean(ps))
-        bald_score = entropy - np.mean([utils.entropy(p) for p in ps])
+        entropy = utils.entropy(float(np.mean(ps)))
+        mean_entropy = float(np.mean([utils.entropy(p) for p in ps]))
+        bald_score = entropy - mean_entropy
         print(f"Entropy: {entropy}, BALD score: {bald_score}")
         info = {
             "TEST_ID": f"entropy_{i}",
