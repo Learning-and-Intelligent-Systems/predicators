@@ -259,7 +259,7 @@ class BehaviorEnv(BaseEnv):
         # Finally, add the reachable-nothing predicate, which only applies
         # to the 'agent' type
         for i in range(len(types_lst)):
-            if types_lst[i].name == "agent.n.01":
+            if types_lst[i].name == "agent":
                 pred_name = self._create_type_combo_name(
                     "reachable-nothing", (types_lst[i], ))
                 pred = Predicate(
@@ -515,7 +515,7 @@ class BehaviorEnv(BaseEnv):
         # Robot does not have a field "bddl_object_scope", so we define
         # its name manually.
         assert isinstance(ig_obj, BRBody)
-        return "agent.n.01_1"
+        return "agent"
 
     @staticmethod
     def _ig_object_to_type_name(ig_obj: "ArticulatedObject") -> str:
@@ -526,7 +526,7 @@ class BehaviorEnv(BaseEnv):
             return type_name.rsplit("_", 1)[0]
         # Object is either URDFObject or robot.
         assert ":" not in ig_obj_name
-        return ig_obj_name.rsplit("_", 1)[0]
+        return ig_obj.category
 
     @staticmethod
     def _bddl_predicate_arity(bddl_predicate: "bddl.AtomicFormula") -> int:
