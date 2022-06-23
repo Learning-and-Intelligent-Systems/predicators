@@ -986,6 +986,9 @@ def test_multi_pass_backchaining(val):
 @pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
                          itertools.product([True, False], [1, 2, 3, 4],
                                            range(250)))
+# @pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
+#                          itertools.product([True], [4],
+#                                            [99]))
 def test_backchaining_randomly_generated(use_single_option, num_demos,
                                          seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""

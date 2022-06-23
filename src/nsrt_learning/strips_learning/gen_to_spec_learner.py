@@ -82,13 +82,26 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._backchain_multipass(param_opt_to_nec_pnads,
                                       param_opt_to_general_pnad)
 
+            # curr_nec_pnads = self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads)
+            # for backchained_pnad in curr_nec_pnads:
+            #     for datapoint in backchained_pnad.datastore:
+            #         seg_nec_add_effects = datapoint[0].necessary_add_effects
+            #         assert seg_nec_add_effects is not None
+            #         try:
+            #             assert seg_nec_add_effects.issubset(backchained_pnad.op.add_effects)
+            #         except AssertionError:
+            #             import ipdb; ipdb.set_trace()
+
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
             # Harmlessness should now hold, but it's slow to check.
-            # assert self._check_harmlessness(
-            #     self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+            try:
+                assert self._check_harmlessness(
+                    self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
+            except AssertionError:
+                import ipdb; ipdb.set_trace()
 
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
@@ -212,7 +225,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 objects = set(segment.states[0])
                 pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                     segment, objects, pnads_for_option)
+
                 if pnad is not None:
+                    segs_in_pnad = [datapoint[0] for datapoint in pnad.datastore]
+
+                # TODO: Make this much more beautiful.                
+                if pnad is not None and segment in segs_in_pnad:
                     assert var_to_obj is not None
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
@@ -220,6 +238,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         tuple(var_to_obj[var] for var in pnad.op.parameters))
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
+                    # if str(segment.necessary_add_effects) == "{A()}":
+                    #     import ipdb; ipdb.set_trace()
                 # If we weren't able to find a substitution (i.e, the above
                 # _find_best_matching call didn't yield a PNAD), we need to
                 # spawn a new PNAD from the most general PNAD to cover
