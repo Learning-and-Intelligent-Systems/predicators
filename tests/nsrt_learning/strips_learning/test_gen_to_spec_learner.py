@@ -995,6 +995,108 @@ def test_multi_pass_backchaining(val):
         assert str(pnad) in correct_pnads
 
 
+def test_backchaining_segment_not_in_datastore():
+    """Test the BackchainingSTRIPSLearner on a case where it can cover
+    a particular segment using an operator that doesn't have that segment
+    in its datastore and this will lead to the intermediate harmlessnes
+    check failing if not handled correctly."""
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
+    # Set up the types, objects, and, predicates.
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy = dummy_type("dummy")
+    A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
+    B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
+    C = Predicate("C", [], lambda s, o: s[dummy][2] > 0.5)
+    D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
+    E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
+    predicates = {A, B, C, D, E}
+    # Create the necessary options and actions.
+    Pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
+                                              types=[]).ground([], [])
+    act = Action([], Pick)
+    #Setup the first trajectory.
+    goal0 = {GroundAtom(B, [])}
+    s00 = State({dummy: [1.0, 1.0, 0.0, 1.0, 0.0]})
+    s01 = State({dummy: [0.0, 0.0, 1.0, 0.0, 1.0]})
+    s02 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
+    traj0 = LowLevelTrajectory([s00, s01, s02], [act, act], True, 0)
+    task0 = Task(s00, goal0)
+    # Setup the second trajectory.
+    goal1 = {GroundAtom(B, [])}
+    s10 = State({dummy: [1.0, 0.0, 0.0, 1.0, 0.0]})
+    s11 = State({dummy: [1.0, 1.0, 0.0, 0.0, 1.0]})
+    traj1 = LowLevelTrajectory([s10, s11], [act], True, 1)
+    task1 = Task(s10, goal1)
+    # Setup the third trajectory.
+    goal2 = {GroundAtom(A, []), GroundAtom(C, [])}
+    s20 = State({dummy: [0.0, 1.0, 0.0, 1.0, 1.0]})
+    s21 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
+    traj2 = LowLevelTrajectory([s20, s21], [act], True, 2)
+    task2 = Task(s20, goal2)
+    # Setup the fourth trajectory.
+    goal3 = {GroundAtom(A, []), GroundAtom(D, [])}
+    s30 = State({dummy: [0.0, 1.0, 1.0, 1.0, 1.0]})
+    s31 = State({dummy: [1.0, 0.0, 1.0, 1.0, 0.0]})
+    s32 = State({dummy: [1.0, 1.0, 0.0, 1.0, 1.0]})
+    traj3 = LowLevelTrajectory([s30, s31, s32], [act, act], True, 3)
+    task3 = Task(s30, goal3)
+    # Ground and segment these trajectories
+    trajs = [traj0, traj1, traj2, traj3]
+    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    # Now, run the learner on the demos.
+    learner = _MockBackchainingSTRIPSLearner(trajs,
+                                             [task0, task1, task2, task3],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
+    learned_pnads = learner.learn()
+    correct_pnads = [
+        """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [C(), E()]
+    Add Effects: [B()]
+    Delete Effects: []
+    Side Predicates: [A, D]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [B(), D(), E()]
+    Add Effects: [A(), C()]
+    Delete Effects: [B(), E()]
+    Side Predicates: [B, E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), C(), D()]
+    Add Effects: [A(), B(), D()]
+    Delete Effects: [C()]
+    Side Predicates: [E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), D()]
+    Add Effects: [A(), B()]
+    Delete Effects: [D()]
+    Side Predicates: [E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), B(), D()]
+    Add Effects: [C(), E()]
+    Delete Effects: [A(), B(), D()]
+    Side Predicates: []
+    Option Spec: Pick()"""
+    ]
+    for pnad in learned_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
+        assert str(pnad) in correct_pnads
+
+
 @longrun
 @pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
                          itertools.product([True, False], [1, 2, 3, 4],
