@@ -6,6 +6,7 @@ from typing import Dict, List, Set
 
 from predicators.src import utils
 from predicators.src.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.src.settings import CFG
 from predicators.src.structs import ParameterizedOption, \
     PartialNSRTAndDatastore, Segment, STRIPSOperator
 
@@ -70,7 +71,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         self._assert_all_data_in_exactly_one_datastore(
             list(param_opt_to_general_pnad.values()))
 
-        prev_itr_pnads: Set[PartialNSRTAndDatastore] = set()
+        prev_itr_ops: Set[STRIPSOperator] = set()
 
         # We loop until the harmless PNADs induced by our procedure
         # converge to a fixed point (i.e, they don't change after two
@@ -85,6 +86,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # Induce delete effects, side predicates and potentially
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
+
+            # Harmlessness should now hold, but it's slow to check.
+            if CFG.backchaining_check_intermediate_harmlessness:
+                assert self._check_harmlessness(
+                    self._get_uniquely_named_nec_pnads(param_opt_to_nec_pnads))
 
             # Recompute datastores and preconditions for all PNADs.
             # Filter out PNADs that don't have datastores.
@@ -106,10 +112,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             del cur_itr_pnads_unfiltered  # should be unused after this
 
             # Check if the PNAD set has converged. If so, break.
-            if set(cur_itr_pnads_filtered) == prev_itr_pnads:
+            if {pnad.op for pnad in cur_itr_pnads_filtered} == prev_itr_ops:
                 break
 
-            prev_itr_pnads = set(cur_itr_pnads_filtered)
+            prev_itr_ops = {pnad.op for pnad in cur_itr_pnads_filtered}
 
         # Assign a unique name to each PNAD.
         final_pnads = self._get_uniquely_named_nec_pnads(
@@ -181,12 +187,17 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for t in range(len(atoms_seq) - 2, -1, -1):
                 segment = seg_traj[t]
                 option = segment.get_option()
-                # Find the necessary PNADs associated with this option.
-                # If there are none, then use the general PNAD
-                # associated with this option.
+                # Find the necessary PNADs associated with this option. If
+                # there are none, then use the general PNAD associated with
+                # this option. (But make sure to use a copy of it, because we
+                # don't want the general PNAD to get mutated when we mutate
+                # necessary PNADs!)
                 if len(param_opt_to_nec_pnads[option.parent]) == 0:
+                    general_pnad = param_opt_to_general_pnad[option.parent]
                     pnads_for_option = [
-                        param_opt_to_general_pnad[option.parent]
+                        PartialNSRTAndDatastore(general_pnad.op,
+                                                list(general_pnad.datastore),
+                                                general_pnad.option_spec)
                     ]
                 else:
                     pnads_for_option = param_opt_to_nec_pnads[option.parent]
@@ -345,8 +356,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
-                pnad.op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                uniquely_named_nec_pnads.append(pnad)
+                new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
+                new_pnad = PartialNSRTAndDatastore(new_op,
+                                                   list(pnad.datastore),
+                                                   pnad.option_spec)
+                uniquely_named_nec_pnads.append(new_pnad)
         return uniquely_named_nec_pnads
 
     @classmethod
@@ -374,7 +388,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # preconditions hold in segment.init_atoms.
         objects = set(segment.states[0])
         _, var_to_obj = self._find_best_matching_pnad_and_sub(
-            segment, objects, [pnad], check_only_add_effects=True)
+            segment, objects, [pnad], check_only_preconditions=True)
         # Assert that such a grounding exists - this must be the case
         # since we only ever call this method with the most general
         # PNAD for the option.
