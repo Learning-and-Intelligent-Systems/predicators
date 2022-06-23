@@ -433,7 +433,7 @@ def _run_plan_with_option_model(
     actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
     for idx in range(len(plan)):
         if time.time() - start_time > timeout:
-            return LowLevelTrajectory([], [], False), False
+            return LowLevelTrajectory([task.init], [], False), False
         state = traj[idx]
         option = plan[idx]
         cur_idx = idx + 1
@@ -443,7 +443,7 @@ def _run_plan_with_option_model(
                     option_model.get_next_state_and_num_actions(state, option)
                 print('Success')
             except EnvironmentFailure:
-                return LowLevelTrajectory([], [], False), False
+                return LowLevelTrajectory([task.init], [], False), False
             else:  # an EnvironmentFailure was not raised
                 traj[cur_idx] = next_state
                 # Need to make a new option without policy, initiable, and
@@ -464,16 +464,16 @@ def _run_plan_with_option_model(
                     if task.goal_holds(traj[cur_idx]):
                         return LowLevelTrajectory(traj,
                                                   actions), True  # success!
-                    return LowLevelTrajectory([], [], False), False
+                    return LowLevelTrajectory([task.init], [], False), False
         else:
             # The option is not initiable.
-            return LowLevelTrajectory([], [], False), False
+            return LowLevelTrajectory([task.init], [], False), False
     # Should only get here if the plan was empty.
     assert not plan
     if task.goal_holds(task.init):
         return LowLevelTrajectory(
-            [], [], False), True  # empty plan successfully achieved goal
-    return LowLevelTrajectory([], [], False), False
+            [task.init], [], False), True  # empty plan successfully achieved goal
+    return LowLevelTrajectory([task.init], [], False), False
 
 
 def _update_nsrts_with_failure(
