@@ -160,23 +160,22 @@ class BehaviorEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng, testing=True)
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng, testing=True)
 
     def _get_tasks(self, num: int, rng: np.random.Generator, testing=False) -> List[Task]:
         tasks = []
         assert num <= 10 # Max 10 train and test task for behavior
+        if testing:
+            self.task_num += 10
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             curr_env_seed = rng.integers(0, (2**32) - 1)
             if CFG.behavior_randomize_init_state:
-                if not testing:
-                    self.set_igibson_behavior_env(task_instance_id=self.task_num, seed=curr_env_seed)
-                else:
-                    self.set_igibson_behavior_env(task_instance_id=self.task_num+10, seed=curr_env_seed)
+                self.set_igibson_behavior_env(task_instance_id=self.task_num, seed=curr_env_seed)
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
@@ -343,7 +342,7 @@ class BehaviorEnv(BaseEnv):
                 action_timestep=CFG.behavior_action_timestep,
                 physics_timestep=CFG.behavior_physics_timestep,
                 action_filter="mobile_manipulation",
-                instance_id=task_instance_id,
+                instance_id=CFG.behavior_instance_id, #task_instance_id,
                 rng=self._rng,
             )
             self.igibson_behavior_env.step(

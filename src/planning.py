@@ -328,7 +328,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
-                import ipdb; ipdb.set_trace()
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
             except EnvironmentFailure as e:
@@ -364,8 +363,15 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
-                        import ipdb; ipdb.set_trace()
                         can_continue_on = False
+                        print()
+                        print("Failed expected atoms check", option)
+                        print("on...")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                print(a)
+                                #import ipdb; ipdb.set_trace()
+                        print()
                 else:
                     # If we're not checking expected_atoms, we need to
                     # explicitly check the goal on the final timestep.
