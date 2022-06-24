@@ -4,7 +4,6 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
-from bdb import set_trace
 
 import heapq as hq
 import logging
@@ -364,14 +363,14 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                             return plan, True  # success!
                     else:
                         can_continue_on = False
-                        print()
-                        print("Failed expected atoms check", option)
-                        print("on...")
-                        for a in expected_atoms:
-                            if not a.holds(traj[cur_idx]):
-                                print(a)
-                                #import ipdb; ipdb.set_trace()
-                        print()
+                        if CFG.env == "behavior":  # pragma: no cover
+                            print()
+                            print("Failed expected atoms check", option)
+                            print("on...")
+                            for a in expected_atoms:
+                                if not a.holds(traj[cur_idx]):
+                                    print(a)
+                            print()
                 else:
                     # If we're not checking expected_atoms, we need to
                     # explicitly check the goal on the final timestep.
@@ -481,7 +480,8 @@ def _run_plan_with_option_model(
     assert not plan
     if task.goal_holds(task.init):
         return LowLevelTrajectory(
-            [task.init], [], False), True  # empty plan successfully achieved goal
+            [task.init], [],
+            False), True  # empty plan successfully achieved goal
     return LowLevelTrajectory([task.init], [], False), False
 
 
