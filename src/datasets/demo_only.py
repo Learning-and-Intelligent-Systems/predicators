@@ -42,7 +42,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         regex_str = r"([^\s]+)"
         if CFG.env == "behavior":  # pragma: no cover
             dataset_fname_template = (
-                f"{CFG.env}__{regex_str}__{regex_str}" + 
+                f"{CFG.env}__{regex_str}__{CFG.behavior_task_name}" + 
                 f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
                 f"{regex}__{CFG.included_options}__{CFG.seed}.data")
         dataset = _create_demo_data_with_loading(env, train_tasks,
@@ -92,7 +92,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         regex_match = re.match(dataset_fname_template, fname)
         if not regex_match:
             continue
-        num_train_tasks = int(regex_match.groups()[2])
+        num_train_tasks = int(regex_match.groups()[1])
         assert num_train_tasks != CFG.num_train_tasks  # would be Case 1
         # Case 2: we already have a file with MORE data than we need. Load
         # and truncate this data.
@@ -137,7 +137,6 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
 
         logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
                      "DEMONSTRATIONS")
-        import ipdb; ipdb.set_trace()
         return Dataset(dataset.trajectories[:CFG.num_train_tasks])
     # Case 3: we already have a file with LESS data than we need. Load
     # this data and generate some more. Specifically, we load from the
