@@ -997,7 +997,7 @@ def test_multi_pass_backchaining(val):
 def test_backchaining_segment_not_in_datastore():
     """Test the BackchainingSTRIPSLearner on a case where it can cover a
     particular segment using an operator that doesn't have that segment in its
-    datastore and this will lead to the intermediate harmlessnes check failing
+    datastore. This will lead to the intermediate harmlessness check failing
     if not handled correctly."""
     utils.reset_config({
         "segmenter": "atom_changes",
@@ -1018,33 +1018,33 @@ def test_backchaining_segment_not_in_datastore():
                                               lambda s, m, o, p: None,
                                               types=[]).ground([], [])
     act = Action([], Pick)
-    #Setup the first trajectory.
+    # Set up the first trajectory.
     goal0 = {GroundAtom(B, [])}
     s00 = State({dummy: [1.0, 1.0, 0.0, 1.0, 0.0]})
     s01 = State({dummy: [0.0, 0.0, 1.0, 0.0, 1.0]})
     s02 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
     traj0 = LowLevelTrajectory([s00, s01, s02], [act, act], True, 0)
     task0 = Task(s00, goal0)
-    # Setup the second trajectory.
+    # Set up the second trajectory.
     goal1 = {GroundAtom(B, [])}
     s10 = State({dummy: [1.0, 0.0, 0.0, 1.0, 0.0]})
     s11 = State({dummy: [1.0, 1.0, 0.0, 0.0, 1.0]})
     traj1 = LowLevelTrajectory([s10, s11], [act], True, 1)
     task1 = Task(s10, goal1)
-    # Setup the third trajectory.
+    # Set up the third trajectory.
     goal2 = {GroundAtom(A, []), GroundAtom(C, [])}
     s20 = State({dummy: [0.0, 1.0, 0.0, 1.0, 1.0]})
     s21 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
     traj2 = LowLevelTrajectory([s20, s21], [act], True, 2)
     task2 = Task(s20, goal2)
-    # Setup the fourth trajectory.
+    # Set up the fourth trajectory.
     goal3 = {GroundAtom(A, []), GroundAtom(D, [])}
     s30 = State({dummy: [0.0, 1.0, 1.0, 1.0, 1.0]})
     s31 = State({dummy: [1.0, 0.0, 1.0, 1.0, 0.0]})
     s32 = State({dummy: [1.0, 1.0, 0.0, 1.0, 1.0]})
     traj3 = LowLevelTrajectory([s30, s31, s32], [act, act], True, 3)
     task3 = Task(s30, goal3)
-    # Ground and segment these trajectories
+    # Ground and segment these trajectories.
     trajs = [traj0, traj1, traj2, traj3]
     ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
