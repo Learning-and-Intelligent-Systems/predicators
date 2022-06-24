@@ -43,19 +43,44 @@ class DeliverySpecificApproach(NSRTLearningApproach):
 
         paper_var, loc_var = deliver.parameters
         from_var, to_var = move.parameters
-
-        # TODO: Fix the code here!
-
+        paperPick_var, homeBase_var = pick_up.parameters
         rules = [
-            LDLRule("Move",
-                    parameters=[from_var, to_var],
+            LDLRule("Pick-up",
+                    parameters=[paperPick_var, homeBase_var, to_var],
                     pos_state_preconditions={
-                        LiftedAtom(at, [from_var]),
-                        LiftedAtom(safe, [from_var])
+                        LiftedAtom(at, [homeBase_var]),
+                        LiftedAtom(is_home_base, [homeBase_var]),
+                        LiftedAtom(unpacked, [paperPick_var])
                     },
-                    neg_state_preconditions={LiftedAtom(satisfied, [to_var])},
+                    neg_state_preconditions={
+                        LiftedAtom(carrying, [paperPick_var])
+                    },
                     goal_preconditions={LiftedAtom(satisfied, [to_var])},
-                    nsrt=move),
+                    nsrt=pick_up),
+            LDLRule(
+                "Move",
+                parameters=[from_var, to_var],
+                pos_state_preconditions={
+                    LiftedAtom(at, [from_var]),
+                    LiftedAtom(safe, [from_var])
+                    #LiftedAtom(wants_paper, [to_var])
+                },
+                neg_state_preconditions={
+                    LiftedAtom(satisfied, [to_var]),
+                    LiftedAtom(wants_paper, [from_var])
+                },
+                goal_preconditions={LiftedAtom(satisfied, [to_var])},
+                nsrt=move),
+            LDLRule("Deliver",
+                    parameters=[paper_var, loc_var],
+                    pos_state_preconditions={
+                        LiftedAtom(at, [loc_var]),
+                        LiftedAtom(wants_paper, [loc_var]),
+                        LiftedAtom(carrying, [paper_var])
+                    },
+                    neg_state_preconditions={LiftedAtom(satisfied, [loc_var])},
+                    goal_preconditions={LiftedAtom(satisfied, [loc_var])},
+                    nsrt=deliver)
         ]
 
         # Below this line should not need changing.
