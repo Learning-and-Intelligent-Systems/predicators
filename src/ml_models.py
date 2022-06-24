@@ -426,6 +426,7 @@ class Critic(nn.Module):
     """A critic network to be used in actor-critic RL methods."""
 
     def __init__(self, hid_sizes: List[int], input_dim: int) -> None:
+        # TODO(ashay): make the architecture fancier.
         super().__init__()  # type: ignore
         self._hid_sizes = hid_sizes
         self._linears = nn.ModuleList()

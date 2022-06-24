@@ -836,55 +836,56 @@ class _DDPGAgent(_RLOptionLearnerBase):
                                                      done)
         print("Finished storing experience, len: ", self._replay_buffer._counter)
 
-        # Learn
-        # Sample batch
-        # TODO(ashay): should our batch size be much bigger, since we aren't
-        # updating our actor and critic for each t in [1, T], but instead just
-        # doing one update?
-        if self._replay_buffer._counter < self._batch_size:
-            return copy.deepcopy(option)
-        states_, actions_, rewards_, next_states_, done_ = self._replay_buffer.sample(
-            self._batch_size)
-        states = torch.from_numpy(states_)
-        actions = torch.from_numpy(actions_)
-        rewards = torch.from_numpy(rewards_).view((self._batch_size, 1))
-        next_states = torch.from_numpy(next_states_)
-        dones = torch.from_numpy(done_)
+        # Sample a batch and update in a loop
+        # TODO(ashay): save the networks that has the best loss / track loss changes
+        for i in range(CFG.nsrt_rl_ddpg_iters):
+            # TODO(ashay): should our batch size be much bigger, since we aren't
+            # updating our actor and critic for each t in [1, T], but instead just
+            # doing one update?
+            if self._replay_buffer._counter < self._batch_size:
+                return copy.deepcopy(option)
+            states_, actions_, rewards_, next_states_, done_ = self._replay_buffer.sample(
+                self._batch_size)
+            states = torch.from_numpy(states_)
+            actions = torch.from_numpy(actions_)
+            rewards = torch.from_numpy(rewards_).view((self._batch_size, 1))
+            next_states = torch.from_numpy(next_states_)
+            dones = torch.from_numpy(done_)
 
-        # Update networks
-        # TODO(ashay): clip gradients?
-        self._critic.eval()
-        self._target_actor.eval()
-        self._target_critic.eval()
-        next_actions = self._target_actor.forward(next_states)
-        next_Q_values = self._target_critic.forward(next_states, next_actions)
-        next_Q_values[dones] = 0.0
-        Q_target_values = rewards + self._gamma * next_Q_values
-        Q_values = self._critic.forward(states, actions)
+            # Update networks
+            # TODO(ashay): clip gradients?
+            self._critic.eval()
+            self._target_actor.eval()
+            self._target_critic.eval()
+            next_actions = self._target_actor.forward(next_states)
+            next_Q_values = self._target_critic.forward(next_states, next_actions)
+            next_Q_values[dones] = 0.0
+            Q_target_values = rewards + self._gamma * next_Q_values
+            Q_values = self._critic.forward(states, actions)
 
-        self._critic.train()
-        self._critic_optimizer.zero_grad()
-        critic_loss = self._critic_loss_fn(Q_values, Q_target_values)
-        critic_loss.backward()
-        self._critic_optimizer.step()
+            self._critic.train()
+            self._critic_optimizer.zero_grad()
+            critic_loss = self._critic_loss_fn(Q_values, Q_target_values)
+            critic_loss.backward()
+            self._critic_optimizer.step()
 
-        self._critic.eval()
-        self._actor_optimizer.zero_grad()
-        mus = self._actor.forward(states)
-        self._actor.train()
-        actor_loss = -1 * self._critic.forward(states, mus).mean()
-        actor_loss.backward()  # type: ignore
-        self._actor_optimizer.step()
+            self._critic.eval()
+            self._actor_optimizer.zero_grad()
+            mus = self._actor.forward(states)
+            self._actor.train()
+            actor_loss = -1 * self._critic.forward(states, mus).mean()
+            actor_loss.backward()  # type: ignore
+            self._actor_optimizer.step()
 
-        # Update target networks
-        for target_param, param in zip(self._target_actor.parameters(),
-                                       self._actor.parameters()):
-            target_param.data.copy_(param.data * self._tau +
-                                    target_param.data * (1.0 - self._tau))
-        for target_param, param in zip(self._target_critic.parameters(),
-                                       self._critic.parameters()):
-            target_param.data.copy_(param.data * self._tau +
-                                    target_param.data * (1.0 - self._tau))
+            # Update target networks
+            for target_param, param in zip(self._target_actor.parameters(),
+                                           self._actor.parameters()):
+                target_param.data.copy_(param.data * self._tau +
+                                        target_param.data * (1.0 - self._tau))
+            for target_param, param in zip(self._target_critic.parameters(),
+                                           self._critic.parameters()):
+                target_param.data.copy_(param.data * self._tau +
+                                        target_param.data * (1.0 - self._tau))
 
         # Replace regressor of our option and then turn it into a noisy option
         # so that we get some exploration.

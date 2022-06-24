@@ -231,6 +231,7 @@ class GlobalSettings:
     nsrt_rl_critic_regressor_hid_sizes = [64, 64]
     nsrt_rl_actor_learning_rate = 1e-4
     nsrt_rl_critic_learning_rate = 1e-3
+    nsrt_rl_ddpg_iters = 10000
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
