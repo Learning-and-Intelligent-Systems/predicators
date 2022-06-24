@@ -63,14 +63,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for segment in seg_traj:
                 parameterized_options.add(segment.get_option().parent)
 
-        # Set up the and param_opt_to_nec_pnads dictionary.
+        # Set up the param_opt_to_nec_pnads dictionary.
         for param_opt in parameterized_options:
-            pnad = self._create_general_pnad_for_option(param_opt)
             param_opt_to_nec_pnads[param_opt] = []
-        self._assert_all_data_in_exactly_one_datastore([
-            self._create_general_pnad_for_option(param_opt)
-            for param_opt in parameterized_options
-        ])
 
         prev_itr_ops: Set[STRIPSOperator] = set()
 
@@ -225,9 +220,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # these necessary add effects.
                 else:
                     nec_pnad_set_changed = True
-                    pnad = self._spawn_new_pnad(
-                        self._create_general_pnad_for_option(option.parent),
-                        segment)
+                    pnad = self._spawn_new_pnad(segment)
                     param_opt_to_nec_pnads[option.parent].append(pnad)
 
                     # Recompute datastores for ALL PNADs associated with this
@@ -365,16 +358,18 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "backchaining"
 
-    def _spawn_new_pnad(self, pnad: PartialNSRTAndDatastore,
-                        segment: Segment) -> PartialNSRTAndDatastore:
-        """Given a general PNAD and some segment with necessary add effects
-        that the PNAD must achieve, create a new PNAD ("spawn" from the most
-        general one) so that it has the necessary add effects contained in the
-        given segment.
+    def _spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
+        """Given a PNAD and some segment with necessary add effects that the
+        PNAD must achieve, create a new PNAD ("spawn" from the most general one
+        associated with the segment's option) so that it has the necessary add
+        effects contained in the given segment.
 
         Returns the newly constructed PNAD, without modifying the
         original.
         """
+        # Create a general PNAD for the segment's option.
+        pnad = self._create_general_pnad_for_option(
+            segment.get_option().parent)
         # Assert that the segment contains necessary_add_effects.
         necessary_add_effects = segment.necessary_add_effects
         assert necessary_add_effects is not None
