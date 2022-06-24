@@ -84,6 +84,7 @@ class DeliverySpecificApproach(BaseApproach):
                     assert ground_option.initiable(state)
                     return ground_option.policy(state)
 
-            return     
+
+            return   
+              
         return _policy
-        
