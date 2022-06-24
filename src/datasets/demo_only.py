@@ -39,12 +39,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
-        regex_str = r"([^\s]+)"
-        if CFG.env == "behavior":  # pragma: no cover
-            dataset_fname_template = (
-                f"{CFG.env}__{regex_str}__{CFG.behavior_task_name}" + 
-                f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
-                f"{regex}__{CFG.included_options}__{CFG.seed}.data")
         dataset = _create_demo_data_with_loading(env, train_tasks,
                                                  known_options,
                                                  dataset_fname_template,
@@ -92,7 +86,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         regex_match = re.match(dataset_fname_template, fname)
         if not regex_match:
             continue
-        num_train_tasks = int(regex_match.groups()[1])
+        num_train_tasks = int(regex_match.groups()[0])
         assert num_train_tasks != CFG.num_train_tasks  # would be Case 1
         # Case 2: we already have a file with MORE data than we need. Load
         # and truncate this data.
@@ -114,30 +108,10 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
             ])
         # Save the names of all datasets that have less data than
         # we need, to be used in Case 3.
-        if CFG.env == "behavior":
-            if num_train_tasks in fnames_with_less_data:
-                fnames_with_less_data[num_train_tasks].append(fname)
-            else:
-                fnames_with_less_data[num_train_tasks] = [fname]
-        else:
-            fnames_with_less_data[num_train_tasks] = fname
+        fnames_with_less_data[num_train_tasks] = fname
     if not fnames_with_less_data:
         # Give up: we did not find any data file we can load from.
         raise ValueError(f"Cannot load data: {dataset_fname}")
-    if CFG.env == "behavior":
-        dataset = Dataset([])
-        for _, fnames in fnames_with_less_data.items():
-            for fname in fnames:
-                with open(os.path.join(CFG.data_dir, fname), "rb") as f:
-                    current_dataset = pkl.load(f)
-                loaded_trajectories = current_dataset.trajectories
-                dataset = Dataset(loaded_trajectories + dataset.trajectories)
-                logging.info(f"\n\nLOADED {len(loaded_trajectories)} trajectories "
-                    f"from {fname}")
-
-        logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
-                     "DEMONSTRATIONS")
-        return Dataset(dataset.trajectories[:CFG.num_train_tasks])
     # Case 3: we already have a file with LESS data than we need. Load
     # this data and generate some more. Specifically, we load from the
     # file with the maximum data among all files that have less data
