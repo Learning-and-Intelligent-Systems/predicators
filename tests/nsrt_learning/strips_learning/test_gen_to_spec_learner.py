@@ -997,8 +997,11 @@ def test_multi_pass_backchaining(val):
 def test_backchaining_segment_not_in_datastore():
     """Test the BackchainingSTRIPSLearner on a case where it can cover a
     particular segment using an operator that doesn't have that segment in its
-    datastore. This will lead to the intermediate harmlessness check failing
-    if not handled correctly."""
+    datastore.
+
+    This will lead to the intermediate harmlessness check failing if not
+    handled correctly.
+    """
     utils.reset_config({
         "segmenter": "atom_changes",
         "backchaining_check_intermediate_harmlessness": True
