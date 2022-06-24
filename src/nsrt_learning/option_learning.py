@@ -805,10 +805,10 @@ class _DDPGAgent(_RLOptionLearnerBase):
             # Initialize replay buffer.
             example_option_run = experience[0]
             example_transition = example_option_run[0]
-            input_dim = example_transition[1].shape[0]
+            state_dim = example_transition[1].shape[0]
             action_dim = example_transition[2].arr.shape[0]
             self._replay_buffer = ReplayBuffer(CFG.seed, self._max_size,
-                                               input_dim, action_dim)
+                                               state_dim, action_dim)
 
             # Note that the actor has _x_dim and _y_dim set
             # already.
@@ -817,7 +817,7 @@ class _DDPGAgent(_RLOptionLearnerBase):
             input_dim = self._actor._x_dim
             output_dim = self._actor._y_dim
             self._critic = Critic(CFG.nsrt_rl_critic_regressor_hid_sizes,
-                                  input_dim, output_dim)
+                                  state_dim + action_dim)
             self._critic_loss_fn = nn.MSELoss()
             self._target_critic = copy.deepcopy(self._critic)
             self._actor_optimizer = optim.Adam(
@@ -834,6 +834,7 @@ class _DDPGAgent(_RLOptionLearnerBase):
                 self._replay_buffer.store_transition(state_input, action,
                                                      reward, next_state_input,
                                                      done)
+        print("Finished storing experience, len: ", self._replay_buffer._counter)
 
         # Learn
         # Sample batch
@@ -846,7 +847,7 @@ class _DDPGAgent(_RLOptionLearnerBase):
             self._batch_size)
         states = torch.from_numpy(states_)
         actions = torch.from_numpy(actions_)
-        rewards = torch.from_numpy(rewards_)
+        rewards = torch.from_numpy(rewards_).view((self._batch_size, 1))
         next_states = torch.from_numpy(next_states_)
         dones = torch.from_numpy(done_)
 
@@ -888,6 +889,7 @@ class _DDPGAgent(_RLOptionLearnerBase):
         # Replace regressor of our option and then turn it into a noisy option
         # so that we get some exploration.
         option.regressor = copy.deepcopy(self._actor)
+        print("Reached end of update")
         return option.get_noisy_option()
 
 
