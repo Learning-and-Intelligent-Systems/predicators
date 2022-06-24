@@ -359,8 +359,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         return "backchaining"
 
     def _spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
-        """Given some segment with necessary add effects that a new PNAD PNAD
-        must achieve, create such a PNAD ("spawn" from the most general one
+        """Given some segment with necessary add effects that a new PNAD must
+        achieve, create such a PNAD ("spawn" from the most general one
         associated with the segment's option) so that it has the necessary add
         effects contained in the given segment."""
         # Create a general PNAD for the segment's option.
