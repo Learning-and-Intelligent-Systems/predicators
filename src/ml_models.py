@@ -425,8 +425,9 @@ class MLPRegressor(PyTorchRegressor):
 class Critic(nn.Module):
     """A critic network to be used in actor-critic RL methods."""
 
-    def __init__(self, hid_sizes: List[int], input_dim: int, output_dim: int) -> None:
-        super(Critic, self).__init__()  # type: ignore
+    def __init__(self, hid_sizes: List[int], input_dim: int,
+                 output_dim: int) -> None:
+        super().__init__()  # type: ignore
         self._hid_sizes = hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(input_dim, self._hid_sizes[0]))
@@ -436,6 +437,7 @@ class Critic(nn.Module):
         self._linears.append(nn.Linear(self._hid_sizes[-1], output_dim))
 
     def forward(self, state: Tensor, action: Tensor) -> Tensor:
+        """Computes forward pass."""
         tensor_X = torch.cat([state, action], dim=1)
         for _, linear in enumerate(self._linears[:-1]):
             tensor_X = F.relu(linear(tensor_X))

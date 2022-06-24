@@ -86,8 +86,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
     ) -> Dict[ParameterizedOption, List[List[Tuple[State, Array, Action, int,
                                                    State, Array, bool]]]]:
         option_to_data: Dict[ParameterizedOption,
-                             List[List[Tuple[State, Array, Action, int,
-                                             State, Array, bool]]]] = {}
+                             List[List[Tuple[State, Array, Action, int, State,
+                                             Array, bool]]]] = {}
         assert self._requests_info is not None
         train_task_idx, plan = self._requests_info[idx]
         traj = LowLevelTrajectory(result.states,
@@ -200,6 +200,13 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 i, result)
             for option, experience in option_to_data_from_result.items():
                 option_to_data[option].extend(experience)
+
+        # Compute total rewards as debugging tool, for each option.
+        for option, experience in option_to_data.items():
+            total_rewards = sum(t[3] for run in experience for t in run)
+            print(
+                f"{option.name} reward in cycle {self._online_learning_cycle-1}: {total_rewards}"
+            )
 
         # Call the RL option learner on each option.
         for option, experiences in option_to_data.items():
