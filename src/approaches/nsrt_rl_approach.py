@@ -51,7 +51,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # each one will maintain its own unique state associated with the
         # learning process.
         self._option_learners = {
-            n: create_rl_option_learner(self._action_space)
+            n: create_rl_option_learner()
             for n in self._nsrts
         }
 
@@ -87,7 +87,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                                                    State, Array, bool]]]]:
         option_to_data: Dict[ParameterizedOption,
                              List[List[Tuple[State, Array, Action, int,
-                                             State]]]] = {}
+                                             State, Array, bool]]]] = {}
         assert self._requests_info is not None
         train_task_idx, plan = self._requests_info[idx]
         traj = LowLevelTrajectory(result.states,

@@ -422,10 +422,13 @@ class MLPRegressor(PyTorchRegressor):
         return nn.MSELoss()
 
 
-class Critic(MLPRegressor):
+class Critic(nn.Module):
     """A critic network to be used in actor-critic RL methods."""
 
-    def initialize_net(self, input_dim, output_dim) -> None:
+    def __init__(self, hid_sizes: List[int], input_dim: int, output_dim: int) -> None:
+        super(Critic, self).__init__()  # type: ignore
+        self._hid_sizes = hid_sizes
+        self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(input_dim, self._hid_sizes[0]))
         for i in range(len(self._hid_sizes) - 1):
             self._linears.append(

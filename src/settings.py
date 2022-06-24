@@ -224,7 +224,7 @@ class GlobalSettings:
     nsrt_rl_neg_reward = -1
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
-    nsrt_rl_batch_size = 50
+    nsrt_rl_batch_size = 200
     nsrt_rl_tau = 1e-2
     nsrt_rl_discount_factor = 0.99
     nsrt_rl_replay_buffer_size = 50000
