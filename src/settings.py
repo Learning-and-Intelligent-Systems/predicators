@@ -218,6 +218,13 @@ class GlobalSettings:
     # parameters for GNN metacontroller approach
     gnn_metacontroller_max_samples = 100
 
+    # parameters for NSRT reinforcement learning approach
+    nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
+    nsrt_rl_pos_reward = 0
+    nsrt_rl_neg_reward = -1
+    nsrt_rl_option_learner = "dummy_rl"
+    nsrt_rl_valid_reward_steps_threshold = 10
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
@@ -244,7 +251,8 @@ class GlobalSettings:
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
-    offline_data_planning_timeout = 10
+    # If -1, defaults to CFG.timeout.
+    offline_data_planning_timeout = -1
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
@@ -263,6 +271,7 @@ class GlobalSettings:
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    backchaining_check_intermediate_harmlessness = False
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
@@ -326,7 +335,7 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_operator_size_weight = 0.0
+    grammar_search_operator_complexity_weight = 0.0
     grammar_search_pred_complexity_weight = 1e-4
     grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6

@@ -844,7 +844,7 @@ class MLPBinaryClassifierEnsemble(BinaryClassifier):
     def classify(self, x: Array) -> bool:
         # Each member maintains its own normalizers.
         avg = np.mean(self.predict_member_probas(x))
-        classification = avg > 0.5
+        classification = bool(avg > 0.5)
         assert classification in [True, False]
         return classification
 
