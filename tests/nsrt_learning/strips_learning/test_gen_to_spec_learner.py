@@ -19,10 +19,10 @@ from predicators.tests.conftest import longrun
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def spawn_new_pnad(self, necessary_add_effects, pnad, segment):
+    def spawn_new_pnad(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
-        return self._spawn_new_pnad(pnad, segment)
+        return self._spawn_new_pnad(segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -53,6 +53,7 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
 def test_backchaining_strips_learner():
     """Test the BackchainingSTRIPSLearner."""
+    utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the structs.
     human_type = Type("human_type", ["feat1", "feat2"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -144,6 +145,7 @@ def test_backchaining_strips_learner():
 def test_backchaining_strips_learner_order_dependence():
     """Test that the BackchainingSTRIPSLearner is invariant to order of
     traversal through trajectories."""
+    utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the types and predicates.
     light_type = Type("light_type", ["brightness", "color"])
     LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -289,6 +291,7 @@ def test_spawn_new_pnad():
     which involves calling the _find_best_matching_pnad_and_sub method
     of the BaseSTRIPSLearner.
     """
+    utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     human_type = Type("human_type", ["feat"])
     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
@@ -335,8 +338,7 @@ def test_spawn_new_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: [Asleep, Happy]"""
-    pnad.op = pnad.op.copy_with(add_effects=set(), side_predicates=[Happy])
-    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])},
                                       Segment(traj, {Happy([bob])},
                                               {Asleep([bob])}, Move))
 
@@ -360,8 +362,10 @@ def test_keep_effect_data_partitioning():
     harmful to the second demonstration, where the machine was off when
     it was configured.
     """
-
-    utils.reset_config({"segmenter": "atom_changes"})
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
     # Set up the types and predicates.
     machine_type = Type(
         "machine_type",
@@ -528,8 +532,10 @@ def test_combinatorial_keep_effect_data_partitioning():
     the learner no longer needs a Configure PNAD with a keep effect for
     MachineOn and thus only needs 3 Configure PNADs.
     """
-
-    utils.reset_config({"segmenter": "atom_changes"})
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
     # Set up the types and predicates.
     machine_type = Type("machine_type",
                         ["on", "configuration", "run", "working"])
@@ -765,7 +771,10 @@ def test_keep_effect_adding_new_variables():
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
     harmlessness."""
-    utils.reset_config({"segmenter": "atom_changes"})
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
     # Set up the types and predicates.
     button_type = Type("button_type", ["pressed"])
     potato_type = Type("potato_type", ["held", "intact"])
@@ -875,7 +884,10 @@ def test_keep_effect_adding_new_variables():
 def test_multi_pass_backchaining(val):
     """Test that the BackchainingSTRIPSLearner does multiple passes of
     backchaining, which is needed to ensure harmlessness."""
-    utils.reset_config({"segmenter": "atom_changes"})
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
     # Set up the types, objects, and, predicates.
     dummy_type = Type("dummy_type",
                       ["feat1", "feat2", "feat3", "feat4", "feat5"])
@@ -989,7 +1001,10 @@ def test_multi_pass_backchaining(val):
 def test_backchaining_randomly_generated(use_single_option, num_demos,
                                          seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
-    utils.reset_config({"segmenter": "atom_changes"})
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
     rng = np.random.default_rng(CFG.seed + seed_offset)
     # Set up the types, objects, and, predicates.
     dummy_type = Type("dummy_type",

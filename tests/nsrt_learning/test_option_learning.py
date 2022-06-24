@@ -12,7 +12,8 @@ from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.ml_models import MLPRegressor
 from predicators.src.nsrt_learning.option_learning import \
-    _LearnedNeuralParameterizedOption, create_option_learner
+    _LearnedNeuralParameterizedOption, create_option_learner, \
+    create_rl_option_learner
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
@@ -245,6 +246,14 @@ def test_learned_neural_parameterized_option():
     assert option.initiable(state)
     assert not option.terminal(state)
     assert option.terminal(state)
+    # Test the method to get the relative parameter from the current state.
+    random_param = np.random.rand(param_dim)
+    option = param_option.ground([block0, robot], random_param)
+    assert option.initiable(state)
+    assert np.allclose(random_param,
+                       option.parent.get_rel_option_param_from_state(
+                           state, option.memory, option.objects),
+                       atol=1e-07)
 
 
 def test_create_option_learner():
@@ -258,6 +267,18 @@ def test_create_option_learner():
     env = create_new_env("blocks")
     with pytest.raises(NotImplementedError):
         create_option_learner(env.action_space)
+
+
+def test_create_rl_option_learner():
+    """Tests for create_rl_option_learner()."""
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "approach": "nsrt_rl",
+        "num_train_tasks": 3,
+        "nsrt_rl_option_learner": "not a real option learner"
+    })
+    with pytest.raises(NotImplementedError):
+        create_rl_option_learner()
 
 
 @longrun
