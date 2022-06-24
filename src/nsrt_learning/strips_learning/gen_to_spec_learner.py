@@ -218,7 +218,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         datapoint[0] for datapoint in pnad.datastore
                     ]
                     # In this case, we want to move the segment from
-                    # another PNAD into the current PNAD.
+                    # another PNAD into the current PNAD. Note that
+                    # we don't have to recompute the PNAD's add
+                    # effects or preconditions because of the fact that
+                    # this PNAD was found by the _find_best_matching
+                    # function (which internally checks that the
+                    # preconditions and add effects are all correct).
                     if segment not in segs_in_pnad:
                         # Find PNAD that the segment is currently in.
                         for seg_pnad in pnads_for_option:
@@ -234,12 +239,10 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         self._remove_empty_datastore_pnads(
                             param_opt_to_nec_pnads, option.parent)
 
-                # If we weren't able to find a substitution such that the given
-                # segment is in the particular PNAD's datastore (i.e, the above
-                # _find_best_matching call didn't yield a PNAD such that this
-                # PNAD's datastore contains the segment), we need to spawn a
-                # new PNAD from the most general PNAD to cover these necessary
-                # add effects.
+                # If we weren't able to find a substitution (i.e, the above
+                # _find_best_matching call didn't yield a PNAD), we need to
+                # spawn a new PNAD from the most general PNAD to cover
+                # these necessary add effects.
                 else:
                     nec_pnad_set_changed = True
                     pnad = self._spawn_new_pnad(segment)
