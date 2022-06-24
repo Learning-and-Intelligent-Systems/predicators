@@ -928,26 +928,30 @@ def test_lifted_decision_lists():
     pick_rule = LDLRule(
         "MyPickRule",
         parameters=[cup_var, plate_var, robot_var],
-        state_preconditions={on_table([cup_var]),
-                             hand_empty([robot_var])},
+        pos_state_preconditions={on_table([cup_var]),
+                                 hand_empty([robot_var])},
+        neg_state_preconditions={holding([cup_var])},
         goal_preconditions={on([cup_var, plate_var])},
         nsrt=pick_nsrt)
 
     assert str(pick_rule) == repr(pick_rule) == """LDLRule-MyPickRule:
     Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
-    State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Neg State Pre: [Holding(?cup:cup_type)]
     Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
     NSRT: Pick(?cup:cup_type)"""
 
     place_rule = LDLRule("MyPlaceRule",
                          parameters=[cup_var, plate_var],
-                         state_preconditions={holding([cup_var])},
+                         pos_state_preconditions={holding([cup_var])},
+                         neg_state_preconditions=set(),
                          goal_preconditions={on([cup_var, plate_var])},
                          nsrt=place_nsrt)
 
     assert str(place_rule) == repr(place_rule) == """LDLRule-MyPlaceRule:
     Parameters: [?cup:cup_type, ?plate:plate_type]
-    State Pre: [Holding(?cup:cup_type)]
+    Pos State Pre: [Holding(?cup:cup_type)]
+    Neg State Pre: []
     Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
     NSRT: Place(?cup:cup_type, ?plate:plate_type)"""
 
@@ -956,8 +960,9 @@ def test_lifted_decision_lists():
     pick_rule2 = LDLRule(
         "MyPickRule",
         parameters=[cup_var, plate_var, robot_var],
-        state_preconditions={on_table([cup_var]),
-                             hand_empty([robot_var])},
+        pos_state_preconditions={on_table([cup_var]),
+                                 hand_empty([robot_var])},
+        neg_state_preconditions={holding([cup_var])},
         goal_preconditions={on([cup_var, plate_var])},
         nsrt=pick_nsrt)
 
@@ -973,17 +978,20 @@ def test_lifted_decision_lists():
     with pytest.raises(AssertionError):
         _ = LDLRule("MissingStatePreconditionsRule",
                     parameters=[cup_var, plate_var, robot_var],
-                    state_preconditions=set(),
+                    pos_state_preconditions=set(),
+                    neg_state_preconditions=set(),
                     goal_preconditions={on([cup_var, plate_var])},
                     nsrt=pick_nsrt)
     with pytest.raises(AssertionError):
-        _ = LDLRule(
-            "MissingParametersRule",
-            parameters=[plate_var, robot_var],
-            state_preconditions={on_table([cup_var]),
-                                 hand_empty([robot_var])},
-            goal_preconditions={on([cup_var, plate_var])},
-            nsrt=pick_nsrt)
+        _ = LDLRule("MissingParametersRule",
+                    parameters=[plate_var, robot_var],
+                    pos_state_preconditions={
+                        on_table([cup_var]),
+                        hand_empty([robot_var])
+                    },
+                    neg_state_preconditions=set(),
+                    goal_preconditions={on([cup_var, plate_var])},
+                    nsrt=pick_nsrt)
 
     # _GroundLDLRule
     cup1 = cup_type("cup1")
@@ -994,7 +1002,8 @@ def test_lifted_decision_lists():
     assert str(ground_pick_rule) == repr(
         ground_pick_rule) == """GroundLDLRule-MyPickRule:
     Parameters: [cup1:cup_type, plate1:plate_type, robot:robot_type]
-    State Pre: [HandEmpty(robot:robot_type), OnTable(cup1:cup_type)]
+    Pos State Pre: [HandEmpty(robot:robot_type), OnTable(cup1:cup_type)]
+    Neg State Pre: [Holding(cup1:cup_type)]
     Goal Pre: [On(cup1:cup_type, plate1:plate_type)]
     NSRT: Pick(cup1:cup_type)"""
 
