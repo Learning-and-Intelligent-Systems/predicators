@@ -123,7 +123,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 cur_option.objects,
             )
             input_vec = np.hstack(([1.0], state_features, rel_param))
-            next_input_vec = np.hstack(([1.0], next_state_features, next_rel_param))
+            next_input_vec = np.hstack(
+                ([1.0], next_state_features, next_rel_param))
 
             # Add pos_reward if we got within epsilon of the option's
             # subgoal, otherwise we add neg_reward. To do this, we can check
@@ -146,7 +147,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
             # it a reward.
             terminate = parent_option.effect_based_terminal(
                 next_state, cur_option.objects)
-            experience.append((state, input_vec, action, reward, next_state, next_input_vec, terminate))
+            experience.append((state, input_vec, action, reward, next_state,
+                               next_input_vec, terminate))
             had_sufficient_steps = (
                 next_state.allclose(traj.states[-1])
                 and (CFG.max_num_steps_interaction_request - j >
@@ -188,7 +190,8 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         # relative parameter that the sampler provided. This input vector is
         # necessary during learning to update the option's regressor.
         option_to_data: DefaultDict[ParameterizedOption, List[List[Tuple[
-            State, Array, Action, int, State, Array, bool]]]] = defaultdict(list)
+            State, Array, Action, int, State, Array,
+            bool]]]] = defaultdict(list)
 
         # For each InteractionResult, compute the experience data for each
         # _Option we see used in that interaction.
