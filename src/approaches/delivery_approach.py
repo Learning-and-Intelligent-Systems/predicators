@@ -39,11 +39,8 @@ class DeliverySpecificApproach(BaseApproach):
             wants_paper = predicates["wantspaper"]
             move = options["move"]
             homebase = predicates["ishomebase"]
-            satisfied = predicates["satisfied"]
-            safe = predicates["safe"]
             unpacked = predicates["unpacked"]
             carrying = predicates["carrying"]
-
             deliver = options["deliver"]
             pickup = options["pick-up"]
 
@@ -88,3 +85,4 @@ class DeliverySpecificApproach(BaseApproach):
                     return ground_option.policy(state)
 
         return _policy
+        
