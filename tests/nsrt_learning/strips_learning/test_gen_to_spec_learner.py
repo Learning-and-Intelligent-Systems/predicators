@@ -19,10 +19,10 @@ from predicators.tests.conftest import longrun
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def spawn_new_pnad(self, necessary_add_effects, pnad, segment):
+    def spawn_new_pnad(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
-        return self._spawn_new_pnad(pnad, segment)
+        return self._spawn_new_pnad(segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -338,8 +338,7 @@ def test_spawn_new_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Side Predicates: [Asleep, Happy]"""
-    pnad.op = pnad.op.copy_with(add_effects=set(), side_predicates=[Happy])
-    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])},
                                       Segment(traj, {Happy([bob])},
                                               {Asleep([bob])}, Move))
 
