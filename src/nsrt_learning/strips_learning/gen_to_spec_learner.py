@@ -1,6 +1,7 @@
 """Algorithms for STRIPS learning that start from the most general operators,
 then specialize them based on the data."""
 
+import functools
 import itertools
 from typing import Dict, List, Set
 
@@ -14,7 +15,8 @@ from predicators.src.structs import ParameterizedOption, \
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a general-to-specific STRIPS learner."""
 
-    def _initialize_general_pnad_for_option(
+    @functools.lru_cache(maxsize=None)
+    def _create_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
     ) -> PartialNSRTAndDatastore:
         """Create the most general PNAD for the given option."""
@@ -50,7 +52,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.
-        param_opt_to_general_pnad = {}
         param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                      List[PartialNSRTAndDatastore]] = {}
         # Extract all parameterized options from the data.
@@ -62,14 +63,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for segment in seg_traj:
                 parameterized_options.add(segment.get_option().parent)
 
-        # Set up the param_opt_to_general_pnad and param_opt_to_nec_pnads
-        # dictionaries.
+        # Set up the param_opt_to_nec_pnads dictionary.
         for param_opt in parameterized_options:
-            pnad = self._initialize_general_pnad_for_option(param_opt)
-            param_opt_to_general_pnad[param_opt] = pnad
             param_opt_to_nec_pnads[param_opt] = []
-        self._assert_all_data_in_exactly_one_datastore(
-            list(param_opt_to_general_pnad.values()))
 
         prev_itr_ops: Set[STRIPSOperator] = set()
 
@@ -80,8 +76,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # Run multiple passes of backchaining over the data until
             # convergence to a fixed point. Note that this process creates
             # operators with only parameters, preconditions, and add effects.
-            self._backchain_multipass(param_opt_to_nec_pnads,
-                                      param_opt_to_general_pnad)
+            self._backchain_multipass(param_opt_to_nec_pnads)
 
             # Induce delete effects, side predicates and potentially
             # keep effects.
@@ -126,9 +121,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
     def _backchain_multipass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]],
-        param_opt_to_general_pnad: Dict[ParameterizedOption,
-                                        PartialNSRTAndDatastore]
+                                           List[PartialNSRTAndDatastore]]
     ) -> None:
         """Take multiple passes through the demonstrations, running
         self._backchain_one_pass() each time.
@@ -152,15 +145,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     self._clear_unnecessary_keep_effs_sub(pnad)
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
-                param_opt_to_nec_pnads, param_opt_to_general_pnad)
+                param_opt_to_nec_pnads)
             if not nec_pnad_set_changed:
                 break
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]],
-        param_opt_to_general_pnad: Dict[ParameterizedOption,
-                                        PartialNSRTAndDatastore]
+                                           List[PartialNSRTAndDatastore]]
     ) -> bool:
         """Take one pass through the demonstrations in the given order.
 
@@ -193,7 +184,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # don't want the general PNAD to get mutated when we mutate
                 # necessary PNADs!)
                 if len(param_opt_to_nec_pnads[option.parent]) == 0:
-                    general_pnad = param_opt_to_general_pnad[option.parent]
+                    general_pnad = self._create_general_pnad_for_option(
+                        option.parent)
                     pnads_for_option = [
                         PartialNSRTAndDatastore(general_pnad.op,
                                                 list(general_pnad.datastore),
@@ -228,8 +220,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # these necessary add effects.
                 else:
                     nec_pnad_set_changed = True
-                    pnad = self._spawn_new_pnad(
-                        param_opt_to_general_pnad[option.parent], segment)
+                    pnad = self._spawn_new_pnad(segment)
                     param_opt_to_nec_pnads[option.parent].append(pnad)
 
                     # Recompute datastores for ALL PNADs associated with this
@@ -367,22 +358,20 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "backchaining"
 
-    def _spawn_new_pnad(self, pnad: PartialNSRTAndDatastore,
-                        segment: Segment) -> PartialNSRTAndDatastore:
-        """Given a general PNAD and some segment with necessary add effects
-        that the PNAD must achieve, create a new PNAD ("spawn" from the most
-        general one) so that it has the necessary add effects contained in the
-        given segment.
-
-        Returns the newly constructed PNAD, without modifying the
-        original.
-        """
-        # Assert that the segment contains necessary_add_effects.
-        necessary_add_effects = segment.necessary_add_effects
-        assert necessary_add_effects is not None
+    def _spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
+        """Given some segment with necessary add effects that a new PNAD must
+        achieve, create such a PNAD ("spawn" from the most general one
+        associated with the segment's option) so that it has the necessary add
+        effects contained in the given segment."""
+        # Create a general PNAD for the segment's option.
+        pnad = self._create_general_pnad_for_option(
+            segment.get_option().parent)
         # Assert that this really is a general PNAD.
         assert len(pnad.op.add_effects) == 0, \
             "Can't spawn from non-general PNAD"
+        # Assert that the segment contains necessary_add_effects.
+        necessary_add_effects = segment.necessary_add_effects
+        assert necessary_add_effects is not None
 
         # Get an arbitrary grounding of the PNAD's operator whose
         # preconditions hold in segment.init_atoms.
