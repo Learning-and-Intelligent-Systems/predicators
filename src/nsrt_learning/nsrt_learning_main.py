@@ -36,6 +36,8 @@ def learn_nsrts_from_data(
     base_strips_learner.py).
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    #print("Stopped")
+    #quit()
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
     ground_atom_dataset = utils.create_ground_atom_dataset(

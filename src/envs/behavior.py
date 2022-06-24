@@ -342,7 +342,7 @@ class BehaviorEnv(BaseEnv):
                 action_timestep=CFG.behavior_action_timestep,
                 physics_timestep=CFG.behavior_physics_timestep,
                 action_filter="mobile_manipulation",
-                instance_id=CFG.behavior_instance_id, #task_instance_id,
+                instance_id=task_instance_id,
                 rng=self._rng,
             )
             self.igibson_behavior_env.step(
@@ -566,11 +566,14 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
     env.task_num = new_task_num
-    load_checkpoint(
-        env.igibson_behavior_env.simulator,
-        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-        f"{CFG.behavior_task_name}__{env.task_num}",
-        int(s.simulator_state.split("-")[1]))
+    try:
+        load_checkpoint(
+            env.igibson_behavior_env.simulator,
+            f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+            f"{CFG.behavior_task_name}__{env.task_num}",
+            int(s.simulator_state.split("-")[1]))
+    except:
+        import ipdb; ipdb.set_trace()
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))

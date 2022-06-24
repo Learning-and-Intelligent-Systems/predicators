@@ -25,10 +25,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     regex = r"(\d+)"
-    regex_str = r"([^\s]+)"
     if CFG.env == "behavior":  # pragma: no cover
         dataset_fname_template = (
-            f"{CFG.env}__{regex_str}__{regex_str}" + 
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
             f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
             f"{regex}__{CFG.included_options}__{CFG.seed}.data")
     else:
@@ -40,6 +39,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
+        regex_str = r"([^\s]+)"
+        if CFG.env == "behavior":  # pragma: no cover
+            dataset_fname_template = (
+                f"{CFG.env}__{regex_str}__{regex_str}" + 
+                f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+                f"{regex}__{CFG.included_options}__{CFG.seed}.data")
         dataset = _create_demo_data_with_loading(env, train_tasks,
                                                  known_options,
                                                  dataset_fname_template,
@@ -132,10 +137,8 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
 
         logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
                      "DEMONSTRATIONS")
-        return Dataset([
-                traj for traj in dataset.trajectories
-                if traj.train_task_idx < CFG.num_train_tasks
-            ])
+        import ipdb; ipdb.set_trace()
+        return Dataset(dataset.trajectories[:CFG.num_train_tasks])
     # Case 3: we already have a file with LESS data than we need. Load
     # this data and generate some more. Specifically, we load from the
     # file with the maximum data among all files that have less data
