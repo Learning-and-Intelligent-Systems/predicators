@@ -43,20 +43,19 @@ class DeliverySpecificApproach(NSRTLearningApproach):
 
         paper_var, loc_var = deliver.parameters
         from_var, to_var = move.parameters
-        paperPick_var, homeBase_var = pick_up.parameters
+        papers_var, at_var = pick_up.parameters
         rules = [
-            LDLRule("Pick-up",
-                    parameters=[paperPick_var, homeBase_var, to_var],
-                    pos_state_preconditions={
-                        LiftedAtom(at, [homeBase_var]),
-                        LiftedAtom(is_home_base, [homeBase_var]),
-                        LiftedAtom(unpacked, [paperPick_var])
-                    },
-                    neg_state_preconditions={
-                        LiftedAtom(carrying, [paperPick_var])
-                    },
-                    goal_preconditions={LiftedAtom(satisfied, [to_var])},
-                    nsrt=pick_up),
+            LDLRule(
+                "Pick-up",
+                parameters=[papers_var, at_var],
+                pos_state_preconditions={
+                    LiftedAtom(at, [at_var]),
+                    LiftedAtom(is_home_base, [at_var]),
+                    LiftedAtom(unpacked, [papers_var])
+                },
+                neg_state_preconditions={LiftedAtom(carrying, [papers_var])},
+                goal_preconditions=set(),
+                nsrt=pick_up),
             LDLRule(
                 "Move",
                 parameters=[from_var, to_var],
