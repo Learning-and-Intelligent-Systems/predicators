@@ -47,42 +47,45 @@ class DeliverySpecificApproach(BaseApproach):
 
             deliver = options["deliver"]
             pickup = options["pick-up"]
-            
+
             move_to_loc = None
             move_from_loc = None
 
             for loc in locations:
-                
+
                 if GroundAtom(at, [loc]) in ground_atoms:
-                        move_from_loc = loc
 
-                        if GroundAtom(homebase, [loc]) in ground_atoms:
-                            for paper in papers:
-                                if GroundAtom(unpacked, [paper]) in ground_atoms:
-                                    selected_option = pickup
-                                    object_args = [paper,loc]
-                                    params = np.zeros(0, dtype=np.float32)
-                                    ground_option = selected_option.ground(object_args, params)
-                                    assert ground_option.initiable(state)
-                                    return ground_option.policy(state)
+                    move_from_loc = loc
 
-                        elif GroundAtom(wants_paper, [loc]) in ground_atoms:
-                            for paper in papers:
-                                if GroundAtom(carrying, [paper]) in ground_atoms:
-                                    selected_option = deliver
-                                    object_args = [paper, loc]
-                                    params = np.zeros(0, dtype=np.float32)
-                                    ground_option = selected_option.ground(object_args, params)
-                                    assert ground_option.initiable(state)
-                                    return ground_option.policy(state)                                
+                    if GroundAtom(homebase, [loc]) in ground_atoms:
+                        for paper in papers:
+                            if GroundAtom(unpacked, [paper]) in ground_atoms:
+                                selected_option = pickup
+                                object_args = [paper, loc]
+                                params = np.zeros(0, dtype=np.float32)
+                                ground_option = selected_option.ground(
+                                    object_args, params)
+                                assert ground_option.initiable(state)
+                                return ground_option.policy(state)
 
-                elif GroundAtom(wants_paper,[loc]) in ground_atoms:
+                    elif GroundAtom(wants_paper, [loc]) in ground_atoms:
+                        for paper in papers:
+                            if GroundAtom(carrying, [paper]) in ground_atoms:
+                                selected_option = deliver
+                                object_args = [paper, loc]
+                                params = np.zeros(0, dtype=np.float32)
+                                ground_option = selected_option.ground(
+                                    object_args, params)
+                                assert ground_option.initiable(state)
+                                return ground_option.policy(state)
+
+                elif GroundAtom(wants_paper, [loc]) in ground_atoms:
                     selected_option = move
                     move_to_loc = loc
                     object_args = [move_from_loc, move_to_loc]
                     params = np.zeros(0, dtype=np.float32)
                     ground_option = selected_option.ground(object_args, params)
                     assert ground_option.initiable(state)
-                    return ground_option.policy(state)                    
+                    return ground_option.policy(state)
 
         return _policy
