@@ -12,8 +12,6 @@ import numpy as np
 from predicators.src.approaches import BaseApproach
 from predicators.src.envs.pddl_env import _PDDLEnvState
 from predicators.src.structs import Action, GroundAtom, State, Task
-from src.structs import LiftedAtom
-
 
 class DeliverySpecificApproach(BaseApproach):
     """Implements a delivery-specific policy."""
