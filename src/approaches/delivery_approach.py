@@ -12,6 +12,7 @@ import numpy as np
 from predicators.src.approaches import BaseApproach
 from predicators.src.envs.pddl_env import _PDDLEnvState
 from predicators.src.structs import Action, GroundAtom, State, Task
+from src.structs import LiftedAtom
 
 
 class DeliverySpecificApproach(BaseApproach):
@@ -38,22 +39,50 @@ class DeliverySpecificApproach(BaseApproach):
             at = predicates["at"]
             wants_paper = predicates["wantspaper"]
             move = options["move"]
-            # TODO: Fix the code here!
-            selected_option = move
+            homebase = predicates["ishomebase"]
+            satisfied = predicates["satisfied"]
+            safe = predicates["safe"]
+            unpacked = predicates["unpacked"]
+            carrying = predicates["carrying"]
+
+            deliver = options["deliver"]
+            pickup = options["pick-up"]
+            
             move_to_loc = None
             move_from_loc = None
+
             for loc in locations:
+                
                 if GroundAtom(at, [loc]) in ground_atoms:
-                    move_from_loc = loc
-                elif GroundAtom(wants_paper, [loc]) in ground_atoms:
+                        move_from_loc = loc
+
+                        if GroundAtom(homebase, [loc]) in ground_atoms:
+                            for paper in papers:
+                                if GroundAtom(unpacked, [paper]) in ground_atoms:
+                                    selected_option = pickup
+                                    object_args = [paper,loc]
+                                    params = np.zeros(0, dtype=np.float32)
+                                    ground_option = selected_option.ground(object_args, params)
+                                    assert ground_option.initiable(state)
+                                    return ground_option.policy(state)
+
+                        elif GroundAtom(wants_paper, [loc]) in ground_atoms:
+                            for paper in papers:
+                                if GroundAtom(carrying, [paper]) in ground_atoms:
+                                    selected_option = deliver
+                                    object_args = [paper, loc]
+                                    params = np.zeros(0, dtype=np.float32)
+                                    ground_option = selected_option.ground(object_args, params)
+                                    assert ground_option.initiable(state)
+                                    return ground_option.policy(state)                                
+
+                elif GroundAtom(wants_paper,[loc]) in ground_atoms:
+                    selected_option = move
                     move_to_loc = loc
-            assert move_to_loc is not None
-            assert move_from_loc is not None
-            object_args = [move_from_loc, move_to_loc]
-            # Below this line should not need changing.
-            params = np.zeros(0, dtype=np.float32)
-            ground_option = selected_option.ground(object_args, params)
-            assert ground_option.initiable(state)
-            return ground_option.policy(state)
+                    object_args = [move_from_loc, move_to_loc]
+                    params = np.zeros(0, dtype=np.float32)
+                    ground_option = selected_option.ground(object_args, params)
+                    assert ground_option.initiable(state)
+                    return ground_option.policy(state)                    
 
         return _policy
