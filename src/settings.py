@@ -215,8 +215,8 @@ class GlobalSettings:
     gnn_option_policy_shooting_variance = 0.1
     gnn_option_policy_shooting_max_samples = 100
 
-    # parameters for GNN metacontroller approach
-    gnn_metacontroller_max_samples = 100
+    # parameters for metacontroller approaches
+    metacontroller_max_samples = 100
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
