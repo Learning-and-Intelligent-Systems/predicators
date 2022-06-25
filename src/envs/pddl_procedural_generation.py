@@ -148,7 +148,8 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
 
     # Create locations.
     locs = [f"loc-{i}" for i in range(num_locs)]
-    home_loc = locs[0]
+    # Randomize the home location..
+    home_loc = locs[rng.choice(num_locs)]
     possible_targets = [l for l in locs if l != home_loc]
     target_locs = rng.choice(possible_targets, num_want_locs, replace=False)
     # Add the initial state and goal atoms about the locations.

@@ -21,8 +21,8 @@ from predicators.src.approaches.nsrt_metacontroller_approach import \
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, AbstractTask, Box, Dataset, \
     GroundAtom, GroundAtomTrajectory, LDLRule, LiftedAtom, \
-    LiftedDecisionList, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    State, Task, Type, Variable, _GroundNSRT
+    LiftedDecisionList, LowLevelTrajectory, Object, ParameterizedOption, \
+    Predicate, State, Task, Type, Variable, _GroundNSRT
 
 
 class PG3Approach(NSRTMetacontrollerApproach):
@@ -119,6 +119,7 @@ class PG3Approach(NSRTMetacontrollerApproach):
     def _create_heuristic(
             self, trajectories: Sequence[LowLevelTrajectory]) -> _PG3Heuristic:
         preds = self._get_current_predicates()
+        nsrts = self._get_current_nsrts()
         abstract_train_tasks = [
             utils.create_abstract_task(task, preds)
             for task in self._train_tasks
@@ -129,15 +130,17 @@ class PG3Approach(NSRTMetacontrollerApproach):
         if CFG.pg3_heuristic == "policy_guided":
             # This is the main PG3 approach. Other heuristics are baselines.
             return _PolicyGuidedPG3Heuristic(abstract_train_tasks,
-                                             ground_atom_trajs)
+                                             ground_atom_trajs, preds, nsrts)
 
         if CFG.pg3_heuristic == "policy_evaluation":
             return _PolicyEvaluationPG3Heuristic(abstract_train_tasks,
-                                                 ground_atom_trajs)
+                                                 ground_atom_trajs, preds,
+                                                 nsrts)
 
         if CFG.pg3_heuristic == "plan_comparison":
             return _DemoPlanComparisonPG3Heuristic(abstract_train_tasks,
-                                                   ground_atom_trajs)
+                                                   ground_atom_trajs, preds,
+                                                   nsrts)
 
         raise NotImplementedError("Unrecognized pg3_heuristic: "
                                   f"{CFG.pg3_heuristic}.")
@@ -260,11 +263,13 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
 class _PG3Heuristic(abc.ABC):
     """Given an LDL policy, produce a score, with lower better."""
 
-    def __init__(
-            self, abstract_train_tasks: Sequence[AbstractTask],
-            ground_atom_trajectories: Sequence[GroundAtomTrajectory]) -> None:
+    def __init__(self, abstract_train_tasks: Sequence[AbstractTask],
+                 ground_atom_trajectories: Sequence[GroundAtomTrajectory],
+                 predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
         self._abstract_train_tasks = abstract_train_tasks
         self._ground_atom_trajectories = ground_atom_trajectories
+        self._predicates = predicates
+        self._nsrts = nsrts
 
     @abc.abstractmethod
     def __call__(self, ldl: LiftedDecisionList) -> float:
@@ -303,7 +308,7 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
     """Score a policy based on agreement with some plans."""
 
     def __call__(self, ldl: LiftedDecisionList) -> float:
-        score = 0
+        score = 0.0
         for ground_atom_traj in self._ground_atom_trajectories:
             traj, atom_seq = ground_atom_traj
             assert traj.is_demo
@@ -314,14 +319,15 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
         logging.debug(f"Scoring:\n{ldl}\nScore: {score}")
         return score
 
-    def _get_single_task_score(self, ldl: LiftedDecisionList, task: Task,
+    def _get_single_task_score(self, ldl: LiftedDecisionList,
+                               task: AbstractTask,
                                atom_seq: Sequence[Set[GroundAtom]]) -> float:
         planned_atom_seq = self._get_atom_sequence_plan(ldl, task, atom_seq)
         return self._count_missed_steps(ldl, planned_atom_seq, task.goal)
 
     @abc.abstractmethod
     def _get_atom_sequence_plan(
-            self, ldl: LiftedDecisionList, task: Task,
+            self, ldl: LiftedDecisionList, task: AbstractTask,
             atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
         raise NotImplementedError("Override me!")
 
@@ -346,7 +352,7 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
     """Score a policy based on agreement with demo plans."""
 
     def _get_atom_sequence_plan(
-            self, ldl: LiftedDecisionList, task: Task,
+            self, ldl: LiftedDecisionList, task: AbstractTask,
             atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
         del ldl, task  # unused
         return atom_seq
@@ -356,7 +362,51 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
     """Score a policy based on agreement with policy-guided plans."""
 
     def _get_atom_sequence_plan(
-            self, ldl: LiftedDecisionList, task: Task,
+            self, ldl: LiftedDecisionList, task: AbstractTask,
             atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
-        import ipdb
-        ipdb.set_trace()
+        del atom_seq  # unused
+
+        ground_nsrts = self._get_all_ground_nsrts(frozenset(task.objects))
+
+        # Run policy-guided planning.
+        def get_successors(
+            atoms: FrozenSet[GroundAtom]
+        ) -> Iterator[Tuple[_GroundNSRT, FrozenSet[GroundAtom], float]]:
+            # Get policy-based successors.
+            policy_atoms = set(atoms)
+            for _ in range(CFG.pg3_max_policy_guided_rollout):
+                ground_nsrt = utils.query_ldl(ldl, policy_atoms, task.goal)
+                if ground_nsrt is None:
+                    break
+                policy_atoms = utils.apply_operator(ground_nsrt, policy_atoms)
+                yield (ground_nsrt, frozenset(policy_atoms), 0)
+
+            # Get primitive successors.
+            for op in utils.get_applicable_operators(ground_nsrts, atoms):
+                next_atoms = utils.apply_operator(op, set(atoms))
+                yield (op, frozenset(next_atoms), 1)
+
+        heuristic = utils.create_task_planning_heuristic(
+            heuristic_name=CFG.pg3_task_planning_heuristic,
+            init_atoms=task.init,
+            goal=task.goal,
+            ground_ops=ground_nsrts,
+            predicates=self._predicates,
+            objects=task.objects,
+        )
+
+        path, _ = utils.run_astar(initial_state=frozenset(task.init),
+                                  check_goal=task.goal_holds,
+                                  get_successors=get_successors,
+                                  heuristic=heuristic)
+
+        return [set(atoms) for atoms in path]
+
+    @functools.lru_cache(maxsize=None)
+    def _get_all_ground_nsrts(self,
+                              objects: FrozenSet[Object]) -> List[_GroundNSRT]:
+        ground_nsrts = []
+        for nsrt in self._nsrts:
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+        return ground_nsrts
