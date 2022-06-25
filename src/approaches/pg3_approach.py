@@ -8,8 +8,9 @@ Example command line:
 from __future__ import annotations
 
 import abc
+import functools
 import logging
-from typing import Iterator, List, Optional, Sequence, Set, Tuple
+from typing import FrozenSet, Iterator, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
 
@@ -19,8 +20,8 @@ from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, AbstractTask, Box, Dataset, \
-    GroundAtom, LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT
+    GroundAtom, LDLRule, LiftedAtom, LiftedDecisionList, ParameterizedOption, \
+    Predicate, State, Task, Type, Variable, _GroundNSRT
 
 
 class PG3Approach(NSRTMetacontrollerApproach):
@@ -93,7 +94,7 @@ class PG3Approach(NSRTMetacontrollerApproach):
     def _create_search_operators(self) -> List[_PG3SearchOperator]:
         search_operator_classes = [
             _AddRulePG3SearchOperator,
-            #TODO:  _AddConditionPG3SearchOperator,
+            _AddConditionPG3SearchOperator,
         ]
         types = self._types
         preds = self._get_current_predicates()
@@ -138,8 +139,85 @@ class _AddRulePG3SearchOperator(_PG3SearchOperator):
 
     def get_successors(
             self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
-        import ipdb
-        ipdb.set_trace()
+        for idx in range(len(ldl.rules) + 1):
+            for rule in self._get_candidate_rules():
+                new_rules = list(ldl.rules)
+                new_rules.insert(idx, rule)
+                yield LiftedDecisionList(new_rules)
+
+    @functools.lru_cache(maxsize=None)
+    def _get_candidate_rules(self) -> List[LDLRule]:
+        return [self._nsrt_to_rule(nsrt) for nsrt in sorted(self._nsrts)]
+
+    @staticmethod
+    def _nsrt_to_rule(nsrt: NSRT) -> LDLRule:
+        """Initialize an LDLRule from an NSRT."""
+        return LDLRule(
+            name=nsrt.name,
+            parameters=list(nsrt.parameters),
+            pos_state_preconditions=set(nsrt.preconditions),
+            neg_state_preconditions=set(),
+            goal_preconditions=set(),
+            nsrt=nsrt,
+        )
+
+
+class _AddConditionPG3SearchOperator(_PG3SearchOperator):
+    """An operator that adds new preconditions to existing LDL rules."""
+
+    def get_successors(
+            self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
+        for rule_idx, rule in enumerate(ldl.rules):
+            rule_vars = frozenset(rule.parameters)
+            for condition in self._get_candidate_conditions(rule_vars):
+                # Consider adding new condition to positive preconditions,
+                # negative preconditions, or goal preconditions.
+                for destination in ["pos", "neg", "goal"]:
+                    new_pos = set(rule.pos_state_preconditions)
+                    new_neg = set(rule.neg_state_preconditions)
+                    new_goal = set(rule.goal_preconditions)
+                    if destination == "pos":
+                        dest_set = new_pos
+                    elif destination == "neg":
+                        dest_set = new_neg
+                    else:
+                        assert destination == "goal"
+                        dest_set = new_goal
+                    # If the condition already exists, skip.
+                    if condition in dest_set:
+                        continue
+                    # Special case: if the condition already exists in the
+                    # positive preconditions, don't add to the negative
+                    # preconditions, and vice versa.
+                    if destination in ("pos", "neg") and condition in \
+                        new_pos | new_neg:
+                        continue
+                    dest_set.add(condition)
+                    # Create the new rule.
+                    new_rule = LDLRule(
+                        name=rule.name,
+                        parameters=list(rule.parameters),
+                        pos_state_preconditions=new_pos,
+                        neg_state_preconditions=new_neg,
+                        goal_preconditions=new_goal,
+                        nsrt=rule.nsrt,
+                    )
+                    # Create the new LDL.
+                    new_rules = list(ldl.rules)
+                    new_rules[rule_idx] = new_rule
+                    yield LiftedDecisionList(new_rules)
+
+    @functools.lru_cache(maxsize=None)
+    def _get_candidate_conditions(
+            self, variables: FrozenSet[Variable]) -> List[LiftedAtom]:
+        # Note: new variable creation currently disallowed. We may want to
+        # revisit this later.
+        conditions = []
+        for pred in sorted(self._predicates):
+            for condition in utils.get_all_lifted_atoms_for_predicate(
+                    pred, frozenset(variables)):
+                conditions.append(condition)
+        return conditions
 
 
 ################################ Heuristics ###################################
@@ -169,6 +247,7 @@ class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
         for abstract_task in self._abstract_train_tasks:
             if not self._ldl_solves_abstract_task(ldl, abstract_task):
                 unsolved_tasks += 1
+        logging.debug(f"Scoring:\n{ldl}\nScore: {unsolved_tasks}")
         return unsolved_tasks
 
     @staticmethod

@@ -1091,19 +1091,36 @@ def get_all_groundings(
     return result
 
 
-def get_object_combinations(objects: Collection[Object],
-                            types: Sequence[Type]) -> Iterator[List[Object]]:
-    """Get all combinations of objects satisfying the given types sequence."""
-    sorted_objects = sorted(objects)
+_ObjectOrVariable = TypeVar("_ObjectOrVariable", bound=_TypedEntity)
+
+
+def get_entity_combinations(
+        entities: Collection[_ObjectOrVariable],
+        types: Sequence[Type]) -> Iterator[List[_ObjectOrVariable]]:
+    """Get all combinations of entities satisfying the given types sequence."""
+    sorted_entities = sorted(entities)
     choices = []
     for vt in types:
         this_choices = []
-        for obj in sorted_objects:
-            if obj.is_instance(vt):
-                this_choices.append(obj)
+        for ent in sorted_entities:
+            if ent.is_instance(vt):
+                this_choices.append(ent)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
+
+
+def get_object_combinations(objects: Collection[Object],
+                            types: Sequence[Type]) -> Iterator[List[Object]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return get_entity_combinations(objects, types)
+
+
+def get_variable_combinations(
+        variables: Collection[Variable],
+        types: Sequence[Type]) -> Iterator[List[Variable]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return get_entity_combinations(variables, types)
 
 
 @functools.lru_cache(maxsize=None)
@@ -1126,6 +1143,18 @@ def get_all_ground_atoms(predicates: FrozenSet[Predicate],
         ground_atoms.update(
             get_all_ground_atoms_for_predicate(predicate, objects))
     return ground_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_lifted_atoms_for_predicate(
+        predicate: Predicate,
+        variables: FrozenSet[Variable]) -> Set[LiftedAtom]:
+    """Get all groundings of the predicate given variables."""
+    lifted_atoms = set()
+    for args in get_variable_combinations(variables, predicate.types):
+        lifted_atom = LiftedAtom(predicate, args)
+        lifted_atoms.add(lifted_atom)
+    return lifted_atoms
 
 
 def get_random_object_combination(
