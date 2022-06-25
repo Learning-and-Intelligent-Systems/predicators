@@ -228,11 +228,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     if segment not in segs_in_pnad:
                         # Find PNAD that the segment is currently in.
                         for seg_pnad in pnads_for_option:
-                            segs_in_seg_pnad = {
+                            segs_in_seg_pnad = [
                                 datapoint[0]
                                 for datapoint in seg_pnad.datastore
-                            }
-                            if segment in segs_in_seg_pnad:
+                            ]
+                            if segment in set(segs_in_seg_pnad):
                                 seg_idx = segs_in_seg_pnad.index(segment)
                                 seg_pnad.datastore.pop(seg_idx)
                                 break
