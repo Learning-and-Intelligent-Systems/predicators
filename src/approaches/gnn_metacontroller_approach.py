@@ -23,7 +23,7 @@ from predicators.src.structs import NSRT, Dataset, GroundAtom, \
     ParameterizedOption, Predicate, Segment, State, Task, Type, _GroundNSRT
 
 
-class GNNMetacontrollerApproach(NSRTMetacontrollerApproach, GNNApproach):
+class GNNMetacontrollerApproach(GNNApproach, NSRTMetacontrollerApproach):
     """GNNMetacontrollerApproach definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
