@@ -220,7 +220,7 @@ class GlobalSettings:
 
     # parameters for PG3 approach
     pg3_max_expansions = 100
-    pg3_heuristic = "plan_comparison"
+    pg3_heuristic = "policy_evaluation"  # plan_comparison or policy_evaluation
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal

@@ -201,10 +201,15 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
                         new_pos | new_neg:
                         continue
                     dest_set.add(condition)
+                    parameters = sorted({
+                        v
+                        for c in new_pos | new_neg | new_goal
+                        for v in c.variables
+                    } | set(rule.nsrt.parameters))
                     # Create the new rule.
                     new_rule = LDLRule(
                         name=rule.name,
-                        parameters=list(rule.parameters),
+                        parameters=parameters,
                         pos_state_preconditions=new_pos,
                         neg_state_preconditions=new_neg,
                         goal_preconditions=new_goal,
@@ -218,12 +223,13 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
     @functools.lru_cache(maxsize=None)
     def _get_candidate_conditions(
             self, variables: FrozenSet[Variable]) -> List[LiftedAtom]:
-        # Note: new variable creation currently disallowed. We may want to
-        # revisit this later.
         conditions = []
         for pred in sorted(self._predicates):
+            # Create fresh variables for the predicate to complement the
+            # variables that already exist in the rule.
+            new_vars = utils.create_new_variables(pred.types, variables)
             for condition in utils.get_all_lifted_atoms_for_predicate(
-                    pred, frozenset(variables)):
+                    pred, variables | frozenset(new_vars)):
                 conditions.append(condition)
         return conditions
 
