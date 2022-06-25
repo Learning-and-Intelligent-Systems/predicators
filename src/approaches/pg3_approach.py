@@ -66,12 +66,26 @@ class PG3Approach(NSRTMetacontrollerApproach):
                 for i, child in enumerate(op.get_successors(ldl)):
                     yield (op, i), child, 1  # cost always 1
 
-        path, _ = utils.run_gbfs(
-            initial_state=self._current_ldl,
-            check_goal=lambda _: False,  # Terminate only after max expansions
-            get_successors=get_successors,
-            heuristic=heuristic,
-            max_expansions=CFG.pg3_max_expansions)
+        if CFG.pg3_search_method == "gbfs":
+            path, _ = utils.run_gbfs(
+                initial_state=self._current_ldl,
+                check_goal=lambda _: False,  # Terminate only after max expansions
+                get_successors=get_successors,
+                heuristic=heuristic,
+                max_expansions=CFG.pg3_gbfs_max_expansions,
+                lazy_expansion=True)
+
+        elif CFG.pg3_search_method == "hill_climbing":
+            path, _,  _ = utils.run_hill_climbing(
+                initial_state=self._current_ldl,
+                check_goal=lambda _: False,  # Terminate when no improvement
+                get_successors=get_successors,
+                heuristic=heuristic,
+                enforced_depth=CFG.pg3_hc_enforced_depth)
+
+        else:
+            raise NotImplementedError("Unrecognized pg3_search_method "
+                                      f"{CFG.pg3_search_method}.")
 
         # Save the best seen policy.
         self._current_ldl = path[-1]
