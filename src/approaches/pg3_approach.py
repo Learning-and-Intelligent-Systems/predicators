@@ -69,14 +69,15 @@ class PG3Approach(NSRTMetacontrollerApproach):
         if CFG.pg3_search_method == "gbfs":
             path, _ = utils.run_gbfs(
                 initial_state=self._current_ldl,
-                check_goal=lambda _: False,  # Terminate only after max expansions
+                check_goal=lambda _:
+                False,  # Terminate only after max expansions
                 get_successors=get_successors,
                 heuristic=heuristic,
                 max_expansions=CFG.pg3_gbfs_max_expansions,
                 lazy_expansion=True)
 
         elif CFG.pg3_search_method == "hill_climbing":
-            path, _,  _ = utils.run_hill_climbing(
+            path, _, _ = utils.run_hill_climbing(
                 initial_state=self._current_ldl,
                 check_goal=lambda _: False,  # Terminate when no improvement
                 get_successors=get_successors,
@@ -125,13 +126,18 @@ class PG3Approach(NSRTMetacontrollerApproach):
         ground_atom_trajs = utils.create_ground_atom_dataset(
             trajectories, preds)
 
+        if CFG.pg3_heuristic == "policy_guided":
+            # This is the main PG3 approach. Other heuristics are baselines.
+            return _PolicyGuidedPG3Heuristic(abstract_train_tasks,
+                                             ground_atom_trajs)
+
         if CFG.pg3_heuristic == "policy_evaluation":
             return _PolicyEvaluationPG3Heuristic(abstract_train_tasks,
                                                  ground_atom_trajs)
 
         if CFG.pg3_heuristic == "plan_comparison":
-            return _PlanComparisonPG3Heuristic(abstract_train_tasks,
-                                               ground_atom_trajs)
+            return _DemoPlanComparisonPG3Heuristic(abstract_train_tasks,
+                                                   ground_atom_trajs)
 
         raise NotImplementedError("Unrecognized pg3_heuristic: "
                                   f"{CFG.pg3_heuristic}.")
@@ -294,18 +300,30 @@ class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
 
 
 class _PlanComparisonPG3Heuristic(_PG3Heuristic):
-    """Score a policy based on agreement with demonstration data."""
+    """Score a policy based on agreement with some plans."""
 
     def __call__(self, ldl: LiftedDecisionList) -> float:
-        missed_steps = 0
+        score = 0
         for ground_atom_traj in self._ground_atom_trajectories:
             traj, atom_seq = ground_atom_traj
             assert traj.is_demo
-            goal = self._abstract_train_tasks[traj.train_task_idx].goal
-            assert goal.issubset(atom_seq[-1])
-            missed_steps += self._count_missed_steps(ldl, atom_seq, goal)
-        logging.debug(f"Scoring:\n{ldl}\nScore: {missed_steps}")
-        return missed_steps
+            task = self._abstract_train_tasks[traj.train_task_idx]
+            assert task.init == atom_seq[0]
+            assert task.goal.issubset(atom_seq[-1])
+            score += self._get_single_task_score(ldl, task, atom_seq)
+        logging.debug(f"Scoring:\n{ldl}\nScore: {score}")
+        return score
+
+    def _get_single_task_score(self, ldl: LiftedDecisionList, task: Task,
+                               atom_seq: Sequence[Set[GroundAtom]]) -> float:
+        planned_atom_seq = self._get_atom_sequence_plan(ldl, task, atom_seq)
+        return self._count_missed_steps(ldl, planned_atom_seq, task.goal)
+
+    @abc.abstractmethod
+    def _get_atom_sequence_plan(
+            self, ldl: LiftedDecisionList, task: Task,
+            atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
+        raise NotImplementedError("Override me!")
 
     @staticmethod
     def _count_missed_steps(ldl: LiftedDecisionList,
@@ -322,3 +340,23 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
                 if predicted_atoms != atom_seq[t + 1]:
                     missed_steps += 1
         return missed_steps
+
+
+class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
+    """Score a policy based on agreement with demo plans."""
+
+    def _get_atom_sequence_plan(
+            self, ldl: LiftedDecisionList, task: Task,
+            atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
+        del ldl, task  # unused
+        return atom_seq
+
+
+class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
+    """Score a policy based on agreement with policy-guided plans."""
+
+    def _get_atom_sequence_plan(
+            self, ldl: LiftedDecisionList, task: Task,
+            atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
+        import ipdb
+        ipdb.set_trace()
