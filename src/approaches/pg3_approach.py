@@ -364,27 +364,29 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
     def _get_atom_sequence_plan(
             self, ldl: LiftedDecisionList, task: AbstractTask,
             atom_seq: Sequence[Set[GroundAtom]]) -> Sequence[Set[GroundAtom]]:
-        del atom_seq  # unused
+        # del atom_seq  # unused
 
         ground_nsrts = self._get_all_ground_nsrts(frozenset(task.objects))
 
         # Run policy-guided planning.
         def get_successors(
             atoms: FrozenSet[GroundAtom]
-        ) -> Iterator[Tuple[_GroundNSRT, FrozenSet[GroundAtom], float]]:
+        ) -> Iterator[Tuple[List[_GroundNSRT], FrozenSet[GroundAtom], float]]:
             # Get policy-based successors.
             policy_atoms = set(atoms)
+            policy_op_seq = []
             for _ in range(CFG.pg3_max_policy_guided_rollout):
                 ground_nsrt = utils.query_ldl(ldl, policy_atoms, task.goal)
                 if ground_nsrt is None:
                     break
                 policy_atoms = utils.apply_operator(ground_nsrt, policy_atoms)
-                yield (ground_nsrt, frozenset(policy_atoms), 0)
+                policy_op_seq.append(ground_nsrt)
+                yield (list(policy_op_seq), frozenset(policy_atoms), 0)
 
             # Get primitive successors.
             for op in utils.get_applicable_operators(ground_nsrts, atoms):
                 next_atoms = utils.apply_operator(op, set(atoms))
-                yield (op, frozenset(next_atoms), 1)
+                yield ([op], frozenset(next_atoms), 1)
 
         heuristic = utils.create_task_planning_heuristic(
             heuristic_name=CFG.pg3_task_planning_heuristic,
@@ -395,12 +397,19 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
             objects=task.objects,
         )
 
-        path, _ = utils.run_astar(initial_state=frozenset(task.init),
-                                  check_goal=task.goal_holds,
-                                  get_successors=get_successors,
-                                  heuristic=heuristic)
+        _, op_seqs = utils.run_astar(initial_state=frozenset(task.init),
+                                     check_goal=task.goal_holds,
+                                     get_successors=get_successors,
+                                     heuristic=heuristic)
 
-        return [set(atoms) for atoms in path]
+        atoms = set(task.init)
+        planned_atom_seq = [atoms]
+        for op_seq in op_seqs:
+            for op in op_seq:
+                atoms = utils.apply_operator(op, atoms)
+                planned_atom_seq.append(atoms)
+
+        return planned_atom_seq
 
     @functools.lru_cache(maxsize=None)
     def _get_all_ground_nsrts(self,
