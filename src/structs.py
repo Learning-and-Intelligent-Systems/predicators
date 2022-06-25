@@ -416,6 +416,18 @@ DefaultTask = Task(DefaultState, set())
 
 
 @dataclass(frozen=True, eq=False)
+class AbstractTask:
+    """Struct defining an abstract task, which is an initial ground atoms state
+    and a goal."""
+    init: Set[GroundAtom]
+    goal: Set[GroundAtom]
+
+    def goal_holds(self, atoms: Set[GroundAtom]) -> bool:
+        """Return whether the goal of this task holds in the given atoms."""
+        return self.goal.issubset(atoms)
+
+
+@dataclass(frozen=True, eq=False)
 class ParameterizedOption:
     """Struct defining a parameterized option, which has a parameter space and
     can be ground into an Option, given parameter values.
@@ -1468,8 +1480,24 @@ class LiftedDecisionList:
 
     The logic described above is implemented in utils.query_ldl().
     """
-    name: str
     rules: Sequence[LDLRule]
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(tuple(self.rules))
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, LiftedDecisionList)
+        if len(self.rules) != len(other.rules):
+            return False
+        return all(r1 == r2 for r1, r2 in zip(self.rules, other.rules))
+
+    def __str__(self) -> str:
+        rule_str = "\n".join(str(r) for r in self.rules)
+        return f"LiftedDecisionList[\n{rule_str}\n]"
 
 
 # Convenience higher-order types useful throughout the code

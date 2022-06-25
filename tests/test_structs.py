@@ -1021,8 +1021,7 @@ def test_lifted_decision_lists():
 
     # LiftedDecisionList
     rules = [place_rule, pick_rule]
-    ldl = LiftedDecisionList("MyPolicy", rules)
-    assert ldl.name == "MyPolicy"
+    ldl = LiftedDecisionList(rules)
     assert ldl.rules == rules
 
     atoms = {on_table([cup1]), hand_empty([robot])}
