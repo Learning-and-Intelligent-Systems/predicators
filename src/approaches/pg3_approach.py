@@ -8,6 +8,8 @@ Example command line:
 
 from typing import List, Optional, Set
 
+import dill as pkl
+
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
@@ -41,7 +43,7 @@ class PG3Approach(NSRTMetacontrollerApproach):
 
     def _learn_ldl(self, trajectories: List[LowLevelTrajectory]) -> None:
         """Learn a lifted decision list policy."""
-        del trajectories  # TODO use
+        del trajectories  # unused for now
 
         predicates = {p.name: p for p in self._initial_predicates}
         at = predicates["at"]
@@ -105,9 +107,12 @@ class PG3Approach(NSRTMetacontrollerApproach):
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
         # Now, learn the LDL policy.
         self._learn_ldl(dataset.trajectories)
-        # TODO save the LDL policy.
+        # Save the LDL policy.
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_None.ldl", "wb") as f:
+            pkl.dump(self._current_ldl, f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        # TODO
-        import ipdb
-        ipdb.set_trace()
+        load_path = utils.get_approach_load_path_str()
+        with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
+            self._current_ldl = pkl.load(f)
