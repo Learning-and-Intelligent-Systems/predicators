@@ -8,7 +8,7 @@ policy is executed in the environment, and the process repeats.
 
 import logging
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import torch
@@ -17,23 +17,21 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.gnn_approach import GNNApproach
-from predicators.src.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, Dataset, DummyOption, \
-    GroundAtom, ParameterizedOption, Predicate, Segment, State, Task, Type, \
-    _GroundNSRT, _Option
+from predicators.src.approaches.nsrt_metacontroller_approach import \
+    NSRTMetacontrollerApproach
+from predicators.src.structs import NSRT, Dataset, GroundAtom, \
+    ParameterizedOption, Predicate, Segment, State, Task, Type, _GroundNSRT
 
 
-class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
+class GNNMetacontrollerApproach(GNNApproach, NSRTMetacontrollerApproach):
     """GNNMetacontrollerApproach definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
-        NSRTLearningApproach.__init__(self, initial_predicates,
-                                      initial_options, types, action_space,
-                                      train_tasks)
+        NSRTMetacontrollerApproach.__init__(self, initial_predicates,
+                                            initial_options, types,
+                                            action_space, train_tasks)
         GNNApproach.__init__(self, initial_predicates, initial_options, types,
                              action_space, train_tasks)
         self._sorted_nsrts: List[NSRT] = []
@@ -178,50 +176,8 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
     def get_name(cls) -> str:
         return "gnn_metacontroller"
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        assert self._gnn is not None, "Learning hasn't happened yet!"
-        cur_option = DummyOption
-
-        def _policy(state: State) -> Action:
-            atoms = utils.abstract(state, self._initial_predicates)
-            nonlocal cur_option
-            if cur_option is DummyOption or cur_option.terminal(state):
-                ground_nsrt = self._predict(state, atoms, task.goal)
-                cur_option = self._sample_option_from_nsrt(
-                    ground_nsrt, state, atoms, task.goal)
-            act = cur_option.policy(state)
-            return act
-
-        return _policy
-
-    def _sample_option_from_nsrt(self, ground_nsrt: _GroundNSRT, state: State,
-                                 atoms: Set[GroundAtom],
-                                 goal: Set[GroundAtom]) -> _Option:
-        """Given a ground NSRT, try invoking its sampler repeatedly until we
-        find an option that produces the expected next atoms under the ground
-        NSRT."""
-        for _ in range(CFG.gnn_metacontroller_max_samples):
-            # Invoke the ground NSRT's sampler to produce an option.
-            opt = ground_nsrt.sample_option(state, goal, self._rng)
-            if not opt.initiable(state):
-                # The option is not initiable. Continue on to the next sample.
-                continue
-            try:
-                next_state, _ = \
-                    self._option_model.get_next_state_and_num_actions(state,
-                                                                      opt)
-            except utils.EnvironmentFailure:
-                continue
-            expected_next_atoms = utils.apply_operator(ground_nsrt, atoms)
-            if not all(a.holds(next_state) for a in expected_next_atoms):
-                # Some expected atom is not achieved. Continue on to the
-                # next sample.
-                continue
-            return opt
-        raise ApproachFailure("GNN metacontroller could not sample an option")
-
     def load(self, online_learning_cycle: Optional[int]) -> None:
-        NSRTLearningApproach.load(self, online_learning_cycle)
+        NSRTMetacontrollerApproach.load(self, online_learning_cycle)
         self._sorted_nsrts = sorted(self._nsrts)
         assert self._sorted_nsrts
         del self._nsrts  # henceforth, we'll use self._sorted_nsrts
@@ -229,7 +185,7 @@ class GNNMetacontrollerApproach(NSRTLearningApproach, GNNApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First learn NSRTs.
-        NSRTLearningApproach.learn_from_offline_dataset(self, dataset)
+        NSRTMetacontrollerApproach.learn_from_offline_dataset(self, dataset)
         self._sorted_nsrts = sorted(self._nsrts)
         assert self._sorted_nsrts
         del self._nsrts  # henceforth, we'll use self._sorted_nsrts
