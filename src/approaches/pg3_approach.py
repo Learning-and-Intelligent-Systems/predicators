@@ -3,7 +3,7 @@
 Example command line:
     python src/main.py --approach pg3 --seed 0 \
         --env pddl_easy_delivery_procedural_tasks \
-        --strips_learner oracle
+        --strips_learner oracle --num_train_tasks 10
 """
 from __future__ import annotations
 
@@ -254,12 +254,12 @@ class _PG3Heuristic(abc.ABC):
     """Given an LDL policy, produce a score, with lower better."""
 
     def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT],
-                 ground_atom_trajectories: Sequence[GroundAtomTrajectory],
+                 ground_atom_trajs: Sequence[GroundAtomTrajectory],
                  train_tasks: Sequence[Task],
                  ) -> None:
         self._predicates = predicates
         self._nsrts = nsrts
-        self._ground_atom_trajectories = ground_atom_trajectories
+        self._ground_atom_trajs = ground_atom_trajs
         # Convert each train task into (object set, init atoms, goal).
         self._abstract_train_tasks = [
             (set(task.init), utils.abstract(task.init, predicates), task.goal)
@@ -349,7 +349,7 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
     @functools.lru_cache(maxsize=None)
     def _get_demo_atom_plan_for_task(self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         demo_atom_plan = None
-        for idx, ground_atom_traj in enumerate(self._ground_atom_trajectories):
+        for idx, ground_atom_traj in enumerate(self._ground_atom_trajs):
             traj, atom_seq = ground_atom_traj
             if traj.train_task_idx == task_idx:
                 assert demo_atom_plan is None
@@ -361,11 +361,22 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
     """Score a policy based on agreement with policy-guided plans."""
 
+    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT],
+                 ground_atom_trajs: Sequence[GroundAtomTrajectory],
+                 train_tasks: Sequence[Task],
+                 ) -> None:
+        super().__init__(predicates, nsrts, ground_atom_trajs, train_tasks)
+        # Ground the NSRTs once per task and save them.
+        self._train_task_idx_to_ground_nsrts = {
+            idx: [ground_nsrt for nsrt in nsrts
+                  for ground_nsrt in utils.all_ground_nsrts(nsrt, objects)]
+            for idx, (objects, _, _) in enumerate(self._abstract_train_tasks)
+        }
+
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList, task_idx: int) -> Sequence[Set[GroundAtom]]:
 
         objects, init, goal = self._abstract_train_tasks[task_idx]
-
-        ground_nsrts = self._get_all_ground_nsrts(frozenset(objects))
+        ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
 
         # TODO make policy guided planning a separate PR
 
@@ -398,6 +409,7 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
             objects=objects,
         )
 
+
         def check_goal(atoms: FrozenSet[GroundAtom]) -> bool:
             return goal.issubset(atoms)
 
@@ -406,7 +418,6 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
                                      get_successors=get_successors,
                                      heuristic=heuristic)
 
-        # TODO factor
         atoms = set(init)
         planned_atom_seq = [atoms]
         for op_seq in op_seqs:
@@ -415,13 +426,3 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
                 planned_atom_seq.append(atoms)
 
         return planned_atom_seq
-
-    @functools.lru_cache(maxsize=None)
-    def _get_all_ground_nsrts(self,
-                              objects: FrozenSet[Object]) -> List[_GroundNSRT]:
-        # TODO: factor out, make separate PR
-        ground_nsrts = []
-        for nsrt in self._nsrts:
-            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-                ground_nsrts.append(ground_nsrt)
-        return ground_nsrts
