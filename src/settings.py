@@ -225,6 +225,7 @@ class GlobalSettings:
     pg3_gbfs_max_expansions = 100
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
+    pg3_plan_compare_inapplicable_cost = 0.99
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
