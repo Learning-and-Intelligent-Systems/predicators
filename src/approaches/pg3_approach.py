@@ -10,7 +10,9 @@ from __future__ import annotations
 import abc
 import functools
 import logging
-from typing import FrozenSet, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
+    Tuple
+from typing import Type as TypingType
 
 import dill as pkl
 from typing_extensions import TypeAlias
@@ -119,26 +121,17 @@ class PG3Approach(NSRTMetacontrollerApproach):
 
     def _create_heuristic(
             self, trajectories: Sequence[LowLevelTrajectory]) -> _PG3Heuristic:
-
         preds = self._get_current_predicates()
         nsrts = self._get_current_nsrts()
         ground_atom_trajs = utils.create_ground_atom_dataset(
             trajectories, preds)
-
-        if CFG.pg3_heuristic == "policy_guided":
-            # This is the main PG3 approach. Other heuristics are baselines.
-            return _PolicyGuidedPG3Heuristic(preds, nsrts, ground_atom_trajs,
-                                             self._train_tasks)
-        if CFG.pg3_heuristic == "policy_evaluation":
-            return _PolicyEvaluationPG3Heuristic(preds, nsrts,
-                                                 ground_atom_trajs,
-                                                 self._train_tasks)
-        if CFG.pg3_heuristic == "plan_comparison":
-            return _DemoPlanComparisonPG3Heuristic(preds, nsrts,
-                                                   ground_atom_trajs,
-                                                   self._train_tasks)
-        raise NotImplementedError("Unrecognized pg3_heuristic: "
-                                  f"{CFG.pg3_heuristic}.")
+        heuristic_name_to_cls: Dict[str, TypingType[_PG3Heuristic]] = {
+            "policy_guided": _PolicyGuidedPG3Heuristic,
+            "policy_evaluation": _PolicyEvaluationPG3Heuristic,
+            "plan_comparison": _DemoPlanComparisonPG3Heuristic,
+        }
+        cls = heuristic_name_to_cls[CFG.pg3_heuristic]
+        return cls(preds, nsrts, ground_atom_trajs, self._train_tasks)
 
 
 ############################## Search Operators ###############################

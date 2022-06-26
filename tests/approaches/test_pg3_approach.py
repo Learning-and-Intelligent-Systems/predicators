@@ -26,6 +26,8 @@ def test_pg3_approach():
         "num_test_tasks": 1,
         "strips_learner": "oracle",
         "pg3_heuristic": "plan_comparison",  # faster for tests
+        "pg3_search_method": "hill_climbing",
+        "pg3_hc_enforced_depth": 0,
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
@@ -66,6 +68,18 @@ def test_pg3_approach():
     expected_policy_file = f"{load_path}_None.ldl"
     assert os.path.exists(expected_policy_file)
     approach.load(None)
+    # Test with GBFS instead of hill climbing.
+    utils.update_config({
+        "pg3_search_method": "gbfs",
+        "pg3_gbfs_max_expansions": 1
+    })
+    approach.learn_from_offline_dataset(dataset)
+    # Test invalid search method.
+    utils.update_config({
+        "pg3_search_method": "not a real search method",
+    })
+    with pytest.raises(NotImplementedError):
+        approach.learn_from_offline_dataset(dataset)
 
 
 def test_pg3_search_operators():
