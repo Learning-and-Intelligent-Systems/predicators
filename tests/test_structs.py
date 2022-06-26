@@ -1024,6 +1024,21 @@ def test_lifted_decision_lists():
     ldl = LiftedDecisionList(rules)
     assert ldl.rules == rules
 
+    assert str(ldl) == """LiftedDecisionList[
+LDLRule-MyPlaceRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Pos State Pre: [Holding(?cup:cup_type)]
+    Neg State Pre: []
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Place(?cup:cup_type, ?plate:plate_type)
+LDLRule-MyPickRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
+    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Neg State Pre: [Holding(?cup:cup_type)]
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Pick(?cup:cup_type)
+]"""
+
     atoms = {on_table([cup1]), hand_empty([robot])}
     goal = {on([cup1, plate1])}
 
@@ -1037,3 +1052,18 @@ def test_lifted_decision_lists():
 
     atoms = set()
     assert utils.query_ldl(ldl, atoms, goal) is None
+
+    ldl2 = LiftedDecisionList(rules)
+    assert ldl == ldl2
+
+    ldl3 = LiftedDecisionList(rules[::-1])
+    assert ldl != ldl3
+
+    ldl4 = LiftedDecisionList([place_rule])
+    assert ldl != ldl4
+
+    ldl5 = LiftedDecisionList(rules[:])
+    assert ldl == ldl5
+
+    # Make sure lifted decision lists are hashable.
+    assert len({ldl, ldl2}) == 1

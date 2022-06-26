@@ -35,14 +35,14 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 
 from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
-from predicators.src.structs import NSRT, AbstractTask, Action, Array, \
-    DummyOption, EntToEntSub, GroundAtom, GroundAtomTrajectory, \
+from predicators.src.structs import NSRT, Action, Array, DummyOption, \
+    EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
-    Segment, State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
-    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
+    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1091,12 +1091,9 @@ def get_all_groundings(
     return result
 
 
-_ObjectOrVariable = TypeVar("_ObjectOrVariable", bound=_TypedEntity)
-
-
-def get_entity_combinations(
-        entities: Collection[_ObjectOrVariable],
-        types: Sequence[Type]) -> Iterator[List[_ObjectOrVariable]]:
+def _get_entity_combinations(
+        entities: Collection[ObjectOrVariable],
+        types: Sequence[Type]) -> Iterator[List[ObjectOrVariable]]:
     """Get all combinations of entities satisfying the given types sequence."""
     sorted_entities = sorted(entities)
     choices = []
@@ -1113,14 +1110,14 @@ def get_entity_combinations(
 def get_object_combinations(objects: Collection[Object],
                             types: Sequence[Type]) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence."""
-    return get_entity_combinations(objects, types)
+    return _get_entity_combinations(objects, types)
 
 
 def get_variable_combinations(
         variables: Collection[Variable],
         types: Sequence[Type]) -> Iterator[List[Variable]]:
     """Get all combinations of objects satisfying the given types sequence."""
-    return get_entity_combinations(variables, types)
+    return _get_entity_combinations(variables, types)
 
 
 @functools.lru_cache(maxsize=None)
@@ -1135,17 +1132,6 @@ def get_all_ground_atoms_for_predicate(
 
 
 @functools.lru_cache(maxsize=None)
-def get_all_ground_atoms(predicates: FrozenSet[Predicate],
-                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
-    """Get all groundings of the predicates given objects."""
-    ground_atoms = set()
-    for predicate in predicates:
-        ground_atoms.update(
-            get_all_ground_atoms_for_predicate(predicate, objects))
-    return ground_atoms
-
-
-@functools.lru_cache(maxsize=None)
 def get_all_lifted_atoms_for_predicate(
         predicate: Predicate,
         variables: FrozenSet[Variable]) -> Set[LiftedAtom]:
@@ -1155,6 +1141,17 @@ def get_all_lifted_atoms_for_predicate(
         lifted_atom = LiftedAtom(predicate, args)
         lifted_atoms.add(lifted_atom)
     return lifted_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_ground_atoms(predicates: FrozenSet[Predicate],
+                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
+    """Get all groundings of the predicates given objects."""
+    ground_atoms = set()
+    for predicate in predicates:
+        ground_atoms.update(
+            get_all_ground_atoms_for_predicate(predicate, objects))
+    return ground_atoms
 
 
 def get_random_object_combination(
@@ -1664,13 +1661,6 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
     return atoms
-
-
-def create_abstract_task(task: Task,
-                         preds: Collection[Predicate]) -> AbstractTask:
-    """Create an abstract task from a task given a set of predicates."""
-    objects = set(task.init)
-    return AbstractTask(objects, abstract(task.init, preds), set(task.goal))
 
 
 def all_ground_operators(

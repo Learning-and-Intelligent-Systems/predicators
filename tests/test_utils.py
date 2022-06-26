@@ -1283,6 +1283,99 @@ def test_get_all_groundings():
         assert len(sub) == 4  # four variables
 
 
+def test_get_entity_combinations():
+    """Tests for get_object_combinations() and get_variable_combinations()."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate_var0 = plate_type("?plate0")
+    plate_var1 = plate_type("?plate1")
+
+    objects = {cup0, cup1, cup2, plate0, plate1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, plate0], [cup0, plate1],
+         [cup1, plate0], [cup1, plate1],
+         [cup2, plate0], [cup2, plate1]]
+
+    objects = {cup0, cup2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, cup0], [cup0, cup2],
+         [cup2, cup0], [cup2, cup2]]
+
+    variables = {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, plate_var0], [cup_var0, plate_var1],
+         [cup_var1, plate_var0], [cup_var1, plate_var1],
+         [cup_var2, plate_var0], [cup_var2, plate_var1]]
+
+    variables = {cup_var0, cup_var2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, cup_var0], [cup_var0, cup_var2],
+         [cup_var2, cup_var0], [cup_var2, cup_var2]]
+
+
+def test_get_all_atoms_for_predicate():
+    """Tests for get_all_ground_atoms_for_predicate() and
+    get_all_lifted_atoms_for_predicate()."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate_var0 = plate_type("?plate0")
+    plate_var1 = plate_type("?plate1")
+
+    cup_on_plate = Predicate("CupOnPlate", [cup_type, plate_type],
+                             lambda s, o: True)
+    cup_on_cup = Predicate("CupOnCup", [cup_type, cup_type], lambda s, o: True)
+
+    objects = frozenset({cup0, cup1, cup2, plate0, plate1})
+    pred = cup_on_plate
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_plate([cup0, plate0]), cup_on_plate([cup0, plate1]),
+         cup_on_plate([cup1, plate0]), cup_on_plate([cup1, plate1]),
+         cup_on_plate([cup2, plate0]), cup_on_plate([cup2, plate1])}
+
+    objects = frozenset({cup0, cup2})
+    pred = cup_on_cup
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_cup([cup0, cup0]), cup_on_cup([cup0, cup2]),
+         cup_on_cup([cup2, cup0]), cup_on_cup([cup2, cup2])}
+
+    variables = frozenset(
+        {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1})
+    pred = cup_on_plate
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_plate([cup_var0, plate_var0]),
+         cup_on_plate([cup_var0, plate_var1]),
+         cup_on_plate([cup_var1, plate_var0]),
+         cup_on_plate([cup_var1, plate_var1]),
+         cup_on_plate([cup_var2, plate_var0]),
+         cup_on_plate([cup_var2, plate_var1])}
+
+    variables = frozenset({cup_var0, cup_var2})
+    pred = cup_on_cup
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_cup([cup_var0, cup_var0]), cup_on_cup([cup_var0, cup_var2]),
+         cup_on_cup([cup_var2, cup_var0]), cup_on_cup([cup_var2, cup_var2])}
+
+
 def test_find_substitution():
     """Tests for find_substitution()."""
     cup_type = Type("cup_type", ["feat1"])
@@ -2506,6 +2599,61 @@ def test_run_gbfs():
                    _inf_grid_successor_fn,
                    _grid_heuristic_fn,
                    timeout=0.01)
+
+
+def test_run_astar():
+    """Tests for run_astar()."""
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    def _grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        arrival_costs = np.array([
+            [1, 1, 100, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 1, 1, 100, 1],
+            [1, 1, 100, 1, 1],
+        ],
+                                 dtype=float)
+
+        act_to_delta = {
+            "up": (-1, 0),
+            "down": (1, 0),
+            "left": (0, -1),
+            "right": (0, 1),
+        }
+
+        r, c = state
+
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            # Valid action
+            yield (act, (new_r, new_c), arrival_costs[new_r, new_c])
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == (4, 4)
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    initial_state = (0, 0)
+    state_sequence, action_sequence = utils.run_astar(initial_state,
+                                                      _grid_check_goal_fn,
+                                                      _grid_successor_fn,
+                                                      _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
 
 
 def test_run_hill_climbing():
