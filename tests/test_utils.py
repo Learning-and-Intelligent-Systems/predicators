@@ -1283,6 +1283,99 @@ def test_get_all_groundings():
         assert len(sub) == 4  # four variables
 
 
+def test_get_entity_combinations():
+    """Tests for get_object_combinations() and get_variable_combinations()."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate_var0 = plate_type("?plate0")
+    plate_var1 = plate_type("?plate1")
+
+    objects = {cup0, cup1, cup2, plate0, plate1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, plate0], [cup0, plate1],
+         [cup1, plate0], [cup1, plate1],
+         [cup2, plate0], [cup2, plate1]]
+
+    objects = {cup0, cup2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, cup0], [cup0, cup2],
+         [cup2, cup0], [cup2, cup2]]
+
+    variables = {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, plate_var0], [cup_var0, plate_var1],
+         [cup_var1, plate_var0], [cup_var1, plate_var1],
+         [cup_var2, plate_var0], [cup_var2, plate_var1]]
+
+    variables = {cup_var0, cup_var2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, cup_var0], [cup_var0, cup_var2],
+         [cup_var2, cup_var0], [cup_var2, cup_var2]]
+
+
+def test_get_all_atoms_for_predicate():
+    """Tests for get_all_ground_atoms_for_predicate() and
+    get_all_lifted_atoms_for_predicate()."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate_var0 = plate_type("?plate0")
+    plate_var1 = plate_type("?plate1")
+
+    cup_on_plate = Predicate("CupOnPlate", [cup_type, plate_type],
+                             lambda s, o: True)
+    cup_on_cup = Predicate("CupOnCup", [cup_type, cup_type], lambda s, o: True)
+
+    objects = frozenset({cup0, cup1, cup2, plate0, plate1})
+    pred = cup_on_plate
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_plate([cup0, plate0]), cup_on_plate([cup0, plate1]),
+         cup_on_plate([cup1, plate0]), cup_on_plate([cup1, plate1]),
+         cup_on_plate([cup2, plate0]), cup_on_plate([cup2, plate1])}
+
+    objects = frozenset({cup0, cup2})
+    pred = cup_on_cup
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_cup([cup0, cup0]), cup_on_cup([cup0, cup2]),
+         cup_on_cup([cup2, cup0]), cup_on_cup([cup2, cup2])}
+
+    variables = frozenset(
+        {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1})
+    pred = cup_on_plate
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_plate([cup_var0, plate_var0]),
+         cup_on_plate([cup_var0, plate_var1]),
+         cup_on_plate([cup_var1, plate_var0]),
+         cup_on_plate([cup_var1, plate_var1]),
+         cup_on_plate([cup_var2, plate_var0]),
+         cup_on_plate([cup_var2, plate_var1])}
+
+    variables = frozenset({cup_var0, cup_var2})
+    pred = cup_on_cup
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_cup([cup_var0, cup_var0]), cup_on_cup([cup_var0, cup_var2]),
+         cup_on_cup([cup_var2, cup_var0]), cup_on_cup([cup_var2, cup_var2])}
+
+
 def test_find_substitution():
     """Tests for find_substitution()."""
     cup_type = Type("cup_type", ["feat1"])
