@@ -1062,5 +1062,8 @@ LDLRule-MyPickRule:
     ldl4 = LiftedDecisionList([place_rule])
     assert ldl != ldl4
 
+    ldl5 = LiftedDecisionList(rules[:])
+    assert ldl == ldl5
+
     # Make sure lifted decision lists are hashable.
     assert len({ldl, ldl2}) == 1
