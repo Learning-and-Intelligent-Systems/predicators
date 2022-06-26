@@ -339,7 +339,7 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
         for t in range(len(atom_seq) - 1):
             ground_nsrt = utils.query_ldl(ldl, atom_seq[t], goal)
             if ground_nsrt is None:
-                missed_steps += 1
+                missed_steps += 0.5  # ?!?! TODO
             else:
                 predicted_atoms = utils.apply_operator(ground_nsrt,
                                                        atom_seq[t])
