@@ -1515,6 +1515,75 @@ def run_hill_climbing(
     return states, actions, heuristics
 
 
+def run_policy_guided_astar_search(
+        initial_state: _S,
+        check_goal: Callable[[_S], bool],
+        get_valid_actions: Callable[[_S], Iterator[Tuple[_A, float]]],
+        get_next_state: Callable[[_S, _A], _S],
+        heuristic: Callable[[_S], float],
+        policy: Callable[[_S], Optional[_A]],
+        num_rollout_steps: int,
+        rollout_step_cost: float = 0,  # by default, rollout steps are free
+        max_expansions: int = 10000000,
+        max_evals: int = 10000000,
+        timeout: int = 10000000,
+        lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
+    """Perform A* search, but at each node, roll out a given policy for a given
+    number of time steps, creating new successors at each step.
+
+    Stop the roll out prematurely if the policy returns None.
+
+    Note that unlike the other search functions, which take get_successors as
+    input, this function takes get_valid_actions and get_next_state as two
+    separate inputs. This is necessary because we need to anticipate the next
+    state conditioned on the action output by the policy.
+
+    The get_valid_actions generates (action, cost) tuples. For policy-generated
+    transitions, the costs are ignored, and rollout_step_cost is used instead.
+    """
+
+    # Create a new successor function that rolls out the policy first.
+    def get_successors(state: _S) -> Iterator[Tuple[List[_A], _S, float]]:
+        # Get policy-based successors.
+        policy_state = state
+        policy_action_seq = []
+        for _ in range(num_rollout_steps):
+            action = policy(policy_state)
+            if action is None:
+                break
+            policy_state = get_next_state(policy_state, action)
+            policy_action_seq.append(action)
+            yield (list(policy_action_seq), policy_state, rollout_step_cost)
+
+        # Get primitive successors.
+        for action, cost in get_valid_actions(state):
+            next_state = get_next_state(state, action)
+            yield ([action], next_state, cost)
+
+    _, action_subseqs = run_astar(initial_state=initial_state,
+                                  check_goal=check_goal,
+                                  get_successors=get_successors,
+                                  heuristic=heuristic,
+                                  max_expansions=max_expansions,
+                                  max_evals=max_evals,
+                                  timeout=timeout,
+                                  lazy_expansion=lazy_expansion)
+
+    # The states are "jumpy", so we need to reconstruct the dense state
+    # sequence from the action subsequences. We also need to construct a
+    # flat action sequence.
+    state = initial_state
+    state_seq = [state]
+    action_seq = []
+    for action_subseq in action_subseqs:
+        for action in action_subseq:
+            action_seq.append(action)
+            state = get_next_state(state, action)
+            state_seq.append(state)
+
+    return state_seq, action_seq
+
+
 class BiRRT(Generic[_S]):
     """Bidirectional rapidly-exploring random tree."""
 
