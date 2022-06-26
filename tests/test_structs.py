@@ -5,7 +5,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.structs import NSRT, Action, DefaultState, \
+from predicators.src.structs import NSRT, AbstractTask, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
     LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
     ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \
@@ -300,6 +300,30 @@ def test_task(state):
     assert task2.init.allclose(state)
     assert task2.goal == goal2
     assert not task2.goal_holds(task.init)
+
+
+def test_abstract_task():
+    """Tests for AbstractTask class."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("NotOn", [cup_type, plate_type], lambda s, o: False)
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    goal = {pred([cup, plate])}
+    init = {pred([cup, plate])}
+    objects = {cup, plate}
+    abstract_task = AbstractTask(objects, init, goal)
+    assert abstract_task.objects == objects
+    assert abstract_task.init == init
+    assert abstract_task.goal == goal
+    assert abstract_task.goal_holds(init)
+    goal2 = {pred2([cup, plate])}
+    abstract_task2 = AbstractTask(objects, init, goal2)
+    assert abstract_task2.objects == objects
+    assert abstract_task2.init == init
+    assert abstract_task2.goal == goal2
+    assert not abstract_task2.goal_holds(init)
 
 
 def test_option(state):

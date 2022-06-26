@@ -416,6 +416,19 @@ DefaultTask = Task(DefaultState, set())
 
 
 @dataclass(frozen=True, eq=False)
+class AbstractTask:
+    """Struct defining an abstract task, which is an initial ground atoms state
+    and a goal."""
+    objects: Set[Object]
+    init: Set[GroundAtom]
+    goal: Set[GroundAtom]
+
+    def goal_holds(self, atoms: Collection[GroundAtom]) -> bool:
+        """Return whether the goal of this task holds in the given atoms."""
+        return self.goal.issubset(set(atoms))
+
+
+@dataclass(frozen=True, eq=False)
 class ParameterizedOption:
     """Struct defining a parameterized option, which has a parameter space and
     can be ground into an Option, given parameter values.

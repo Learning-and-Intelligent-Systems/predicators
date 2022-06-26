@@ -18,7 +18,7 @@ from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type, Variable
+    State, STRIPSOperator, Task, Type, Variable
 from predicators.src.utils import GoalCountHeuristic, \
     _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
 
@@ -985,6 +985,30 @@ def test_abstract():
     }
     # Wrapping a predicate should destroy its classifier.
     assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
+
+
+def test_create_abstract_task():
+    """Tests for create_abstract_task()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: False)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    state = State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
+    goal = {on([cup1, plate1])}
+    task = Task(state, goal)
+    abstract_task = utils.create_abstract_task(task, {on, not_on})
+    assert abstract_task.objects == {cup1, cup2, plate1, plate2}
+    assert abstract_task.init == {
+        on([cup1, plate1]),
+        on([cup1, plate2]),
+        on([cup2, plate1]),
+        on([cup2, plate2])
+    }
+    assert abstract_task.goal == goal
 
 
 def test_powerset():

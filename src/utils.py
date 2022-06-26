@@ -35,8 +35,8 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 
 from predicators.src.args import create_arg_parser
 from predicators.src.settings import CFG, GlobalSettings
-from predicators.src.structs import NSRT, Action, Array, DummyOption, \
-    EntToEntSub, GroundAtom, GroundAtomTrajectory, \
+from predicators.src.structs import NSRT, AbstractTask, Action, Array, \
+    DummyOption, EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
@@ -1620,6 +1620,15 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
     return atoms
+
+
+def create_abstract_task(task: Task,
+                         preds: Collection[Predicate]) -> AbstractTask:
+    """Create an abstract task from a task given a set of predicates."""
+    objects = set(task.init)
+    init = abstract(task.init, preds)
+    goal = set(task.goal)
+    return AbstractTask(objects, init, goal)
 
 
 def all_ground_operators(
