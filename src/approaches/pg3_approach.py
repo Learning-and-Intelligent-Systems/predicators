@@ -424,7 +424,7 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
         def policy(atoms: _S) -> Optional[_GroundNSRT]:
             return utils.query_ldl(ldl, set(atoms), goal)
 
-        planned_frozen_atom_seq, _ = utils.run_policy_guided_astar_search(
+        planned_frozen_atom_seq, _ = utils.run_policy_guided_astar(
             initial_state=frozenset(init),
             check_goal=check_goal,
             get_valid_actions=get_valid_actions,
