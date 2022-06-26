@@ -2601,6 +2601,61 @@ def test_run_gbfs():
                    timeout=0.01)
 
 
+def test_run_astar():
+    """Tests for run_astar()."""
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    def _grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        arrival_costs = np.array([
+            [1, 1, 100, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 1, 1, 100, 1],
+            [1, 1, 100, 1, 1],
+        ],
+                                 dtype=float)
+
+        act_to_delta = {
+            "up": (-1, 0),
+            "down": (1, 0),
+            "left": (0, -1),
+            "right": (0, 1),
+        }
+
+        r, c = state
+
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            # Valid action
+            yield (act, (new_r, new_c), arrival_costs[new_r, new_c])
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == (4, 4)
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    initial_state = (0, 0)
+    state_sequence, action_sequence = utils.run_astar(initial_state,
+                                                      _grid_check_goal_fn,
+                                                      _grid_successor_fn,
+                                                      _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
+
 def test_run_hill_climbing():
     """Tests for run_hill_climbing()."""
     S = Tuple[int, int]  # grid (row, col)

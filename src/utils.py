@@ -1408,6 +1408,21 @@ def run_gbfs(initial_state: _S,
                                  timeout, lazy_expansion)
 
 
+def run_astar(initial_state: _S,
+              check_goal: Callable[[_S], bool],
+              get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+              heuristic: Callable[[_S], float],
+              max_expansions: int = 10000000,
+              max_evals: int = 10000000,
+              timeout: int = 10000000,
+              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
+    """A* search."""
+    get_priority = lambda n: heuristic(n.state) + n.cumulative_cost
+    return _run_heuristic_search(initial_state, check_goal, get_successors,
+                                 get_priority, max_expansions, max_evals,
+                                 timeout, lazy_expansion)
+
+
 def run_hill_climbing(
         initial_state: _S,
         check_goal: Callable[[_S], bool],
