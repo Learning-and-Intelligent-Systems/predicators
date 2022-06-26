@@ -7,7 +7,7 @@ policy is executed in the environment, and the process repeats.
 """
 
 import abc
-from typing import Callable, Set
+from typing import Callable, Dict, Set
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
@@ -23,7 +23,7 @@ class NSRTMetacontrollerApproach(NSRTLearningApproach):
 
     @abc.abstractmethod
     def _predict(self, state: State, atoms: Set[GroundAtom],
-                 goal: Set[GroundAtom]) -> _GroundNSRT:
+                 goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:
         """Get a next ground NSRT to refine.
 
         This is the main method defining the metacontroller.
@@ -32,12 +32,13 @@ class NSRTMetacontrollerApproach(NSRTLearningApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         cur_option = DummyOption
+        memory = {}  # optionally updated by predict()
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
-                ground_nsrt = self._predict(state, atoms, task.goal)
+                ground_nsrt = self._predict(state, atoms, task.goal, memory)
                 cur_option = self._sample_option_from_nsrt(
                     ground_nsrt, state, atoms, task.goal)
             act = cur_option.policy(state)

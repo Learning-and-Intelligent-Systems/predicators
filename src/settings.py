@@ -225,6 +225,10 @@ class GlobalSettings:
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
 
+    # parameters for LLM approaches
+    llm_model_name = "text-curie-001"  # more expensive: "text-davinci-002"
+    llm_max_tokens = 250
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
