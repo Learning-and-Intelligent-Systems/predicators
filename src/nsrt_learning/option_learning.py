@@ -5,15 +5,20 @@ from __future__ import annotations
 import abc
 import copy
 import logging
-from typing import Dict, List, Sequence, Set, Tuple
+from typing import Dict, List, Sequence, Set, Tuple, Union, cast
 
 import numpy as np
+import torch
+import torch.autograd
+import torch.nn as nn
+import torch.optim as optim
 from gym.spaces import Box
+from numpy.typing import NDArray
 
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.ml_models import ImplicitMLPRegressor, MLPRegressor, \
-    Regressor
+from predicators.src.ml_models import Critic, ImplicitMLPRegressor, \
+    MLPRegressor, Regressor
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Datastore, Object, \
     OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
@@ -41,6 +46,8 @@ def create_rl_option_learner() -> _RLOptionLearnerBase:
     """Create an RL option learner given its name."""
     if CFG.nsrt_rl_option_learner == "dummy_rl":
         return _DummyRLOptionLearner()
+    if CFG.nsrt_rl_option_learner == "ddpg":
+        return _DDPGAgent()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -314,7 +321,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         else:
             params_space = Box(0, 1, (0, ), dtype=np.float32)
         self.operator = operator
-        self._regressor = regressor
+        self.regressor = regressor
         self._changing_var_to_feat = changing_var_to_feat
         self._changing_var_order = changing_var_order
         self._action_space = action_space
@@ -356,7 +363,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         else:
             relative_goal_vec = []
         x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
-        action_arr = self._regressor.predict(x)
+        action_arr = self.regressor.predict(x)
         if np.isnan(action_arr).any():
             raise OptionExecutionFailure("Option policy returned nan.")
         action_arr = np.clip(action_arr, self._action_space.low,
@@ -399,6 +406,46 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         subgoal_state_changing_feat = memory["absolute_params"]
         relative_param = subgoal_state_changing_feat - curr_state_changing_feat
         return relative_param
+
+    def get_noisy_option(self) -> _NoisyNeuralParameterizedOption:
+        return _NoisyNeuralParameterizedOption(self.name, self.operator,
+                                               self.regressor,
+                                               self._changing_var_to_feat,
+                                               self._changing_var_order,
+                                               self._action_space,
+                                               self._is_parameterized)
+
+
+class _NoisyNeuralParameterizedOption(_LearnedNeuralParameterizedOption):
+    """Same as a _LearnedNeuralParameterizedOption except adds noise to the
+    action to encourage exploration for use in RL-based approaches."""
+
+    def __init__(self,
+                 name: str,
+                 operator: STRIPSOperator,
+                 regressor: Regressor,
+                 changing_var_to_feat: Dict[Variable, List[int]],
+                 changing_var_order: List[Variable],
+                 action_space: Box,
+                 is_parameterized: bool = True) -> None:
+        super(_NoisyNeuralParameterizedOption,
+              self).__init__(name, operator, regressor, changing_var_to_feat,
+                             changing_var_order, action_space,
+                             is_parameterized)
+        self.noise = OUNoise(action_space)
+        self.counter = 0
+
+    def _regressor_based_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+        self.counter += 1
+        # Note that this clips the action before passing it to the noise process
+        # and then clips it again after.
+        action = super(_NoisyNeuralParameterizedOption,
+                       self)._regressor_based_policy(state, memory, objects,
+                                                     params).arr
+        perturbed_action = self.noise.get_action(action, self.counter)
+        return Action(np.array(perturbed_action, dtype=np.float32))
 
 
 class _BehaviorCloningOptionLearner(_OptionLearnerBase):
@@ -619,8 +666,10 @@ class _RLOptionLearnerBase(abc.ABC):
     @abc.abstractmethod
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[List[Tuple[State, Array, Action, int, State]]]
-    ) -> _LearnedNeuralParameterizedOption:
+        experience: List[List[Tuple[State, Array, Action, int, State, Array,
+                                    bool]]]
+    ) -> Union[_NoisyNeuralParameterizedOption,
+               _LearnedNeuralParameterizedOption]:
         """Updates a _LearnedNeuralParameterizedOption via reinforcement
         learning.
 
@@ -636,14 +685,213 @@ class _DummyRLOptionLearner(_RLOptionLearnerBase):
 
     def update(
         self, option: _LearnedNeuralParameterizedOption,
-        experience: List[List[Tuple[State, Array, Action, int, State]]]
+        experience: List[List[Tuple[State, Array, Action, int, State, Array,
+                                    bool]]]
     ) -> _LearnedNeuralParameterizedOption:
-        # Don't actually update the option at all.
-        # Update would be made to option._regressor, which requires changing the
-        # code in ml_models.py so that you can train without re-initializing the
-        # network. Update would also be made to the policy of the parameterized
-        # option itself, e.g. to perform both exploitation and exploration.
+        # Don't actually update the option at all. Updates would be made to the
+        # option's regressor.
         return copy.deepcopy(option)
+
+
+class ReplayBuffer:
+    """A relay buffer for an RL agent."""
+
+    def __init__(self, seed: int, max_size: int, state_dim: int,
+                 action_dim: int) -> None:
+        self._rng = np.random.default_rng(seed)
+        self._seed = seed
+        self._size = max_size
+        self._counter = 0
+        self._state_memory = np.zeros((self._size, state_dim),
+                                      dtype=np.float32)
+        self._next_state_memory = np.zeros((self._size, state_dim),
+                                           dtype=np.float32)
+        self._action_memory = np.zeros((self._size, action_dim),
+                                       dtype=np.float32)
+        self._reward_memory = np.zeros(self._size, dtype=np.float32)
+        self._terminal_memory = np.zeros(self._size, dtype=np.bool_)
+
+    def store_transition(self, state: Array, action: Action, reward: int,
+                         next_state: Array, done: bool) -> None:
+        index = self._counter % self._size
+        self._state_memory[index] = state
+        self._action_memory[index] = action.arr
+        self._reward_memory[index] = reward
+        self._next_state_memory[index] = next_state
+        self._terminal_memory[index] = done
+        self._counter += 1
+
+    def sample(self,
+               batch_size: int) -> Tuple[Array, Array, Array, Array, NDArray]:
+        filled = min(self._counter, self._size)
+        batch = self._rng.choice(filled, batch_size)
+        states = self._state_memory[batch]
+        actions = self._action_memory[batch]
+        rewards = self._reward_memory[batch]
+        next_states = self._next_state_memory[batch]
+        done = self._terminal_memory[batch]
+        return states, actions, rewards, next_states, done
+
+
+class OUNoise:
+    """Ornstein-Uhlenbeck Process to be used to encourage exploration in RL
+    algorithms.
+
+    Derived from https://github.com/vitchyr/rlkit/blob/master/rlkit/exploration_
+    strategies/ou_strategy.py.
+    """
+
+    def __init__(self,
+                 action_space: Box,
+                 mu: float = 0.0,
+                 theta: float = 0.15,
+                 max_sigma: float = 0.3,
+                 min_sigma: float = 0.3,
+                 decay_period: int = 100000):
+        self.mu = mu
+        self.theta = theta
+        self.sigma = max_sigma
+        self.max_sigma = max_sigma
+        self.min_sigma = min_sigma
+        self.decay_period = decay_period
+        self.action_dim = action_space.shape[0]
+        self.low = action_space.low
+        self.high = action_space.high
+        self.reset()
+
+    def reset(self) -> None:
+        self.state = np.ones(self.action_dim) * self.mu
+
+    def evolve_state(self) -> Array:
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(
+            self.action_dim)
+        self.state = x + dx
+        return self.state
+
+    def get_action(self, action: Array, t: int = 0) -> Array:
+        ou_state = self.evolve_state()
+        self.sigma = self.max_sigma - (self.max_sigma - self.min_sigma) * min(
+            1.0, t / self.decay_period)
+        return np.clip(action + ou_state, self.low, self.high)
+
+
+class _DDPGAgent(_RLOptionLearnerBase):
+    """Updates the policy via Deep Deterministic Policy Gradient
+    (https://arxiv.org/abs/1509.02971).
+
+    Note that DDPG is not executed exactly: "episodes" in the algorithm
+    correspond to "online learning cycles" in our code, and we update
+    the critic and actor after a large set of interactions, not after
+    each interaction with the environment.
+    """
+
+    def __init__(self) -> None:
+        self._initialized = False
+        self._seed = CFG.seed
+        self._batch_size = CFG.nsrt_rl_batch_size
+        self._tau = CFG.nsrt_rl_tau  # polyak averaging parameter
+        self._gamma = CFG.nsrt_rl_discount_factor  # RL discount factor
+        self._max_size = CFG.nsrt_rl_replay_buffer_size
+
+    def update(
+        self, option: _LearnedNeuralParameterizedOption,
+        experience: List[List[Tuple[State, Array, Action, int, State, Array,
+                                    bool]]]
+    ) -> Union[_NoisyNeuralParameterizedOption,
+               _LearnedNeuralParameterizedOption]:
+        # If not initialized, create replay buffer and actor-critic networks.
+        if not self._initialized:
+            # Initialize replay buffer.
+            example_option_run = experience[0]
+            example_transition = example_option_run[0]
+            state_dim = example_transition[1].shape[0]
+            action_dim = example_transition[2].arr.shape[0]
+            self._replay_buffer = ReplayBuffer(CFG.seed, self._max_size,
+                                               state_dim, action_dim)
+
+            # Note that the actor has _x_dim and _y_dim set
+            # already.
+            self._actor = cast(MLPRegressor, option.regressor)
+            self._target_actor = copy.deepcopy(self._actor)
+            input_dim = self._actor._x_dim
+            output_dim = self._actor._y_dim
+            self._critic = Critic(CFG.nsrt_rl_critic_regressor_hid_sizes,
+                                  state_dim + action_dim)
+            self._critic_loss_fn = nn.MSELoss()
+            self._target_critic = copy.deepcopy(self._critic)
+            self._actor_optimizer = optim.Adam(
+                self._actor.parameters(), lr=CFG.nsrt_rl_actor_learning_rate)
+            self._critic_optimizer = optim.Adam(
+                self._critic.parameters(), lr=CFG.nsrt_rl_critic_learning_rate)
+
+            self._initialized = True
+
+        # Store experience in replay buffer
+        for run in experience:
+            for transition in run:
+                state, state_input, action, reward, next_state, next_state_input, done = transition
+                self._replay_buffer.store_transition(state_input, action,
+                                                     reward, next_state_input,
+                                                     done)
+        print("Finished storing experience, len: ", self._replay_buffer._counter)
+
+        # Sample a batch and update in a loop
+        # TODO(ashay): save the networks that has the best loss / track loss changes
+        for i in range(CFG.nsrt_rl_ddpg_iters):
+            # TODO(ashay): should our batch size be much bigger, since we aren't
+            # updating our actor and critic for each t in [1, T], but instead just
+            # doing one update?
+            if self._replay_buffer._counter < self._batch_size:
+                return copy.deepcopy(option)
+            states_, actions_, rewards_, next_states_, done_ = self._replay_buffer.sample(
+                self._batch_size)
+            states = torch.from_numpy(states_)
+            actions = torch.from_numpy(actions_)
+            rewards = torch.from_numpy(rewards_).view((self._batch_size, 1))
+            next_states = torch.from_numpy(next_states_)
+            dones = torch.from_numpy(done_)
+
+            # Update networks
+            # TODO(ashay): clip gradients?
+            self._critic.eval()
+            self._target_actor.eval()
+            self._target_critic.eval()
+            next_actions = self._target_actor.forward(next_states)
+            next_Q_values = self._target_critic.forward(next_states, next_actions)
+            next_Q_values[dones] = 0.0
+            Q_target_values = rewards + self._gamma * next_Q_values
+            Q_values = self._critic.forward(states, actions)
+
+            self._critic.train()
+            self._critic_optimizer.zero_grad()
+            critic_loss = self._critic_loss_fn(Q_values, Q_target_values)
+            critic_loss.backward()
+            self._critic_optimizer.step()
+
+            self._critic.eval()
+            self._actor_optimizer.zero_grad()
+            mus = self._actor.forward(states)
+            self._actor.train()
+            actor_loss = -1 * self._critic.forward(states, mus).mean()
+            actor_loss.backward()  # type: ignore
+            self._actor_optimizer.step()
+
+            # Update target networks
+            for target_param, param in zip(self._target_actor.parameters(),
+                                           self._actor.parameters()):
+                target_param.data.copy_(param.data * self._tau +
+                                        target_param.data * (1.0 - self._tau))
+            for target_param, param in zip(self._target_critic.parameters(),
+                                           self._critic.parameters()):
+                target_param.data.copy_(param.data * self._tau +
+                                        target_param.data * (1.0 - self._tau))
+
+        # Replace regressor of our option and then turn it into a noisy option
+        # so that we get some exploration.
+        option.regressor = copy.deepcopy(self._actor)
+        print("Reached end of update")
+        return option.get_noisy_option()
 
 
 def _create_absolute_option_param(state: State,

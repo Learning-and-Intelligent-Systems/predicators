@@ -222,8 +222,16 @@ class GlobalSettings:
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
     nsrt_rl_pos_reward = 0
     nsrt_rl_neg_reward = -1
-    nsrt_rl_option_learner = "dummy_rl"
+    nsrt_rl_option_learner = "ddpg"
     nsrt_rl_valid_reward_steps_threshold = 10
+    nsrt_rl_batch_size = 200
+    nsrt_rl_tau = 1e-2
+    nsrt_rl_discount_factor = 0.99
+    nsrt_rl_replay_buffer_size = 50000
+    nsrt_rl_critic_regressor_hid_sizes = [64, 64]
+    nsrt_rl_actor_learning_rate = 1e-4
+    nsrt_rl_critic_learning_rate = 1e-3
+    nsrt_rl_ddpg_iters = 10000
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
