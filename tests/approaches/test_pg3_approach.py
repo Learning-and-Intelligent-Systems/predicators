@@ -1,18 +1,71 @@
 """Test cases for the PG3 approach."""
 
+import os
+
+import pytest
+
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, create_approach
-from predicators.src.approaches.pg3_approach import _PolicyGuidedPG3Heuristic, _PolicyEvaluationPG3Heuristic, _DemoPlanComparisonPG3Heuristic, _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator
+from predicators.src.approaches import ApproachFailure
+from predicators.src.approaches.pg3_approach import PG3Approach, \
+    _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
+    _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
+    _PolicyGuidedPG3Heuristic
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.settings import CFG
 from predicators.src.structs import LDLRule, LiftedDecisionList
 
 
 def test_pg3_approach():
     """Tests for PG3Approach()."""
-    import ipdb; ipdb.set_trace()
+    env_name = "pddl_easy_delivery_procedural_tasks"
+    utils.reset_config({
+        "env": env_name,
+        "approach": "pg3",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "strips_learner": "oracle",
+        "pg3_heuristic": "plan_comparison",  # faster for tests
+    })
+    env = create_new_env(env_name)
+    train_tasks = env.get_train_tasks()
+    approach = PG3Approach(env.predicates, env.options, env.types,
+                           env.action_space, train_tasks)
+    assert approach.get_name() == "pg3"
+
+    # Test meta-controller prediction.
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+    pick_up_nsrt = name_to_nsrt["pick-up"]
+    pick_up_rule = LDLRule(name="MyPickUp",
+                           parameters=pick_up_nsrt.parameters,
+                           pos_state_preconditions=set(
+                               pick_up_nsrt.preconditions),
+                           neg_state_preconditions=set(),
+                           goal_preconditions=set(),
+                           nsrt=pick_up_nsrt)
+    ldl = LiftedDecisionList([pick_up_rule])
+    approach._current_ldl = ldl  # pylint: disable=protected-access
+    task = train_tasks[0]
+    policy = approach.solve(task, timeout=500)
+    act = policy(task.init)
+    option = act.get_option()
+    assert option.name == "pick-up"
+    assert str(option.objects) == "[paper-0:paper, loc-0:loc]"
+    ldl = LiftedDecisionList([])
+    approach._current_ldl = ldl  # pylint: disable=protected-access
+    policy = approach.solve(task, timeout=500)
+    with pytest.raises(ApproachFailure) as e:
+        _ = policy(task.init)
+    assert "PG3 policy was not applicable!" in str(e)
+
+    # Test learning with a fast heuristic.
+    dataset = create_dataset(env, train_tasks, env.options)
+    approach.learn_from_offline_dataset(dataset)
+    load_path = utils.get_approach_load_path_str()
+    expected_policy_file = f"{load_path}_None.ldl"
+    assert os.path.exists(expected_policy_file)
+    approach.load(None)
 
 
 def test_pg3_search_operators():
@@ -193,17 +246,17 @@ def test_pg3_heuristics():
     # The policy-guided heuristic should strictly decrease.
     heuristic = _PolicyGuidedPG3Heuristic(env.predicates, nsrts,
                                           ground_atom_trajectories,
-                                          train_tasks)    
+                                          train_tasks)
     score_sequence = [heuristic(ldl) for ldl in policy_sequence]
-    for i in range(len(score_sequence)-1):
-        assert score_sequence[i] > score_sequence[i+1]
+    for i in range(len(score_sequence) - 1):
+        assert score_sequence[i] > score_sequence[i + 1]
 
     # The baseline score functions should decrease (not strictly).
-    for heuristic_cls in [_PolicyEvaluationPG3Heuristic,
-                          _DemoPlanComparisonPG3Heuristic]:
+    for heuristic_cls in [
+            _PolicyEvaluationPG3Heuristic, _DemoPlanComparisonPG3Heuristic
+    ]:
         heuristic = heuristic_cls(env.predicates, nsrts,
-                                              ground_atom_trajectories,
-                                              train_tasks)    
+                                  ground_atom_trajectories, train_tasks)
         score_sequence = [heuristic(ldl) for ldl in policy_sequence]
-        for i in range(len(score_sequence)-1):
-            assert score_sequence[i] >= score_sequence[i+1]
+        for i in range(len(score_sequence) - 1):
+            assert score_sequence[i] >= score_sequence[i + 1]
