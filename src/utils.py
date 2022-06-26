@@ -39,10 +39,10 @@ from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
-    Segment, State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
-    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
+    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1091,19 +1091,33 @@ def get_all_groundings(
     return result
 
 
-def get_object_combinations(objects: Collection[Object],
-                            types: Sequence[Type]) -> Iterator[List[Object]]:
-    """Get all combinations of objects satisfying the given types sequence."""
-    sorted_objects = sorted(objects)
+def _get_entity_combinations(
+        entities: Collection[ObjectOrVariable],
+        types: Sequence[Type]) -> Iterator[List[ObjectOrVariable]]:
+    """Get all combinations of entities satisfying the given types sequence."""
+    sorted_entities = sorted(entities)
     choices = []
     for vt in types:
         this_choices = []
-        for obj in sorted_objects:
-            if obj.is_instance(vt):
-                this_choices.append(obj)
+        for ent in sorted_entities:
+            if ent.is_instance(vt):
+                this_choices.append(ent)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
+
+
+def get_object_combinations(objects: Collection[Object],
+                            types: Sequence[Type]) -> Iterator[List[Object]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return _get_entity_combinations(objects, types)
+
+
+def get_variable_combinations(
+        variables: Collection[Variable],
+        types: Sequence[Type]) -> Iterator[List[Variable]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return _get_entity_combinations(variables, types)
 
 
 @functools.lru_cache(maxsize=None)
@@ -1115,6 +1129,18 @@ def get_all_ground_atoms_for_predicate(
         ground_atom = GroundAtom(predicate, args)
         ground_atoms.add(ground_atom)
     return ground_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_lifted_atoms_for_predicate(
+        predicate: Predicate,
+        variables: FrozenSet[Variable]) -> Set[LiftedAtom]:
+    """Get all groundings of the predicate given variables."""
+    lifted_atoms = set()
+    for args in get_variable_combinations(variables, predicate.types):
+        lifted_atom = LiftedAtom(predicate, args)
+        lifted_atoms.add(lifted_atom)
+    return lifted_atoms
 
 
 @functools.lru_cache(maxsize=None)
