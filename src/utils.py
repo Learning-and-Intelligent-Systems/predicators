@@ -1515,7 +1515,7 @@ def run_hill_climbing(
     return states, actions, heuristics
 
 
-def run_policy_guided_astar_search(
+def run_policy_guided_astar(
         initial_state: _S,
         check_goal: Callable[[_S], bool],
         get_valid_actions: Callable[[_S], Iterator[Tuple[_A, float]]],
