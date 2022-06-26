@@ -75,6 +75,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         """Convert the output of the LLM into an abstract plan."""
         nsrt_name_to_nsrt = {n.name: n for n in self._get_current_nsrts()}
         obj_name_to_obj = {o.name: o for o in objects}
+        # TODO: finish me
         import ipdb; ipdb.set_trace()
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
