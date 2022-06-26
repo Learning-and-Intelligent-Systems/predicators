@@ -24,13 +24,15 @@ def test_policy_guided_heuristic():
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks, env.options)
-    ground_atom_trajectories = utils.create_ground_atom_dataset(dataset.trajectories, env.predicates)
-    abstract_train_tasks = [utils.create_abstract_task(t, env.predicates)
-                            for t in train_tasks]
+    ground_atom_trajectories = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    abstract_train_tasks = [
+        utils.create_abstract_task(t, env.predicates) for t in train_tasks
+    ]
     nsrts = get_gt_nsrts(env.predicates, env.options)
     heuristic = _PolicyGuidedPG3Heuristic(abstract_train_tasks,
-                 ground_atom_trajectories,
-                 env.predicates, nsrts)
+                                          ground_atom_trajectories,
+                                          env.predicates, nsrts)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     deliver_nsrt = name_to_nsrt["deliver"]
     pick_up_nsrt = name_to_nsrt["pick-up"]
@@ -39,27 +41,25 @@ def test_policy_guided_heuristic():
     satisfied = name_to_pred["satisfied"]
     wantspaper = name_to_pred["wantspaper"]
 
-    pick_up_rule = LDLRule(
-        name="PickUp",
-        parameters=pick_up_nsrt.parameters,
-        pos_state_preconditions=set(pick_up_nsrt.preconditions),
-        neg_state_preconditions=set(),
-        goal_preconditions=set(),
-        nsrt=pick_up_nsrt
-    )
+    pick_up_rule = LDLRule(name="PickUp",
+                           parameters=pick_up_nsrt.parameters,
+                           pos_state_preconditions=set(
+                               pick_up_nsrt.preconditions),
+                           neg_state_preconditions=set(),
+                           goal_preconditions=set(),
+                           nsrt=pick_up_nsrt)
 
     paper, loc = deliver_nsrt.parameters
     assert "paper" in str(paper)
     assert "loc" in str(loc)
 
-    deliver_rule1 = LDLRule(
-        name="Deliver",
-        parameters=[loc, paper],
-        pos_state_preconditions=set(deliver_nsrt.preconditions),
-        neg_state_preconditions=set(),
-        goal_preconditions=set(),
-        nsrt=deliver_nsrt
-    )
+    deliver_rule1 = LDLRule(name="Deliver",
+                            parameters=[loc, paper],
+                            pos_state_preconditions=set(
+                                deliver_nsrt.preconditions),
+                            neg_state_preconditions=set(),
+                            goal_preconditions=set(),
+                            nsrt=deliver_nsrt)
 
     deliver_rule2 = LDLRule(
         name="Deliver",
@@ -67,21 +67,18 @@ def test_policy_guided_heuristic():
         pos_state_preconditions=set(deliver_nsrt.preconditions),
         neg_state_preconditions={satisfied([loc])},  # different
         goal_preconditions=set(),
-        nsrt=deliver_nsrt
-    )
+        nsrt=deliver_nsrt)
 
     from_loc, to_loc = move_nsrt.parameters
     assert "from" in str(from_loc)
     assert "to" in str(to_loc)
 
-    move_rule1 = LDLRule(
-        name="Move",
-        parameters=[from_loc, to_loc],
-        pos_state_preconditions=set(move_nsrt.preconditions),
-        neg_state_preconditions=set(),
-        goal_preconditions=set(),
-        nsrt=move_nsrt
-    )
+    move_rule1 = LDLRule(name="Move",
+                         parameters=[from_loc, to_loc],
+                         pos_state_preconditions=set(move_nsrt.preconditions),
+                         neg_state_preconditions=set(),
+                         goal_preconditions=set(),
+                         nsrt=move_nsrt)
 
     move_rule2 = LDLRule(
         name="Move",
@@ -111,4 +108,5 @@ def test_policy_guided_heuristic():
     score_sequence = [heuristic(ldl) for ldl in policy_sequence]
 
     # TODO
-    import ipdb; ipdb.set_trace()
+    import ipdb
+    ipdb.set_trace()
