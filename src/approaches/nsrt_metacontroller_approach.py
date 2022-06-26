@@ -1,5 +1,5 @@
-"""An abstract approach implements a policy in the abstract transition space
-instead of task planning.
+"""An abstract approach that implements a policy in the abstract transition
+space instead of task planning.
 
 For each ground NSRT, we sample continuous parameters until the expected
 atoms check is satisfied, and use those to produce an option. The option
