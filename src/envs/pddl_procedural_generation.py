@@ -158,6 +158,7 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
             init_strs.add(f"(isHomeBase {loc})")
             init_strs.add(f"(at {loc})")
             init_strs.add(f"(safe {loc})")
+            init_strs.add(f"(satisfied {loc})")
         if loc in target_locs:
             init_strs.add(f"(wantsPaper {loc})")
             init_strs.add(f"(safe {loc})")
