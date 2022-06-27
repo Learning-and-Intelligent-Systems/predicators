@@ -378,15 +378,15 @@ class BehaviorEnv(BaseEnv):
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         """Maintains a mapping of objects to underlying igibson objects."""
         return self._name_to_ig_object(obj.name)
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
-            # Name is extended with sub-type in some behavior tasks
+            # Name is extended with sub-type in some b ehavior tasks
             if self._ig_object_name(ig_obj).startswith(name):
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")
@@ -439,8 +439,17 @@ class BehaviorEnv(BaseEnv):
             if not s.allclose(
                     self.current_ig_state_to_state(save_state=False)):
                 load_checkpoint_state(s, self)
-            if not np.allclose(self.object_to_ig_object(o[0]).states[Pose].get_value()[0], np.array(self.object_to_ig_object(o[0]).get_position()), atol=1e-1):
-                import ipdb; ipdb.set_trace()
+            # if not np.allclose(self.object_to_ig_object(o[0]).states[Pose].get_value()[0], np.array(self.object_to_ig_object(o[0]).get_position()), atol=1e-1):
+            #     import ipdb; ipdb.set_trace()
+            #     task_notebook = None
+            #     for obj in self.igibson_behavior_env.task_relevant_objects:
+            #         if 'notebook' in obj.name:
+            #             task_notebook = str(obj)
+            #     for obj in self.igibson_behavior_env.simulator.scene.get_objects():
+            #         if 'notebook' in obj.name:
+            #             import ipdb; ipdb.set_trace()
+            #             if str(obj) != task_notebook:
+            #                 import ipdb; ipdb.set_trace()
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
