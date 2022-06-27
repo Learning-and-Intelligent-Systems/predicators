@@ -987,23 +987,6 @@ def test_abstract():
     assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
 
 
-def test_powerset():
-    """Tests for powerset()."""
-    lst = [3, 1, 2]
-    pwr = list(utils.powerset(lst, exclude_empty=False))
-    assert len(pwr) == len(set(pwr)) == 8
-    assert tuple(lst) in pwr
-    assert tuple() in pwr
-    pwr = list(utils.powerset(lst, exclude_empty=True))
-    assert len(pwr) == len(set(pwr)) == 7
-    assert tuple(lst) in pwr
-    assert tuple() not in pwr
-    for s in utils.powerset(lst, exclude_empty=False):
-        assert set(s).issubset(set(lst))
-    assert not list(utils.powerset([], exclude_empty=True))
-    assert list(utils.powerset([], exclude_empty=False)) == [tuple()]
-
-
 def test_create_new_variables():
     """Tests for create_new_variables()."""
     cup_type = Type("cup", ["feat1"])
@@ -1231,56 +1214,6 @@ def test_get_random_object_combination():
     assert len(set(objs)) == 1
     objs = utils.get_random_object_combination({cup0}, [plate_type], rng)
     assert objs is None  # no object of type plate
-
-
-def test_get_all_groundings():
-    """Tests for get_all_groundings()."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat2"])
-    cup0 = cup_type("cup0")
-    cup1 = cup_type("cup1")
-    cup2 = cup_type("cup2")
-    cup_var = cup_type("?cup")
-    plate0 = plate_type("plate0")
-    plate1 = plate_type("plate1")
-    plate2 = plate_type("plate2")
-    plate3 = plate_type("plate3")
-    plate_var1 = plate_type("?plate1")
-    plate_var2 = plate_type("?plate2")
-    plate_var3 = plate_type("?plate3")
-    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
-    pred2 = Predicate("Pred2", [cup_type, plate_type, plate_type],
-                      lambda s, o: True)
-    lifted_atoms = frozenset({
-        pred1([cup_var, plate_var1]),
-        pred2([cup_var, plate_var1, plate_var2])
-    })
-    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
-    start_time = time.time()
-    for _ in range(10000):
-        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
-    assert time.time() - start_time < 1, "Should be fast due to caching"
-    # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 4 options for plate_var2, bringing the total to 48.
-    assert len(all_groundings) == 48
-    for grounding, sub in all_groundings:
-        assert len(grounding) == len(lifted_atoms)
-        assert len(sub) == 3  # three variables
-    lifted_atoms = frozenset({
-        pred1([cup_var, plate_var1]),
-        pred2([cup_var, plate_var2, plate_var3])
-    })
-    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
-    start_time = time.time()
-    for _ in range(10000):
-        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
-    assert time.time() - start_time < 1, "Should be fast due to caching"
-    # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 4*4 options, bringing the total to 12*16.
-    assert len(all_groundings) == 12 * 16
-    for grounding, sub in all_groundings:
-        assert len(grounding) == len(lifted_atoms)
-        assert len(sub) == 4  # four variables
 
 
 def test_get_entity_combinations():
@@ -1799,8 +1732,8 @@ def test_prune_ground_atom_dataset():
     assert pruned_dataset4[0][1][0] == set()
 
 
-def test_ground_atom_methods():
-    """Tests for all_ground_predicates(), all_possible_ground_atoms()."""
+def test_all_possible_ground_atoms():
+    """Tests for all_possible_ground_atoms()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: False)
@@ -1824,8 +1757,6 @@ def test_ground_atom_methods():
         GroundAtom(not_on, [cup2, plate2])
     }
     ground_atoms = sorted(on_ground | not_on_ground)
-    assert utils.all_ground_predicates(on, objects) == on_ground
-    assert utils.all_ground_predicates(not_on, objects) == not_on_ground
     assert utils.all_possible_ground_atoms(state, {on, not_on}) == ground_atoms
     assert not utils.abstract(state, {on, not_on})
 

@@ -1068,29 +1068,6 @@ def action_arrs_to_policy(
     return _policy
 
 
-@functools.lru_cache(maxsize=None)
-def get_all_groundings(
-    atoms: FrozenSet[LiftedAtom], objects: FrozenSet[Object]
-) -> List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
-    """Get all the ways to ground the given set of lifted atoms into a set of
-    ground atoms, using the given objects.
-
-    Returns a list of (ground atoms, substitution dictionary) tuples.
-    """
-    variables = set()
-    for atom in atoms:
-        variables.update(atom.variables)
-    sorted_variables = sorted(variables)
-    types = [var.type for var in sorted_variables]
-    # NOTE: We WON'T use a generator here because that breaks lru_cache.
-    result = []
-    for choice in get_object_combinations(objects, types):
-        sub: VarToObjSub = dict(zip(sorted_variables, choice))
-        ground_atoms = {atom.ground(sub) for atom in atoms}
-        result.append((frozenset(ground_atoms), sub))
-    return result
-
-
 def _get_entity_combinations(
         entities: Collection[ObjectOrVariable],
         types: Sequence[Type]) -> Iterator[List[ObjectOrVariable]]:
@@ -1141,17 +1118,6 @@ def get_all_lifted_atoms_for_predicate(
         lifted_atom = LiftedAtom(predicate, args)
         lifted_atoms.add(lifted_atom)
     return lifted_atoms
-
-
-@functools.lru_cache(maxsize=None)
-def get_all_ground_atoms(predicates: FrozenSet[Predicate],
-                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
-    """Get all groundings of the predicates given objects."""
-    ground_atoms = set()
-    for predicate in predicates:
-        ground_atoms.update(
-            get_all_ground_atoms_for_predicate(predicate, objects))
-    return ground_atoms
 
 
 def get_random_object_combination(
@@ -1250,15 +1216,6 @@ def _substitution_consistent(
         if substituted_vars not in super_pred_to_tuples[sub_atom.predicate]:
             return False
     return True
-
-
-def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
-    """Get an iterator over the powerset of the given sequence."""
-    start = 1 if exclude_empty else 0
-    return itertools.chain.from_iterable(
-        itertools.combinations(list(seq), r)
-        for r in range(start,
-                       len(seq) + 1))
 
 
 def create_new_variables(
@@ -1726,7 +1683,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
-    NOTE: Duplicate arguments in predicates are DISALLOWED.
+    Duplicate arguments are allowed.
     """
     atoms = set()
     for pred in preds:
@@ -1797,19 +1754,6 @@ def all_ground_nsrts_fd_translator(
         yield nsrt.ground(objs)
 
 
-def all_ground_predicates(pred: Predicate,
-                          objects: Collection[Object]) -> Set[GroundAtom]:
-    """Get all possible groundings of the given predicate with the given
-    objects.
-
-    NOTE: Duplicate arguments in predicates are DISALLOWED.
-    """
-    return {
-        GroundAtom(pred, choice)
-        for choice in get_object_combinations(objects, pred.types)
-    }
-
-
 def all_possible_ground_atoms(state: State,
                               preds: Set[Predicate]) -> List[GroundAtom]:
     """Get a sorted list of all possible ground atoms in a state given the
@@ -1817,10 +1761,10 @@ def all_possible_ground_atoms(state: State,
 
     Ignores the predicates' classifiers.
     """
-    objects = list(state)
+    objects = frozenset(state)
     ground_atoms = set()
     for pred in preds:
-        ground_atoms |= all_ground_predicates(pred, objects)
+        ground_atoms |= get_all_ground_atoms_for_predicate(pred, objects)
     return sorted(ground_atoms)
 
 
@@ -2135,7 +2079,10 @@ def _create_pyperplan_task(
     static_atoms: Set[GroundAtom],
 ) -> _PyperplanTask:
     """Helper glue for pyperplan heuristics."""
-    all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
+    all_atoms = set()
+    for predicate in predicates:
+        all_atoms.update(
+            get_all_ground_atoms_for_predicate(predicate, frozenset(objects)))
     # Note: removing static atoms.
     pyperplan_facts = _atoms_to_pyperplan_facts(all_atoms - static_atoms)
     pyperplan_state = _atoms_to_pyperplan_facts(init_atoms - static_atoms)
