@@ -1523,13 +1523,13 @@ def run_policy_guided_astar(
         heuristic: Callable[[_S], float],
         policy: Callable[[_S], Optional[_A]],
         num_rollout_steps: int,
-        rollout_step_cost: float = 0,  # by default, rollout steps are free
+        rollout_step_cost: float,
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
         timeout: int = 10000000,
         lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Perform A* search, but at each node, roll out a given policy for a given
-    number of time steps, creating new successors at each step.
+    number of timesteps, creating new successors at each step.
 
     Stop the roll out prematurely if the policy returns None.
 
@@ -1543,17 +1543,21 @@ def run_policy_guided_astar(
     """
 
     # Create a new successor function that rolls out the policy first.
+    # A successor here means: from this state, if you take this sequence of
+    # actions in order, you'll end up at this final state.
     def get_successors(state: _S) -> Iterator[Tuple[List[_A], _S, float]]:
         # Get policy-based successors.
         policy_state = state
         policy_action_seq = []
+        policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
             if action is None:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
-            yield (list(policy_action_seq), policy_state, rollout_step_cost)
+            policy_cost += rollout_step_cost
+            yield (list(policy_action_seq), policy_state, policy_cost)
 
         # Get primitive successors.
         for action, cost in get_valid_actions(state):

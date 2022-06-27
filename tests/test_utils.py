@@ -2803,13 +2803,15 @@ def test_run_policy_guided_astar():
         dr, dc = act_to_delta[action]
         return (r + dr, c + dc)
 
+    goal = (4, 4)
+
     def _grid_check_goal_fn(state: S) -> bool:
         # Bottom right corner of grid
-        return state == (4, 4)
+        return state == goal
 
     def _grid_heuristic_fn(state: S) -> float:
         # Manhattan distance
-        return float(abs(state[0] - 4) + abs(state[1] - 4))
+        return float(abs(state[0] - goal[0]) + abs(state[1] - goal[1]))
 
     def _policy(state: S) -> A:
         # Move right until we can't anymore.
@@ -2830,7 +2832,8 @@ def test_run_policy_guided_astar():
         _get_next_state,
         _grid_heuristic_fn,
         _policy,
-        num_rollout_steps=num_rollout_steps)
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
 
     assert state_sequence == [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 4),
                               (2, 4), (3, 4), (4, 4)]
@@ -2846,7 +2849,8 @@ def test_run_policy_guided_astar():
         _get_next_state,
         _grid_heuristic_fn,
         policy=lambda s: None,
-        num_rollout_steps=num_rollout_steps)
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
 
     assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
                               (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
