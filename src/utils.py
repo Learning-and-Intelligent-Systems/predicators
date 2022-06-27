@@ -1683,7 +1683,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
-    Duplicate arguments are allowed.
+    Duplicate arguments in predicates are allowed.
     """
     atoms = set()
     for pred in preds:
