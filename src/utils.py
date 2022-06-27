@@ -1523,7 +1523,7 @@ def run_policy_guided_astar(
         heuristic: Callable[[_S], float],
         policy: Callable[[_S], Optional[_A]],
         num_rollout_steps: int,
-        rollout_step_cost: float = 1,
+        rollout_step_cost: float,
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
         timeout: int = 10000000,
