@@ -83,11 +83,10 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
 
     def _get_experience_from_result(
         self, idx: int, result: InteractionResult
-    ) -> Dict[ParameterizedOption, List[List[Tuple[State, Array, Action, int,
-                                                   State]]]]:
-        option_to_data: Dict[ParameterizedOption,
-                             List[List[Tuple[State, Array, Action, int,
-                                             State]]]] = {}
+    ) -> DefaultDict[ParameterizedOption, List[List[Tuple[State, Array, Action,
+                                                          int, State]]]]:
+        option_to_data: DefaultDict[ParameterizedOption, List[List[Tuple[
+            State, Array, Action, int, State]]]] = defaultdict(list)
         assert self._requests_info is not None
         train_task_idx, plan = self._requests_info[idx]
         traj = LowLevelTrajectory(result.states,
@@ -98,8 +97,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
         cur_option = plan[cur_option_idx]
         parent_option = cast(_LearnedNeuralParameterizedOption,
                              cur_option.parent)
-        if parent_option not in option_to_data:
-            option_to_data[parent_option] = []
         experience = []
 
         # Loop through the trajectory and compute the experience tuples for
@@ -153,8 +150,6 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                     parent_option = cast(_LearnedNeuralParameterizedOption,
                                          cur_option.parent)
                     experience = []  # Reset for next option in the plan.
-                    if parent_option not in option_to_data:
-                        option_to_data[parent_option] = []
                 else:
                     # If we run out of options in the plan, there should be
                     # an _OptionPlanExhausted exception, and so there is
