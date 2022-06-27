@@ -410,11 +410,6 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For these environments, we want to treat environment
-                    # failures as terminal environment states, and continue
-                    # high-level search without changing the operators.
-                    "stick_button": "never",
-                    "coffee": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.

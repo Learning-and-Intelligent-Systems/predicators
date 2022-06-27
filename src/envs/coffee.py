@@ -269,15 +269,15 @@ class CoffeeEnv(BaseEnv):
                 if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
                     cup = self._get_cup_to_pour(next_state)
-                    # If pouring into nothing, raise an error (spilling).
+                    # If pouring into nothing, no-op.
                     if cup is None:
-                        raise utils.EnvironmentFailure("Spilled.")
+                        return state.copy()
                     # Increase the liquid in the cup.
                     current_liquid = state.get(cup, "current_liquid")
                     new_liquid = current_liquid + self.pour_velocity
-                    # If we have exceeded the capacity of the cup, raise error.
+                    # If we have exceeded the capacity of the cup, no-op.
                     if new_liquid > state.get(cup, "capacity_liquid"):
-                        raise utils.EnvironmentFailure("Overfilled cup.")
+                        return state.copy()
                     next_state.set(cup, "current_liquid", new_liquid)
                     # If successfully poured, prevent movement and dropping.
                     next_state.set(self._robot, "x", robot_x)
