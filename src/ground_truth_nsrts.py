@@ -2771,7 +2771,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         reachable_predicates.add(
             _get_predicate("reachable", reachable_pred_types))
 
-    agent_type = type_name_to_type["agent.n.01"]
+    agent_type = type_name_to_type["agent"]
     agent_obj = Variable("?agent", agent_type)
 
     nsrts = set()
