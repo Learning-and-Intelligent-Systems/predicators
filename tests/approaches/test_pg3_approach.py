@@ -25,7 +25,7 @@ def test_pg3_approach():
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
-        "pg3_heuristic": "plan_comparison",  # faster for tests
+        "pg3_heuristic": "demo_plan_comparison",  # faster for tests
         "pg3_search_method": "hill_climbing",
         "pg3_hc_enforced_depth": 0,
     })
@@ -186,9 +186,6 @@ def test_pg3_heuristics():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks, env.options)
-    ground_atom_trajectories = utils.create_ground_atom_dataset(
-        dataset.trajectories, env.predicates)
     nsrts = get_gt_nsrts(env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     deliver_nsrt = name_to_nsrt["deliver"]
@@ -258,9 +255,7 @@ def test_pg3_heuristics():
     ]
 
     # The policy-guided heuristic should strictly decrease.
-    heuristic = _PolicyGuidedPG3Heuristic(env.predicates, nsrts,
-                                          ground_atom_trajectories,
-                                          train_tasks)
+    heuristic = _PolicyGuidedPG3Heuristic(env.predicates, nsrts, train_tasks)
     score_sequence = [heuristic(ldl) for ldl in policy_sequence]
     for i in range(len(score_sequence) - 1):
         assert score_sequence[i] > score_sequence[i + 1]
@@ -269,8 +264,7 @@ def test_pg3_heuristics():
     for heuristic_cls in [
             _PolicyEvaluationPG3Heuristic, _DemoPlanComparisonPG3Heuristic
     ]:
-        heuristic = heuristic_cls(env.predicates, nsrts,
-                                  ground_atom_trajectories, train_tasks)
+        heuristic = heuristic_cls(env.predicates, nsrts, train_tasks)
         score_sequence = [heuristic(ldl) for ldl in policy_sequence]
         for i in range(len(score_sequence) - 1):
             assert score_sequence[i] >= score_sequence[i + 1]
