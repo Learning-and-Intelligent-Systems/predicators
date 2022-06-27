@@ -1742,7 +1742,6 @@ def test_all_possible_ground_atoms():
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
-    objects = {cup1, cup2, plate1, plate2}
     state = State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     on_ground = {
         GroundAtom(on, [cup1, plate1]),
