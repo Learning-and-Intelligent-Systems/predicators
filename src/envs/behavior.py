@@ -511,7 +511,7 @@ class BehaviorEnv(BaseEnv):
         # Robot does not have a field "bddl_object_scope", so we define
         # its name manually.
         assert isinstance(ig_obj, BRBody)
-        return "agent"        
+        return "agent"
 
     @staticmethod
     def _bddl_predicate_arity(bddl_predicate: "bddl.AtomicFormula") -> int:
