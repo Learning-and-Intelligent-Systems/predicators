@@ -373,10 +373,10 @@ def test_ground_atom_dataset():
     all_predicates = {Covers, HandEmpty, Holding}
     # Test that the right number of atoms are annotated.
     pred_name_to_counts = {p.name: [0, 0] for p in all_predicates}
-    for traj, ground_atom_seq in zip(dataset.trajectories,
-                                     dataset.annotations):
-        assert len(traj.states) == len(ground_atom_seq)
-        for ground_atom_sets, s in zip(ground_atom_seq, traj.states):
+    for traj, ground_atoms_seq in zip(dataset.trajectories,
+                                      dataset.annotations):
+        assert len(traj.states) == len(ground_atoms_seq)
+        for ground_atom_sets, s in zip(ground_atoms_seq, traj.states):
             assert len(ground_atom_sets
                        ) == 2, "Should be two sets of ground atoms per state"
             all_ground_atoms = utils.abstract(s, all_predicates)
