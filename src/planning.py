@@ -369,6 +369,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                             print("on...")
                             for a in expected_atoms:
                                 if not a.holds(traj[cur_idx]):
+                                    import ipdb; ipdb.set_trace()
+                                    a.holds(traj[cur_idx])
                                     print(a)
                             print()
                 else:

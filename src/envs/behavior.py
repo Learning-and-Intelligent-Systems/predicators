@@ -26,6 +26,7 @@ try:
     from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
     from igibson.utils.utils import modify_config_file
+    from igibson.object_states.pose import Pose
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -436,6 +437,8 @@ class BehaviorEnv(BaseEnv):
             if not s.allclose(
                     self.current_ig_state_to_state(save_state=False)):
                 load_checkpoint_state(s, self)
+            if not np.allclose(self.object_to_ig_object(o[0]).states[Pose].get_value()[0], np.array(self.object_to_ig_object(o[0]).get_position()), atol=1e-1):
+                import ipdb; ipdb.set_trace()
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
