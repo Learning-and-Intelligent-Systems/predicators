@@ -45,9 +45,12 @@ def test_interactive_learning_approach():
         p
         for p in env.predicates if p.name not in ["Covers", "Holding"]
     }
+    stripped_train_tasks = [
+        utils.strip_task(task, initial_predicates) for task in train_tasks
+    ]
     approach = InteractiveLearningApproach(initial_predicates, env.options,
                                            env.types, env.action_space,
-                                           train_tasks)
+                                           stripped_train_tasks)
     teacher = Teacher(train_tasks)
     dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
@@ -93,7 +96,7 @@ def test_interactive_learning_approach():
     # Test that glib also falls back when there are no non-static predicates.
     approach2 = InteractiveLearningApproach(initial_predicates, env.options,
                                             env.types, env.action_space,
-                                            train_tasks)
+                                            stripped_train_tasks)
     approach2.learn_from_offline_dataset(Dataset([]))
     approach2.get_interaction_requests()
     # Test with a query policy that always queries about every atom.

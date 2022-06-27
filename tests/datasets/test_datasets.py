@@ -396,7 +396,9 @@ def test_ground_atom_dataset():
                     else:
                         assert annotated_atom_name not in all_ground_atom_names
                     # Make sure we're not leaking information.
-                    assert not annotated_atom.holds(s)
+                    with pytest.raises(Exception) as e:
+                        annotated_atom.holds(s)
+                    assert "Stripped classifier should never" in str(e)
     # HandEmpty was included, so no annotations.
     assert pred_name_to_counts["HandEmpty"] == [0, 0]
     # Holding and Covers were excluded.
