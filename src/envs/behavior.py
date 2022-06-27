@@ -279,7 +279,7 @@ class BehaviorEnv(BaseEnv):
     def types(self) -> Set[Type]:
         for ig_obj in self._get_task_relevant_objects():
             # Create type
-            type_name = self._ig_object_to_type_name(ig_obj)
+            type_name = ig_obj.category
             if type_name in self._type_name_to_type:
                 continue
             # In the future, we may need other object attributes,
@@ -359,7 +359,7 @@ class BehaviorEnv(BaseEnv):
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
-        type_name = self._ig_object_to_type_name(ig_obj)
+        type_name = ig_obj.category
         obj_type = self._type_name_to_type[type_name]
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
@@ -511,18 +511,7 @@ class BehaviorEnv(BaseEnv):
         # Robot does not have a field "bddl_object_scope", so we define
         # its name manually.
         assert isinstance(ig_obj, BRBody)
-        return "agent"
-
-    @staticmethod
-    def _ig_object_to_type_name(ig_obj: "ArticulatedObject") -> str:
-        ig_obj_name = BehaviorEnv._ig_object_name(ig_obj)
-        if isinstance(ig_obj, RoomFloor):
-            assert ":" in ig_obj_name
-            type_name = ig_obj_name.split(":")[0]
-            return type_name.rsplit("_", 1)[0]
-        # Object is either URDFObject or robot.
-        assert ":" not in ig_obj_name
-        return ig_obj.category
+        return "agent"        
 
     @staticmethod
     def _bddl_predicate_arity(bddl_predicate: "bddl.AtomicFormula") -> int:
