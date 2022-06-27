@@ -221,7 +221,13 @@ def _skeleton_generator(
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
+
+    Note that we can't use utils.run_astar() here because we want to
+    yield multiple skeletons, whereas that utility method returns only
+    a single solution. Furthermore, it's easier to track and update our
+    metrics dictionary if we re-implement the search here.
     """
+
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
