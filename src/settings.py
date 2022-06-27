@@ -218,6 +218,15 @@ class GlobalSettings:
     # parameters for metacontroller approaches
     metacontroller_max_samples = 100
 
+    # parameters for PG3 approach
+    pg3_heuristic = "policy_guided"
+    pg3_search_method = "hill_climbing"
+    pg3_task_planning_heuristic = "lmcut"
+    pg3_gbfs_max_expansions = 100
+    pg3_hc_enforced_depth = 0
+    pg3_max_policy_guided_rollout = 50
+    pg3_plan_compare_inapplicable_cost = 0.99
+
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
     nsrt_rl_pos_reward = 0
