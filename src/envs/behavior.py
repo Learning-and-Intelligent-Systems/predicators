@@ -265,7 +265,7 @@ class BehaviorEnv(BaseEnv):
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 # We only care about reachable when the agent is one of the
                 # types.
-                if name == "reachable" and not any([type.name == "agent" in type_combo]):
+                if name == "reachable" and not any([type_i.name == "agent" for type_i in type_combo]):
                     continue
                 else:
                     predicates.add(pred)
