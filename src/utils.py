@@ -1120,6 +1120,7 @@ def get_variable_combinations(
     return _get_entity_combinations(variables, types)
 
 
+@functools.lru_cache(maxsize=None)
 def get_all_ground_atoms_for_predicate(
         predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
     """Get all groundings of the predicate given objects."""
