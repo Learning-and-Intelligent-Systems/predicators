@@ -2766,6 +2766,100 @@ def test_run_hill_climbing():
         ]
 
 
+def test_run_policy_guided_astar():
+    """Tests for run_policy_guided_astar()."""
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    arrival_costs = np.array([
+        [1, 1, 100, 1, 1],
+        [1, 100, 1, 1, 1],
+        [1, 100, 1, 1, 1],
+        [1, 1, 1, 100, 1],
+        [1, 1, 100, 1, 1],
+    ],
+                             dtype=float)
+
+    act_to_delta = {
+        "up": (-1, 0),
+        "down": (1, 0),
+        "left": (0, -1),
+        "right": (0, 1),
+    }
+
+    def _get_valid_actions(state: S) -> Iterator[Tuple[A, float]]:
+        r, c = state
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            yield (act, arrival_costs[new_r, new_c])
+
+    def _get_next_state(state: S, action: A) -> S:
+        r, c = state
+        dr, dc = act_to_delta[action]
+        return (r + dr, c + dc)
+
+    goal = (4, 4)
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == goal
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - goal[0]) + abs(state[1] - goal[1]))
+
+    def _policy(state: S) -> A:
+        # Move right until we can't anymore.
+        _, c = state
+        if c >= arrival_costs.shape[1] - 1:
+            return None
+        return "right"
+
+    initial_state = (0, 0)
+    num_rollout_steps = 10
+
+    # The policy should bias toward the path that moves all the way right, then
+    # planning should move all the way down to reach the goal.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        _policy,
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 4),
+                              (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'right', 'right', 'right', 'right', 'down', 'down', 'down', 'down'
+    ]
+
+    # With a trivial policy, should find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: None,
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
+
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests for ops_and_specs_to_dummy_nsrts()."""
     cup_type = Type("cup_type", ["feat1"])
