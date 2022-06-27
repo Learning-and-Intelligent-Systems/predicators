@@ -1099,7 +1099,12 @@ def get_variable_combinations(
 
 def get_all_ground_atoms_for_predicate(
         predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
-    """Get all groundings of the predicate given objects."""
+    """Get all groundings of the predicate given objects.
+
+    Note: we don't want lru_cache() on this function because we might want
+    to call it with stripped predicates, and we wouldn't want it to return
+    cached values.
+    """
     ground_atoms = set()
     for args in get_object_combinations(objects, predicate.types):
         ground_atom = GroundAtom(predicate, args)
@@ -1110,7 +1115,12 @@ def get_all_ground_atoms_for_predicate(
 def get_all_lifted_atoms_for_predicate(
         predicate: Predicate,
         variables: FrozenSet[Variable]) -> Set[LiftedAtom]:
-    """Get all groundings of the predicate given variables."""
+    """Get all groundings of the predicate given variables.
+
+    Note: we don't want lru_cache() on this function because we might want
+    to call it with stripped predicates, and we wouldn't want it to return
+    cached values.
+    """
     lifted_atoms = set()
     for args in get_variable_combinations(variables, predicate.types):
         lifted_atom = LiftedAtom(predicate, args)
