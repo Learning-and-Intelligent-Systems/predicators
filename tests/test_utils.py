@@ -889,8 +889,12 @@ def test_strip_predicate():
     assert pred.types == pred_stripped.types
     assert pred.holds(state, (cup, plate1))
     assert pred.holds(state, (cup, plate2))
-    assert not pred_stripped.holds(state, (cup, plate1))
-    assert not pred_stripped.holds(state, (cup, plate2))
+    with pytest.raises(Exception) as e:
+        pred_stripped.holds(state, (cup, plate1))
+    assert "Stripped classifier should never be called" in str(e)
+    with pytest.raises(Exception) as e:
+        pred_stripped.holds(state, (cup, plate2))
+    assert "Stripped classifier should never be called" in str(e)
 
 
 def test_strip_task():
@@ -905,14 +909,18 @@ def test_strip_task():
     state = task.init.copy()
     state.set(block0, "pose", state.get(target0, "pose"))
     assert original_goal_atom.holds(state)
+    # Include both Covers and Holding (don't strip them).
     stripped_task1 = utils.strip_task(task, {Covers, Holding})
     assert len(stripped_task1.goal) == 1
     new_goal_atom1 = next(iter(stripped_task1.goal))
     assert new_goal_atom1.holds(state)
+    # Include Holding, but strip Covers.
     stripped_task2 = utils.strip_task(task, {Holding})
     assert len(stripped_task2.goal) == 1
     new_goal_atom2 = next(iter(stripped_task2.goal))
-    assert not new_goal_atom2.holds(state)
+    with pytest.raises(Exception) as e:
+        new_goal_atom2.holds(state)
+    assert "Stripped classifier should never be called" in str(e)
 
 
 def test_sample_subsets():

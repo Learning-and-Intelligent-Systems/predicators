@@ -1667,8 +1667,15 @@ class _BiRRTNode(Generic[_S]):
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
-    """Remove classifier from predicate to make new Predicate."""
-    return Predicate(predicate.name, predicate.types, lambda s, o: False)
+    """Remove the classifier from the given predicate to make a new Predicate.
+
+    Implement this by replacing the classifier with one that errors.
+    """
+
+    def _stripped_classifier(state: State, objects: Sequence[Object]) -> bool:
+        raise Exception("Stripped classifier should never be called!")
+
+    return Predicate(predicate.name, predicate.types, _stripped_classifier)
 
 
 def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
