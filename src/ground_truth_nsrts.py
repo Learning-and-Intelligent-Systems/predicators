@@ -2767,8 +2767,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     agent_obj = Variable("?agent", agent_type)
 
     # We start by creating reachable predicates for the agent and
-    # all possible other type combinations. These predicates will
-    # be used as side predicates for navigateTo operators
+    # all possible other types. These predicates will
+    # be used as side predicates for navigateTo operators.
     reachable_predicates = set()
     for reachable_pred_types in itertools.product([agent_type], env.types):
         reachable_predicates.add(

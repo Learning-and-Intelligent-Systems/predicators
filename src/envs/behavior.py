@@ -252,10 +252,10 @@ class BehaviorEnv(BaseEnv):
 
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
-                pred_name = self._create_type_combo_name(name, type_combo)
-                pred = Predicate(pred_name, list(type_combo), classifier)
                 # We only care about reachable when the agent is one of the
                 # types.
+                pred_name = self._create_type_combo_name(name, type_combo)
+                pred = Predicate(pred_name, list(type_combo), classifier)
                 if name == "reachable" and not any(type_i.name == "agent"
                                                    for type_i in type_combo):
                     continue
@@ -461,8 +461,6 @@ class BehaviorEnv(BaseEnv):
         # If the two objects are the same (i.e reachable(agent, agent)),
         # we always want to return False so that when we learn
         # operators, such predicates don't needlessly appear in preconditions.
-        # In the future, we probably want to prevent such atoms from
-        # ever being created.
         if ig_obj == ig_other_obj:
             return False
         return (np.linalg.norm(  # type: ignore
