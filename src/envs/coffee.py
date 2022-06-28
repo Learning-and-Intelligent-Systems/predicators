@@ -686,8 +686,7 @@ class CoffeeEnv(BaseEnv):
         return sq_dist_to_button < self.button_radius
 
     @staticmethod
-    def _NotSameCup_holds(state: State,
-                          objects: Sequence[Object]) -> bool:
+    def _NotSameCup_holds(state: State, objects: Sequence[Object]) -> bool:
         del state  # unused
         cup1, cup2 = objects
         return cup1 != cup2
