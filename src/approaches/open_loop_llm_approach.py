@@ -70,16 +70,16 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         """Query the LLM."""
 
         # TODO: Uncomment this for the real deal.
-        # openai.api_key = os.getenv("OPENAI_API_KEY")
-        # response = openai.Completion.create(model=CFG.llm_model_name,
-        #     prompt=prompt, temperature=0, max_tokens=CFG.llm_max_tokens)
-        # assert len(response["choices"]) == 1
-        # text_response = response["choices"][0]["text"]
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        response = openai.Completion.create(model=CFG.llm_model_name,
+            prompt=prompt, temperature=0, max_tokens=CFG.llm_max_tokens)
+        assert len(response["choices"]) == 1
+        text_response = response["choices"][0]["text"]
 
         # This is an example incorrect response for debugging. TODO remove.
         # text_response = ' unstack(b2:block, b1:block)\n  unstack(b1:block, b4:block)\n  stack(b1:block, b4:block)\n  pick-up(b4:block)\n  unstack(b3:block, b2:block)\n  stack(b3:block, b1:block)\n  unstack(b1:block, b2:block)\n  stack(b1:block, b0:block)\n  pick-up(b0:block)\n  unstack(b4:block, b3:block)\n  stack(b4:block, b0:block)\n  unstack(b3:block, b2:block)\n  unstack(b2:block, b1:block)\n  unstack(b1:block, b0:block)\n  unstack(b0:block, b4:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
         # This is an example correct response for debugging. TODO remove.
-        text_response = ' unstack(b4:block, b3:block)\n  put-down(b4:block)\n  unstack(b1:block, b0:block)\n  put-down(b1:block)\n  pick-up(b2:block)\n  stack(b2:block, b0:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
+        # text_response = ' unstack(b4:block, b3:block)\n  put-down(b4:block)\n  unstack(b1:block, b0:block)\n  put-down(b1:block)\n  pick-up(b2:block)\n  stack(b2:block, b0:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
 
         return text_response
 
@@ -108,19 +108,33 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             # along with specified types.
             typed_objects_str_list = option_str_stripped.split('(')[1].strip(')').split(',')
             objs_list = []
+            malformed = False
             for i, type_object_string in enumerate(typed_objects_str_list):
                 object_type_str_list = type_object_string.strip().split(':')
                 # We expect this list to be [object_name, type_name]
-                assert len(object_type_str_list) == 2
+                if len(object_type_str_list) != 2:
+                    logging.info(f"Line {option_str} output by LLM has a " +
+                    "malformed object-type list.")
+                    malformed = True
+                    break
                 object_name = object_type_str_list[0]
                 type_name = object_type_str_list[1]
-                assert object_name in obj_name_to_obj.keys()
+                if object_name not in obj_name_to_obj.keys():
+                    logging.info(f"Line {option_str} output by LLM has an " +
+                    "invalid object name.")
+                    malformed = True
+                    break
                 obj = obj_name_to_obj[object_name]
                 # Check that the type of this object agrees
                 # with what's expected given the ParameterizedOption.
-                assert type_name == option.types[i].name
+                if type_name != option.types[i].name:
+                    logging.info(f"Line {option_str} output by LLM has an " +
+                    "invalid type name.")
+                    malformed = True
+                    break
                 objs_list.append(obj)
-            option_plan.append((option, objs_list))
+            if not malformed:
+                option_plan.append((option, objs_list))
         return option_plan
 
     def _find_best_match_plan(
