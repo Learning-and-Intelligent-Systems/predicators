@@ -52,10 +52,12 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
+        # behavior_randomize_init_state will always be False in this
+        # config_file because we are not using their scene samplers.
+        # We are loading pre-computed scenes.
         self._config_file = modify_config_file(
             os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_name,
-            False)  # behavior_randomize_init_state = False in config file
+            CFG.behavior_task_name, CFG.behavior_scene_name, False)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
@@ -172,7 +174,7 @@ class BehaviorEnv(BaseEnv):
                    rng: np.random.Generator,
                    testing: bool = False) -> List[Task]:
         tasks = []
-        assert num <= 10  # Max 10 train and test task for behavior
+        assert num <= 10  # Max 10 train and test tasks for behavior
         if testing:
             self.task_num += 10
         for _ in range(num):
@@ -380,10 +382,14 @@ class BehaviorEnv(BaseEnv):
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         """Maintains a mapping of objects to underlying igibson objects."""
         return self._name_to_ig_object(obj.name)
 
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
             # Name is extended with sub-type in some behavior tasks

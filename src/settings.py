@@ -467,11 +467,11 @@ class GlobalSettings:
                     "tools": 1,
                 })[args.get("env", "")],
 
-            # Used to save nsrts as strings in pickle file.
+            # Used to save NSRTs as strings in pickle file.
             dump_nsrts_as_strings=defaultdict(
                 lambda: False,
                 {
-                    # We cannot pickle Behavior nsrts
+                    # We cannot pickle Behavior NSRTs
                     "behavior": True,
                 })[args.get("env", "")],
         )
