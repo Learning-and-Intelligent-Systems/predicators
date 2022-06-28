@@ -10,7 +10,7 @@ import abc
 import functools
 import logging
 import os
-from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, Tuple, Union
 
 import dill as pkl
 import openai
@@ -20,10 +20,12 @@ from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.src.settings import CFG
+from predicators.src.planning import task_plan_grounding
 from predicators.src.structs import NSRT, Box, Dataset, \
     GroundAtom, GroundAtomTrajectory, LDLRule, LiftedAtom, \
     LiftedDecisionList, LowLevelTrajectory, Object, ParameterizedOption, \
-    Predicate, State, Task, Type, Variable, _GroundNSRT
+    Predicate, State, Task, Type, Variable, _GroundNSRT, _Option, \
+    STRIPSOperator, OptionSpec
 
 
 class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
@@ -52,11 +54,16 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             raise ApproachFailure("LLM did not predict an abstract plan.")
         # Otherwise, we succeeded, so attempt to turn the plan into a
         # sequence of ground NSRT's.
-        import ipdb; ipdb.set_trace()
-        # TODO: write function to turn option plan into ground NSRT's
-        # that will form an abstract plan.
-        
-        # TODO: Once we've found a good abstract plan, add it to memory.
+        nsrts = self._get_current_nsrts()
+        strips_ops = [nsrt.op for nsrt in nsrts]
+        option_specs = [(nsrt.option, nsrt.option_vars) for nsrt in nsrts]
+        best_matching_plan = self._find_best_match_plan(objects, atoms, strips_ops, option_specs, goal, option_plan)
+        # If we can't find a best matching plan that achieves the goal,
+        # give up.
+        if not best_matching_plan:
+            raise ApproachFailure("LLM predicted plan does not achieve goal.")
+        # Else, add this plan to memory so it can be refined!
+        memory["abstract_plan"] = best_matching_plan
         return memory["abstract_plan"].pop(0)
 
     def _predict_llm(self, prompt: str) -> str:
@@ -69,8 +76,10 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         # assert len(response["choices"]) == 1
         # text_response = response["choices"][0]["text"]
 
-        # This is an example response for debugging. TODO remove.
-        text_response = ' unstack(b2:block, b1:block)\n  unstack(b1:block, b4:block)\n  stack(b1:block, b4:block)\n  pick-up(b4:block)\n  unstack(b3:block, b2:block)\n  stack(b3:block, b1:block)\n  unstack(b1:block, b2:block)\n  stack(b1:block, b0:block)\n  pick-up(b0:block)\n  unstack(b4:block, b3:block)\n  stack(b4:block, b0:block)\n  unstack(b3:block, b2:block)\n  unstack(b2:block, b1:block)\n  unstack(b1:block, b0:block)\n  unstack(b0:block, b4:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
+        # This is an example incorrect response for debugging. TODO remove.
+        # text_response = ' unstack(b2:block, b1:block)\n  unstack(b1:block, b4:block)\n  stack(b1:block, b4:block)\n  pick-up(b4:block)\n  unstack(b3:block, b2:block)\n  stack(b3:block, b1:block)\n  unstack(b1:block, b2:block)\n  stack(b1:block, b0:block)\n  pick-up(b0:block)\n  unstack(b4:block, b3:block)\n  stack(b4:block, b0:block)\n  unstack(b3:block, b2:block)\n  unstack(b2:block, b1:block)\n  unstack(b1:block, b0:block)\n  unstack(b0:block, b4:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
+        # This is an example correct response for debugging. TODO remove.
+        text_response = ' unstack(b4:block, b3:block)\n  put-down(b4:block)\n  unstack(b1:block, b0:block)\n  put-down(b1:block)\n  pick-up(b2:block)\n  stack(b2:block, b0:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
 
         return text_response
 
@@ -113,6 +122,79 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 objs_list.append(obj)
             option_plan.append((option, objs_list))
         return option_plan
+
+    def _find_best_match_plan(
+            self, objects: Set[Object],
+            init_atoms: Set[GroundAtom],
+            strips_ops: List[STRIPSOperator],
+            option_specs: List[OptionSpec],
+            goal: Set[GroundAtom],
+            option_plan: List[Tuple[ParameterizedOption, List[Object]]]) -> Optional[List[_GroundNSRT]]:
+        """Function to turn an option plan generated from LLM output
+        into a best-fitting plan of ground NSRT's that achieve the goal.
+        
+        If no goal-achieving sequence of ground NSRT's corresponds to
+        the option plan, return None.
+        """        
+        ground_nsrts, _ = task_plan_grounding(init_atoms,
+                                              objects,
+                                              strips_ops,
+                                              option_specs,
+                                              allow_noops=True)
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.sesame_task_planning_heuristic, init_atoms, goal,
+            ground_nsrts, self._initial_predicates, objects)
+
+        def _check_goal(
+                searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+            return goal.issubset(searchnode_state[0])
+
+        def _get_successor_with_correct_option(
+            searchnode_state: Tuple[FrozenSet[GroundAtom], int]
+        ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
+                            float]]:
+            atoms = searchnode_state[0]
+            idx_into_traj = searchnode_state[1]
+
+            if idx_into_traj > len(option_plan) - 1:
+                return
+
+            gt_param_option = option_plan[idx_into_traj][0]
+            gt_objects = option_plan[idx_into_traj][1]
+
+            for applicable_nsrt in utils.get_applicable_operators(
+                    ground_nsrts, atoms):
+                # NOTE: we check that the ParameterizedOptions are equal before
+                # attempting to ground because otherwise, we might
+                # get a parameter mismatch and trigger an AssertionError
+                # during grounding.
+                if applicable_nsrt.option != gt_param_option:
+                    continue
+                if applicable_nsrt.option_objs != gt_objects:
+                    continue
+                next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
+                # The returned cost is uniform because we don't
+                # actually care about finding the shortest path;
+                # just one that matches!
+                yield (applicable_nsrt, (frozenset(next_atoms),
+                                            idx_into_traj + 1), 1.0)
+
+        init_atoms_frozen = frozenset(init_atoms)
+        init_searchnode_state = (init_atoms_frozen, 0)
+        # NOTE: each state in the below GBFS is a tuple of
+        # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
+        # we need to check whether the atoms that are true at this particular
+        # index into the trajectory is what we would expect given the demo
+        # trajectory.
+        state_seq, action_seq = utils.run_gbfs(
+            init_searchnode_state, _check_goal,
+            _get_successor_with_correct_option,
+            lambda searchnode_state: heuristic(searchnode_state[0]))
+
+        ret_nsrt_plan = None
+        if _check_goal(state_seq[-1]):
+            ret_nsrt_plan = action_seq
+        return ret_nsrt_plan
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
