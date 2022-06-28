@@ -539,17 +539,6 @@ class BehaviorEnv(BaseEnv):
         return "agent"
 
     @staticmethod
-    def _ig_object_to_type_name(ig_obj: "ArticulatedObject") -> str:
-        ig_obj_name = BehaviorEnv._ig_object_name(ig_obj)
-        if isinstance(ig_obj, RoomFloor):
-            assert ":" in ig_obj_name
-            type_name = ig_obj_name.split(":")[0]
-            return type_name.rsplit("_", 1)[0]
-        # Object is either URDFObject or robot.
-        assert ":" not in ig_obj_name
-        return ig_obj.category
-
-    @staticmethod
     def _bddl_predicate_arity(bddl_predicate: "bddl.AtomicFormula") -> int:
         # NOTE: isinstance does not work here, maybe because of the
         # way that these bddl_predicate classes are created?
