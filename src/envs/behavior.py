@@ -386,7 +386,7 @@ class BehaviorEnv(BaseEnv):
     #@functools.lru_cache(maxsize=None)
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
-            # Name is extended with sub-type in some b ehavior tasks
+            # Name is extended with sub-type in some behavior tasks
             if self._ig_object_name(ig_obj).startswith(name):
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")

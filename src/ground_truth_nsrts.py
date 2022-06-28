@@ -2740,7 +2740,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     # Without this cast, mypy complains:
     #   "BaseEnv" has no attribute "object_to_ig_object"
     # and using isinstance(env, BehaviorEnv) instead does not work.
-    env_base = get_or_create_env("behavior") # TODO Fix this
+    env_base = get_or_create_env("behavior")
     env = cast(BehaviorEnv, env_base)
 
     # NOTE: These two methods below are necessary to help instantiate
