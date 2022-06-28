@@ -380,11 +380,9 @@ class BehaviorEnv(BaseEnv):
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
-    
     def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         """Maintains a mapping of objects to underlying igibson objects."""
         return self._name_to_ig_object(obj.name)
-
 
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
