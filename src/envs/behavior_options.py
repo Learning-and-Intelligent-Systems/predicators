@@ -583,7 +583,7 @@ def create_grasp_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape, 1)),
+                    np.zeros(env.action_space.shape, dtype=float),
                     atol=atol_vel,
             ):
                 low_level_action = (get_delta_low_level_hand_action(
