@@ -26,7 +26,6 @@ try:
     from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
     from igibson.utils.utils import modify_config_file
-    from igibson.object_states.pose import Pose
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -381,12 +380,10 @@ class BehaviorEnv(BaseEnv):
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
-    #@functools.lru_cache(maxsize=None)
     def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         """Maintains a mapping of objects to underlying igibson objects."""
         return self._name_to_ig_object(obj.name)
 
-    #@functools.lru_cache(maxsize=None)
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
             # Name is extended with sub-type in some behavior tasks
