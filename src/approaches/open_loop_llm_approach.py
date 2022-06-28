@@ -2,9 +2,7 @@
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach open_loop_llm --seed 0 \
-        --env pddl_blocks_procedural_tasks \
-        --strips_learner oracle --num_train_tasks 3
+    python src/main.py --approach open_loop_llm --seed 0 --env pddl_blocks_procedural_tasks --strips_learner oracle --num_train_tasks 3
 """
 from __future__ import annotations
 
@@ -47,13 +45,18 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         llm_prediction = self._predict_llm(prompt)
         # Try to convert the output into an abstract plan.
         objects = set(state)
-        abstract_plan = self._llm_prediction_to_abstract_plan(llm_prediction,
+        option_plan = self._llm_prediction_to_option_plan(llm_prediction,
             objects)
         # If we failed to find a nontrivial plan, give up.
-        if not abstract_plan:
+        if len(option_plan) == 0:
             raise ApproachFailure("LLM did not predict an abstract plan.")
-        # Otherwise, we succeeded, so save the plan and take the first step.
-        memory["abstract_plan"] = abstract_plan
+        # Otherwise, we succeeded, so attempt to turn the plan into a
+        # sequence of ground NSRT's.
+        import ipdb; ipdb.set_trace()
+        # TODO: write function to turn option plan into ground NSRT's
+        # that will form an abstract plan.
+        
+        # TODO: Once we've found a good abstract plan, add it to memory.
         return memory["abstract_plan"].pop(0)
 
     def _predict_llm(self, prompt: str) -> str:
@@ -71,12 +74,45 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
 
         return text_response
 
-    def _llm_prediction_to_abstract_plan(self, llm_prediction: str, objects: Collection[Object]) -> List[_GroundNSRT]:
-        """Convert the output of the LLM into an abstract plan."""
-        nsrt_name_to_nsrt = {n.name: n for n in self._get_current_nsrts()}
+    def _llm_prediction_to_option_plan(self, llm_prediction: str, objects: Collection[Object]) -> List[Tuple[ParameterizedOption, List[Object]]]:
+        """Convert the output of the LLM into a sequence of
+        ParameterizedOptions coupled with a list of objects that will be used
+        to ground the ParameterizedOption."""
+        option_plan: List[Tuple[ParameterizedOption, List[Object]]] = []
+        # Setup dictionaries enabling us to easily map names to specific
+        # Python objects during parsing.
+        option_name_to_option = {op.name: op for op in self._initial_options}
         obj_name_to_obj = {o.name: o for o in objects}
-        # TODO: finish me
-        import ipdb; ipdb.set_trace()
+        # We assume the LLM's output is such that each line contains a
+        # option_name(obj0:type0, obj1:type1,...).
+        options_str_list = llm_prediction.split('\n')
+        for option_str in options_str_list:
+            option_str_stripped = option_str.strip()
+            option_name = option_str_stripped.split('(')[0]
+            if option_name not in option_name_to_option.keys():
+                logging.info(f"Line {option_str} output by LLM doesn't " +
+                "contain a valid option name. Terminating option plan " +
+                "parsing.")
+                break
+            option = option_name_to_option[option_name]
+            # Now that we have the option, we need to parse out the objects
+            # along with specified types.
+            typed_objects_str_list = option_str_stripped.split('(')[1].strip(')').split(',')
+            objs_list = []
+            for i, type_object_string in enumerate(typed_objects_str_list):
+                object_type_str_list = type_object_string.strip().split(':')
+                # We expect this list to be [object_name, type_name]
+                assert len(object_type_str_list) == 2
+                object_name = object_type_str_list[0]
+                type_name = object_type_str_list[1]
+                assert object_name in obj_name_to_obj.keys()
+                obj = obj_name_to_obj[object_name]
+                # Check that the type of this object agrees
+                # with what's expected given the ParameterizedOption.
+                assert type_name == option.types[i].name
+                objs_list.append(obj)
+            option_plan.append((option, objs_list))
+        return option_plan
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
