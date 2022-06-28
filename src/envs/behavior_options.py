@@ -339,10 +339,8 @@ def navigate_to_obj_pos(
         valid_position = (pos, orn)
 
     if valid_position is None:
-        if not blocked:
-            logging.warning("WARNING: Position commanded is in collision!")
-        else:
-            logging.warning("WARNING: Position commanded is blocked!")
+        logging.warning("WARNING: Position commanded is in collision or "
+                        "blocked!")
         p.restoreState(state)
         p.removeState(state)
         logging.warning(f"PRIMITIVE: navigate to {obj.name} with params "
@@ -585,7 +583,7 @@ def create_grasp_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape, 1)),
+                    np.zeros((env.action_space.shape[0], 1)),
                     atol=atol_vel,
             ):
                 low_level_action = (get_delta_low_level_hand_action(
