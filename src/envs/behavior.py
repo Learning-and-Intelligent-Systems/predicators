@@ -252,8 +252,13 @@ class BehaviorEnv(BaseEnv):
 
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
+                # We only care about reachable when the agent is one of the
+                # types.
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
+                if name == "reachable" and not any(type_i.name == "agent"
+                                                   for type_i in type_combo):
+                    continue
                 predicates.add(pred)
 
         # Finally, add the reachable-nothing predicate, which only applies
@@ -453,6 +458,11 @@ class BehaviorEnv(BaseEnv):
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
+        # If the two objects are the same (i.e reachable(agent, agent)),
+        # we always want to return False so that when we learn
+        # operators, such predicates don't needlessly appear in preconditions.
+        if ig_obj == ig_other_obj:
+            return False
         return (np.linalg.norm(  # type: ignore
             np.array(ig_obj.get_position()) -
             np.array(ig_other_obj.get_position())) < 2)
