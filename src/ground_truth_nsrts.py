@@ -2531,7 +2531,6 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
         LiftedAtom(NotSameCup, [cup, other_cup]),
-        LiftedAtom(NotSameCup, [other_cup, cup]),
     }
     add_effects = {
         LiftedAtom(JugAboveCup, [jug, cup]),
