@@ -63,7 +63,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             if CFG.dump_nsrts_as_strings:
-                pkl.dump(str(self._nsrts), f) # pragma: no cover
+                pkl.dump(str(self._nsrts), f)
             else:
                 pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
