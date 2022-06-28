@@ -3,6 +3,25 @@
 Example command line:
     export OPENAI_API_KEY=<your API key>
     python src/main.py --approach open_loop_llm --seed 0 --env pddl_blocks_procedural_tasks --strips_learner oracle --num_train_tasks 3
+
+Easier setting:
+    python src/main.py --approach open_loop_llm --seed 0 --strips_learner oracle \
+        --env pddl_easy_delivery_procedural_tasks \
+        --pddl_easy_delivery_procedural_train_min_num_locs 2 \
+        --pddl_easy_delivery_procedural_train_max_num_locs 2 \
+        --pddl_easy_delivery_procedural_train_min_want_locs 1 \
+        --pddl_easy_delivery_procedural_train_max_want_locs 1 \
+        --pddl_easy_delivery_procedural_train_min_extra_newspapers 0 \
+        --pddl_easy_delivery_procedural_train_max_extra_newspapers 0 \
+        --pddl_easy_delivery_procedural_test_min_num_locs 2 \
+        --pddl_easy_delivery_procedural_test_max_num_locs 2 \
+        --pddl_easy_delivery_procedural_test_min_want_locs 1 \
+        --pddl_easy_delivery_procedural_test_max_want_locs 1 \
+        --pddl_easy_delivery_procedural_test_min_extra_newspapers 0 \
+        --pddl_easy_delivery_procedural_test_max_extra_newspapers 0 \
+        --num_train_tasks 5 \
+        --num_test_tasks 10 \
+        --debug
 """
 from __future__ import annotations
 
@@ -81,6 +100,11 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         # This is an example correct response for debugging. TODO remove.
         # text_response = ' unstack(b4:block, b3:block)\n  put-down(b4:block)\n  unstack(b1:block, b0:block)\n  put-down(b1:block)\n  pick-up(b2:block)\n  stack(b2:block, b0:block)\n  handempty()\n  on(b0:block, b3:block)\n  on(b4:block, b3:block)\n  ontable(b'
 
+        logging.debug("\nPROMPT:")
+        logging.debug(prompt)
+        logging.debug("\nPREDICTION:")
+        logging.debug(text_response)
+
         return text_response
 
     def _llm_prediction_to_option_plan(self, llm_prediction: str, objects: Collection[Object]) -> List[Tuple[ParameterizedOption, List[Object]]]:
@@ -98,10 +122,14 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         for option_str in options_str_list:
             option_str_stripped = option_str.strip()
             option_name = option_str_stripped.split('(')[0]
+            # Skip empty option strs.
+            if not option_str:
+                continue
             if option_name not in option_name_to_option.keys():
                 logging.info(f"Line {option_str} output by LLM doesn't " +
                 "contain a valid option name. Terminating option plan " +
                 "parsing.")
+                import ipdb; ipdb.set_trace()
                 break
             option = option_name_to_option[option_name]
             # Now that we have the option, we need to parse out the objects
