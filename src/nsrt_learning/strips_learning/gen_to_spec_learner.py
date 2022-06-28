@@ -214,6 +214,32 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         tuple(var_to_obj[var] for var in pnad.op.parameters))
                     if len(param_opt_to_nec_pnads[option.parent]) == 0:
                         param_opt_to_nec_pnads[option.parent].append(pnad)
+                    segs_in_pnad = {
+                        datapoint[0]
+                        for datapoint in pnad.datastore
+                    }
+                    # In this case, we want to move the segment from
+                    # another PNAD into the current PNAD. Note that
+                    # we don't have to recompute the PNAD's add
+                    # effects or preconditions because of the fact that
+                    # this PNAD was found by the _find_best_matching
+                    # function (which internally checks that the
+                    # preconditions and add effects are all correct).
+                    if segment not in segs_in_pnad:
+                        # Find PNAD that the segment is currently in.
+                        for seg_pnad in pnads_for_option:
+                            segs_in_seg_pnad = [
+                                datapoint[0]
+                                for datapoint in seg_pnad.datastore
+                            ]
+                            if segment in set(segs_in_seg_pnad):
+                                seg_idx = segs_in_seg_pnad.index(segment)
+                                seg_pnad.datastore.pop(seg_idx)
+                                break
+                        pnad.datastore.append((segment, var_to_obj))
+                        self._remove_empty_datastore_pnads(
+                            param_opt_to_nec_pnads, option.parent)
+
                 # If we weren't able to find a substitution (i.e, the above
                 # _find_best_matching call didn't yield a PNAD), we need to
                 # spawn a new PNAD from the most general PNAD to cover
@@ -229,23 +255,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     # matched to another PNAD.
                     self._recompute_datastores_from_segments(
                         param_opt_to_nec_pnads[option.parent])
+                    # Now that we have done this, certain PNADs may be
+                    # left with empty datastores. Remove these.
+                    self._remove_empty_datastore_pnads(param_opt_to_nec_pnads,
+                                                       option.parent)
+
                     # Recompute all preconditions, now that we have recomputed
-                    # the datastores. While doing this, keep track of any
-                    # PNADs that get empty datastores.
-                    pnads_to_remove = []
+                    # the datastores.
                     for nec_pnad in param_opt_to_nec_pnads[option.parent]:
                         if len(nec_pnad.datastore) > 0:
                             pre = self._induce_preconditions_via_intersection(
                                 nec_pnad)
                             nec_pnad.op = nec_pnad.op.copy_with(
                                 preconditions=pre)
-                        else:
-                            pnads_to_remove.append(nec_pnad)
-
-                    # Remove PNADs that are no longer necessary because they
-                    # have no data in their datastores.
-                    for rem_pnad in pnads_to_remove:
-                        param_opt_to_nec_pnads[option.parent].remove(rem_pnad)
 
                     # After all this, the unification call that failed earlier
                     # (leading us into the current else statement) should work.
@@ -255,6 +277,13 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         param_opt_to_nec_pnads[option.parent])
                     assert var_to_obj is not None
                     assert best_score_pnad == pnad
+                    # Also, since this segment caused us to induce the new
+                    # PNAD, it should appear in this new PNAD's datastore.
+                    segs_in_pnad = {
+                        datapoint[0]
+                        for datapoint in pnad.datastore
+                    }
+                    assert segment in segs_in_pnad
                     obj_to_var = {v: k for k, v in var_to_obj.items()}
                     assert len(var_to_obj) == len(obj_to_var)
                     ground_op = pnad.op.ground(
@@ -290,6 +319,19 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     for a in pnad.op.preconditions
                 }
         return nec_pnad_set_changed
+
+    @staticmethod
+    def _remove_empty_datastore_pnads(param_opt_to_nec_pnads: Dict[
+        ParameterizedOption, List[PartialNSRTAndDatastore]],
+                                      param_opt: ParameterizedOption) -> None:
+        """Removes all PNADs associated with the given param_opt that have
+        empty datastores from the input param_opt_to_nec_pnads dict."""
+        pnads_to_rm = []
+        for pnad in param_opt_to_nec_pnads[param_opt]:
+            if len(pnad.datastore) == 0:
+                pnads_to_rm.append(pnad)
+        for rm_pnad in pnads_to_rm:
+            param_opt_to_nec_pnads[param_opt].remove(rm_pnad)
 
     def _induce_delete_side_keep(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,

@@ -1468,8 +1468,24 @@ class LiftedDecisionList:
 
     The logic described above is implemented in utils.query_ldl().
     """
-    name: str
     rules: Sequence[LDLRule]
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(tuple(self.rules))
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, LiftedDecisionList)
+        if len(self.rules) != len(other.rules):
+            return False
+        return all(r1 == r2 for r1, r2 in zip(self.rules, other.rules))
+
+    def __str__(self) -> str:
+        rule_str = "\n".join(str(r) for r in self.rules)
+        return f"LiftedDecisionList[\n{rule_str}\n]"
 
 
 # Convenience higher-order types useful throughout the code
@@ -1494,6 +1510,7 @@ LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom,
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
+ObjectOrVariable = TypeVar("ObjectOrVariable", bound=_TypedEntity)
 SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
                          Optional[Set[GroundAtom]]]
 # For PDDLEnv environments, given a desired number of problems and an rng,

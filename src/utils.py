@@ -39,10 +39,10 @@ from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
-    NSRTOrSTRIPSOperator, Object, OptionSpec, ParameterizedOption, Predicate, \
-    Segment, State, STRIPSOperator, Task, Type, Variable, VarToObjSub, Video, \
-    _GroundLDLRule, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
-    _TypedEntity
+    NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
+    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
+    Type, Variable, VarToObjSub, Video, _GroundLDLRule, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option, _TypedEntity
 from predicators.third_party.fast_downward_translator.translate import \
     main as downward_translate
 
@@ -1068,48 +1068,43 @@ def action_arrs_to_policy(
     return _policy
 
 
-@functools.lru_cache(maxsize=None)
-def get_all_groundings(
-    atoms: FrozenSet[LiftedAtom], objects: FrozenSet[Object]
-) -> List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
-    """Get all the ways to ground the given set of lifted atoms into a set of
-    ground atoms, using the given objects.
-
-    Returns a list of (ground atoms, substitution dictionary) tuples.
-    """
-    variables = set()
-    for atom in atoms:
-        variables.update(atom.variables)
-    sorted_variables = sorted(variables)
-    types = [var.type for var in sorted_variables]
-    # NOTE: We WON'T use a generator here because that breaks lru_cache.
-    result = []
-    for choice in get_object_combinations(objects, types):
-        sub: VarToObjSub = dict(zip(sorted_variables, choice))
-        ground_atoms = {atom.ground(sub) for atom in atoms}
-        result.append((frozenset(ground_atoms), sub))
-    return result
-
-
-def get_object_combinations(objects: Collection[Object],
-                            types: Sequence[Type]) -> Iterator[List[Object]]:
-    """Get all combinations of objects satisfying the given types sequence."""
-    sorted_objects = sorted(objects)
+def _get_entity_combinations(
+        entities: Collection[ObjectOrVariable],
+        types: Sequence[Type]) -> Iterator[List[ObjectOrVariable]]:
+    """Get all combinations of entities satisfying the given types sequence."""
+    sorted_entities = sorted(entities)
     choices = []
     for vt in types:
         this_choices = []
-        for obj in sorted_objects:
-            if obj.is_instance(vt):
-                this_choices.append(obj)
+        for ent in sorted_entities:
+            if ent.is_instance(vt):
+                this_choices.append(ent)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
 
 
-@functools.lru_cache(maxsize=None)
+def get_object_combinations(objects: Collection[Object],
+                            types: Sequence[Type]) -> Iterator[List[Object]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return _get_entity_combinations(objects, types)
+
+
+def get_variable_combinations(
+        variables: Collection[Variable],
+        types: Sequence[Type]) -> Iterator[List[Variable]]:
+    """Get all combinations of objects satisfying the given types sequence."""
+    return _get_entity_combinations(variables, types)
+
+
 def get_all_ground_atoms_for_predicate(
         predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
-    """Get all groundings of the predicate given objects."""
+    """Get all groundings of the predicate given objects.
+
+    Note: we don't want lru_cache() on this function because we might want
+    to call it with stripped predicates, and we wouldn't want it to return
+    cached values.
+    """
     ground_atoms = set()
     for args in get_object_combinations(objects, predicate.types):
         ground_atom = GroundAtom(predicate, args)
@@ -1117,15 +1112,20 @@ def get_all_ground_atoms_for_predicate(
     return ground_atoms
 
 
-@functools.lru_cache(maxsize=None)
-def get_all_ground_atoms(predicates: FrozenSet[Predicate],
-                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
-    """Get all groundings of the predicates given objects."""
-    ground_atoms = set()
-    for predicate in predicates:
-        ground_atoms.update(
-            get_all_ground_atoms_for_predicate(predicate, objects))
-    return ground_atoms
+def get_all_lifted_atoms_for_predicate(
+        predicate: Predicate,
+        variables: FrozenSet[Variable]) -> Set[LiftedAtom]:
+    """Get all groundings of the predicate given variables.
+
+    Note: we don't want lru_cache() on this function because we might want
+    to call it with stripped predicates, and we wouldn't want it to return
+    cached values.
+    """
+    lifted_atoms = set()
+    for args in get_variable_combinations(variables, predicate.types):
+        lifted_atom = LiftedAtom(predicate, args)
+        lifted_atoms.add(lifted_atom)
+    return lifted_atoms
 
 
 def get_random_object_combination(
@@ -1224,15 +1224,6 @@ def _substitution_consistent(
         if substituted_vars not in super_pred_to_tuples[sub_atom.predicate]:
             return False
     return True
-
-
-def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
-    """Get an iterator over the powerset of the given sequence."""
-    start = 1 if exclude_empty else 0
-    return itertools.chain.from_iterable(
-        itertools.combinations(list(seq), r)
-        for r in range(start,
-                       len(seq) + 1))
 
 
 def create_new_variables(
@@ -1382,6 +1373,21 @@ def run_gbfs(initial_state: _S,
                                  timeout, lazy_expansion)
 
 
+def run_astar(initial_state: _S,
+              check_goal: Callable[[_S], bool],
+              get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+              heuristic: Callable[[_S], float],
+              max_expansions: int = 10000000,
+              max_evals: int = 10000000,
+              timeout: int = 10000000,
+              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
+    """A* search."""
+    get_priority = lambda n: heuristic(n.state) + n.cumulative_cost
+    return _run_heuristic_search(initial_state, check_goal, get_successors,
+                                 get_priority, max_expansions, max_evals,
+                                 timeout, lazy_expansion)
+
+
 def run_hill_climbing(
         initial_state: _S,
         check_goal: Callable[[_S], bool],
@@ -1472,6 +1478,79 @@ def run_hill_climbing(
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
+
+
+def run_policy_guided_astar(
+        initial_state: _S,
+        check_goal: Callable[[_S], bool],
+        get_valid_actions: Callable[[_S], Iterator[Tuple[_A, float]]],
+        get_next_state: Callable[[_S, _A], _S],
+        heuristic: Callable[[_S], float],
+        policy: Callable[[_S], Optional[_A]],
+        num_rollout_steps: int,
+        rollout_step_cost: float,
+        max_expansions: int = 10000000,
+        max_evals: int = 10000000,
+        timeout: int = 10000000,
+        lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
+    """Perform A* search, but at each node, roll out a given policy for a given
+    number of timesteps, creating new successors at each step.
+
+    Stop the roll out prematurely if the policy returns None.
+
+    Note that unlike the other search functions, which take get_successors as
+    input, this function takes get_valid_actions and get_next_state as two
+    separate inputs. This is necessary because we need to anticipate the next
+    state conditioned on the action output by the policy.
+
+    The get_valid_actions generates (action, cost) tuples. For policy-generated
+    transitions, the costs are ignored, and rollout_step_cost is used instead.
+    """
+
+    # Create a new successor function that rolls out the policy first.
+    # A successor here means: from this state, if you take this sequence of
+    # actions in order, you'll end up at this final state.
+    def get_successors(state: _S) -> Iterator[Tuple[List[_A], _S, float]]:
+        # Get policy-based successors.
+        policy_state = state
+        policy_action_seq = []
+        policy_cost = 0.0
+        for _ in range(num_rollout_steps):
+            action = policy(policy_state)
+            if action is None:
+                break
+            policy_state = get_next_state(policy_state, action)
+            policy_action_seq.append(action)
+            policy_cost += rollout_step_cost
+            yield (list(policy_action_seq), policy_state, policy_cost)
+
+        # Get primitive successors.
+        for action, cost in get_valid_actions(state):
+            next_state = get_next_state(state, action)
+            yield ([action], next_state, cost)
+
+    _, action_subseqs = run_astar(initial_state=initial_state,
+                                  check_goal=check_goal,
+                                  get_successors=get_successors,
+                                  heuristic=heuristic,
+                                  max_expansions=max_expansions,
+                                  max_evals=max_evals,
+                                  timeout=timeout,
+                                  lazy_expansion=lazy_expansion)
+
+    # The states are "jumpy", so we need to reconstruct the dense state
+    # sequence from the action subsequences. We also need to construct a
+    # flat action sequence.
+    state = initial_state
+    state_seq = [state]
+    action_seq = []
+    for action_subseq in action_subseqs:
+        for action in action_subseq:
+            action_seq.append(action)
+            state = get_next_state(state, action)
+            state_seq.append(state)
+
+    return state_seq, action_seq
 
 
 class BiRRT(Generic[_S]):
@@ -1588,8 +1667,15 @@ class _BiRRTNode(Generic[_S]):
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
-    """Remove classifier from predicate to make new Predicate."""
-    return Predicate(predicate.name, predicate.types, lambda s, o: False)
+    """Remove the classifier from the given predicate to make a new Predicate.
+
+    Implement this by replacing the classifier with one that errors.
+    """
+
+    def _stripped_classifier(state: State, objects: Sequence[Object]) -> bool:
+        raise Exception("Stripped classifier should never be called!")
+
+    return Predicate(predicate.name, predicate.types, _stripped_classifier)
 
 
 def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
@@ -1612,7 +1698,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
 
-    NOTE: Duplicate arguments in predicates are DISALLOWED.
+    Duplicate arguments in predicates are allowed.
     """
     atoms = set()
     for pred in preds:
@@ -1683,19 +1769,6 @@ def all_ground_nsrts_fd_translator(
         yield nsrt.ground(objs)
 
 
-def all_ground_predicates(pred: Predicate,
-                          objects: Collection[Object]) -> Set[GroundAtom]:
-    """Get all possible groundings of the given predicate with the given
-    objects.
-
-    NOTE: Duplicate arguments in predicates are DISALLOWED.
-    """
-    return {
-        GroundAtom(pred, choice)
-        for choice in get_object_combinations(objects, pred.types)
-    }
-
-
 def all_possible_ground_atoms(state: State,
                               preds: Set[Predicate]) -> List[GroundAtom]:
     """Get a sorted list of all possible ground atoms in a state given the
@@ -1703,10 +1776,10 @@ def all_possible_ground_atoms(state: State,
 
     Ignores the predicates' classifiers.
     """
-    objects = list(state)
+    objects = frozenset(state)
     ground_atoms = set()
     for pred in preds:
-        ground_atoms |= all_ground_predicates(pred, objects)
+        ground_atoms |= get_all_ground_atoms_for_predicate(pred, objects)
     return sorted(ground_atoms)
 
 
@@ -2021,7 +2094,10 @@ def _create_pyperplan_task(
     static_atoms: Set[GroundAtom],
 ) -> _PyperplanTask:
     """Helper glue for pyperplan heuristics."""
-    all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
+    all_atoms = set()
+    for predicate in predicates:
+        all_atoms.update(
+            get_all_ground_atoms_for_predicate(predicate, frozenset(objects)))
     # Note: removing static atoms.
     pyperplan_facts = _atoms_to_pyperplan_facts(all_atoms - static_atoms)
     pyperplan_state = _atoms_to_pyperplan_facts(init_atoms - static_atoms)

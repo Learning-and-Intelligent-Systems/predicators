@@ -215,8 +215,17 @@ class GlobalSettings:
     gnn_option_policy_shooting_variance = 0.1
     gnn_option_policy_shooting_max_samples = 100
 
-    # parameters for GNN metacontroller approach
-    gnn_metacontroller_max_samples = 100
+    # parameters for metacontroller approaches
+    metacontroller_max_samples = 100
+
+    # parameters for PG3 approach
+    pg3_heuristic = "policy_guided"
+    pg3_search_method = "hill_climbing"
+    pg3_task_planning_heuristic = "lmcut"
+    pg3_gbfs_max_expansions = 100
+    pg3_hc_enforced_depth = 0
+    pg3_max_policy_guided_rollout = 50
+    pg3_plan_compare_inapplicable_cost = 0.99
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
@@ -401,9 +410,9 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For these environments, the only environment failure
-                    # is one that involves no objects, which we want to be
-                    # treated like a terminal environment state.
+                    # For these environments, we want to treat environment
+                    # failures as terminal environment states, and continue
+                    # high-level search without changing the operators.
                     "stick_button": "never",
                     "coffee": "never",
                 })[args.get("env", "")],
