@@ -2763,16 +2763,16 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
 
-    # We start by creating reachable predicates for all possible type
-    # combinations. These predicates will be used as side predicates
-    # for navigateTo operators
-    reachable_predicates = set()
-    for reachable_pred_types in itertools.product(env.types, env.types):
-        reachable_predicates.add(
-            _get_predicate("reachable", reachable_pred_types))
-
     agent_type = type_name_to_type["agent"]
     agent_obj = Variable("?agent", agent_type)
+
+    # We start by creating reachable predicates for the agent and
+    # all possible other type combinations. These predicates will
+    # be used as side predicates for navigateTo operators
+    reachable_predicates = set()
+    for reachable_pred_types in itertools.product([agent_type], env.types):
+        reachable_predicates.add(
+            _get_predicate("reachable", reachable_pred_types))
 
     nsrts = set()
     op_name_count_nav = itertools.count()
