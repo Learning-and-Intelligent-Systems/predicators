@@ -439,17 +439,6 @@ class BehaviorEnv(BaseEnv):
             if not s.allclose(
                     self.current_ig_state_to_state(save_state=False)):
                 load_checkpoint_state(s, self)
-            # if not np.allclose(self.object_to_ig_object(o[0]).states[Pose].get_value()[0], np.array(self.object_to_ig_object(o[0]).get_position()), atol=1e-1):
-            #     import ipdb; ipdb.set_trace()
-            #     task_notebook = None
-            #     for obj in self.igibson_behavior_env.task_relevant_objects:
-            #         if 'notebook' in obj.name:
-            #             task_notebook = str(obj)
-            #     for obj in self.igibson_behavior_env.simulator.scene.get_objects():
-            #         if 'notebook' in obj.name:
-            #             import ipdb; ipdb.set_trace()
-            #             if str(obj) != task_notebook:
-            #                 import ipdb; ipdb.set_trace()
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:

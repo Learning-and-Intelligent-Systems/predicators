@@ -363,15 +363,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                             return plan, True  # success!
                     else:
                         can_continue_on = False
-                        if CFG.env == "behavior":  # pragma: no cover
-                            print()
-                            print("Failed expected atoms check", option)
-                            print("on...")
-                            for a in expected_atoms:
-                                if not a.holds(traj[cur_idx]):
-                                    a.holds(traj[cur_idx])
-                                    print(a)
-                            print()
                 else:
                     # If we're not checking expected_atoms, we need to
                     # explicitly check the goal on the final timestep.
