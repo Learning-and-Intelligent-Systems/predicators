@@ -12,7 +12,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach
-from predicators.src.option_model import _OptionModelBase, create_option_model
+from predicators.src.option_model import create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
@@ -105,7 +105,4 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
-
-    def get_option_model(self) -> _OptionModelBase:
-        """Get the current option model."""
-        return self._option_model  # pragma: no cover
+        
