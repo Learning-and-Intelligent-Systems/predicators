@@ -105,3 +105,4 @@ class BilevelPlanningApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
+        

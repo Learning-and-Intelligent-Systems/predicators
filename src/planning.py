@@ -18,10 +18,9 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+from predicators.src.structs import NSRT, DefaultState, DummyOption, \
+    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, \
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
