@@ -194,11 +194,12 @@ def _generate_demonstrations(
                     termination_function = task.goal_holds
                 if CFG.env == "behavior":  # pragma: no cover
                     # For BEHAVIOR we are generating the trajectory by running
-                    # our plan on our option models. Since option models 
-                    # return only states, we will add dummy actions to the 
+                    # our plan on our option models. Since option models
+                    # return only states, we will add dummy actions to the
                     # states to create our low level trajectories.
                     traj, success = _run_plan_with_option_model(
-                        task, oracle_approach.get_option_model(), last_plan)
+                        task, idx, oracle_approach.get_option_model(),
+                        last_plan)
                     # Is successful if we found a low-level plan that achieves
                     # our goal using option models
                     if not success:
