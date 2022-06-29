@@ -461,7 +461,7 @@ def _run_plan_with_option_model(
         actions[idx].set_option(action_option)
         # Since we're not checking the expected_atoms, we need to
         # explicitly check if the goal is achieved.
-    if task.goal_holds(traj[idx + 1]):
+    if task.goal_holds(traj[-1]):
         return LowLevelTrajectory(_states=traj,
                                   _actions=actions,
                                   _is_demo=True,
