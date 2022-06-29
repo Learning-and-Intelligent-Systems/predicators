@@ -21,7 +21,7 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
-from predicators.src.structs import Array, Object, State
+from predicators.src.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
@@ -122,8 +122,9 @@ class _NormalizingRegressor(Regressor):
 class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     """ABC for PyTorch regression models."""
 
-    def __init__(self, seed: int, max_train_iters: int, clip_gradients: bool,
-                 clip_value: float, learning_rate: float) -> None:
+    def __init__(self, seed: int, max_train_iters: MaxTrainIters,
+                 clip_gradients: bool, clip_value: float,
+                 learning_rate: float) -> None:
         torch.manual_seed(seed)
         _NormalizingRegressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
@@ -167,7 +168,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
 
@@ -318,8 +320,9 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
 
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int) -> None:
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
@@ -370,7 +373,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              n_iter_no_change=self._n_iter_no_change)
 
     def _forward_single_input_np(self, x: Array) -> float:
@@ -395,9 +399,9 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 class MLPRegressor(PyTorchRegressor):
     """A basic multilayer perceptron regressor."""
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float,
-                 learning_rate: float) -> None:
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
@@ -467,7 +471,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def __init__(self,
                  seed: int,
                  hid_sizes: List[int],
-                 max_train_iters: int,
+                 max_train_iters: MaxTrainIters,
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
@@ -590,7 +594,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
 
@@ -686,9 +691,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float,
-                 learning_rate: float) -> None:
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
@@ -795,9 +800,9 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
 class MLPBinaryClassifier(PyTorchBinaryClassifier):
     """MLPBinaryClassifier definition."""
 
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int]) -> None:
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int]) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
                          n_iter_no_change)
         self._hid_sizes = hid_sizes
@@ -825,9 +830,10 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 class MLPBinaryClassifierEnsemble(BinaryClassifier):
     """MLPBinaryClassifierEnsemble definition."""
 
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int], ensemble_size: int) -> None:
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int],
+                 ensemble_size: int) -> None:
         super().__init__(seed)
         self._members = [
             MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
@@ -916,7 +922,8 @@ def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
                          batch_generator: Iterator[Tuple[Tensor, Tensor]],
-                         max_iters: int,
+                         max_train_iters: MaxTrainIters,
+                         dataset_size: int,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
@@ -931,6 +938,11 @@ def _train_pytorch_model(model: nn.Module,
     best_loss = float("inf")
     best_itr = 0
     model_name = tempfile.NamedTemporaryFile(delete=False).name
+    if isinstance(max_train_iters, int):
+        max_iters = max_train_iters
+    else:  # assume that it's a function from dataset size to max iters
+        max_iters = max_train_iters(dataset_size)
+    assert isinstance(max_iters, int)
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)
