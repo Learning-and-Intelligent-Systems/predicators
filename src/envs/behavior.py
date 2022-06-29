@@ -176,7 +176,7 @@ class BehaviorEnv(BaseEnv):
         tasks = []
         assert num <= 10  # Max 10 train and test tasks for behavior
         if testing:
-            self.task_num += 10
+            self.task_num = 10
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
