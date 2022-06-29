@@ -339,10 +339,10 @@ def navigate_to_obj_pos(
         valid_position = (pos, orn)
 
     if valid_position is None:
-        if not blocked:
-            logging.warning("WARNING: Position commanded is in collision!")
-        else:
+        if blocked:
             logging.warning("WARNING: Position commanded is blocked!")
+        else:
+            logging.warning("WARNING: Position commanded is in collision!")
         p.restoreState(state)
         p.removeState(state)
         logging.warning(f"PRIMITIVE: navigate to {obj.name} with params "

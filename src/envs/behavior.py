@@ -26,7 +26,6 @@ try:
     from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
     from igibson.utils.utils import modify_config_file
-    from igibson.object_states.pose import Pose
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -58,8 +57,7 @@ class BehaviorEnv(BaseEnv):
         # We are loading pre-computed scenes.
         self._config_file = modify_config_file(
             os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_name,
-            False)
+            CFG.behavior_task_name, CFG.behavior_scene_name, False)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
