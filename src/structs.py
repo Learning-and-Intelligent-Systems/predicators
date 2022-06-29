@@ -6,7 +6,7 @@ import abc
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
-    List, Optional, Sequence, Set, Tuple, TypeVar, cast
+    List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -1516,3 +1516,6 @@ SamplerDatapoint = Tuple[State, VarToObjSub, _Option,
 # For PDDLEnv environments, given a desired number of problems and an rng,
 # returns a list of that many PDDL problem strings.
 PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
+# Used in ml_models.py. Either the maximum number of training iterations for
+# a model, or a function that produces this number given the amount of data.
+MaxTrainIters = Union[int, Callable[[int], int]]

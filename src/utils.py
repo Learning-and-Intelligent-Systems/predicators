@@ -2402,7 +2402,7 @@ def string_to_python_object(value: str) -> Any:
         return True
     if value == "False":
         return False
-    if value.isdigit():
+    if value.isdigit() or value.startswith("lambda"):
         return eval(value)
     try:
         return float(value)

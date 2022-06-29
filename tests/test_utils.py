@@ -2844,6 +2844,10 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
     assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
+    assert utils.string_to_python_object("lambda x: x + 3")(12) == 15
+    with pytest.raises(TypeError):  # invalid number of arguments
+        utils.string_to_python_object("lambda: x + 3")(12)
+    assert utils.string_to_python_object("lambda: 13")() == 13
 
 
 def test_get_env_asset_path():
