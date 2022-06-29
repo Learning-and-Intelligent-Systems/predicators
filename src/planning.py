@@ -18,9 +18,10 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, DefaultState, DummyOption, \
-    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, \
-    STRIPSOperator, Task, Type, _GroundNSRT, _Option
+from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
+    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
+    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
+    _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -421,6 +422,65 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     # Should only get here if the skeleton was empty.
     assert not skeleton
     return [], True
+
+
+def _run_plan_with_option_model(
+        task: Task, option_model: _OptionModelBase, plan: List[_Option],
+        timeout: float) -> Tuple[LowLevelTrajectory, bool]:  # pragma: no cover
+    """Runs a plan on an option model to generate a low level trajectory.
+
+    Returns a LowLevelTrajectory and a boolean. If the boolean is True,
+    the option sequence successfully executed to achieve the goal and
+    generated a LowLevelTrajectory. Otherwise, it returns and empty list
+    and False.
+    """
+    start_time = time.time()
+    traj: List[State] = [task.init] + [DefaultState for _ in plan]
+    actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
+    for idx in range(len(plan)):
+        if time.time() - start_time > timeout:
+            return LowLevelTrajectory([task.init], [], False), False
+        state = traj[idx]
+        option = plan[idx]
+        cur_idx = idx + 1
+        if option.initiable(state):
+            try:
+                next_state, _ = \
+                    option_model.get_next_state_and_num_actions(state, option)
+                print('Success')
+            except EnvironmentFailure:
+                return LowLevelTrajectory([task.init], [], False), False
+            else:  # an EnvironmentFailure was not raised
+                traj[cur_idx] = next_state
+                # Need to make a new option without policy, initiable, and
+                # terminal in order to make it a picklable trajectory
+                action_option = ParameterizedOption(
+                    option.parent.name, option.parent.types,
+                    option.parent.params_space,
+                    lambda s, m, o, p: Action(np.array([0.0])),
+                    lambda s, m, o, p: False,
+                    lambda s, m, o, p: True).ground(option.objects,
+                                                    option.params)
+                action_option.name = option.name
+                action_option.memory = option.memory
+                actions[cur_idx - 1].set_option(action_option)
+                # Since we're not checking the expected_atoms, we need to
+                # explicitly check if the goal is achieved.
+                if cur_idx == len(plan):
+                    if task.goal_holds(traj[cur_idx]):
+                        return LowLevelTrajectory(traj,
+                                                  actions), True  # success!
+                    return LowLevelTrajectory([task.init], [], False), False
+        else:
+            # The option is not initiable.
+            return LowLevelTrajectory([task.init], [], False), False
+    # Should only get here if the plan was empty.
+    assert not plan
+    if task.goal_holds(task.init):
+        return LowLevelTrajectory(
+            [task.init], [],
+            False), True  # empty plan successfully achieved goal
+    return LowLevelTrajectory([task.init], [], False), False
 
 
 def _update_nsrts_with_failure(

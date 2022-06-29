@@ -2859,7 +2859,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     preconditions,
                     add_effects,
                     delete_effects,
-                    set(),
+                    reachable_predicates,
                     option,
                     option_vars,
                     lambda s, g, r, o: grasp_obj_param_sampler(r),
