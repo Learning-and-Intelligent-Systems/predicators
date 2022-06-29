@@ -2850,7 +2850,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
                 preconditions = {handempty, targ_reachable, ontop}
-                add_effects = {targ_holding}
+                add_effects = {targ_holding, targ_reachable
+                               }  # targ_reachable is a keep_effect
                 delete_effects = {handempty, ontop}
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_pick)}",

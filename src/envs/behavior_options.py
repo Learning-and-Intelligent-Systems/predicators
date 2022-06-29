@@ -583,7 +583,7 @@ def create_grasp_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape, 1)),
+                    np.zeros((env.action_space.shape[0], 1)),
                     atol=atol_vel,
             ):
                 low_level_action = (get_delta_low_level_hand_action(
@@ -707,8 +707,15 @@ def create_grasp_option_model(
         else:
             grasp_obj_body_id = obj_to_grasp.body_id
         # 3.1 Call code that does assisted grasping
+        # bypass_force_check is basically a hack we should
+        # turn it off for the final system and use a real grasp
+        # sampler
+        if env.robots[0].parts["right_hand"].object_in_hand is None:
+            env.robots[0].parts["right_hand"].trigger_fraction = 0
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
-            assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
+            assisted_grasp_action,
+            override_ag_data=(grasp_obj_body_id, -1),
+            bypass_force_check=True)
         # 3.2 step the environment a few timesteps to complete grasp
         for _ in range(5):
             env.step(a)

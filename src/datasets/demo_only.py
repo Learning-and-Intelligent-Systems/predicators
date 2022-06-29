@@ -24,9 +24,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     regex = r"(\d+)"
-    dataset_fname_template = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-        f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    if CFG.env == "behavior":  # pragma: no cover
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
@@ -43,6 +49,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                 train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
+
+        # NOTE: This is necessary because BEHAVIOR options save
+        # the BEHAVIOR environment object in their memory, and this
+        # can't be pickled.
+        if CFG.env == "behavior":  # pragma: no cover
+            for traj in dataset.trajectories:
+                for act in traj.actions:
+                    act.get_option().memory = {}
+
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset
@@ -158,14 +173,14 @@ def _generate_demonstrations(
                 if timeout == -1:
                     timeout = CFG.timeout
                 oracle_approach.solve(task, timeout=timeout)
-                # Since we're running the oracle approach, we know that the
-                # policy is actually a plan under the hood, and we can
-                # retrieve it with get_last_plan(). We do this because we want
-                # to run the full plan.
+                # Since we're running the oracle approach, we know that
+                # the policy is actually a plan under the hood, and we
+                # can retrieve it with get_last_plan(). We do this
+                # because we want to run the full plan.
                 last_plan = oracle_approach.get_last_plan()
                 policy = utils.option_plan_to_policy(last_plan)
-                # We will stop run_policy() when OptionExecutionFailure() is
-                # hit, which should only happen when the goal has been
+                # We will stop run_policy() when OptionExecutionFailure()
+                # is hit, which should only happen when the goal has been
                 # reached, as verified by the assertion later.
                 termination_function = lambda s: False
             else:  # pragma: no cover

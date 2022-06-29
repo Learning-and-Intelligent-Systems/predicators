@@ -4,7 +4,6 @@
 import functools
 import itertools
 import os
-import shutil
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import matplotlib
@@ -30,9 +29,8 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-    if os.path.exists("tmp_behavior_states/"):
-        shutil.rmtree("tmp_behavior_states/")
-    os.makedirs("tmp_behavior_states/")
+    if not os.path.exists("tmp_behavior_states/"):
+        os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
@@ -54,15 +52,16 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
+        # behavior_randomize_init_state will always be False in this
+        # config_file because we are not using their scene samplers.
+        # We are loading pre-computed scenes.
         self._config_file = modify_config_file(
-            os.path.join(igibson.root_path,
-                         CFG.behavior_config_file), CFG.behavior_task_name,
-            CFG.behavior_scene_name, CFG.behavior_randomize_init_state)
+            os.path.join(igibson.root_path, CFG.behavior_config_file),
+            CFG.behavior_task_name, CFG.behavior_scene_name, False)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
-        self.set_igibson_behavior_env(self._seed)
-        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
+        self.set_igibson_behavior_env(task_instance_id=0, seed=self._seed)
         self._type_name_to_type: Dict[str, Type] = {}
         # a unique id for saving and loading each task's state
         self.task_num: int = 0
@@ -166,19 +165,32 @@ class BehaviorEnv(BaseEnv):
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng,
+                               testing=True)
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self,
+                   num: int,
+                   rng: np.random.Generator,
+                   testing: bool = False) -> List[Task]:
         tasks = []
+        # Max 10 train and test tasks for behavior
+        assert num <= CFG.num_train_tasks
+        assert CFG.num_train_tasks <= 10
+        if testing:
+            self.task_num = CFG.num_train_tasks
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             curr_env_seed = rng.integers(0, (2**32) - 1)
             if CFG.behavior_randomize_init_state:
-                self.set_igibson_behavior_env(curr_env_seed)
+                self.set_igibson_behavior_env(task_instance_id=self.task_num,
+                                              seed=curr_env_seed)
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
-            os.makedirs(f"tmp_behavior_states/{self.task_num}", exist_ok=True)
+            os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+                        f"{CFG.behavior_task_name}__{self.task_num}",
+                        exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -330,7 +342,8 @@ class BehaviorEnv(BaseEnv):
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
         return list(self.igibson_behavior_env.task.object_scope.values())
 
-    def set_igibson_behavior_env(self, seed: int) -> None:
+    def set_igibson_behavior_env(self, task_instance_id: int,
+                                 seed: int) -> None:
         """Sets/resets the igibson_behavior_env."""
         np.random.seed(seed)
         env_creation_attempts = 0
@@ -345,6 +358,7 @@ class BehaviorEnv(BaseEnv):
                 action_timestep=CFG.behavior_action_timestep,
                 physics_timestep=CFG.behavior_physics_timestep,
                 action_filter="mobile_manipulation",
+                instance_id=task_instance_id,
                 rng=self._rng,
             )
             self.igibson_behavior_env.step(
@@ -361,6 +375,7 @@ class BehaviorEnv(BaseEnv):
             raise RuntimeError("ERROR: Failed to sample iGibson BEHAVIOR "
                                "environment that meets bddl initial "
                                "conditions!")
+        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -369,15 +384,18 @@ class BehaviorEnv(BaseEnv):
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
-    @functools.lru_cache(maxsize=None)
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         """Maintains a mapping of objects to underlying igibson objects."""
         return self._name_to_ig_object(obj.name)
 
-    @functools.lru_cache(maxsize=None)
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
-            if self._ig_object_name(ig_obj) == name:
+            # Name is extended with sub-type in some behavior tasks
+            if self._ig_object_name(ig_obj).startswith(name):
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")
 
@@ -409,7 +427,8 @@ class BehaviorEnv(BaseEnv):
         if save_state:
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
-                f"tmp_behavior_states/{self.task_num}/")
+                f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+                f"{CFG.behavior_task_name}__{self.task_num}/")
 
         return utils.BehaviorState(state_data,
                                    f"{self.task_num}-{simulator_state}")
@@ -487,7 +506,8 @@ class BehaviorEnv(BaseEnv):
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
             if isinstance(ig_obj.body_id, list):
-                assert len(ig_obj.body_id) == 1
+                # For some reason sofa is a 4 part body, so we use the
+                # first body in the list as the sofa's obj body
                 ig_obj.body_id = ig_obj.body_id[0]
 
             if np.any(self.igibson_behavior_env.robots[0].is_grasping(
@@ -552,14 +572,17 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     # so that it's compatible with the new environment!
     if new_task_num != env.task_num and CFG.behavior_randomize_init_state:
         env.set_igibson_behavior_env(
-            env.task_num_to_igibson_seed[new_task_num])
+            task_instance_id=new_task_num,
+            seed=env.task_num_to_igibson_seed[new_task_num])
         env.task_num = new_task_num
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
     env.task_num = new_task_num
-    load_checkpoint(env.igibson_behavior_env.simulator,
-                    f"tmp_behavior_states/{env.task_num}",
-                    int(s.simulator_state.split("-")[1]))
+    load_checkpoint(
+        env.igibson_behavior_env.simulator,
+        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+        f"{CFG.behavior_task_name}__{env.task_num}",
+        int(s.simulator_state.split("-")[1]))
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))
