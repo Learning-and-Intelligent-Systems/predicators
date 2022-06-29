@@ -43,22 +43,22 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # Explore in the train tasks. The number of train tasks that are
-        # explored at each time step is a hyperparameter. The train task
+        # explored at each timestep is a hyperparameter. The train task
         # is randomly selected.
         explorer = self._get_explorer()
         requests = []
-        for _ in range(CFG.online_nsrt_learning_tasks_per_request):
+        for _ in range(CFG.online_nsrt_learning_tasks_per_cycle):
             # Select a random task (with replacement).
             task_idx = self._rng.choice(len(self._train_tasks))
             task = self._train_tasks[task_idx]
             # Set up the explorer policy and termination function.
-            policy, terminal = explorer.solve(task)
+            policy, termination_function = explorer.solve(task)
             # Create the interaction request.
-            request = InteractionRequest(train_task_idx=task_idx,
-                                         act_policy=policy,
-                                         query_policy=lambda s: None,
-                                         termination_function=terminal)
-            requests.append(request)
+            req = InteractionRequest(train_task_idx=task_idx,
+                                     act_policy=policy,
+                                     query_policy=lambda s: None,
+                                     termination_function=termination_function)
+            requests.append(req)
         return requests
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:

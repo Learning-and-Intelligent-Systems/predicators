@@ -293,7 +293,7 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_explorer = "random_options"
-    online_nsrt_learning_tasks_per_request = 10
+    online_nsrt_learning_tasks_per_cycle = 10
 
     # torch model parameters
     learning_rate = 1e-3
