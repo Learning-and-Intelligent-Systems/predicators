@@ -442,10 +442,7 @@ def _run_plan_with_option_model(
         option = plan[idx]
         if not option.initiable(state):
             # The option is not initiable.
-            return (LowLevelTrajectory(_states=[task.init],
-                                       _actions=[],
-                                       _is_demo=True,
-                                       _train_task_idx=task_idx), False)
+            break
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
         traj[idx + 1] = next_state
@@ -458,8 +455,8 @@ def _run_plan_with_option_model(
             lambda s, m, o, p: True).ground(option.objects, option.params)
         action_option.memory = option.memory
         actions[idx].set_option(action_option)
-        # Since we're not checking the expected_atoms, we need to
-        # explicitly check if the goal is achieved.
+    # Since we're not checking the expected_atoms, we need to
+    # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):
         return LowLevelTrajectory(_states=traj,
                                   _actions=actions,
