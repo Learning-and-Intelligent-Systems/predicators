@@ -59,7 +59,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
         traj, success = _run_plan_with_option_model(task, 0, option_model,
                                                     [plan[0]])
         assert not success and len(traj.states) == 1 and len(traj.actions) == 0
-        # Case 3: plan does achieves goal
+        # Case 3: plan does achieve goal
         traj, success = _run_plan_with_option_model(task, 0, option_model,
                                                     plan)
         assert success and len(traj.states) > 1 and len(

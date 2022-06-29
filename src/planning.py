@@ -432,7 +432,8 @@ def _run_plan_with_option_model(
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
     the option sequence successfully executed to achieve the goal and
     generated a LowLevelTrajectory. Otherwise, it returns an empty list
-    and False.
+    and False. Since option models return only states, we will add dummy
+    actions to the states to create our low level trajectories.
     """
     traj: List[State] = [task.init] + [DefaultState for _ in plan]
     actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
@@ -441,12 +442,15 @@ def _run_plan_with_option_model(
         option = plan[idx]
         if not option.initiable(state):
             # The option is not initiable.
-            return LowLevelTrajectory([task.init], [], True, task_idx), False
+            return LowLevelTrajectory(_states=[task.init],
+                                      _actions=[],
+                                      _is_demo=True,
+                                      _train_task_idx=task_idx), False
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
         traj[idx + 1] = next_state
         # Need to make a new option without policy, initiable, and
-        # terminal in order to make it a picklable trajectory
+        # terminal in order to make it a picklable trajectory.
         action_option = ParameterizedOption(
             option.parent.name, option.parent.types,
             option.parent.params_space,
@@ -460,14 +464,23 @@ def _run_plan_with_option_model(
         # explicitly check if the goal is achieved.
         if idx + 1 == len(plan):
             if task.goal_holds(traj[idx + 1]):
-                return LowLevelTrajectory(traj, actions, True,
-                                          task_idx), True  # success!
-            return LowLevelTrajectory([task.init], [], True, task_idx), False
+                return LowLevelTrajectory(
+                    _states=traj,
+                    _actions=actions,
+                    _is_demo=True,
+                    _train_task_idx=task_idx), True  # success!
+            return LowLevelTrajectory(_states=[task.init],
+                                      _actions=[],
+                                      _is_demo=True,
+                                      _train_task_idx=task_idx), False
     # Should only get here if the plan was empty.
     assert not plan
-    # Return whether empty plan successfully achieved goal
-    return LowLevelTrajectory([task.init], [], True,
-                              task_idx), task.goal_holds(task.init)
+    # Return whether empty plan successfully achieved goal.
+    return LowLevelTrajectory(_states=[task.init],
+                              _actions=[],
+                              _is_demo=True,
+                              _train_task_idx=task_idx), task.goal_holds(
+                                  task.init)
 
 
 def _update_nsrts_with_failure(
