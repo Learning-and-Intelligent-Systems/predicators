@@ -174,9 +174,11 @@ class BehaviorEnv(BaseEnv):
                    rng: np.random.Generator,
                    testing: bool = False) -> List[Task]:
         tasks = []
-        assert num <= 10  # Max 10 train and test tasks for behavior
+        # Max 10 train and test tasks for behavior
+        assert num <= CFG.num_train_tasks
+        assert CFG.num_train_tasks <= 10
         if testing:
-            self.task_num = 10
+            self.task_num = CFG.num_train_tasks
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
