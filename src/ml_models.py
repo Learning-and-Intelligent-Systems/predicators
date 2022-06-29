@@ -9,6 +9,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Type as TypingType
 
 import numpy as np
 import torch
@@ -225,6 +226,14 @@ class BinaryClassifier(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def predict_proba(self, x: Array) -> float:
+        """Get the predicted probability that the input classifies to 1.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
 
 class _ScikitLearnBinaryClassifier(BinaryClassifier):
     """A regressor that lightly wraps a scikit-learn classification model."""
@@ -244,6 +253,11 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
         class_prediction = self._model.predict([x])[0]
         assert class_prediction in [0, 1]
         return bool(class_prediction)
+
+    def predict_proba(self, x: Array) -> float:
+        probs = self._model.predict_proba([x])[0]
+        assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
+        return probs[1]  # return the second element of probs
 
 
 class _NormalizingBinaryClassifier(BinaryClassifier):
@@ -335,13 +349,13 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """PyTorch forward method."""
         raise NotImplementedError("Override me!")
 
-    def predict_proba(self, denorm_x: Array) -> float:
+    def predict_proba(self, x: Array) -> float:
         """Get the predicted probability that the input classifies to 1.
 
         The input is NOT normalized.
         """
-        x = (denorm_x - self._input_shift) / self._input_scale
-        return self._forward_single_input_np(x)
+        norm_x = (x - self._input_shift) / self._input_scale
+        return self._forward_single_input_np(norm_x)
 
     @abc.abstractmethod
     def _initialize_net(self) -> None:
@@ -827,43 +841,41 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
 
-class MLPBinaryClassifierEnsemble(BinaryClassifier):
-    """MLPBinaryClassifierEnsemble definition."""
-
-    def __init__(self, seed: int, balance_data: bool,
-                 max_train_iters: MaxTrainIters, learning_rate: float,
-                 n_iter_no_change: int, hid_sizes: List[int],
-                 ensemble_size: int) -> None:
-        super().__init__(seed)
-        self._members = [
-            MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
-                                learning_rate, n_iter_no_change, hid_sizes)
-            for i in range(ensemble_size)
-        ]
-
-    def fit(self, X: Array, y: Array) -> None:
-        # Each member maintains its own normalizers.
-        for i, member in enumerate(self._members):
-            logging.info(f"Fitting member {i} of ensemble...")
-            member.fit(X, y)
-
-    def classify(self, x: Array) -> bool:
-        # Each member maintains its own normalizers.
-        avg = np.mean(self.predict_member_probas(x))
-        classification = bool(avg > 0.5)
-        assert classification in [True, False]
-        return classification
-
-    def predict_member_probas(self, x: Array) -> Array:
-        """Return class probabilities predicted by each member."""
-        return np.array([m.predict_proba(x) for m in self._members])
-
-
 class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
     """K nearest neighbors from scikit-learn."""
 
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsClassifier(**kwargs)
+
+
+class BinaryClassifierEnsemble(BinaryClassifier):
+    """BinaryClassifierEnsemble definition."""
+
+    def __init__(self, seed: int, ensemble_size: int,
+                 member_cls: TypingType[BinaryClassifier],
+                 **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._members = [
+            member_cls(seed + i, **kwargs) for i in range(ensemble_size)
+        ]
+
+    def fit(self, X: Array, y: Array) -> None:
+        for i, member in enumerate(self._members):
+            logging.info(f"Fitting member {i} of ensemble...")
+            member.fit(X, y)
+
+    def classify(self, x: Array) -> bool:
+        avg = np.mean(self.predict_member_probas(x))
+        classification = bool(avg > 0.5)
+        return classification
+
+    def predict_proba(self, x: Array) -> float:
+        raise Exception("Can't call predict_proba() on an ensemble. Use "
+                        "predict_member_probas() instead.")
+
+    def predict_member_probas(self, x: Array) -> Array:
+        """Return class probabilities predicted by each member."""
+        return np.array([m.predict_proba(x) for m in self._members])
 
 
 ################################## Utilities ##################################
