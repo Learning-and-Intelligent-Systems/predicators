@@ -1,9 +1,7 @@
 """Test cases for the online NSRT learning approach."""
 
 from contextlib import nullcontext as does_not_raise
-from typing import Dict, Sequence
 
-import numpy as np
 import pytest
 
 from predicators.src import utils
@@ -14,7 +12,6 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
 from predicators.src.teacher import Teacher
 
 
@@ -40,8 +37,8 @@ def test_online_nsrt_learning_approach(explorer, expectation):
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
     approach = OnlineNSRTLearningApproach(env.predicates, env.options,
-                                           env.types, env.action_space,
-                                           train_tasks)
+                                          env.types, env.action_space,
+                                          train_tasks)
     teacher = Teacher(train_tasks)
     dataset = create_dataset(env, train_tasks, env.options)
     approach.learn_from_offline_dataset(dataset)
