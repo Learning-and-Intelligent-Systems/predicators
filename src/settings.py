@@ -291,6 +291,10 @@ class GlobalSettings:
     cluster_and_search_var_count_weight = 0.1
     cluster_and_search_precon_size_weight = 0.01
 
+    # online NSRT learning parameters
+    online_nsrt_learning_explorer = "random_nsrts"
+    online_nsrt_learning_tasks_per_request = 10
+
     # torch model parameters
     learning_rate = 1e-3
     mlp_regressor_max_itr = 10000

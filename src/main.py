@@ -206,7 +206,9 @@ def _generate_interaction_results(
     query_cost = 0.0
     if CFG.make_interaction_videos:
         video = []
-    for request in requests:
+    num_requests = len(requests)
+    for i, request in enumerate(requests):
+        logging.info(f"Running interaction {i+1}/{num_requests}...")
         if request.train_task_idx < CFG.max_initial_demos and \
             not CFG.allow_interaction_in_demo_tasks:
             raise RuntimeError("Interaction requests cannot be on demo tasks "
