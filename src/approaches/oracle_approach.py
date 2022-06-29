@@ -58,12 +58,7 @@ class OracleApproach(BilevelPlanningApproach):
         return self._nsrts
 
     def get_option_model(self) -> _OptionModelBase:
-        """For ONLY an oracle approach, we allow the user to get the current
-        option model.
-
-        Note that this doesn't fit into the standard API for an
-        Approach, since solve() returns a policy, which abstracts away
-        the details of whether that policy is actually a plan under the
-        hood.
-        """
+        """Note that this doesn't fit into the standard API for an Approach,
+        since solve() returns a policy, which abstracts away the details of
+        whether that policy is actually a plan under the hood."""
         return self._option_model  # pragma: no cover

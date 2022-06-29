@@ -427,7 +427,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
 def _run_plan_with_option_model(
         task: Task, task_idx: int, option_model: _OptionModelBase,
         plan: List[_Option]) -> Tuple[LowLevelTrajectory, bool]:
-    """Runs a plan on an option model to generate a low level trajectory.
+    """Runs a plan on an option model to generate a low-level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
     the option sequence successfully executed to achieve the goal and
@@ -441,7 +441,10 @@ def _run_plan_with_option_model(
         option = plan[idx]
         if not option.initiable(state):
             # The option is not initiable.
-            return LowLevelTrajectory([task.init], [], True, task_idx), False
+            return (LowLevelTrajectory(_states=[task.init],
+                                       _actions=[],
+                                       _is_demo=True,
+                                       _train_task_idx=task_idx), False)
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
         traj[idx + 1] = next_state
