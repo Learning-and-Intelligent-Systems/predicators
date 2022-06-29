@@ -168,7 +168,7 @@ def test_main():
         "--online_learning_max_transitions", "0", "--excluded_predicates",
         "Covers", "--interactive_num_ensemble_members", "1",
         "--num_train_tasks", "3", "--num_test_tasks", "3",
-        "--predicate_mlp_classifier_max_itr", "100"
+        "--predicate_mlp_classifier_max_itr", "lambda n: n * 50"
     ]
     main()
 
