@@ -1,30 +1,29 @@
 """An NSRT learning approach that collects and learns from data online.
 
 Example command:
-    python src/main.py --env cover --approach online_nsrt_learning --seed 0 \
-        --num_train_tasks 1 --num_test_tasks 10
+    python src/main.py --approach online_nsrt_learning --seed 0 \
+        --env cover \
+        --max_initial_demos 1 \
+        --num_train_tasks 1000 \
+        --num_test_tasks 10 \
+        --max_num_steps_interaction_request 10 \
+        --min_data_for_nsrt 10
 """
 from __future__ import annotations
 
 import abc
-import logging
-import time
-from typing import Dict, List, Optional, Set, Tuple, Callable
+from typing import Callable, List, Sequence, Set, Tuple
 
-import dill as pkl
 from gym.spaces import Box
-import numpy as np
 
-from predicators.src import utils
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
-from predicators.src.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
-from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.approaches.random_options_approach import \
+    RandomOptionsApproach
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type, InteractionRequest, \
-    _GroundNSRT, State, Action, DummyOption
+from predicators.src.structs import NSRT, Action, Dataset, \
+    InteractionRequest, InteractionResult, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class OnlineNSRTLearningApproach(NSRTLearningApproach):
@@ -74,16 +73,22 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
             traj = LowLevelTrajectory(result.states, result.actions)
             self._dataset.append(traj)
         # Re-learn the NSRTs.
-        self._learn_nsrts(self._dataset.trajectories, self._online_learning_cycle)
+        self._learn_nsrts(self._dataset.trajectories,
+                          self._online_learning_cycle)
         # Advance the online learning cycle.
         self._online_learning_cycle += 1
 
     def _get_explorer(self) -> _Explorer:
         predicates = self._get_current_predicates()
+        options = self._initial_options
+        types = self._types
+        action_space = self._action_space
         nsrts = self._get_current_nsrts()
-        
-        if CFG.online_nsrt_learning_explorer == "random_nsrts":
-            return _RandomNSRTsExplorer(predicates, nsrts, self._action_space)
+
+        if CFG.online_nsrt_learning_explorer == "random_options":
+            return _RandomOptionsExplorer(predicates, options, types,
+                                          action_space, self._train_tasks,
+                                          nsrts)
 
         raise NotImplementedError("Unrecognized explorer: "
                                   f"{CFG.online_nsrt_learning_explorer}.")
@@ -91,64 +96,48 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
 
 ################################## Explorers ##################################
 
+
 class _Explorer(abc.ABC):
     """Creates a policy and termination function for exploring in a task."""
 
-    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT], action_space: Box) -> None:
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 nsrts: Set[NSRT]) -> None:
         self._predicates = predicates
+        self._options = options
+        self._types = types
         self._action_space = action_space
+        self._train_tasks = train_tasks
         self._nsrts = nsrts
-        self._rng = np.random.default_rng(CFG.seed)
 
     @abc.abstractmethod
-    def solve(self, task: Task) -> Tuple[Callable[[State], Action],
-                                         Callable[[State], bool]]:
+    def solve(
+        self, task: Task
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
         """Given a task, create a policy and termination function."""
         raise NotImplementedError("Override me!")
 
 
-class _RandomNSRTsExplorer(_Explorer):
-    """Explores by selecting random applicable NSRTs."""
+class _RandomOptionsExplorer(_Explorer):
+    """Explores by selecting random options."""
 
-    def solve(self, task: Task) -> Tuple[Callable[[State], Action],
-                                         Callable[[State], bool]]:
-        # Ground all NSRTs with the objects in this task.
-        ground_nsrts: List[_GroundNSRT] = []
-        for nsrt in sorted(self._nsrts):
-            ground_nsrts.extend(utils.all_ground_nsrts(nsrt, list(task.init)))
+    def __init__(self, predicates: Set[Predicate],
+                 options: Set[ParameterizedOption], types: Set[Type],
+                 action_space: Box, train_tasks: List[Task],
+                 nsrts: Set[NSRT]) -> None:
+        super().__init__(predicates, options, types, action_space, train_tasks,
+                         nsrts)
+        # Reuse the logic that's implemented in the random options approach.
+        self._random_options_approach = RandomOptionsApproach(
+            predicates, options, types, action_space, train_tasks)
 
-        cur_option = DummyOption
-
-        def _policy(s: State) -> Action:
-            nonlocal cur_option
-            if cur_option is DummyOption or cur_option.terminal(s):
-                # Unset the current option.
-                cur_option = DummyOption
-                # Find an applicable NSRT.
-                atoms = utils.abstract(s, self._predicates)
-                applicable_nsrts = list(
-                    utils.get_applicable_operators(ground_nsrts, atoms))
-                if len(applicable_nsrts) == 0:
-                    # Default to a completely random action.
-                    logging.warning("WARNING: Explorer falling back to random!")
-                    return Action(self._action_space.sample())
-                idx = self._rng.choice(len(applicable_nsrts))
-                ground_nsrt = applicable_nsrts[idx]
-                # Sample a random option.
-                option = ground_nsrt.sample_option(s, task.goal, self._rng)
-                # If the option is not initiable, fall back to random. We could
-                # sample multiple times instead, but that would be slower and
-                # more complicated, and this should be rare anyway.
-                if not option.initiable(s):
-                    logging.warning("WARNING: Explorer falling back to random!")
-                    return Action(self._action_space.sample())
-                # We successfully found a new option.
-                cur_option = option
-            act = cur_option.policy(s)
-            return act
-
+    def solve(
+        self, task: Task
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        # Get the random options policy.
+        policy = self._random_options_approach.solve(task, timeout=CFG.timeout)
         # Termination is left to the environment, as in
         # CFG.max_num_steps_interaction_request.
-        _termination_function = lambda _: False
-
-        return _policy, _termination_function
+        termination_function = lambda _: False
+        return policy, termination_function
