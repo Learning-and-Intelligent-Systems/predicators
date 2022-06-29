@@ -380,7 +380,7 @@ class GlobalSettings:
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
-                    "behavior": 1000,
+                    "behavior": 5000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
@@ -460,6 +460,14 @@ class GlobalSettings:
                 {
                     # For the tools environment, keep it much lower.
                     "tools": 1,
+                })[args.get("env", "")],
+
+            # Used to save NSRTs as strings in pickle file.
+            dump_nsrts_as_strings=defaultdict(
+                lambda: False,
+                {
+                    # We cannot pickle Behavior NSRTs
+                    "behavior": True,
                 })[args.get("env", "")],
         )
 
