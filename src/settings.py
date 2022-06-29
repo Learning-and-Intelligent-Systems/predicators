@@ -335,7 +335,9 @@ class GlobalSettings:
     # for action strategy greedy_lookahead
     interactive_max_trajectory_length = 2
     interactive_num_requests_per_cycle = 10
+    predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 1000
+    predicate_knn_classifier_n_neighbors = 1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

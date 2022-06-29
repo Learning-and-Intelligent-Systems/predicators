@@ -1,5 +1,6 @@
 """Test cases for the interactive learning approach."""
 
+from contextlib import nullcontext as does_not_raise
 from typing import Dict, Sequence
 
 import numpy as np
@@ -17,7 +18,11 @@ from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
 from predicators.src.teacher import Teacher
 
 
-def test_interactive_learning_approach():
+@pytest.mark.parametrize("predicate_classifier_model,expectation",
+                         [("mlp", does_not_raise()), ("knn", does_not_raise()),
+                          ("not a real model", pytest.raises(ValueError))])
+def test_interactive_learning_approach(predicate_classifier_model,
+                                       expectation):
     """Test for InteractiveLearningApproach class, entire pipeline."""
     utils.reset_config({
         "env": "cover",
@@ -26,12 +31,13 @@ def test_interactive_learning_approach():
         "excluded_predicates": "Covers,Holding",
         "timeout": 10,
         "sampler_mlp_classifier_max_itr": 100,
+        "predicate_classifier_model": predicate_classifier_model,
         "predicate_mlp_classifier_max_itr": 100,
         "neural_gaus_regressor_max_itr": 100,
         "num_online_learning_cycles": 1,
-        "teacher_dataset_num_examples": 5,
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
+        "teacher_dataset_num_examples": 3,
+        "num_train_tasks": 3,
+        "num_test_tasks": 3,
         "interactive_num_ensemble_members": 1,
         "interactive_num_requests_per_cycle": 1,
         # old default settings, for test coverage
@@ -57,7 +63,11 @@ def test_interactive_learning_approach():
     # Learning with an empty dataset should not crash.
     approach.learn_from_offline_dataset(Dataset([]))
     # Learning with the actual dataset.
-    approach.learn_from_offline_dataset(dataset)
+    with expectation as e:
+        approach.learn_from_offline_dataset(dataset)
+    if e is not None:
+        assert "Unrecognized predicate_classifier_model" in str(e)
+        return
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
