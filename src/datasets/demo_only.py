@@ -203,8 +203,7 @@ def _generate_demonstrations(
                     # Is successful if we found a low-level plan that achieves
                     # our goal using option models.
                     if not success:
-                        logging.warning("WARNING: low-level plan execution" +
-                                        "failed.")
+                        logging.warning("WARNING: low-level plan failed.")
                         continue
                 else:
                     if CFG.make_demo_videos:

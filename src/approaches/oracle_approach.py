@@ -60,4 +60,4 @@ class OracleApproach(BilevelPlanningApproach):
     def get_option_model(self) -> _OptionModelBase:
         """For ONLY an oracle approach, we allow the user to get the current
         option model."""
-        return self._option_model  # pragma: no cover
+        return self._option_model

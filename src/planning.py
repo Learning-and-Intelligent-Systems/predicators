@@ -462,25 +462,15 @@ def _run_plan_with_option_model(
         actions[idx].set_option(action_option)
         # Since we're not checking the expected_atoms, we need to
         # explicitly check if the goal is achieved.
-        if idx + 1 == len(plan):
-            if task.goal_holds(traj[idx + 1]):
-                return LowLevelTrajectory(
-                    _states=traj,
-                    _actions=actions,
-                    _is_demo=True,
-                    _train_task_idx=task_idx), True  # success!
-            return LowLevelTrajectory(_states=[task.init],
-                                      _actions=[],
-                                      _is_demo=True,
-                                      _train_task_idx=task_idx), False
-    # Should only get here if the plan was empty.
-    assert not plan
-    # Return whether empty plan successfully achieved goal.
+    if task.goal_holds(traj[idx + 1]):
+        return LowLevelTrajectory(_states=traj,
+                                  _actions=actions,
+                                  _is_demo=True,
+                                  _train_task_idx=task_idx), True  # success!
     return LowLevelTrajectory(_states=[task.init],
                               _actions=[],
                               _is_demo=True,
-                              _train_task_idx=task_idx), task.goal_holds(
-                                  task.init)
+                              _train_task_idx=task_idx), False
 
 
 def _update_nsrts_with_failure(
