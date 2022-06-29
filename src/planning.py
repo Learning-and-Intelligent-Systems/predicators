@@ -452,12 +452,11 @@ def _run_plan_with_option_model(
         # Need to make a new option without policy, initiable, and
         # terminal in order to make it a picklable trajectory.
         action_option = ParameterizedOption(
-            option.parent.name, option.parent.types,
+            option.name, option.parent.types,
             option.parent.params_space,
             lambda s, m, o, p: Action(np.array([0.0])),
             lambda s, m, o, p: False,
             lambda s, m, o, p: True).ground(option.objects, option.params)
-        action_option.name = option.name
         action_option.memory = option.memory
         actions[idx].set_option(action_option)
         # Since we're not checking the expected_atoms, we need to
