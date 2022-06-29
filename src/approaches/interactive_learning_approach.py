@@ -13,8 +13,8 @@ from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.ml_models import LearnedPredicateClassifier, \
-    MLPBinaryClassifierEnsemble
+from predicators.src.ml_models import BinaryClassifierEnsemble, \
+    KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
@@ -36,7 +36,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
-        self._pred_to_ensemble: Dict[str, MLPBinaryClassifierEnsemble] = {}
+        self._pred_to_ensemble: Dict[str, BinaryClassifierEnsemble] = {}
 
     @classmethod
     def get_name(cls) -> str:
@@ -105,14 +105,24 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Train MLP
             X = np.array(input_examples)
             Y = np.array(output_examples)
-            model = MLPBinaryClassifierEnsemble(
-                seed=CFG.seed,
-                balance_data=CFG.mlp_classifier_balance_data,
-                max_train_iters=CFG.predicate_mlp_classifier_max_itr,
-                learning_rate=CFG.learning_rate,
-                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-                hid_sizes=CFG.mlp_classifier_hid_sizes,
-                ensemble_size=CFG.interactive_num_ensemble_members)
+            if CFG.predicate_classifier_model == "mlp":
+                model = BinaryClassifierEnsemble(
+                    seed=CFG.seed,
+                    ensemble_size=CFG.interactive_num_ensemble_members,
+                    member_cls=MLPBinaryClassifier,
+                    balance_data=CFG.mlp_classifier_balance_data,
+                    max_train_iters=CFG.predicate_mlp_classifier_max_itr,
+                    learning_rate=CFG.learning_rate,
+                    n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                    hid_sizes=CFG.mlp_classifier_hid_sizes)
+            elif CFG.predicate_classifier_model == "knn":
+                model = BinaryClassifierEnsemble(
+                    seed=CFG.seed,
+                    ensemble_size=CFG.interactive_num_ensemble_members,
+                    member_cls=KNeighborsClassifier,
+                    n_neighbors=CFG.predicate_knn_classifier_n_neighbors)
+            else:
+                raise ValueError("Unrecognized predicate_classifier_model")
             model.fit(X, Y)
 
             # Save the ensemble
