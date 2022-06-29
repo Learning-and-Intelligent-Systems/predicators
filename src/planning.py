@@ -442,7 +442,10 @@ def _run_plan_with_option_model(
         option = plan[idx]
         if not option.initiable(state):
             # The option is not initiable.
-            break
+            return LowLevelTrajectory(_states=[task.init],
+                              _actions=[],
+                              _is_demo=True,
+                              _train_task_idx=task_idx), False
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
         traj[idx + 1] = next_state
