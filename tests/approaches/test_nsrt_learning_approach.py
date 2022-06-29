@@ -116,18 +116,17 @@ def _test_approach(env_name,
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
+    approach = _test_approach(
+        env_name="blocks",
+        approach_name="nsrt_learning",
+        try_solving=False,
+        no_loading=True,
+        additional_settings={"dump_nsrts_as_strings": True})
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
                               additional_settings={
                                   "compute_sidelining_objective_value": True,
-                              })
-    approach = _test_approach(env_name="blocks",
-                              approach_name="nsrt_learning",
-                              try_solving=False,
-                              no_loading=True,
-                              additional_settings={
-                                  "dump_nsrts_as_strings": True
                               })
     assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
     assert "sidelining_obj_complexity" in approach.metrics
