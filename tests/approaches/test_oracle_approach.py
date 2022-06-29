@@ -29,6 +29,7 @@ from predicators.src.envs.stick_button import StickButtonEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.touch_point import TouchPointEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.option_model import _OracleOptionModel
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Variable
 
@@ -207,6 +208,8 @@ def test_oracle_approach(env_name, env_cls):
         for task in env.get_test_tasks():
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
+    # Tests if OracleApproach can load _OracleOptionModel
+    assert isinstance(approach.get_option_model(), _OracleOptionModel)
 
 
 def test_get_gt_nsrts():

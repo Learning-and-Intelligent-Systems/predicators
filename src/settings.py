@@ -110,7 +110,7 @@ class GlobalSettings:
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
-    behavior_randomize_init_state = False
+    behavior_randomize_init_state = True
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
