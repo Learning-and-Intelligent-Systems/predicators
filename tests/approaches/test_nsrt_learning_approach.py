@@ -127,7 +127,6 @@ def test_nsrt_learning_approach():
                               try_solving=False,
                               no_loading=True,
                               additional_settings={
-                                  "compute_sidelining_objective_value": True,
                                   "dump_nsrts_as_strings": True
                               })
     assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
