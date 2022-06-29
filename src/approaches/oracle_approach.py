@@ -13,6 +13,7 @@ from gym.spaces import Box
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, ParameterizedOption, Predicate, \
     Task, Type, _Option
 
@@ -55,3 +56,15 @@ class OracleApproach(BilevelPlanningApproach):
 
     def _get_current_nsrts(self) -> Set[NSRT]:
         return self._nsrts
+
+    def get_option_model(self) -> _OptionModelBase:
+        """For ONLY an oracle approach, we allow the user to get
+        the current option model.
+
+        Note that this doesn't fit into the standard API for an
+        Approach, since solve() returns a policy, which abstracts away
+        the details of whether that policy is actually a plan under the
+        hood.
+        """
+        return self._option_model
+

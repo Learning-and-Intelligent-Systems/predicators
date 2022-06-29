@@ -170,9 +170,8 @@ def _generate_demonstrations(
             break
         try:
             # Will run until we find a plan that successfuly generates a
-            # low-level trajectory that achieves our gaol
-            continue_plan_search = True
-            while continue_plan_search:
+            # low-level trajectory that achieves our goal
+            while True:
                 if CFG.demonstrator == "oracle":
                     timeout = CFG.offline_data_planning_timeout
                     if timeout == -1:
@@ -195,10 +194,11 @@ def _generate_demonstrations(
                     termination_function = task.goal_holds
                 if CFG.env == "behavior":  # pragma: no cover
                     # For BEHAVIOR we are generating the trajectory by running
-                    # our plan on our option models
+                    # our plan on our option models. Since option models 
+                    # return only states, we will add dummy actions to the 
+                    # states to create our low level trajectories.
                     traj, success = _run_plan_with_option_model(
-                        task, oracle_approach.get_option_model(), last_plan,
-                        CFG.offline_data_planning_timeout)
+                        task, oracle_approach.get_option_model(), last_plan)
                     # Is successful if we found a low-level plan that achieves
                     # our goal using option models
                     if not success:
@@ -221,7 +221,7 @@ def _generate_demonstrations(
                             utils.HumanDemonstrationFailure,
                         },
                         monitor=monitor)
-                continue_plan_search = False
+                break
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "
