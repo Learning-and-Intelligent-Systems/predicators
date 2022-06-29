@@ -257,7 +257,6 @@ class BehaviorEnv(BaseEnv):
 
         # Second, add in custom predicates except reachable-nothing
         custom_predicate_specs = [
-            ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 2),
             ("reachable", self._reachable_classifier, 2),
         ]
@@ -287,6 +286,15 @@ class BehaviorEnv(BaseEnv):
                     self._reachable_nothing_classifier,
                 )
                 predicates.add(pred)
+                # Add HandEnpty()
+                handempty_pred_name = self._create_type_combo_name(
+                    "handempty", (types_lst[i], ))
+                handempty_pred = Predicate(
+                    handempty_pred_name,
+                    [types_lst[i]],
+                    self._handempty_classifier,
+                )
+                predicates.add(handempty_pred)
 
         return predicates
 
@@ -525,7 +533,7 @@ class BehaviorEnv(BaseEnv):
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 0
+        assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
