@@ -169,8 +169,8 @@ def _generate_demonstrations(
         if idx >= CFG.max_initial_demos:
             break
         try:
-            # Will run until we find a plan that successfuly generates a
-            # low-level trajectory that achieves our goal
+            # Will run until we find a plan that successfully generates a
+            # low-level trajectory that achieves our goal.
             while True:
                 if CFG.demonstrator == "oracle":
                     timeout = CFG.offline_data_planning_timeout
@@ -196,14 +196,15 @@ def _generate_demonstrations(
                     # For BEHAVIOR we are generating the trajectory by running
                     # our plan on our option models. Since option models
                     # return only states, we will add dummy actions to the
-                    # states to create our low level trajectories.
+                    # states to create our low-level trajectories.
                     traj, success = _run_plan_with_option_model(
                         task, idx, oracle_approach.get_option_model(),
                         last_plan)
                     # Is successful if we found a low-level plan that achieves
-                    # our goal using option models
+                    # our goal using option models.
                     if not success:
-                        print("Warning: low level plan execution failed")
+                        logging.warning("WARNING: low-level plan execution" +
+                                        "failed.")
                         continue
                 else:
                     if CFG.make_demo_videos:
