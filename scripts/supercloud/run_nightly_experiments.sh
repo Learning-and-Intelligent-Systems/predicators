@@ -40,7 +40,7 @@ python $FILE --experiment_id stick_button_oracle --env stick_button --approach o
 python $FILE --experiment_id stick_button_nsrt_learning --env stick_button --approach nsrt_learning --timeout 300 --num_train_tasks 500 --min_perc_data_for_nsrt 1
 
 # option learning
-python $FILE --experiment_id cover_option_learning --env cover_multistep_options --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300
-python $FILE --experiment_id doors_option_learning --env doors --included_options MoveToDoor,MoveThroughDoor --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300
-python $FILE --experiment_id stick_button_option_learning --env stick_button --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300
-python $FILE --experiment_id coffee_option_learning --env coffee --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300
+python $FILE --experiment_id cover_option_learning --env cover_multistep_options --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300 --neural_gaus_regressor_max_itr 50000
+python $FILE --experiment_id doors_option_learning --env doors --included_options MoveToDoor,MoveThroughDoor --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300 --neural_gaus_regressor_max_itr 50000
+python $FILE --experiment_id stick_button_option_learning --env stick_button --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300 --neural_gaus_regressor_max_itr 50000
+python $FILE --experiment_id coffee_option_learning --env coffee --approach nsrt_learning --option_learner direct_bc --min_perc_data_for_nsrt 1 --segmenter contacts --num_train_tasks 1000 --timeout 300 --neural_gaus_regressor_max_itr 50000
