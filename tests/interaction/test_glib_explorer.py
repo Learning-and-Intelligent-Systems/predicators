@@ -46,6 +46,7 @@ def test_glib_explorer(target_predicate):
     assert target_predicate in str(final_atoms)
 
 
+@pytest.fixture(autouse=True)
 def test_glib_explorer_failure_cases(caplog):
     """Tests failure cases for the GLIBExplorer class."""
     utils.reset_config({
