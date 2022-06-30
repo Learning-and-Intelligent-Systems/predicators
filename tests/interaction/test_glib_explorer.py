@@ -46,8 +46,7 @@ def test_glib_explorer(target_predicate):
     assert target_predicate in str(final_atoms)
 
 
-@pytest.fixture(autouse=True)
-def test_glib_explorer_failure_cases(caplog):
+def test_glib_explorer_failure_cases():
     """Tests failure cases for the GLIBExplorer class."""
     utils.reset_config({
         "env": "cover",
@@ -64,13 +63,13 @@ def test_glib_explorer_failure_cases(caplog):
     explorer = create_explorer("glib", set(), env.options, env.types,
                                env.action_space, train_tasks, nsrts,
                                option_model, score_fn)
-    assert "No possible goals, falling back to random." not in caplog.text
-    explorer.get_exploration_strategy(task, 500)
-    assert "No possible goals, falling back to random." in caplog.text
+    policy, _ = explorer.get_exploration_strategy(task, 500)
+    act = policy(task.init)  # a random action
+    assert env.action_space.contains(act.arr)
     # Test case where no plan can be found (due to timeout).
     explorer = create_explorer("glib", env.predicates, env.options, env.types,
                                env.action_space, train_tasks, nsrts,
                                option_model, score_fn)
-    assert "No solvable task found, falling back to random." not in caplog.text
     explorer.get_exploration_strategy(task, -1)
-    assert "No solvable task found, falling back to random." in caplog.text
+    act = policy(task.init)  # a random action
+    assert env.action_space.contains(act.arr)
