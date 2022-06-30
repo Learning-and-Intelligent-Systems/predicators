@@ -12,10 +12,10 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
+from predicators.src.interaction.teacher import Teacher
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
-from predicators.src.teacher import Teacher
 
 
 @pytest.mark.parametrize("predicate_classifier_model,expectation",
