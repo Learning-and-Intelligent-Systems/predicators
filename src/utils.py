@@ -1018,6 +1018,11 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class RequestActPolicyFailure(ExceptionWithInfo):
+    """An exception raised by an acting policy in a request when it fails to
+    produce an action, which terminates the interaction."""
+
+
 class HumanDemonstrationFailure(ExceptionWithInfo):
     """An exception raised when CFG.demonstrator == "human" and the human gives
     a bad input."""
