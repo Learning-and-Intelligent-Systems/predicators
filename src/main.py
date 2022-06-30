@@ -48,10 +48,11 @@ from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
+from predicators.src.interaction.teacher import Teacher, \
+    TeacherInteractionMonitorWithVideo
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
-from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
