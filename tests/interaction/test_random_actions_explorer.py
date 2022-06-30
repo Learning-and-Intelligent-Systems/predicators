@@ -5,7 +5,7 @@ from predicators.src.envs.cover import CoverEnv
 from predicators.src.interaction import create_explorer
 
 
-def test_random_actions_approach():
+def test_random_actions_explorer():
     """Tests for RandomActionsExplorer class."""
     utils.reset_config({
         "env": "cover",
@@ -16,7 +16,7 @@ def test_random_actions_approach():
     task = train_tasks[0]
     explorer = create_explorer("random_actions", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    policy, termination_function = explorer.solve(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(task, 500)
     assert not termination_function(task.init)
     actions = []
     for _ in range(10):
