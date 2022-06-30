@@ -328,8 +328,11 @@ class GlobalSettings:
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
     interactive_random_query_prob = 0.5  # for query policy random
+
+    # TODO remove
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+
     # for action strategy greedy_lookahead
     interactive_max_num_trajectories = 100
     # for action strategy greedy_lookahead
@@ -338,6 +341,11 @@ class GlobalSettings:
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 1000
     predicate_knn_classifier_n_neighbors = 1
+
+    # glib explorer parameters
+    glib_min_goal_size = 1
+    glib_max_goal_size = 1
+    glib_num_babbles = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

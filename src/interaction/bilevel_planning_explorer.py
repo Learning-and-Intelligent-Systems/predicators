@@ -53,9 +53,6 @@ class BilevelPlanningExplorer(BaseExplorer):
             raise utils.RequestActPolicyFailure(e.args[0], e.info)
 
         policy = utils.option_plan_to_policy(plan)
-
-        # The policy will raise an OptionExecutionFailure when the plan is
-        # complete, and that will terminate the interaction.
-        termination_function = lambda _: False
+        termination_function = task.goal_holds
 
         return policy, termination_function

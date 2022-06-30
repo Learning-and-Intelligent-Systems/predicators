@@ -227,6 +227,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self, train_task_idx: int
     ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
         """Find the most interesting reachable ground goal and plan to it."""
+        # TODO: when refactoring, give any goals that have only already-known
+        # predicates a very bad score.
+
         init = self._train_tasks[train_task_idx].init
         # Detect and filter out static predicates.
         static_preds = utils.get_static_preds(self._nsrts,
