@@ -6,7 +6,6 @@ from typing import Callable, List, Set, Tuple
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.interaction.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.src.interaction.random_options_explorer import \
@@ -53,7 +52,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
         # If there are no possible goals, fall back to random immediately.
         if not ground_atom_universe:
-            logging.info("No possible goals, falling back to random")
+            logging.info("No possible goals, falling back to random.")
             return self._fallback_explorer.get_exploration_strategy(
                 task, timeout)
         possible_goals = utils.sample_subsets(
@@ -75,12 +74,12 @@ class GLIBExplorer(BilevelPlanningExplorer):
         for glib_task in task_list:
             try:
                 logging.info("Solving for policy...")
-                strategy = self._solve(glib_task, timeout=CFG.timeout)
+                strategy = self._solve(glib_task, timeout=timeout)
                 logging.info(f"GLIB found a plan with goal {glib_task.goal}.")
                 return strategy
-            except (ApproachTimeout, ApproachFailure):
+            except utils.RequestActPolicyFailure:
                 continue
         # Fall back to a random exploration strategy if no solvable task
         # can be found.
-        logging.info("No solvable task found, falling back to random")
+        logging.info("No solvable task found, falling back to random.")
         return self._fallback_explorer.get_exploration_strategy(task, timeout)

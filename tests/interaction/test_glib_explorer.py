@@ -44,3 +44,32 @@ def test_glib_explorer(target_predicate):
     assert target_predicate not in str(init_atoms)
     final_atoms = utils.abstract(final_state, env.predicates)
     assert target_predicate in str(final_atoms)
+
+
+def test_glib_explorer_failure_cases(caplog):
+    """Tests failure cases for the GLIBExplorer class."""
+    utils.reset_config({
+        "env": "cover",
+        "explorer": "glib",
+    })
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    option_model = _OracleOptionModel(env)
+    train_tasks = env.get_train_tasks()
+    score_fn = lambda atoms: 0.0
+    task_idx = 0
+    task = env.get_test_tasks()[task_idx]
+    # Test case where there are no possible goals.
+    explorer = create_explorer("glib", set(), env.options, env.types,
+                               env.action_space, train_tasks, nsrts,
+                               option_model, score_fn)
+    assert "No possible goals, falling back to random." not in caplog.text
+    explorer.get_exploration_strategy(task, 500)
+    assert "No possible goals, falling back to random." in caplog.text
+    # Test case where no plan can be found (due to timeout).
+    explorer = create_explorer("glib", env.predicates, env.options, env.types,
+                               env.action_space, train_tasks, nsrts,
+                               option_model, score_fn)
+    assert "No solvable task found, falling back to random." not in caplog.text
+    explorer.get_exploration_strategy(task, -1)
+    assert "No solvable task found, falling back to random." in caplog.text
