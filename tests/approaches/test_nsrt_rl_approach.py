@@ -7,9 +7,9 @@ from predicators.src.approaches.nsrt_rl_approach import \
     NSRTReinforcementLearningApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverMultistepOptions
+from predicators.src.interaction.teacher import Teacher
 from predicators.src.main import _generate_interaction_results
 from predicators.src.structs import InteractionResult, Task
-from predicators.src.teacher import Teacher
 
 
 class _MockNSRTReinforcementLearningApproach(NSRTReinforcementLearningApproach
