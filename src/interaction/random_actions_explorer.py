@@ -13,7 +13,7 @@ class RandomActionsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_actions"
 
-    def solve(
+    def get_exploration_strategy(
         self, task: Task, timeout: int
     ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
         # Take random actions.

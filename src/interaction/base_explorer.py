@@ -12,7 +12,11 @@ from predicators.src.structs import Action, ParameterizedOption, Predicate, \
 
 
 class BaseExplorer(abc.ABC):
-    """Creates a policy and termination function for exploring in a task."""
+    """Creates a policy and termination function for exploring in a task.
+
+    The explorer is created at the beginning of every interaction cycle
+    with the latest predicates and options.
+    """
 
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
@@ -31,7 +35,7 @@ class BaseExplorer(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def solve(
+    def get_exploration_strategy(
         self,
         task: Task,
         timeout: int,

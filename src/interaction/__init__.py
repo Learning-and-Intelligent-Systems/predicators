@@ -2,13 +2,15 @@
 
 import importlib
 import pkgutil
-from typing import TYPE_CHECKING, List, Set
+from typing import TYPE_CHECKING, List, Optional, Set
 
 from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.interaction.base_explorer import BaseExplorer
-from predicators.src.structs import ParameterizedOption, Predicate, Task, Type
+from predicators.src.option_model import _OptionModelBase
+from predicators.src.structs import NSRT, ParameterizedOption, Predicate, \
+    Task, Type
 
 __all__ = ["BaseExplorer"]
 
@@ -21,10 +23,15 @@ if not TYPE_CHECKING:
             importlib.import_module(f"{__name__}.{module_name}")
 
 
-def create_explorer(name: str, initial_predicates: Set[Predicate],
-                    initial_options: Set[ParameterizedOption],
-                    types: Set[Type], action_space: Box,
-                    train_tasks: List[Task]) -> BaseExplorer:
+def create_explorer(
+        name: str,
+        initial_predicates: Set[Predicate],
+        initial_options: Set[ParameterizedOption],
+        types: Set[Type],
+        action_space: Box,
+        train_tasks: List[Task],
+        nsrts: Optional[Set[NSRT]] = None,
+        option_model: Optional[_OptionModelBase] = None) -> BaseExplorer:
     """Create an explorer given its name."""
     for cls in utils.get_all_subclasses(BaseExplorer):
         if not cls.__abstractmethods__ and cls.get_name() == name:
