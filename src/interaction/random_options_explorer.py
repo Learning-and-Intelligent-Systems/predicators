@@ -1,14 +1,14 @@
 """An explorer that takes random options."""
 
-from typing import Callable, List, Set, Tuple
+from typing import List, Set
 
 from gym.spaces import Box
 
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
 from predicators.src.interaction import BaseExplorer
-from predicators.src.structs import Action, ExplorationStrategy, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import ExplorationStrategy, ParameterizedOption, \
+    Predicate, Task, Type
 
 
 class RandomOptionsExplorer(BaseExplorer):

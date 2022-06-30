@@ -1,6 +1,6 @@
 """An explorer that performs a lookahead to maximize a state score function."""
 
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, List, Optional, Sequence, Set
 
 import numpy as np
 from gym.spaces import Box
@@ -10,9 +10,8 @@ from predicators.src.interaction.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, ParameterizedOption, Predicate, State, Task, Type, \
-    _GroundNSRT
+from predicators.src.structs import NSRT, ExplorationStrategy, GroundAtom, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT
 
 
 class GreedyLookaheadExplorer(BilevelPlanningExplorer):

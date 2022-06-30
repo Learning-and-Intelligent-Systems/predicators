@@ -1,7 +1,7 @@
 """An explorer that uses goal-literal babbling (GLIB)."""
 
 import logging
-from typing import Callable, List, Set, Tuple
+from typing import Callable, List, Set
 
 from gym.spaces import Box
 
@@ -12,8 +12,8 @@ from predicators.src.interaction.random_options_explorer import \
     RandomOptionsExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
-    GroundAtom, ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import NSRT, ExplorationStrategy, GroundAtom, \
+    ParameterizedOption, Predicate, Task, Type
 
 
 class GLIBExplorer(BilevelPlanningExplorer):

@@ -1,14 +1,14 @@
 """Base class for an explorer."""
 
 import abc
-from typing import Callable, List, Set, Tuple
+from typing import List, Set
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, ExplorationStrategy, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import ExplorationStrategy, ParameterizedOption, \
+    Predicate, Task, Type
 
 
 class BaseExplorer(abc.ABC):

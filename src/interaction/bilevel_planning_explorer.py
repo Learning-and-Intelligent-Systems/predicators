@@ -1,6 +1,6 @@
 """An explorer that uses bilevel planning with NSRTs."""
 
-from typing import Callable, List, Set, Tuple
+from typing import List, Set
 
 from gym.spaces import Box
 
@@ -10,8 +10,8 @@ from predicators.src.option_model import _OptionModelBase
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import NSRT, ExplorationStrategy, \
+    ParameterizedOption, Predicate, Task, Type
 
 
 class BilevelPlanningExplorer(BaseExplorer):

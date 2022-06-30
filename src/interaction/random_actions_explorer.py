@@ -1,9 +1,7 @@
 """An explorer that just takes random low-level actions."""
 
-from typing import Callable, Tuple
-
 from predicators.src.interaction import BaseExplorer
-from predicators.src.structs import Action, ExplorationStrategy, State, Task
+from predicators.src.structs import Action, ExplorationStrategy, Task
 
 
 class RandomActionsExplorer(BaseExplorer):
