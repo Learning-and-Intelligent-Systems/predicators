@@ -198,6 +198,7 @@ class CoverEnv(BaseEnv):
         # Draw targets
         for i, targ in enumerate(state.get_objects(self._target_type)):
             c = cs[i]
+            lcolor = "gray"
             rect = plt.Rectangle(
                 (state.get(targ, "pose") - state.get(targ, "width") / 2.,
                  -height / 2.),
