@@ -8,6 +8,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.interaction.base_explorer import BaseExplorer
+from predicators.src.interaction.bilevel_planning_explorer import \
+    BilevelPlanningExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, ParameterizedOption, Predicate, \
     Task, Type
@@ -35,8 +37,12 @@ def create_explorer(
     """Create an explorer given its name."""
     for cls in utils.get_all_subclasses(BaseExplorer):
         if not cls.__abstractmethods__ and cls.get_name() == name:
-            explorer = cls(initial_predicates, initial_options, types,
-                           action_space, train_tasks)
+            if issubclass(cls, BilevelPlanningExplorer):
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks, nsrts, option_model)
+            else:
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks)
             break
     else:
         raise NotImplementedError(f"Unknown explorer: {name}")
