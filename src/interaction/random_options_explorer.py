@@ -1,4 +1,4 @@
-"""An explorer that just takes random low-level actions."""
+"""An explorer that takes random options."""
 
 from typing import Callable, List, Set, Tuple
 
