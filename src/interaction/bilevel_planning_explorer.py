@@ -10,8 +10,8 @@ from predicators.src.option_model import _OptionModelBase
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
-    Predicate, State, Task, Type
+from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BilevelPlanningExplorer(BaseExplorer):
@@ -31,9 +31,7 @@ class BilevelPlanningExplorer(BaseExplorer):
         self._option_model = option_model
         self._num_calls = 0
 
-    def _solve(
-        self, task: Task, timeout: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    def _solve(self, task: Task, timeout: int) -> ExplorationStrategy:
 
         # Ensure random over successive calls.
         seed = self._seed + self._num_calls

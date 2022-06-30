@@ -7,8 +7,8 @@ from gym.spaces import Box
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
 from predicators.src.interaction import BaseExplorer
-from predicators.src.structs import Action, ParameterizedOption, Predicate, \
-    State, Task, Type
+from predicators.src.structs import Action, ExplorationStrategy, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class RandomOptionsExplorer(BaseExplorer):
@@ -26,9 +26,8 @@ class RandomOptionsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_options"
 
-    def get_exploration_strategy(
-        self, task: Task, timeout: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    def get_exploration_strategy(self, task: Task,
+                                 timeout: int) -> ExplorationStrategy:
         # Take random options.
         policy = self._random_options_approach.solve(task, timeout)
         # Never terminate (until the interaction budget is exceeded).

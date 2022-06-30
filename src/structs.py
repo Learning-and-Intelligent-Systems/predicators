@@ -1520,3 +1520,4 @@ PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
 # Used in ml_models.py. Either the maximum number of training iterations for
 # a model, or a function that produces this number given the amount of data.
 MaxTrainIters = Union[int, Callable[[int], int]]
+ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]

@@ -12,8 +12,8 @@ from predicators.src.interaction.random_options_explorer import \
     RandomOptionsExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, GroundAtom, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
+    GroundAtom, ParameterizedOption, Predicate, State, Task, Type
 
 
 class GLIBExplorer(BilevelPlanningExplorer):
@@ -40,9 +40,8 @@ class GLIBExplorer(BilevelPlanningExplorer):
     def get_name(cls) -> str:
         return "glib"
 
-    def get_exploration_strategy(
-        self, task: Task, timeout: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    def get_exploration_strategy(self, task: Task,
+                                 timeout: int) -> ExplorationStrategy:
         # The goal of the task is ignored.
         init = task.init
         # Detect and filter out static predicates.

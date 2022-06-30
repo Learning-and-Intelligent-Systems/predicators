@@ -10,8 +10,9 @@ from predicators.src.interaction.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, GroundAtom, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT
+from predicators.src.structs import NSRT, Action, ExplorationStrategy, \
+    GroundAtom, ParameterizedOption, Predicate, State, Task, Type, \
+    _GroundNSRT
 
 
 class GreedyLookaheadExplorer(BilevelPlanningExplorer):
@@ -38,9 +39,8 @@ class GreedyLookaheadExplorer(BilevelPlanningExplorer):
     def get_name(cls) -> str:
         return "greedy_lookahead"
 
-    def get_exploration_strategy(
-        self, task: Task, timeout: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    def get_exploration_strategy(self, task: Task,
+                                 timeout: int) -> ExplorationStrategy:
         # The goal of the task is ignored.
         init = task.init
         # Create all applicable ground NSRTs.

@@ -7,8 +7,8 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, ParameterizedOption, Predicate, \
-    State, Task, Type
+from predicators.src.structs import Action, ExplorationStrategy, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BaseExplorer(abc.ABC):
@@ -39,7 +39,7 @@ class BaseExplorer(abc.ABC):
         self,
         task: Task,
         timeout: int,
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    ) -> ExplorationStrategy:
         """Given a task, create a policy and termination function."""
         raise NotImplementedError("Override me!")
 

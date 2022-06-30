@@ -3,7 +3,7 @@
 from typing import Callable, Tuple
 
 from predicators.src.interaction import BaseExplorer
-from predicators.src.structs import Action, State, Task
+from predicators.src.structs import Action, ExplorationStrategy, State, Task
 
 
 class RandomActionsExplorer(BaseExplorer):
@@ -13,9 +13,8 @@ class RandomActionsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_actions"
 
-    def get_exploration_strategy(
-        self, task: Task, timeout: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+    def get_exploration_strategy(self, task: Task,
+                                 timeout: int) -> ExplorationStrategy:
         # Take random actions.
         policy = lambda _: Action(self._action_space.sample())
         # Never terminate (until the interaction budget is exceeded).
