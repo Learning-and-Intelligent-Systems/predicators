@@ -9,6 +9,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Type as TypingType
 
 import numpy as np
 import torch
@@ -21,7 +22,7 @@ from sklearn.neighbors import \
 from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
-from predicators.src.structs import Array, Object, State
+from predicators.src.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
@@ -122,8 +123,9 @@ class _NormalizingRegressor(Regressor):
 class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     """ABC for PyTorch regression models."""
 
-    def __init__(self, seed: int, max_train_iters: int, clip_gradients: bool,
-                 clip_value: float, learning_rate: float) -> None:
+    def __init__(self, seed: int, max_train_iters: MaxTrainIters,
+                 clip_gradients: bool, clip_value: float,
+                 learning_rate: float) -> None:
         torch.manual_seed(seed)
         _NormalizingRegressor.__init__(self, seed)
         nn.Module.__init__(self)  # type: ignore
@@ -167,7 +169,8 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
 
@@ -223,6 +226,14 @@ class BinaryClassifier(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def predict_proba(self, x: Array) -> float:
+        """Get the predicted probability that the input classifies to 1.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me!")
+
 
 class _ScikitLearnBinaryClassifier(BinaryClassifier):
     """A regressor that lightly wraps a scikit-learn classification model."""
@@ -242,6 +253,11 @@ class _ScikitLearnBinaryClassifier(BinaryClassifier):
         class_prediction = self._model.predict([x])[0]
         assert class_prediction in [0, 1]
         return bool(class_prediction)
+
+    def predict_proba(self, x: Array) -> float:
+        probs = self._model.predict_proba([x])[0]
+        assert probs.shape == (2, )  # [P(x is class 0), P(x is class 1)]
+        return probs[1]  # return the second element of probs
 
 
 class _NormalizingBinaryClassifier(BinaryClassifier):
@@ -318,8 +334,9 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
 
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int) -> None:
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
@@ -332,13 +349,13 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """PyTorch forward method."""
         raise NotImplementedError("Override me!")
 
-    def predict_proba(self, denorm_x: Array) -> float:
+    def predict_proba(self, x: Array) -> float:
         """Get the predicted probability that the input classifies to 1.
 
         The input is NOT normalized.
         """
-        x = (denorm_x - self._input_shift) / self._input_scale
-        return self._forward_single_input_np(x)
+        norm_x = (x - self._input_shift) / self._input_scale
+        return self._forward_single_input_np(norm_x)
 
     @abc.abstractmethod
     def _initialize_net(self) -> None:
@@ -370,7 +387,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              n_iter_no_change=self._n_iter_no_change)
 
     def _forward_single_input_np(self, x: Array) -> float:
@@ -395,9 +413,9 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 class MLPRegressor(PyTorchRegressor):
     """A basic multilayer perceptron regressor."""
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float,
-                 learning_rate: float) -> None:
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
@@ -467,7 +485,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     def __init__(self,
                  seed: int,
                  hid_sizes: List[int],
-                 max_train_iters: int,
+                 max_train_iters: MaxTrainIters,
                  clip_gradients: bool,
                  clip_value: float,
                  learning_rate: float,
@@ -590,7 +608,8 @@ class ImplicitMLPRegressor(PyTorchRegressor):
                              loss_fn,
                              optimizer,
                              batch_generator,
-                             max_iters=self._max_train_iters,
+                             max_train_iters=self._max_train_iters,
+                             dataset_size=X.shape[0],
                              clip_gradients=self._clip_gradients,
                              clip_value=self._clip_value)
 
@@ -686,9 +705,9 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
 
-    def __init__(self, seed: int, hid_sizes: List[int], max_train_iters: int,
-                 clip_gradients: bool, clip_value: float,
-                 learning_rate: float) -> None:
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
         super().__init__(seed, max_train_iters, clip_gradients, clip_value,
                          learning_rate)
         self._hid_sizes = hid_sizes
@@ -795,9 +814,9 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
 class MLPBinaryClassifier(PyTorchBinaryClassifier):
     """MLPBinaryClassifier definition."""
 
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int]) -> None:
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int]) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
                          n_iter_no_change)
         self._hid_sizes = hid_sizes
@@ -822,42 +841,41 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
 
-class MLPBinaryClassifierEnsemble(BinaryClassifier):
-    """MLPBinaryClassifierEnsemble definition."""
-
-    def __init__(self, seed: int, balance_data: bool, max_train_iters: int,
-                 learning_rate: float, n_iter_no_change: int,
-                 hid_sizes: List[int], ensemble_size: int) -> None:
-        super().__init__(seed)
-        self._members = [
-            MLPBinaryClassifier(seed + i, balance_data, max_train_iters,
-                                learning_rate, n_iter_no_change, hid_sizes)
-            for i in range(ensemble_size)
-        ]
-
-    def fit(self, X: Array, y: Array) -> None:
-        # Each member maintains its own normalizers.
-        for i, member in enumerate(self._members):
-            logging.info(f"Fitting member {i} of ensemble...")
-            member.fit(X, y)
-
-    def classify(self, x: Array) -> bool:
-        # Each member maintains its own normalizers.
-        avg = np.mean(self.predict_member_probas(x))
-        classification = bool(avg > 0.5)
-        assert classification in [True, False]
-        return classification
-
-    def predict_member_probas(self, x: Array) -> Array:
-        """Return class probabilities predicted by each member."""
-        return np.array([m.predict_proba(x) for m in self._members])
-
-
 class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
     """K nearest neighbors from scikit-learn."""
 
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsClassifier(**kwargs)
+
+
+class BinaryClassifierEnsemble(BinaryClassifier):
+    """BinaryClassifierEnsemble definition."""
+
+    def __init__(self, seed: int, ensemble_size: int,
+                 member_cls: TypingType[BinaryClassifier],
+                 **kwargs: Any) -> None:
+        super().__init__(seed)
+        self._members = [
+            member_cls(seed + i, **kwargs) for i in range(ensemble_size)
+        ]
+
+    def fit(self, X: Array, y: Array) -> None:
+        for i, member in enumerate(self._members):
+            logging.info(f"Fitting member {i} of ensemble...")
+            member.fit(X, y)
+
+    def classify(self, x: Array) -> bool:
+        avg = np.mean(self.predict_member_probas(x))
+        classification = bool(avg > 0.5)
+        return classification
+
+    def predict_proba(self, x: Array) -> float:
+        raise Exception("Can't call predict_proba() on an ensemble. Use "
+                        "predict_member_probas() instead.")
+
+    def predict_member_probas(self, x: Array) -> Array:
+        """Return class probabilities predicted by each member."""
+        return np.array([m.predict_proba(x) for m in self._members])
 
 
 ################################## Utilities ##################################
@@ -916,7 +934,8 @@ def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
                          optimizer: optim.Optimizer,
                          batch_generator: Iterator[Tuple[Tensor, Tensor]],
-                         max_iters: int,
+                         max_train_iters: MaxTrainIters,
+                         dataset_size: int,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
@@ -931,6 +950,11 @@ def _train_pytorch_model(model: nn.Module,
     best_loss = float("inf")
     best_itr = 0
     model_name = tempfile.NamedTemporaryFile(delete=False).name
+    if isinstance(max_train_iters, int):
+        max_iters = max_train_iters
+    else:  # assume that it's a function from dataset size to max iters
+        max_iters = max_train_iters(dataset_size)
+    assert isinstance(max_iters, int)
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
         loss = loss_fn(Y_hat, tensor_Y)

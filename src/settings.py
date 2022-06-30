@@ -110,7 +110,7 @@ class GlobalSettings:
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
-    behavior_randomize_init_state = False
+    behavior_randomize_init_state = True
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
@@ -335,7 +335,9 @@ class GlobalSettings:
     # for action strategy greedy_lookahead
     interactive_max_trajectory_length = 2
     interactive_num_requests_per_cycle = 10
+    predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 1000
+    predicate_knn_classifier_n_neighbors = 1
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -380,7 +382,7 @@ class GlobalSettings:
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
-                    "behavior": 1000,
+                    "behavior": 5000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
@@ -410,11 +412,6 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                    # For these environments, the only environment failure
-                    # is one that involves no objects, which we want to be
-                    # treated like a terminal environment state.
-                    "stick_button": "never",
-                    "coffee": "never",
                 })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
@@ -465,6 +462,14 @@ class GlobalSettings:
                 {
                     # For the tools environment, keep it much lower.
                     "tools": 1,
+                })[args.get("env", "")],
+
+            # Used to save NSRTs as strings in pickle file.
+            dump_nsrts_as_strings=defaultdict(
+                lambda: False,
+                {
+                    # We cannot pickle Behavior NSRTs
+                    "behavior": True,
                 })[args.get("env", "")],
         )
 

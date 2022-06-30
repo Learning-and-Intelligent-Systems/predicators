@@ -138,6 +138,9 @@ class CoffeeEnv(BaseEnv):
         self._PressingButton = Predicate(
             "PressingButton", [self._robot_type, self._machine_type],
             self._PressingButton_holds)
+        self._NotSameCup = Predicate("NotSameCup",
+                                     [self._cup_type, self._cup_type],
+                                     self._NotSameCup_holds)
 
         # Options
         self._MoveToTwistJug = ParameterizedOption(
@@ -269,15 +272,15 @@ class CoffeeEnv(BaseEnv):
                 if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
                     cup = self._get_cup_to_pour(next_state)
-                    # If pouring into nothing, raise an error (spilling).
+                    # If pouring into nothing, no-op.
                     if cup is None:
-                        raise utils.EnvironmentFailure("Spilled.")
+                        return state.copy()
                     # Increase the liquid in the cup.
                     current_liquid = state.get(cup, "current_liquid")
                     new_liquid = current_liquid + self.pour_velocity
-                    # If we have exceeded the capacity of the cup, raise error.
+                    # If we have exceeded the capacity of the cup, no-op.
                     if new_liquid > state.get(cup, "capacity_liquid"):
-                        raise utils.EnvironmentFailure("Overfilled cup.")
+                        return state.copy()
                     next_state.set(cup, "current_liquid", new_liquid)
                     # If successfully poured, prevent movement and dropping.
                     next_state.set(self._robot, "x", robot_x)
@@ -336,7 +339,7 @@ class CoffeeEnv(BaseEnv):
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
             self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
-            self._PressingButton, self._Twisting
+            self._PressingButton, self._Twisting, self._NotSameCup
         }
 
     @property
@@ -681,6 +684,12 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return sq_dist_to_button < self.button_radius
+
+    @staticmethod
+    def _NotSameCup_holds(state: State, objects: Sequence[Object]) -> bool:
+        del state  # unused
+        cup1, cup2 = objects
+        return cup1 != cup2
 
     def _MoveToTwistJug_policy(self, state: State, memory: Dict,
                                objects: Sequence[Object],

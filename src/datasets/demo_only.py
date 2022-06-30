@@ -14,6 +14,7 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs import BaseEnv
+from predicators.src.planning import _run_plan_with_option_model
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -24,9 +25,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
     regex = r"(\d+)"
-    dataset_fname_template = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-        f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    if CFG.env == "behavior":  # pragma: no cover
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
@@ -43,6 +50,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                 train_tasks_start_idx=0)
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
+
+        # NOTE: This is necessary because BEHAVIOR options save
+        # the BEHAVIOR environment object in their memory, and this
+        # can't be pickled.
+        if CFG.env == "behavior":  # pragma: no cover
+            for traj in dataset.trajectories:
+                for act in traj.actions:
+                    act.get_option().memory = {}
+
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset
@@ -158,14 +174,14 @@ def _generate_demonstrations(
                 if timeout == -1:
                     timeout = CFG.timeout
                 oracle_approach.solve(task, timeout=timeout)
-                # Since we're running the oracle approach, we know that the
-                # policy is actually a plan under the hood, and we can
-                # retrieve it with get_last_plan(). We do this because we want
-                # to run the full plan.
+                # Since we're running the oracle approach, we know that
+                # the policy is actually a plan under the hood, and we
+                # can retrieve it with get_last_plan(). We do this
+                # because we want to run the full plan.
                 last_plan = oracle_approach.get_last_plan()
                 policy = utils.option_plan_to_policy(last_plan)
-                # We will stop run_policy() when OptionExecutionFailure() is
-                # hit, which should only happen when the goal has been
+                # We will stop run_policy() when OptionExecutionFailure()
+                # is hit, which should only happen when the goal has been
                 # reached, as verified by the assertion later.
                 termination_function = lambda s: False
             else:  # pragma: no cover
@@ -173,22 +189,35 @@ def _generate_demonstrations(
                                            idx, num_tasks, task,
                                            event_to_action)
                 termination_function = task.goal_holds
-            if CFG.make_demo_videos:
-                monitor = utils.VideoMonitor(env.render)
+            if CFG.env == "behavior":  # pragma: no cover
+                # For BEHAVIOR we are generating the trajectory by running
+                # our plan on our option models. Since option models
+                # return only states, we will add dummy actions to the
+                # states to create our low-level trajectories.
+                traj, success = _run_plan_with_option_model(
+                    task, idx, oracle_approach.get_option_model(), last_plan)
+                # Is successful if we found a low-level plan that achieves
+                # our goal using option models.
+                if not success:
+                    raise ApproachFailure(
+                        "Falied execution of low-level plan on option model")
             else:
-                monitor = None
-            traj, _ = utils.run_policy(
-                policy,
-                env,
-                "train",
-                idx,
-                termination_function=termination_function,
-                max_num_steps=CFG.horizon,
-                exceptions_to_break_on={
-                    utils.OptionExecutionFailure,
-                    utils.HumanDemonstrationFailure,
-                },
-                monitor=monitor)
+                if CFG.make_demo_videos:
+                    monitor = utils.VideoMonitor(env.render)
+                else:
+                    monitor = None
+                traj, _ = utils.run_policy(
+                    policy,
+                    env,
+                    "train",
+                    idx,
+                    termination_function=termination_function,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "

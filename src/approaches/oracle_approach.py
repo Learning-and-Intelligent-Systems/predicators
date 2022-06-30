@@ -13,6 +13,7 @@ from gym.spaces import Box
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, ParameterizedOption, Predicate, \
     Task, Type, _Option
 
@@ -55,3 +56,8 @@ class OracleApproach(BilevelPlanningApproach):
 
     def _get_current_nsrts(self) -> Set[NSRT]:
         return self._nsrts
+
+    def get_option_model(self) -> _OptionModelBase:
+        """For ONLY an oracle approach, we allow the user to get the current
+        option model."""
+        return self._option_model

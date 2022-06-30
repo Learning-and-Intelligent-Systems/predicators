@@ -1,7 +1,6 @@
 """Test cases for the coffee environment."""
 
 import numpy as np
-import pytest
 
 from predicators.src import utils
 from predicators.src.envs.coffee import CoffeeEnv
@@ -22,7 +21,7 @@ def test_coffee():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 12
+    assert len(env.predicates) == 13
     assert len(env.goal_predicates) == 1
     pred_name_to_pred = {p.name: p for p in env.predicates}
     CupFilled = pred_name_to_pred["CupFilled"]
@@ -225,12 +224,11 @@ def test_coffee():
     assert GroundAtom(NotAboveCup, [robot, jug]).holds(traj.states[-1])
     s = traj.states[-1]
 
-    # Check that an EnvironmentFailure is raised when pouring into nothing.
+    # Check for no-op when pouring into nothing.
     pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
-    with pytest.raises(utils.EnvironmentFailure) as e:
-        env.simulate(s, Action(pour_act_arr))
-    assert "Spilled" in str(e)
+    next_s = env.simulate(s, Action(pour_act_arr))
+    assert s.allclose(next_s)
 
     # Test pouring in each of the cups.
     for cup in cups:
@@ -265,12 +263,9 @@ def test_coffee():
         # Render a state where we are in the process of pouring.
         env.render_state(traj.states[-2], task)
 
-    # Check that an EnvironmentFailure is raised when overfilling a cup.
-    with pytest.raises(utils.EnvironmentFailure) as e:
-        overfill_state = s.copy()
-        for _ in range(10):
-            overfill_state = env.simulate(overfill_state, Action(pour_act_arr))
-    assert "Overfilled cup" in str(e)
+    # Check for no-op when overfilling a cup.
+    next_s = env.simulate(s, Action(pour_act_arr))
+    assert s.allclose(next_s)
 
     # Uncomment for debugging.
     # policy = utils.action_arrs_to_policy(action_arrs)

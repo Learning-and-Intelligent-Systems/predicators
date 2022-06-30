@@ -132,12 +132,11 @@ class StickButtonEnv(BaseEnv):
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
-        # The robot cannot leave the reachable zone. If it tries to, raise
-        # an EnvironmentFailure, which represents a terminal state.
+        # The robot cannot leave the reachable zone. If it tries to, no-op.
         rad = self.robot_radius
         if not self.rz_x_lb + rad <= new_rx <= self.rz_x_ub - rad or \
            not self.rz_y_lb + rad <= new_ry <= self.rz_y_ub - rad:
-            raise utils.EnvironmentFailure("Left reachable zone.")
+            return state.copy()
         next_state = state.copy()
         next_state.set(self._robot, "x", new_rx)
         next_state.set(self._robot, "y", new_ry)
@@ -171,10 +170,8 @@ class StickButtonEnv(BaseEnv):
                 # would be high enough above the holder to avoid collisions.
                 holder_rect = self._object_to_geom(self._holder, state)
                 if robot_circ.intersects(holder_rect):
-                    # Immediately fail in case of collision.
-                    raise utils.EnvironmentFailure(
-                        "Collided with holder.",
-                        {"offending_objects": {self._holder}})
+                    # No-op in case of collision.
+                    return state.copy()
 
                 next_state.set(self._stick, "held", 1.0)
 

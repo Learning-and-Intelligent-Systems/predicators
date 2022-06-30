@@ -2331,11 +2331,11 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         CFG.env, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
         JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
-        Twisting = \
+        Twisting, NotSameCup = \
         _get_predicates_by_names(CFG.env, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
-            "PressingButton", "Twisting"])
+            "PressingButton", "Twisting", "NotSameCup"])
     MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
         Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
             "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
@@ -2530,6 +2530,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(JugFilled, [jug]),
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
+        LiftedAtom(NotSameCup, [cup, other_cup]),
     }
     add_effects = {
         LiftedAtom(JugAboveCup, [jug, cup]),
@@ -2763,16 +2764,16 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
 
-    # We start by creating reachable predicates for all possible type
-    # combinations. These predicates will be used as side predicates
-    # for navigateTo operators
+    agent_type = type_name_to_type["agent"]
+    agent_obj = Variable("?agent", agent_type)
+
+    # We start by creating reachable predicates for the agent and
+    # all possible other types. These predicates will
+    # be used as side predicates for navigateTo operators.
     reachable_predicates = set()
-    for reachable_pred_types in itertools.product(env.types, env.types):
+    for reachable_pred_types in itertools.product([agent_type], env.types):
         reachable_predicates.add(
             _get_predicate("reachable", reachable_pred_types))
-
-    agent_type = type_name_to_type["agent.n.01"]
-    agent_obj = Variable("?agent", agent_type)
 
     nsrts = set()
     op_name_count_nav = itertools.count()
@@ -2850,7 +2851,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
                 preconditions = {handempty, targ_reachable, ontop}
-                add_effects = {targ_holding}
+                add_effects = {targ_holding, targ_reachable
+                               }  # targ_reachable is a keep_effect
                 delete_effects = {handempty, ontop}
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_pick)}",
