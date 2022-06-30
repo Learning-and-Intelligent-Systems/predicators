@@ -1,4 +1,4 @@
-"""An explorer uses goal-literal babbling (GLIB)."""
+"""An explorer that uses goal-literal babbling (GLIB)."""
 
 import logging
 from typing import Callable, List, Set, Tuple

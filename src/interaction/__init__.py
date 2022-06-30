@@ -11,9 +11,11 @@ from predicators.src.interaction.base_explorer import BaseExplorer
 from predicators.src.interaction.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.src.interaction.glib_explorer import GLIBExplorer
+from predicators.src.interaction.greedy_lookahead_explorer import \
+    GreedyLookaheadExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, GroundAtom, ParameterizedOption, \
-    Predicate, Task, Type
+    Predicate, State, Task, Type
 
 __all__ = ["BaseExplorer"]
 
@@ -36,6 +38,7 @@ def create_explorer(
     nsrts: Optional[Set[NSRT]] = None,
     option_model: Optional[_OptionModelBase] = None,
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
+    state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     for cls in utils.get_all_subclasses(BaseExplorer):
@@ -48,6 +51,15 @@ def create_explorer(
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks, nsrts, option_model,
                                atom_score_fn)
+            # Special case greedy lookahead because it uses a state score
+            # function.
+            elif issubclass(cls, GreedyLookaheadExplorer):
+                assert nsrts is not None
+                assert option_model is not None
+                assert state_score_fn is not None
+                explorer = cls(initial_predicates, initial_options, types,
+                               action_space, train_tasks, nsrts, option_model,
+                               state_score_fn)
             # Bilevel planning approaches use NSRTs and an option model.
             elif issubclass(cls, BilevelPlanningExplorer):
                 assert nsrts is not None
