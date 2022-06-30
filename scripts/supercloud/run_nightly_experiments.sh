@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# NOTE: all these experiments should get >45 / 50 in the NUM_SOLVED column of
+# the table printed out by `python scripts/analyze_results_directory.py`,
+# except stick_button_option_learning, which should get ~40-45 / 50.
+
 FILE="scripts/supercloud/submit_supercloud_job.py"
 
 # cover
