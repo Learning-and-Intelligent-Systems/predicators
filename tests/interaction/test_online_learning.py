@@ -36,27 +36,38 @@ class _MockApproach(BaseApproach):
         self._dummy_saved.append(None)
 
     def get_interaction_requests(self):
-        act_policy = lambda s: Action(self._action_space.sample())
         HandEmpty = Predicate("HandEmpty", [], lambda s, o: False)
         hand_empty_atom = GroundAtom(HandEmpty, [])
+        act_policy1 = lambda s: Action(self._action_space.sample())
         query_policy1 = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
         termination_function1 = lambda s: True  # terminate immediately
-        request1 = InteractionRequest(1, act_policy, query_policy1,
+        request1 = InteractionRequest(1, act_policy1, query_policy1,
                                       termination_function1)
+        act_policy2 = act_policy1
         query_policy2 = lambda s: None  # no queries
         termination_function2 = lambda s: False  # go until max steps
-        request2 = InteractionRequest(2, act_policy, query_policy2,
+        request2 = InteractionRequest(2, act_policy2, query_policy2,
                                       termination_function2)
-        return [request1, request2]
+
+        def act_policy3(state):
+            raise utils.RequestActPolicyFailure("mock failure")
+
+        query_policy3 = lambda s: None  # no queries
+        termination_function3 = lambda s: False  # go until max steps
+        request3 = InteractionRequest(3, act_policy3, query_policy3,
+                                      termination_function3)
+        return [request1, request2, request3]
 
     def learn_from_interaction_results(self, results):
         max_steps = CFG.max_num_steps_interaction_request
-        assert len(results) == 2
-        result1, result2 = results
+        assert len(results) == 3
+        result1, result2, result3 = results
         assert isinstance(result1, InteractionResult)
         assert isinstance(result2, InteractionResult)
+        assert isinstance(result3, InteractionResult)
         assert len(result1.states) == 1
         assert len(result2.states) == max_steps + 1
+        assert len(result3.states) == 1
         response1 = result1.responses[0]
         assert len(response1.query.ground_atoms) == 1
         query_atom = next(iter(response1.query.ground_atoms))
@@ -66,6 +77,10 @@ class _MockApproach(BaseApproach):
         assert next(iter(response1.holds.values()))
         # request2's queries were all None, so the responses should be too.
         assert result2.responses == [None for _ in range(max_steps + 1)]
+        # In request3, the acting policy raised a RequestActPolicyFailure,
+        # which ends the interaction immediately.
+        assert len(result3.actions) == 0
+        assert result3.responses == [None]
         assert self._dummy_saved
         next_saved = (0 if self._dummy_saved[-1] is None else
                       self._dummy_saved[-1] + 1)
@@ -83,7 +98,7 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 3,
+        "num_train_tasks": 4,
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1,
         "make_interaction_videos": True,
@@ -129,14 +144,14 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 3,
+        "num_train_tasks": 4,
         "num_test_tasks": 1,
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
     })
     _run_pipeline(env, approach, train_tasks, dataset)
     # Tests for CFG.allow_interaction_in_demo_tasks. An error should be raised
-    # if the agent makes a request about a task where a demonstration was
+    # because the agent makes a request about a task where a demonstration was
     # generated.
     utils.reset_config({
         "max_initial_demos": 2,
@@ -146,7 +161,7 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 3,
+        "num_train_tasks": 4,
         "num_test_tasks": 1,
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
@@ -154,7 +169,7 @@ def test_interaction():
     with pytest.raises(RuntimeError) as e:
         _run_pipeline(env, approach, train_tasks, dataset)
     assert "Interaction requests cannot be on demo tasks" in str(e)
-    # This should succeed because the requests are about train tasks 1 and 2.
+    # This should succeed since requests are about the last three train tasks.
     utils.reset_config({
         "max_initial_demos": 1,
         "allow_interaction_in_demo_tasks": False,
@@ -163,7 +178,7 @@ def test_interaction():
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
         "timeout": 1,
-        "num_train_tasks": 3,
+        "num_train_tasks": 4,
         "num_test_tasks": 1,
         "make_interaction_videos": True,
         "max_num_steps_interaction_request": 3,
