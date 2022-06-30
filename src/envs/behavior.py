@@ -484,7 +484,7 @@ class BehaviorEnv(BaseEnv):
             return False
         return (np.linalg.norm(  # type: ignore
             np.array(ig_obj.get_position()) -
-            np.array(ig_other_obj.get_position())) < 2)
+            np.array(ig_other_obj.get_position())) < 1)
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:

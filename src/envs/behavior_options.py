@@ -152,8 +152,9 @@ def navigate_to_param_sampler(rng: Generator,
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit = 1.25
-    distance = closeness_limit * rng.random()
+    closeness_limit = 0.75
+    nearness_limit = 0.2
+    distance = nearness_limit + ((closeness_limit - nearness_limit) * rng.random())
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
