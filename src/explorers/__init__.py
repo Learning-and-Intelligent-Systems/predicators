@@ -53,7 +53,7 @@ def create_explorer(
                                babble_predicates, atom_score_fn)
             # Special case greedy lookahead because it uses a state score
             # function.
-            elif name == "greedy_explore":
+            elif name == "greedy_lookahead":
                 assert nsrts is not None
                 assert option_model is not None
                 assert state_score_fn is not None
