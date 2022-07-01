@@ -4,7 +4,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.interaction import create_explorer
+from predicators.src.explorers import create_explorer
 
 
 def test_no_explore_explorer():

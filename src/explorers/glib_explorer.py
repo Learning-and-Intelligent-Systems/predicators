@@ -6,9 +6,9 @@ from typing import Callable, List, Set
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.interaction.bilevel_planning_explorer import \
+from predicators.src.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
-from predicators.src.interaction.random_options_explorer import \
+from predicators.src.explorers.random_options_explorer import \
     RandomOptionsExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG

@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Set
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.interaction.base_explorer import BaseExplorer
-from predicators.src.interaction.bilevel_planning_explorer import \
+from predicators.src.explorers.base_explorer import BaseExplorer
+from predicators.src.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
-from predicators.src.interaction.glib_explorer import GLIBExplorer
-from predicators.src.interaction.greedy_lookahead_explorer import \
+from predicators.src.explorers.glib_explorer import GLIBExplorer
+from predicators.src.explorers.greedy_lookahead_explorer import \
     GreedyLookaheadExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, GroundAtom, ParameterizedOption, \

@@ -1,6 +1,6 @@
 """An explorer that just takes random low-level actions."""
 
-from predicators.src.interaction import BaseExplorer
+from predicators.src.explorers import BaseExplorer
 from predicators.src.structs import Action, ExplorationStrategy, Task
 
 

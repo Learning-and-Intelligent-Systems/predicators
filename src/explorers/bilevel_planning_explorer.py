@@ -5,7 +5,7 @@ from typing import List, Set
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.interaction.base_explorer import BaseExplorer
+from predicators.src.explorers.base_explorer import BaseExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan

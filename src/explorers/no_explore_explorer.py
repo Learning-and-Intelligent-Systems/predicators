@@ -1,6 +1,6 @@
 """An explorer that always terminates immediately without taking an action."""
 
-from predicators.src.interaction import BaseExplorer
+from predicators.src.explorers import BaseExplorer
 from predicators.src.structs import Action, ExplorationStrategy, State, Task
 
 

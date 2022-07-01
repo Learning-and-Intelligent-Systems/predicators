@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.interaction.bilevel_planning_explorer import \
+from predicators.src.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG

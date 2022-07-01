@@ -10,7 +10,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
-from predicators.src.interaction import create_explorer
+from predicators.src.explorers import create_explorer
 from predicators.src.ml_models import BinaryClassifierEnsemble, \
     KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
 from predicators.src.settings import CFG

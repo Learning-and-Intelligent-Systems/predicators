@@ -1,7 +1,7 @@
 """An explorer that takes random options."""
 
 from predicators.src import utils
-from predicators.src.interaction import BaseExplorer
+from predicators.src.explorers import BaseExplorer
 from predicators.src.structs import ExplorationStrategy, Task
 
 
