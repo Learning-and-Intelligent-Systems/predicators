@@ -17,8 +17,8 @@ from predicators.src.structs import NSRT, ExplorationStrategy, \
 class BilevelPlanningExplorer(BaseExplorer):
     """BilevelPlanningExplorer implementation.
 
-    The approach is abstract: subclasses decide how to use the bilevel
-    planning _solve method to create an exploration strategy.
+    This explorer is abstract: subclasses decide how to use the _solve
+    method implemented in this class, which calls sesame_plan().
     """
 
     def __init__(self, predicates: Set[Predicate],

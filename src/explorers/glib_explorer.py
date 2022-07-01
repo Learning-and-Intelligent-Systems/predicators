@@ -19,9 +19,9 @@ from predicators.src.structs import NSRT, ExplorationStrategy, GroundAtom, \
 class GLIBExplorer(BilevelPlanningExplorer):
     """GLIBExplorer implementation.
 
-    Sample a certain number of goals, plan to each of them, and execute
-    the plan for the "most interesting" reachable goal, according to the
-    atom_score_fn (where higher is more interesting).
+    Sample goals, score each of them, and then try planning starting
+    from the highest-scoring goal, terminating at the first goal for
+    which we find a plan.
     """
 
     def __init__(self, predicates: Set[Predicate],
@@ -33,7 +33,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
         super().__init__(predicates, options, types, action_space, train_tasks,
                          nsrts, option_model)
         self._babble_predicates = babble_predicates
-        self._atom_score_fn = atom_score_fn
+        self._atom_score_fn = atom_score_fn  # higher is better
         # GLIB falls back to random options.
         self._fallback_explorer = RandomOptionsExplorer(
             predicates, options, types, action_space, train_tasks)

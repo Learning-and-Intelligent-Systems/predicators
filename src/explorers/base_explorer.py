@@ -40,7 +40,8 @@ class BaseExplorer(abc.ABC):
         task: Task,
         timeout: int,
     ) -> ExplorationStrategy:
-        """Given a task, create a policy and termination function."""
+        """Given a task, create an ExplorationStrategy, which is a tuple of a
+        policy and a termination function."""
         raise NotImplementedError("Override me!")
 
     def _set_seed(self, seed: int) -> None:
