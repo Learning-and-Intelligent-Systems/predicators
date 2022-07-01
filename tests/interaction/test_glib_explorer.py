@@ -23,9 +23,16 @@ def test_glib_explorer(target_predicate):
     train_tasks = env.get_train_tasks()
     # For testing purposes, score everything except target predicate low.
     score_fn = lambda atoms: target_predicate in str(atoms)
-    explorer = create_explorer("glib", env.predicates, env.options, env.types,
-                               env.action_space, train_tasks, nsrts,
-                               option_model, score_fn)
+    explorer = create_explorer("glib",
+                               env.predicates,
+                               env.options,
+                               env.types,
+                               env.action_space,
+                               train_tasks,
+                               nsrts,
+                               option_model,
+                               babble_predicates=env.predicates,
+                               atom_score_fn=score_fn)
     task_idx = 0
     task = env.get_test_tasks()[task_idx]
     policy, termination_function = explorer.get_exploration_strategy(task, 500)
@@ -60,16 +67,30 @@ def test_glib_explorer_failure_cases():
     task_idx = 0
     task = env.get_test_tasks()[task_idx]
     # Test case where there are no possible goals.
-    explorer = create_explorer("glib", set(), env.options, env.types,
-                               env.action_space, train_tasks, nsrts,
-                               option_model, score_fn)
+    explorer = create_explorer("glib",
+                               set(),
+                               env.options,
+                               env.types,
+                               env.action_space,
+                               train_tasks,
+                               nsrts,
+                               option_model,
+                               babble_predicates=env.predicates,
+                               atom_score_fn=score_fn)
     policy, _ = explorer.get_exploration_strategy(task, 500)
     act = policy(task.init)  # a random action
     assert env.action_space.contains(act.arr)
     # Test case where no plan can be found (due to timeout).
-    explorer = create_explorer("glib", env.predicates, env.options, env.types,
-                               env.action_space, train_tasks, nsrts,
-                               option_model, score_fn)
+    explorer = create_explorer("glib",
+                               env.predicates,
+                               env.options,
+                               env.types,
+                               env.action_space,
+                               train_tasks,
+                               nsrts,
+                               option_model,
+                               babble_predicates=env.predicates,
+                               atom_score_fn=score_fn)
     explorer.get_exploration_strategy(task, -1)
     act = policy(task.init)  # a random action
     assert env.action_space.contains(act.arr)

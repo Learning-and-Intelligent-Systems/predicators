@@ -327,14 +327,6 @@ class GlobalSettings:
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
     interactive_random_query_prob = 0.5  # for query policy random
-
-    # TODO remove
-    interactive_action_strategy = "greedy_lookahead"
-    interactive_num_babbles = 10  # for action strategy glib
-    interactive_max_num_atoms_babbled = 1  # for action strategy glib
-    interactive_max_num_trajectories = 100
-    interactive_max_trajectory_length = 2
-
     interactive_num_requests_per_cycle = 10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 1000

@@ -40,6 +40,7 @@ def test_create_explorer():
                                train_tasks,
                                nsrts=nsrts,
                                option_model=option_model,
+                               babble_predicates=env.predicates,
                                atom_score_fn=atom_score_fn)
     assert isinstance(explorer, BaseExplorer)
     # Bilevel planning explorer.

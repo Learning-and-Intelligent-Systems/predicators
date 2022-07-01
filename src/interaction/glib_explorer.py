@@ -28,9 +28,11 @@ class GLIBExplorer(BilevelPlanningExplorer):
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
                  option_model: _OptionModelBase,
+                 babble_predicates: Set[GroundAtom],
                  atom_score_fn: Callable[[Set[GroundAtom]], float]) -> None:
         super().__init__(predicates, options, types, action_space, train_tasks,
                          nsrts, option_model)
+        self._babble_predicates = babble_predicates
         self._atom_score_fn = atom_score_fn
         # GLIB falls back to random options.
         self._fallback_explorer = RandomOptionsExplorer(
@@ -45,8 +47,9 @@ class GLIBExplorer(BilevelPlanningExplorer):
         # The goal of the task is ignored.
         init = task.init
         # Detect and filter out static predicates.
-        static_preds = utils.get_static_preds(self._nsrts, self._predicates)
-        preds = self._predicates - static_preds
+        static_preds = utils.get_static_preds(self._nsrts,
+                                              self._babble_predicates)
+        preds = self._babble_predicates - static_preds
         # Sample possible goals to plan toward.
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
         # If there are no possible goals, fall back to random immediately.

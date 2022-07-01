@@ -37,6 +37,7 @@ def create_explorer(
     train_tasks: List[Task],
     nsrts: Optional[Set[NSRT]] = None,
     option_model: Optional[_OptionModelBase] = None,
+    babble_predicates: Optional[Set[GroundAtom]] = None,
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
 ) -> BaseExplorer:
@@ -47,10 +48,11 @@ def create_explorer(
             if issubclass(cls, GLIBExplorer):
                 assert nsrts is not None
                 assert option_model is not None
+                assert babble_predicates is not None
                 assert atom_score_fn is not None
                 explorer = cls(initial_predicates, initial_options, types,
                                action_space, train_tasks, nsrts, option_model,
-                               atom_score_fn)
+                               babble_predicates, atom_score_fn)
             # Special case greedy lookahead because it uses a state score
             # function.
             elif issubclass(cls, GreedyLookaheadExplorer):
@@ -71,5 +73,5 @@ def create_explorer(
                                action_space, train_tasks)
             break
     else:
-        raise NotImplementedError(f"Unknown explorer: {name}")
+        raise NotImplementedError(f"Unrecognized explorer: {name}")
     return explorer
