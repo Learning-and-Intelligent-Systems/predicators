@@ -10,9 +10,6 @@ from predicators.src import utils
 from predicators.src.explorers.base_explorer import BaseExplorer
 from predicators.src.explorers.bilevel_planning_explorer import \
     BilevelPlanningExplorer
-from predicators.src.explorers.glib_explorer import GLIBExplorer
-from predicators.src.explorers.greedy_lookahead_explorer import \
-    GreedyLookaheadExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.structs import NSRT, GroundAtom, ParameterizedOption, \
     Predicate, State, Task, Type
@@ -46,7 +43,7 @@ def create_explorer(
         if not cls.__abstractmethods__ and cls.get_name() == name:
             # Special case GLIB because it uses babble predicates and an atom
             # score function.
-            if issubclass(cls, GLIBExplorer):
+            if name == "glib":
                 assert nsrts is not None
                 assert option_model is not None
                 assert babble_predicates is not None
@@ -56,7 +53,7 @@ def create_explorer(
                                babble_predicates, atom_score_fn)
             # Special case greedy lookahead because it uses a state score
             # function.
-            elif issubclass(cls, GreedyLookaheadExplorer):
+            elif name == "greedy_explore":
                 assert nsrts is not None
                 assert option_model is not None
                 assert state_score_fn is not None
