@@ -42,9 +42,10 @@ class GLIBExplorer(BilevelPlanningExplorer):
     def get_name(cls) -> str:
         return "glib"
 
-    def get_exploration_strategy(self, task: Task,
+    def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
         # The goal of the task is ignored.
+        task = self._train_tasks[train_task_idx]
         init = task.init
         # Detect and filter out static predicates.
         static_preds = utils.get_static_preds(self._nsrts,
@@ -56,7 +57,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
         if not ground_atom_universe:
             logging.info("No possible goals, falling back to random.")
             return self._fallback_explorer.get_exploration_strategy(
-                task, timeout)
+                train_task_idx, timeout)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
             num_samples=CFG.glib_num_babbles,
@@ -84,4 +85,5 @@ class GLIBExplorer(BilevelPlanningExplorer):
         # Fall back to a random exploration strategy if no solvable task
         # can be found.
         logging.info("No solvable task found, falling back to random.")
-        return self._fallback_explorer.get_exploration_strategy(task, timeout)
+        return self._fallback_explorer.get_exploration_strategy(
+            train_task_idx, timeout)

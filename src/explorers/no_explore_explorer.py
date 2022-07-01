@@ -1,7 +1,7 @@
 """An explorer that always terminates immediately without taking an action."""
 
 from predicators.src.explorers import BaseExplorer
-from predicators.src.structs import Action, ExplorationStrategy, State, Task
+from predicators.src.structs import Action, ExplorationStrategy, State
 
 
 class NoExploreExplorer(BaseExplorer):
@@ -11,7 +11,7 @@ class NoExploreExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "no_explore"
 
-    def get_exploration_strategy(self, task: Task,
+    def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
 
         def policy(_: State) -> Action:

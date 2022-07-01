@@ -15,10 +15,12 @@ def test_no_explore_explorer():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
+    task_idx = 0
+    task = train_tasks[task_idx]
     explorer = create_explorer("no_explore", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    policy, termination_function = explorer.get_exploration_strategy(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
     assert termination_function(task.init)
     with pytest.raises(RuntimeError) as e:
         policy(task.init)

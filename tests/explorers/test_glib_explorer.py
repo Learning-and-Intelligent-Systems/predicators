@@ -34,12 +34,12 @@ def test_glib_explorer(target_predicate):
                                babble_predicates=env.predicates,
                                atom_score_fn=score_fn)
     task_idx = 0
-    task = env.get_test_tasks()[task_idx]
-    policy, termination_function = explorer.get_exploration_strategy(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
     traj, _ = utils.run_policy(
         policy,
         env,
-        "test",
+        "train",
         task_idx,
         termination_function,
         max_num_steps=1000,
@@ -65,7 +65,7 @@ def test_glib_explorer_failure_cases():
     train_tasks = env.get_train_tasks()
     score_fn = lambda _: 0.0
     task_idx = 0
-    task = env.get_test_tasks()[task_idx]
+    task = train_tasks[task_idx]
     # Test case where there are no possible goals.
     explorer = create_explorer("glib",
                                set(),
@@ -77,7 +77,7 @@ def test_glib_explorer_failure_cases():
                                option_model,
                                babble_predicates=env.predicates,
                                atom_score_fn=score_fn)
-    policy, _ = explorer.get_exploration_strategy(task, 500)
+    policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     act = policy(task.init)  # a random action
     assert env.action_space.contains(act.arr)
     # Test case where no plan can be found (due to timeout).
@@ -91,6 +91,6 @@ def test_glib_explorer_failure_cases():
                                option_model,
                                babble_predicates=env.predicates,
                                atom_score_fn=score_fn)
-    explorer.get_exploration_strategy(task, -1)
+    explorer.get_exploration_strategy(task_idx, -1)
     act = policy(task.init)  # a random action
     assert env.action_space.contains(act.arr)

@@ -2,7 +2,7 @@
 
 from predicators.src import utils
 from predicators.src.explorers import BaseExplorer
-from predicators.src.structs import ExplorationStrategy, Task
+from predicators.src.structs import ExplorationStrategy
 
 
 class RandomOptionsExplorer(BaseExplorer):
@@ -12,7 +12,7 @@ class RandomOptionsExplorer(BaseExplorer):
     def get_name(cls) -> str:
         return "random_options"
 
-    def get_exploration_strategy(self, task: Task,
+    def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
         # Take random options.
         policy = utils.create_random_option_policy(self._options,

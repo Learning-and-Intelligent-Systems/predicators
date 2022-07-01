@@ -34,12 +34,12 @@ def test_greedy_lookahead_explorer(target_predicate):
                                option_model,
                                state_score_fn=score_fn)
     task_idx = 0
-    task = env.get_test_tasks()[task_idx]
-    policy, termination_function = explorer.get_exploration_strategy(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
     traj, _ = utils.run_policy(
         policy,
         env,
-        "test",
+        "train",
         task_idx,
         termination_function,
         max_num_steps=1000,
@@ -68,7 +68,7 @@ def test_greedy_lookahead_explorer_failure_cases():
     train_tasks = env.get_train_tasks()
     state_score_fn = lambda _1, _2: 0.0
     task_idx = 0
-    task = env.get_test_tasks()[task_idx]
+    task = train_tasks[task_idx]
     # Test case where we can't sample a ground NSRT.
     explorer = create_explorer("greedy_lookahead",
                                env.predicates,
@@ -79,7 +79,7 @@ def test_greedy_lookahead_explorer_failure_cases():
                                set(),
                                option_model,
                                state_score_fn=state_score_fn)
-    policy, _ = explorer.get_exploration_strategy(task, 500)
+    policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     with pytest.raises(utils.OptionExecutionFailure):
         policy(task.init)
     # Test case where the option model returns num actions 0.
@@ -109,6 +109,6 @@ def test_greedy_lookahead_explorer_failure_cases():
                                new_nsrts,
                                option_model,
                                state_score_fn=state_score_fn)
-    policy, _ = explorer.get_exploration_strategy(task, 500)
+    policy, _ = explorer.get_exploration_strategy(task_idx, 500)
     with pytest.raises(utils.OptionExecutionFailure):
         policy(task.init)

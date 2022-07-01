@@ -38,9 +38,10 @@ class GreedyLookaheadExplorer(BilevelPlanningExplorer):
     def get_name(cls) -> str:
         return "greedy_lookahead"
 
-    def get_exploration_strategy(self, task: Task,
+    def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
         # The goal of the task is ignored.
+        task = self._train_tasks[train_task_idx]
         init = task.init
         # Create all applicable ground NSRTs.
         ground_nsrts: List[_GroundNSRT] = []

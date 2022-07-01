@@ -13,10 +13,12 @@ def test_random_actions_explorer():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    task = train_tasks[0]
+    task_idx = 0
+    task = train_tasks[task_idx]
     explorer = create_explorer("random_actions", env.predicates, env.options,
                                env.types, env.action_space, train_tasks)
-    policy, termination_function = explorer.get_exploration_strategy(task, 500)
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
     assert not termination_function(task.init)
     for _ in range(10):
         act = policy(task.init)

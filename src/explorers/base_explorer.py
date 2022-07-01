@@ -37,11 +37,11 @@ class BaseExplorer(abc.ABC):
     @abc.abstractmethod
     def get_exploration_strategy(
         self,
-        task: Task,
+        train_task_idx: int,
         timeout: int,
     ) -> ExplorationStrategy:
-        """Given a task, create an ExplorationStrategy, which is a tuple of a
-        policy and a termination function."""
+        """Given a train task idx, create an ExplorationStrategy, which is a
+        tuple of a policy and a termination function."""
         raise NotImplementedError("Override me!")
 
     def _set_seed(self, seed: int) -> None:

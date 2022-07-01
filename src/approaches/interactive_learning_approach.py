@@ -165,9 +165,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             state_score_fn=self._score_atom_set)
         for train_task_idx in self._select_interaction_train_task_idxs():
             # Determine the action policy and termination function.
-            task = self._train_tasks[train_task_idx]
             act_policy, termination_fn = explorer.get_exploration_strategy(
-                task, CFG.timeout)
+                train_task_idx, CFG.timeout)
             # Determine the query policy.
             query_policy = self._create_interaction_query_policy(
                 train_task_idx)
