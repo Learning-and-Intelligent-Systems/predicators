@@ -37,14 +37,15 @@ def create_explorer(
     train_tasks: List[Task],
     nsrts: Optional[Set[NSRT]] = None,
     option_model: Optional[_OptionModelBase] = None,
-    babble_predicates: Optional[Set[GroundAtom]] = None,
+    babble_predicates: Optional[Set[Predicate]] = None,
     atom_score_fn: Optional[Callable[[Set[GroundAtom]], float]] = None,
     state_score_fn: Optional[Callable[[Set[GroundAtom], State], float]] = None,
 ) -> BaseExplorer:
     """Create an explorer given its name."""
     for cls in utils.get_all_subclasses(BaseExplorer):
         if not cls.__abstractmethods__ and cls.get_name() == name:
-            # Special case GLIB because it uses an atom score function.
+            # Special case GLIB because it uses babble predicates and an atom
+            # score function.
             if issubclass(cls, GLIBExplorer):
                 assert nsrts is not None
                 assert option_model is not None

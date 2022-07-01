@@ -28,7 +28,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
                  option_model: _OptionModelBase,
-                 babble_predicates: Set[GroundAtom],
+                 babble_predicates: Set[Predicate],
                  atom_score_fn: Callable[[Set[GroundAtom]], float]) -> None:
         super().__init__(predicates, options, types, action_space, train_tasks,
                          nsrts, option_model)
