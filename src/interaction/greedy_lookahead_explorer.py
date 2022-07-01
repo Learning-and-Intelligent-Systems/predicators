@@ -86,7 +86,6 @@ class GreedyLookaheadExplorer(BilevelPlanningExplorer):
             if total_score > best_score:
                 best_score = total_score
                 best_options = options
-        assert not np.isinf(best_score)
         act_policy = utils.option_plan_to_policy(best_options)
         # When the act policy finishes, an OptionExecutionFailure is raised
         # and caught, terminating the episode.

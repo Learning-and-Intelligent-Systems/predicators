@@ -56,7 +56,7 @@ def test_glib_explorer_failure_cases():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
-    score_fn = lambda atoms: 0.0
+    score_fn = lambda _: 0.0
     task_idx = 0
     task = env.get_test_tasks()[task_idx]
     # Test case where there are no possible goals.
