@@ -19,7 +19,7 @@ from predicators.src.nsrt_learning.nsrt_learning_main import \
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+    _Option, ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
