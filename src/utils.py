@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+import dill as pkl
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
@@ -1812,12 +1813,39 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
 
 def create_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
-        predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
+        predicates: Set[Predicate],
+        load_fname: str = None) -> List[GroundAtomTrajectory]:
     """Apply all predicates to all trajectories in the dataset."""
+    # if CFG.env == "behavior": #load_fname:
+    #     with open("cached_ground_atoms_trajectories.data", "rb") as f:
+    #         ground_atom_dataset_trjectories = pkl.load(f)
+    #     logging.info(f"\n\nLOADED GROUNDED ATOM DATASET")
+    #     ground_atom_dataset = []
+    #     for i, traj in enumerate(trajectories):
+    #         ground_atom_seq = ground_atom_dataset_trjectories[i]
+    #         ground_atom_dataset.append((traj, [set(atoms) for atoms in ground_atom_seq]))
+        
+    #     return ground_atom_dataset
+
     ground_atom_dataset = []
     for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
+    
+
+    #Save
+    ground_atom_dataset_to_pkl = []
+    for traj_i, traj in enumerate(ground_atom_dataset):
+        trajectory = []
+        for i, ground_atom_seq in enumerate(traj[1]):
+            trajectory.append(set([GroundAtom(Predicate(atom.predicate.name, atom.predicate.types, lambda s, o: None), atom.entities) for atom in ground_atom_seq]))
+        ground_atom_dataset_to_pkl.append(trajectory)
+
+    with open("saved_ground_atom_states_demos_7.data", "wb") as f:
+        pkl.dump(ground_atom_dataset_to_pkl, f)
+    
+    import ipdb; ipdb.set_trace()
+    
     return ground_atom_dataset
 
 

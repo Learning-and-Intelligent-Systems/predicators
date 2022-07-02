@@ -169,10 +169,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 continue
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-            try:
-                assert traj_goal.issubset(atoms_seq[-1])
-            except:
-                import ipdb; ipdb.set_trace()
+            assert traj_goal.issubset(atoms_seq[-1])
             # This variable, necessary_image, gets updated as we
             # backchain. It always holds the set of ground atoms that
             # are necessary for the remainder of the plan to reach the

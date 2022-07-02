@@ -275,6 +275,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         make_video = False
         solved = False
         caught_exception = False
+        # TODO if behavior eval on opotion model
+        #
         if CFG.make_test_videos or CFG.make_failure_videos:
             monitor = utils.VideoMonitor(env.render)
         else:
