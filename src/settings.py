@@ -332,6 +332,9 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
     predicate_knn_classifier_n_neighbors = 1
 
+    # online NSRT learning parameters
+    online_nsrt_learning_requests_per_cycle = 10
+
     # glib explorer parameters
     glib_min_goal_size = 1
     glib_max_goal_size = 1
