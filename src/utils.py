@@ -1060,6 +1060,36 @@ def option_plan_to_policy(
     return _policy
 
 
+def create_random_option_policy(
+        options: Collection[ParameterizedOption], action_space: Box,
+        rng: np.random.Generator) -> Callable[[State], Action]:
+    """Create a policy that executes random initiable options."""
+    sorted_options = sorted(options, key=lambda o: o.name)
+    cur_option = DummyOption
+
+    def _policy(state: State) -> Action:
+        nonlocal cur_option
+        if cur_option is DummyOption or cur_option.terminal(state):
+            cur_option = DummyOption
+            for _ in range(CFG.random_options_max_tries):
+                param_opt = sorted_options[rng.choice(len(sorted_options))]
+                objs = get_random_object_combination(list(state),
+                                                     param_opt.types, rng)
+                if objs is None:
+                    continue
+                params = param_opt.params_space.sample()
+                opt = param_opt.ground(objs, params)
+                if opt.initiable(state):
+                    cur_option = opt
+                    break
+            else:  # fall back to a random action
+                return Action(action_space.sample())
+        act = cur_option.policy(state)
+        return act
+
+    return _policy
+
+
 def action_arrs_to_policy(
         action_arrs: Sequence[Array]) -> Callable[[State], Action]:
     """Create a policy that executes action arrays in sequence."""

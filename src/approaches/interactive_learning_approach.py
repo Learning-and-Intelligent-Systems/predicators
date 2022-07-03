@@ -1,25 +1,23 @@
 """An approach that learns predicates from a teacher."""
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set
 
 import dill as pkl
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
-from predicators.src.approaches.random_options_approach import \
-    RandomOptionsApproach
+from predicators.src.explorers import create_explorer
 from predicators.src.ml_models import BinaryClassifierEnsemble, \
     KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Dataset, GroundAtom, \
+from predicators.src.structs import Dataset, GroundAtom, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
     InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
-    Query, State, Task, Type, _GroundNSRT
+    Query, State, Task, Type
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -152,15 +150,28 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         requests = []
+        # Create the explorer.
+        explorer = create_explorer(
+            CFG.explorer,
+            self._get_current_predicates(),
+            self._initial_options,
+            self._types,
+            self._action_space,
+            self._train_tasks,
+            self._get_current_nsrts(),
+            self._option_model,
+            babble_predicates=self._predicates_to_learn,
+            atom_score_fn=self._score_atom_set_frequency,
+            state_score_fn=self._score_atom_set)
         for train_task_idx in self._select_interaction_train_task_idxs():
             # Determine the action policy and termination function.
-            act_policy, termination_function = \
-                self._create_interaction_action_strategy(train_task_idx)
+            act_policy, termination_fn = explorer.get_exploration_strategy(
+                train_task_idx, CFG.timeout)
             # Determine the query policy.
             query_policy = self._create_interaction_query_policy(
                 train_task_idx)
             request = InteractionRequest(train_task_idx, act_policy,
-                                         query_policy, termination_function)
+                                         query_policy, termination_fn)
             requests.append(request)
         assert len(requests) == CFG.interactive_num_requests_per_cycle
         return requests
@@ -172,16 +183,22 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         Higher scores are better.
         """
+        # Filter out any atoms that are not being learned.
+        learned_atom_set = atom_set.copy()
+        for atom in atom_set:
+            if atom.predicate not in self._predicates_to_learn:
+                assert atom.predicate in self._initial_predicates
+                learned_atom_set.discard(atom)
         if CFG.interactive_score_function == "frequency":
-            return self._score_atom_set_frequency(atom_set)
+            return self._score_atom_set_frequency(learned_atom_set)
         if CFG.interactive_score_function == "trivial":
             return 0.0  # always return the same score
         if CFG.interactive_score_function == "entropy":
-            return self._score_atom_set_entropy(atom_set, state)
+            return self._score_atom_set_entropy(learned_atom_set, state)
         if CFG.interactive_score_function == "BALD":
-            return self._score_atom_set_bald(atom_set, state)
+            return self._score_atom_set_bald(learned_atom_set, state)
         if CFG.interactive_score_function == "variance":
-            return self._score_atom_set_variance(atom_set, state)
+            return self._score_atom_set_variance(learned_atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -191,22 +208,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # try other strategies.
         return self._rng.choice(len(self._train_tasks),
                                 size=CFG.interactive_num_requests_per_cycle)
-
-    def _create_interaction_action_strategy(
-        self, train_task_idx: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Returns an action policy and a termination function."""
-        if CFG.interactive_action_strategy == "glib":
-            return self._create_glib_interaction_strategy(train_task_idx)
-        if CFG.interactive_action_strategy == "greedy_lookahead":
-            return self._create_greedy_lookahead_interaction_strategy(
-                train_task_idx)
-        if CFG.interactive_action_strategy == "random":
-            return self._create_random_interaction_strategy(train_task_idx)
-        if CFG.interactive_action_strategy == "do_nothing":
-            return self._create_do_nothing_interaction_strategy(train_task_idx)
-        raise NotImplementedError("Unrecognized interactive_action_strategy:"
-                                  f" {CFG.interactive_action_strategy}")
 
     def _create_interaction_query_policy(
             self, train_task_idx: int) -> Callable[[State], Optional[Query]]:
@@ -222,154 +223,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._create_random_query_policy()
         raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
-
-    def _create_glib_interaction_strategy(
-        self, train_task_idx: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Find the most interesting reachable ground goal and plan to it."""
-        init = self._train_tasks[train_task_idx].init
-        # Detect and filter out static predicates.
-        static_preds = utils.get_static_preds(self._nsrts,
-                                              self._predicates_to_learn)
-        preds = self._predicates_to_learn - static_preds
-        # Sample possible goals to plan toward.
-        ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
-        # If there are no possible goals, fall back to random immediately.
-        if not ground_atom_universe:
-            logging.info("No possible goals, falling back to random")
-            return self._create_random_interaction_strategy(train_task_idx)
-        possible_goals = utils.sample_subsets(
-            ground_atom_universe,
-            num_samples=CFG.interactive_num_babbles,
-            min_set_size=1,
-            max_set_size=CFG.interactive_max_num_atoms_babbled,
-            rng=self._rng)
-        # Exclude goals that hold in the initial state to prevent trivial
-        # interaction requests.
-        possible_goal_lst = [
-            g for g in possible_goals if not all(a.holds(init) for a in g)
-        ]
-        # Sort the possible goals based on how interesting they are.
-        # Note: we're using _score_atom_set_frequency here instead of
-        # _score_atom_set because _score_atom_set in general could depend
-        # on the current state. While babbling goals, we don't have any
-        # current state because we don't know what the state will be if and
-        # when we get to the goal.
-        goal_list = sorted(possible_goal_lst,
-                           key=self._score_atom_set_frequency,
-                           reverse=True)  # largest to smallest
-        task_list = [Task(init, goal) for goal in goal_list]
-        try:
-            task, act_policy = self._find_first_solvable(task_list)
-        except ApproachFailure:
-            # Fall back to a random exploration strategy if no solvable task
-            # can be found.
-            logging.info("No solvable task found, falling back to random")
-            return self._create_random_interaction_strategy(train_task_idx)
-        assert task.init is init
-
-        logging.info(f"GLIB found a plan to task with goal {task.goal}.")
-
-        # Stop the episode if we reach the goal that we babbled.
-        termination_function = task.goal_holds
-        return act_policy, termination_function
-
-    def _create_greedy_lookahead_interaction_strategy(
-        self, train_task_idx: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Sample a certain number of max-length trajectories and pick the one
-        that has the highest cumulative score."""
-        init = self._train_tasks[train_task_idx].init
-        # Create all applicable ground NSRTs
-        ground_nsrts: List[_GroundNSRT] = []
-        for nsrt in sorted(self._get_current_nsrts()):
-            ground_nsrts.extend(utils.all_ground_nsrts(nsrt, list(init)))
-        # Sample trajectories by sampling random sequences of NSRTs.
-        best_score = -np.inf
-        best_options = []
-        for _ in range(CFG.interactive_max_num_trajectories):
-            state = init.copy()
-            options = []
-            trajectory_length = 0
-            total_score = 0.0
-            while trajectory_length < CFG.interactive_max_trajectory_length:
-                # Sample an NSRT that has preconditions satisfied in the
-                # current state.
-                ground_nsrt = self._sample_applicable_ground_nsrt(
-                    state, ground_nsrts)
-                if ground_nsrt is None:  # No applicable NSRTs
-                    break
-                assert all(a.holds for a in ground_nsrt.preconditions)
-                # Sample an option. Note that goal is assumed not used.
-                assert not CFG.sampler_learning_use_goals
-                option = ground_nsrt.sample_option(state,
-                                                   goal=set(),
-                                                   rng=self._rng)
-                # Assume for now that options will be initiable when the
-                # preconditions of the NSRT are satisfied.
-                assert option.initiable(state)
-                state, num_actions = \
-                    self._option_model.get_next_state_and_num_actions(state,
-                                                                      option)
-                # Special case: if the num actions is 0, something went wrong,
-                # and we don't want to use this option after all. To prevent
-                # possible infinite loops, just break immediately in this case.
-                if num_actions == 0:
-                    break
-                options.append(option)
-                trajectory_length += num_actions
-                # Update the total score.
-                atoms = utils.abstract(state, self._predicates_to_learn)
-                total_score += self._score_atom_set(atoms, state)
-            if total_score > best_score:
-                best_score = total_score
-                best_options = options
-        assert not np.isinf(best_score)
-        act_policy = utils.option_plan_to_policy(best_options)
-        # When the act policy finishes, an OptionExecutionFailure is raised
-        # and caught, terminating the episode.
-        termination_function = lambda s: False
-
-        return act_policy, termination_function
-
-    def _sample_applicable_ground_nsrt(
-            self, state: State,
-            ground_nsrts: Sequence[_GroundNSRT]) -> Optional[_GroundNSRT]:
-        """Choose uniformly among the ground NSRTs that are applicable in the
-        state."""
-        atoms = utils.abstract(state, self._get_current_predicates())
-        applicable_nsrts = sorted(
-            utils.get_applicable_operators(ground_nsrts, atoms))
-        if len(applicable_nsrts) == 0:
-            return None
-        idx = self._rng.choice(len(applicable_nsrts))
-        return applicable_nsrts[idx]
-
-    def _create_random_interaction_strategy(
-        self, train_task_idx: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Sample and execute random initiable options until timeout."""
-
-        random_options_approach = RandomOptionsApproach(
-            self._get_current_predicates(), self._initial_options, self._types,
-            self._action_space, self._train_tasks)
-        task = self._train_tasks[train_task_idx]
-        act_policy = random_options_approach.solve(task, CFG.timeout)
-
-        # Termination is left to the environment, as in
-        # CFG.max_num_steps_interaction_request.
-        termination_function = lambda _: False
-        return act_policy, termination_function
-
-    def _create_do_nothing_interaction_strategy(
-        self, train_task_idx: int
-    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Do nothing until timeout."""
-        del train_task_idx  # unused
-        # Action policy is practically unused because we terminate immediately.
-        act_policy = lambda s: Action(self._action_space.sample())
-        termination_function = lambda _: True
-        return act_policy, termination_function
 
     def _create_best_seen_query_policy(
             self, strict: bool) -> Callable[[State], Optional[Query]]:
@@ -437,20 +290,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._relearn_predicates_and_nsrts(
             online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
-
-    def _find_first_solvable(
-            self,
-            task_list: List[Task]) -> Tuple[Task, Callable[[State], Action]]:
-        for task in task_list:
-            try:
-                logging.info("Solving for policy...")
-                policy = self.solve(task, timeout=CFG.timeout)
-                return task, policy
-            except (ApproachTimeout, ApproachFailure) as e:
-                logging.info(f"Approach failed to solve with error: {e}")
-                continue
-        raise ApproachFailure("Failed to sample a task that approach "
-                              "can solve.")
 
     def _score_atom_set_frequency(self, atom_set: Set[GroundAtom]) -> float:
         """Score an atom set as inversely proportional to the number of
