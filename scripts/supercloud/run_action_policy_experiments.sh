@@ -14,8 +14,8 @@ COMMON_ARGS="--env cover --approach interactive_learning --excluded_predicates C
     --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False"
 
 # glib
-python $FILE $COMMON_ARGS --experiment_id glib --interactive_action_strategy glib
+python $FILE $COMMON_ARGS --experiment_id glib --explorer glib
 # greedy lookahead
-python $FILE $COMMON_ARGS --experiment_id greedy_lookahead --interactive_action_strategy greedy_lookahead
+python $FILE $COMMON_ARGS --experiment_id greedy_lookahead --explorer greedy_lookahead
 # glib + 10k max iters
-python $FILE $COMMON_ARGS --experiment_id glib_10k --interactive_action_strategy glib --predicate_mlp_classifier_max_itr 10000
+python $FILE $COMMON_ARGS --experiment_id glib_10k --explorer glib --predicate_mlp_classifier_max_itr 10000

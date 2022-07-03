@@ -7,7 +7,7 @@ MAX_STEPS=3
 MIN_DATA=10
 FILE="scripts/supercloud/submit_supercloud_job.py"
 
-COMMON_ARGS="--env cover --approach interactive_learning --excluded_predicates Covers,Holding --online_learning_max_transitions $MAX_TRANSITIONS --num_online_learning_cycles $CYCLES --interactive_num_requests_per_cycle $REQUESTS --max_num_steps_interaction_request $MAX_STEPS --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False"
+COMMON_ARGS="--env cover --approach interactive_learning --explorer greedy_lookahead --excluded_predicates Covers,Holding --online_learning_max_transitions $MAX_TRANSITIONS --num_online_learning_cycles $CYCLES --interactive_num_requests_per_cycle $REQUESTS --max_num_steps_interaction_request $MAX_STEPS --min_data_for_nsrt $MIN_DATA --sampler_disable_classifier True --mlp_classifier_balance_data False"
 
 # section kid
 python $FILE $COMMON_ARGS --experiment_id excludeall_section_kid --interactive_query_policy nonstrict_best_seen --interactive_score_function trivial
