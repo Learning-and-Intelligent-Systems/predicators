@@ -13,7 +13,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
+from predicators.src.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Pose3D, State, Task, Video
 
@@ -116,7 +117,7 @@ class PyBulletEnv(BaseEnv):
 
     @abc.abstractmethod
     def _create_pybullet_robot(
-            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
+            self, physics_client_id: int) -> SingleArmPyBulletRobot:
         """Make and return a PyBullet robot object in the given
         physics_client_id.
 
@@ -197,7 +198,8 @@ class PyBulletEnv(BaseEnv):
         self._held_obj_id = None
 
         # Reset robot.
-        self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        robot_state = self._extract_robot_state(state)
+        self._pybullet_robot.reset_state(robot_state)
 
     def render(self,
                action: Optional[Action] = None,
@@ -324,7 +326,10 @@ class PyBulletEnv(BaseEnv):
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
                     assert -1.0 <= score <= 1.0
-                    if score < 0.9:
+
+                    # Take absolute as object/gripper could be rotated 180 degrees
+                    # in the given axis.
+                    if np.abs(score) < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it

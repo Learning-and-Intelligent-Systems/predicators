@@ -6,8 +6,12 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
-from predicators.src.envs.pybullet_robots import FetchPyBulletRobot, \
-    create_single_arm_pybullet_robot, get_kinematic_chain, \
+
+from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
+from predicators.src.pybullet_helpers.robots.panda import PandaPyBulletRobot
+from predicators.src.pybullet_helpers.robots.single_arm import \
+    create_single_arm_pybullet_robot
+from predicators.src.pybullet_helpers.utils import get_kinematic_chain, \
     pybullet_inverse_kinematics, run_motion_planning
 from predicators.src.settings import CFG
 
@@ -203,11 +207,22 @@ def test_fetch_pybullet_robot():
 def test_create_single_arm_pybullet_robot():
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
+    p.resetSimulation(physicsClientId=physics_client_id)
     ee_home_pose = (1.35, 0.75, 0.75)
+    # Fetch
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
+
+    # Panda
+    physics_client_id = p.connect(p.DIRECT)
+    p.resetSimulation(physicsClientId=physics_client_id)
+    robot = create_single_arm_pybullet_robot("panda", ee_home_pose, ee_orn,
+                                             physics_client_id)
+    assert isinstance(robot, PandaPyBulletRobot)
+
+    # Unknown robot
     with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, physics_client_id)

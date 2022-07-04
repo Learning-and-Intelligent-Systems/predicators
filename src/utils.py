@@ -2579,3 +2579,12 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
+
+
+def get_all_concrete_subclasses(cls: Any) -> Set[Any]:
+    """Get all concrete subclasses of the given class (i.e., no abstract methods) """
+    return {
+        sub_cls
+        for sub_cls in get_all_subclasses(cls)
+        if not sub_cls.__abstractmethods__
+    }
