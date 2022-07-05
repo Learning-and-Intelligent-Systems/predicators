@@ -341,7 +341,10 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
     @abc.abstractmethod
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList,
                                 task_idx: int) -> Sequence[Set[GroundAtom]]:
-        """Given a task, get the plan with which we will compare the policy."""
+        """Given a task, get the plan with which we will compare the policy.
+
+        If no plan can be found, a PlanningFailure exception is raised.
+        """
         raise NotImplementedError("Override me!")
 
     @staticmethod
