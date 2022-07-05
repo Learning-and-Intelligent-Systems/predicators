@@ -20,4 +20,4 @@ class RandomOptionsApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         return utils.create_random_option_policy(self._initial_options,
-                                                 self._action_space, self._rng)
+                                                 self._rng)

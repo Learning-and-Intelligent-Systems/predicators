@@ -87,8 +87,7 @@ def test_painting_goals():
 
 
 def test_painting_failure_cases():
-    """Tests for the cases where simulate() is a noop or
-    EnvironmentFailure."""
+    """Tests for the cases where simulate() is a noop or EnvironmentFailure."""
     utils.reset_config({
         "env": "painting",
         "approach": "nsrt_learning",

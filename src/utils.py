@@ -1061,7 +1061,7 @@ def option_plan_to_policy(
 
 
 def create_random_option_policy(
-        options: Collection[ParameterizedOption], action_space: Box,
+        options: Collection[ParameterizedOption],
         rng: np.random.Generator) -> Callable[[State], Action]:
     """Create a policy that executes random initiable options."""
     sorted_options = sorted(options, key=lambda o: o.name)
@@ -1082,8 +1082,8 @@ def create_random_option_policy(
                 if opt.initiable(state):
                     cur_option = opt
                     break
-            else:  # fall back to a random action
-                return Action(action_space.sample())
+            else:
+                raise OptionExecutionFailure("Random option sampling failed!")
         act = cur_option.policy(state)
         return act
 

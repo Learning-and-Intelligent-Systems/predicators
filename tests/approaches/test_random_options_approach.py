@@ -1,12 +1,13 @@
 """Test cases for the random options approach class."""
 
+import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.structs import Action, DefaultState, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src.structs import Action, ParameterizedOption, Predicate, \
+    State, Task, Type
 
 
 def test_random_options_approach():
@@ -71,8 +72,9 @@ def test_random_options_approach():
     approach = RandomOptionsApproach({Solved}, {parameterized_option2},
                                      {cup_type}, params_space, task)
     policy = approach.solve(task, 500)
-    act = policy(state)
-    assert not act.has_option()  # should have fallen back to random action
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        policy(state)
+    assert "Random option sampling failed!" in str(e)
     # Test what happens when there's no object of the right type.
     parameterized_option3 = ParameterizedOption("Move", [cup_type],
                                                 params_space, _policy,
@@ -81,9 +83,9 @@ def test_random_options_approach():
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option3},
                                      {cup_type}, params_space, task)
-    policy = approach.solve(task, 500)
-    act = policy(DefaultState)
-    assert not act.has_option()  # should have fallen back to random action
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        policy(state)
+    assert "Random option sampling failed!" in str(e)
     # Test what happens when the option is always terminal.
     parameterized_option4 = ParameterizedOption("Move", [], params_space,
                                                 _policy, _initiable,
