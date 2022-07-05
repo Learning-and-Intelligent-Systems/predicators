@@ -272,13 +272,13 @@ class CoffeeEnv(BaseEnv):
                 if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
                     cup = self._get_cup_to_pour(next_state)
-                    # If pouring into nothing, no-op.
+                    # If pouring into nothing, noop.
                     if cup is None:
                         return state.copy()
                     # Increase the liquid in the cup.
                     current_liquid = state.get(cup, "current_liquid")
                     new_liquid = current_liquid + self.pour_velocity
-                    # If we have exceeded the capacity of the cup, no-op.
+                    # If we have exceeded the capacity of the cup, noop.
                     if new_liquid > state.get(cup, "capacity_liquid"):
                         return state.copy()
                     next_state.set(cup, "current_liquid", new_liquid)

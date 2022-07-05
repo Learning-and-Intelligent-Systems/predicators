@@ -63,7 +63,7 @@ class CoverEnv(BaseEnv):
         pose = action.arr.item()
         next_state = state.copy()
         hand_regions = self._get_hand_regions(state)
-        # If we're not in any hand region, no-op.
+        # If we're not in any hand region, noop.
         if not any(hand_lb <= pose <= hand_rb
                    for hand_lb, hand_rb in hand_regions):
             return next_state
