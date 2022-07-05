@@ -87,7 +87,7 @@ def test_cover():
     assert len(atoms) == expected_lengths.pop(0)
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
-    # Test being outside of a hand region. Should be a no-op.
+    # Test being outside of a hand region. Should be a noop.
     option = next(iter(env.options)).ground([], [0])
     assert option.initiable(task.init)
     traj = utils.run_policy_with_simulator(option.policy,
@@ -182,7 +182,7 @@ def test_cover_typed_options():
     assert len(atoms) == expected_lengths.pop(0)
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
-    # Test being outside of a hand region. Should be a no-op.
+    # Test being outside of a hand region. Should be a noop.
     option = place_option.ground([target0], [0])
     assert option.initiable(task.init)
     traj = utils.run_policy_with_simulator(option.policy,

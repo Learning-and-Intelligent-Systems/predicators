@@ -337,7 +337,7 @@ def prune_stupid_effect_conditions(var, val, conditions, effects_on_var):
     ## 1. Conditions of the form "var = dualval" where var is the
     ##    effect variable and dualval != val can be omitted.
     ##    (If var != dualval, then var == val because it is binary,
-    ##    which means that in such situations the effect is a no-op.)
+    ##    which means that in such situations the effect is a noop.)
     ##    The condition can only be omitted if there is no effect
     ##    producing dualval (see issue736).
     ## 2. If conditions contains any empty list, it is equivalent

@@ -35,7 +35,7 @@ def test_playroom():
 
 
 def test_playroom_failure_cases():
-    """Tests for the cases where simulate() is a no-op."""
+    """Tests for the cases where simulate() is a noop."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     On = [o for o in env.predicates if o.name == "On"][0]

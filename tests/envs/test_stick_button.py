@@ -68,7 +68,7 @@ def test_stick_button():
 
     ## Test simulate ##
 
-    # Test for no-ops if the robot tries to leave the reachable zone.
+    # Test for noops if the robot tries to leave the reachable zone.
     up_action = Action(np.array([0.0, -1.0, 0.0, 0.0], dtype=np.float32))
     s = state
     states = [s]
@@ -258,7 +258,7 @@ def test_stick_button():
     # Press to pick up the stick.
     action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
     next_state = env.simulate(state, action)
-    assert state.allclose(next_state)  # should no-op
+    assert state.allclose(next_state)  # should noop
 
     # Test interface for collecting human demonstrations.
     event_to_action = env.get_event_to_action_fn()
