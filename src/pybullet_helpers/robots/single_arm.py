@@ -1,15 +1,14 @@
 import abc
 from functools import cached_property
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.utils import \
-    closest_inverse_kinematics
+    ikfast_closest_inverse_kinematics
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain, \
     get_link_from_name, pybullet_inverse_kinematics
 from predicators.src.settings import CFG
@@ -377,20 +376,19 @@ class SingleArmPyBulletRobot(abc.ABC):
         world_from_target = Pose(end_effector_pose, self._ee_orientation)
 
         # Run IK Fast to get solutions
-        ik_solutions = closest_inverse_kinematics(
-            self,
+        ik_solutions = ikfast_closest_inverse_kinematics(
+            self.ikfast_info(),
+            self.robot_id,
             tool_link,
             world_from_target,
-            max_time=CFG.ikfast_max_time,
-            max_candidates=CFG.ikfast_max_candidates,
         )
-
-        # Check for solution
-        joint_state = next(ik_solutions, None)
-        if joint_state is None:
+        if not ik_solutions:
             raise ValueError(
                 f"No IK solution found for target pose {world_from_target} using IKFast"
             )
+
+        # Use first solution as it is closest to current joint state
+        joint_state = ik_solutions[0]
 
         # Add fingers to state
         final_joint_state = list(joint_state)

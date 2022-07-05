@@ -8,11 +8,6 @@ from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D
 
-if TYPE_CHECKING:
-    # FIXME: hack while refactoring
-    from predicators.src.pybullet_helpers.robots.single_arm import \
-        SingleArmPyBulletRobot
-
 
 def matrix_from_quat(quat: Sequence[float], physics_client_id: int) -> Array:
     return np.array(
@@ -32,7 +27,6 @@ def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
                                     link,
                                     physicsClientId=physics_client_id)
         joint_name = joint_info[12].decode("UTF-8")
-        print(joint_name)
         if joint_name == name:
             return link
     raise ValueError(f"Body {body} has no link with name {name}.")

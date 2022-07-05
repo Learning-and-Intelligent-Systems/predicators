@@ -1,7 +1,7 @@
 import logging
 import time
 from itertools import chain, islice
-from typing import TYPE_CHECKING, Any, Generator, Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Generator, Iterator, List, Sequence
 
 import numpy as np
 from pybullet_tools.ikfast.ikfast import get_base_from_ee, get_ik_joints
@@ -10,12 +10,11 @@ from pybullet_tools.utils import INF, Pose, elapsed_time, get_difference_fn, \
     get_joint_positions, get_length, get_max_limits, get_min_limits, \
     interval_generator, joints_from_names, randomize, violates_limits
 
+from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.src.structs import JointsState
+from predicators.src.settings import CFG
+from predicators.src.structs import JointsState, Pose
 
-if TYPE_CHECKING:
-    from predicators.src.pybullet_helpers.robots.single_arm import \
-        SingleArmPyBulletRobot
 """
 Note: I copied this from Caelan's stuff and hacked it to get it working for us
 Should discuss how we want to do things in terms of pybullet utils.
@@ -23,7 +22,8 @@ Should discuss how we want to do things in terms of pybullet utils.
 
 
 def ikfast_inverse_kinematics(
-    robot: "SingleArmPyBulletRobot",
+    ikfast_info: IKFastInfo,
+    robot: int,
     world_from_target: Pose,
     tool_link: int,
     fixed_joints: Sequence[int] = (),
@@ -39,15 +39,15 @@ def ikfast_inverse_kinematics(
     if it hasn't been compiled already when this function is called for
     the first time.
     """
-    ikfast_info = robot.ikfast_info()
-    if ikfast_info is None:
-        raise ValueError(f"Robot {robot.get_name()} not supported by IKFast.")
-
     ikfast = import_ikfast(ikfast_info)
 
-    robot = robot.robot_id
+    max_time = CFG.ikfast_max_time
+    max_candidates = CFG.ikfast_max_candidates
+
     ik_joints = get_ik_joints(robot, ikfast_info, tool_link)
     free_joints = joints_from_names(robot, ikfast_info.free_joints)
+    world_from_target = (world_from_target.position,
+                         world_from_target.quat_xyzw)
     base_from_ee = get_base_from_ee(robot, ikfast_info, tool_link,
                                     world_from_target)
     difference_fn = get_difference_fn(robot, ik_joints)
@@ -84,35 +84,49 @@ def ikfast_inverse_kinematics(
                 yield conf
 
 
-def closest_inverse_kinematics(
-    robot: "SingleArmPyBulletRobot",
-    tool_link: int,
-    world_from_target: Pose,
-    max_candidates: int = INF,
-    norm: float = INF,
-    verbose: bool = False,
-    **kwargs: Any,
-) -> Iterator[JointsState]:
-    start_time = time.time()
-    og_robot = robot
+def ikfast_closest_inverse_kinematics(
+        ikfast_info: IKFastInfo, robot_id: int, tool_link: int,
+        world_from_target: Pose) -> List[JointsState]:
+    """Runs IKFast and returns the solutions sorted in order of closets
+    distance to the robot's current joint positions.
 
-    robot = robot.robot_id
-    ikfast_info = og_robot.ikfast_info()
-    ik_joints = get_ik_joints(robot, ikfast_info, tool_link)
-    current_conf = get_joint_positions(robot, ik_joints)
-    generator = ikfast_inverse_kinematics(og_robot,
-                                          world_from_target,
-                                          tool_link,
-                                          norm=norm,
-                                          **kwargs)
-    if max_candidates < INF:
-        generator = islice(generator, max_candidates)
-    solutions = list(generator)
+    Parameters
+    ----------
+    ikfast_info: IKFastInfo for the robot
+    robot_id: pybullet body ID of the robot
+    tool_link: pybullet link ID of the tool link of the robot
+    world_from_target: target pose in the world frame
+
+    Returns
+    -------
+    A list of joint states that satisfy the given arguments.
+    If no solutions are found, an empty list is returned.
+    """
+    start_time = time.perf_counter()
+    norm = INF
+    ik_joints = get_ik_joints(robot_id, ikfast_info, tool_link)
+    current_conf = get_joint_positions(robot_id, ik_joints)
+    generator = ikfast_inverse_kinematics(
+        ikfast_info,
+        robot_id,
+        world_from_target,
+        tool_link,
+        norm=norm,
+        max_time=CFG.ikfast_max_time,
+    )
+
+    # Only use up to the max candidates specified
+    candidate_solutions = list(islice(generator, CFG.ikfast_max_candidates))
+    if not candidate_solutions:
+        return []
+
     # TODO: relative to joint limits
-    difference_fn = get_difference_fn(robot, ik_joints)  # get_distance_fn
+    difference_fn = get_difference_fn(robot_id, ik_joints)  # get_distance_fn
     solutions = sorted(
-        solutions,
-        key=lambda q: get_length(difference_fn(q, current_conf), norm=norm))
+        candidate_solutions,
+        key=lambda q: get_length(difference_fn(q, current_conf), norm=norm),
+    )
+    verbose = True
     if verbose:
         min_distance = min([INF] + [
             get_length(difference_fn(q, current_conf), norm=norm)
@@ -121,4 +135,5 @@ def closest_inverse_kinematics(
         logging.debug(
             "Identified {} IK solutions with minimum distance of {:.3f} in {:.3f} seconds"
             .format(len(solutions), min_distance, elapsed_time(start_time)))
-    return iter(solutions)
+
+    return solutions
