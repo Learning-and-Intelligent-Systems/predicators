@@ -5,7 +5,6 @@ import os
 import sys
 from types import ModuleType
 
-from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.utils import get_third_party_path
 
@@ -26,7 +25,11 @@ def _install_ikfast_module(ikfast_dir: str) -> None:
     # Execute the command.
     cmd = "; ".join(cmds)
     logging.debug(f"Executing command: {cmd}")
-    os.system(cmd)
+    exit_value = os.system(cmd)
+    if exit_value != 0:
+        raise RuntimeError(
+            f"IKFast install failed with exit code {exit_value}. Check messages above."
+        )
 
 
 def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
@@ -50,7 +53,7 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
 
     if len(so_filepaths) != 1:
         raise ValueError(
-            f"Found {len(so_filepaths)} .so files in {ikfast_dir}")
+            f"Found {len(so_filepaths)} .so files in {ikfast_dir}.")
 
     module_filepath = so_filepaths[0]
     return module_filepath
