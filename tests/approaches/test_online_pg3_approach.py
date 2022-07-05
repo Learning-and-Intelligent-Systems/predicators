@@ -4,8 +4,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.online_pg3_approach import \
-    OnlinePG3Approach
+from predicators.src.approaches.online_pg3_approach import OnlinePG3Approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _generate_interaction_results
