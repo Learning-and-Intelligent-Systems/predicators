@@ -22,10 +22,10 @@ import dill as pkl
 from typing_extensions import TypeAlias
 
 from predicators.src import utils
-from predicators.src.planning import PlanningFailure
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
+from predicators.src.planning import PlanningFailure
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Box, Dataset, GroundAtom, LDLRule, \
     LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
@@ -407,12 +407,10 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
             get_successors=get_successors,
             heuristic=heuristic)
 
-        atom_plan = [set(atoms) for atoms in planned_frozen_atoms_seq]
-
-        if not check_goal(atom_plan[-1]):
+        if not check_goal(planned_frozen_atoms_seq[-1]):
             raise PlanningFailure("Could not find plan for train task.")
 
-        return atom_plan
+        return [set(atoms) for atoms in planned_frozen_atoms_seq]
 
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
@@ -460,9 +458,7 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
             num_rollout_steps=CFG.pg3_max_policy_guided_rollout,
             rollout_step_cost=0)
 
-        atom_plan = [set(atoms) for atoms in planned_frozen_atoms_seq]
-
-        if not check_goal(atom_plan[-1]):
+        if not check_goal(planned_frozen_atoms_seq[-1]):
             raise PlanningFailure("Could not find plan for train task.")
 
-        return atom_plan
+        return [set(atoms) for atoms in planned_frozen_atoms_seq]
