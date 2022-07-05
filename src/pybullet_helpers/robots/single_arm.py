@@ -5,16 +5,16 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_tools.utils import Pose, euler_from_quat, link_from_name
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.utils import \
     closest_inverse_kinematics
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain, \
-    pybullet_inverse_kinematics
+    get_link_from_name, pybullet_inverse_kinematics
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, JointsState, Pose3D
+from predicators.src.structs import Array, JointsState, Pose, Pose3D, \
+    Quaternion
 
 
 class SingleArmPyBulletRobot(abc.ABC):
@@ -23,26 +23,24 @@ class SingleArmPyBulletRobot(abc.ABC):
     def __init__(
             self,
             ee_home_pose: Pose3D,
-            ee_orientation: Sequence[float],
+            ee_orientation: Quaternion,
             physics_client_id: int,
-            base_pose: Pose3D = (0, 0, 0),
-            base_orientation: Sequence[float] = (0.0, 0.0, 0.0, 1.0),
+            base_pose: Pose = Pose.identity(),
     ) -> None:
-        # Initial position for the end effector.
+        # Initial pose for the end effector.
         self._ee_home_pose = ee_home_pose
-        # Orientation for the end effector.
+        # Orientation of the end effector. IK will use this as target orientation.
         self._ee_orientation = ee_orientation
         self._physics_client_id = physics_client_id
 
-        # Position and orientation of base of robot
+        # Pose of base of robot
         self._base_pose = base_pose
-        self._base_orientation = base_orientation
 
         # Load the robot and set base position and orientation.
         self.robot_id = p.loadURDF(
             self.urdf_path(),
-            basePosition=self._base_pose,
-            baseOrientation=self._base_orientation,
+            basePosition=self._base_pose.position,
+            baseOrientation=self._base_pose.quat_xyzw,
             useFixedBase=True,
             physicsClientId=self._physics_client_id,
         )
@@ -227,8 +225,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         rx, ry, rz, rf = robot_state
         p.resetBasePositionAndOrientation(
             self.robot_id,
-            self._base_pose,
-            self._base_orientation,
+            self._base_pose.position,
+            self._base_pose.quat_xyzw,
             physicsClientId=self._physics_client_id,
         )
         # First, reset the joint values to initial joint state,
@@ -373,24 +371,29 @@ class SingleArmPyBulletRobot(abc.ABC):
                                    end_effector_pose: Pose3D) -> JointsState:
         """Use IKFast to compute the inverse kinematics for the given end-
         effector pose."""
-        tool_link = link_from_name(self.robot_id, self.tool_link_name)
-        world_from_target = Pose(end_effector_pose,
-                                 euler_from_quat(self._ee_orientation))
-        sols = closest_inverse_kinematics(
+        # Get tool link and target pose of end-effector in the world frame
+        tool_link = get_link_from_name(self.robot_id, self.tool_link_name,
+                                       self._physics_client_id)
+        world_from_target = Pose(end_effector_pose, self._ee_orientation)
+
+        # Run IK Fast to get solutions
+        ik_solutions = closest_inverse_kinematics(
             self,
             tool_link,
             world_from_target,
             max_time=CFG.ikfast_max_time,
             max_candidates=CFG.ikfast_max_candidates,
         )
-        sol = next(sols, None)
-        if sol is None:
+
+        # Check for solution
+        joint_state = next(ik_solutions, None)
+        if joint_state is None:
             raise ValueError(
-                f"No IK solution found for target pose {end_effector_pose} using IKFast"
+                f"No IK solution found for target pose {world_from_target} using IKFast"
             )
 
         # Add fingers to state
-        final_joint_state = list(sol)
+        final_joint_state = list(joint_state)
         first_finger_idx, second_finger_idx = sorted(
             [self.left_finger_joint_idx, self.right_finger_joint_idx])
         final_joint_state.insert(first_finger_idx, self.open_fingers)
@@ -428,36 +431,3 @@ class SingleArmPyBulletRobot(abc.ABC):
                 physics_client_id=self._physics_client_id,
                 validate=validate,
             )
-
-
-_ROBOT_TO_BASE_POSE: Dict[str, Pose3D] = {
-    "fetch": (0.75, 0.7441, 0.0),
-    "panda": (0.8, 0.7441, 0.25),
-}
-
-
-def create_single_arm_pybullet_robot(
-    robot_name: str,
-    ee_home_pose: Pose3D,
-    ee_orientation: Sequence[float],
-    physics_client_id: int,
-) -> SingleArmPyBulletRobot:
-    """Create a single-arm PyBullet robot."""
-    available_robots = set()
-    # TODO: fix this bad hack
-    from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
-        PandaPyBulletRobot
-
-    for cls in utils.get_all_concrete_subclasses(SingleArmPyBulletRobot):
-        available_robots.add(cls.get_name())
-        if cls.get_name() == robot_name:
-            base_pose = _ROBOT_TO_BASE_POSE.get(cls.get_name(), (0, 0, 0))
-            robot = cls(ee_home_pose,
-                        ee_orientation,
-                        physics_client_id,
-                        base_pose=base_pose)
-            break
-    else:
-        raise NotImplementedError(f"Unrecognized robot name: {robot_name}.")
-
-    return robot

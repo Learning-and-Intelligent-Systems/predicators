@@ -11,6 +11,8 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
+from pybullet_utils.transformations import euler_from_quaternion, \
+    quaternion_from_euler
 from tabulate import tabulate
 
 from predicators.src.settings import CFG
@@ -1489,6 +1491,29 @@ class LiftedDecisionList:
         return f"LiftedDecisionList[\n{rule_str}\n]"
 
 
+@dataclass(frozen=True)
+class Pose:
+    position: Pose3D
+    quat_xyzw: Quaternion = (0.0, 0.0, 0.0, 1.0)
+
+    @classmethod
+    def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> "Pose":
+        return cls(translation, quaternion_from_euler(*rpy))
+
+    @property
+    def quat_wxyz(self) -> Quaternion:
+        return self.quat_xyzw[3], self.quat_xyzw[0], self.quat_xyzw[
+            1], self.quat_xyzw[2]
+
+    @property
+    def rpy(self) -> RollPitchYaw:
+        return euler_from_quaternion(self.quat_xyzw)
+
+    @classmethod
+    def identity(cls) -> "Pose":
+        return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
@@ -1496,6 +1521,8 @@ Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
 Pose3D = Tuple[float, float, float]
+Quaternion = Tuple[float, float, float, float]
+RollPitchYaw = Tuple[float, float, float]
 JointsState = List[float]
 ObjToVarSub = Dict[Object, Variable]
 ObjToObjSub = Dict[Object, Object]
