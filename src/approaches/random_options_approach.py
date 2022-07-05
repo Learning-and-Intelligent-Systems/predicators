@@ -3,7 +3,7 @@
 from typing import Callable
 
 from predicators.src import utils
-from predicators.src.approaches import BaseApproach
+from predicators.src.approaches import ApproachFailure, BaseApproach
 from predicators.src.structs import Action, State, Task
 
 
@@ -19,5 +19,10 @@ class RandomOptionsApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
+        def fallback_policy(state: State) -> Action:
+            del state  # unused
+            raise ApproachFailure("Random option sampling failed!")
+
         return utils.create_random_option_policy(self._initial_options,
-                                                 self._action_space, self._rng)
+                                                 self._rng, fallback_policy)
