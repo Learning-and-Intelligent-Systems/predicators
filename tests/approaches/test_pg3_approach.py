@@ -176,11 +176,14 @@ LDLRule-MyPickUp:
 def test_pg3_heuristics():
     """Tests for PG3 heuristic classes."""
     env_name = "pddl_easy_delivery_procedural_tasks"
+    horizon = 100
+    num_train_tasks = 10
     utils.reset_config({
         "env": env_name,
         "approach": "pg3",
-        "num_train_tasks": 10,
+        "num_train_tasks": num_train_tasks,
         "num_test_tasks": 1,
+        "horizon": horizon,
         "strips_learner": "oracle",
         "pg3_heuristic": "policy_guided",
     })
@@ -268,3 +271,13 @@ def test_pg3_heuristics():
         score_sequence = [heuristic(ldl) for ldl in policy_sequence]
         for i in range(len(score_sequence) - 1):
             assert score_sequence[i] >= score_sequence[i + 1]
+
+    # Test cases where plans cannot be found in plan comparison.
+    for heuristic_cls in [
+            _PolicyGuidedPG3Heuristic, _DemoPlanComparisonPG3Heuristic
+    ]:
+        # No NSRTs, so plan will not be findable.
+        heuristic = heuristic_cls(env.predicates, set(), train_tasks)
+        score = heuristic(policy_sequence[0])
+        # Worst possible score.
+        assert score == num_train_tasks * horizon
