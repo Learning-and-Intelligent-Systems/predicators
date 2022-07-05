@@ -535,7 +535,7 @@ class ToolsEnv(BaseEnv):
         contraption_is_correct = self._is_pose_on_contraption(
             state, pose_x, pose_y, contraption)
         if not tool_is_correct or not contraption_is_correct:
-            # Simulate a no-op by fastening at poses where there is guaranteed
+            # Simulate a noop by fastening at poses where there is guaranteed
             # to be no contraption. We don't use an initiable() function here
             # because we want replay data to be able to try this, in order
             # to discover good operator preconditions.

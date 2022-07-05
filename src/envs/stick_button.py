@@ -132,7 +132,7 @@ class StickButtonEnv(BaseEnv):
         new_rx = rx + dx
         new_ry = ry + dy
         new_rtheta = rtheta + dtheta
-        # The robot cannot leave the reachable zone. If it tries to, no-op.
+        # The robot cannot leave the reachable zone. If it tries to, noop.
         rad = self.robot_radius
         if not self.rz_x_lb + rad <= new_rx <= self.rz_x_ub - rad or \
            not self.rz_y_lb + rad <= new_ry <= self.rz_y_ub - rad:

@@ -59,7 +59,7 @@ def test_known_options_option_learner():
         for (segment, _) in datastore:
             assert segment.has_option()
             option = segment.get_option()
-            # This call should be a no-op when options are known.
+            # This call should be a noop when options are known.
             option_learner.update_segment_from_option_spec(segment, spec)
             assert segment.has_option()
             assert segment.get_option() == option

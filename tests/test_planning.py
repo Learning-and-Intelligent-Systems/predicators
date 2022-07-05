@@ -200,7 +200,7 @@ def test_sesame_plan_failures():
     # immediately, under the option model.
 
     class _MockOptionModel(_OptionModelBase):
-        """A mock option model that always predicts a no-op."""
+        """A mock option model that always predicts a noop."""
 
         def __init__(self, simulator):
             self._simulator = simulator

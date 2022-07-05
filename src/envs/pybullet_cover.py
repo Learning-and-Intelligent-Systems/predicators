@@ -242,7 +242,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         z_thresh = (self._pickplace_z + self._workspace_z) / 2
         if rz < z_thresh and not any(hand_lb <= hand <= hand_rb
                                      for hand_lb, hand_rb in hand_regions):
-            # The constraint is violated, so no-op.
+            # The constraint is violated, so noop.
             return self._current_state.copy()
         return super().step(action)
 
