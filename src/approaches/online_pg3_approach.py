@@ -30,7 +30,7 @@ class OnlinePG3Approach(PG3Approach, OnlineNSRTLearningApproach):
         # Initializes the generalized policy.
         PG3Approach.__init__(self, initial_predicates, initial_options, types,
                              action_space, train_tasks)
-        # Creates the cumulative dataset.
+        # Initializes the cumulative dataset.
         OnlineNSRTLearningApproach.__init__(self, initial_predicates,
                                             initial_options, types,
                                             action_space, train_tasks)
@@ -40,13 +40,15 @@ class OnlinePG3Approach(PG3Approach, OnlineNSRTLearningApproach):
         return "online_pg3"
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # Update the dataset with the offline data.
+        self._dataset = Dataset(dataset.trajectories)
         # Learn NSRTs and generalized policy.
         return PG3Approach.learn_from_offline_dataset(self, dataset)
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
-        # First, relearn NSRTs. Note that this also advances the online
-        # learning cycle counter.
+        # This does three things: adds data to self._dataset, re-learns NSRTs,
+        # and advances the online learning cycle counter.
         OnlineNSRTLearningApproach.learn_from_interaction_results(
             self, results)
         # Then, relearn the generalized policy.
