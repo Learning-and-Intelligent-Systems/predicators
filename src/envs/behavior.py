@@ -178,7 +178,7 @@ class BehaviorEnv(BaseEnv):
         assert num <= CFG.num_train_tasks
         assert CFG.num_train_tasks <= 10
         if testing:
-            self.task_num = CFG.num_train_tasks
+            self.task_num = 0 #CFG.num_train_tasks
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
@@ -377,10 +377,13 @@ class BehaviorEnv(BaseEnv):
                                "conditions!")
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
 
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
         type_name = ig_obj.category
-        obj_type = self._type_name_to_type[type_name]
+        try:
+            obj_type = self._type_name_to_type[type_name]
+        except:
+            import ipdb; ipdb.set_trace()
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 

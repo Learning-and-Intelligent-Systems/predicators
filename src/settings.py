@@ -438,6 +438,7 @@ class GlobalSettings:
                 lambda: 8,
                 {
                     # For these environments, allow more skeletons.
+                    "behavior": 100000,
                     "coffee": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
@@ -449,6 +450,7 @@ class GlobalSettings:
             sesame_max_samples_per_step=defaultdict(
                 lambda: 10,
                 {
+                    "behavior": 100,
                     # For the tools environment, don't do any backtracking.
                     "tools": 1,
                 })[args.get("env", "")],

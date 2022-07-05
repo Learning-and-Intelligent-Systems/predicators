@@ -46,8 +46,10 @@ import dill as pkl
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
+from predicators.src.planning import _run_plan_with_option_model
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -254,10 +256,22 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
-            policy = approach.solve(task, timeout=CFG.timeout)
+            if CFG.env == "behavior":
+                #policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                oracle_approach = OracleApproach(
+                    env.predicates,
+                    env.options,
+                    env.types,
+                    env.action_space,
+                    test_tasks,
+                    task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
+                    max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+                policy = oracle_approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+            else:
+                policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                         f"Approach failed to solve with error: {e}")
+                        f"Approach failed to solve with error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_solve_timeouts += 1
             elif isinstance(e, ApproachFailure):
@@ -270,26 +284,34 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
+        import ipdb; ipdb.set_trace()
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
         make_video = False
         solved = False
         caught_exception = False
-        # TODO if behavior eval on opotion model
-        #
         if CFG.make_test_videos or CFG.make_failure_videos:
             monitor = utils.VideoMonitor(env.render)
         else:
             monitor = None
         try:
-            traj, execution_metrics = utils.run_policy(
-                policy,
-                env,
-                "test",
-                test_task_idx,
-                task.goal_holds,
-                max_num_steps=CFG.horizon,
-                monitor=monitor)
+            if CFG.env == "behavior":
+                # TODO if behavior eval on option model
+                last_plan = oracle_approach.get_last_plan()
+                import ipdb; ipdb.set_trace()
+                traj, solved = _run_plan_with_option_model(
+                                task, test_task_idx, approach.get_option_model(),
+                                last_plan)
+                execution_metrics = {"policy_call_time": None}
+            else:
+                traj, execution_metrics = utils.run_policy(
+                    policy,
+                    env,
+                    "test",
+                    test_task_idx,
+                    task.goal_holds,
+                    max_num_steps=CFG.horizon,
+                    monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
@@ -298,7 +320,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             caught_exception = True
         except (ApproachTimeout, ApproachFailure) as e:
             log_message = ("Approach failed at policy execution time with "
-                           f"error: {e}")
+                        f"error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_execution_timeouts += 1
             elif isinstance(e, ApproachFailure):
@@ -316,11 +338,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             make_video = CFG.make_failure_videos
             video_file = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                     f"{log_message}")
+                    f"{log_message}")
         if make_video:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
+            
+        
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /

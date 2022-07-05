@@ -242,14 +242,15 @@ def _skeleton_generator(
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
+            import ipdb; ipdb.set_trace()
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
+        for act in node.skeleton:
+            logging.info(f"{act.name} {act.objects}")
+        logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -273,6 +274,7 @@ def _skeleton_generator(
                 if time.time() - start_time >= timeout:
                     break
     if not queue:
+        import ipdb; ipdb.set_trace()
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
     raise _SkeletonSearchTimeout
