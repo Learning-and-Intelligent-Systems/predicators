@@ -115,7 +115,7 @@ def sesame_plan(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
                     max_skeletons_optimized):
-                plan, suc = _run_low_level_search(
+                plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
                 if suc:
@@ -277,11 +277,11 @@ def _skeleton_generator(
     raise _SkeletonSearchTimeout
 
 
-def _run_low_level_search(task: Task, option_model: _OptionModelBase,
-                          skeleton: List[_GroundNSRT],
-                          atoms_sequence: List[Set[GroundAtom]], seed: int,
-                          timeout: float,
-                          max_horizon: int) -> Tuple[List[_Option], bool]:
+def run_low_level_search(task: Task, option_model: _OptionModelBase,
+                         skeleton: List[_GroundNSRT],
+                         atoms_sequence: List[Set[GroundAtom]], seed: int,
+                         timeout: float,
+                         max_horizon: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -491,7 +491,7 @@ class _MaxSkeletonsFailure(PlanningFailure):
 
 
 class _SkeletonSearchTimeout(PlanningTimeout):
-    """Raised when timeout occurs in _run_low_level_search()."""
+    """Raised when timeout occurs in run_low_level_search()."""
 
     def __init__(self) -> None:
         super().__init__("Planning timed out in skeleton search!")

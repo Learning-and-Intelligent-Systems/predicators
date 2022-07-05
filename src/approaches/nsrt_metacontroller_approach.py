@@ -7,16 +7,18 @@ policy is executed in the environment, and the process repeats.
 """
 
 import abc
-from typing import Callable, Set, FrozenSet
 import time
-from predicators.src import utils
+from typing import Callable, FrozenSet, Set
+
+from typing_extensions import TypeAlias
+
+from predicators.src import planning, utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, DummyOption, GroundAtom, State, \
     Task, _GroundNSRT, _Option
-from predicators.src import planning
 
 
 class NSRTMetacontrollerApproach(NSRTLearningApproach):
@@ -35,9 +37,9 @@ class NSRTMetacontrollerApproach(NSRTLearningApproach):
         cur_option = DummyOption
         _S: TypeAlias = FrozenSet[GroundAtom]
         _A: TypeAlias = _GroundNSRT
+        expected_atoms: Set[GroundAtom] = set()
         skeleton = []
         atoms_sequence = []
-        expected_atoms = []
 
         def get_next_state(atoms: _S, ground_nsrt: _A) -> _S:
             return frozenset(utils.apply_operator(ground_nsrt, set(atoms)))
@@ -54,12 +56,11 @@ class NSRTMetacontrollerApproach(NSRTLearningApproach):
                 expected_atoms = utils.apply_operator(ground_nsrt, atoms)
                 skeleton.append(ground_nsrt)
                 atoms_sequence.append(expected_atoms)
-                state = get_next_state(atoms, ground_nsrt)
+                state = get_next_state(frozenset(atoms), ground_nsrt)
                 atoms = expected_atoms
-            option_list, _ = planning._run_low_level_search(task,
-                self._option_model, skeleton, atoms_sequence,
-                self._seed, timeout - (time.time() - start_time),
-                CFG.horizon)
+            option_list, _ = planning.run_low_level_search(
+                task, self._option_model, skeleton, atoms_sequence, self._seed,
+                timeout - (time.time() - start_time), CFG.horizon)
         policy = utils.option_plan_to_policy(option_list)
         return policy
 
