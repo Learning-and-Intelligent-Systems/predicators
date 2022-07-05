@@ -17,6 +17,9 @@ class RandomOptionsExplorer(BaseExplorer):
         # Take random options, and raise an exception if no applicable option
         # can be found.
 
+        # Note that this fallback policy is different from the one in
+        # RandomOptionsApproach because explorers should raise
+        # RequestActPolicyFailure instead of ApproachFailure.
         def fallback_policy(state: State) -> Action:
             del state  # unused
             raise utils.RequestActPolicyFailure(

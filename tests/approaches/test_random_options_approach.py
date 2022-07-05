@@ -77,13 +77,15 @@ def test_random_options_approach():
         policy(state)
     assert "Random option sampling failed!" in str(e)
     # Test what happens when there's no object of the right type.
-    parameterized_option3 = ParameterizedOption("Move", [cup_type],
+    dummy_type = Type("dummy_type", ["feat1"])
+    parameterized_option3 = ParameterizedOption("Move", [dummy_type],
                                                 params_space, _policy,
-                                                lambda _1, _2, _3, _4: False,
+                                                lambda _1, _2, _3, _4: True,
                                                 _terminal)
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option3},
                                      {cup_type}, params_space, task)
+    policy = approach.solve(task, 500)
     with pytest.raises(ApproachFailure) as e:
         policy(state)
     assert "Random option sampling failed!" in str(e)
