@@ -41,7 +41,7 @@ def create_move_end_effector_to_pose_option(
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)
         # Reduce the target to conform to the max velocity constraint.
-        ee_norm = np.linalg.norm(ee_delta)  # type: ignore
+        ee_norm = np.linalg.norm(ee_delta)
         if ee_norm > max_vel_norm:
             ee_delta = ee_delta * max_vel_norm / ee_norm
         ee_action = np.add(current, ee_delta)
@@ -49,10 +49,6 @@ def create_move_end_effector_to_pose_option(
         # state of the robot during simulation, which overrides physics.
         joints_state = robot.inverse_kinematics(
             (ee_action[0], ee_action[1], ee_action[2]), validate=False)
-        initial = robot.get_joints()
-        # robot.set_joints(joints_state)
-        # print(robot.get_state(), target)
-        # robot.set_joints(initial)
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
         # nudge the fingers toward being open or closed according to the

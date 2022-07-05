@@ -38,16 +38,12 @@ class SingleArmPyBulletRobot(abc.ABC):
         self._base_pose = base_pose
         self._base_orientation = base_orientation
 
-        # Load the robot and reset base position and orientation.
+        # Load the robot and set base position and orientation.
         self.robot_id = p.loadURDF(
             self.urdf_path(),
+            basePosition=self._base_pose,
+            baseOrientation=self._base_orientation,
             useFixedBase=True,
-            physicsClientId=self._physics_client_id,
-        )
-        p.resetBasePositionAndOrientation(
-            self.robot_id,
-            self._base_pose,
-            self._base_orientation,
             physicsClientId=self._physics_client_id,
         )
 
@@ -408,7 +404,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         The target orientation is always self._ee_orientation.
 
-        If validate is True, guarantee that the returned joints state
+        If validate is True, we guarantee that the returned joints state
         would result in end_effector_pose if run through
         forward_kinematics.
 
@@ -449,7 +445,8 @@ def create_single_arm_pybullet_robot(
     """Create a single-arm PyBullet robot."""
     available_robots = set()
     # TODO: fix this bad hack
-    from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, PandaPyBulletRobot
+    from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
+        PandaPyBulletRobot
 
     for cls in utils.get_all_concrete_subclasses(SingleArmPyBulletRobot):
         available_robots.add(cls.get_name())

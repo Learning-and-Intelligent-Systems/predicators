@@ -218,8 +218,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                       self._obj_friction, self._default_orn,
                                       self._physics_client_id))
 
-        # wait_for_user("ready")
-
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)

@@ -6,7 +6,6 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
-
 from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
 from predicators.src.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.src.pybullet_helpers.robots.single_arm import \

@@ -33,7 +33,6 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         "fetch": p.getQuaternionFromEuler([np.pi / 2, np.pi / 2, -np.pi]),
         "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])
     }
-
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
