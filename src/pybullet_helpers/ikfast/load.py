@@ -7,6 +7,7 @@ from types import ModuleType
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
+from predicators.src.utils import get_third_party_path
 
 
 def _install_ikfast_module(ikfast_dir: str) -> None:
@@ -35,7 +36,7 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     We check if this file exists, if not we install IKFast by compiling
     it.
     """
-    ikfast_dir = os.path.join(utils.get_env_asset_path("ikfast"),
+    ikfast_dir = os.path.join(get_third_party_path(), "ikfast",
                               ikfast_info.module_dir)
     glob_pattern = os.path.join(ikfast_dir, f"{ikfast_info.module_name}*.so")
     so_filepaths = glob.glob(glob_pattern)

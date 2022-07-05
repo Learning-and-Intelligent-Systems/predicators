@@ -4,7 +4,7 @@ by Caelan Garrett (https://github.com/caelan/pybullet-planning/)."""
 import os
 import sys
 
-from predicators.src.envs.assets.ikfast.compile import compile_ikfast
+from predicators.third_party.ikfast.compile import compile_ikfast
 
 
 def main():
