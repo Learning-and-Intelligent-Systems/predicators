@@ -22,6 +22,7 @@ import dill as pkl
 from typing_extensions import TypeAlias
 
 from predicators.src import utils
+from predicators.src.planning import PlanningFailure
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
@@ -53,7 +54,7 @@ class PG3Approach(NSRTMetacontrollerApproach):
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
 
-    def _learn_ldl(self) -> None:
+    def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
 
         # Set up a search over LDL space.
@@ -100,14 +101,14 @@ class PG3Approach(NSRTMetacontrollerApproach):
         self._current_ldl = path[-1]
         logging.info(f"Keeping best policy:\n{self._current_ldl}")
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_None.ldl", "wb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.ldl", "wb") as f:
             pkl.dump(self._current_ldl, f)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
         # Now, learn the LDL policy.
-        self._learn_ldl()
+        self._learn_ldl(online_learning_cycle=None)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         load_path = utils.get_approach_load_path_str()
@@ -328,7 +329,10 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
 
     def _get_score_for_task(self, ldl: LiftedDecisionList,
                             task_idx: int) -> float:
-        atom_plan = self._get_atom_plan_for_task(ldl, task_idx)
+        try:
+            atom_plan = self._get_atom_plan_for_task(ldl, task_idx)
+        except PlanningFailure:
+            return CFG.horizon  # worst possible score
         # Note: we need the goal because it's an input to the LDL policy.
         _, _, goal = self._abstract_train_tasks[task_idx]
         assert goal.issubset(atom_plan[-1])
@@ -403,7 +407,12 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
             get_successors=get_successors,
             heuristic=heuristic)
 
-        return [set(atoms) for atoms in planned_frozen_atoms_seq]
+        atom_plan = [set(atoms) for atoms in planned_frozen_atoms_seq]
+
+        if not check_goal(atom_plan[-1]):
+            raise PlanningFailure("Could not find plan for train task.")
+
+        return atom_plan
 
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
@@ -451,4 +460,9 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
             num_rollout_steps=CFG.pg3_max_policy_guided_rollout,
             rollout_step_cost=0)
 
-        return [set(atoms) for atoms in planned_frozen_atoms_seq]
+        atom_plan = [set(atoms) for atoms in planned_frozen_atoms_seq]
+
+        if not check_goal(atom_plan[-1]):
+            raise PlanningFailure("Could not find plan for train task.")
+
+        return atom_plan

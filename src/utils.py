@@ -1083,6 +1083,7 @@ def create_random_option_policy(
                     cur_option = opt
                     break
             else:  # fall back to a random action
+                import ipdb; ipdb.set_trace()
                 return Action(action_space.sample())
         act = cur_option.policy(state)
         return act
