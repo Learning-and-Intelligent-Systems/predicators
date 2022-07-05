@@ -1082,9 +1082,8 @@ def create_random_option_policy(
                 if opt.initiable(state):
                     cur_option = opt
                     break
-            else:  # fall back to a random action
-                import ipdb; ipdb.set_trace()
-                return Action(action_space.sample())
+            else:
+                raise OptionExecutionFailure("Random option sampling failed.")
         act = cur_option.policy(state)
         return act
 
