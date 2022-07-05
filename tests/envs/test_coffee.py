@@ -224,7 +224,7 @@ def test_coffee():
     assert GroundAtom(NotAboveCup, [robot, jug]).holds(traj.states[-1])
     s = traj.states[-1]
 
-    # Check for no-op when pouring into nothing.
+    # Check for noop when pouring into nothing.
     pour_act_lst = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     pour_act_arr = np.array(pour_act_lst, dtype=np.float32)
     next_s = env.simulate(s, Action(pour_act_arr))
@@ -263,7 +263,7 @@ def test_coffee():
         # Render a state where we are in the process of pouring.
         env.render_state(traj.states[-2], task)
 
-    # Check for no-op when overfilling a cup.
+    # Check for noop when overfilling a cup.
     next_s = env.simulate(s, Action(pour_act_arr))
     assert s.allclose(next_s)
 
