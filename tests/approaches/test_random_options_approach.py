@@ -4,6 +4,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
 from predicators.src.structs import Action, ParameterizedOption, Predicate, \
@@ -72,7 +73,7 @@ def test_random_options_approach():
     approach = RandomOptionsApproach({Solved}, {parameterized_option2},
                                      {cup_type}, params_space, task)
     policy = approach.solve(task, 500)
-    with pytest.raises(utils.OptionExecutionFailure) as e:
+    with pytest.raises(ApproachFailure) as e:
         policy(state)
     assert "Random option sampling failed!" in str(e)
     # Test what happens when there's no object of the right type.
@@ -83,7 +84,7 @@ def test_random_options_approach():
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option3},
                                      {cup_type}, params_space, task)
-    with pytest.raises(utils.OptionExecutionFailure) as e:
+    with pytest.raises(ApproachFailure) as e:
         policy(state)
     assert "Random option sampling failed!" in str(e)
     # Test what happens when the option is always terminal.

@@ -2,7 +2,7 @@
 
 from predicators.src import utils
 from predicators.src.explorers import BaseExplorer
-from predicators.src.structs import ExplorationStrategy
+from predicators.src.structs import Action, ExplorationStrategy, State
 
 
 class RandomOptionsExplorer(BaseExplorer):
@@ -14,8 +14,16 @@ class RandomOptionsExplorer(BaseExplorer):
 
     def get_exploration_strategy(self, train_task_idx: int,
                                  timeout: int) -> ExplorationStrategy:
-        # Take random options.
-        policy = utils.create_random_option_policy(self._options, self._rng)
+        # Take random options, and raise an exception if no applicable option
+        # can be found.
+
+        def fallback_policy(state: State) -> Action:
+            del state  # unused
+            raise utils.RequestActPolicyFailure(
+                "Random option sampling failed!")
+
+        policy = utils.create_random_option_policy(self._options, self._rng,
+                                                   fallback_policy)
         # Never terminate (until the interaction budget is exceeded).
         termination_function = lambda _: False
         return policy, termination_function
