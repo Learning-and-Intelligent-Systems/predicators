@@ -93,7 +93,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 pnad for pnads in param_opt_to_nec_pnads.values()
                 for pnad in pnads
             ]
-            import ipdb; ipdb.set_trace()
             self._recompute_datastores_from_segments(cur_itr_pnads_unfiltered)
             cur_itr_pnads_filtered = []
             for pnad in cur_itr_pnads_unfiltered:
@@ -106,7 +105,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 else:
                     param_opt_to_nec_pnads[pnad.option_spec[0]].remove(pnad)
             del cur_itr_pnads_unfiltered  # should be unused after this
-            import ipdb; ipdb.set_trace()
 
             # Check if the PNAD set has converged. If so, break.
             if {pnad.op for pnad in cur_itr_pnads_filtered} == prev_itr_ops:
@@ -150,7 +148,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 param_opt_to_nec_pnads)
             if not nec_pnad_set_changed:
                 break
-        import ipdb; ipdb.set_trace()
 
     def _backchain_one_pass(
         self, param_opt_to_nec_pnads: Dict[ParameterizedOption,

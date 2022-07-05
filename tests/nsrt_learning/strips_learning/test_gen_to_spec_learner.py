@@ -308,7 +308,7 @@ def test_backchaining_strips_learner_order_dependence():
     # Predicates
     NextTo = Predicate(
         "NextTo", [hardback_type],
-        lambda s, o: s[o[0]][0] == -1 or s[o[0]][0] == s[agent][0] or
+        lambda s, o: s[o[0]][0] == s[agent][0] or
         (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
     NextToShelf = Predicate("NextToShelf", [shelf_type],
                             lambda s, o: s[agent][0] == 2)
@@ -531,7 +531,7 @@ def test_backchaining_strips_learner_order_dependence():
                                              preds,
                                              segmented_trajs,
                                              verify_harmlessness=True)
-    #natural_order_pnads = learner.learn()
+    natural_order_pnads = learner.learn()
 
     traj1 = LowLevelTrajectory([
         state1, state2, state3, state4, state5, state6, state7, state8, state9
@@ -556,7 +556,6 @@ def test_backchaining_strips_learner_order_dependence():
     # First, check that the two sets of PNADs have the same number of PNADs.
     # Uh oh, they don't
     assert len(natural_order_pnads) != len(reverse_order_pnads)
-    import ipdb; ipdb.set_trace()
 
 
 def test_spawn_new_pnad():
