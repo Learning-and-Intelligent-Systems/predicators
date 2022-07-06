@@ -279,10 +279,10 @@ def _skeleton_generator(
 
 
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
-                          skeleton: List[_GroundNSRT],
-                          atoms_sequence: List[Set[GroundAtom]], seed: int,
-                          timeout: float,
-                          max_horizon: int) -> Tuple[List[_Option], bool]:
+                         skeleton: List[_GroundNSRT],
+                         atoms_sequence: List[Set[GroundAtom]], seed: int,
+                         timeout: float,
+                         max_horizon: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
