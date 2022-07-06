@@ -316,8 +316,6 @@ def test_exact_energy_score_function():
         "env": "blocks",
         "offline_data_method": "demo+replay",
         "num_train_tasks": 2,
-        "blocks_num_blocks_train": [3],
-        "blocks_num_blocks_test": [4],
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
