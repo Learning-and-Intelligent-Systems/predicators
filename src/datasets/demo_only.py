@@ -80,7 +80,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
             dataset = pkl.load(f)
         logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
                      "DEMONSTRATIONS")
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
         dataset.trajectories.reverse()
         return dataset
     fnames_with_less_data = {}  # used later, in Case 3

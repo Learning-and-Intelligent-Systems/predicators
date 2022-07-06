@@ -259,7 +259,7 @@ class BehaviorEnv(BaseEnv):
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
-            ("reachable", self._reachable_classifier, 2),
+            ("reachable", self._reachable_classifier, 1),
         ]
 
         for name, classifier, arity in custom_predicate_specs:
@@ -268,23 +268,16 @@ class BehaviorEnv(BaseEnv):
                 # types.
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
-                if name == "reachable" and not any(type_i.name == "agent"
-                                                   for type_i in type_combo):
-                    continue
                 predicates.add(pred)
 
         # Finally, add the reachable-nothing predicate, which only applies
         # to the 'agent' type
-        for i in range(len(types_lst)):
-            if types_lst[i].name == "agent":
-                pred_name = self._create_type_combo_name(
-                    "reachable-nothing", (types_lst[i], ))
-                pred = Predicate(
-                    pred_name,
-                    [types_lst[i]],
-                    self._reachable_nothing_classifier,
-                )
-                predicates.add(pred)
+        pred = Predicate(
+                "reachable-nothing",
+                [],
+                self._reachable_nothing_classifier,
+            )
+        predicates.add(pred)
 
         return predicates
 
@@ -477,29 +470,30 @@ class BehaviorEnv(BaseEnv):
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 2
+        assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
-        ig_other_obj = self.object_to_ig_object(objs[1])
+        # We assume we're running BEHAVIOR with only 1 agent
+        # in the scene.
+        assert len(self.igibson_behavior_env.robots) == 1
+        robot_obj = self.igibson_behavior_env.robots[0]
         # If the two objects are the same (i.e reachable(agent, agent)),
         # we always want to return False so that when we learn
         # operators, such predicates don't needlessly appear in preconditions.
-        if ig_obj == ig_other_obj:
-            return False
-        if self._holding_classifier(state=state, objs=[objs[1]]):
+        if self._holding_classifier(state=state, objs=[objs[0]]):
             return False
         return (np.linalg.norm(  # type: ignore
-            np.array(ig_obj.get_position()) -
-            np.array(ig_other_obj.get_position())) < 2)
+            np.array(robot_obj.get_position()) -
+            np.array(ig_obj.get_position())) < 2)
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 1
+        assert len(objs) == 0
         for obj in state:
             if self._reachable_classifier(
-                    state=state, objs=[obj, objs[0]]) and (obj != objs[0]):
+                    state=state, objs=[obj]):
                 return False
         return True
 

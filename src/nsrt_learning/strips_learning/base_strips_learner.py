@@ -43,6 +43,9 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
+        for pnad in learned_pnads:
+            print(pnad)
+            print()
         import ipdb; ipdb.set_trace()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
             logging.info("\nRunning harmlessness check...")
