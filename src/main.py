@@ -55,9 +55,10 @@ from predicators.src.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
+import cProfile
+
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
-
 
 def main() -> None:
     """Main entry point for running approaches in environments."""
@@ -401,4 +402,6 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    #main()
+    cProfile.run('main()', filename='prof')
+    import ipdb; ipdb.set_trace()

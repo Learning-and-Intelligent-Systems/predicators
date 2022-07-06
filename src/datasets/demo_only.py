@@ -59,6 +59,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                 for act in traj.actions:
                     act.get_option().memory = {}
 
+        # Quit for cProfile
+        quit()
+        
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
     return dataset

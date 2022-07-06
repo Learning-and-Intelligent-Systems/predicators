@@ -257,7 +257,6 @@ class BehaviorEnv(BaseEnv):
 
         # Second, add in custom predicates except reachable-nothing
         custom_predicate_specs = [
-            ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
             ("reachable", self._reachable_classifier, 1),
         ]
@@ -278,6 +277,13 @@ class BehaviorEnv(BaseEnv):
                 "reachable-nothing",
                 [],
                 self._reachable_nothing_classifier,
+            )
+        predicates.add(pred)
+
+        pred = Predicate(
+                "handempty",
+                [],
+                self._handempty_classifier,
             )
         predicates.add(pred)
 

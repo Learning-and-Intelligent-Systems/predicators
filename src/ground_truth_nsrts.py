@@ -2759,6 +2759,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
     def _get_predicate(base_pred_name: str,
                        types: Sequence[Type]) -> Predicate:
+        if len(types) == 0:
+            return pred_name_to_pred[base_pred_name]
         type_names = "-".join(t.name for t in types)
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
@@ -2771,6 +2773,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     # be used as side predicates for navigateTo operators.
     reachable_predicates = set()
     for reachable_pred_type in env.types:
+        if reachable_pred_type.name == "agent":
+            continue
         reachable_predicates.add(
             _get_predicate("reachable", [reachable_pred_type]))
 
@@ -2789,10 +2793,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj_type_name = option_arg_type_names[0]
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
+            if target_obj_type_name == "agent":
+                continue
 
             # Navigate to from nothing reachable.
             reachable_nothing = _get_lifted_atom("reachable-nothing",
-                                                 [agent_obj])
+                                                 [])
             parameters = [target_obj]
             option_vars = [target_obj]
             preconditions = {reachable_nothing}
