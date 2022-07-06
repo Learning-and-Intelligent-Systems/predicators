@@ -6,15 +6,14 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.explorers.bilevel_planning_explorer import \
-    BilevelPlanningExplorer
+from predicators.src.explorers.base_explorer import BaseExplorer
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, ExplorationStrategy, GroundAtom, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT
 
 
-class GreedyLookaheadExplorer(BilevelPlanningExplorer):
+class GreedyLookaheadExplorer(BaseExplorer):
     """GreedyLookaheadExplorer implementation.
 
     Sample a certain number of max-length trajectories and pick the one that
@@ -30,8 +29,9 @@ class GreedyLookaheadExplorer(BilevelPlanningExplorer):
             action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],
             option_model: _OptionModelBase,
             state_score_fn: Callable[[Set[GroundAtom], State], float]) -> None:
-        super().__init__(predicates, options, types, action_space, train_tasks,
-                         nsrts, option_model)
+        super().__init__(predicates, options, types, action_space, train_tasks)
+        self._nsrts = nsrts
+        self._option_model = option_model
         self._state_score_fn = state_score_fn
 
     @classmethod
