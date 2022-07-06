@@ -42,8 +42,6 @@ class PlayroomEnv(BlocksEnv):
     on_tol: ClassVar[float] = pick_tol
     assert pick_tol < block_size
     pick_z: ClassVar[float] = 1.5
-    num_blocks_train: ClassVar[List[int]] = CFG.playroom_num_blocks_train
-    num_blocks_test: ClassVar[List[int]] = CFG.playroom_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
@@ -206,6 +204,9 @@ class PlayroomEnv(BlocksEnv):
         self._region6 = Object("region6", self._region_type)
         self._region7 = Object("region7", self._region_type)
         self._dial = Object("dial", self._dial_type)
+        # Hyperparameters from CFG.
+        self._num_blocks_train = CFG.playroom_num_blocks_train
+        self._num_blocks_test = CFG.playroom_num_blocks_test
 
     @classmethod
     def get_name(cls) -> str:
