@@ -485,6 +485,8 @@ class BehaviorEnv(BaseEnv):
         # operators, such predicates don't needlessly appear in preconditions.
         if ig_obj == ig_other_obj:
             return False
+        if self._holding_classifier(state=state, objs=[objs[1]]):
+            return False
         return (np.linalg.norm(  # type: ignore
             np.array(ig_obj.get_position()) -
             np.array(ig_other_obj.get_position())) < 2)
