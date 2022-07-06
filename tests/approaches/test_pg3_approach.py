@@ -35,18 +35,51 @@ def test_pg3_approach():
                            env.action_space, train_tasks)
     assert approach.get_name() == "pg3"
 
-    # Test meta-controller prediction.
+    # Test prediction with a good policy.
     nsrts = get_gt_nsrts(env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+    deliver_nsrt = name_to_nsrt["deliver"]
     pick_up_nsrt = name_to_nsrt["pick-up"]
-    pick_up_rule = LDLRule(name="MyPickUp",
+    move_nsrt = name_to_nsrt["move"]
+    name_to_pred = {pred.name: pred for pred in env.predicates}
+    satisfied = name_to_pred["satisfied"]
+    wantspaper = name_to_pred["wantspaper"]
+
+    pick_up_rule = LDLRule(name="PickUp",
                            parameters=pick_up_nsrt.parameters,
                            pos_state_preconditions=set(
                                pick_up_nsrt.preconditions),
                            neg_state_preconditions=set(),
                            goal_preconditions=set(),
                            nsrt=pick_up_nsrt)
-    ldl = LiftedDecisionList([pick_up_rule])
+
+    paper, loc = deliver_nsrt.parameters
+    assert "paper" in str(paper)
+    assert "loc" in str(loc)
+
+    deliver_rule = LDLRule(name="Deliver",
+                           parameters=[loc, paper],
+                           pos_state_preconditions=set(
+                               deliver_nsrt.preconditions),
+                           neg_state_preconditions={satisfied([loc])},
+                           goal_preconditions=set(),
+                           nsrt=deliver_nsrt)
+
+    from_loc, to_loc = move_nsrt.parameters
+    assert "from" in str(from_loc)
+    assert "to" in str(to_loc)
+
+    move_rule = LDLRule(
+        name="Move",
+        parameters=[from_loc, to_loc],
+        pos_state_preconditions=set(move_nsrt.preconditions) | \
+                                {wantspaper([to_loc])},
+        neg_state_preconditions=set(),
+        goal_preconditions=set(),
+        nsrt=move_nsrt
+    )
+
+    ldl = LiftedDecisionList([pick_up_rule, deliver_rule, move_rule])
     approach._current_ldl = ldl  # pylint: disable=protected-access
     task = train_tasks[0]
     policy = approach.solve(task, timeout=500)
@@ -56,9 +89,8 @@ def test_pg3_approach():
     assert str(option.objects) == "[paper-0:paper, loc-0:loc]"
     ldl = LiftedDecisionList([])
     approach._current_ldl = ldl  # pylint: disable=protected-access
-    policy = approach.solve(task, timeout=500)
     with pytest.raises(ApproachFailure) as e:
-        _ = policy(task.init)
+        approach.solve(task, timeout=500)
     assert "PG3 policy was not applicable!" in str(e)
 
     # Test learning with a fast heuristic.
