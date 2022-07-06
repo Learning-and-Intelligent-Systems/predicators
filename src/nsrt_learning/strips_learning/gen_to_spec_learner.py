@@ -307,7 +307,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                         pnad.seg_to_keep_effects_sub[segment] = {}
                     pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
 
-                # import ipdb; ipdb.set_trace()
+                import ipdb; ipdb.set_trace()
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
                 # must now include its ground preconditions.

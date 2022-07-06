@@ -265,8 +265,6 @@ class BehaviorEnv(BaseEnv):
             for type_combo in itertools.product(types_lst, repeat=arity):
                 # We only care about reachable when the agent is one of the
                 # types.
-                if name == "reachable" and type_combo[0].name == "agent":
-                    continue
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
@@ -488,6 +486,10 @@ class BehaviorEnv(BaseEnv):
         # we always want to return False so that when we learn
         # operators, such predicates don't needlessly appear in preconditions.
         if self._holding_classifier(state=state, objs=[objs[0]]):
+            return False
+        # We also always want reachable-agent to be False so it doesn't
+        # appear in any preconditions.
+        if ig_obj.name == "agent":
             return False
         return (np.linalg.norm(  # type: ignore
             np.array(robot_obj.get_position()) -
