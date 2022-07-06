@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
-
+import pybullet as p
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -1512,6 +1512,10 @@ class Pose:
     @classmethod
     def identity(cls) -> "Pose":
         return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+
+    def invert(self) -> "Pose":
+        pos, quat = p.invertTransform(self.position, self.quat_wxyz)
+        return Pose(pos, quat)
 
 
 # Convenience higher-order types useful throughout the code

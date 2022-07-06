@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 import numpy as np
 import pybullet as p
@@ -111,15 +111,23 @@ class SingleArmPyBulletRobot(abc.ABC):
                               physicsClientId=self.physics_client_id)
 
     @cached_property
+    def joint_infos(self) -> List[Dict]:
+        """Get the joint info for each joint of the robot."""
+        return [p.getJointInfo(self.robot_id, i,
+                               physicsClientId=self.physics_client_id)
+                for i in range(self.num_joints)]
+
+    @cached_property
     def joint_names(self) -> List[str]:
         """Get the names of the joints in the robot."""
         joint_names = [
-            p.getJointInfo(
-                self.robot_id, i,
-                physicsClientId=self.physics_client_id)[1].decode("utf-8")
-            for i in range(self.num_joints)
+            info[1].decode("utf-8")
+            for info in self.joint_infos
         ]
         return joint_names
+
+    def joint_from_name(self, joint_name: str) -> int:
+        return self.joint_names.index(joint_name)
 
     @property
     @abc.abstractmethod
@@ -262,13 +270,19 @@ class SingleArmPyBulletRobot(abc.ABC):
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
 
-    def get_joints(self) -> JointsState:
-        """Get the joints state from the current PyBullet state."""
+    def get_joints(self, joint_idxs: Optional[List[int]] = None) -> JointsState:
+        """
+        Get the joints state from the current PyBullet state.
+        If joint_idxs is None, then return the state for all joints.
+        Otherwise, return the state for the specified joint indices.
+        """
+        joint_idxs = self.arm_joints if joint_idxs is None else joint_idxs
+
         joint_state = [
             joint_info[0]  # extract joint position only
             for joint_info in p.getJointStates(
                 self.robot_id,
-                self.arm_joints,
+               joint_idxs,
                 physicsClientId=self.physics_client_id)
         ]
         return joint_state
