@@ -14,6 +14,7 @@ from __future__ import annotations
 import abc
 import functools
 import logging
+import time
 from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
     Tuple
 from typing import Type as TypingType
@@ -25,14 +26,16 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
-from predicators.src.planning import PlanningFailure
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.planning import PlanningFailure, run_low_level_search
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Box, Dataset, GroundAtom, LDLRule, \
     LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
     Task, Type, Variable, _GroundNSRT
 
 
-class PG3Approach(NSRTMetacontrollerApproach):
+class PG3Approach(NSRTLearningApproach):
     """Policy-guided planning for generalized policy generation (PG3)."""
 
     def __init__(self, initial_predicates: Set[Predicate],
@@ -53,6 +56,34 @@ class PG3Approach(NSRTMetacontrollerApproach):
         if ground_nsrt is None:
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        _S: TypeAlias = FrozenSet[GroundAtom]
+        _A: TypeAlias = _GroundNSRT
+        expected_atoms: Set[GroundAtom] = set()
+        skeleton = []
+        atoms_sequence = []
+        def get_next_state(atoms: _S, ground_nsrt: _A) -> _S:
+            return frozenset(utils.apply_operator(ground_nsrt, set(atoms)))
+
+        state = task.init
+        atoms = utils.abstract(state, self._initial_predicates)
+        atoms_sequence.append(atoms)
+        start_time = time.time()
+
+        while not task.goal.issubset(atoms):
+            ground_nsrt = self._predict(state, atoms, task.goal)
+            state = get_next_state(frozenset(atoms), ground_nsrt)
+            atoms = utils.apply_operator(ground_nsrt, atoms)
+            skeleton.append(ground_nsrt)
+            atoms_sequence.append(atoms)
+        option_list, succeeded = run_low_level_search(
+            task, self._option_model, skeleton, atoms_sequence, self._seed,
+            timeout - (time.time() - start_time), CFG.horizon)
+        if not succeeded:
+            raise ApproachFailure("Low Level Search Failed")
+        policy = utils.option_plan_to_policy(option_list)
+        return policy
 
     def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
