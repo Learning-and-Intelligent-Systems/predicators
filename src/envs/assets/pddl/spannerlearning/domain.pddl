@@ -35,14 +35,3 @@
 			   (loose ?n))
         :effect (and (not (loose ?n))(not (useable ?s)) (tightened ?n)))
 )
-
-
-
-
-
-
-
-
-
-
-)

@@ -309,7 +309,10 @@ class _Atom:
                              "single entity.")
         assert len(self.entities) == self.predicate.arity
         for ent, pred_type in zip(self.entities, self.predicate.types):
-            assert ent.is_instance(pred_type)
+            try:
+                assert ent.is_instance(pred_type)
+            except:
+                import ipdb; ipdb.set_trace()
 
     @property
     def _str(self) -> str:

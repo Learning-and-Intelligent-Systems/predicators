@@ -392,7 +392,7 @@ class _SpannerPDDLEnv(_PDDLEnv):
 
     @property
     def _domain_str(self) -> str:
-        path = utils.get_env_asset_path("pddl/delivery/spannerlearning.pddl")
+        path = utils.get_env_asset_path("pddl/spannerlearning/domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
         return domain_str
