@@ -556,6 +556,7 @@ def test_backchaining_strips_learner_order_dependence():
     # First, check that the two sets of PNADs have the same number of PNADs.
     # Uh oh, they don't
     assert len(natural_order_pnads) != len(reverse_order_pnads)
+    import ipdb; ipdb.set_trace()
 
 
 def test_spawn_new_pnad():
