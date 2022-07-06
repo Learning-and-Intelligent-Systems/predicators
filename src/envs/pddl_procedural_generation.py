@@ -186,3 +186,15 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
 )"""
 
     return problem_str
+
+
+
+#new code for spanner 
+def create_spanner_pddl_generator(min_num_nuts: int
+        
+        
+                                 ) -> PDDLProblemGenerator:
+    """Create a generator for  problems."""
+    
+    
+def generate_spanner_problems(): return

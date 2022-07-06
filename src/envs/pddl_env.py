@@ -20,7 +20,7 @@ from pyperplan.pddl.pddl import Domain as PyperplanDomain
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, create_spanner_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
