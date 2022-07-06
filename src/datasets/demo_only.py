@@ -81,6 +81,7 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
         logging.info(f"\n\nLOADED DATASET OF {len(dataset.trajectories)} "
                      "DEMONSTRATIONS")
         import ipdb; ipdb.set_trace()
+        dataset.trajectories.reverse()
         return dataset
     fnames_with_less_data = {}  # used later, in Case 3
     for fname in os.listdir(CFG.data_dir):
