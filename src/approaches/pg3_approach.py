@@ -70,7 +70,7 @@ class PG3Approach(NSRTLearningApproach):
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
-            if (time.time()- start_time) >= timeout:
+            if (time.time() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
         option_list, succeeded = run_low_level_search(
             task, self._option_model, skeleton, atoms_sequence, self._seed,
