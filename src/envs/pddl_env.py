@@ -387,6 +387,33 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
                                               min_news, max_news)
 
 
+class _ForestPDDLEnv(_PDDLEnv):
+    """The forest domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/forest/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksForestPDDLEnv(_BlocksPDDLEnv):
+    """The forest domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_forest_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        import ipdb; ipdb.set_trace()
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        import ipdb; ipdb.set_trace()
+
+
 ###############################################################################
 #                            Utility functions                                #
 ###############################################################################
