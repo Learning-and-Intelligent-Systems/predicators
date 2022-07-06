@@ -879,7 +879,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     openlid_nsrt = NSRT("OpenLid",
                         parameters, preconditions, add_effects, delete_effects,
                         set(), option, option_vars, null_sampler)
-    nsrts.add(openlid_nsrt)
+    # In the case where painting_lid_open_prob is 1.0, the lid is always open,
+    # so we don't need the NSRT for opening it. Without this line, when using
+    # strips_learner oracle, there would be a crash in sampler learning.
+    if CFG.painting_lid_open_prob < 1:
+        nsrts.add(openlid_nsrt)
 
     # PlaceOnTable
     obj = Variable("?obj", obj_type)
