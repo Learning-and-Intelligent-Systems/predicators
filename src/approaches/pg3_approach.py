@@ -76,7 +76,7 @@ class PG3Approach(NSRTLearningApproach):
             task, self._option_model, skeleton, atoms_sequence, self._seed,
             timeout - (time.time() - start_time), CFG.horizon)
         if not succeeded:
-            raise ApproachFailure("Low Level Search Failed")
+            raise ApproachFailure("Low-level search failed")
         policy = utils.option_plan_to_policy(option_list)
         return policy
 
