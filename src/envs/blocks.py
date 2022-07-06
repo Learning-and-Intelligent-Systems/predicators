@@ -46,8 +46,6 @@ class BlocksEnv(BaseEnv):
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
     assert pick_tol < block_size
-    num_blocks_train: ClassVar[List[int]] = CFG.blocks_num_blocks_train
-    num_blocks_test: ClassVar[List[int]] = CFG.blocks_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
@@ -89,6 +87,9 @@ class BlocksEnv(BaseEnv):
             params_space=Box(0, 1, (2, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+        # Hyperparameters from CFG.
+        self.num_blocks_train = CFG.blocks_num_blocks_train
+        self.num_blocks_test = CFG.blocks_num_blocks_test
 
     @classmethod
     def get_name(cls) -> str:
