@@ -57,13 +57,13 @@ def test_pg3_approach():
     assert "paper" in str(paper)
     assert "loc" in str(loc)
 
-    deliver_rule = LDLRule(
-        name="Deliver",
-        parameters=[loc, paper],
-        pos_state_preconditions=set(deliver_nsrt.preconditions),
-        neg_state_preconditions={satisfied([loc])},
-        goal_preconditions=set(),
-        nsrt=deliver_nsrt)
+    deliver_rule = LDLRule(name="Deliver",
+                           parameters=[loc, paper],
+                           pos_state_preconditions=set(
+                               deliver_nsrt.preconditions),
+                           neg_state_preconditions={satisfied([loc])},
+                           goal_preconditions=set(),
+                           nsrt=deliver_nsrt)
 
     from_loc, to_loc = move_nsrt.parameters
     assert "from" in str(from_loc)
