@@ -205,7 +205,174 @@ def _generate_forest_problems(min_size: int, max_size: int, num_problems: int,
     return problems
 
 
+def _generate_random_forest_grid(grid_height, grid_width):
+    I, G, W, P, X, H = range(6)
+    
+    I_row = np.random.randint(0, grid_height)
+    I_col = np.random.randint(0, grid_width)
+
+    G_row = np.random.randint(0, grid_height)
+    G_col = np.random.randint(0, grid_width)
+    while (G_row, G_col) == (I_row, I_col):
+        G_row = np.random.randint(0, grid_height)
+        G_col = np.random.randint(0, grid_width)
+
+    random_path =  random_grid_walk((I_row, I_col), (G_row, G_col), set(), grid_height, grid_width, None)
+    assert random_path
+
+    remaining_coords = {(r, c) for r in range(grid_height) for c in range(grid_width)} - set(random_path)
+
+    grid = [[None for c in range(grid_width)] for r in range(grid_height)]
+
+    for non_path_coord in remaining_coords:
+        loc_prob = np.random.uniform()
+        if loc_prob <= 0.5:
+            grid[non_path_coord[0]][non_path_coord[1]] = X
+        else:
+            grid[non_path_coord[0]][non_path_coord[1]] = W
+
+    last_was_hill = False
+    for i, path_coord in enumerate(random_path):
+        loc_prob = np.random.uniform()
+        if path_coord == (I_row, I_col):
+            grid[path_coord[0]][path_coord[1]] = I
+        elif path_coord == (G_row, G_col): 
+            grid[path_coord[0]][path_coord[1]] = G
+        elif i > 1 and not last_was_hill and loc_prob <= 0.2:
+            grid[path_coord[0]][path_coord[1]] = H
+            last_was_hill = True
+        else:
+            grid[path_coord[0]][path_coord[1]] = P
+    
+    #print("Random path", sorted(random_path))
+    #print("Reamaining_coords", sorted(remaining_coords))
+
+    for r in range(grid_height):
+        for c in range(grid_width):
+            assert grid[r][c] != None
+    
+    for r in grid:
+        print(r)
+    return grid
+
+
+def random_grid_walk(currCoords, goalCoords, visited, grid_height, grid_width, previousCoords):
+    if currCoords == goalCoords:
+        return [currCoords]
+    
+    for delta in np.random.permutation([[0, 1], [1, 0], [0, -1], [-1, 0]]):
+        new_coord = (currCoords[0] + delta[0], currCoords[1] + delta[1])
+        if new_coord[0] < 0 or new_coord[0] >= grid_height or new_coord[1] < 0 or new_coord[1] >= grid_width: 
+            #print("Out of bounds")
+            continue
+
+        if new_coord in visited:
+            #print("Already visited")
+            continue
+
+        adjacent_excluding_previous = {(currCoords[0] + adj_delta[0], currCoords[1] + adj_delta[1]) for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]} - {previousCoords}
+        adjacent_hit = False
+        for adjacent_coord in adjacent_excluding_previous:
+            if adjacent_coord in visited:
+                adjacent_hit = True
+        if adjacent_hit:
+            #print("Adjacent hit")
+            continue
+
+        if not reachable(new_coord, goalCoords, visited | {currCoords}, grid_height, grid_width):
+            #print("Not reachable from here")
+            continue
+                        
+        grid_walk_from_child = random_grid_walk(new_coord, goalCoords, visited | {currCoords}, grid_height, grid_width, currCoords)
+        if grid_walk_from_child != None:
+            return [currCoords] + grid_walk_from_child
+
+    return None
+
+
+def reachable(currCoords, goalCoords, prev_visited, grid_height, grid_width):
+    queue = [(currCoords, prev_visited.copy())]
+    coord_queue = [currCoords]
+    visited = prev_visited.copy()
+
+    while len(queue) > 0:
+        curr, curr_visited = queue[0]
+        del queue[0]
+        del coord_queue[0]
+
+        if curr == goalCoords:
+            return True
+
+        for delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]:
+            newC = (curr[0] + delta[0], curr[1] + delta[1])
+            if newC[0] < 0 or newC[0] >= grid_height or newC[1] < 0 or newC[1] >= grid_width: 
+                #print("Out of bounds")
+                continue
+
+            if newC in visited or newC in coord_queue:
+                #print("Already visited or in queue")
+                continue
+
+            adjacent_excluding_previous = {(newC[0] + adj_delta[0], newC[1] + adj_delta[1]) for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]} - {curr}
+            adjacent_hit = False
+            for adjacent_coord in adjacent_excluding_previous:
+                if adjacent_coord in curr_visited:
+                    adjacent_hit = True
+            if adjacent_hit:
+                #print("Adjacent hit")
+                continue
+
+            queue.append((newC, curr_visited | {curr}))
+            coord_queue.append(newC)
+
+    return False
+
+
+def grid_A_star(grid_weights, Irow, Icol, Grow, Gcol):
+    for row in grid_weights:
+        print(row)
+    print(Irow, Icol, Grow, Gcol)
+
+    queue = []
+    visited = set()
+    distances = {}
+    heapq.heappush(queue, (0, (Irow, Icol)))
+    predecessors = {}
+
+    while heapq:
+        dist, coords = heapq.heappop(queue)
+        print(dist, coords)
+        if coords == (Grow, Gcol):
+            break
+        if coords in visited:
+            continue
+
+        visited.add(coords)
+
+        for delta in ([0, 1], [1, 0], [0, -1], [-1, 0]):
+            new_coord = (coords[0] + delta[0], coords[1] + delta[1])
+            if new_coord[0] < 0 or new_coord[0] >= len(grid_weights) or new_coord[1] < 0 or new_coord[1] >= len(grid_weights): 
+                continue
+
+            new_dist = dist + grid_weights[new_coord[0]][new_coord[1]]
+            if new_coord not in distances.keys() or new_dist < distances[new_coord]:
+                distances[new_coord] = new_dist
+                predecessors[new_coord] = coords
+                heapq.heappush(queue, (new_dist, new_coord))
+    
+    curr_coord = (Grow, Gcol)
+    path = [curr_coord]
+    while curr_coord != (Irow, Icol):
+        path.append(predecessors[curr_coord])
+        curr_coord = predecessors[curr_coord]
+    
+    return path
+
+
+
 def _generate_forest_problem(height: int, width: int,
                              rng: np.random.Generator) -> str:
+    grid = np.array(_generate_random_forest_grid(height, width))
+
     import ipdb
     ipdb.set_trace()
