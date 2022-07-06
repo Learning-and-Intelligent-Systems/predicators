@@ -205,8 +205,8 @@ class PlayroomEnv(BlocksEnv):
         self._region7 = Object("region7", self._region_type)
         self._dial = Object("dial", self._dial_type)
         # Hyperparameters from CFG.
-        self.num_blocks_train = CFG.playroom_num_blocks_train
-        self.num_blocks_test = CFG.playroom_num_blocks_test
+        self._num_blocks_train = CFG.playroom_num_blocks_train
+        self._num_blocks_test = CFG.playroom_num_blocks_test
 
     @classmethod
     def get_name(cls) -> str:

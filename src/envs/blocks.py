@@ -88,8 +88,8 @@ class BlocksEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
-        self.num_blocks_train = CFG.blocks_num_blocks_train
-        self.num_blocks_test = CFG.blocks_num_blocks_test
+        self._num_blocks_train = CFG.blocks_num_blocks_train
+        self._num_blocks_test = CFG.blocks_num_blocks_test
 
     @classmethod
     def get_name(cls) -> str:
@@ -181,12 +181,12 @@ class BlocksEnv(BaseEnv):
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=self.num_blocks_train,
+                               possible_num_blocks=self._num_blocks_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_blocks=self.num_blocks_test,
+                               possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
 
     @property
