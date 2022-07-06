@@ -47,8 +47,8 @@ class PG3Approach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "pg3"
 
-    def predict(self, atoms: Set[GroundAtom],
-                goal: Set[GroundAtom]) -> _GroundNSRT:
+    def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
+                             goal: Set[GroundAtom]) -> _GroundNSRT:
         """Predicts next GroundNSRT to be deployed based on the PG3 generated
         policy."""
         ground_nsrt = utils.query_ldl(self._current_ldl, atoms, goal)
@@ -56,9 +56,9 @@ class PG3Approach(NSRTLearningApproach):
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
 
-    def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        _S: TypeAlias = FrozenSet[GroundAtom]
-        _A: TypeAlias = _GroundNSRT
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        """Searches for a low level policy that satisfies PG3's abstract
+        policy."""
         skeleton = []
         atoms_sequence = []
         atoms = utils.abstract(task.init, self._initial_predicates)
@@ -66,12 +66,12 @@ class PG3Approach(NSRTLearningApproach):
         start_time = time.time()
 
         while not task.goal.issubset(atoms):
-            ground_nsrt = self.predict(atoms, task.goal)
+            if (time.time() - start_time) >= timeout:
+                raise ApproachFailure("Timeout exceeded")
+            ground_nsrt = self._predict_ground_nsrt(atoms, task.goal)
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
-            if (time.time() - start_time) >= timeout:
-                raise ApproachFailure("Timeout exceeded")
         option_list, succeeded = run_low_level_search(
             task, self._option_model, skeleton, atoms_sequence, self._seed,
             timeout - (time.time() - start_time), CFG.horizon)
