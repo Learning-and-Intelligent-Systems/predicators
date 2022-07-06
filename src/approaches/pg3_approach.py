@@ -56,7 +56,7 @@ class PG3Approach(NSRTLearningApproach):
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+    def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         _S: TypeAlias = FrozenSet[GroundAtom]
         _A: TypeAlias = _GroundNSRT
         skeleton = []
@@ -70,6 +70,8 @@ class PG3Approach(NSRTLearningApproach):
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
+            if (time.time()- start_time) >= timeout:
+                raise ApproachFailure("Timeout exceeded")
         option_list, succeeded = run_low_level_search(
             task, self._option_model, skeleton, atoms_sequence, self._seed,
             timeout - (time.time() - start_time), CFG.horizon)
