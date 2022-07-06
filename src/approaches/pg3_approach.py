@@ -14,8 +14,9 @@ from __future__ import annotations
 import abc
 import functools
 import logging
-from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+import time
+from typing import Callable, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 from typing import Type as TypingType
 
 import dill as pkl
@@ -23,16 +24,16 @@ from typing_extensions import TypeAlias
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.nsrt_metacontroller_approach import \
-    NSRTMetacontrollerApproach
-from predicators.src.planning import PlanningFailure
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.planning import PlanningFailure, run_low_level_search
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Box, Dataset, GroundAtom, LDLRule, \
-    LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, State, \
-    Task, Type, Variable, _GroundNSRT
+from predicators.src.structs import NSRT, Action, Box, Dataset, GroundAtom, \
+    LDLRule, LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
+    State, Task, Type, Variable, _GroundNSRT
 
 
-class PG3Approach(NSRTMetacontrollerApproach):
+class PG3Approach(NSRTLearningApproach):
     """Policy-guided planning for generalized policy generation (PG3)."""
 
     def __init__(self, initial_predicates: Set[Predicate],
@@ -46,13 +47,38 @@ class PG3Approach(NSRTMetacontrollerApproach):
     def get_name(cls) -> str:
         return "pg3"
 
-    def _predict(self, state: State, atoms: Set[GroundAtom],
-                 goal: Set[GroundAtom]) -> _GroundNSRT:
-        del state  # unused
+    def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
+                             goal: Set[GroundAtom]) -> _GroundNSRT:
+        """Predicts next GroundNSRT to be deployed based on the PG3 generated
+        policy."""
         ground_nsrt = utils.query_ldl(self._current_ldl, atoms, goal)
         if ground_nsrt is None:
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        """Searches for a low level policy that satisfies PG3's abstract
+        policy."""
+        skeleton = []
+        atoms_sequence = []
+        atoms = utils.abstract(task.init, self._initial_predicates)
+        atoms_sequence.append(atoms)
+        start_time = time.time()
+
+        while not task.goal.issubset(atoms):
+            if (time.time() - start_time) >= timeout:
+                raise ApproachFailure("Timeout exceeded")
+            ground_nsrt = self._predict_ground_nsrt(atoms, task.goal)
+            atoms = utils.apply_operator(ground_nsrt, atoms)
+            skeleton.append(ground_nsrt)
+            atoms_sequence.append(atoms)
+        option_list, succeeded = run_low_level_search(
+            task, self._option_model, skeleton, atoms_sequence, self._seed,
+            timeout - (time.time() - start_time), CFG.horizon)
+        if not succeeded:
+            raise ApproachFailure("Low-level search failed")
+        policy = utils.option_plan_to_policy(option_list)
+        return policy
 
     def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
