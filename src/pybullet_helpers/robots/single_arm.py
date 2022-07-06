@@ -30,7 +30,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         self._ee_home_pose = ee_home_pose
         # Orientation of the end effector. IK will use this as target orientation.
         self._ee_orientation = ee_orientation
-        self._physics_client_id = physics_client_id
+        self.physics_client_id = physics_client_id
 
         # Pose of base of robot
         self._base_pose = base_pose
@@ -41,7 +41,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             basePosition=self._base_pose.position,
             baseOrientation=self._base_pose.quat_xyzw,
             useFixedBase=True,
-            physicsClientId=self._physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
 
         # Robot initially at home pose
@@ -97,7 +97,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         joint_ids = get_kinematic_chain(
             self.robot_id,
             self.end_effector_id,
-            physics_client_id=self._physics_client_id,
+            physics_client_id=self.physics_client_id,
         )
         # NOTE: pybullet tools assumes sorted arm joints.
         joint_ids = sorted(joint_ids)
@@ -108,7 +108,7 @@ class SingleArmPyBulletRobot(abc.ABC):
     def num_joints(self) -> int:
         """The number of joints in the robot."""
         return p.getNumJoints(self.robot_id,
-                              physicsClientId=self._physics_client_id)
+                              physicsClientId=self.physics_client_id)
 
     @cached_property
     def joint_names(self) -> List[str]:
@@ -116,7 +116,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         joint_names = [
             p.getJointInfo(
                 self.robot_id, i,
-                physicsClientId=self._physics_client_id)[1].decode("utf-8")
+                physicsClientId=self.physics_client_id)[1].decode("utf-8")
             for i in range(self.num_joints)
         ]
         return joint_names
@@ -169,7 +169,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         for i in self.arm_joints:
             info = p.getJointInfo(self.robot_id,
                                   i,
-                                  physicsClientId=self._physics_client_id)
+                                  physicsClientId=self.physics_client_id)
             lower_limit = info[8]
             upper_limit = info[9]
             # Per PyBullet documentation, values ignored if upper < lower.
@@ -226,7 +226,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.robot_id,
             self._base_pose.position,
             self._base_pose.quat_xyzw,
-            physicsClientId=self._physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
         # First, reset the joint values to initial joint state,
         # so that IK is consistent (less sensitive to initialization).
@@ -242,7 +242,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             p.resetJointState(self.robot_id,
                               finger_id,
                               rf,
-                              physicsClientId=self._physics_client_id)
+                              physicsClientId=self.physics_client_id)
 
     def get_state(self) -> Array:
         """Get the robot state vector based on the current PyBullet state.
@@ -251,13 +251,13 @@ class SingleArmPyBulletRobot(abc.ABC):
         """
         ee_link_state = p.getLinkState(self.robot_id,
                                        self.end_effector_id,
-                                       physicsClientId=self._physics_client_id)
+                                       physicsClientId=self.physics_client_id)
         rx, ry, rz = ee_link_state[4]
         # Note: we assume both left and right gripper have the same joint position
         rf = p.getJointState(
             self.robot_id,
             self.left_finger_id,
-            physicsClientId=self._physics_client_id,
+            physicsClientId=self.physics_client_id,
         )[0]
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
@@ -269,7 +269,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             for joint_info in p.getJointStates(
                 self.robot_id,
                 self.arm_joints,
-                physicsClientId=self._physics_client_id)
+                physicsClientId=self.physics_client_id)
         ]
         return joint_state
 
@@ -288,7 +288,7 @@ class SingleArmPyBulletRobot(abc.ABC):
                 joint_id,
                 targetValue=joint_val,
                 targetVelocity=0,
-                physicsClientId=self._physics_client_id,
+                physicsClientId=self.physics_client_id,
             )
 
     def set_motors(self, joints_state: JointsState) -> None:
@@ -302,7 +302,7 @@ class SingleArmPyBulletRobot(abc.ABC):
                 jointIndices=self.arm_joints,
                 controlMode=p.POSITION_CONTROL,
                 targetPositions=joints_state,
-                physicsClientId=self._physics_client_id,
+                physicsClientId=self.physics_client_id,
             )
         elif CFG.pybullet_control_mode == "reset":
             self.set_joints(joints_state)
@@ -327,7 +327,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             self.robot_id,
             self.end_effector_id,
             computeForwardKinematics=True,
-            physicsClientId=self._physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
         position = ee_link_state[4]
         return position
@@ -372,13 +372,14 @@ class SingleArmPyBulletRobot(abc.ABC):
         effector pose."""
         # Get tool link and target pose of end-effector in the world frame
         tool_link = get_link_from_name(self.robot_id, self.tool_link_name,
-                                       self._physics_client_id)
+                                       self.physics_client_id)
         world_from_target = Pose(end_effector_pose, self._ee_orientation)
 
         # Run IK Fast to get solutions
         ik_solutions = ikfast_closest_inverse_kinematics(
-            self.ikfast_info(),
-            self.robot_id,
+            self,
+            # self.ikfast_info(),
+            # self.robot_id,
             tool_link,
             world_from_target,
         )
@@ -426,6 +427,6 @@ class SingleArmPyBulletRobot(abc.ABC):
                 end_effector_pose,
                 self._ee_orientation,
                 self.arm_joints,
-                physics_client_id=self._physics_client_id,
+                physics_client_id=self.physics_client_id,
                 validate=validate,
             )
