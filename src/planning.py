@@ -116,6 +116,7 @@ def sesame_plan(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
                     max_skeletons_optimized):
+                import ipdb; ipdb.set_trace()
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
@@ -247,9 +248,10 @@ def _skeleton_generator(
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
+        for act in node.skeleton:
+            logging.info(f"{act.name} {act.objects}")
+        logging.info("")
+
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1

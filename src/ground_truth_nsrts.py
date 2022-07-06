@@ -2801,43 +2801,20 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                                                  [])
             parameters = [target_obj]
             option_vars = [target_obj]
-            preconditions = {reachable_nothing}
+            preconditions = set()
             add_effects = {
                 _get_lifted_atom("reachable", [target_obj])
             }
-            delete_effects = {reachable_nothing}
+            delete_effects = set()
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count_nav)}", parameters,
                 preconditions, add_effects, delete_effects,
-                reachable_predicates, option, option_vars,
+                reachable_predicates | set([reachable_nothing]), option, option_vars,
                 lambda s, g, r, o: navigate_to_param_sampler(
                     r,
                     [env.object_to_ig_object(o_i) for o_i in o],
                 ))
             nsrts.add(nsrt)
-
-            # Navigate to while something is reachable.
-            for origin_obj_type in sorted(env.types):
-                if agent_type in [origin_obj_type, target_obj_type]:
-                    continue
-
-                origin_obj = Variable("?origin", origin_obj_type)
-                origin_reachable = _get_lifted_atom("reachable",
-                                                    [origin_obj])
-                targ_reachable = _get_lifted_atom("reachable",
-                                                  [target_obj])
-                parameters = [origin_obj, target_obj]
-                option_vars = [target_obj]
-                preconditions = {origin_reachable}
-                add_effects = {targ_reachable}
-                delete_effects = {origin_reachable}
-                nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count_nav)}", parameters,
-                    preconditions, add_effects, delete_effects,
-                    reachable_predicates, option, option_vars,
-                    lambda s, g, r, o: navigate_to_param_sampler(
-                        r, [env.object_to_ig_object(o_i) for o_i in o]))
-                nsrts.add(nsrt)
 
         elif base_option_name == "Grasp":
             assert len(option_arg_type_names) == 1
@@ -2845,7 +2822,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
 
-            # Pick from ontop something
+            # Grasp from ontop something
             for surf_obj_type in sorted(env.types):
                 surf_obj = Variable("?surf", surf_obj_type)
                 parameters = [target_obj, surf_obj]
