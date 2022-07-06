@@ -2770,9 +2770,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     # all possible other types. These predicates will
     # be used as side predicates for navigateTo operators.
     reachable_predicates = set()
-    for reachable_pred_types in itertools.product([agent_type], env.types):
+    for reachable_pred_type in env.types:
         reachable_predicates.add(
-            _get_predicate("reachable", reachable_pred_types))
+            _get_predicate("reachable", [reachable_pred_type]))
 
     nsrts = set()
     op_name_count_nav = itertools.count()
@@ -2793,11 +2793,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # Navigate to from nothing reachable.
             reachable_nothing = _get_lifted_atom("reachable-nothing",
                                                  [agent_obj])
-            parameters = [agent_obj, target_obj]
+            parameters = [target_obj]
             option_vars = [target_obj]
             preconditions = {reachable_nothing}
             add_effects = {
-                _get_lifted_atom("reachable", [target_obj, agent_obj])
+                _get_lifted_atom("reachable", [target_obj])
             }
             delete_effects = {reachable_nothing}
             nsrt = NSRT(
@@ -2817,10 +2817,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
                 origin_obj = Variable("?origin", origin_obj_type)
                 origin_reachable = _get_lifted_atom("reachable",
-                                                    [origin_obj, agent_obj])
+                                                    [origin_obj])
                 targ_reachable = _get_lifted_atom("reachable",
-                                                  [target_obj, agent_obj])
-                parameters = [origin_obj, agent_obj, target_obj]
+                                                  [target_obj])
+                parameters = [origin_obj, target_obj]
                 option_vars = [target_obj]
                 preconditions = {origin_reachable}
                 add_effects = {targ_reachable}
@@ -2842,11 +2842,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # Pick from ontop something
             for surf_obj_type in sorted(env.types):
                 surf_obj = Variable("?surf", surf_obj_type)
-                parameters = [target_obj, agent_obj, surf_obj]
+                parameters = [target_obj, surf_obj]
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 targ_reachable = _get_lifted_atom("reachable",
-                                                  [target_obj, agent_obj])
+                                                  [target_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
                 preconditions = {handempty, targ_reachable, ontop}
@@ -2875,12 +2875,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # We need to place the object we're holding!
             for held_obj_types in sorted(env.types):
                 held_obj = Variable("?held", held_obj_types)
-                parameters = [held_obj, agent_obj, surf_obj]
+                parameters = [held_obj, surf_obj]
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
                 surf_reachable = _get_lifted_atom("reachable",
-                                                  [surf_obj, agent_obj])
+                                                  [surf_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_reachable}
                 add_effects = {ontop, handempty}
