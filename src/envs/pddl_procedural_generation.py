@@ -186,3 +186,26 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
 )"""
 
     return problem_str
+
+
+def create_forest_pddl_generator(min_size: int,
+                                 max_size: int) -> PDDLProblemGenerator:
+    """Create a generator for forest problems."""
+    return functools.partial(_generate_forest_problems, min_size, max_size)
+
+
+def _generate_forest_problems(min_size: int, max_size: int, num_problems: int,
+                              rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        height = rng.integers(min_size, max_size + 1)
+        width = rng.integers(min_size, max_size + 1)
+        problem = _generate_forest_problem(height, width, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_forest_problem(height: int, width: int,
+                             rng: np.random.Generator) -> str:
+    import ipdb
+    ipdb.set_trace()

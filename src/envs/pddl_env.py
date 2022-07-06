@@ -20,7 +20,8 @@ from pyperplan.pddl.pddl import Domain as PyperplanDomain
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, \
+    create_forest_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -407,11 +408,15 @@ class ProceduralTasksForestPDDLEnv(_BlocksPDDLEnv):
 
     @property
     def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
+        min_size = CFG.pddl_forest_procedural_train_min_size
+        max_size = CFG.pddl_forest_procedural_train_max_size
+        return create_forest_pddl_generator(min_size, max_size)
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
+        min_size = CFG.pddl_forest_procedural_test_min_size
+        max_size = CFG.pddl_forest_procedural_test_max_size
+        return create_forest_pddl_generator(min_size, max_size)
 
 
 ###############################################################################
