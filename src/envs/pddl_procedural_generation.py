@@ -188,13 +188,13 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
     return problem_str
 
 
-
-#new code for spanner 
 def create_spanner_pddl_generator(min_num_nuts: int
         
         
                                  ) -> PDDLProblemGenerator:
     """Create a generator for  problems."""
+    import ipdb; ipdb.set_trace()
     
     
-def generate_spanner_problems(): return
+def _generate_spanner_problem():
+    import ipdb; ipdb.set_trace()
