@@ -2331,11 +2331,11 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         CFG.env, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
         JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
-        Twisting = \
+        Twisting, NotSameCup = \
         _get_predicates_by_names(CFG.env, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
-            "PressingButton", "Twisting"])
+            "PressingButton", "Twisting", "NotSameCup"])
     MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
         Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
             "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
@@ -2530,6 +2530,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(JugFilled, [jug]),
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
+        LiftedAtom(NotSameCup, [cup, other_cup]),
     }
     add_effects = {
         LiftedAtom(JugAboveCup, [jug, cup]),

@@ -125,12 +125,16 @@ class _PDDLEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state, _PDDLEnvState)
+        assert self.action_space.contains(action.arr)
         ordered_objs = list(state)
         # Convert the state into a Set[GroundAtom].
         ground_atoms = state.get_ground_atoms()
         # Convert the action into a _GroundSTRIPSOperator.
         ground_op = _action_to_ground_strips_op(action, ordered_objs,
                                                 self._ordered_strips_operators)
+        # If we couldn't turn this action into a ground operator, noop.
+        if ground_op is None:
+            return state.copy()
         # If the operator is not applicable in this state, noop.
         if not ground_op.preconditions.issubset(ground_atoms):
             return state.copy()
@@ -389,17 +393,24 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
 
 
 def _action_to_ground_strips_op(
-        action: Action, ordered_objects: List[Object],
-        ordered_operators: List[STRIPSOperator]) -> _GroundSTRIPSOperator:
+    action: Action, ordered_objects: List[Object],
+    ordered_operators: List[STRIPSOperator]
+) -> Optional[_GroundSTRIPSOperator]:
     action_arr = action.arr
     op_idx = int(action_arr[0])
     op = ordered_operators[op_idx]
+    var_types = [var.type for var in op.parameters]
     op_arity = len(op.parameters)
     num_objs = len(ordered_objects)
     obj_idxs = [
         min(int(i), num_objs - 1) for i in action_arr[1:(op_arity + 1)]
     ]
     objs = tuple(ordered_objects[i] for i in obj_idxs)
+    obj_types = [obj.type for obj in objs]
+    # If the types of the selected objects don't match the types of the
+    # operator parameters, return None.
+    if var_types != obj_types:
+        return None
     return op.ground(objs)
 
 

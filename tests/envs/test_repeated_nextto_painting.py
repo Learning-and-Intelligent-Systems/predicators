@@ -41,8 +41,7 @@ def test_repeated_nextto_painting():
 
 
 def test_repeated_nextto_painting_failure_cases():
-    """Tests for the cases where simulate() is a no-op or
-    EnvironmentFailure."""
+    """Tests for the cases where simulate() is a noop or EnvironmentFailure."""
     utils.reset_config({
         "env": "repeated_nextto_painting",
         "approach": "nsrt_learning",

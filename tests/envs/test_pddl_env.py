@@ -10,6 +10,7 @@ from predicators.src import utils
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     _FixedTasksPDDLEnv, _PDDLEnv
+from predicators.src.structs import Action
 
 
 @pytest.fixture(scope="module", name="domain_str")
@@ -187,6 +188,12 @@ def test_pddlenv(domain_str, problem_strs):
     assert next_state.simulator_state == {
         isMonkfish([fish1]), ate([fish1, ban2])
     }
+    # Test that when the object types don't match the operator
+    # parameters, a noop occurs.
+    action = Action(
+        np.zeros(env.action_space.shape, dtype=env.action_space.dtype))
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)
 
 
 def test_fixed_tasks_pddlenv(domain_str, problem_strs):

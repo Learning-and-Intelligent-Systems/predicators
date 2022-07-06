@@ -1225,7 +1225,8 @@ class PartialNSRTAndDatastore:
 class InteractionRequest:
     """A request for interacting with a training task during online learning.
     Contains the index for that training task, an acting policy, a query
-    policy, and a termination function.
+    policy, and a termination function. The acting policy may also terminate
+    the interaction by raising `utils.RequestActPolicyFailure`.
 
     Note: the act_policy will not be called on the state where the
     termination_function returns True, but the query_policy will be.
@@ -1519,3 +1520,4 @@ PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
 # Used in ml_models.py. Either the maximum number of training iterations for
 # a model, or a function that produces this number given the amount of data.
 MaxTrainIters = Union[int, Callable[[int], int]]
+ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]

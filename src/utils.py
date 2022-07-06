@@ -1018,6 +1018,11 @@ class OptionExecutionFailure(ExceptionWithInfo):
     """An exception raised by an option policy in the course of execution."""
 
 
+class RequestActPolicyFailure(ExceptionWithInfo):
+    """An exception raised by an acting policy in a request when it fails to
+    produce an action, which terminates the interaction."""
+
+
 class HumanDemonstrationFailure(ExceptionWithInfo):
     """An exception raised when CFG.demonstrator == "human" and the human gives
     a bad input."""
@@ -1051,6 +1056,40 @@ def option_plan_to_policy(
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
+
+    return _policy
+
+
+def create_random_option_policy(
+        options: Collection[ParameterizedOption], rng: np.random.Generator,
+        fallback_policy: Callable[[State],
+                                  Action]) -> Callable[[State], Action]:
+    """Create a policy that executes random initiable options.
+
+    If no applicable option can be found, query the fallback policy.
+    """
+    sorted_options = sorted(options, key=lambda o: o.name)
+    cur_option = DummyOption
+
+    def _policy(state: State) -> Action:
+        nonlocal cur_option
+        if cur_option is DummyOption or cur_option.terminal(state):
+            cur_option = DummyOption
+            for _ in range(CFG.random_options_max_tries):
+                param_opt = sorted_options[rng.choice(len(sorted_options))]
+                objs = get_random_object_combination(list(state),
+                                                     param_opt.types, rng)
+                if objs is None:
+                    continue
+                params = param_opt.params_space.sample()
+                opt = param_opt.ground(objs, params)
+                if opt.initiable(state):
+                    cur_option = opt
+                    break
+            else:
+                return fallback_policy(state)
+        act = cur_option.policy(state)
+        return act
 
     return _policy
 

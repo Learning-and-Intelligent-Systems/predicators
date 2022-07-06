@@ -346,7 +346,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # Check if we have exceeded the horizon.
                 if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
-                # Check if the option was effectively a no-op.
+                # Check if the option was effectively a noop.
                 elif num_actions == 0:
                     can_continue_on = False
                 elif CFG.sesame_check_expected_atoms:
