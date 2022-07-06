@@ -266,6 +266,8 @@ class BehaviorEnv(BaseEnv):
             for type_combo in itertools.product(types_lst, repeat=arity):
                 # We only care about reachable when the agent is one of the
                 # types.
+                if name == "reachable" and type_combo[0].name == "agent":
+                    continue
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
