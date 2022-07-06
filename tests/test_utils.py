@@ -588,6 +588,14 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
+    class _CountingMonitor(utils.Monitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, state, action):
+            self.num_observations += 1
+
     with pytest.raises(ValueError) as e:
         utils.run_policy(_policy,
                          env,
@@ -596,14 +604,17 @@ def test_run_policy():
                          task.goal_holds,
                          max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj4, _ = utils.run_policy(_policy,
                                 env,
                                 "test",
                                 0,
                                 task.goal_holds,
                                 max_num_steps=5,
-                                exceptions_to_break_on={ValueError})
+                                exceptions_to_break_on={ValueError},
+                                monitor=monitor)
     assert len(traj4.states) == 1
+    assert monitor.num_observations == 1
 
     class _MockEnv:
 
@@ -621,6 +632,7 @@ def test_run_policy():
 
     mock_env = _MockEnv()
     policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj5, _ = utils.run_policy(
         policy,
         mock_env,
@@ -628,9 +640,11 @@ def test_run_policy():
         0,
         lambda s: False,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj5.states) == 1
     assert len(traj5.actions) == 0
+    assert monitor.num_observations == 1
 
     # Test policy call time.
     def _policy(_):
@@ -646,13 +660,6 @@ def test_run_policy():
     assert metrics["policy_call_time"] >= 3 * 0.1
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
-
-        def __init__(self):
-            self.num_observations = 0
-
-        def observe(self, state, action):
-            self.num_observations += 1
 
     def _policy(_):
         raise ValueError("mock error")
@@ -673,6 +680,7 @@ def test_run_policy():
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
+    # TODO fix
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -766,27 +774,33 @@ def test_run_policy_with_simulator():
                                         _terminal,
                                         max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
                                            _terminal,
                                            max_num_steps=5,
-                                           exceptions_to_break_on={ValueError})
+                                           exceptions_to_break_on={ValueError},
+                                           monitor=monitor)
     assert len(traj.states) == 1
+    assert monitor.num_observations == 1
 
     def _simulator(state, action):
         raise utils.EnvironmentFailure("mock failure")
 
     _policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(
         _policy,
         _simulator,
         state,
         _terminal,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
+    assert monitor.num_observations == 1
 
 
 def test_option_plan_to_policy():

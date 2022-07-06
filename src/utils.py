@@ -916,6 +916,7 @@ def run_policy(
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
+            exception_raised_in_step = False
             try:
                 start_time = time.time()
                 act = policy(state)
@@ -932,13 +933,15 @@ def run_policy(
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
-    if monitor is not None:
+    if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj, metrics
@@ -979,6 +982,7 @@ def run_policy_with_simulator(
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
+            exception_raised_in_step = False
             try:
                 act = policy(state)
                 if monitor is not None:
@@ -990,13 +994,15 @@ def run_policy_with_simulator(
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
-    if monitor is not None:
+    if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
