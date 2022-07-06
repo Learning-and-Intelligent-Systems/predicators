@@ -61,7 +61,7 @@ def test_pg3_approach():
         name="Deliver",
         parameters=[loc, paper],
         pos_state_preconditions=set(deliver_nsrt.preconditions),
-        neg_state_preconditions={satisfied([loc])},  # different
+        neg_state_preconditions={satisfied([loc])},
         goal_preconditions=set(),
         nsrt=deliver_nsrt)
 
@@ -73,7 +73,7 @@ def test_pg3_approach():
         name="Move",
         parameters=[from_loc, to_loc],
         pos_state_preconditions=set(move_nsrt.preconditions) | \
-                                {wantspaper([to_loc])},  # different
+                                {wantspaper([to_loc])},
         neg_state_preconditions=set(),
         goal_preconditions=set(),
         nsrt=move_nsrt
