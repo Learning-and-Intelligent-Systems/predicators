@@ -680,7 +680,6 @@ def test_run_policy():
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
-    # TODO fix
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")

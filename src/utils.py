@@ -913,6 +913,7 @@ def run_policy(
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
+    exception_raised_in_step = False
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
@@ -979,6 +980,7 @@ def run_policy_with_simulator(
     state = init_state
     states = [state]
     actions: List[Action] = []
+    exception_raised_in_step = False
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
