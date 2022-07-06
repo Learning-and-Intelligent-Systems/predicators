@@ -7,8 +7,9 @@ from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
-import pybullet as p
+
 import numpy as np
+import pybullet as p
 from gym.spaces import Box
 from numpy.typing import NDArray
 from pybullet_utils.transformations import euler_from_quaternion, \

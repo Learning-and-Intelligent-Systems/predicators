@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import List, Optional, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
@@ -113,17 +113,17 @@ class SingleArmPyBulletRobot(abc.ABC):
     @cached_property
     def joint_infos(self) -> List[Dict]:
         """Get the joint info for each joint of the robot."""
-        return [p.getJointInfo(self.robot_id, i,
-                               physicsClientId=self.physics_client_id)
-                for i in range(self.num_joints)]
+        return [
+            p.getJointInfo(self.robot_id,
+                           i,
+                           physicsClientId=self.physics_client_id)
+            for i in range(self.num_joints)
+        ]
 
     @cached_property
     def joint_names(self) -> List[str]:
         """Get the names of the joints in the robot."""
-        joint_names = [
-            info[1].decode("utf-8")
-            for info in self.joint_infos
-        ]
+        joint_names = [info[1].decode("utf-8") for info in self.joint_infos]
         return joint_names
 
     def joint_from_name(self, joint_name: str) -> int:
@@ -270,9 +270,10 @@ class SingleArmPyBulletRobot(abc.ABC):
         # pose_x, pose_y, pose_z, fingers
         return np.array([rx, ry, rz, rf], dtype=np.float32)
 
-    def get_joints(self, joint_idxs: Optional[List[int]] = None) -> JointsState:
-        """
-        Get the joints state from the current PyBullet state.
+    def get_joints(self,
+                   joint_idxs: Optional[List[int]] = None) -> JointsState:
+        """Get the joints state from the current PyBullet state.
+
         If joint_idxs is None, then return the state for all joints.
         Otherwise, return the state for the specified joint indices.
         """
@@ -282,7 +283,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             joint_info[0]  # extract joint position only
             for joint_info in p.getJointStates(
                 self.robot_id,
-               joint_idxs,
+                joint_idxs,
                 physicsClientId=self.physics_client_id)
         ]
         return joint_state
