@@ -399,7 +399,7 @@ class _ForestPDDLEnv(_PDDLEnv):
         return domain_str
 
 
-class ProceduralTasksForestPDDLEnv(_BlocksPDDLEnv):
+class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
     """The forest domain from the PG3 paper with procedural generation."""
 
     @classmethod
