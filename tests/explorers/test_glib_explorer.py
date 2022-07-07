@@ -77,6 +77,7 @@ def test_glib_explorer_failure_cases():
 
     dummy_explorer = _DummyExplorer(env.predicates, env.options, env.types,
                                     env.action_space, train_tasks)
+    assert dummy_explorer.get_name() == "dummy"
 
     # Test case where there are no possible goals.
     explorer = create_explorer("glib",
