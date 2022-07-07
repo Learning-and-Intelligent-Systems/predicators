@@ -11,6 +11,7 @@ from predicators.src.explorers.bilevel_planning_explorer import \
 from predicators.src.explorers.random_options_explorer import \
     RandomOptionsExplorer
 from predicators.src.option_model import _OptionModelBase
+from predicators.src.planning import PlanningFailure, PlanningTimeout
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, ExplorationStrategy, GroundAtom, \
     ParameterizedOption, Predicate, Task, Type
@@ -80,7 +81,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
                 strategy = self._solve(glib_task, timeout=timeout)
                 logging.info(f"GLIB found a plan with goal {glib_task.goal}.")
                 return strategy
-            except utils.RequestActPolicyFailure:
+            except (PlanningFailure, PlanningTimeout):
                 continue
         # Fall back to a random exploration strategy if no solvable task
         # can be found.
