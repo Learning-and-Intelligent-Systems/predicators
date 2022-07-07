@@ -22,7 +22,8 @@ from pyperplan.pddl.pddl import Type as PyperplanType
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator, create_spanner_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, \
+    create_spanner_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -409,14 +410,27 @@ class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
 
     @property
     def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
-        return create_spanner_pddl_generator()
+        min_nuts = CFG.pddl_spanner_procedural_train_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_train_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_train_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_train_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_train_min_locs
+        max_locs = CFG.pddl_spanner_procedural_train_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
-        import ipdb; ipdb.set_trace()
-        return create_spanner_pddl_generator()
-
+        min_nuts = CFG.pddl_spanner_procedural_test_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_test_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_test_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_test_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_test_min_locs
+        max_locs = CFG.pddl_spanner_procedural_test_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
 
 
 ###############################################################################

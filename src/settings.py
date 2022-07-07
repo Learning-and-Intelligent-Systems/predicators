@@ -166,6 +166,20 @@ class GlobalSettings:
     pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
     pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
 
+    # pddl spanner env parameters
+    pddl_spanner_procedural_train_min_nuts = 3
+    pddl_spanner_procedural_train_max_nuts = 5
+    pddl_spanner_procedural_train_min_extra_spanners = 0
+    pddl_spanner_procedural_train_max_extra_spanners = 2
+    pddl_spanner_procedural_train_min_locs = 3
+    pddl_spanner_procedural_train_max_locs = 5
+    pddl_spanner_procedural_test_min_nuts = 10
+    pddl_spanner_procedural_test_max_nuts = 20
+    pddl_spanner_procedural_test_min_extra_spanners = 0
+    pddl_spanner_procedural_test_max_extra_spanners = 10
+    pddl_spanner_procedural_test_min_locs = 20
+    pddl_spanner_procedural_test_max_locs = 30
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]

@@ -188,13 +188,76 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
     return problem_str
 
 
-def create_spanner_pddl_generator(min_num_nuts: int
-        
-        
-                                 ) -> PDDLProblemGenerator:
-    """Create a generator for  problems."""
-    import ipdb; ipdb.set_trace()
-    
-    
-def _generate_spanner_problem():
-    import ipdb; ipdb.set_trace()
+def create_spanner_pddl_generator(min_nuts: int, max_nuts: int,
+                                  min_extra_span: int, max_extra_span: int,
+                                  min_locs: int,
+                                  max_locs: int) -> PDDLProblemGenerator:
+    """Create a generator for spanner problems."""
+    return functools.partial(_generate_spanner_problems, min_nuts, max_nuts,
+                             min_extra_span, max_extra_span, min_locs,
+                             max_locs)
+
+
+def _generate_spanner_problems(min_nuts: int, max_nuts: int,
+                               min_extra_span: int, max_extra_span: int,
+                               min_locs: int, max_locs: int, num_problems: int,
+                               rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_nuts = rng.integers(min_nuts, max_nuts + 1)
+        num_extra_span = rng.integers(min_extra_span, max_extra_span + 1)
+        num_spanners = num_nuts + num_extra_span
+        num_locs = rng.integers(min_locs, max_locs + 1)
+        problem = _generate_spanner_problem(num_nuts, num_spanners, num_locs,
+                                            rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_spanner_problem(num_nuts: int, num_spanners: int, num_locs: int,
+                              rng: np.random.Generator) -> str:
+    # Create objects.
+    man = "bob"
+    spanners = [f"spanner{i}" for i in range(1, num_spanners + 1)]
+    nuts = [f"nut{i}" for i in range(1, num_nuts + 1)]
+    locs = [f"location{i}" for i in range(1, num_locs + 1)]
+    shed = "shed"
+    gate = "gate"
+
+    # Create the initial state.
+    init_strs = {f"(at {man} {shed})"}
+    for spanner in spanners:
+        loc = rng.choice(locs)
+        init_strs.add(f"(at {spanner} {loc})")
+        init_strs.add(f"(useable {spanner})")
+    for nut in nuts:
+        init_strs.add(f"(at {nut} {gate})")
+        init_strs.add(f"(loose {nut})")
+    init_strs.add(f"(link shed {locs[0]})")
+    for i in range(num_locs - 1):
+        init_strs.add(f"(link {locs[i]} {locs[i+1]})")
+    init_strs.add(f"(link {locs[-1]} gate)")
+
+    # Create the goal.
+    goal_strs = {f"(tightened {nut})" for nut in nuts}
+
+    # Finalize PDDL problem str.
+    man_str = "\n        ".join([man])
+    spanner_str = "\n        ".join(spanners)
+    nuts_str = "\n        ".join(nuts)
+    locs_str = "\n        ".join([shed, gate] + locs)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem spanner-procgen)
+    (:domain spanner)
+    (:objects
+        {man_str} - man
+        {spanner_str} - spanner
+        {nuts_str} - nut
+        {locs_str} - location
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
