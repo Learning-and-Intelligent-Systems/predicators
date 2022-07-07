@@ -218,15 +218,15 @@ def _generate_forest_problems(min_size: int, max_size: int, num_problems: int,
 def _generate_random_forest_grid(grid_height: int, grid_width: int,
                                  rng: np.random.Generator) -> List[List[int]]:
 
-    I_row = rng.integers(0, grid_height + 1)
-    I_col = rng.integers(0, grid_width + 1)
+    I_row = rng.integers(0, grid_height)
+    I_col = rng.integers(0, grid_width)
 
-    G_row = rng.integers(0, grid_height + 1)
-    G_col = rng.integers(0, grid_width + 1)
+    G_row = rng.integers(0, grid_height)
+    G_col = rng.integers(0, grid_width)
 
     while (G_row, G_col) == (I_row, I_col):
-        G_row = rng.integers(0, grid_height + 1)
-        G_col = rng.integers(0, grid_width + 1)
+        G_row = rng.integers(0, grid_height)
+        G_col = rng.integers(0, grid_width)
 
     random_path = _random_grid_walk((I_row, I_col), (G_row, G_col), set(),
                                     grid_height, grid_width, None, rng)

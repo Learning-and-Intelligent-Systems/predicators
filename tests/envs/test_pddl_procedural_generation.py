@@ -3,7 +3,8 @@
 import numpy as np
 
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, \
+    create_forest_pddl_generator
 
 
 def _split_pddl_problem_str(problem_str):
@@ -99,3 +100,22 @@ def test_create_delivery_pddl_generator():
         assert init_str.count("at ") == 1
         # The goal should have exactly one satisfied.
         assert goal_str.count("satisfied ") == 1
+
+
+def test_create_forest_pddl_generator():
+    """Tests for create_forest_pddl_generator()."""
+    gen = create_forest_pddl_generator(min_size=5, max_size=5)
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+        # There should be exactly 25 locations.
+        for r in range(5):
+            for c in range(5):
+                assert f"r{r}_c{c}" in obj_str
+        assert "r5_5" not in obj_str
+        assert " - loc" in obj_str
+        # One at in init.
+        assert init_str.count("at ") == 1
+        # The goal should have exactly one at.
+        assert goal_str.count("at ") == 1
