@@ -2811,8 +2811,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count_nav)}", parameters,
                 preconditions, add_effects, delete_effects,
-                reachable_predicates, option,
-                option_vars, lambda s, g, r, o: navigate_to_param_sampler(
+                reachable_predicates, option, option_vars,
+                lambda s, g, r, o: navigate_to_param_sampler(
                     r,
                     [env.object_to_ig_object(o_i) for o_i in o],
                 ))
