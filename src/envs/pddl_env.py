@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import abc
 import functools
+from graphlib import TopologicalSorter
 from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
     Tuple, cast
 
@@ -16,6 +17,7 @@ from gym.spaces import Box
 from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
     parse_domain_def, parse_lisp_iterator, parse_problem_def
 from pyperplan.pddl.pddl import Domain as PyperplanDomain
+from pyperplan.pddl.pddl import Type as PyperplanType
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
@@ -406,10 +408,10 @@ def _action_to_ground_strips_op(
         min(int(i), num_objs - 1) for i in action_arr[1:(op_arity + 1)]
     ]
     objs = tuple(ordered_objects[i] for i in obj_idxs)
-    obj_types = [obj.type for obj in objs]
     # If the types of the selected objects don't match the types of the
     # operator parameters, return None.
-    if var_types != obj_types:
+    assert len(objs) == len(var_types)
+    if not all(o.is_instance(t) for o, t in zip(objs, var_types)):
         return None
     return op.ground(objs)
 
@@ -465,10 +467,22 @@ def _parse_pddl_domain(
     pyperplan_predicates = pyperplan_domain.predicates
     pyperplan_operators = pyperplan_domain.actions
     # Convert the pyperplan domain into our structs.
-    pyperplan_type_to_type = {
-        pyperplan_types[t]: Type(t, [])
-        for t in pyperplan_types
+    # Process the type hierarchy. Sort the types such that if X inherits from Y
+    # then X is after Y in the list (topological sort).
+    type_graph = {
+        t: {t.parent}
+        for t in pyperplan_types.values() if t.parent is not None
     }
+    sorted_types = list(TopologicalSorter(type_graph).static_order())
+    pyperplan_type_to_type: Dict[PyperplanType, Type] = {}
+    for pyper_type in sorted_types:
+        if pyper_type.parent is None:
+            assert pyper_type.name == "object"
+            parent = None
+        else:
+            parent = pyperplan_type_to_type[pyper_type.parent]
+        new_type = Type(pyper_type.name, [], parent)
+        pyperplan_type_to_type[pyper_type] = new_type
     # Convert the predicates.
     predicate_name_to_predicate = {}
     for pyper_pred in pyperplan_predicates.values():
