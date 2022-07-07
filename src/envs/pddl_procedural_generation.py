@@ -187,6 +187,7 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
 
     return problem_str
 
+I, G, W, P, X, H = range(6)
 
 def create_forest_pddl_generator(min_size: int,
                                  max_size: int) -> PDDLProblemGenerator:
@@ -206,7 +207,6 @@ def _generate_forest_problems(min_size: int, max_size: int, num_problems: int,
 
 
 def _generate_random_forest_grid(grid_height, grid_width):
-    I, G, W, P, X, H = range(6)
     
     I_row = np.random.randint(0, grid_height)
     I_col = np.random.randint(0, grid_width)
@@ -369,10 +369,115 @@ def grid_A_star(grid_weights, Irow, Icol, Grow, Gcol):
     return path
 
 
-
 def _generate_forest_problem(height: int, width: int,
                              rng: np.random.Generator) -> str:
     grid = np.array(_generate_random_forest_grid(height, width))
 
+    init_strs = set()
+    goal_strs = set()
+
+    #create locations
+    locs = np.empty(grid.shape, dtype = object)
+    init_loc = I
+    possible_targets = [l for l in locs if l != [init_loc, W, H] ]
+    target_locs = rng.choice(possible_targets, replace = False)
+    
+    for loc in locs:
+        if loc == init_loc:
+            init_strs.add(f"(at {loc})")
+            init_strs.add(f"(onTrail {loc})")
+
+            #what should I say for target locations
+            #if I use it at all?
+            #target could be path or dirt. Unless it can only 
+            #be path. But if both, how can I do add target with 
+            #both because a location can't be path and dirt
+            
+            #do i need to add a create rocks part?
+            
+    def get_neighbors(r, c):
+        for dr, dc in [(-1, 0), (1,0), (0,-1), (0,1)]:
+            nr = r +dr
+            nc = c +dc
+            if 0 <= nr < grid.shaoe[0] and 0 <= nc < grid.shape[1]:
+                yield (nr, nc) 
+    
+    for r in range(grid.shape[0]):
+        for c in range(grid.shape[1]):
+            obj = locs[r, c]
+            for (nr, nc) in get_neighbors(r,c):
+                nobj = locs[nr, nc]
+                init_loc.add(f"(adjacent {loc})")
+                
+    #Add onTrail
+    #onTrail = init_strs.add(f"(onTrail {loc})")     ###should this be here at all? on trail needs to be an initial condition, but 
+                                                       #maybe this will account for when on trail throughout problem
+                                                       #how does on trail differ from getting path? code uses on trail in get path
+                                                       #but why is it using initial state requirement? Shouldn't path be doing 
+                                                       #target location or something?
+    
+    
+    #get path
+    path = []
+    r, c =np.argwhere(grid == I)[0]
+    while True:
+        path.append((r, c))
+        if grid[r,c] ==G:
+            break
+        for (nr, nc) in get_neighbors(r,c):
+            if (nr,nc) in path:
+                continue
+            if grid[nr, nc] in [P, G, H]:
+                r, c = nr, nc
+                break
+            else:
+                raise Exception("should not happen")
+            
+        for (r, c), (nr, nc) in zip(path[:-1], path[1:]):
+            obj = locs[r, c]
+            nobj = locs[nr, nc]
+            init_strs.add(f"(onTrail {loc})")
+            
+    #Goal
+    goal_rcs = np.argwhere(grid == G)
+    assert len(goal_rcs) == 1
+    goal_r, goal_c = goal_rcs[0]
+    goal_obj = locs[goal_r, goal_c]
+    
+    
+    #goal_strs = f"at {goal location} syntax 
+    
+    #at this point i completely don't know what to do
+    #goal = LiteralConjunction([at(goal_obj)])
+    
+    #file_path = os.path.join)(problem_dir, problem_outfile)
+    
+    #PDDLProblemParser.create_pddl_file(
+     #   filepath,
+      #  objects = objects,
+       # initial_state - initial_state,
+        #problem_name = "hiking",
+        #domain_name = domain.domain_name,
+        #goal = goal,
+        #fast_downward_order = True,
+    #)
+    
+
     import ipdb
     ipdb.set_trace()
+    
+    
+    # Finalize PDDL problem str.
+    locs_str = "\n        ".join(locs)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem forest-procgen)
+    (:domain forest)
+    (:objects
+        {locs_str} - loc
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
