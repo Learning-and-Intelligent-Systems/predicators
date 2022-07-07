@@ -218,9 +218,9 @@ def _generate_spanner_problem(num_nuts: int, num_spanners: int, num_locs: int,
                               rng: np.random.Generator) -> str:
     # Create objects.
     man = "bob"
-    spanners = [f"spanner{i}" for i in range(1, num_spanners + 1)]
-    nuts = [f"nut{i}" for i in range(1, num_nuts + 1)]
-    locs = [f"location{i}" for i in range(1, num_locs + 1)]
+    spanners = [f"spanner{i}" for i in range(num_spanners)]
+    nuts = [f"nut{i}" for i in range(num_nuts)]
+    locs = [f"location{i}" for i in range(num_locs)]
     shed = "shed"
     gate = "gate"
 
