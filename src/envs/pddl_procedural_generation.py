@@ -221,12 +221,11 @@ def _generate_random_forest_grid(grid_height: int, grid_width: int,
     I_row = rng.integers(0, grid_height)
     I_col = rng.integers(0, grid_width)
 
-    G_row = rng.integers(0, grid_height)
-    G_col = rng.integers(0, grid_width)
-
-    while (G_row, G_col) == (I_row, I_col):
+    while True:
         G_row = rng.integers(0, grid_height)
         G_col = rng.integers(0, grid_width)
+        if (G_row, G_col) != (I_row, I_col):
+            break
 
     random_path = _random_grid_walk((I_row, I_col), (G_row, G_col), set(),
                                     grid_height, grid_width, None, rng)
@@ -422,7 +421,7 @@ def _generate_forest_problem(height: int, width: int,
             if grid[nr, nc] in [FOREST_P, FOREST_G, FOREST_H]:
                 r, c = nr, nc
                 break
-        else:
+        else:  # pragma: no cover
             raise Exception("Should not happen")
 
     for (r, c), (nr, nc) in zip(trail_path[:-1], trail_path[1:]):
