@@ -1826,6 +1826,8 @@ def create_ground_atom_dataset(
             ground_atom_seq = ground_atom_dataset_trjectories[i]
             ground_atom_dataset.append((traj, [set(atoms) for atoms in ground_atom_seq]))
         
+        import ipdb; ipdb.set_trace()
+
         return ground_atom_dataset
 
     ground_atom_dataset = []

@@ -2853,6 +2853,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             surf_obj_type_name = option_arg_type_names[0]
             surf_obj_type = type_name_to_type[surf_obj_type_name]
             surf_obj = Variable("?surf", surf_obj_type)
+            if surf_obj.type.name == "agent":
+                continue
 
             # We need to place the object we're holding!
             for held_obj_types in sorted(env.types):
@@ -2863,9 +2865,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 held_holding = _get_lifted_atom("holding", [held_obj])
                 surf_reachable = _get_lifted_atom("reachable",
                                                   [surf_obj])
+                held_reachable = _get_lifted_atom("reachable",
+                                                  [held_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_reachable}
-                add_effects = {ontop, handempty}
+                add_effects = {ontop, handempty, held_reachable}
                 delete_effects = {held_holding}
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_place)}",

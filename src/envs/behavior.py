@@ -187,6 +187,7 @@ class BehaviorEnv(BaseEnv):
                 self.set_igibson_behavior_env(task_instance_id=self.task_num,
                                               seed=curr_env_seed)
             self.igibson_behavior_env.reset()
+            # import ipdb; ipdb.set_trace()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
                         f"{CFG.behavior_task_name}__{self.task_num}",

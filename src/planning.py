@@ -248,9 +248,9 @@ def _skeleton_generator(
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        for act in node.skeleton:
-            logging.info(f"{act.name} {act.objects}")
-        logging.info("")
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
 
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
@@ -271,6 +271,10 @@ def _skeleton_generator(
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
+                
+                # if "Place" in nsrt.name:
+                #     import ipdb; ipdb.set_trace()
+                
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
                     break
