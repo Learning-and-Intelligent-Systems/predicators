@@ -2770,9 +2770,6 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
 
-    agent_type = type_name_to_type["agent"]
-    agent_obj = Variable("?agent", agent_type)
-
     # We start by creating reachable predicates for the agent and
     # all possible other types. These predicates will
     # be used as side predicates for navigateTo operators.
@@ -2805,16 +2802,16 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 continue
 
             # Navigate to from nothing reachable.
-            reachable_nothing = _get_lifted_atom("reachable-nothing", [])
             parameters = [target_obj]
             option_vars = [target_obj]
-            preconditions = set()
+            preconditions: Set[LiftedAtom] = set()
             add_effects = {_get_lifted_atom("reachable", [target_obj])}
-            delete_effects = set()
+            reachable_nothing = _get_lifted_atom("reachable-nothing", [])
+            delete_effects = {reachable_nothing}
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count_nav)}", parameters,
                 preconditions, add_effects, delete_effects,
-                reachable_predicates | set([reachable_nothing]), option,
+                reachable_predicates, option,
                 option_vars, lambda s, g, r, o: navigate_to_param_sampler(
                     r,
                     [env.object_to_ig_object(o_i) for o_i in o],
@@ -2870,6 +2867,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
                 surf_reachable = _get_lifted_atom("reachable", [surf_obj])
+                held_reachable = _get_lifted_atom("reachable", [held_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_reachable}
                 add_effects = {ontop, handempty, held_reachable}
