@@ -1,11 +1,13 @@
 """Procedurally generates PDDL problem strings."""
 
 import functools
-from typing import Collection, List, Optional, Set
+from typing import Collection, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
 from predicators.src.structs import PDDLProblemGenerator
+
+################################### Blocks ####################################
 
 
 def create_blocks_pddl_generator(
@@ -110,6 +112,9 @@ def _blocks_piles_to_strs(
     return all_strs
 
 
+################################## Delivery ###################################
+
+
 def create_delivery_pddl_generator(
         min_num_locs: int, max_num_locs: int, min_num_want_locs: int,
         max_num_want_locs: int, min_num_extra_newspapers: int,
@@ -187,9 +192,11 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
 
     return problem_str
 
-I, G, W, P, X, H = range(6)
 
-# TODO purge numpy random
+################################### Forest ####################################
+
+FOREST_I, FOREST_G, FOREST_W, FOREST_P, FOREST_X, FOREST_H = range(6)
+
 
 def create_forest_pddl_generator(min_size: int,
                                  max_size: int) -> PDDLProblemGenerator:
@@ -208,92 +215,112 @@ def _generate_forest_problems(min_size: int, max_size: int, num_problems: int,
     return problems
 
 
-def _generate_random_forest_grid(grid_height, grid_width):
-    
-    I_row = np.random.randint(0, grid_height)
-    I_col = np.random.randint(0, grid_width)
+def _generate_random_forest_grid(grid_height: int, grid_width: int,
+                                 rng: np.random.Generator) -> List[List[int]]:
 
-    G_row = np.random.randint(0, grid_height)
-    G_col = np.random.randint(0, grid_width)
+    I_row = rng.integers(0, grid_height + 1)
+    I_col = rng.integers(0, grid_width + 1)
+
+    G_row = rng.integers(0, grid_height + 1)
+    G_col = rng.integers(0, grid_width + 1)
+
     while (G_row, G_col) == (I_row, I_col):
-        G_row = np.random.randint(0, grid_height)
-        G_col = np.random.randint(0, grid_width)
+        G_row = rng.integers(0, grid_height + 1)
+        G_col = rng.integers(0, grid_width + 1)
 
-    random_path =  random_grid_walk((I_row, I_col), (G_row, G_col), set(), grid_height, grid_width, None)
+    random_path = _random_grid_walk((I_row, I_col), (G_row, G_col), set(),
+                                    grid_height, grid_width, None, rng)
     assert random_path
 
-    remaining_coords = {(r, c) for r in range(grid_height) for c in range(grid_width)} - set(random_path)
+    remaining_coords = {(r, c)
+                        for r in range(grid_height)
+                        for c in range(grid_width)} - set(random_path)
 
-    grid = [[None for c in range(grid_width)] for r in range(grid_height)]
+    grid = [[-1 for c in range(grid_width)] for r in range(grid_height)]
 
     for non_path_coord in remaining_coords:
-        loc_prob = np.random.uniform()
+        loc_prob = rng.uniform()
         if loc_prob <= 0.5:
-            grid[non_path_coord[0]][non_path_coord[1]] = X
+            grid[non_path_coord[0]][non_path_coord[1]] = FOREST_X
         else:
-            grid[non_path_coord[0]][non_path_coord[1]] = W
+            grid[non_path_coord[0]][non_path_coord[1]] = FOREST_W
 
     last_was_hill = False
     for i, path_coord in enumerate(random_path):
-        loc_prob = np.random.uniform()
+        loc_prob = rng.uniform()
         if path_coord == (I_row, I_col):
-            grid[path_coord[0]][path_coord[1]] = I
-        elif path_coord == (G_row, G_col): 
-            grid[path_coord[0]][path_coord[1]] = G
+            grid[path_coord[0]][path_coord[1]] = FOREST_I
+        elif path_coord == (G_row, G_col):
+            grid[path_coord[0]][path_coord[1]] = FOREST_G
         elif i > 1 and not last_was_hill and loc_prob <= 0.2:
-            grid[path_coord[0]][path_coord[1]] = H
+            grid[path_coord[0]][path_coord[1]] = FOREST_H
             last_was_hill = True
         else:
-            grid[path_coord[0]][path_coord[1]] = P
-    
-    #print("Random path", sorted(random_path))
-    #print("Reamaining_coords", sorted(remaining_coords))
+            grid[path_coord[0]][path_coord[1]] = FOREST_P
 
     for r in range(grid_height):
         for c in range(grid_width):
-            assert grid[r][c] != None
-    
+            assert grid[r][c] != -1
 
     return grid
 
 
-def random_grid_walk(currCoords, goalCoords, visited, grid_height, grid_width, previousCoords):
-    if currCoords == goalCoords:
-        return [currCoords]
-    
-    for delta in np.random.permutation([[0, 1], [1, 0], [0, -1], [-1, 0]]):
-        new_coord = (currCoords[0] + delta[0], currCoords[1] + delta[1])
-        if new_coord[0] < 0 or new_coord[0] >= grid_height or new_coord[1] < 0 or new_coord[1] >= grid_width: 
-            #print("Out of bounds")
+def _random_grid_walk(
+        curr_coords: Tuple[int, int], goal_coords: Tuple[int, int],
+        visited: Set[Tuple[int, int]], grid_height: int, grid_width: int,
+        previous_coords: Optional[Tuple[int, int]],
+        rng: np.random.Generator) -> Optional[List[Tuple[int, int]]]:
+    if curr_coords == goal_coords:
+        return [curr_coords]
+
+    for delta in rng.permutation([[0, 1], [1, 0], [0, -1], [-1, 0]]):
+        new_coord = (curr_coords[0] + delta[0], curr_coords[1] + delta[1])
+        # Out of bounds.
+        if new_coord[0] < 0 or new_coord[0] >= grid_height or new_coord[
+                1] < 0 or new_coord[1] >= grid_width:
             continue
 
+        # Already visited.
         if new_coord in visited:
-            #print("Already visited")
             continue
 
-        adjacent_excluding_previous = {(currCoords[0] + adj_delta[0], currCoords[1] + adj_delta[1]) for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]} - {previousCoords}
+        # Prevent visiting coords that are adjacent to visited coords, except
+        # for the most recent predecessor.
+        adjacent_excluding_previous = {
+            (curr_coords[0] + adj_delta[0], curr_coords[1] + adj_delta[1])
+            for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]
+        } - {previous_coords}
         adjacent_hit = False
         for adjacent_coord in adjacent_excluding_previous:
             if adjacent_coord in visited:
                 adjacent_hit = True
         if adjacent_hit:
-            #print("Adjacent hit")
             continue
 
-        if not reachable(new_coord, goalCoords, visited | {currCoords}, grid_height, grid_width):
-            #print("Not reachable from here")
+        # Prevent visiting unreachable coordinates.
+        if not _random_walk_reachable(new_coord, goal_coords,
+                                      visited | {curr_coords}, grid_height,
+                                      grid_width):
             continue
-                        
-        grid_walk_from_child = random_grid_walk(new_coord, goalCoords, visited | {currCoords}, grid_height, grid_width, currCoords)
-        if grid_walk_from_child != None:
-            return [currCoords] + grid_walk_from_child
+
+        # Successfully extended the path.
+        grid_walk_from_child = _random_grid_walk(new_coord, goal_coords,
+                                                 visited | {curr_coords},
+                                                 grid_height, grid_width,
+                                                 curr_coords, rng)
+        if grid_walk_from_child is not None:
+            return [curr_coords] + grid_walk_from_child
 
     return None
 
 
-def reachable(currCoords, goalCoords, prev_visited, grid_height, grid_width):
-    queue = [(currCoords, prev_visited.copy())]
-    coord_queue = [currCoords]
+def _random_walk_reachable(curr_coords: Tuple[int,
+                                              int], goal_coords: Tuple[int,
+                                                                       int],
+                           prev_visited: Set[Tuple[int, int]],
+                           grid_height: int, grid_width: int) -> bool:
+    queue = [(curr_coords, prev_visited.copy())]
+    coord_queue = [curr_coords]
     visited = prev_visited.copy()
 
     while len(queue) > 0:
@@ -301,26 +328,30 @@ def reachable(currCoords, goalCoords, prev_visited, grid_height, grid_width):
         del queue[0]
         del coord_queue[0]
 
-        if curr == goalCoords:
+        if curr == goal_coords:
             return True
 
         for delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]:
+            # Out of bounds.
             newC = (curr[0] + delta[0], curr[1] + delta[1])
-            if newC[0] < 0 or newC[0] >= grid_height or newC[1] < 0 or newC[1] >= grid_width: 
-                #print("Out of bounds")
+            if newC[0] < 0 or newC[0] >= grid_height or newC[1] < 0 or newC[
+                    1] >= grid_width:
                 continue
 
+            # Already visited or in queue.
             if newC in visited or newC in coord_queue:
-                #print("Already visited or in queue")
                 continue
 
-            adjacent_excluding_previous = {(newC[0] + adj_delta[0], newC[1] + adj_delta[1]) for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]} - {curr}
+            # Adjacent to already visited.
+            adjacent_excluding_previous = {
+                (newC[0] + adj_delta[0], newC[1] + adj_delta[1])
+                for adj_delta in [[0, 1], [1, 0], [0, -1], [-1, 0]]
+            } - {curr}
             adjacent_hit = False
             for adjacent_coord in adjacent_excluding_previous:
                 if adjacent_coord in curr_visited:
                     adjacent_hit = True
             if adjacent_hit:
-                #print("Adjacent hit")
                 continue
 
             queue.append((newC, curr_visited | {curr}))
@@ -329,46 +360,9 @@ def reachable(currCoords, goalCoords, prev_visited, grid_height, grid_width):
     return False
 
 
-def grid_A_star(grid_weights, Irow, Icol, Grow, Gcol):
-
-    queue = []
-    visited = set()
-    distances = {}
-    heapq.heappush(queue, (0, (Irow, Icol)))
-    predecessors = {}
-
-    while heapq:
-        dist, coords = heapq.heappop(queue)
-        if coords == (Grow, Gcol):
-            break
-        if coords in visited:
-            continue
-
-        visited.add(coords)
-
-        for delta in ([0, 1], [1, 0], [0, -1], [-1, 0]):
-            new_coord = (coords[0] + delta[0], coords[1] + delta[1])
-            if new_coord[0] < 0 or new_coord[0] >= len(grid_weights) or new_coord[1] < 0 or new_coord[1] >= len(grid_weights): 
-                continue
-
-            new_dist = dist + grid_weights[new_coord[0]][new_coord[1]]
-            if new_coord not in distances.keys() or new_dist < distances[new_coord]:
-                distances[new_coord] = new_dist
-                predecessors[new_coord] = coords
-                heapq.heappush(queue, (new_dist, new_coord))
-    
-    curr_coord = (Grow, Gcol)
-    path = [curr_coord]
-    while curr_coord != (Irow, Icol):
-        path.append(predecessors[curr_coord])
-        curr_coord = predecessors[curr_coord]
-    
-    return path
-
-
 def _generate_forest_problem(height: int, width: int,
                              rng: np.random.Generator) -> str:
-    grid = np.array(_generate_random_forest_grid(height, width))
+    grid = np.array(_generate_random_forest_grid(height, width, rng))
 
     init_strs = set()
     goal_strs = set()
@@ -381,68 +375,68 @@ def _generate_forest_problem(height: int, width: int,
             obj = f"r{r}_c{c}"
             objects.add(obj)
             grid_locs[r, c] = obj
-    
+
     # Add at, IsWater, and isHill to init_strs.
     for r in range(grid.shape[0]):
         for c in range(grid.shape[1]):
             obj = grid_locs[r, c]
-            if grid[r, c] == I:
+            if grid[r, c] == FOREST_I:
                 init_strs.add(f"(at {obj})")
-            
-            if grid[r, c] != W:
+
+            if grid[r, c] != FOREST_W:
                 init_strs.add(f"(isNotWater {obj})")
-            
-            if grid[r, c] == H:
+
+            if grid[r, c] == FOREST_H:
                 init_strs.add(f"(isHill {obj})")
             else:
                 init_strs.add(f"(isNotHill {obj})")
-            
+
     # Add adjacent to init_strs.
-    def get_neighbors(r, c):
-        for dr, dc in [(-1, 0), (1,0), (0,-1), (0,1)]:
-            nr = r +dr
-            nc = c +dc
+    def get_neighbors(r: int, c: int) -> Iterator[Tuple[int, int]]:
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr = r + dr
+            nc = c + dc
             if 0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1]:
-                yield (nr, nc) 
-    
+                yield (nr, nc)
+
     for r in range(grid.shape[0]):
         for c in range(grid.shape[1]):
             obj = grid_locs[r, c]
-            for (nr, nc) in get_neighbors(r,c):
+            for (nr, nc) in get_neighbors(r, c):
                 nobj = grid_locs[nr, nc]
                 init_strs.add(f"(adjacent {obj} {nobj})")
-                
+
     # Add onTrail to init_strs.
 
     # Construct the entire path from the initial location to the goal while
     # staying on then trail.
     trail_path = []
-    r, c = np.argwhere(grid == I)[0]
+    r, c = np.argwhere(grid == FOREST_I)[0]
     while True:
         trail_path.append((r, c))
-        if grid[r, c] == G:
+        if grid[r, c] == FOREST_G:
             break
         for (nr, nc) in get_neighbors(r, c):
             if (nr, nc) in trail_path:
                 continue
-            if grid[nr, nc] in [P, G, H]:
+            if grid[nr, nc] in [FOREST_P, FOREST_G, FOREST_H]:
                 r, c = nr, nc
                 break
         else:
             raise Exception("Should not happen")
-            
+
     for (r, c), (nr, nc) in zip(trail_path[:-1], trail_path[1:]):
         obj = grid_locs[r, c]
         nobj = grid_locs[nr, nc]
         init_strs.add(f"(onTrail {obj} {nobj})")
 
     # Create goal str.
-    goal_rcs = np.argwhere(grid == G)
+    goal_rcs = np.argwhere(grid == FOREST_G)
     assert len(goal_rcs) == 1
     goal_r, goal_c = goal_rcs[0]
     goal_obj = grid_locs[goal_r, goal_c]
     goal_strs.add(f"(at {goal_obj})")
-    
+
     # Finalize PDDL problem str.
     locs_str = "\n        ".join(objects)
     init_str = " ".join(sorted(init_strs))
