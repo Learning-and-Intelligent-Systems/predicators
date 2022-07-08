@@ -11,8 +11,8 @@ from predicators.src.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
-from predicators.src.pybullet_helpers.utils import Pose, get_kinematic_chain, \
-    get_link_from_name
+from predicators.src.pybullet_helpers.utils import JointInfo, Pose, \
+    get_joint_info, get_kinematic_chain, get_link_from_name
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D, Quaternion
 
@@ -112,23 +112,24 @@ class SingleArmPyBulletRobot(abc.ABC):
                               physicsClientId=self.physics_client_id)
 
     @cached_property
-    def joint_infos(self) -> List[Dict]:
+    def joint_infos(self) -> List[JointInfo]:
         """Get the joint info for each joint of the robot."""
         return [
-            p.getJointInfo(self.robot_id,
-                           i,
-                           physicsClientId=self.physics_client_id)
+            get_joint_info(self.robot_id, i, self.physics_client_id)
             for i in range(self.num_joints)
         ]
 
     @cached_property
     def joint_names(self) -> List[str]:
         """Get the names of the joints in the robot."""
-        joint_names = [info[1].decode("utf-8") for info in self.joint_infos]
+        joint_names = [info.jointName for info in self.joint_infos]
         return joint_names
 
     def joint_from_name(self, joint_name: str) -> int:
         return self.joint_names.index(joint_name)
+
+    def joints_from_names(self, joint_names: List[str]) -> List[int]:
+        return [self.joint_from_name(name) for name in joint_names]
 
     @property
     @abc.abstractmethod
@@ -176,18 +177,15 @@ class SingleArmPyBulletRobot(abc.ABC):
         joint_lower_limits, joint_upper_limits = [], []
 
         for i in self.arm_joints:
-            info = p.getJointInfo(self.robot_id,
-                                  i,
-                                  physicsClientId=self.physics_client_id)
-            lower_limit = info[8]
-            upper_limit = info[9]
+            info = get_joint_info(self.robot_id, i, self.physics_client_id)
             # Per PyBullet documentation, values ignored if upper < lower.
-            if upper_limit < lower_limit:
+            # This is usually for circular joints.
+            if info.jointUpperLimit < info.jointLowerLimit:
                 joint_lower_limits.append(-np.inf)
                 joint_upper_limits.append(np.inf)
             else:
-                joint_lower_limits.append(lower_limit)
-                joint_upper_limits.append(upper_limit)
+                joint_lower_limits.append(info.jointLowerLimit)
+                joint_upper_limits.append(info.jointUpperLimit)
 
         return joint_lower_limits, joint_upper_limits
 
@@ -200,6 +198,31 @@ class SingleArmPyBulletRobot(abc.ABC):
     def joint_upper_limits(self) -> JointsState:
         """Upper bound on the arm joint limits."""
         return self._joint_limits[1]
+
+    def joints_state_violates_limits(
+            self,
+            joints_state: JointsState,
+            joint_indices: Optional[List[int]] = None) -> bool:
+        """Check if the given joint state violates the arm joint limits.
+
+        If joint_indices is None, then we assume the joints state
+        contain the values for all the joints. Otherwise, we check the
+        state against the specified joint indices.
+        """
+        joint_indices = joint_indices or self.arm_joints
+        lower_limits = [self.joint_lower_limits[idx] for idx in joint_indices]
+        upper_limits = [self.joint_upper_limits[idx] for idx in joint_indices]
+
+        assert len(joints_state) == len(lower_limits) == len(
+            upper_limits), "Joints state and limits must have the same length."
+
+        # CHeck each joint value is within the limits
+        for value, lower_limit, upper_limit in zip(joints_state, lower_limits,
+                                                   upper_limits):
+            if value < lower_limit or value > upper_limit:
+                return True
+
+        return False
 
     @property
     @abc.abstractmethod
@@ -394,8 +417,6 @@ class SingleArmPyBulletRobot(abc.ABC):
         # Run IK Fast to get solutions
         ik_solutions = ikfast_closest_inverse_kinematics(
             self,
-            # self.ikfast_info(),
-            # self.robot_id,
             tool_link,
             world_from_target,
         )

@@ -9,8 +9,7 @@ from typing import TYPE_CHECKING, Generator, List, Sequence
 import numpy as np
 from pybullet_tools.utils import get_difference_fn, get_max_limits, \
     get_min_limits, get_ordered_ancestors, interval_generator, \
-    joints_from_names, parent_joint_from_link, prune_fixed_joints, \
-    violates_limits
+    prune_fixed_joints
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
@@ -30,6 +29,10 @@ if TYPE_CHECKING:
 
 def get_length(vec, norm=2):
     return np.linalg.norm(vec, ord=norm)
+
+
+# Joint index == link index in pybullet
+parent_joint_from_link = lambda joint: joint
 
 
 def _get_base_from_ee(
@@ -79,7 +82,7 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
     # assert base_link in ee_ancestors # base_link might be -1
     ik_joints = prune_fixed_joints(
         robot_id, ee_ancestors[ee_ancestors.index(first_joint):])
-    free_joints = joints_from_names(robot_id, ikfast_info.free_joints)
+    free_joints = robot.joints_from_names(ikfast_info.free_joints)
     assert set(free_joints) <= set(ik_joints)
     assert len(ik_joints) == 6 + len(free_joints)
     return ik_joints
@@ -109,10 +112,7 @@ def ikfast_inverse_kinematics(
     og_robot = robot
     robot = robot.robot_id
     ik_joints = get_ik_joints(og_robot, ikfast_info, tool_link)
-    free_joints = [
-        og_robot.joint_from_name(joint_name)
-        for joint_name in ikfast_info.free_joints
-    ]
+    free_joints = og_robot.joints_from_names(ikfast_info.free_joints)
 
     base_from_ee = _get_base_from_ee(og_robot, ikfast_info, tool_link,
                                      world_from_target)
@@ -158,8 +158,8 @@ def ikfast_inverse_kinematics(
 
         for conf in ik_candidates:
             difference = difference_fn(current_conf, conf)
-            if not violates_limits(robot, ik_joints, conf) and (get_length(
-                    difference, norm=norm) <= max_distance):
+            if not og_robot.joints_state_violates_limits(conf, ik_joints) and (
+                    get_length(difference, norm=norm) <= max_distance):
                 # set_joint_positions(robot, ik_joints, conf)
                 yield conf
 

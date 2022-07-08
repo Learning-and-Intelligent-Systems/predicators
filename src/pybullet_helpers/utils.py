@@ -98,6 +98,11 @@ class JointInfo(NamedTuple):
     parentFrameOrn: Quaternion
     parentIndex: int
 
+    def is_circular(self) -> bool:
+        if self.jointType == p.JOINT_FIXED:
+            return False
+        return self.jointUpperLimit < self.jointLowerLimit
+
 
 def get_joint_info(body: int, joint: int, physics_client_id: int) -> JointInfo:
     # Decode the byte strings for joint name and link name
