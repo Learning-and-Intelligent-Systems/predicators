@@ -255,9 +255,10 @@ class BehaviorEnv(BaseEnv):
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
 
-        # Second, add in custom predicates except reachable-nothing and
-        # handempty.
+        # Second, add in custom predicates.
         custom_predicate_specs = [
+            ("reachable-nothing", self._reachable_nothing_classifier, 0),
+            ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
             ("reachable", self._reachable_classifier, 1),
         ]
@@ -267,22 +268,6 @@ class BehaviorEnv(BaseEnv):
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
-
-        # Finally, add the reachable-nothing and handempty predicates, which
-        # don't take any parameters.
-        pred = Predicate(
-            "reachable-nothing",
-            [],
-            self._reachable_nothing_classifier,
-        )
-        predicates.add(pred)
-
-        pred = Predicate(
-            "handempty",
-            [],
-            self._handempty_classifier,
-        )
-        predicates.add(pred)
 
         return predicates
 
