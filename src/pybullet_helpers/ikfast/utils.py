@@ -7,15 +7,15 @@ from itertools import chain, islice
 from typing import TYPE_CHECKING, Generator, List, Sequence
 
 import numpy as np
-from pybullet_tools.utils import get_difference_fn, get_max_limits, \
-    get_min_limits, get_ordered_ancestors, interval_generator, \
-    prune_fixed_joints
+from pybullet_tools.utils import get_difference_fn, get_ordered_ancestors, \
+    interval_generator, prune_fixed_joints
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.src.pybullet_helpers.utils import Pose, get_link_from_name, \
-    get_link_parent, get_link_pose, get_relative_link_pose, matrix_from_quat, \
-    multiply_poses
+from predicators.src.pybullet_helpers.utils import Pose, get_joint_info, \
+    get_joint_limits, get_joint_lower_limits, get_joint_upper_limits, \
+    get_link_from_name, get_link_parent, get_link_pose, \
+    get_relative_link_pose, matrix_from_quat, multiply_poses
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState
 
@@ -33,6 +33,23 @@ def get_length(vec, norm=2):
 
 # Joint index == link index in pybullet
 parent_joint_from_link = lambda joint: joint
+
+
+def violates_limit(body: int, joint: int, value: float,
+                   physics_client_id: int) -> bool:
+    # TODO: custom limits
+    if get_joint_info(body, joint, physics_client_id).is_circular():
+        return False
+    lower, upper = get_joint_limits(body, [joint], physics_client_id)
+    assert len(lower) == len(upper) == 1
+    return (value < lower[0]) or (upper[0] < value)
+
+
+def violates_limits(body: int, joints: List[int], values: JointsState,
+                    physics_client_id: int) -> bool:
+    return any(
+        violates_limit(body, joint, value, physics_client_id)
+        for joint, value in zip(joints, values))
 
 
 def _get_base_from_ee(
@@ -110,7 +127,7 @@ def ikfast_inverse_kinematics(
     norm = CFG.ikfast_norm_ord
 
     og_robot = robot
-    robot = robot.robot_id
+    robot: int = robot.robot_id
     ik_joints = get_ik_joints(og_robot, ikfast_info, tool_link)
     free_joints = og_robot.joints_from_names(ikfast_info.free_joints)
 
@@ -126,10 +143,12 @@ def ikfast_inverse_kinematics(
     free_deltas = np.array([
         0.0 if joint in fixed_joints else max_distance for joint in free_joints
     ])
-    lower_limits = np.maximum(get_min_limits(robot, free_joints),
-                              current_positions - free_deltas)
-    upper_limits = np.minimum(get_max_limits(robot, free_joints),
-                              current_positions + free_deltas)
+    lower_limits = np.maximum(
+        get_joint_lower_limits(robot, free_joints, og_robot.physics_client_id),
+        current_positions - free_deltas)
+    upper_limits = np.minimum(
+        get_joint_upper_limits(robot, free_joints, og_robot.physics_client_id),
+        current_positions + free_deltas)
     generator = chain(
         [current_positions],  # TODO: sample from a truncated Gaussian nearby
         interval_generator(lower_limits, upper_limits),
@@ -158,9 +177,9 @@ def ikfast_inverse_kinematics(
 
         for conf in ik_candidates:
             difference = difference_fn(current_conf, conf)
-            if not og_robot.joints_state_violates_limits(conf, ik_joints) and (
-                    get_length(difference, norm=norm) <= max_distance):
-                # set_joint_positions(robot, ik_joints, conf)
+            if not violates_limits(robot, ik_joints, conf,
+                                   og_robot.physics_client_id) and (get_length(
+                                       difference, norm=norm) <= max_distance):
                 yield conf
 
 

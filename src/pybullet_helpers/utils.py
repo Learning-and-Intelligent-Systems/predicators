@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional, Sequence
+from typing import List, NamedTuple, Optional, Sequence, Tuple
 
 import numpy as np
 import pybullet as p
@@ -113,6 +113,41 @@ def get_joint_info(body: int, joint: int, physics_client_id: int) -> JointInfo:
 
     joint_info = JointInfo(*raw_joint_info)
     return joint_info
+
+
+def get_joint_infos(body: int, joint: List[int],
+                    physics_client_id: int) -> List[JointInfo]:
+    return [
+        get_joint_info(body, joint_id, physics_client_id) for joint_id in joint
+    ]
+
+
+def get_joint_limits(
+        body: int, joints: List[int],
+        physics_client_id: int) -> Tuple[List[float], List[float]]:
+    joint_infos = get_joint_infos(body, joints, physics_client_id)
+    lower_limits = []
+    upper_limits = []
+
+    for joint_info in joint_infos:
+        if joint_info.is_circular():
+            lower_limits.append(-np.inf)
+            upper_limits.append(np.inf)
+        else:
+            lower_limits.append(joint_info.jointLowerLimit)
+            upper_limits.append(joint_info.jointUpperLimit)
+
+    return lower_limits, upper_limits
+
+
+def get_joint_lower_limits(body: int, joints: List[int],
+                           physics_client_id: int) -> List[float]:
+    return get_joint_limits(body, joints, physics_client_id)[0]
+
+
+def get_joint_upper_limits(body: int, joints: List[int],
+                           physics_client_id: int) -> List[float]:
+    return get_joint_limits(body, joints, physics_client_id)[1]
 
 
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:

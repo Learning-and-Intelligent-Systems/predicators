@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pybullet as p
@@ -12,7 +12,8 @@ from predicators.src.pybullet_helpers.ikfast.utils import \
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.utils import JointInfo, Pose, \
-    get_joint_info, get_kinematic_chain, get_link_from_name
+    get_joint_info, get_joint_limits, get_joint_lower_limits, \
+    get_joint_upper_limits, get_kinematic_chain, get_link_from_name
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D, Quaternion
 
@@ -172,57 +173,16 @@ class SingleArmPyBulletRobot(abc.ABC):
         return self.arm_joints.index(self.right_finger_id)
 
     @cached_property
-    def _joint_limits(self) -> Tuple[JointsState, JointsState]:
-        """Return the lower and upper joint limits."""
-        joint_lower_limits, joint_upper_limits = [], []
-
-        for i in self.arm_joints:
-            info = get_joint_info(self.robot_id, i, self.physics_client_id)
-            # Per PyBullet documentation, values ignored if upper < lower.
-            # This is usually for circular joints.
-            if info.jointUpperLimit < info.jointLowerLimit:
-                joint_lower_limits.append(-np.inf)
-                joint_upper_limits.append(np.inf)
-            else:
-                joint_lower_limits.append(info.jointLowerLimit)
-                joint_upper_limits.append(info.jointUpperLimit)
-
-        return joint_lower_limits, joint_upper_limits
-
-    @property
     def joint_lower_limits(self) -> JointsState:
         """Lower bound on the arm joint limits."""
-        return self._joint_limits[0]
+        return get_joint_lower_limits(self.robot_id, self.arm_joints,
+                                      self.physics_client_id)
 
-    @property
+    @cached_property
     def joint_upper_limits(self) -> JointsState:
         """Upper bound on the arm joint limits."""
-        return self._joint_limits[1]
-
-    def joints_state_violates_limits(
-            self,
-            joints_state: JointsState,
-            joint_indices: Optional[List[int]] = None) -> bool:
-        """Check if the given joint state violates the arm joint limits.
-
-        If joint_indices is None, then we assume the joints state
-        contain the values for all the joints. Otherwise, we check the
-        state against the specified joint indices.
-        """
-        joint_indices = joint_indices or self.arm_joints
-        lower_limits = [self.joint_lower_limits[idx] for idx in joint_indices]
-        upper_limits = [self.joint_upper_limits[idx] for idx in joint_indices]
-
-        assert len(joints_state) == len(lower_limits) == len(
-            upper_limits), "Joints state and limits must have the same length."
-
-        # CHeck each joint value is within the limits
-        for value, lower_limit, upper_limit in zip(joints_state, lower_limits,
-                                                   upper_limits):
-            if value < lower_limit or value > upper_limit:
-                return True
-
-        return False
+        return get_joint_upper_limits(self.robot_id, self.arm_joints,
+                                      self.physics_client_id)
 
     @property
     @abc.abstractmethod
@@ -303,14 +263,14 @@ class SingleArmPyBulletRobot(abc.ABC):
         """
         joint_indices = self.arm_joints if joint_indices is None else joint_indices
 
-        joint_state = [
-            joint_info[0]  # extract joint position only
-            for joint_info in p.getJointStates(
+        joints_state = [
+            joint_state[0]  # extract joint position only
+            for joint_state in p.getJointStates(
                 self.robot_id,
                 joint_indices,
                 physicsClientId=self.physics_client_id)
         ]
-        return joint_state
+        return joints_state
 
     def set_joints(self, joints_state: JointsState) -> None:
         """Directly set the joint states.
