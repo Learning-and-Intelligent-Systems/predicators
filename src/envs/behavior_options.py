@@ -367,6 +367,7 @@ def navigate_to_obj_pos(
         rng=rng,
     )
     p.restoreState(state)
+    import ipdb; ipdb.set_trace()
 
     if plan is None:
         p.restoreState(state)
