@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Sequence
+from typing import List, NamedTuple, Optional, Sequence
 
 import numpy as np
 import pybullet as p
@@ -79,18 +79,49 @@ def get_pose(body: int, physics_client_id: int) -> Pose:
     return Pose(pybullet_pose[0], pybullet_pose[1])
 
 
+class JointInfo(NamedTuple):
+    jointIndex: int
+    jointName: str
+    jointType: int
+    qIndex: int
+    uIndex: int
+    flags: int
+    jointDamping: float
+    jointFriction: float
+    jointLowerLimit: float
+    jointUpperLimit: float
+    jointMaxForce: float
+    jointMaxVelocity: float
+    linkName: str
+    jointAxis: Sequence[float]
+    parentFramePos: Pose3D
+    parentFrameOrn: Quaternion
+    parentIndex: int
+
+
+def get_joint_info(body: int, joint: int, physics_client_id: int) -> JointInfo:
+    # Decode the byte strings for joint name and link name
+    raw_joint_info = list(
+        p.getJointInfo(body, joint, physicsClientId=physics_client_id))
+    raw_joint_info[1] = raw_joint_info[1].decode("UTF-8")
+    raw_joint_info[12] = raw_joint_info[12].decode("UTF-8")
+
+    joint_info = JointInfo(*raw_joint_info)
+    return joint_info
+
+
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     """Get the link ID from the name of the link."""
     base_info = p.getBodyInfo(body, physicsClientId=physics_client_id)
     base_name = base_info[0].decode(encoding="UTF-8")
     if name == base_name:
         return -1  # base link
-    for link in range(p.getNumJoints(body, physicsClientId=physics_client_id)):
-        joint_info = p.getJointInfo(body,
-                                    link,
-                                    physicsClientId=physics_client_id)
-        joint_name = joint_info[12].decode("UTF-8")
-        if joint_name == name:
+    for joint in range(p.getNumJoints(body,
+                                      physicsClientId=physics_client_id)):
+        joint_info = get_joint_info(body, joint, physics_client_id)
+        if joint_info.linkName == name:
+            # Note: link index is the same as joint index in pybullet
+            link = joint
             return link
     raise ValueError(f"Body {body} has no link with name {name}.")
 
@@ -101,6 +132,15 @@ def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
         return get_pose(body, physics_client_id)
     link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
     return Pose(link_state[0], link_state[1])
+
+
+def get_link_parent(body: int, link: int,
+                    physics_client_id: int) -> Optional[int]:
+    """Get the parent link index of the given link."""
+    if link == _BASE_LINK:
+        return None
+    joint_info = get_joint_info(body, link, physics_client_id)
+    return joint_info.parentIndex
 
 
 def get_relative_link_pose(body: int, link1: int, link2: int,

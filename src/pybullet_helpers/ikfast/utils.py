@@ -7,15 +7,16 @@ from itertools import chain, islice
 from typing import TYPE_CHECKING, Generator, List, Sequence
 
 import numpy as np
-from pybullet_tools.utils import get_difference_fn, get_joint_positions, \
-    get_max_limits, get_min_limits, get_ordered_ancestors, \
-    interval_generator, joints_from_names, parent_joint_from_link, \
-    parent_link_from_joint, prune_fixed_joints, violates_limits
+from pybullet_tools.utils import get_difference_fn, get_max_limits, \
+    get_min_limits, get_ordered_ancestors, interval_generator, \
+    joints_from_names, parent_joint_from_link, prune_fixed_joints, \
+    violates_limits
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
 from predicators.src.pybullet_helpers.utils import Pose, get_link_from_name, \
-    get_link_pose, get_relative_link_pose, matrix_from_quat, multiply_poses
+    get_link_parent, get_link_pose, get_relative_link_pose, matrix_from_quat, \
+    multiply_poses
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState
 
@@ -53,6 +54,37 @@ def _get_base_from_ee(
     return base_from_ee
 
 
+def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
+                  tool_link: int) -> List[int]:
+    """Returns the joint IDs of the robot's joints that are used in IKFast."""
+    robot_id = robot.robot_id
+    physics_client_id = robot.physics_client_id
+
+    # Get joints between base and ee, and ensure no joints between ee and tool
+    # Ensure no joints between ee and tool
+    base_link = get_link_from_name(robot_id, ikfast_info.base_link,
+                                   physics_client_id)
+    ee_link = get_link_from_name(robot_id, ikfast_info.ee_link,
+                                 physics_client_id)
+
+    ee_ancestors = get_ordered_ancestors(robot_id, ee_link)
+    tool_ancestors = get_ordered_ancestors(robot_id, tool_link)
+    [first_joint] = [
+        parent_joint_from_link(link) for link in tool_ancestors
+        if get_link_parent(robot_id, parent_joint_from_link(link),
+                           physics_client_id) == base_link
+    ]
+    assert prune_fixed_joints(robot_id, ee_ancestors) == prune_fixed_joints(
+        robot_id, tool_ancestors)
+    # assert base_link in ee_ancestors # base_link might be -1
+    ik_joints = prune_fixed_joints(
+        robot_id, ee_ancestors[ee_ancestors.index(first_joint):])
+    free_joints = joints_from_names(robot_id, ikfast_info.free_joints)
+    assert set(free_joints) <= set(ik_joints)
+    assert len(ik_joints) == 6 + len(free_joints)
+    return ik_joints
+
+
 def ikfast_inverse_kinematics(
         robot: SingleArmPyBulletRobot,
         world_from_target: Pose,
@@ -76,8 +108,7 @@ def ikfast_inverse_kinematics(
 
     og_robot = robot
     robot = robot.robot_id
-    ik_joints = get_ik_joints(robot, ikfast_info, tool_link,
-                              og_robot.physics_client_id)
+    ik_joints = get_ik_joints(og_robot, ikfast_info, tool_link)
     free_joints = [
         og_robot.joint_from_name(joint_name)
         for joint_name in ikfast_info.free_joints
@@ -141,8 +172,7 @@ def ikfast_closest_inverse_kinematics(
 
     Parameters
     ----------
-    ikfast_info: IKFastInfo for the robot
-    robot_id: pybullet body ID of the robot
+    robot: SingleArmPyBulletRobot
     tool_link: pybullet link ID of the tool link of the robot
     world_from_target: target pose in the world frame
 
@@ -157,8 +187,7 @@ def ikfast_closest_inverse_kinematics(
 
     norm = CFG.ikfast_norm_ord
 
-    ik_joints = get_ik_joints(robot_id, ikfast_info, tool_link,
-                              robot.physics_client_id)
+    ik_joints = get_ik_joints(robot, ikfast_info, tool_link)
     generator = ikfast_inverse_kinematics(
         robot,
         world_from_target,
@@ -191,30 +220,3 @@ def ikfast_closest_inverse_kinematics(
             .format(len(solutions), min_distance, elapsed_time))
 
     return solutions
-
-
-def get_ik_joints(robot: int, ikfast_info: IKFastInfo, tool_link: int,
-                  physics_client_id: int) -> List[int]:
-    """Returns the joint IDs of the robot's joints that are used in IKFast."""
-    # Get joints between base and ee, and ensure no joints between ee and tool
-    # Ensure no joints between ee and tool
-    base_link = get_link_from_name(robot, ikfast_info.base_link,
-                                   physics_client_id)
-    ee_link = get_link_from_name(robot, ikfast_info.ee_link, physics_client_id)
-
-    ee_ancestors = get_ordered_ancestors(robot, ee_link)
-    tool_ancestors = get_ordered_ancestors(robot, tool_link)
-    [first_joint] = [
-        parent_joint_from_link(link)
-        for link in tool_ancestors if parent_link_from_joint(
-            robot, parent_joint_from_link(link)) == base_link
-    ]
-    assert prune_fixed_joints(robot, ee_ancestors) == prune_fixed_joints(
-        robot, tool_ancestors)
-    # assert base_link in ee_ancestors # base_link might be -1
-    ik_joints = prune_fixed_joints(
-        robot, ee_ancestors[ee_ancestors.index(first_joint):])
-    free_joints = joints_from_names(robot, ikfast_info.free_joints)
-    assert set(free_joints) <= set(ik_joints)
-    assert len(ik_joints) == 6 + len(free_joints)
-    return ik_joints
