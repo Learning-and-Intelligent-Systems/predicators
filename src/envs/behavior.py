@@ -376,6 +376,7 @@ class BehaviorEnv(BaseEnv):
                                "environment that meets bddl initial "
                                "conditions!")
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
+        self.igibson_behavior_env.use_RRT = CFG.behavior_option_model_RRT
 
     #@functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:

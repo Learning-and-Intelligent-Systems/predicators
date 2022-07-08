@@ -351,23 +351,27 @@ def navigate_to_obj_pos(
         return None
 
     p.restoreState(state)
-    obstacles = get_body_ids(env)
-    if env.robots[0].parts["right_hand"].object_in_hand is not None:
-        obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
-    plan = plan_base_motion_br(
-        robot=env.robots[0],
-        end_conf=[
-            valid_position[0][0],
-            valid_position[0][1],
-            valid_position[1][2],
-        ],
-        base_limits=(),
-        obstacles=obstacles,
-        override_sample_fn=lambda: sample_fn(env, rng),
-        rng=rng,
-    )
-    p.restoreState(state)
-    import ipdb; ipdb.set_trace()
+    end_conf=[
+                valid_position[0][0],
+                valid_position[0][1],
+                valid_position[1][2],
+            ]
+    if env.use_RRT:
+        obstacles = get_body_ids(env)
+        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+            obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
+        plan = plan_base_motion_br(
+            robot=env.robots[0],
+            end_conf=end_conf,
+            base_limits=(),
+            obstacles=obstacles,
+            override_sample_fn=lambda: sample_fn(env, rng),
+            rng=rng,
+        )
+        p.restoreState(state)
+    else:
+        pos = env.robots[0].get_position()
+        plan = [[pos[0], pos[1], original_orientation[2]], end_conf]
 
     if plan is None:
         p.restoreState(state)
@@ -844,25 +848,30 @@ def grasp_obj_at_pos(
             euler_angles = np.array([0.0, np.pi, 0.0])
 
     state = p.saveState()
-    # plan a motion to the pose [x, y, z, euler_angles[0],
-    # euler_angles[1], euler_angles[2]]
-    plan = plan_hand_motion_br(
-        robot=env.robots[0],
-        obj_in_hand=None,
-        end_conf=[
-            x,
-            y,
-            z,
-            euler_angles[0],
-            euler_angles[1],
-            euler_angles[2],
-        ],
-        hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-        obstacles=get_body_ids(env, include_self=True,
-                               include_right_hand=True),
-        rng=rng,
-    )
-    p.restoreState(state)
+    end_conf = [
+                x,
+                y,
+                z,
+                euler_angles[0],
+                euler_angles[1],
+                euler_angles[2],
+            ]
+    if env.use_RRT:
+        # plan a motion to the pose [x, y, z, euler_angles[0],
+        # euler_angles[1], euler_angles[2]]
+        plan = plan_hand_motion_br(
+            robot=env.robots[0],
+            obj_in_hand=None,
+            end_conf=end_conf,
+            hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
+            obstacles=get_body_ids(env, include_self=True,
+                                include_right_hand=True),
+            rng=rng,
+        )
+        p.restoreState(state)
+    else:
+        pos = env.robots[0].parts["right_hand"].get_position()
+        plan = [[pos[0], pos[1], pos[2]] + list(p.getEulerFromQuaternion(env.robots[0].parts["right_hand"].get_orientation())), end_conf]
 
     # NOTE: This below line is *VERY* important after the
     # pybullet state is restored. The hands keep an internal
@@ -943,23 +952,29 @@ def place_obj_plan(
 
     obstacles = get_body_ids(env, include_self=False)
     obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
-    plan = plan_hand_motion_br(
-        robot=env.robots[0],
-        obj_in_hand=obj_in_hand,
-        end_conf=[
-            x,
-            y,
-            z + 0.2,
-            0,
-            np.pi * 7 / 6,
-            0,
-        ],
-        hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-        obstacles=obstacles,
-        rng=rng,
-    )
-    p.restoreState(original_state)
-    p.removeState(original_state)
+    end_conf = [
+                x,
+                y,
+                z + 0.2,
+                0,
+                np.pi * 7 / 6,
+                0,
+            ]
+    if not env.use_RRT:
+        plan = plan_hand_motion_br(
+            robot=env.robots[0],
+            obj_in_hand=obj_in_hand,
+            end_conf=end_conf,
+            hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
+            obstacles=obstacles,
+            rng=rng,
+        )
+        p.restoreState(original_state)
+        p.removeState(original_state)
+    else:
+        pos = env.robots[0].parts["right_hand"].get_position()
+        plan = [[pos[0], pos[1], pos[2]] + list(p.getEulerFromQuaternion(env.robots[0].parts["right_hand"].get_orientation())), end_conf]
+    import ipdb; ipdb.set_trace()
 
     # NOTE: This below line is *VERY* important after the
     # pybullet state is restored. The hands keep an internal
