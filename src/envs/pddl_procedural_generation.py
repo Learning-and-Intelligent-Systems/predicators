@@ -269,6 +269,10 @@ def _random_grid_walk(
         visited: Set[Tuple[int, int]], grid_height: int, grid_width: int,
         previous_coords: Optional[Tuple[int, int]],
         rng: np.random.Generator) -> Optional[List[Tuple[int, int]]]:
+    """Generates a random path through a grid.
+
+    For aesthetic reasons, the grid is not allowed to self-intersect.
+    """
     if curr_coords == goal_coords:
         return [curr_coords]
 
@@ -318,6 +322,12 @@ def _random_walk_reachable(curr_coords: Tuple[int,
                                                                        int],
                            prev_visited: Set[Tuple[int, int]],
                            grid_height: int, grid_width: int) -> bool:
+    """This helper for _random_grid_walk() checks whether some path to the goal
+    still exists.
+
+    This is used to rule out bad steps in the random walk that would
+    never possibly reach the goal.
+    """
     queue = [(curr_coords, prev_visited.copy())]
     coord_queue = [curr_coords]
     visited = prev_visited.copy()
