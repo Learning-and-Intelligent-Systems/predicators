@@ -22,7 +22,8 @@ from pyperplan.pddl.pddl import Type as PyperplanType
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, \
+    create_forest_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -387,6 +388,37 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
         return create_delivery_pddl_generator(min_num_locs, max_num_locs,
                                               min_want_locs, max_want_locs,
                                               min_news, max_news)
+
+
+class _ForestPDDLEnv(_PDDLEnv):
+    """The forest domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/forest/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
+    """The forest domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_forest_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_train_min_size
+        max_size = CFG.pddl_forest_procedural_train_max_size
+        return create_forest_pddl_generator(min_size, max_size)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_test_min_size
+        max_size = CFG.pddl_forest_procedural_test_max_size
+        return create_forest_pddl_generator(min_size, max_size)
 
 
 ###############################################################################

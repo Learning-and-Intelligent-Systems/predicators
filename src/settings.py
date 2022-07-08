@@ -166,6 +166,12 @@ class GlobalSettings:
     pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
     pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
 
+    # pddl forest env parameters
+    pddl_forest_procedural_train_min_size = 8
+    pddl_forest_procedural_train_max_size = 10
+    pddl_forest_procedural_test_min_size = 10
+    pddl_forest_procedural_test_max_size = 12
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]

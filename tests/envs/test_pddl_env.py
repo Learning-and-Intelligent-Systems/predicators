@@ -9,7 +9,7 @@ import pytest
 from predicators.src import utils
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
-    _FixedTasksPDDLEnv, _PDDLEnv
+    ProceduralTasksForestPDDLEnv, _FixedTasksPDDLEnv, _PDDLEnv
 from predicators.src.structs import Action
 
 
@@ -366,3 +366,30 @@ def test_procedural_tasks_delivery_pddl_env():
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"satisfied"})
+
+
+def test_procedural_tasks_forest_pddl_env():
+    """Tests for ProceduralTasksForestPDDLEnv class."""
+    # Note that the procedural generation itself is tested in
+    # test_pddl_procedural_generation.
+    utils.reset_config({
+        "env": "pddl_forest_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
+    })
+    env = ProceduralTasksForestPDDLEnv()
+    assert {t.name for t in env.types} == {"object", "loc"}
+    assert {p.name
+            for p in env.predicates} == {
+                "isnotwater", "ishill", "isnothill", "at", "ontrail",
+                "adjacent"
+            }
+    assert {p.name for p in env.goal_predicates} == {"at"}
+    assert {o.name for o in env.options} == {"walk", "climb"}
+    assert {o.name for o in env.strips_operators} == {"walk", "climb"}
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 2
+    task = train_tasks[0]
+    assert {a.predicate.name for a in task.goal}.issubset({"at"})
