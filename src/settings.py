@@ -180,6 +180,12 @@ class GlobalSettings:
     pddl_spanner_procedural_test_min_locs = 20
     pddl_spanner_procedural_test_max_locs = 30
 
+    # pddl forest env parameters
+    pddl_forest_procedural_train_min_size = 8
+    pddl_forest_procedural_train_max_size = 10
+    pddl_forest_procedural_test_min_size = 10
+    pddl_forest_procedural_test_max_size = 12
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
