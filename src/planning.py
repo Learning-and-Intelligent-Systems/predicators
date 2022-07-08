@@ -116,7 +116,6 @@ def sesame_plan(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
                     max_skeletons_optimized):
-                import ipdb; ipdb.set_trace()
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
@@ -374,7 +373,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
-                        import ipdb; ipdb.set_trace()
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
