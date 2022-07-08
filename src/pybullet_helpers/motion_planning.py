@@ -1,4 +1,4 @@
-from typing import Collection, Optional, Sequence, Iterator
+from typing import Collection, Iterator, Optional, Sequence
 
 import numpy as np
 import pybullet as p

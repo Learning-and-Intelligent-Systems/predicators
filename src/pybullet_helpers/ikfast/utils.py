@@ -49,7 +49,7 @@ def _get_base_from_ee(
     )
 
     base_from_ee = multiply_poses(world_from_base.invert(), world_from_target,
-                          tool_from_ee)
+                                  tool_from_ee)
     return base_from_ee
 
 
@@ -84,7 +84,7 @@ def ikfast_inverse_kinematics(
     ]
 
     base_from_ee = _get_base_from_ee(og_robot, ikfast_info, tool_link,
-                                    world_from_target)
+                                     world_from_target)
     difference_fn = get_difference_fn(robot, ik_joints)
 
     current_conf = og_robot.get_joints(ik_joints)
@@ -118,8 +118,7 @@ def ikfast_inverse_kinematics(
         rot_matrix = matrix_from_quat(base_from_ee.quat_xyzw,
                                       og_robot.physics_client_id).tolist()
 
-        ik_candidates = ikfast.get_ik(rot_matrix,
-                                      list(base_from_ee.position),
+        ik_candidates = ikfast.get_ik(rot_matrix, list(base_from_ee.position),
                                       list(free_positions))
         if ik_candidates is None:
             continue

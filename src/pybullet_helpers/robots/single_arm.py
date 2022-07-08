@@ -9,8 +9,10 @@ from gym.spaces import Box
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
+from predicators.src.pybullet_helpers.inverse_kinematics import \
+    pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.utils import Pose, get_kinematic_chain, \
-    get_link_from_name, pybullet_inverse_kinematics
+    get_link_from_name
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D, Quaternion
 
