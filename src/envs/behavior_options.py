@@ -148,12 +148,16 @@ def get_delta_low_level_base_action(robot_z: float,
 def navigate_to_param_sampler(rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
-    assert len(objects) in [2, 3]
+    assert len(objects) == 1
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
-    obj_to_sample_near = objects[-1]
-    closeness_limit = 1.25
-    distance = closeness_limit * rng.random()
+    obj_to_sample_near = objects[0]
+    # NOTE: These below values found to work well on sorting_books and
+    # re-shelving_library_books tasks.
+    closeness_limit = 0.75
+    nearness_limit = 0.5
+    distance = nearness_limit + (
+        (closeness_limit - nearness_limit) * rng.random())
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
