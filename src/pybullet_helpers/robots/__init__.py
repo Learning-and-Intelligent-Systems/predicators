@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Dict
 
 from predicators.src.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
-from predicators.src.structs import Pose, Pose3D, Quaternion
+from predicators.src.pybullet_helpers.utils import Pose
+from predicators.src.structs import Pose3D, Quaternion
 from predicators.src.utils import get_all_concrete_subclasses
 
 if not TYPE_CHECKING:

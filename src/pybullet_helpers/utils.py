@@ -1,14 +1,72 @@
-from typing import TYPE_CHECKING, Collection, Iterator, List, Optional, \
-    Sequence, Tuple
+from typing import List, \
+    NamedTuple, Sequence
 
 import numpy as np
 import pybullet as p
+from pybullet_utils.transformations import euler_from_quaternion, \
+    quaternion_from_euler
 
-from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, JointsState, Pose3D
+from predicators.src.structs import Array, JointsState, Pose3D, Quaternion, \
+    RollPitchYaw
 
 _BASE_LINK = -1
+
+
+class Pose(NamedTuple):
+    """Pose which is a position (translation) and rotation.
+
+    We use a NamedTuple as it supports retrieving by 0-indexing and most
+    closely follows the pybullet API.
+    """
+
+    position: Pose3D
+    quat_xyzw: Quaternion = (0.0, 0.0, 0.0, 1.0)
+
+    @classmethod
+    def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> "Pose":
+        return cls(translation, quaternion_from_euler(*rpy))
+
+    @property
+    def quat(self) -> Quaternion:
+        """The default quaternion representation is xyzw as followed by
+        pybullet."""
+        return self.quat_xyzw
+
+    @property
+    def quat_wxyz(self) -> Quaternion:
+        return (
+            self.quat_xyzw[3],
+            self.quat_xyzw[0],
+            self.quat_xyzw[1],
+            self.quat_xyzw[2],
+        )
+
+    @property
+    def rpy(self) -> RollPitchYaw:
+        return euler_from_quaternion(self.quat_xyzw)
+
+    @classmethod
+    def identity(cls) -> "Pose":
+        return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+
+    def multiply(self, *poses: "Pose") -> "Pose":
+        """Multiplies poses (i.e., rigid transforms) together."""
+        return multiply_poses(self, *poses)
+
+    def invert(self) -> "Pose":
+        pos, quat = p.invertTransform(self.position, self.quat_xyzw)
+        return Pose(pos, quat)
+
+
+def multiply_poses(*poses: Pose) -> Pose:
+    """Multiplies poses together."""
+    pose = poses[0]
+    for next_pose in poses[1:]:
+        pose = p.multiplyTransforms(pose.position, pose.quat_xyzw,
+                                    next_pose.position, next_pose.quat_xyzw)
+        pose = Pose(pose[0], pose[1])
+    return pose
 
 
 def matrix_from_quat(quat: Sequence[float], physics_client_id: int) -> Array:
@@ -18,10 +76,10 @@ def matrix_from_quat(quat: Sequence[float], physics_client_id: int) -> Array:
                                       3, 3)
 
 
-def get_pose(body: int,
-             physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
-    return p.getBasePositionAndOrientation(body,
-                                           physicsClientId=physics_client_id)
+def get_pose(body: int, physics_client_id: int) -> Pose:
+    pybullet_pose = p.getBasePositionAndOrientation(
+        body, physicsClientId=physics_client_id)
+    return Pose(pybullet_pose[0], pybullet_pose[1])
 
 
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
@@ -40,26 +98,22 @@ def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
     raise ValueError(f"Body {body} has no link with name {name}.")
 
 
-def get_link_pose(body: int, link: int,
-                  physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
+def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
     """Get the position and orientation for a link."""
     if link == _BASE_LINK:
         return get_pose(body, physics_client_id)
     link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
-    return link_state[0], link_state[1]
+    return Pose(link_state[0], link_state[1])
 
 
 def get_relative_link_pose(
         body: int, link1: int, link2: int,
-        physics_client_id: int) -> Tuple[Pose3D, Sequence[float]]:
+        physics_client_id: int) -> Pose:
     """Get the pose of one link relative to another link on the same body."""
-    # X_WL1
     world_from_link1 = get_link_pose(body, link1, physics_client_id)
-    # X_WL2
     world_from_link2 = get_link_pose(body, link2, physics_client_id)
-    # X_L2L1 = (X_WL2)^-1 * (X_WL1)
-    link2_from_link1 = p.multiplyTransforms(
-        *p.invertTransform(*world_from_link2), *world_from_link1)
+    link2_from_link1 = multiply_poses(world_from_link2.invert(),
+                                      world_from_link1)
     return link2_from_link1
 
 
@@ -169,58 +223,3 @@ def pybullet_inverse_kinematics(
     return joint_vals
 
 
-def run_motion_planning(
-    robot: "SingleArmPyBulletRobot",
-    initial_state: JointsState,
-    target_state: JointsState,
-    collision_bodies: Collection[int],
-    seed: int,
-    physics_client_id: int,
-) -> Optional[Sequence[JointsState]]:
-    """Run BiRRT to find a collision-free sequence of joint states.
-
-    Note that this function changes the state of the robot.
-    """
-    rng = np.random.default_rng(seed)
-    joint_space = robot.action_space
-    joint_space.seed(seed)
-    _sample_fn = lambda _: joint_space.sample()
-    num_interp = CFG.pybullet_birrt_extend_num_interp
-
-    def _extend_fn(pt1: JointsState,
-                   pt2: JointsState) -> Iterator[JointsState]:
-        pt1_arr = np.array(pt1)
-        pt2_arr = np.array(pt2)
-        num = int(np.ceil(max(abs(pt1_arr - pt2_arr)))) * num_interp
-        if num == 0:
-            yield pt2
-        for i in range(1, num + 1):
-            yield list(pt1_arr * (1 - i / num) + pt2_arr * i / num)
-
-    def _collision_fn(pt: JointsState) -> bool:
-        robot.set_joints(pt)
-        p.performCollisionDetection(physicsClientId=physics_client_id)
-        for body in collision_bodies:
-            if p.getContactPoints(robot.robot_id,
-                                  body,
-                                  physicsClientId=physics_client_id):
-                return True
-        return False
-
-    def _distance_fn(from_pt: JointsState, to_pt: JointsState) -> float:
-        from_ee = robot.forward_kinematics(from_pt)
-        to_ee = robot.forward_kinematics(to_pt)
-        return sum(np.subtract(from_ee, to_ee)**2)
-
-    birrt = utils.BiRRT(
-        _sample_fn,
-        _extend_fn,
-        _collision_fn,
-        _distance_fn,
-        rng,
-        num_attempts=CFG.pybullet_birrt_num_attempts,
-        num_iters=CFG.pybullet_birrt_num_iters,
-        smooth_amt=CFG.pybullet_birrt_smooth_amt,
-    )
-
-    return birrt.query(initial_state, target_state)

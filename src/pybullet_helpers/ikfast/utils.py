@@ -7,38 +7,31 @@ from itertools import chain, islice
 from typing import TYPE_CHECKING, Generator, List, Sequence
 
 import numpy as np
-import pybullet as p
-from pybullet_tools.utils import INF, get_difference_fn, get_joint_positions, \
-    get_length, get_max_limits, get_min_limits, get_ordered_ancestors, \
+from pybullet_tools.utils import get_difference_fn, get_joint_positions, \
+    get_max_limits, get_min_limits, get_ordered_ancestors, \
     interval_generator, joints_from_names, parent_joint_from_link, \
     parent_link_from_joint, prune_fixed_joints, violates_limits
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.src.pybullet_helpers.utils import get_link_from_name, \
-    get_link_pose, get_relative_link_pose, matrix_from_quat
+from predicators.src.pybullet_helpers.utils import Pose, get_link_from_name, \
+    get_link_pose, get_relative_link_pose, matrix_from_quat, multiply_poses
 from predicators.src.settings import CFG
-from predicators.src.structs import JointsState, Pose
+from predicators.src.structs import JointsState
 
 """
-Note: I copied this from Caelan's stuff and hacked it to get it working for us
-Should discuss how we want to do things in terms of pybullet utils.
+Note: modified from pybullet-planning for our purposes.
 """
 
 if TYPE_CHECKING:
     from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 
 
-def multiply(*poses: Pose) -> Pose:
-    pose = poses[0]
-    for next_pose in poses[1:]:
-        pose = p.multiplyTransforms(pose.position, pose.quat_xyzw,
-                                    next_pose.position, next_pose.quat_xyzw)
-        pose = Pose(pose[0], pose[1])
-    return pose
+def get_length(vec, norm=2):
+    return np.linalg.norm(vec, ord=norm)
 
 
-def get_base_from_ee(
+def _get_base_from_ee(
     robot: SingleArmPyBulletRobot,
     ikfast_info: IKFastInfo,
     tool_link: int,
@@ -48,16 +41,16 @@ def get_base_from_ee(
                                  robot.physics_client_id)
     tool_from_ee = get_relative_link_pose(robot.robot_id, ee_link, tool_link,
                                           robot.physics_client_id)
-    tool_from_ee = Pose(tool_from_ee[0], tool_from_ee[1])
+    world_from_base = get_link_pose(
+        robot.robot_id,
+        get_link_from_name(robot.robot_id, ikfast_info.base_link,
+                           robot.physics_client_id),
+        robot.physics_client_id,
+    )
 
-    base_link = get_link_from_name(robot.robot_id, ikfast_info.base_link,
-                                   robot.physics_client_id)
-    world_from_base = get_link_pose(robot.robot_id, base_link,
-                                    robot.physics_client_id)
-    world_from_base = Pose(world_from_base[0], world_from_base[1])
-
-    pose = multiply(world_from_base.invert(), world_from_target, tool_from_ee)
-    return pose
+    base_from_ee = multiply_poses(world_from_base.invert(), world_from_target,
+                          tool_from_ee)
+    return base_from_ee
 
 
 def ikfast_inverse_kinematics(
@@ -90,8 +83,7 @@ def ikfast_inverse_kinematics(
         for joint_name in ikfast_info.free_joints
     ]
 
-    # world_from_target = (world_from_target.position, world_from_target.quat_xyzw)
-    base_from_ee = get_base_from_ee(og_robot, ikfast_info, tool_link,
+    base_from_ee = _get_base_from_ee(og_robot, ikfast_info, tool_link,
                                     world_from_target)
     difference_fn = get_difference_fn(robot, ik_joints)
 
@@ -111,7 +103,7 @@ def ikfast_inverse_kinematics(
         [current_positions],  # TODO: sample from a truncated Gaussian nearby
         interval_generator(lower_limits, upper_limits),
     )
-    if max_attempts < INF:
+    if max_attempts < np.inf:
         generator = islice(generator, max_attempts)
 
     start_time = time.perf_counter()
@@ -126,7 +118,8 @@ def ikfast_inverse_kinematics(
         rot_matrix = matrix_from_quat(base_from_ee.quat_xyzw,
                                       og_robot.physics_client_id).tolist()
 
-        ik_candidates = ikfast.get_ik(rot_matrix, list(base_from_ee.position),
+        ik_candidates = ikfast.get_ik(rot_matrix,
+                                      list(base_from_ee.position),
                                       list(free_positions))
         if ik_candidates is None:
             continue
@@ -179,7 +172,7 @@ def ikfast_closest_inverse_kinematics(
         return []
 
     # Sort the solutions by distance to the current joint positions
-    current_conf = get_joint_positions(robot_id, ik_joints)
+    current_conf = robot.get_joints(ik_joints)
 
     # TODO: relative to joint limits
     difference_fn = get_difference_fn(robot_id, ik_joints)  # get_distance_fn
@@ -189,7 +182,7 @@ def ikfast_closest_inverse_kinematics(
     )
     verbose = True
     if verbose:
-        min_distance = min([INF] + [
+        min_distance = min([np.inf] + [
             get_length(difference_fn(q, current_conf), norm=norm)
             for q in solutions
         ])

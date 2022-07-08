@@ -9,11 +9,8 @@ from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
     List, Optional, Sequence, Set, Tuple, TypeVar, Union, cast
 
 import numpy as np
-import pybullet as p
 from gym.spaces import Box
 from numpy.typing import NDArray
-from pybullet_utils.transformations import euler_from_quaternion, \
-    quaternion_from_euler
 from tabulate import tabulate
 
 from predicators.src.settings import CFG
@@ -1490,33 +1487,6 @@ class LiftedDecisionList:
     def __str__(self) -> str:
         rule_str = "\n".join(str(r) for r in self.rules)
         return f"LiftedDecisionList[\n{rule_str}\n]"
-
-
-@dataclass(frozen=True)
-class Pose:
-    position: Pose3D
-    quat_xyzw: Quaternion = (0.0, 0.0, 0.0, 1.0)
-
-    @classmethod
-    def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> "Pose":
-        return cls(translation, quaternion_from_euler(*rpy))
-
-    @property
-    def quat_wxyz(self) -> Quaternion:
-        return self.quat_xyzw[3], self.quat_xyzw[0], self.quat_xyzw[
-            1], self.quat_xyzw[2]
-
-    @property
-    def rpy(self) -> RollPitchYaw:
-        return euler_from_quaternion(self.quat_xyzw)
-
-    @classmethod
-    def identity(cls) -> "Pose":
-        return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
-
-    def invert(self) -> "Pose":
-        pos, quat = p.invertTransform(self.position, self.quat_wxyz)
-        return Pose(pos, quat)
 
 
 # Convenience higher-order types useful throughout the code

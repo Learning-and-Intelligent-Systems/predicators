@@ -9,11 +9,10 @@ from gym.spaces import Box
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain, \
+from predicators.src.pybullet_helpers.utils import Pose, get_kinematic_chain, \
     get_link_from_name, pybullet_inverse_kinematics
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, JointsState, Pose, Pose3D, \
-    Quaternion
+from predicators.src.structs import Array, JointsState, Pose3D, Quaternion
 
 
 class SingleArmPyBulletRobot(abc.ABC):
@@ -271,19 +270,19 @@ class SingleArmPyBulletRobot(abc.ABC):
         return np.array([rx, ry, rz, rf], dtype=np.float32)
 
     def get_joints(self,
-                   joint_idxs: Optional[List[int]] = None) -> JointsState:
+                   joint_indices: Optional[List[int]] = None) -> JointsState:
         """Get the joints state from the current PyBullet state.
 
-        If joint_idxs is None, then return the state for all joints.
+        If joint_indices is None, then return the state for all joints.
         Otherwise, return the state for the specified joint indices.
         """
-        joint_idxs = self.arm_joints if joint_idxs is None else joint_idxs
+        joint_indices = self.arm_joints if joint_indices is None else joint_indices
 
         joint_state = [
             joint_info[0]  # extract joint position only
             for joint_info in p.getJointStates(
                 self.robot_id,
-                joint_idxs,
+                joint_indices,
                 physicsClientId=self.physics_client_id)
         ]
         return joint_state
