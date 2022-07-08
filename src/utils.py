@@ -1118,6 +1118,9 @@ def _get_entity_combinations(
         for ent in sorted_entities:
             if ent.is_instance(vt):
                 this_choices.append(ent)
+        #if len(this_choices) == 0:
+            #raise ApproachFailure("Failed to get entity combinations (entity \
+            #instance not found in given types sequence)")
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
@@ -2567,6 +2570,7 @@ def nostdout() -> Generator[None, None, None]:
 
 
 def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+              objects: Set[Object],
               goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
@@ -2575,7 +2579,7 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
 
     If no rule is applicable, returns None.
     """
-    objects = {o for a in atoms | goal for o in a.objects}
+    #objects = {o for a in atoms | goal for o in a.objects}
     for rule in ldl.rules:
         for ground_rule in all_ground_ldl_rules(rule, objects):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
