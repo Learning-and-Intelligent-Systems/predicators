@@ -99,9 +99,15 @@ class JointInfo(NamedTuple):
     parentIndex: int
 
     def is_circular(self) -> bool:
-        if self.jointType == p.JOINT_FIXED:
+        if self.is_fixed():
             return False
         return self.jointUpperLimit < self.jointLowerLimit
+
+    def is_fixed(self) -> bool:
+        return self.jointType == p.JOINT_FIXED
+
+    def is_movable(self) -> bool:
+        return not self.is_fixed()
 
 
 def get_joint_info(body: int, joint: int, physics_client_id: int) -> JointInfo:

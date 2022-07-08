@@ -4,18 +4,19 @@ import logging
 import random
 import time
 from itertools import chain, islice
-from typing import TYPE_CHECKING, Generator, List, Sequence
+from numbers import Number
+from typing import TYPE_CHECKING, Callable, Generator, List, Sequence, Tuple, \
+    Union
 
 import numpy as np
-from pybullet_tools.utils import get_difference_fn, get_ordered_ancestors, \
-    interval_generator, prune_fixed_joints
+from pybullet_tools.utils import get_ordered_ancestors
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
 from predicators.src.pybullet_helpers.utils import Pose, get_joint_info, \
-    get_joint_limits, get_joint_lower_limits, get_joint_upper_limits, \
-    get_link_from_name, get_link_parent, get_link_pose, \
-    get_relative_link_pose, matrix_from_quat, multiply_poses
+    get_joint_infos, get_joint_limits, get_joint_lower_limits, \
+    get_joint_upper_limits, get_link_from_name, get_link_parent, \
+    get_link_pose, get_relative_link_pose, matrix_from_quat, multiply_poses
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState
 
@@ -27,8 +28,16 @@ if TYPE_CHECKING:
     from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 
 
-def get_length(vec, norm=2):
+def get_length(vec: Union[np.ndarray, List[Number]], norm=2) -> float:
     return np.linalg.norm(vec, ord=norm)
+
+
+def prune_fixed_joints(body: int, joints: List[int],
+                       physics_client_id: int) -> List[int]:
+    return [
+        joint for joint in joints
+        if get_joint_info(body, joint, physics_client_id).is_movable()
+    ]
 
 
 # Joint index == link index in pybullet
@@ -74,6 +83,75 @@ def _get_base_from_ee(
     return base_from_ee
 
 
+# TODO: type hints here below
+
+
+def get_difference_fn(
+    body: int, joints: List[int], physics_client_id: int
+) -> Callable[[JointsState, JointsState], Tuple[float]]:
+    circular_joints = [
+        joint_info.is_circular()
+        for joint_info in get_joint_infos(body, joints, physics_client_id)
+    ]
+
+    def fn(q2: JointsState, q1: JointsState) -> Tuple[float]:
+        return tuple(
+            circular_difference(value2, value1) if circular else (value2 -
+                                                                  value1)
+            for circular, value2, value1 in zip(circular_joints, q2, q1))
+
+    return fn
+
+
+def circular_interval(lower=-np.pi):
+    return (lower, lower + 2 * np.pi)
+
+
+def wrap_interval(value, interval=(0., 1.)):
+    lower, upper = interval
+    if (lower == -np.pi) and (+np.pi == upper):
+        return value
+    assert -np.pi < lower <= upper < +np.pi
+    return (value - lower) % (upper - lower) + lower
+
+
+def circular_difference(theta2, theta1, **kwargs) -> float:
+    interval = circular_interval(**kwargs)
+    #extent = get_interval_extent(interval) # TODO: combine with motion_planners
+    extent = get_aabb_extent(interval)
+    diff_interval = (-extent / 2, +extent / 2)
+    difference = wrap_interval(theta2 - theta1, interval=diff_interval)
+    #difference = interval_difference(theta2, theta1, interval=interval)
+    return difference
+
+
+def get_aabb_extent(aabb):
+    lower, upper = aabb
+    return np.array(upper) - np.array(lower)
+
+
+def convex_combination(x, y, w=0.5):
+    return (1 - w) * np.array(x) + w * np.array(y)
+
+
+def interval_generator(lower, upper):
+    assert len(lower) == len(upper)
+    assert np.less_equal(lower, upper).all()
+    if np.equal(lower, upper).all():
+        return iter([lower])
+    return (convex_combination(lower, upper, w=weights)
+            for weights in unit_generator(d=len(lower)))
+
+
+def unit_generator(d):
+    return uniform_generator(d)
+
+
+def uniform_generator(d):
+    while True:
+        yield np.random.uniform(size=d)
+
+
 def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
                   tool_link: int) -> List[int]:
     """Returns the joint IDs of the robot's joints that are used in IKFast."""
@@ -94,11 +172,14 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
         if get_link_parent(robot_id, parent_joint_from_link(link),
                            physics_client_id) == base_link
     ]
-    assert prune_fixed_joints(robot_id, ee_ancestors) == prune_fixed_joints(
-        robot_id, tool_ancestors)
+    assert prune_fixed_joints(robot_id, ee_ancestors,
+                              robot.physics_client_id) == prune_fixed_joints(
+                                  robot_id, tool_ancestors,
+                                  robot.physics_client_id)
     # assert base_link in ee_ancestors # base_link might be -1
     ik_joints = prune_fixed_joints(
-        robot_id, ee_ancestors[ee_ancestors.index(first_joint):])
+        robot_id, ee_ancestors[ee_ancestors.index(first_joint):],
+        robot.physics_client_id)
     free_joints = robot.joints_from_names(ikfast_info.free_joints)
     assert set(free_joints) <= set(ik_joints)
     assert len(ik_joints) == 6 + len(free_joints)
@@ -133,7 +214,8 @@ def ikfast_inverse_kinematics(
 
     base_from_ee = _get_base_from_ee(og_robot, ikfast_info, tool_link,
                                      world_from_target)
-    difference_fn = get_difference_fn(robot, ik_joints)
+    difference_fn = get_difference_fn(robot, ik_joints,
+                                      og_robot.physics_client_id)
 
     current_conf = og_robot.get_joints(ik_joints)
     current_positions = og_robot.get_joints(free_joints)
@@ -222,7 +304,8 @@ def ikfast_closest_inverse_kinematics(
     current_conf = robot.get_joints(ik_joints)
 
     # TODO: relative to joint limits
-    difference_fn = get_difference_fn(robot_id, ik_joints)  # get_distance_fn
+    difference_fn = get_difference_fn(
+        robot_id, ik_joints, robot.physics_client_id)  # get_distance_fn
     solutions = sorted(
         candidate_solutions,
         key=lambda q: get_length(difference_fn(q, current_conf), norm=norm),
