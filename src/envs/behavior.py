@@ -545,6 +545,8 @@ class BehaviorEnv(BaseEnv):
     @staticmethod
     def _create_type_combo_name(original_name: str,
                                 type_combo: Sequence[Type]) -> str:
+        if len(type_combo) == 0:
+            return original_name
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
 
