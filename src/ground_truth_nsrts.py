@@ -951,7 +951,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     placeontable_nsrt = NSRT("PlaceOnTable", parameters, preconditions,
                              add_effects, delete_effects, set(), option,
                              option_vars, placeontable_sampler)
-    nsrts.add(placeontable_nsrt)
+    # In the case where painting_initial_holding_prob is 0.0, we never need to
+    # place on the table. Without this line, when using strips_learner oracle,
+    # there would be a crash in sampler learning.
+    if CFG.painting_initial_holding_prob > 0:
+        nsrts.add(placeontable_nsrt)
 
     if CFG.env == "repeated_nextto_painting":
 
