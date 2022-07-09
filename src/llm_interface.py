@@ -47,8 +47,8 @@ class LargeLanguageModel(abc.ABC):
 
         Higher temperatures will increase the variance in the responses.
 
-        The seed may not be used, and the results may therefore not be
-        reproducible, for LLMs where we only have access through an API that
+        The seed may not be used and the results may therefore not be
+        reproducible for LLMs where we only have access through an API that
         does not expose the ability to set a random seed.
 
         Responses are saved to disk.
