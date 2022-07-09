@@ -256,6 +256,7 @@ class GlobalSettings:
 
     # parameters for large language models
     llm_prompt_cache_dir = "llm_cache"
+    llm_openai_max_response_tokens = 250
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"

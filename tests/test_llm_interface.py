@@ -1,9 +1,10 @@
 """Tests for the large language model interface."""
 
+import os
 import shutil
 
 from predicators.src import utils
-from predicators.src.llm_interface import LargeLanguageModel
+from predicators.src.llm_interface import LargeLanguageModel, OpenAILLM
 
 
 class _DummyLLM(LargeLanguageModel):
@@ -45,3 +46,21 @@ def test_large_language_model():
     assert completions == [expected_completion] * 3
     # Clean up the cache dir.
     shutil.rmtree(cache_dir)
+
+
+def test_openai_llm():
+    """Tests for OpenAILLM()."""
+    cache_dir = "_fake_llm_cache_dir"
+    utils.reset_config({"llm_prompt_cache_dir": cache_dir})
+    if "OPENAI_API_KEY" not in os.environ:
+        os.environ["OPENAI_API_KEY"] = "dummy API key"
+    # Create an OpenAILLM with the curie model.
+    llm = OpenAILLM("text-curie-001")
+    assert llm.get_id() == "openai-text-curie-001"
+    # Uncomment this to test manually, but do NOT uncomment in master, because
+    # each query costs money.
+    # completions = llm.sample_completions("Hello", 0.5, 123, 2)
+    # assert len(completions) == 2
+    # completions2 = llm.sample_completions("Hello", 0.5, 123, 2)
+    # assert completions == completions2
+    # shutil.rmtree(cache_dir)
