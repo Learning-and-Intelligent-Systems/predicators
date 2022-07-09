@@ -64,11 +64,11 @@ class LargeLanguageModel(abc.ABC):
                                                 num_completions=1)
             # Cache the completion.
             cache_str = prompt + _CACHE_SEP + completion
-            with open(cache_filepath, 'w') as f:
+            with open(cache_filepath, 'w', encoding='utf-8') as f:
                 f.write(cache_str)
             logging.debug(f"Saved LLM response to {cache_filepath}.")
         # Load the saved completion.
-        with open(cache_filepath, 'r') as f:
+        with open(cache_filepath, 'r', encoding='utf-8') as f:
             cache_str = f.read()
         logging.debug(f"Loaded LLM response from {cache_filepath}.")
         cached_prompt, completion = cache_str.split(_CACHE_SEP)
