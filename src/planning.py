@@ -11,7 +11,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 
 import numpy as np
 
@@ -504,6 +505,90 @@ def _update_nsrts_with_failure(
                 new_ground_nsrt = ground_nsrt
             new_ground_nsrts.append(new_ground_nsrt)
     return new_predicates, new_ground_nsrts
+
+
+def task_plan_with_option_plan_constraint(
+    objects: Set[Object],
+    predicates: Set[Predicate],
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    option_plan: List[Tuple[ParameterizedOption, Sequence[Object]]],
+    atoms_seq: Optional[List[Set[GroundAtom]]] = None,
+) -> Optional[List[_GroundNSRT]]:
+    """Turn an option plan into a plan of ground NSRTs that achieves the goal
+    from the initial atoms.
+
+    If atoms_seq is not None, the ground NSRT plan must also match up with
+    the given sequence of atoms. Otherwise, atoms are not checked.
+
+    If no goal-achieving sequence of ground NSRTs corresponds to
+    the option plan, return None.
+    """
+    ground_nsrts, _ = task_plan_grounding(init_atoms,
+                                          objects,
+                                          strips_ops,
+                                          option_specs,
+                                          allow_noops=True)
+    heuristic = utils.create_task_planning_heuristic(
+        CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
+        predicates, objects)
+
+    def _check_goal(
+            searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+        return goal.issubset(searchnode_state[0])
+
+    def _get_successor_with_correct_option(
+        searchnode_state: Tuple[FrozenSet[GroundAtom], int]
+    ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
+                        float]]:
+        atoms = searchnode_state[0]
+        idx_into_traj = searchnode_state[1]
+
+        if idx_into_traj > len(option_plan) - 1:
+            return
+
+        gt_param_option = option_plan[idx_into_traj][0]
+        gt_objects = option_plan[idx_into_traj][1]
+        if atoms_seq is not None:
+            expected_next_atoms = atoms_seq[idx_into_traj + 1]
+
+        for applicable_nsrt in utils.get_applicable_operators(
+                ground_nsrts, atoms):
+            # NOTE: we check that the ParameterizedOptions are equal before
+            # attempting to ground because otherwise, we might
+            # get a parameter mismatch and trigger an AssertionError
+            # during grounding.
+            if applicable_nsrt.option != gt_param_option:
+                continue
+            if applicable_nsrt.option_objs != gt_objects:
+                continue
+            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
+            if atoms_seq is not None and \
+                not next_atoms.issubset(expected_next_atoms):
+                continue
+            # The returned cost is uniform because we don't
+            # actually care about finding the shortest path;
+            # just one that matches!
+            yield (applicable_nsrt, (frozenset(next_atoms), idx_into_traj + 1),
+                   1.0)
+
+    init_atoms_frozen = frozenset(init_atoms)
+    init_searchnode_state = (init_atoms_frozen, 0)
+    # NOTE: each state in the below GBFS is a tuple of
+    # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
+    # we need to check whether the atoms that are true at this particular
+    # index into the trajectory is what we would expect given the demo
+    # trajectory.
+    state_seq, action_seq = utils.run_gbfs(
+        init_searchnode_state, _check_goal, _get_successor_with_correct_option,
+        lambda searchnode_state: heuristic(searchnode_state[0]))
+
+    if not _check_goal(state_seq[-1]):
+        return None
+
+    return action_seq
 
 
 @dataclass(frozen=True, eq=False)
