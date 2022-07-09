@@ -3,6 +3,7 @@
 import abc
 import logging
 import os
+from typing import List
 
 from predicators.src.settings import CFG
 
@@ -27,11 +28,19 @@ class LargeLanguageModel(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def sample_completion(self,
-                          prompt: str,
-                          temperature: float,
-                          seed: int,
-                          num_completions: int = 1) -> str:
+    def _sample_completions(self,
+                            prompt: str,
+                            temperature: float,
+                            seed: int,
+                            num_completions: int = 1) -> List[str]:
+        """Helper for sample_completion()."""
+        raise NotImplementedError("Override me!")
+
+    def sample_completions(self,
+                           prompt: str,
+                           temperature: float,
+                           seed: int,
+                           num_completions: int = 1) -> List[str]:
         """Sample one or more completions from a prompt.
 
         Higher temperatures will increase the variance in the responses.
@@ -39,31 +48,28 @@ class LargeLanguageModel(abc.ABC):
         The seed may not be used, and the results may therefore not be
         reproducible, for LLMs where we only have access through an API that
         does not expose the ability to set a random seed.
-        """
-        raise NotImplementedError("Override me!")
 
-    def get_most_likely_completion(self, prompt: str) -> str:
-        """Get the most likely completion from a prompt.
-
-        This is a separate method from sample_completion() because the
-        result can be cached to disk, which is important when queries
-        are expensive.
+        Responses are saved to disk.
         """
         # Set up the cache file.
         assert _CACHE_SEP not in prompt
         os.makedirs(CFG.llm_prompt_cache_dir, exist_ok=True)
         llm_id = self.get_id()
-        cache_filename = f"{llm_id}_{hash(prompt)}.txt"
+        prompt_id = hash(prompt)
+        # If the temperature is 0, the seed does not matter.
+        if temperature == 0.0:
+            config_id = f"most_likely_{num_completions}"
+        else:
+            config_id = f"{temperature}_{seed}_{num_completions}"
+        cache_filename = f"{llm_id}_{config_id}_{prompt_id}.txt"
         cache_filepath = os.path.join(CFG.llm_prompt_cache_dir, cache_filename)
         if not os.path.exists(cache_filepath):
             logging.debug(f"Querying LLM {llm_id} with new prompt.")
             # Query the LLM.
-            completion = self.sample_completion(prompt,
-                                                temperature=0,
-                                                seed=CFG.seed,
-                                                num_completions=1)
+            completions = self._sample_completions(prompt, temperature, seed,
+                                                   num_completions)
             # Cache the completion.
-            cache_str = prompt + _CACHE_SEP + completion
+            cache_str = prompt + _CACHE_SEP.join(completions)
             with open(cache_filepath, 'w', encoding='utf-8') as f:
                 f.write(cache_str)
             logging.debug(f"Saved LLM response to {cache_filepath}.")
@@ -71,6 +77,8 @@ class LargeLanguageModel(abc.ABC):
         with open(cache_filepath, 'r', encoding='utf-8') as f:
             cache_str = f.read()
         logging.debug(f"Loaded LLM response from {cache_filepath}.")
-        cached_prompt, completion = cache_str.split(_CACHE_SEP)
+        assert cache_str.count(_CACHE_SEP) == num_completions
+        cached_prompt, completion_strs = cache_str.split(_CACHE_SEP, 1)
         assert cached_prompt == prompt
-        return completion
+        completions = completion_strs.split(_CACHE_SEP)
+        return completions
