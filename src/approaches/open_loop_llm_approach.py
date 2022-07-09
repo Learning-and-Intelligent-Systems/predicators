@@ -64,6 +64,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                          action_space, train_tasks)
         # Set up the LLM.
         self._llm = OpenAILLM(CFG.open_loop_llm_model_name)
+        # Set after learning.
+        self._prompt_prefix = ""
 
     @classmethod
     def get_name(cls) -> str:
@@ -200,7 +202,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                        options: Sequence[_Option]) -> str:
         init_str = "\n  ".join(map(str, sorted(init)))
         goal_str = "\n  ".join(map(str, sorted(goal)))
-        options_str = "\n  ".join(map(self._option_or_nsrt_to_str, options))
+        options_str = "\n  ".join(map(self._option_to_str, options))
         prompt = f"""
 (:init
   {init_str}
@@ -213,6 +215,6 @@ Solution:
         return prompt
 
     @staticmethod
-    def _option_or_nsrt_to_str(option: Union[_Option, _GroundNSRT]) -> str:
+    def _option_to_str(option: _Option) -> str:
         objects_str = ", ".join(map(str, option.objects))
         return f"{option.name}({objects_str})"
