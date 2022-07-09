@@ -31,27 +31,17 @@ Easier setting:
 """
 from __future__ import annotations
 
-import abc
-import functools
 import logging
-import os
-from typing import Collection, Dict, FrozenSet, Iterator, List, Optional, \
-    Sequence, Set, Tuple, Union
+from typing import Collection, Dict, List, Sequence, Set, Tuple
 
-import dill as pkl
-import openai
-
-from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
     NSRTMetacontrollerApproach
 from predicators.src.llm_interface import OpenAILLM
 from predicators.src.planning import task_plan_with_option_plan_constraint
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Box, Dataset, GroundAtom, \
-    GroundAtomTrajectory, LDLRule, LiftedAtom, LiftedDecisionList, \
-    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, Predicate, \
-    State, STRIPSOperator, Task, Type, Variable, _GroundNSRT, _Option
+from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
 class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
@@ -96,8 +86,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         # sequence of ground NSRTs.
         nsrts = self._get_current_nsrts()
         predicates = self._initial_predicates
-        strips_ops = [nsrt.op for nsrt in nsrts]
-        option_specs = [(nsrt.option, nsrt.option_vars) for nsrt in nsrts]
+        strips_ops = [n.op for n in nsrts]
+        option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, predicates, strips_ops, option_specs, atoms, goal,
             option_plan)
@@ -110,11 +100,11 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
-    ) -> List[Tuple[ParameterizedOption, List[Object]]]:
+    ) -> List[Tuple[ParameterizedOption, Sequence[Object]]]:
         """Convert the output of the LLM into a sequence of
         ParameterizedOptions coupled with a list of objects that will be used
         to ground the ParameterizedOption."""
-        option_plan: List[Tuple[ParameterizedOption, List[Object]]] = []
+        option_plan: List[Tuple[ParameterizedOption, Sequence[Object]]] = []
         # Setup dictionaries enabling us to easily map names to specific
         # Python objects during parsing.
         option_name_to_option = {op.name: op for op in self._initial_options}
@@ -130,8 +120,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 continue
             if option_name not in option_name_to_option.keys():
                 logging.info(
-                    f"Line {option_str} output by LLM doesn't " +
-                    "contain a valid option name. Terminating option plan " +
+                    f"Line {option_str} output by LLM doesn't "
+                    "contain a valid option name. Terminating option plan "
                     "parsing.")
                 break
             option = option_name_to_option[option_name]
@@ -145,14 +135,14 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 object_type_str_list = type_object_string.strip().split(':')
                 # We expect this list to be [object_name, type_name]
                 if len(object_type_str_list) != 2:
-                    logging.info(f"Line {option_str} output by LLM has a " +
+                    logging.info(f"Line {option_str} output by LLM has a "
                                  "malformed object-type list.")
                     malformed = True
                     break
                 object_name = object_type_str_list[0]
                 type_name = object_type_str_list[1]
                 if object_name not in obj_name_to_obj.keys():
-                    logging.info(f"Line {option_str} output by LLM has an " +
+                    logging.info(f"Line {option_str} output by LLM has an "
                                  "invalid object name.")
                     malformed = True
                     break
@@ -160,7 +150,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 # Check that the type of this object agrees
                 # with what's expected given the ParameterizedOption.
                 if type_name != option.types[i].name:
-                    logging.info(f"Line {option_str} output by LLM has an " +
+                    logging.info(f"Line {option_str} output by LLM has an "
                                  "invalid type name.")
                     malformed = True
                     break

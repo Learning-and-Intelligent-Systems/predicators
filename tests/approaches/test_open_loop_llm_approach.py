@@ -108,7 +108,7 @@ def test_open_loop_llm_approach():
 
     # Test failure cases of _llm_prediction_to_option_plan().
     objects = set(task.init)
-    assert approach._llm_prediction_to_option_plan(ideal_response, objects)
+    assert approach._llm_prediction_to_option_plan(ideal_response, objects)  # pylint: disable=protected-access
     # Case where a line does not contain a valid option.
     response = "garbage\n" + ideal_response
     option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
