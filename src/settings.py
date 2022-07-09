@@ -254,6 +254,9 @@ class GlobalSettings:
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
 
+    # parameters for large language models
+    llm_prompt_cache_dir = "llm_cache"
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays

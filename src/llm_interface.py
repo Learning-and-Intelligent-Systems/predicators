@@ -69,7 +69,7 @@ class LargeLanguageModel(abc.ABC):
             completions = self._sample_completions(prompt, temperature, seed,
                                                    num_completions)
             # Cache the completion.
-            cache_str = prompt + _CACHE_SEP.join(completions)
+            cache_str = prompt + _CACHE_SEP + _CACHE_SEP.join(completions)
             with open(cache_filepath, 'w', encoding='utf-8') as f:
                 f.write(cache_str)
             logging.debug(f"Saved LLM response to {cache_filepath}.")
