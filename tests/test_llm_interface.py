@@ -36,5 +36,12 @@ def test_large_language_model():
     completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
     expected_completion = "Prompt was: Hello world!. Seed: 123. Temp: 0.5."
     assert completions == [expected_completion] * 3
+    # Query it again, covering the case where we load from disk.
+    completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
+    assert completions == [expected_completion] * 3
+    # Query with temperature 0.
+    completions = llm.sample_completions("Hello world!", 0.0, 123, 3)
+    expected_completion = "Prompt was: Hello world!. Seed: 123. Temp: 0.0."
+    assert completions == [expected_completion] * 3
     # Clean up the cache dir.
     shutil.rmtree(cache_dir)
