@@ -54,6 +54,7 @@ def test_open_loop_llm_approach():
                                 temperature,
                                 seed,
                                 num_completions=1):
+            del prompt, temperature, seed, num_completions  # unused
             return [self.response]
 
     llm = _MockLLM()
@@ -69,6 +70,8 @@ def test_open_loop_llm_approach():
     option_to_str = approach._option_to_str  # pylint: disable=protected-access
     # Options and NSRTs are 1:1 for this test / environment.
     ideal_response = "\n".join(map(option_to_str, last_plan))
+    # Add an empty line to the ideal response, should be no problem.
+    ideal_response = "\n" + ideal_response
     llm.response = ideal_response
     # Run the approach.
     policy = approach.solve(task, timeout=500)
