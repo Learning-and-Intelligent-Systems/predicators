@@ -258,6 +258,10 @@ class GlobalSettings:
     llm_prompt_cache_dir = "llm_cache"
     llm_openai_max_response_tokens = 250
 
+    # parameters for open loop LLM approach
+    open_loop_llm_model_name = "text-curie-001"
+    open_loop_llm_temperature = 0.0
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
