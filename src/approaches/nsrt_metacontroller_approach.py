@@ -32,7 +32,7 @@ class NSRTMetacontrollerApproach(NSRTLearningApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         cur_option = DummyOption
-        memory = {}  # optionally updated by predict()
+        memory: Dict = {}  # optionally updated by predict()
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
