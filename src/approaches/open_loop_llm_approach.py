@@ -81,10 +81,10 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
         llm_prediction = self._llm.sample_completions(
-                           prompt,
-                           temperature=CFG.open_loop_llm_temperature,
-                           seed=CFG.seed,
-                           num_completions=1)[0]
+            prompt,
+            temperature=CFG.open_loop_llm_temperature,
+            seed=CFG.seed,
+            num_completions=1)[0]
         # Try to convert the output into an abstract plan.
         objects = set(state)
         option_plan = self._llm_prediction_to_option_plan(
@@ -98,12 +98,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         predicates = self._initial_predicates
         strips_ops = [nsrt.op for nsrt in nsrts]
         option_specs = [(nsrt.option, nsrt.option_vars) for nsrt in nsrts]
-        ground_nsrt_plan = task_plan_with_option_plan_constraint(objects,
-            predicates,
-            strips_ops,
-            option_specs,
-            atoms,
-            goal,
+        ground_nsrt_plan = task_plan_with_option_plan_constraint(
+            objects, predicates, strips_ops, option_specs, atoms, goal,
             option_plan)
         # If we can't find an NSRT plan that achieves the goal, give up.
         if not ground_nsrt_plan:
