@@ -5,6 +5,8 @@ import logging
 import os
 from typing import List
 
+import openai
+
 from predicators.src.settings import CFG
 
 # This is a special string that we assume will never appear in a prompt, and
@@ -82,3 +84,44 @@ class LargeLanguageModel(abc.ABC):
         assert cached_prompt == prompt
         completions = completion_strs.split(_CACHE_SEP)
         return completions
+
+
+class OpenAILLM(LargeLanguageModel):
+    """Interface to openAI LLMs (GPT-3).
+
+    Assumes that an environment variable OPENAI_API_KEY is set to a
+    private API key for beta.openai.com.
+    """
+
+    def __init__(self, model_name: str) -> None:
+        """See https://beta.openai.com/docs/models/gpt-3 for the list of
+        available model names."""
+        self._model_name = model_name
+        # Note that max_tokens is the maximum response length (not prompt).
+        # From OpenAI docs: "The token count of your prompt plus max_tokens
+        # cannot exceed the model's context length."
+        self._max_tokens = CFG.llm_openai_max_response_tokens
+        assert "OPENAI_API_KEY" in os.environ
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+
+    def get_id(self) -> str:
+        return f"openai-{self._model_name}"
+
+    def _sample_completions(
+            self,
+            prompt: str,
+            temperature: float,
+            seed: int,
+            num_completions: int = 1) -> List[str]:  # pragma: no cover
+        del seed  # unused
+        response = openai.Completion.create(
+            model=self._model_name,  # type: ignore
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=self._max_tokens,
+            n=num_completions)
+        assert len(response["choices"]) == num_completions
+        text_responses = [
+            response["choices"][i]["text"] for i in range(num_completions)
+        ]
+        return text_responses
