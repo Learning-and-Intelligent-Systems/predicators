@@ -91,10 +91,11 @@ class GNNActionPolicyApproach(GNNApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         assert self._gnn is not None, "Learning hasn't happened yet!"
+        memory: Dict = {}  # optionally updated by predict()
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
-            act = self._predict(state, atoms, task.goal)
+            act = self._predict(state, atoms, task.goal, memory)
             return act
 
         return _policy
