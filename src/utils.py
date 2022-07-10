@@ -1860,11 +1860,63 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
 def create_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
-    """Apply all predicates to all trajectories in the dataset."""
-    ground_atom_dataset = []
-    for traj in trajectories:
-        atoms = [abstract(s, predicates) for s in traj.states]
-        ground_atom_dataset.append((traj, atoms))
+    """Generate or load a GroundAtomTrajectory by applying all predicates to
+    all trajectories in the dataset.
+
+    If generating a new GroundAtomTrajectory, then save to file for
+    later reuse.
+    """
+    # Setup the dataset filename for saving/loading GroundAtoms.
+    regex = r"(\d+)"
+    if CFG.env == "behavior":  # pragma: no cover
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}__ground_atoms.data")
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}__ground_atoms.data")
+    dataset_fname = os.path.join(
+        CFG.data_dir,
+        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+    # If CFG.load_atoms is set, then try to load the GroundAtomTrajectory
+    # directly from a saved file.
+    if CFG.load_atoms:
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        # Check that the dataset file was previously saved.
+        if os.path_exists(dataset_fname):
+            # Load the ground atoms dataset.
+            with open(dataset_fname, "rb") as f:
+                ground_atom_dataset_trjectories = pkl.load(f)
+            logging.info(f"\n\nLOADED GROUNDED ATOM DATASET")
+            ground_atom_dataset = []
+            for i, traj in enumerate(trajectories):
+                ground_atom_seq = ground_atom_dataset_trjectories[i]
+                ground_atom_dataset.append(
+                    (traj, [set(atoms) for atoms in ground_atom_seq]))
+        else:
+            raise ValueError(f"Cannot load grounded atoms: {dataset_fname}")
+    else:
+        ground_atom_dataset = []
+        for traj in trajectories:
+            atoms = [abstract(s, predicates) for s in traj.states]
+            ground_atom_dataset.append((traj, atoms))
+        # Save grounded atoms dataset to file.
+        ground_atom_dataset_to_pkl = []
+        for traj_i, traj in enumerate(ground_atom_dataset):
+            trajectory = []
+            for i, ground_atom_seq in enumerate(traj[1]):
+                trajectory.append(
+                    set([
+                        GroundAtom(
+                            Predicate(atom.predicate.name,
+                                      atom.predicate.types, lambda s, o: None),
+                            atom.entities) for atom in ground_atom_seq
+                    ]))
+            ground_atom_dataset_to_pkl.append(trajectory)
+        with open(dataset_fname, "wb") as f:
+            pkl.dump(ground_atom_dataset_to_pkl, f)
     return ground_atom_dataset
 
 
