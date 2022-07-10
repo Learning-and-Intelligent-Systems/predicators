@@ -1905,13 +1905,13 @@ def create_ground_atom_dataset(
             ground_atom_dataset.append((traj, atoms))
         # Save ground atoms dataset to file.
         ground_atom_dataset_to_pkl = []
-        for _, traj in enumerate(ground_atom_dataset):
+        for gt_traj in ground_atom_dataset:
             trajectory = []
-            for i, ground_atom_seq in enumerate(traj[1]):
+            for i, ground_atom_seq in enumerate(gt_traj[1]):
                 trajectory.append({
                     GroundAtom(
                         Predicate(atom.predicate.name, atom.predicate.types,
-                                  lambda s, o: None), atom.entities)
+                                  lambda s, o: False), atom.entities)
                     for atom in ground_atom_seq
                 })
             ground_atom_dataset_to_pkl.append(trajectory)

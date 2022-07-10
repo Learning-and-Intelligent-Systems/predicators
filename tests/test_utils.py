@@ -1802,19 +1802,19 @@ def test_create_ground_atom_dataset(load_atoms: bool):
     plate2 = plate_type("plate2")
     states = [
         State({
-            cup1: [0.5],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([0.5]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         }),
         State({
-            cup1: [1.1],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([1.1]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         })
     ]
-    actions = [DummyOption]
+    actions = [Action(np.array([0.0]), DummyOption)]
     dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
