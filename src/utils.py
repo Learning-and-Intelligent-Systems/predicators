@@ -1889,11 +1889,11 @@ def create_ground_atom_dataset(
         if os.path.exists(dataset_fname):
             # Load the ground atoms dataset.
             with open(dataset_fname, "rb") as f:
-                ground_atom_dataset_trjectories = pkl.load(f)
+                ground_atom_dataset_trajectories = pkl.load(f)
             logging.info("\n\nLOADED GROUND ATOM DATASET")
             ground_atom_dataset = []
             for i, traj in enumerate(trajectories):
-                ground_atom_seq = ground_atom_dataset_trjectories[i]
+                ground_atom_seq = ground_atom_dataset_trajectories[i]
                 ground_atom_dataset.append(
                     (traj, [set(atoms) for atoms in ground_atom_seq]))
         else:
