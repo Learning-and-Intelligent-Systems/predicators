@@ -68,7 +68,13 @@ class BehaviorEnv(BaseEnv):
         # a map between task nums and the snapshot id for saving/loading
         # purposes
         self.task_num_to_igibson_seed: Dict[int, int] = {}
+        self.set_options()
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "behavior"
+
+    def set_options(self) -> None:
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
@@ -118,10 +124,6 @@ class BehaviorEnv(BaseEnv):
                     rng=self._rng,
                 )
                 self._options.add(option)
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "behavior"
 
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state.simulator_state, str)
@@ -186,8 +188,9 @@ class BehaviorEnv(BaseEnv):
             if CFG.behavior_randomize_init_state:
                 self.set_igibson_behavior_env(task_instance_id=self.task_num,
                                               seed=curr_env_seed)
+                self._type_name_to_type: Dict[str, Type] = {}
+                self.set_options()
             self.igibson_behavior_env.reset()
-            # import ipdb; ipdb.set_trace()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
                         f"{CFG.behavior_task_name}__{self.task_num}",
@@ -583,6 +586,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
             task_instance_id=new_task_num,
             seed=env.task_num_to_igibson_seed[new_task_num])
         env.task_num = new_task_num
+        env._type_name_to_type = {}
+        env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
     env.task_num = new_task_num

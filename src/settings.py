@@ -452,7 +452,6 @@ class GlobalSettings:
             sesame_max_samples_per_step=defaultdict(
                 lambda: 10,
                 {
-                    "behavior": 100,
                     # For the tools environment, don't do any backtracking.
                     "tools": 1,
                 })[args.get("env", "")],

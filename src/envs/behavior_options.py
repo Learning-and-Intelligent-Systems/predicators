@@ -960,7 +960,7 @@ def place_obj_plan(
                 np.pi * 7 / 6,
                 0,
             ]
-    if not env.use_RRT:
+    if env.use_RRT:
         plan = plan_hand_motion_br(
             robot=env.robots[0],
             obj_in_hand=obj_in_hand,
@@ -974,7 +974,6 @@ def place_obj_plan(
     else:
         pos = env.robots[0].parts["right_hand"].get_position()
         plan = [[pos[0], pos[1], pos[2]] + list(p.getEulerFromQuaternion(env.robots[0].parts["right_hand"].get_orientation())), end_conf]
-    import ipdb; ipdb.set_trace()
 
     # NOTE: This below line is *VERY* important after the
     # pybullet state is restored. The hands keep an internal
@@ -1257,10 +1256,15 @@ def place_ontop_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    obj_in_hand = env.scene.get_objects()[
-        env.robots[0].parts["right_hand"].object_in_hand]
-    logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
-                 f"{obj.name} with params {place_rel_pos}")
+    try:
+        obj_in_hand = env.scene.get_objects()[
+            env.robots[0].parts["right_hand"].object_in_hand]
+        logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
+                    f"{obj.name} with params {place_rel_pos}")
+    except:
+        logging.info("Cannot place; either no object in hand or holding "
+                     "the object to be placed on top of!")
+        return None
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None

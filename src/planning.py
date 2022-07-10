@@ -271,9 +271,6 @@ def _skeleton_generator(
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
                 
-                # if "Place" in nsrt.name:
-                #     import ipdb; ipdb.set_trace()
-                
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
                     break

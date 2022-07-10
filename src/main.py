@@ -267,7 +267,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     test_tasks,
                     task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
                     max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
-                policy = oracle_approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                attempts = 10
+                for _ in range(attempts):
+                    policy = oracle_approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                    last_plan = oracle_approach.get_last_plan()
+                    traj, solved = _run_plan_with_option_model(
+                                    task, test_task_idx, approach.get_option_model(),
+                                    last_plan)
+                    if solved:
+                        break
             else:
                 policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -285,7 +293,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
-        import ipdb; ipdb.set_trace()
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
         make_video = False
@@ -299,7 +306,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             if CFG.env == "behavior":
                 # TODO if behavior eval on option model
                 last_plan = oracle_approach.get_last_plan()
-                import ipdb; ipdb.set_trace()
                 traj, solved = _run_plan_with_option_model(
                                 task, test_task_idx, approach.get_option_model(),
                                 last_plan)
@@ -330,7 +336,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if solved:
             log_message = "SOLVED"
             num_solved += 1
-            total_suc_time += (solve_time + exec_time)
+            if exec_time is None:
+                total_suc_time += (solve_time)
+            else:
+                total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{video_prefix}__task{test_task_idx+1}.mp4"
         else:
