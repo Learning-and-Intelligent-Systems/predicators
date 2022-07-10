@@ -35,7 +35,11 @@ class LargeLanguageModel(abc.ABC):
                             temperature: float,
                             seed: int,
                             num_completions: int = 1) -> List[str]:
-        """Helper for sample_completion()."""
+        """This is the main method that subclasses must implement.
+
+        This helper method is called by sample_completions(), which
+        caches the prompts and responses to disk.
+        """
         raise NotImplementedError("Override me!")
 
     def sample_completions(self,
