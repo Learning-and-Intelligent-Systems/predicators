@@ -1781,8 +1781,17 @@ def test_all_possible_ground_atoms():
     assert not utils.abstract(state, {on, not_on})
 
 
-def test_create_ground_atom_dataset():
+@pytest.mark.parametrize("load_atoms", [False, True])
+def test_create_ground_atom_dataset(load_atoms: bool):
     """Tests for create_ground_atom_dataset()."""
+    # First, run the test with load_atoms=False so that the
+    # grounding gets generated and saved. Then, set load_atoms=True
+    # so that the same grounding will be loaded and the same
+    # tests can be run.
+    utils.reset_config({
+        "env": "test_env",
+        "load_atoms": load_atoms,
+    })
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type],
@@ -1819,6 +1828,11 @@ def test_create_ground_atom_dataset():
     assert len(ground_atom_dataset[0][1]) == len(states) == 2
     assert ground_atom_dataset[0][1][0] == set()
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
+    if load_atoms:
+        utils.reset_config({"env": "non_existent_env", "load_atoms": True})
+        # Cannot load because env doesn't exist.
+        with pytest.raises(ValueError):
+            utils.create_ground_atom_dataset(dataset, {on})
 
 
 def test_get_reachable_atoms():

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import abc
 import contextlib
-import dill as pkl
 import functools
 import gc
 import heapq as hq
@@ -23,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
 from typing import Type as TypingType
 from typing import TypeVar, Union, cast
 
+import dill as pkl
 import imageio
 import matplotlib
 import matplotlib.pyplot as plt
@@ -1886,35 +1886,35 @@ def create_ground_atom_dataset(
     if CFG.load_atoms:
         os.makedirs(CFG.data_dir, exist_ok=True)
         # Check that the dataset file was previously saved.
-        if os.path_exists(dataset_fname):
+        if os.path.exists(dataset_fname):
             # Load the ground atoms dataset.
             with open(dataset_fname, "rb") as f:
                 ground_atom_dataset_trjectories = pkl.load(f)
-            logging.info(f"\n\nLOADED GROUNDED ATOM DATASET")
+            logging.info("\n\nLOADED GROUND ATOM DATASET")
             ground_atom_dataset = []
             for i, traj in enumerate(trajectories):
                 ground_atom_seq = ground_atom_dataset_trjectories[i]
                 ground_atom_dataset.append(
                     (traj, [set(atoms) for atoms in ground_atom_seq]))
         else:
-            raise ValueError(f"Cannot load grounded atoms: {dataset_fname}")
+            raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
     else:
         ground_atom_dataset = []
         for traj in trajectories:
             atoms = [abstract(s, predicates) for s in traj.states]
             ground_atom_dataset.append((traj, atoms))
-        # Save grounded atoms dataset to file.
+        # Save ground atoms dataset to file.
         ground_atom_dataset_to_pkl = []
-        for traj_i, traj in enumerate(ground_atom_dataset):
+        for _, traj in enumerate(ground_atom_dataset):
             trajectory = []
             for i, ground_atom_seq in enumerate(traj[1]):
                 trajectory.append(
-                    set([
+                    {
                         GroundAtom(
                             Predicate(atom.predicate.name,
                                       atom.predicate.types, lambda s, o: None),
                             atom.entities) for atom in ground_atom_seq
-                    ]))
+                    })
             ground_atom_dataset_to_pkl.append(trajectory)
         with open(dataset_fname, "wb") as f:
             pkl.dump(ground_atom_dataset_to_pkl, f)
