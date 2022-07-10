@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
+import dill as pkl
 import functools
 import gc
 import heapq as hq
