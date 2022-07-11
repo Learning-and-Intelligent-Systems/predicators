@@ -169,55 +169,60 @@ def _generate_demonstrations(
         if idx >= CFG.max_initial_demos:
             break
         try:
-            if CFG.demonstrator == "oracle":
-                timeout = CFG.offline_data_planning_timeout
-                if timeout == -1:
-                    timeout = CFG.timeout
-                oracle_approach.solve(task, timeout=timeout)
-                # Since we're running the oracle approach, we know that
-                # the policy is actually a plan under the hood, and we
-                # can retrieve it with get_last_plan(). We do this
-                # because we want to run the full plan.
-                last_plan = oracle_approach.get_last_plan()
-                policy = utils.option_plan_to_policy(last_plan)
-                # We will stop run_policy() when OptionExecutionFailure()
-                # is hit, which should only happen when the goal has been
-                # reached, as verified by the assertion later.
-                termination_function = lambda s: False
-            else:  # pragma: no cover
-                policy = functools.partial(_human_demonstrator_policy, env,
-                                           idx, num_tasks, task,
-                                           event_to_action)
-                termination_function = task.goal_holds
-            if CFG.env == "behavior":  # pragma: no cover
-                # For BEHAVIOR we are generating the trajectory by running
-                # our plan on our option models. Since option models
-                # return only states, we will add dummy actions to the
-                # states to create our low-level trajectories.
-                traj, success = _run_plan_with_option_model(
-                    task, idx, oracle_approach.get_option_model(), last_plan)
-                # Is successful if we found a low-level plan that achieves
-                # our goal using option models.
-                if not success:
-                    raise ApproachFailure(
-                        "Falied execution of low-level plan on option model")
-            else:
-                if CFG.make_demo_videos:
-                    monitor = utils.VideoMonitor(env.render)
+            # Will run until we find a plan that successfully generates a
+            # low-level trajectory that achieves our goal.
+            while True:
+                if CFG.demonstrator == "oracle":
+                    timeout = CFG.offline_data_planning_timeout
+                    if timeout == -1:
+                        timeout = CFG.timeout
+                    oracle_approach.solve(task, timeout=timeout)
+                    # Since we're running the oracle approach, we know that
+                    # the policy is actually a plan under the hood, and we
+                    # can retrieve it with get_last_plan(). We do this
+                    # because we want to run the full plan.
+                    last_plan = oracle_approach.get_last_plan()
+                    policy = utils.option_plan_to_policy(last_plan)
+                    # We will stop run_policy() when OptionExecutionFailure()
+                    # is hit, which should only happen when the goal has been
+                    # reached, as verified by the assertion later.
+                    termination_function = lambda s: False
+                else:  # pragma: no cover
+                    policy = functools.partial(_human_demonstrator_policy, env,
+                                               idx, num_tasks, task,
+                                               event_to_action)
+                    termination_function = task.goal_holds
+                if CFG.env == "behavior":  # pragma: no cover
+                    # For BEHAVIOR we are generating the trajectory by running
+                    # our plan on our option models. Since option models
+                    # return only states, we will add dummy actions to the
+                    # states to create our low-level trajectories.
+                    traj, success = _run_plan_with_option_model(
+                        task, idx, oracle_approach.get_option_model(),
+                        last_plan)
+                    # Is successful if we found a low-level plan that achieves
+                    # our goal using option models.
+                    if not success:
+                        logging.warning("WARNING: low-level plan failed.")
+                        continue
                 else:
-                    monitor = None
-                traj, _ = utils.run_policy(
-                    policy,
-                    env,
-                    "train",
-                    idx,
-                    termination_function=termination_function,
-                    max_num_steps=CFG.horizon,
-                    exceptions_to_break_on={
-                        utils.OptionExecutionFailure,
-                        utils.HumanDemonstrationFailure,
-                    },
-                    monitor=monitor)
+                    if CFG.make_demo_videos:
+                        monitor = utils.VideoMonitor(env.render)
+                    else:
+                        monitor = None
+                    traj, _ = utils.run_policy(
+                        policy,
+                        env,
+                        "train",
+                        idx,
+                        termination_function=termination_function,
+                        max_num_steps=CFG.horizon,
+                        exceptions_to_break_on={
+                            utils.OptionExecutionFailure,
+                            utils.HumanDemonstrationFailure,
+                        },
+                        monitor=monitor)
+                break
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "

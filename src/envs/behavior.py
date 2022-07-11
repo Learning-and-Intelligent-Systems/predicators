@@ -68,7 +68,9 @@ class BehaviorEnv(BaseEnv):
         # a map between task nums and the snapshot id for saving/loading
         # purposes
         self.task_num_to_igibson_seed: Dict[int, int] = {}
+        self.set_options()
 
+    def set_options(self) -> None:
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
@@ -88,7 +90,6 @@ class BehaviorEnv(BaseEnv):
                          create_navigate_option_model,
                          create_grasp_option_model, create_place_option_model
                      ]
-
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
         option_elems = [
@@ -186,6 +187,8 @@ class BehaviorEnv(BaseEnv):
             if CFG.behavior_randomize_init_state:
                 self.set_igibson_behavior_env(task_instance_id=self.task_num,
                                               seed=curr_env_seed)
+                self._type_name_to_type: Dict[str, Type] = {}
+                self.set_options()
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
@@ -257,8 +260,6 @@ class BehaviorEnv(BaseEnv):
 
         # Second, add in custom predicates.
         custom_predicate_specs = [
-            ("reachable-nothing", self._reachable_nothing_classifier, 0),
-            ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
             ("reachable", self._reachable_classifier, 1),
         ]
@@ -268,6 +269,20 @@ class BehaviorEnv(BaseEnv):
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
+
+        pred = Predicate(
+                "reachable-nothing",
+                [],
+                self._reachable_nothing_classifier,
+            )
+        predicates.add(pred)
+
+        pred = Predicate(
+                "handempty",
+                [],
+                self._handempty_classifier,
+            )
+        predicates.add(pred)
 
         return predicates
 
@@ -359,8 +374,10 @@ class BehaviorEnv(BaseEnv):
                                "environment that meets bddl initial "
                                "conditions!")
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
+        self.igibson_behavior_env.use_RRT = CFG.behavior_option_model_RRT
 
-    @functools.lru_cache(maxsize=None)
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
         type_name = ig_obj.category
         obj_type = self._type_name_to_type[type_name]
@@ -566,6 +583,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
             task_instance_id=new_task_num,
             seed=env.task_num_to_igibson_seed[new_task_num])
         env.task_num = new_task_num
+        env._type_name_to_type = {}
+        env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
     env.task_num = new_task_num
