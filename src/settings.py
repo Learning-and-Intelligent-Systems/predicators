@@ -254,6 +254,14 @@ class GlobalSettings:
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
 
+    # parameters for large language models
+    llm_prompt_cache_dir = "llm_cache"
+    llm_openai_max_response_tokens = 250
+
+    # parameters for open loop LLM approach
+    open_loop_llm_model_name = "text-curie-001"
+    open_loop_llm_temperature = 0.0
+
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
