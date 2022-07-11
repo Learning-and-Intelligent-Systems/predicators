@@ -68,6 +68,8 @@ class BehaviorEnv(BaseEnv):
         # a map between task nums and the snapshot id for saving/loading
         # purposes
         self.task_num_to_igibson_seed: Dict[int, int] = {}
+        # Everytime we load a new scene in behavior we also need to set
+        # the vaild options again, because there might be new type combos
         self.set_options()
 
     def set_options(self) -> None:
@@ -90,7 +92,7 @@ class BehaviorEnv(BaseEnv):
                          create_navigate_option_model,
                          create_grasp_option_model, create_place_option_model
                      ]
-                     
+
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
         option_elems = [

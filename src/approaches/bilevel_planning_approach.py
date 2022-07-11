@@ -120,3 +120,4 @@ class BilevelPlanningApproach(BaseApproach):
         hood.
         """
         return self._last_plan
+        
