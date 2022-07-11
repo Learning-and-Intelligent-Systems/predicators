@@ -5,6 +5,7 @@ or options.
 """
 
 import logging
+import os
 import time
 from typing import Dict, List, Optional, Set
 
@@ -19,7 +20,7 @@ from predicators.src.nsrt_learning.nsrt_learning_main import \
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+    ParameterizedOption, Predicate, Segment, Task, Type, GroundAtom
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -53,7 +54,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
-        dataset_fname = utils.create_dataset_filename_str(
+        dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
             online_learning_cycle=online_learning_cycle)
         # If CFG.load_atoms is set, then try to load the GroundAtomTrajectory
@@ -76,7 +77,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         else:
             # Apply predicates to data, producing a dataset of abstract states.
             ground_atom_dataset = utils.create_ground_atom_dataset(
-                trajectories, predicates)
+                trajectories, self._get_current_predicates())
             # Save ground atoms dataset to file.
             if CFG.env == "behavior":  # pragma: no cover
                 # In the case of behavior, we cannot directly pickle the ground

@@ -1859,11 +1859,13 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
 
 
 def create_dataset_filename_str(saving_ground_atoms: bool,
-                                online_learning_cycle: Optional[str]) -> str:
-    """Generate a string to be used as the filename for a dataset file that is
+                                online_learning_cycle: Optional[str] = None) -> Tuple[str, str]:
+    """Generate strings to be used for the filename for a dataset file that is
     about to be saved.
 
-    If saving_ground_atoms is True, then we will name the file with a
+    Returns a tuple of strings where the first element is the dataset filename
+    itself and the second is a template string used to generate it. If
+    saving_ground_atoms is True, then we will name the file with a
     "_ground_atoms" suffix.
     """
     # Setup the dataset filename for saving/loading GroundAtoms.
@@ -1886,7 +1888,7 @@ def create_dataset_filename_str(saving_ground_atoms: bool,
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
-    return dataset_fname
+    return dataset_fname, dataset_fname_template
 
 
 def create_ground_atom_dataset(
