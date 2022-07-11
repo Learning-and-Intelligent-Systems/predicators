@@ -46,7 +46,6 @@ import dill as pkl
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
-from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.planning import _run_plan_with_option_model
@@ -258,22 +257,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solve_start = time.time()
         try:
             if CFG.env == "behavior":
-                policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
-                # oracle_approach = OracleApproach(
-                #     env.predicates,
-                #     env.options,
-                #     env.types,
-                #     env.action_space,
-                #     test_tasks,
-                #     task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
-                #     max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+                policy = approach.solve(
+                    task, timeout=CFG.offline_data_planning_timeout)
                 attempts = 10
                 for _ in range(attempts):
-                    policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                    policy = approach.solve(
+                        task, timeout=CFG.offline_data_planning_timeout)
                     last_plan = approach.get_last_plan()
                     traj, solved = _run_plan_with_option_model(
-                                    task, test_task_idx, approach.get_option_model(),
-                                    last_plan)
+                        task, test_task_idx, approach.get_option_model(),
+                        last_plan)
                     if solved:
                         break
             else:
@@ -303,13 +296,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             monitor = None
         try:
-            if CFG.env == "behavior":
-                # TODO if behavior eval on option model
+            if CFG.env == "behavior" and CFG.behavior_option_model_eval:
+                # If Behavior eval on option model
                 last_plan = approach.get_last_plan()
+                option_model_start_time = time.time()
                 traj, solved = _run_plan_with_option_model(
-                                task, test_task_idx, approach.get_option_model(),
-                                last_plan)
-                execution_metrics = {"policy_call_time": None}
+                    task, test_task_idx, approach.get_option_model(),
+                    last_plan)
+                execution_metrics = {
+                    "policy_call_time": option_model_start_time - time.time()
+                }
             else:
                 traj, execution_metrics = utils.run_policy(
                     policy,
@@ -336,10 +332,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if solved:
             log_message = "SOLVED"
             num_solved += 1
-            if exec_time is None:
-                total_suc_time += (solve_time)
-            else:
-                total_suc_time += (solve_time + exec_time)
+            total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
             video_file = f"{video_prefix}__task{test_task_idx+1}.mp4"
         else:
@@ -410,4 +403,3 @@ def _save_test_results(results: Metrics,
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-    

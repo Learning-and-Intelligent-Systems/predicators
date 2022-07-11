@@ -73,6 +73,9 @@ class BehaviorEnv(BaseEnv):
         self.set_options()
 
     def set_options(self) -> None:
+        """Sets the underlying options for this particular task using the
+        current type list."""
+        self._type_name_to_type = {}
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
@@ -185,14 +188,14 @@ class BehaviorEnv(BaseEnv):
             # ID used to generate scene in Behavior default scene is 0
             task_instance_id = 0
             if CFG.behavior_randomize_init_state:
-                # Get random scene for Behavior (O-9 if training and 10-20 if testing)
+                # Get random scene for Behavior between O-9 and 10-20
+                # if train or test, respectively
                 if testing:
                     task_instance_id = rng.integers(10, 20)
                 else:
                     task_instance_id = rng.integers(0, 10)
-                self.set_igibson_behavior_env(task_instance_id=task_instance_id,
-                                              seed=curr_env_seed)
-                self._type_name_to_type: Dict[str, Type] = {}
+                self.set_igibson_behavior_env(
+                    task_instance_id=task_instance_id, seed=curr_env_seed)
                 self.set_options()
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
@@ -576,7 +579,6 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
             task_instance_id=new_task_num,
             seed=env.task_num_to_igibson_seed[new_task_num])
         env.task_num = new_task_num
-        env._type_name_to_type = {}
         env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
