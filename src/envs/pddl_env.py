@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import abc
 import functools
+from graphlib import TopologicalSorter
 from typing import Callable, Collection, Dict, List, Optional, Sequence, Set, \
     Tuple, cast
 
@@ -16,11 +17,13 @@ from gym.spaces import Box
 from pyperplan.pddl.parser import TraversePDDLDomain, TraversePDDLProblem, \
     parse_domain_def, parse_lisp_iterator, parse_problem_def
 from pyperplan.pddl.pddl import Domain as PyperplanDomain
+from pyperplan.pddl.pddl import Type as PyperplanType
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
-    create_blocks_pddl_generator, create_delivery_pddl_generator
+    create_blocks_pddl_generator, create_delivery_pddl_generator, \
+    create_forest_pddl_generator, create_spanner_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -387,6 +390,80 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
                                               min_news, max_news)
 
 
+class _SpannerPDDLEnv(_PDDLEnv):
+    """The spanner domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/spannerlearning/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
+    """The spanner domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_spanner_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_train_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_train_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_train_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_train_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_train_min_locs
+        max_locs = CFG.pddl_spanner_procedural_train_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_test_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_test_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_test_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_test_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_test_min_locs
+        max_locs = CFG.pddl_spanner_procedural_test_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
+
+class _ForestPDDLEnv(_PDDLEnv):
+    """The forest domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/forest/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
+    """The forest domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_forest_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_train_min_size
+        max_size = CFG.pddl_forest_procedural_train_max_size
+        return create_forest_pddl_generator(min_size, max_size)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_size = CFG.pddl_forest_procedural_test_min_size
+        max_size = CFG.pddl_forest_procedural_test_max_size
+        return create_forest_pddl_generator(min_size, max_size)
+
+
 ###############################################################################
 #                            Utility functions                                #
 ###############################################################################
@@ -406,10 +483,10 @@ def _action_to_ground_strips_op(
         min(int(i), num_objs - 1) for i in action_arr[1:(op_arity + 1)]
     ]
     objs = tuple(ordered_objects[i] for i in obj_idxs)
-    obj_types = [obj.type for obj in objs]
     # If the types of the selected objects don't match the types of the
     # operator parameters, return None.
-    if var_types != obj_types:
+    assert len(objs) == len(var_types)
+    if not all(o.is_instance(t) for o, t in zip(objs, var_types)):
         return None
     return op.ground(objs)
 
@@ -465,10 +542,22 @@ def _parse_pddl_domain(
     pyperplan_predicates = pyperplan_domain.predicates
     pyperplan_operators = pyperplan_domain.actions
     # Convert the pyperplan domain into our structs.
-    pyperplan_type_to_type = {
-        pyperplan_types[t]: Type(t, [])
-        for t in pyperplan_types
+    # Process the type hierarchy. Sort the types such that if X inherits from Y
+    # then X is after Y in the list (topological sort).
+    type_graph = {
+        t: {t.parent}
+        for t in pyperplan_types.values() if t.parent is not None
     }
+    sorted_types = list(TopologicalSorter(type_graph).static_order())
+    pyperplan_type_to_type: Dict[PyperplanType, Type] = {}
+    for pyper_type in sorted_types:
+        if pyper_type.parent is None:
+            assert pyper_type.name == "object"
+            parent = None
+        else:
+            parent = pyperplan_type_to_type[pyper_type.parent]
+        new_type = Type(pyper_type.name, [], parent)
+        pyperplan_type_to_type[pyper_type] = new_type
     # Convert the predicates.
     predicate_name_to_predicate = {}
     for pyper_pred in pyperplan_predicates.values():

@@ -166,6 +166,26 @@ class GlobalSettings:
     pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
     pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
 
+    # pddl spanner env parameters
+    pddl_spanner_procedural_train_min_nuts = 1
+    pddl_spanner_procedural_train_max_nuts = 3
+    pddl_spanner_procedural_train_min_extra_spanners = 0
+    pddl_spanner_procedural_train_max_extra_spanners = 2
+    pddl_spanner_procedural_train_min_locs = 2
+    pddl_spanner_procedural_train_max_locs = 4
+    pddl_spanner_procedural_test_min_nuts = 10
+    pddl_spanner_procedural_test_max_nuts = 20
+    pddl_spanner_procedural_test_min_extra_spanners = 0
+    pddl_spanner_procedural_test_max_extra_spanners = 10
+    pddl_spanner_procedural_test_min_locs = 20
+    pddl_spanner_procedural_test_max_locs = 30
+
+    # pddl forest env parameters
+    pddl_forest_procedural_train_min_size = 8
+    pddl_forest_procedural_train_max_size = 10
+    pddl_forest_procedural_test_min_size = 10
+    pddl_forest_procedural_test_max_size = 12
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -233,6 +253,14 @@ class GlobalSettings:
     nsrt_rl_neg_reward = -1
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
+
+    # parameters for large language models
+    llm_prompt_cache_dir = "llm_cache"
+    llm_openai_max_response_tokens = 250
+
+    # parameters for open loop LLM approach
+    open_loop_llm_model_name = "text-curie-001"
+    open_loop_llm_temperature = 0.0
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"

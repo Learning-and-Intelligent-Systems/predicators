@@ -225,7 +225,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         self._load_output_specific_fields_from_save_info(info)
 
     def _predict(self, state: State, atoms: Set[GroundAtom],
-                 goal: Set[GroundAtom]) -> _Output:
+                 goal: Set[GroundAtom], memory: Dict) -> _Output:
+        del memory  # unused
         # Get output graph.
         in_graph, object_to_node = self._graphify_single_input(
             state, atoms, goal)

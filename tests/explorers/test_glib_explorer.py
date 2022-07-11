@@ -4,7 +4,7 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.explorers import create_explorer
+from predicators.src.explorers import BaseExplorer, create_explorer
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.option_model import _OracleOptionModel
 
@@ -65,7 +65,20 @@ def test_glib_explorer_failure_cases():
     train_tasks = env.get_train_tasks()
     score_fn = lambda _: 0.0
     task_idx = 0
-    task = train_tasks[task_idx]
+
+    class _DummyExplorer(BaseExplorer):
+
+        @classmethod
+        def get_name(cls):
+            return "dummy"
+
+        def get_exploration_strategy(self, train_task_idx, timeout):
+            raise NotImplementedError("Dummy explorer called")
+
+    dummy_explorer = _DummyExplorer(env.predicates, env.options, env.types,
+                                    env.action_space, train_tasks)
+    assert dummy_explorer.get_name() == "dummy"
+
     # Test case where there are no possible goals.
     explorer = create_explorer("glib",
                                set(),
@@ -77,9 +90,10 @@ def test_glib_explorer_failure_cases():
                                option_model,
                                babble_predicates=env.predicates,
                                atom_score_fn=score_fn)
-    policy, _ = explorer.get_exploration_strategy(task_idx, 500)
-    act = policy(task.init)  # a random action
-    assert env.action_space.contains(act.arr)
+    explorer._fallback_explorer = dummy_explorer  # pylint: disable=protected-access
+    with pytest.raises(NotImplementedError) as e:
+        explorer.get_exploration_strategy(task_idx, -1)
+    assert "Dummy explorer called" in str(e)
     # Test case where no plan can be found (due to timeout).
     explorer = create_explorer("glib",
                                env.predicates,
@@ -91,6 +105,7 @@ def test_glib_explorer_failure_cases():
                                option_model,
                                babble_predicates=env.predicates,
                                atom_score_fn=score_fn)
-    explorer.get_exploration_strategy(task_idx, -1)
-    act = policy(task.init)  # a random action
-    assert env.action_space.contains(act.arr)
+    explorer._fallback_explorer = dummy_explorer  # pylint: disable=protected-access
+    with pytest.raises(NotImplementedError) as e:
+        explorer.get_exploration_strategy(task_idx, -1)
+    assert "Dummy explorer called" in str(e)

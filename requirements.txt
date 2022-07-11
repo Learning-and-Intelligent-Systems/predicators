@@ -16,3 +16,5 @@ slack_bolt
 pybullet>=3.2.0
 sklearn
 pyqt5
+graphlib-backport
+openai
