@@ -217,7 +217,7 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
             for condition in self._get_candidate_conditions(rule_vars):
                 # Consider adding new condition to positive preconditions,
                 # negative preconditions, or goal preconditions.
-                for destination in ["pos", "neg", "goal"]:
+                for destination in ["pos", "neg", "goal"]:           ##change list to see differing speed of each approach
                     new_pos = set(rule.pos_state_preconditions)
                     new_neg = set(rule.neg_state_preconditions)
                     new_goal = set(rule.goal_preconditions)

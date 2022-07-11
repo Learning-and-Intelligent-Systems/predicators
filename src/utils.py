@@ -1458,8 +1458,14 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
+    
+    #TIMING TIME TIME TIME TIME TIME TIMING TIME TIME TIME TIME TIME TIMING!!!!!!!!!!!!!!!!!!
+    print(time.perf_counter())
+    
     logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                  f"with heuristic {last_heuristic}")
+    
+    
     while True:
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
@@ -1474,9 +1480,21 @@ def run_hill_climbing(
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
             for parent in current_depth_nodes:
-                for action, child_state, cost in get_successors(parent.state):
+                
+                #CHECK LOOP CHECK LOOP CHECK LOOP CHECK LOOP CHECK LOOP!!!!!!!!!!!!!!!!!!!!
+                print("entering 'for parent in current_depth_nodes' loop")
+                
+                for action, child_state, cost in get_successors(parent.state):            ####forest be balling in this mf fr
+                    
+                    
+                    #CHECK IF CHECK IF CHECK IF CHECK IF CHECK IF CHECK IF CHECK IF!!!!!!!!!!!!!!
+                    print("child stated visited. continued")
                     if child_state in visited:
+                        
                         continue
+                    
+                    
+                    
                     visited.add(child_state)
                     child_path_cost = parent.cumulative_cost + cost
                     child_node = _HeuristicSearchNode(

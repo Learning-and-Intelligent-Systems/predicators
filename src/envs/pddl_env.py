@@ -23,7 +23,7 @@ from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator
+    create_forest_pddl_generator, create_spanner_pddl_generator
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -419,6 +419,50 @@ class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
         min_size = CFG.pddl_forest_procedural_test_min_size
         max_size = CFG.pddl_forest_procedural_test_max_size
         return create_forest_pddl_generator(min_size, max_size)
+
+
+class _SpannerPDDLEnv(_PDDLEnv):
+    """The spanner domain from the PG3 paper."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/spannerlearning/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
+    """The spanner domain from the PG3 paper with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_spanner_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_train_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_train_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_train_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_train_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_train_min_locs
+        max_locs = CFG.pddl_spanner_procedural_train_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_nuts = CFG.pddl_spanner_procedural_test_min_nuts
+        max_nuts = CFG.pddl_spanner_procedural_test_max_nuts
+        min_extra_span = CFG.pddl_spanner_procedural_test_min_extra_spanners
+        max_extra_span = CFG.pddl_spanner_procedural_test_max_extra_spanners
+        min_locs = CFG.pddl_spanner_procedural_test_min_locs
+        max_locs = CFG.pddl_spanner_procedural_test_max_locs
+        return create_spanner_pddl_generator(min_nuts, max_nuts,
+                                             min_extra_span, max_extra_span,
+                                             min_locs, max_locs)
+
 
 
 ###############################################################################
