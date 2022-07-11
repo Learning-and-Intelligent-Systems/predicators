@@ -90,6 +90,7 @@ class BehaviorEnv(BaseEnv):
                          create_navigate_option_model,
                          create_grasp_option_model, create_place_option_model
                      ]
+                     
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
         option_elems = [
@@ -262,6 +263,8 @@ class BehaviorEnv(BaseEnv):
 
         # Second, add in custom predicates.
         custom_predicate_specs = [
+            ("reachable-nothing", self._reachable_nothing_classifier, 0),
+            ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
             ("reachable", self._reachable_classifier, 1),
         ]
@@ -271,20 +274,6 @@ class BehaviorEnv(BaseEnv):
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
-
-        pred = Predicate(
-                "reachable-nothing",
-                [],
-                self._reachable_nothing_classifier,
-            )
-        predicates.add(pred)
-
-        pred = Predicate(
-                "handempty",
-                [],
-                self._handempty_classifier,
-            )
-        predicates.add(pred)
 
         return predicates
 
