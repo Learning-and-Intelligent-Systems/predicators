@@ -46,6 +46,8 @@ import dill as pkl
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.planning import _run_plan_with_option_model
@@ -256,21 +258,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
-            if CFG.env == "behavior":
-                policy = approach.solve(
-                    task, timeout=CFG.offline_data_planning_timeout)
-                attempts = 10
-                for _ in range(attempts):
-                    policy = approach.solve(
-                        task, timeout=CFG.offline_data_planning_timeout)
-                    last_plan = approach.get_last_plan()
-                    traj, solved = _run_plan_with_option_model(
-                        task, test_task_idx, approach.get_option_model(),
-                        last_plan)
-                    if solved:
-                        break
-            else:
-                policy = approach.solve(task, timeout=CFG.timeout)
+            policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
@@ -297,7 +285,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             if CFG.env == "behavior" and CFG.behavior_option_model_eval:
-                # If Behavior eval on option model
+                # To evaluate Behavior on our option model, we are going
+                # to run our approached plan on our option model.
+                # Note that if appraoch is not a BilevelPlanningApproach
+                # We cannot use this method to evaluate and would need to
+                # run the policy on the option model, not the plan
+                assert isinstance(approach, BilevelPlanningApproach)
                 last_plan = approach.get_last_plan()
                 option_model_start_time = time.time()
                 traj, solved = _run_plan_with_option_model(
