@@ -106,7 +106,7 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         # Update the atom counts for the novelty score function (for GLIB).
         # NOTE: this assumes that predicates are not changing because we are
         # just running the predicate classifiers once per state for efficiency.
-        assert not CFG.excluded_predicates  # make sure not predicate leanring
+        assert not CFG.excluded_predicates  # make sure not predicate learning
         preds = self._get_current_predicates()
         assert preds == self._initial_predicates
         for state in trajectory.states:
