@@ -258,19 +258,19 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solve_start = time.time()
         try:
             if CFG.env == "behavior":
-                #policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
-                oracle_approach = OracleApproach(
-                    env.predicates,
-                    env.options,
-                    env.types,
-                    env.action_space,
-                    test_tasks,
-                    task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
-                    max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+                policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                # oracle_approach = OracleApproach(
+                #     env.predicates,
+                #     env.options,
+                #     env.types,
+                #     env.action_space,
+                #     test_tasks,
+                #     task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
+                #     max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
                 attempts = 10
                 for _ in range(attempts):
-                    policy = oracle_approach.solve(task, timeout=CFG.offline_data_planning_timeout)
-                    last_plan = oracle_approach.get_last_plan()
+                    policy = approach.solve(task, timeout=CFG.offline_data_planning_timeout)
+                    last_plan = approach.get_last_plan()
                     traj, solved = _run_plan_with_option_model(
                                     task, test_task_idx, approach.get_option_model(),
                                     last_plan)
@@ -305,7 +305,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         try:
             if CFG.env == "behavior":
                 # TODO if behavior eval on option model
-                last_plan = oracle_approach.get_last_plan()
+                last_plan = approach.get_last_plan()
                 traj, solved = _run_plan_with_option_model(
                                 task, test_task_idx, approach.get_option_model(),
                                 last_plan)

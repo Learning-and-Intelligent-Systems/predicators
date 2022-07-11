@@ -175,24 +175,26 @@ class BehaviorEnv(BaseEnv):
                    rng: np.random.Generator,
                    testing: bool = False) -> List[Task]:
         tasks = []
-        # Max 10 train and test tasks for behavior
-        assert num <= CFG.num_train_tasks
-        assert CFG.num_train_tasks <= 10
-        if testing:
-            self.task_num = CFG.num_train_tasks
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             curr_env_seed = rng.integers(0, (2**32) - 1)
+            # ID used to generate scene in Behavior default scene is 0
+            task_instance_id = 0
             if CFG.behavior_randomize_init_state:
-                self.set_igibson_behavior_env(task_instance_id=self.task_num,
+                # Get random scene for Behavior (O-9 if training and 10-20 if testing)
+                if testing:
+                    task_instance_id = rng.integers(10, 20)
+                else:
+                    task_instance_id = rng.integers(0, 10)
+                self.set_igibson_behavior_env(task_instance_id=task_instance_id,
                                               seed=curr_env_seed)
                 self._type_name_to_type: Dict[str, Type] = {}
                 self.set_options()
             self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                        f"{CFG.behavior_task_name}__{self.task_num}",
+                        f"{CFG.behavior_task_name}__{task_instance_id}",
                         exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
