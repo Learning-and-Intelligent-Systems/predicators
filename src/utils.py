@@ -1858,65 +1858,46 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
         yield sample
 
 
-def create_ground_atom_dataset(
-        trajectories: Sequence[LowLevelTrajectory],
-        predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
-    """Generate or load a GroundAtomTrajectory by applying all predicates to
-    all trajectories in the dataset.
+def create_dataset_filename_str(saving_ground_atoms: bool,
+                                online_learning_cycle: Optional[str]) -> str:
+    """Generate a string to be used as the filename for a dataset file that is
+    about to be saved.
 
-    If generating a new GroundAtomTrajectory, then save to file for
-    later reuse.
+    If saving_ground_atoms is True, then we will name the file with a
+    "_ground_atoms" suffix.
     """
     # Setup the dataset filename for saving/loading GroundAtoms.
     regex = r"(\d+)"
+    suffix_str = ""
+    if online_learning_cycle is not None:
+        suffix_str += f"__{online_learning_cycle}"
+    if saving_ground_atoms:
+        suffix_str += "__ground_atoms"
+    suffix_str += ".data"
     if CFG.env == "behavior":  # pragma: no cover
         dataset_fname_template = (
             f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
             f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}__ground_atoms.data")
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     else:
         dataset_fname_template = (
             f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}__ground_atoms.data")
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
-    # If CFG.load_atoms is set, then try to load the GroundAtomTrajectory
-    # directly from a saved file.
-    if CFG.load_atoms:
-        os.makedirs(CFG.data_dir, exist_ok=True)
-        # Check that the dataset file was previously saved.
-        if os.path.exists(dataset_fname):
-            # Load the ground atoms dataset.
-            with open(dataset_fname, "rb") as f:
-                ground_atom_dataset_trajectories = pkl.load(f)
-            logging.info("\n\nLOADED GROUND ATOM DATASET")
-            ground_atom_dataset = []
-            for i, traj in enumerate(trajectories):
-                ground_atom_seq = ground_atom_dataset_trajectories[i]
-                ground_atom_dataset.append(
-                    (traj, [set(atoms) for atoms in ground_atom_seq]))
-        else:
-            raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
-    else:
-        ground_atom_dataset = []
-        for traj in trajectories:
-            atoms = [abstract(s, predicates) for s in traj.states]
-            ground_atom_dataset.append((traj, atoms))
-        # Save ground atoms dataset to file.
-        ground_atom_dataset_to_pkl = []
-        for gt_traj in ground_atom_dataset:
-            trajectory = []
-            for i, ground_atom_seq in enumerate(gt_traj[1]):
-                trajectory.append({
-                    GroundAtom(
-                        Predicate(atom.predicate.name, atom.predicate.types,
-                                  lambda s, o: False), atom.entities)
-                    for atom in ground_atom_seq
-                })
-            ground_atom_dataset_to_pkl.append(trajectory)
-        with open(dataset_fname, "wb") as f:
-            pkl.dump(ground_atom_dataset_to_pkl, f)
+    return dataset_fname
+
+
+def create_ground_atom_dataset(
+        trajectories: Sequence[LowLevelTrajectory],
+        predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
+    """Apply all predicates to all trajectories in the dataset."""
+    ground_atom_dataset = []
+    for traj in trajectories:
+        atoms = [abstract(s, predicates) for s in traj.states]
+        ground_atom_dataset.append((traj, atoms))
+
     return ground_atom_dataset
 
 

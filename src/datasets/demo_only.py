@@ -24,19 +24,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                      known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline datasets by collecting demos."""
     assert CFG.demonstrator in ("oracle", "human")
-    regex = r"(\d+)"
-    if CFG.env == "behavior":  # pragma: no cover
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
-            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
-    else:
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}.data")
-    dataset_fname = os.path.join(
-        CFG.data_dir,
-        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+    dataset_fname = utils.create_dataset_filename_str(
+        saving_ground_atoms=False)
     os.makedirs(CFG.data_dir, exist_ok=True)
     if CFG.load_data:
         dataset = _create_demo_data_with_loading(env, train_tasks,

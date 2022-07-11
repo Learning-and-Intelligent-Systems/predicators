@@ -22,7 +22,8 @@ from predicators.src.structs import NSRT, LowLevelTrajectory, \
 def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
-    action_space: Box, sampler_learner: str
+    action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
+    sampler_learner: str
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -37,11 +38,7 @@ def learn_nsrts_from_data(
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
-    # STEP 1: Apply predicates to data, producing a dataset of abstract states.
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        trajectories, predicates)
-
-    # STEP 2: Segment each trajectory in the dataset based on changes in
+    # STEP 1: Segment each trajectory in the dataset based on changes in
     #         either predicates or options. If we are doing option learning,
     #         then the data will not contain options, so this segmenting
     #         procedure only uses the predicates.
@@ -65,7 +62,7 @@ def learn_nsrts_from_data(
                 for segment in segment_traj:
                     segment.set_goal(goal)
 
-    # STEP 3: Learn STRIPS operators from the data, and use them to produce
+    # STEP 2: Learn STRIPS operators from the data, and use them to produce
     #         PartialNSRTAndDatastore (PNAD) objects. Each PNAD contains a
     #         STRIPSOperator, Datastore, and OptionSpec. The samplers will be
     #         filled in on a later step.
@@ -77,13 +74,13 @@ def learn_nsrts_from_data(
         verify_harmlessness=True,
         verbose=(CFG.option_learner != "no_learning"))
 
-    # STEP 4: Learn options (option_learning.py) and update PNADs.
+    # STEP 3: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads, known_options, action_space)  # in-place update
 
-    # STEP 5: Learn samplers (sampler_learning.py) and update PNADs.
+    # STEP 4: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 6: Make, log, and return the NSRTs.
+    # STEP 5: Make, log, and return the NSRTs.
     nsrts = []
     seg_to_nsrt = {}
     for pnad in pnads:
