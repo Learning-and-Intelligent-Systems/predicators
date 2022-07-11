@@ -170,6 +170,16 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "pddl_easy_delivery_procedural_test_max_extra_newspapers": 1,
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["behavior_tasks"] = [
+    {
+        "option_model_name": "oracle_behavior",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "behavior_scene_name": "Pomaria_1_int",
+        "behavior_task_name": "sorting_books",
+        "offline_data_planning_timeout": 30000.0,
+    },
+]
 
 
 def _policy_solves_task(policy, task, simulator):
