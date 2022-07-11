@@ -1,5 +1,3 @@
-"""Script for submitting jobs on supercloud."""
-
 import os
 import subprocess
 import sys
@@ -9,8 +7,7 @@ NUM_SEEDS = 100
 
 
 def _run() -> None:
-    mystr = (f"#!/bin/bash\npython debug_supercloud.py "
-             f"--seed $SLURM_ARRAY_TASK_ID")
+    mystr = "#!/bin/bash\npython src/main.py --seed $SLURM_ARRAY_TASK_ID"
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
@@ -18,7 +15,7 @@ def _run() -> None:
     cmd = ("sbatch -p normal --time=99:00:00 --partition=xeon-p8 "
            f"--nodes=1 --exclusive --job-name=debug "
            f"--array={START_SEED}-{START_SEED+NUM_SEEDS-1} "
-           f"{temp_run_file}")
+           f"-o debug_%j.log {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:
