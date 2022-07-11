@@ -1899,7 +1899,6 @@ def create_ground_atom_dataset(
     for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
-
     return ground_atom_dataset
 
 
