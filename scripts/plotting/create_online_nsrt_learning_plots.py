@@ -1,19 +1,15 @@
 """Create plots for online NSRT learning."""
 
 import os
-from typing import Callable, Sequence, Tuple
-
 from functools import partial
+
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from scipy import interpolate
 
-from predicators.scripts.analyze_results_directory import \
-    create_raw_dataframe, get_df_for_entry
-from predicators.scripts.plotting.create_interactive_predicate_learning_plots \
-    import _create_seed_line_plot, _create_single_line_plot
+from predicators.scripts.analyze_results_directory import create_raw_dataframe
+from predicators.scripts.plotting.create_interactive_learning_plots import \
+    _create_seed_line_plot, _create_single_line_plot
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -57,12 +53,7 @@ Y_KEY_AND_LABEL = [
     ("PERC_PLAN_FAIL", "% Planning Failures"),
 ]
 
-ENVS = [
-    "cover",
-    "blocks",
-    "painting",
-    "tools"
-]
+ENVS = ["cover", "blocks", "painting", "tools"]
 
 EXPLORERS = [
     "random_options",
@@ -73,22 +64,21 @@ EXPLORERS = [
 EXPLORER_TO_COLOR = {
     "random_options": "red",
     "no_explore": "black",
-    "exploit_planning": "blue",   
+    "exploit_planning": "blue",
 }
 
+
 def _select_data(env: str, explorer: str, df: pd.DataFrame) -> pd.DataFrame:
-    return df["EXPERIMENT_ID"].apply(
-        lambda v: explorer in v and env in v)
+    return df["EXPERIMENT_ID"].apply(lambda v: explorer in v and env in v)
+
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    env: [
-        (explorer, EXPLORER_TO_COLOR[explorer], partial(_select_data, env, explorer))
-        for explorer in EXPLORERS
-    ]
+    env: [(explorer, EXPLORER_TO_COLOR[explorer],
+           partial(_select_data, env, explorer)) for explorer in EXPLORERS]
     for env in ENVS
 }
 
