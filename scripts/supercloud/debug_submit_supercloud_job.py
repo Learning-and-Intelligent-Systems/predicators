@@ -15,7 +15,7 @@ def _run() -> None:
     cmd = ("sbatch -p normal --time=99:00:00 --partition=xeon-p8 "
            f"--nodes=1 --exclusive --job-name=debug "
            f"--array={START_SEED}-{START_SEED+NUM_SEEDS-1} "
-           f"-o debug_%j.log {temp_run_file}")
+           f"-o logs/debug_%j.log {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:
