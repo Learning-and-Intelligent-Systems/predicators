@@ -19,8 +19,8 @@ from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type, GroundAtom
+from predicators.src.structs import NSRT, Dataset, GroundAtom, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -56,20 +56,32 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                      online_learning_cycle: Optional[int]) -> None:
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
-            online_learning_cycle=online_learning_cycle)
-        # If CFG.load_atoms is set, then try to load the GroundAtomTrajectory
-        # directly from a saved file.
+            online_learning_cycle=str(online_learning_cycle))
+        # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
+        # by loading sets of GroundAtoms directly from a saved file.
         if CFG.load_atoms:
             os.makedirs(CFG.data_dir, exist_ok=True)
             # Check that the dataset file was previously saved.
             if os.path.exists(dataset_fname):
                 # Load the ground atoms dataset.
                 with open(dataset_fname, "rb") as f:
-                    ground_atom_dataset_trajectories = pkl.load(f)
+                    ground_atom_dataset_atoms = pkl.load(f)
+                assert len(trajectories) == len(ground_atom_dataset_atoms)
                 logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+                if CFG.env == "behavior":  # pragma: no cover
+                    new_ground_atoms = []
+                    import ipdb; ipdb.set_trace()
+                    # Since we save ground atoms for behavior with dummy
+                    # classifiers, we need to restore the correct classifers.
+                    # for ground_atom_set in ground_atom_dataset_atoms:
+
+                # The saved ground atom dataset consists only of sequences
+                # of sets of GroundAtoms, we need to recombine this with
+                # the LowLevelTrajectories to create a GroundAtomTrajectory.
                 ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
-                    ground_atom_seq = ground_atom_dataset_trajectories[i]
+                    ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
                         (traj, [set(atoms) for atoms in ground_atom_seq]))
             else:
@@ -78,26 +90,30 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             # Apply predicates to data, producing a dataset of abstract states.
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, self._get_current_predicates())
-            # Save ground atoms dataset to file.
-            if CFG.env == "behavior":  # pragma: no cover
-                # In the case of behavior, we cannot directly pickle the ground
-                # atoms dataset because the classifiers are linked to the
-                # simulator, which cannot be pickled. Thus, we must strip away
-                # the classifiers.
-                ground_atom_dataset_to_pkl = []
-                for gt_traj in ground_atom_dataset:
-                    trajectory = []
-                    for i, ground_atom_seq in enumerate(gt_traj[1]):
+            # Save ground atoms dataset to file. Note that a
+            # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+            # list of sets of GroundAtoms, so we only save the list of
+            # GroundAtoms (the LowLevelTrajectories are saved separately).
+            ground_atom_dataset_to_pkl = []
+            for gt_traj in ground_atom_dataset:
+                trajectory = []
+                for ground_atom_set in gt_traj[1]:
+                    if CFG.env == "behavior":  # pragma: no cover
+                        # In the case of behavior, we cannot directly pickle
+                        # the ground atoms dataset because the classifiers are
+                        # linked to the simulator, which cannot be pickled.
+                        # Thus, we must strip away the classifiers and replace
+                        # them with dummies.
                         trajectory.append({
                             GroundAtom(
                                 Predicate(atom.predicate.name,
                                           atom.predicate.types,
                                           lambda s, o: False), atom.entities)
-                            for atom in ground_atom_seq
+                            for atom in ground_atom_set
                         })
-                    ground_atom_dataset_to_pkl.append(trajectory)
-            else:
-                ground_atom_dataset_to_pkl = ground_atom_dataset
+                    else:
+                        trajectory.append(ground_atom_set)
+                ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
 

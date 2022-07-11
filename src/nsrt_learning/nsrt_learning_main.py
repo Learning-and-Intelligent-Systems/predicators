@@ -7,7 +7,6 @@ from typing import Dict, List, Set, Tuple
 
 from gym.spaces import Box
 
-from predicators.src import utils
 from predicators.src.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
@@ -16,7 +15,8 @@ from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, LowLevelTrajectory, \
-    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, Task
+    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, Task, \
+    GroundAtomTrajectory
 
 
 def learn_nsrts_from_data(
