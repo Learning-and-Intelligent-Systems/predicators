@@ -55,10 +55,9 @@ from predicators.src.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
-import cProfile
-
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
+
 
 def main() -> None:
     """Main entry point for running approaches in environments."""
@@ -224,7 +223,8 @@ def _generate_interaction_results(
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request,
             exceptions_to_break_on={
-                utils.EnvironmentFailure, utils.OptionExecutionFailure
+                utils.EnvironmentFailure, utils.OptionExecutionFailure,
+                utils.RequestActPolicyFailure
             },
             monitor=monitor)
         request_responses = monitor.get_responses()
@@ -280,7 +280,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                        f"Approach failed to solve with error: {e}")
+                         f"Approach failed to solve with error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_solve_timeouts += 1
             elif isinstance(e, ApproachFailure):
@@ -327,7 +327,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             caught_exception = True
         except (ApproachTimeout, ApproachFailure) as e:
             log_message = ("Approach failed at policy execution time with "
-                        f"error: {e}")
+                           f"error: {e}")
             if isinstance(e, ApproachTimeout):
                 total_num_execution_timeouts += 1
             elif isinstance(e, ApproachFailure):
@@ -348,13 +348,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             make_video = CFG.make_failure_videos
             video_file = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                    f"{log_message}")
+                     f"{log_message}")
         if make_video:
             assert monitor is not None
             video = monitor.get_video()
             utils.save_video(video_file, video)
-            
-        
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
@@ -411,5 +409,4 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    #main()
-    cProfile.run('main()', filename='prof')
+    main()
