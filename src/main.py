@@ -284,7 +284,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             monitor = None
         try:
-            if CFG.env == "behavior" and CFG.behavior_option_model_eval: # pragma: no cover
+            if CFG.env == "behavior" and CFG.behavior_option_model_eval:  # pragma: no cover
                 # To evaluate Behavior on our option model, we are going
                 # to run our approached plan on our option model.
                 # Note that if appraoch is not a BilevelPlanningApproach
