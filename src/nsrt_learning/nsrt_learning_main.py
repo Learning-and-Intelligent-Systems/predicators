@@ -14,9 +14,9 @@ from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, LowLevelTrajectory, \
-    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, Task, \
-    GroundAtomTrajectory
+from predicators.src.structs import NSRT, GroundAtomTrajectory, \
+    LowLevelTrajectory, ParameterizedOption, PartialNSRTAndDatastore, \
+    Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(

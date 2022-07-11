@@ -180,10 +180,8 @@ def test_saving_and_loading_atoms():
     # environment predicates.
     env = create_new_env("blocks")
     for atoms_seq in ground_atom_dataset_atoms:
-        assert all(
-            atom.predicate in env.predicates
-            for atom_set in atoms_seq for atom in atom_set
-        )
+        assert all(atom.predicate in env.predicates for atom_set in atoms_seq
+                   for atom in atom_set)
     # Next, call NSRT learning with load_atoms=True to test whether loading
     # works.
     approach = _test_approach(env_name="blocks",

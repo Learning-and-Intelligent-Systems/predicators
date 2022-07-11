@@ -1859,7 +1859,7 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
 
 def create_dataset_filename_str(
         saving_ground_atoms: bool,
-        online_learning_cycle: Optional[str] = None) -> Tuple[str, str]:
+        online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
     """Generate strings to be used for the filename for a dataset file that is
     about to be saved.
 

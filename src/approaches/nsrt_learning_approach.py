@@ -56,7 +56,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                      online_learning_cycle: Optional[int]) -> None:
         dataset_fname, _ = utils.create_dataset_filename_str(
             saving_ground_atoms=True,
-            online_learning_cycle=str(online_learning_cycle))
+            online_learning_cycle=online_learning_cycle)
         # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
         # by loading sets of GroundAtoms directly from a saved file.
         if CFG.load_atoms:
@@ -70,11 +70,25 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 logging.info("\n\nLOADED GROUND ATOM DATASET")
 
                 if CFG.env == "behavior":  # pragma: no cover
-                    new_ground_atoms = []
-                    import ipdb; ipdb.set_trace()
+                    pred_name_to_pred = {
+                        pred.name: pred
+                        for pred in self._get_current_predicates()
+                    }
+                    new_ground_atom_dataset_atoms = []
                     # Since we save ground atoms for behavior with dummy
                     # classifiers, we need to restore the correct classifers.
-                    # for ground_atom_set in ground_atom_dataset_atoms:
+                    for ground_atom_seq in ground_atom_dataset_atoms:
+                        new_ground_atom_seq = []
+                        for ground_atom_set in ground_atom_seq:
+                            new_ground_atom_set = {
+                                GroundAtom(
+                                    pred_name_to_pred[atom.predicate.name],
+                                    atom.entities)
+                                for atom in ground_atom_set
+                            }
+                            new_ground_atom_seq.append(new_ground_atom_set)
+                        new_ground_atom_dataset_atoms.append(
+                            new_ground_atom_seq)
 
                 # The saved ground atom dataset consists only of sequences
                 # of sets of GroundAtoms, we need to recombine this with
