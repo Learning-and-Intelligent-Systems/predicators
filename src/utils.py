@@ -1871,8 +1871,7 @@ def create_dataset_filename_str(
     # Setup the dataset filename for saving/loading GroundAtoms.
     regex = r"(\d+)"
     suffix_str = ""
-    if online_learning_cycle is not None:
-        suffix_str += f"__{online_learning_cycle}"
+    suffix_str += f"__{online_learning_cycle}"
     if saving_ground_atoms:
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
