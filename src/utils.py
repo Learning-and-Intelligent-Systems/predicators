@@ -1857,6 +1857,39 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
         yield sample
 
 
+def create_dataset_filename_str(
+        saving_ground_atoms: bool,
+        online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
+    """Generate strings to be used for the filename for a dataset file that is
+    about to be saved.
+
+    Returns a tuple of strings where the first element is the dataset
+    filename itself and the second is a template string used to generate
+    it. If saving_ground_atoms is True, then we will name the file with
+    a "_ground_atoms" suffix.
+    """
+    # Setup the dataset filename for saving/loading GroundAtoms.
+    regex = r"(\d+)"
+    suffix_str = ""
+    suffix_str += f"__{online_learning_cycle}"
+    if saving_ground_atoms:
+        suffix_str += "__ground_atoms"
+    suffix_str += ".data"
+    if CFG.env == "behavior":  # pragma: no cover
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    dataset_fname = os.path.join(
+        CFG.data_dir,
+        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+    return dataset_fname, dataset_fname_template
+
+
 def create_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
