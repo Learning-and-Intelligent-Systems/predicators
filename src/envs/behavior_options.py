@@ -357,7 +357,7 @@ def navigate_to_obj_pos(
         valid_position[0][1],
         valid_position[1][2],
     ]
-    if env.use_RRT:
+    if env.use_rrt:
         obstacles = get_body_ids(env)
         if env.robots[0].parts["right_hand"].object_in_hand is not None:
             obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
@@ -857,7 +857,7 @@ def grasp_obj_at_pos(
         euler_angles[1],
         euler_angles[2],
     ]
-    if env.use_RRT:
+    if env.use_rrt:
         # plan a motion to the pose [x, y, z, euler_angles[0],
         # euler_angles[1], euler_angles[2]]
         plan = plan_hand_motion_br(
@@ -965,7 +965,7 @@ def place_obj_plan(
         np.pi * 7 / 6,
         0,
     ]
-    if env.use_RRT:
+    if env.use_rrt:
         plan = plan_hand_motion_br(
             robot=env.robots[0],
             obj_in_hand=obj_in_hand,
