@@ -109,6 +109,7 @@ class BilevelPlanningApproach(BaseApproach):
     def get_option_model(self) -> _OptionModelBase:
         """For ONLY an oracle approach or BEHAVIOR, we allow the user to get
         the current option model."""
+        assert self.get_name() == "oracle" or CFG.env == "behavior"
         return self._option_model
 
     def get_last_plan(self) -> List[_Option]:
@@ -120,4 +121,5 @@ class BilevelPlanningApproach(BaseApproach):
         the details of whether that policy is actually a plan under the
         hood.
         """
+        assert self.get_name() == "oracle" or CFG.env == "behavior"
         return self._last_plan

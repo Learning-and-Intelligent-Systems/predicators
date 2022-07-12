@@ -286,10 +286,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         try:
             if CFG.env == "behavior" and \
                 CFG.behavior_option_model_eval:  # pragma: no cover
-                # To evaluate Behavior on our option model, we are going
-                # to run our approached plan on our option model.
-                # Note that if appraoch is not a BilevelPlanningApproach
-                # We cannot use this method to evaluate and would need to
+                # To evaluate BEHAVIOR on our option model, we are going
+                # to run our approach's plan on our option model.
+                # Note that if approach is not a BilevelPlanningApproach
+                # we cannot use this method to evaluate and would need to
                 # run the policy on the option model, not the plan
                 assert isinstance(approach, BilevelPlanningApproach)
                 last_plan = approach.get_last_plan()
