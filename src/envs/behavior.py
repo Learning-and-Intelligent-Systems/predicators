@@ -574,8 +574,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     assert s.simulator_state is not None
     # Get the new_task_num_task_instance_id associated with this state
     # from s.simulator_state
-    new_task_num_task_instance_id = (s.simulator_state.split("-")[0],
-                                     s.simulator_state.split("-")[1])
+    new_task_num_task_instance_id = (int(s.simulator_state.split("-")[0]),
+                                     int(s.simulator_state.split("-")[1]))
     # If the new_task_num_task_instance_id is new, then we need to load
     # a new iGibson behavior env with our random seed saved in
     # env.new_task_num_task_instance_id_to_igibson_seed. Otherwise
