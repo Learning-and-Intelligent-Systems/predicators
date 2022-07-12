@@ -29,6 +29,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--make_demo_videos", action="store_true")
     parser.add_argument("--load_approach", action="store_true")
     parser.add_argument("--load_data", action="store_true")
+    parser.add_argument("--load_atoms", action="store_true")
     parser.add_argument("--skip_until_cycle", default=-1, type=int)
     parser.add_argument("--experiment_id", default="", type=str)
     parser.add_argument("--load_experiment_id", default="", type=str)

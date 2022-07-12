@@ -1,5 +1,8 @@
 """Test cases for the NSRT learning approach."""
 
+import os
+
+import dill as pkl
 import pytest
 
 from predicators.src import utils
@@ -13,7 +16,7 @@ def _test_approach(env_name,
                    approach_name,
                    excluded_predicates="",
                    try_solving=True,
-                   no_loading=False,
+                   no_loading_nsrts=False,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
@@ -22,6 +25,7 @@ def _test_approach(env_name,
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    solve_exceptions=None,
+                   load_atoms=False,
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -45,6 +49,7 @@ def _test_approach(env_name,
         "sampler_learner": sampler_learner,
         "segmenter": segmenter,
         "cover_initial_holding_prob": 0.0,
+        "load_atoms": load_atoms,
         **additional_settings,
     })
     env = create_new_env(env_name)
@@ -87,7 +92,7 @@ def _test_approach(env_name,
             assert task.goal_holds(traj.states[-1])
     # Do not load NSRTs from pickle file. This is because we cannot load
     # NSRTs when they are saved as strings (Necessary for behavior)
-    if no_loading:
+    if no_loading_nsrts:
         return approach
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
@@ -120,7 +125,7 @@ def test_nsrt_learning_approach():
         env_name="blocks",
         approach_name="nsrt_learning",
         try_solving=False,
-        no_loading=True,
+        no_loading_nsrts=True,
         additional_settings={"dump_nsrts_as_strings": True})
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
@@ -152,6 +157,56 @@ def test_nsrt_learning_approach():
                            try_solving=False,
                            sampler_learner="random",
                            strips_learner=strips_learner)
+
+
+def test_saving_and_loading_atoms():
+    """Test learning with saving and loading groudn atoms functionality."""
+    # First, call the approach with load_atoms=False so that the
+    # atoms get saved.
+    approach = _test_approach(
+        env_name="blocks",
+        approach_name="nsrt_learning",
+        try_solving=False,
+        no_loading_nsrts=True,
+        load_atoms=False,
+        additional_settings={"dump_nsrts_as_strings": True})
+    # Next, try to manually load these saved atoms.
+    dataset_fname, _ = utils.create_dataset_filename_str(
+        saving_ground_atoms=True, online_learning_cycle=None)
+    assert os.path.exists(dataset_fname)
+    with open(dataset_fname, "rb") as f:
+        ground_atom_dataset_atoms = pkl.load(f)
+    # Check that each of the loaded atoms is linked to one of the
+    # environment predicates.
+    env = create_new_env("blocks")
+    for atoms_seq in ground_atom_dataset_atoms:
+        assert all(atom.predicate in env.predicates for atom_set in atoms_seq
+                   for atom in atom_set)
+    # Next, call NSRT learning with load_atoms=True to test whether loading
+    # works.
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              no_loading_nsrts=True,
+                              load_atoms=True,
+                              additional_settings={
+                                  "compute_sidelining_objective_value": True,
+                              })
+    # Test assertions to check that learning occurs smoothly after loading.
+    assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
+    assert "sidelining_obj_complexity" in approach.metrics
+    assert approach.metrics["sidelining_obj_num_plans_up_to_n"] == 1.0
+    assert approach.metrics["sidelining_obj_complexity"] == 34.0
+    # Remove the file and test that error is thrown when loading
+    # non-existent file.
+    os.remove(dataset_fname)
+    with pytest.raises(ValueError) as e:
+        approach = _test_approach(env_name="blocks",
+                                  approach_name="nsrt_learning",
+                                  try_solving=False,
+                                  no_loading_nsrts=True,
+                                  load_atoms=True)
+    assert "Cannot load ground atoms" in str(e)
 
 
 def test_unknown_strips_learner():
