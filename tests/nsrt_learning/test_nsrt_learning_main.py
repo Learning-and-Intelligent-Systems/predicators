@@ -41,10 +41,12 @@ def test_nsrt_learning_specific_nsrts():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -83,10 +85,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -130,10 +134,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
@@ -176,10 +182,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
@@ -207,10 +215,12 @@ def test_nsrt_learning_specific_nsrts():
         "min_data_for_nsrt": 3,
         "min_perc_data_for_nsrt": 0,
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 0
     # Test minimum percent of examples parameter
@@ -218,10 +228,12 @@ def test_nsrt_learning_specific_nsrts():
         "min_data_for_nsrt": 0,
         "min_perc_data_for_nsrt": 90,
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
@@ -232,10 +244,12 @@ def test_nsrt_learning_specific_nsrts():
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
