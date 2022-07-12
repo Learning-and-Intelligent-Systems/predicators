@@ -430,6 +430,16 @@ class BehaviorEnv(BaseEnv):
                 f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
                 f"{CFG.behavior_task_name}__{self.task_num}__" +
                 f"{self.task_instance_id}/")
+        # NOTE: we reset np.random.seed here because the underlying iGibson
+        # simulator is extremely sensitive to the random seed (transitions
+        # can differ wildly if the seeding is different). Since this function
+        # is called after every transition, resetting the seed here ensures
+        # that we can keep things consistent between planning and evaluation.
+        # In the beginning, this function will be called with incorrect
+        # task_num and instance_id's, so we need to check for this case.
+        if self.task_num_task_instance_id_to_igibson_seed.get((self.task_num, self.task_instance_id)) is not None:
+            np.random.seed(self.task_num_task_instance_id_to_igibson_seed[self.task_num, self.task_instance_id])
+
         return utils.BehaviorState(
             state_data,
             f"{self.task_num}-{self.task_instance_id}-{simulator_state}")

@@ -310,6 +310,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     max_num_steps=CFG.horizon,
                     monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
+            import ipdb; ipdb.set_trace()
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
