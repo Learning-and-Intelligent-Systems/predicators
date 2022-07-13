@@ -2,14 +2,14 @@
 
 import abc
 import logging
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from predicators.src import utils
-from predicators.src.planning import task_plan_grounding
+from predicators.src.planning import task_plan_with_option_plan_constraint
 from predicators.src.settings import CFG
 from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, Object, OptionSpec, PartialNSRTAndDatastore, \
-    Predicate, Segment, State, STRIPSOperator, Task, Variable, _GroundNSRT, \
+    Predicate, Segment, State, STRIPSOperator, Task, Variable, \
     _GroundSTRIPSOperator
 
 
@@ -118,69 +118,17 @@ class BaseSTRIPSLearner(abc.ABC):
         single training trajectory."""
         init_atoms = utils.abstract(init_state, self._predicates)
         objects = set(init_state)
-        options = []
+        option_plan = []
         for seg in seg_traj:
             if seg.has_option():
-                options.append(seg.get_option())
+                option = seg.get_option()
             else:
-                options.append(DummyOption)
-        ground_nsrts, _ = task_plan_grounding(init_atoms,
-                                              objects,
-                                              strips_ops,
-                                              option_specs,
-                                              allow_noops=True)
-        heuristic = utils.create_task_planning_heuristic(
-            CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
-            ground_nsrts, self._predicates, objects)
-
-        def _check_goal(
-                searchnode_state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
-            return traj_goal.issubset(searchnode_state[0])
-
-        def _get_successor_with_correct_option(
-            searchnode_state: Tuple[FrozenSet[GroundAtom], int]
-        ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
-                            float]]:
-            atoms = searchnode_state[0]
-            idx_into_traj = searchnode_state[1]
-
-            if idx_into_traj > len(options) - 1:
-                return
-
-            gt_option = options[idx_into_traj]
-            expected_next_atoms = atoms_seq[idx_into_traj + 1]
-
-            for applicable_nsrt in utils.get_applicable_operators(
-                    ground_nsrts, atoms):
-                # NOTE: we check that the ParameterizedOptions are equal before
-                # attempting to ground because otherwise, we might
-                # get a parameter mismatch and trigger an AssertionError
-                # during grounding.
-                if applicable_nsrt.option != gt_option.parent:
-                    continue
-                if applicable_nsrt.option_objs != gt_option.objects:
-                    continue
-                next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
-                if next_atoms.issubset(expected_next_atoms):
-                    # The returned cost is uniform because we don't
-                    # actually care about finding the shortest path;
-                    # just one that matches!
-                    yield (applicable_nsrt, (frozenset(next_atoms),
-                                             idx_into_traj + 1), 1.0)
-
-        init_atoms_frozen = frozenset(init_atoms)
-        init_searchnode_state = (init_atoms_frozen, 0)
-        # NOTE: each state in the below GBFS is a tuple of
-        # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
-        # we need to check whether the atoms that are true at this particular
-        # index into the trajectory is what we would expect given the demo
-        # trajectory.
-        state_seq, _ = utils.run_gbfs(
-            init_searchnode_state, _check_goal,
-            _get_successor_with_correct_option,
-            lambda searchnode_state: heuristic(searchnode_state[0]), heuristic2=None)
-
-        return _check_goal(state_seq[-1])
+                option = DummyOption
+            option_plan.append((option.parent, option.objects))
+        ground_nsrt_plan = task_plan_with_option_plan_constraint(
+            objects, self._predicates, strips_ops, option_specs, init_atoms,
+            traj_goal, option_plan, atoms_seq)
+        return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(
             self, pnads: List[PartialNSRTAndDatastore]) -> None:

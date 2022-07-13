@@ -9,6 +9,7 @@ import pytest
 from predicators.src import utils
 from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
+    ProceduralTasksForestPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
     _FixedTasksPDDLEnv, _PDDLEnv
 from predicators.src.structs import Action
 
@@ -18,16 +19,30 @@ def _create_domain_str():
     return """; This is a comment
     (define (domain dummy)
         (:requirements :strips :typing)
-        (:types fish banana)
-        (:predicates
-            (ate ?fish - fish ?ban - banana)
-            (isMonkFish ?fish - fish)
-            (isRipe ?ban - banana)
+        (:types
+            fish banana - object
+            salmon - fish
         )
-        (:action eat
-            :parameters (?f - fish ?b - banana)
-            :precondition (and (isMonkFish ?f) (isRipe ?b))
-            :effect (and (ate ?f ?b) (not (isRipe ?b)))
+        (:predicates
+            (ate ?obj - object)
+            (isRipe ?ban - banana)
+            (isPink ?salmon - salmon)
+            (isCooked ?fish - fish)
+        )
+        (:action eatFish
+            :parameters (?f - fish)
+            :precondition (and (isCooked ?f))
+            :effect (and (ate ?f))
+        )
+        (:action eatBanana
+            :parameters (?b - banana)
+            :precondition (and (isRipe ?b))
+            :effect (and (ate ?b))
+        )
+        (:action cook
+            :parameters (?s - salmon)
+            :precondition (and (isPink ?s))
+            :effect (and (not (isPink ?s)) (isCooked ?s))
         )
     )"""
 
@@ -40,12 +55,14 @@ def _create_problem_strs():
         (:objects
             fish1 - fish
             ban1 - banana
+            salmon1 - salmon
         )
         (:init
-            (isMonkFish fish1)
+            (isCooked fish1)
             (isRipe ban1)
+            (isPink salmon1)
         )
-        (:goal (and (ate fish1 ban1)))
+        (:goal (and (ate fish1) (ate ban1) (ate salmon1)))
     )"""
 
     problem_str2 = """; This is a comment
@@ -56,10 +73,10 @@ def _create_problem_strs():
             ban1 ban2 - banana
         )
         (:init
-            (isMonkFish fish1)
+            (isCooked fish1)
             (isRipe ban2)
         )
-        (:goal (and (ate fish1 ban2)))
+        (:goal (and (ate fish1) (ate ban2)))
     )"""
 
     return [problem_str1, problem_str2]
@@ -92,57 +109,71 @@ def test_pddlenv(domain_str, problem_strs):
     assert env.get_name() == "dummy"
 
     # Domain creation checks.
-    assert np.allclose(env.action_space.low,
-                       np.array([0, 0, 0], dtype=np.float32))
+    assert np.allclose(env.action_space.low, np.array([0, 0],
+                                                      dtype=np.float32))
     assert np.allclose(env.action_space.high,
-                       np.array([0, np.inf, np.inf], dtype=np.float32))
+                       np.array([2, np.inf], dtype=np.float32))
     # All types inherit from 'object' by default (via pyperplan).
-    assert {t.name for t in env.types} == {"object", "banana", "fish"}
+    type_names = {t.name for t in env.types}
+    assert type_names == {"object", "banana", "fish", "salmon"}
     type_name_to_type = {t.name: t for t in env.types}
+    object_type = type_name_to_type["object"]
     banana_type = type_name_to_type["banana"]
     fish_type = type_name_to_type["fish"]
+    salmon_type = type_name_to_type["salmon"]
     # Pyperplan parsing converts everything to lowercase.
-    assert {p.name for p in env.predicates} == {"isripe", "ismonkfish", "ate"}
+    assert {p.name
+            for p in env.predicates
+            } == {"isripe", "iscooked", "ispink", "ate"}
     pred_name_to_pred = {p.name: p for p in env.predicates}
     isRipe = pred_name_to_pred["isripe"]
     assert isRipe.types == [banana_type]
-    isMonkfish = pred_name_to_pred["ismonkfish"]
-    assert isMonkfish.types == [fish_type]
+    isCooked = pred_name_to_pred["iscooked"]
+    assert isCooked.types == [fish_type]
     ate = pred_name_to_pred["ate"]
-    assert ate.types == [fish_type, banana_type]
-    assert {o.name for o in env.options} == {"eat"}
+    assert ate.types == [object_type]
+    IsPink = pred_name_to_pred["ispink"]
+    assert IsPink.types == [salmon_type]
+    assert {o.name for o in env.options} == {"eatfish", "eatbanana", "cook"}
     assert env.goal_predicates == {ate}
     option_name_to_option = {o.name: o for o in env.options}
-    eat_option = option_name_to_option["eat"]
-    assert eat_option.types == [fish_type, banana_type]
-    assert eat_option.params_space.shape[0] == 0
-    assert {o.name for o in env.strips_operators} == {"eat"}
+    eat_fish_option = option_name_to_option["eatfish"]
+    assert eat_fish_option.types == [fish_type]
+    assert eat_fish_option.params_space.shape[0] == 0
+    assert {o.name
+            for o in env.strips_operators} == {"eatfish", "eatbanana", "cook"}
     operator_name_to_operator = {o.name: o for o in env.strips_operators}
-    eat_operator = operator_name_to_operator["eat"]
-    eat_parameters = eat_operator.parameters
-    assert [p.type for p in eat_parameters] == [fish_type, banana_type]
-    fish_var, ban_var = eat_parameters
-    assert eat_operator.preconditions == {
-        isMonkfish([fish_var]), isRipe([ban_var])
-    }
-    assert eat_operator.add_effects == {ate([fish_var, ban_var])}
-    assert eat_operator.delete_effects == {isRipe([ban_var])}
+    eat_fish_operator = operator_name_to_operator["eatfish"]
+    eat_fish_parameters = eat_fish_operator.parameters
+    assert [p.type for p in eat_fish_parameters] == [fish_type]
+    fish_var, = eat_fish_parameters
+    assert eat_fish_operator.preconditions == {isCooked([fish_var])}
+    assert eat_fish_operator.add_effects == {ate([fish_var])}
+    assert eat_fish_operator.delete_effects == set()
 
     # Problem creation checks.
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
     train_task = train_tasks[0]
     init = train_task.init
-    assert {o.name for o in init} == {"fish1", "ban1"}
+    assert {o.name for o in init} == {"fish1", "ban1", "salmon1"}
     obj_name_to_obj = {o.name: o for o in init}
     fish1 = obj_name_to_obj["fish1"]
     ban1 = obj_name_to_obj["ban1"]
+    salmon1 = obj_name_to_obj["salmon1"]
     assert fish1.type == fish_type
     assert ban1.type == banana_type
+    assert salmon1.type == salmon_type
+    assert salmon1.is_instance(fish_type)
+    assert salmon1.is_instance(object_type)
     assert len(init[fish1]) == 0
     assert len(init[ban1]) == 0
-    assert init.simulator_state == {isMonkfish([fish1]), isRipe([ban1])}
-    assert train_task.goal == {ate([fish1, ban1])}
+    assert len(init[salmon1]) == 0
+    assert init.simulator_state == {
+        isCooked([fish1]),
+        isRipe([ban1]), IsPink([salmon1])
+    }
+    assert train_task.goal == {ate([fish1]), ate([ban1]), ate([salmon1])}
     test_tasks = env.get_test_tasks()
     assert len(test_tasks) == 1
     test_task = test_tasks[0]
@@ -161,17 +192,17 @@ def test_pddlenv(domain_str, problem_strs):
     assert len(init[fish2]) == 0
     assert len(init[ban1]) == 0
     assert len(init[ban2]) == 0
-    assert init.simulator_state == {isMonkfish([fish1]), isRipe([ban2])}
-    assert test_task.goal == {ate([fish1, ban2])}
+    assert init.simulator_state == {isCooked([fish1]), isRipe([ban2])}
+    assert test_task.goal == {ate([fish1]), ate([ban2])}
 
     # Tests for simulation.
-    state = test_task.init.copy()
+    state = train_task.init.copy()
     with pytest.raises(NotImplementedError):
         env.render_state(state, test_task)
     with pytest.raises(NotImplementedError) as e:
         env.render_state_plt(state, test_task)
     assert "This env does not use Matplotlib" in str(e)
-    inapplicable_option = eat_option.ground([fish1, ban1], [])
+    inapplicable_option = eat_fish_option.ground([salmon1], [])
     assert not inapplicable_option.initiable(state)
     # This is generally not defined, but in this case, it will just give us
     # an invalid action that we can use to test simulate.
@@ -179,14 +210,16 @@ def test_pddlenv(domain_str, problem_strs):
     next_state = env.simulate(state, inapplicable_action)
     assert state.simulator_state == next_state.simulator_state
     assert state.allclose(next_state)
-    option = eat_option.ground([fish1, ban2], [])
+    state = test_task.init.copy()
+    option = eat_fish_option.ground([fish1], [])
     assert option.initiable(state)
     action = option.policy(state)
     next_state = env.simulate(state, action)
     assert state.simulator_state != next_state.simulator_state
     assert not state.allclose(next_state)
     assert next_state.simulator_state == {
-        isMonkfish([fish1]), ate([fish1, ban2])
+        isCooked([fish1]), ate([fish1]),
+        isRipe([ban2])
     }
     # Test that when the object types don't match the operator
     # parameters, a noop occurs.
@@ -242,7 +275,7 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
     train_tasks = env.get_train_tasks()
     assert len(train_tasks) == 1
     train_task = train_tasks[0]
-    assert len(set(train_task.init)) == 2
+    assert len(set(train_task.init)) == 3
     test_tasks = env.get_test_tasks()
     assert len(test_tasks) == 1
     test_task = test_tasks[0]
@@ -334,3 +367,60 @@ def test_procedural_tasks_delivery_pddl_env():
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"satisfied"})
+
+
+def test_procedural_tasks_spanner_pddl_env():
+    """Tests for ProceduralTasksSpannerPDDLEnv class."""
+    # Note that the procedural generation itself is tested in
+    # test_pddl_procedural_generation.
+    utils.reset_config({
+        "env": "pddl_spanner_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = ProceduralTasksSpannerPDDLEnv()
+    assert {t.name
+            for t in env.types
+            } == {"object", "location", "locatable", "man", "nut", "spanner"}
+    assert {p.name
+            for p in env.predicates
+            } == {"at", "carrying", "useable", "link", "tightened", "loose"}
+    assert {p.name for p in env.goal_predicates} == {"tightened"}
+    assert {o.name
+            for o in env.options} == {"walk", "pickup_spanner", "tighten_nut"}
+    assert {o.name
+            for o in env.strips_operators
+            } == {"walk", "pickup_spanner", "tighten_nut"}
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 2
+    task = train_tasks[0]
+    assert {a.predicate.name for a in task.goal}.issubset({"tightened"})
+
+
+def test_procedural_tasks_forest_pddl_env():
+    """Tests for ProceduralTasksForestPDDLEnv class."""
+    # Note that the procedural generation itself is tested in
+    # test_pddl_procedural_generation.
+    utils.reset_config({
+        "env": "pddl_forest_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
+    })
+    env = ProceduralTasksForestPDDLEnv()
+    assert {t.name for t in env.types} == {"object", "loc"}
+    assert {p.name
+            for p in env.predicates} == {
+                "isnotwater", "ishill", "isnothill", "at", "ontrail",
+                "adjacent"
+            }
+    assert {p.name for p in env.goal_predicates} == {"at"}
+    assert {o.name for o in env.options} == {"walk", "climb"}
+    assert {o.name for o in env.strips_operators} == {"walk", "climb"}
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 2
+    task = train_tasks[0]
+    assert {a.predicate.name for a in task.goal}.issubset({"at"})

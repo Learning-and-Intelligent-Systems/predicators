@@ -255,35 +255,18 @@ class BehaviorEnv(BaseEnv):
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
 
-        # Second, add in custom predicates except reachable-nothing
+        # Second, add in custom predicates.
         custom_predicate_specs = [
+            ("reachable-nothing", self._reachable_nothing_classifier, 0),
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
-            ("reachable", self._reachable_classifier, 2),
+            ("reachable", self._reachable_classifier, 1),
         ]
 
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
-                # We only care about reachable when the agent is one of the
-                # types.
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
-                if name == "reachable" and not any(type_i.name == "agent"
-                                                   for type_i in type_combo):
-                    continue
-                predicates.add(pred)
-
-        # Finally, add the reachable-nothing predicate, which only applies
-        # to the 'agent' type
-        for i in range(len(types_lst)):
-            if types_lst[i].name == "agent":
-                pred_name = self._create_type_combo_name(
-                    "reachable-nothing", (types_lst[i], ))
-                pred = Predicate(
-                    pred_name,
-                    [types_lst[i]],
-                    self._reachable_nothing_classifier,
-                )
                 predicates.add(pred)
 
         return predicates
@@ -474,27 +457,33 @@ class BehaviorEnv(BaseEnv):
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 2
+        assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
-        ig_other_obj = self.object_to_ig_object(objs[1])
+        # We assume we're running BEHAVIOR with only 1 agent
+        # in the scene.
+        assert len(self.igibson_behavior_env.robots) == 1
+        robot_obj = self.igibson_behavior_env.robots[0]
         # If the two objects are the same (i.e reachable(agent, agent)),
         # we always want to return False so that when we learn
         # operators, such predicates don't needlessly appear in preconditions.
-        if ig_obj == ig_other_obj:
+        if self._holding_classifier(state=state, objs=[objs[0]]):
+            return False
+        # We also always want reachable-agent to be False so it doesn't
+        # appear in any preconditions.
+        if ig_obj.name == "agent":
             return False
         return (np.linalg.norm(  # type: ignore
-            np.array(ig_obj.get_position()) -
-            np.array(ig_other_obj.get_position())) < 2)
+            np.array(robot_obj.get_position()) -
+            np.array(ig_obj.get_position())) < 2)
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 1
+        assert len(objs) == 0
         for obj in state:
-            if self._reachable_classifier(
-                    state=state, objs=[obj, objs[0]]) and (obj != objs[0]):
+            if self._reachable_classifier(state=state, objs=[obj]):
                 return False
         return True
 
@@ -556,6 +545,8 @@ class BehaviorEnv(BaseEnv):
     @staticmethod
     def _create_type_combo_name(original_name: str,
                                 type_combo: Sequence[Type]) -> str:
+        if len(type_combo) == 0:
+            return original_name
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
 
