@@ -1,16 +1,39 @@
 """Tests for oracle STRIPS operator learning."""
 
 from predicators.src import utils
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 
 
 def test_oracle_strips_learner():
     """Tests for OracleSTRIPSLearner."""
-    utils.reset_config({"env": "blocks", "strips_learner": "oracle"})
+    utils.reset_config({
+        "env": "blocks",
+        "strips_learner": "oracle",
+        "num_train_tasks": 3
+    })
+    # Without any data, no operators should be learned.
     pnads = learn_strips_operators([],
                                    None,
                                    None, [],
+                                   verify_harmlessness=True)
+    assert not pnads
+    # With sufficiently representative data, all operators should be learned.
+    env = create_new_env("blocks")
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks, env.options)
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
+    ]
+    pnads = learn_strips_operators(dataset.trajectories,
+                                   train_tasks,
+                                   env.predicates,
+                                   segmented_trajs,
                                    verify_harmlessness=True)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
@@ -42,11 +65,22 @@ def test_oracle_strips_learner():
     utils.reset_config({
         "env": "blocks",
         "strips_learner": "oracle",
-        "option_learner": "oracle"
+        "option_learner": "oracle",
+        "num_train_tasks": 3,
+        "segmenter": "atom_changes",
     })
-    pnads = learn_strips_operators([],
-                                   None,
-                                   None, [],
+    env = create_new_env("blocks")
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks, set())
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.predicates)
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
+    ]
+    pnads = learn_strips_operators(dataset.trajectories,
+                                   train_tasks,
+                                   env.predicates,
+                                   segmented_trajs,
                                    verify_harmlessness=True)
     assert str(sorted(pnads, key=str)) == """[STRIPS-PickFromTable:
     Parameters: [?block:block, ?robot:robot]
