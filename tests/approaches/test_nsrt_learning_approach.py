@@ -294,6 +294,14 @@ def test_oracle_samplers():
                    segmenter="atom_changes",
                    check_solution=True,
                    num_train_tasks=3)
+    # In painting, we learn operators that are different from the oracle ones.
+    # The expected behavior is that the learned operators will have random
+    # samplers, so we don't expected planning to necessarily work.
+    _test_approach(env_name="painting",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   try_solving=False,
+                   num_train_tasks=3)
 
 
 def test_degenerate_mlp_sampler_learning():
