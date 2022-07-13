@@ -2608,6 +2608,7 @@ def nostdout() -> Generator[None, None, None]:
 
 
 def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+              objects: Set[Object],
               goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
@@ -2616,7 +2617,6 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
 
     If no rule is applicable, returns None.
     """
-    objects = {o for a in atoms | goal for o in a.objects}
     for rule in ldl.rules:
         for ground_rule in all_ground_ldl_rules(rule, objects):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
