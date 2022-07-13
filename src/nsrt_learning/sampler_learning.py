@@ -48,9 +48,9 @@ def _extract_oracle_samplers(
     """Extract the oracle samplers matching the given STRIPSOperator objects
     from the ground truth operators defined in approaches/oracle_approach.py.
 
-    We require every ground truth operator to match one of the given
-    operators, but some of the given operators can match no ground truth
-    operator, in which case such an operator is given a random sampler.
+    If a given operator does not match any ground truth operator, it is
+    given a random sampler. If a ground truth operator has no given
+    operator match, a warning is generated.
     """
     env = get_or_create_env(CFG.env)
     # We don't need to match ground truth NSRTs with no continuous
@@ -88,7 +88,7 @@ def _extract_oracle_samplers(
                 samplers[idx] = _make_reordered_sampler(nsrt, op, sub)
                 break
         else:
-            raise Exception("Can't use oracle samplers, no match for "
+            logging.warning("Oracle sampler learning found no match for "
                             f"ground truth NSRT: {nsrt}")
     return samplers
 

@@ -379,18 +379,13 @@ def test_oracle_strips_and_segmenter_learning():
         "stick_button_num_buttons_test": [1],
         "segmenter": "oracle",
     }
-    # The expected behavior is that segmentation and STRIPS learning will go
-    # through, but then because there is such a limited number of demos, we
-    # will not see data for all operators, which will lead to a crash
-    # during option learning. This test still covers an important case, which
-    # is recomputing datastores in STRIPS learning when options are unknown.
-    with pytest.raises(Exception) as e:
-        _test_approach(env_name="stick_button",
-                       approach_name="nsrt_learning",
-                       strips_learner="oracle",
-                       option_learner="direct_bc",
-                       offline_data_method="demo",
-                       num_train_tasks=1,
-                       try_solving=False,
-                       additional_settings=additional_settings)
-    assert "No data found for learning an option." in str(e)
+    # This test still covers recomputing datastores in STRIPS learning when
+    # options are unknown.
+    _test_approach(env_name="stick_button",
+                   approach_name="nsrt_learning",
+                   strips_learner="oracle",
+                   option_learner="direct_bc",
+                   offline_data_method="demo",
+                   num_train_tasks=1,
+                   try_solving=False,
+                   additional_settings=additional_settings)
