@@ -62,7 +62,6 @@ class PG3Approach(NSRTLearningApproach):
         policy."""
         skeleton = []
         atoms_sequence = []
-        current_objects = set()
         atoms = utils.abstract(task.init, self._initial_predicates)
         atoms_sequence.append(atoms)
         current_objects = set(task.init)
