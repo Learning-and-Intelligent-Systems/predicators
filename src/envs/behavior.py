@@ -186,7 +186,7 @@ class BehaviorEnv(BaseEnv):
         for _ in range(num):
             # BEHAVIOR uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
-            curr_env_seed = rng.integers(0, (2**32) - 1)
+            curr_env_seed = 122298270 #rng.integers(0, (2**32) - 1)
             # ID used to generate scene in BEHAVIOR default scene is 0
             self.task_instance_id = 0
             if CFG.behavior_randomize_init_state:
@@ -604,12 +604,14 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
         env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
-    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[new_task_num_task_instance_id])
+    env.igibson_behavior_env.reset()
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
         f"{CFG.behavior_task_name}__{env.task_num}__{env.task_instance_id}",
         int(s.simulator_state.split("-")[2]))
+    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
+                new_task_num_task_instance_id])
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))

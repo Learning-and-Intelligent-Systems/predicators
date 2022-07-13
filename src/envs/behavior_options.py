@@ -1027,7 +1027,7 @@ def place_ontop_obj_pos_sampler(
 
     if sampling_results[0] is None or sampling_results[0][0] is None:
         # If sampling fails, returns a particular constant set of params
-        return np.array([rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), rng.uniform(0.3, 1.0)]) #np.array([0.0, 0.0, 0.5])
+        return np.array([rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.3, 1.0)]) #np.array([0.0, 0.0, 0.5])
 
     rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
     return rnd_params

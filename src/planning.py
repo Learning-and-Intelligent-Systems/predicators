@@ -367,6 +367,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
+                            import ipdb; ipdb.set_trace()
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -376,7 +377,6 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            import ipdb; ipdb.set_trace()
                             return plan, True  # success!
                         can_continue_on = False
         else:

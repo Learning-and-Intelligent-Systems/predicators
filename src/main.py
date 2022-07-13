@@ -56,6 +56,8 @@ from predicators.src.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
+import cProfile
+
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
@@ -258,18 +260,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
-            solved = False
-            attempts = 0
-            max_attempts = 10
-            while not solved and attempts < max_attempts:
-                policy = approach.solve(task, timeout=CFG.timeout)
-                last_plan = approach.get_last_plan()
-                traj, solved = _run_plan_with_option_model(
-                    task, test_task_idx, approach.get_option_model(),
-                    last_plan)
-                attempts += 1
-                if not solved:
-                    print("Failed low level execution")
+            policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")
@@ -321,7 +312,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     max_num_steps=CFG.horizon,
                     monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            import ipdb; ipdb.set_trace()
+            if not solved:
+                import ipdb; ipdb.set_trace()
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
@@ -408,4 +400,5 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    #main()
+    cProfile.run('main()', filename='prof')
