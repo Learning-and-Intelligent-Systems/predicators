@@ -29,8 +29,8 @@ from predicators.src.approaches.nsrt_learning_approach import \
 from predicators.src.planning import PlanningFailure, run_low_level_search
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Box, Dataset, GroundAtom, \
-    LDLRule, LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
-    State, Task, Type, Variable, _GroundNSRT
+    LDLRule, LiftedAtom, LiftedDecisionList, Object, ParameterizedOption, \
+    Predicate, State, Task, Type, Variable, _GroundNSRT
 
 
 class PG3Approach(NSRTLearningApproach):
@@ -47,7 +47,8 @@ class PG3Approach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "pg3"
 
-    def _predict_ground_nsrt(self, atoms: Set[GroundAtom], objects: Set[Object],
+    def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
+                             objects: Set[Object],
                              goal: Set[GroundAtom]) -> _GroundNSRT:
         """Predicts next GroundNSRT to be deployed based on the PG3 generated
         policy."""
@@ -72,7 +73,7 @@ class PG3Approach(NSRTLearningApproach):
             if (time.time() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
             ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
-            task.goal)
+                                                    task.goal)
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
@@ -97,8 +98,6 @@ class PG3Approach(NSRTLearningApproach):
 
         # The heuristic is what distinguishes PG3 from baseline approaches.
         heuristic = self._create_heuristic()
-        CFG.pg3_heuristic = "policy_guided"
-        heuristic2 = self._create_heuristic()
 
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
@@ -112,7 +111,6 @@ class PG3Approach(NSRTLearningApproach):
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
-                heuristic2=heuristic2,
                 max_expansions=CFG.pg3_gbfs_max_expansions,
                 lazy_expansion=True)
 
@@ -325,8 +323,7 @@ class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
 
     @staticmethod
     def _ldl_solves_abstract_task(ldl: LiftedDecisionList,
-                                  atoms: Set[GroundAtom],
-                                  objects: Set[Object],
+                                  atoms: Set[GroundAtom], objects: Set[Object],
                                   goal: Set[GroundAtom]) -> bool:
         for _ in range(CFG.horizon):
             if goal.issubset(atoms):
