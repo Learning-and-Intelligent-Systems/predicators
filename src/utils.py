@@ -1118,9 +1118,9 @@ def _get_entity_combinations(
         for ent in sorted_entities:
             if ent.is_instance(vt):
                 this_choices.append(ent)
-        #if len(this_choices) == 0:
-            #raise ApproachFailure("Failed to get entity combinations (entity \
-            #instance not found in given types sequence)")
+        # if len(this_choices) == 0:
+        #     print("Failed to get entity combinations (entity \
+        #     instance not found in given types sequence)")
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
@@ -1129,7 +1129,8 @@ def _get_entity_combinations(
 def get_object_combinations(objects: Collection[Object],
                             types: Sequence[Type]) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence."""
-    return _get_entity_combinations(objects, types)
+    penis = _get_entity_combinations(objects, types)
+    return penis
 
 
 def get_variable_combinations(
@@ -1312,17 +1313,17 @@ class _HeuristicSearchNode(Generic[_S, _A]):
 
 def _run_heuristic_search(
         initial_state: _S,
+        method: str,
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
+        get_priority2: Callable[[_HeuristicSearchNode[_S, _A]], Any],
         max_expansions: int = 10000000,
         max_evals: int = 10000000,
         timeout: int = 10000000,
         lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
-
     Depending on get_priority, can implement A*, GBFS, or UCS.
-
     If no goal is found, returns the state with the best priority.
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
@@ -1338,16 +1339,23 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
+    if (method == "gbfs"):
+        logging.info(f"\n\nStarting hill climbing at state {root_node.state} "
+                    f"with heuristic {best_node_priority}")
     start_time = time.time()
 
     while len(queue) > 0 and time.time() - start_time < timeout and \
           num_expansions < max_expansions and num_evals < max_evals:
+        # if (method == "gbfs" and best_node_priority==36.0):
+        #     get_priority = get_priority2
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
             continue
         # If the goal holds, return.
         if check_goal(node.state):
+            if (method == "gbfs"):
+                logging.info("\nTerminating hill climbing, achieved goal")
             return _finish_plan(node)
         num_expansions += 1
         # Generate successors.
@@ -1371,6 +1379,10 @@ def _run_heuristic_search(
             if priority < best_node_priority:
                 best_node_priority = priority
                 best_node = child_node
+                if (method == "gbfs"):
+                    logging.info(f"Found an improvement at depth {0}")
+                    logging.info(f"\nHill climbing reached new state {best_node.state} "
+                                f"with heuristic {best_node_priority}")
                 # Optimization: if we've found a better child, immediately
                 # explore the child without expanding the rest of the children.
                 # Accomplish this by putting the parent node back on the queue.
@@ -1379,6 +1391,7 @@ def _run_heuristic_search(
                     break
             if num_evals >= max_evals:
                 break
+
 
     # Did not find path to goal; return best path seen.
     return _finish_plan(best_node)
@@ -1404,14 +1417,16 @@ def run_gbfs(initial_state: _S,
              check_goal: Callable[[_S], bool],
              get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
              heuristic: Callable[[_S], float],
+             heuristic2: Callable[[_S], float],
              max_expansions: int = 10000000,
              max_evals: int = 10000000,
              timeout: int = 10000000,
              lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
     get_priority = lambda n: heuristic(n.state)
-    return _run_heuristic_search(initial_state, check_goal, get_successors,
-                                 get_priority, max_expansions, max_evals,
+    get_priority2 = lambda n: heuristic2(n.state)
+    return _run_heuristic_search(initial_state, "gbfs", check_goal, get_successors,
+                                 get_priority, get_priority2, max_expansions, max_evals,
                                  timeout, lazy_expansion)
 
 
@@ -1425,8 +1440,8 @@ def run_astar(initial_state: _S,
               lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A* search."""
     get_priority = lambda n: heuristic(n.state) + n.cumulative_cost
-    return _run_heuristic_search(initial_state, check_goal, get_successors,
-                                 get_priority, max_expansions, max_evals,
+    return _run_heuristic_search(initial_state, "astar", check_goal, get_successors,
+                                 get_priority, None,max_expansions, max_evals,
                                  timeout, lazy_expansion)
 
 
@@ -1570,7 +1585,6 @@ def run_policy_guided_astar(
         for action, cost in get_valid_actions(state):
             next_state = get_next_state(state, action)
             yield ([action], next_state, cost)
-
     _, action_subseqs = run_astar(initial_state=initial_state,
                                   check_goal=check_goal,
                                   get_successors=get_successors,

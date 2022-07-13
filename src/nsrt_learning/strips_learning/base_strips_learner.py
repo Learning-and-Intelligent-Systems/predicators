@@ -178,7 +178,7 @@ class BaseSTRIPSLearner(abc.ABC):
         state_seq, _ = utils.run_gbfs(
             init_searchnode_state, _check_goal,
             _get_successor_with_correct_option,
-            lambda searchnode_state: heuristic(searchnode_state[0]))
+            lambda searchnode_state: heuristic(searchnode_state[0]), heuristic2=None)
 
         return _check_goal(state_seq[-1])
 
