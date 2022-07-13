@@ -604,6 +604,7 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
         env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
+    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[new_task_num_task_instance_id])
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +

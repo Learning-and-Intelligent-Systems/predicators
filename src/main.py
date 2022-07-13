@@ -258,7 +258,18 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
-            policy = approach.solve(task, timeout=CFG.timeout)
+            solved = False
+            attempts = 0
+            max_attempts = 10
+            while not solved and attempts < max_attempts:
+                policy = approach.solve(task, timeout=CFG.timeout)
+                last_plan = approach.get_last_plan()
+                traj, solved = _run_plan_with_option_model(
+                    task, test_task_idx, approach.get_option_model(),
+                    last_plan)
+                attempts += 1
+                if not solved:
+                    print("Failed low level execution")
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Approach failed to solve with error: {e}")

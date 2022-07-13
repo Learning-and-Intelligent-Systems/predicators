@@ -1231,11 +1231,14 @@ def create_place_option_model(
         env.step(np.zeros(env.action_space.shape))
         # reset the released object to zero velocity so it doesn't
         # fly away because of residual warp speeds from teleportation!
-        p.resetBaseVelocity(
-            released_obj_bid,
-            linearVelocity=[0, 0, 0],
-            angularVelocity=[0, 0, 0],
-        )
+        try:
+            p.resetBaseVelocity(
+                released_obj_bid,
+                linearVelocity=[0, 0, 0],
+                angularVelocity=[0, 0, 0],
+            )
+        except:
+            pass
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
         # this is running a series of zero action to step simulator

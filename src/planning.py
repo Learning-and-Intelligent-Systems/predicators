@@ -367,7 +367,6 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
-                            import ipdb; ipdb.set_trace()
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -443,7 +442,7 @@ def _run_plan_with_option_model(
     for idx in range(len(plan)):
         state = traj[idx]
         option = plan[idx]
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         if not option.initiable(state):
             # The option is not initiable.
             return LowLevelTrajectory(_states=[task.init],
