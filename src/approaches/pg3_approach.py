@@ -65,8 +65,7 @@ class PG3Approach(NSRTLearningApproach):
         current_objects = set()
         atoms = utils.abstract(task.init, self._initial_predicates)
         atoms_sequence.append(atoms)
-        for key in task.init.data:
-            current_objects.add(key)
+        current_objects = set(task.init)
         start_time = time.time()
 
         while not task.goal.issubset(atoms):
@@ -480,7 +479,6 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
         )
 
         def policy(atoms: _S) -> Optional[_A]:
-            objects = {o for a in atoms | goal for o in a.objects}
             return utils.query_ldl(ldl, set(atoms), objects, goal)
 
         planned_frozen_atoms_seq, _ = utils.run_policy_guided_astar(

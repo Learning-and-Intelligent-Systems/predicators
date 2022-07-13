@@ -1126,9 +1126,6 @@ def _get_entity_combinations(
         for ent in sorted_entities:
             if ent.is_instance(vt):
                 this_choices.append(ent)
-        # if len(this_choices) == 0:
-        #     print("Failed to get entity combinations (entity \
-        #     instance not found in given types sequence)")
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
@@ -1137,8 +1134,7 @@ def _get_entity_combinations(
 def get_object_combinations(objects: Collection[Object],
                             types: Sequence[Type]) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence."""
-    penis = _get_entity_combinations(objects, types)
-    return penis
+    return _get_entity_combinations(objects, types)
 
 
 def get_variable_combinations(
@@ -1330,8 +1326,9 @@ def _run_heuristic_search(
         lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
-    Depending on get_priority, can implement A*, GBFS, or UCS. If no
-    goal is found, returns the state with the best priority.
+    Depending on get_priority, can implement A*, GBFS, or UCS.
+
+    If no goal is found, returns the state with the best priority.
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
@@ -1350,8 +1347,6 @@ def _run_heuristic_search(
 
     while len(queue) > 0 and time.time() - start_time < timeout and \
           num_expansions < max_expansions and num_evals < max_evals:
-        # if (method == "gbfs" and best_node_priority==36.0):
-        #     get_priority = get_priority2
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
