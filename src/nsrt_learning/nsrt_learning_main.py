@@ -106,7 +106,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
     # same known parameterized option, or all actions should have no option.
     known_option_pnads, unknown_option_pnads = [], []
     for pnad in pnads:
-        if not pnad.datastore:
+        if not pnad.datastore:  # pragma: no cover
             raise Exception("No data found for learning an option.")
         example_segment, _ = pnad.datastore[0]
         example_action = example_segment.actions[0]

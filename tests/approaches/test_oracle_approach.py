@@ -106,6 +106,11 @@ EXTRA_ARGS_ORACLE_APPROACH["cluttered_table_place"] = [
         "cluttered_table_num_cans_test": 3
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["painting"] = [
+    {
+        "painting_initial_holding_prob": 1.0,
+    },
+]
 EXTRA_ARGS_ORACLE_APPROACH["repeated_nextto_painting"] = [
     {
         "rnt_painting_num_objs_train": [1, 2],
