@@ -191,7 +191,7 @@ class BehaviorEnv(BaseEnv):
             self.task_instance_id = 0
             if CFG.behavior_randomize_init_state:
                 # Get random scene for BEHAVIOR between O-9 and 10-20
-                # if train or test, respectively
+                # if train or test, respectively.
                 if testing:
                     self.task_instance_id = rng.integers(10, 20)
                 else:
@@ -573,7 +573,7 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     """Sets the underlying iGibson environment to a particular saved state."""
     assert s.simulator_state is not None
     # Get the new_task_num_task_instance_id associated with this state
-    # from s.simulator_state
+    # from s.simulator_state.
     new_task_num_task_instance_id = (int(s.simulator_state.split("-")[0]),
                                      int(s.simulator_state.split("-")[1]))
     # If the new_task_num_task_instance_id is new, then we need to load
