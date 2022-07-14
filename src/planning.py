@@ -461,6 +461,7 @@ def _run_plan_with_option_model(
             lambda s, m, o, p: True).ground(option.objects, option.params)
         action_option.memory = option.memory
         actions[idx].set_option(action_option)
+        import ipdb; ipdb.set_trace()
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):
