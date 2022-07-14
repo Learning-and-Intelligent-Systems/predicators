@@ -31,7 +31,7 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
         # Filter out any pnad that has an empty datastore. This can occur when
         # using non-standard settings with environments that cause certain
         # operators to be unnecessary. For example, in painting, when using
-        # --painting_goal_receptacles box, the operator for picking from
+        # `--painting_goal_receptacles box`, the operator for picking from
         # the side becomes unnecessary (and no demo data will cover it).
         nontrivial_pnads = []
         for pnad in pnads:
