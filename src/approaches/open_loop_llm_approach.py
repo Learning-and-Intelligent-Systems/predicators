@@ -1,5 +1,6 @@
 """Open-loop large language model (LLM) meta-controller approach. Example
-command line: export OPENAI_API_KEY=<your API key> python src/main.py.
+command line: export OPENAI_API_KEY=<your API key> \
+python src/main.py.
 --approach open_loop_llm --seed 0 \
 
         --strips_learner oracle \
