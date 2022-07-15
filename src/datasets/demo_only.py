@@ -173,21 +173,7 @@ def _generate_demonstrations(
                 timeout = CFG.offline_data_planning_timeout
                 if timeout == -1:
                     timeout = CFG.timeout
-                attempts = 0
-                max_attempts = 50
-                num_policy_tests = 3
-                solved_attempts = [False]
-                while not all(solved_attempts) and attempts < max_attempts:
-                    solved_attempts = []
-                    oracle_approach.solve(task, timeout=timeout)
-                    last_plan = oracle_approach.get_last_plan()
-                    for _ in range(num_policy_tests):
-                        traj, solved = _run_plan_with_option_model(
-                            task, idx, oracle_approach.get_option_model(),
-                            last_plan)
-                        solved_attempts.append(solved)
-                        if solved == False:
-                            break
+                oracle_approach.solve(task, timeout=timeout)
                 # Since we're running the oracle approach, we know that
                 # the policy is actually a plan under the hood, and we
                 # can retrieve it with get_last_plan(). We do this
