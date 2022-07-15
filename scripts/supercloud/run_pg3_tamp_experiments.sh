@@ -1,19 +1,9 @@
 #!/bin/bash
-
-# Note: this script is too large to be run all at once. Comment things out
-# and run in multiple passes. For example, start with just 1000 train tasks.
-# If that looks good, launch the environments in separate runs.
-
 FILE="scripts/supercloud/submit_supercloud_job.py"
-# Note: this script is meant to be run first, to completion, with
-# RUN_LOAD_EXPERIMENTS=false, then rerun with RUN_LOAD_EXPERIMENTS=true.
-RUN_LOAD_EXPERIMENTS=false
 ALL_NUM_TRAIN_TASKS=(
+     "10"
      "50"
-    # "100"
-    # "250"
-    # "500"
-    #"1000"
+     "100"
 )
 ENVS=(
     "cover"
@@ -25,15 +15,51 @@ ENVS=(
 )
 
 for ENV in ${ENVS[@]}; do
-    for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
+  for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
-        COMMON_ARGS="--env $ENV  --sampler_learner oracle \
-                 --num_train_tasks $NUM_TRAIN_TASKS \"
+      if [ $ENV = "painting" ] || [ $ENV = "cluttered_table" ] || \
+          [ $ENV = "cluttered_table" ] then
+        COMMON_ARGS="--env $ENV  --strips_learner oracle \
+              --sampler_learner oracle --num_train_tasks $NUM_TRAIN_TASKS \
+              --pg3_hc_enforced_depth 1"
+      else
+        COMMON_ARGS="--env $ENV  --strips_learner oracle \
+              --sampler_learner oracle --num_train_tasks $NUM_TRAIN_TASKS \"
+      fi
 
-        # nsrt learning (oracle operators and options)
-        # note: $INCLUDED_OPTIONS excluded because all options are
-        # included for this oracle approach.
-        python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach pg3 --strips_learner oracle
+      # If in painting enviroment override common arguments and included options
+      if [ $ENV = "painting" ]; then
+        INCLUDED_OPTIONS="--painting_lid_open_prob 1.0"
+      else
+        INCLUDED_OPTIONS="""
+      fi
 
-    done
+      # If in coffee enviroment override included options
+      if [ $ENV = "coffee" ]; then
+        INCLUDED_OPTIONS="--coffee_jug_init_rot_amt 0"
+      else
+        INCLUDED_OPTIONS="""
+      fi
+
+      if [ $ENV = "cover" ]; then
+        INCLUDED_OPTIONS="--cover_initial_holding_prob 0.0"
+      else
+        INCLUDED_OPTIONS="""
+      fi
+
+      if [ $INCLUDED_OPTIONS = ""]; then
+        # PG3 policy generation on TAMP problems using default options
+        python $FILE $COMMON_ARGS \
+              --experiment_id ${ENV}_pg3_policy_${NUM_TRAIN_TASKS} \
+              --approach pg3
+      else
+        # PG3 policy generation on TAMP problems using default options
+        # and included options
+        python $FILE $COMMON_ARGS \
+              --experiment_id ${ENV}_pg3_policy_${NUM_TRAIN_TASKS} \
+              --approach pg3
+        python $FILE $COMMON_ARGS $INCLUDED_OPTIONS \
+              --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach pg3
+      fi
+  done
 done
