@@ -1,6 +1,5 @@
 """Open-loop large language model (LLM) meta-controller approach. Example
 command line: export OPENAI_API_KEY=<your API key> python src/main.py.
-
 --approach open_loop_llm --seed 0 \
 
         --strips_learner oracle \
@@ -75,17 +74,14 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             seed=CFG.seed,
             num_completions=CFG.open_loop_llm_num_completions)
         # Try to convert the output into an abstract plan.
-
         for llm_prediction in llm_predictions:
-
             ground_nsrt_plan = self._process_single_prediction(
                 llm_prediction, state, atoms, goal)
             if ground_nsrt_plan is not None:
                 # If valid plan, add plan to memory so it can be refined!
                 memory["abstract_plan"] = ground_nsrt_plan
                 return memory["abstract_plan"].pop(0)
-
-        #Give up if none of the predictions work out
+        # Give up if none of the predictions work out
         raise ApproachFailure(
             "None of the LLM predicted plans achieves the goal.")
 
@@ -97,14 +93,13 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         predicates = self._initial_predicates
         strips_ops = [n.op for n in nsrts]
         option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-
         option_plan = self._llm_prediction_to_option_plan(
             llm_prediction, objects)
         # If we failed to find a nontrivial plan with prediction,
         # continue on to next prediction
         if len(option_plan) == 0:
             return None
-        #Attempt to turn plan into sequence of ground NSRTs
+        # Attempt to turn plan into sequence of ground NSRTs
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, predicates, strips_ops, option_specs, atoms, goal,
             option_plan)
