@@ -644,7 +644,7 @@ def create_grasp_option_model(
 
     # NOTE: -26 because there are 25 timesteps that we move along the vector
     # between the hand the object for until finally grasping
-    hand_i = -26
+    hand_i = -1
     rh_final_grasp_postion = plan[hand_i][0:3]
     rh_final_grasp_orn = plan[hand_i][3:6]
 
@@ -658,53 +658,6 @@ def create_grasp_option_model(
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_final_grasp_postion,
             p.getQuaternionFromEuler(rh_final_grasp_orn))
-
-        # 2. Slowly move hand to the surface of the object to be grasped.
-        # We can't simply teleport here since this might be slightly
-        # inside the object!
-        # Use an error-correcting closed-loop!
-        atol_xyz = 1e-4
-        atol_vel = 5e-3
-
-        # Error-correcting closed loop.
-        ec_loop_counter = 0
-        while hand_i < 0 and ec_loop_counter < 60:
-            current_pos = list(
-                env.robots[0].parts["right_hand"].get_position())
-            current_orn = list(
-                p.getEulerFromQuaternion(
-                    env.robots[0].parts["right_hand"].get_orientation()))
-            expected_pos = np.array(plan[hand_i][0:3])
-            # If we're not where we expect in the plan, take some corrective
-            # action
-            if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
-                low_level_action = get_delta_low_level_hand_action(
-                    env.robots[0].parts["body"],
-                    np.array(current_pos),
-                    np.array(current_orn),
-                    np.array(plan[hand_i][0:3]),
-                    np.array(plan[hand_i][3:]),
-                )
-                # if the corrective action is 0, move on
-                if np.allclose(
-                        low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
-                        atol=atol_vel,
-                ):
-                    low_level_action = get_delta_low_level_hand_action(
-                        env.robots[0].parts["body"],
-                        np.array(current_pos),
-                        np.array(current_orn),
-                        np.array(plan[hand_i + 1][0:3]),
-                        np.array(plan[hand_i + 1][3:]),
-                    )
-                    hand_i += 1
-                env.step(low_level_action)
-            # Else, move the hand_i pointer to make the expected position
-            # the next position in the plan.
-            else:
-                hand_i += 1
-            ec_loop_counter += 1
 
         # 3. Close hand and simulate grasp
         a = np.zeros(env.action_space.shape, dtype=float)
@@ -1026,8 +979,8 @@ def place_ontop_obj_pos_sampler(
     )
 
     if sampling_results[0] is None or sampling_results[0][0] is None:
-        # If sampling fails, returns a particular constant set of params
-        return np.array([0.0, 0.0, 0.5])
+        # If sampling fails, returns a random set of params
+        return np.array([rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), rng.uniform(0.3, 1.0)])
 
     rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
     return rnd_params
