@@ -18,7 +18,7 @@ for ENV in ${ENVS[@]}; do
   for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
       if [ $ENV = "painting" ] || [ $ENV = "cluttered_table" ] || \
-          [ $ENV = "cluttered_table" ] then
+          [ $ENV = "coffee" ] then
         COMMON_ARGS="--env $ENV  --strips_learner oracle \
               --sampler_learner oracle --num_train_tasks $NUM_TRAIN_TASKS \
               --pg3_hc_enforced_depth 1"
