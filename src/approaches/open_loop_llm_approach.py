@@ -32,7 +32,7 @@ Easier setting:
 from __future__ import annotations
 
 import logging
-from typing import Collection, Dict, List, Sequence, Set, Tuple
+from typing import Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
@@ -70,20 +70,33 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
-        llm_prediction = self._llm.sample_completions(
-            prompt,
+        llm_predictions = self._llm.sample_completions(
+            prompt=prompt,
             temperature=CFG.open_loop_llm_temperature,
             seed=CFG.seed,
-            num_completions=1)[0]
+            num_completions=CFG.open_loop_llm_num_completions)
         # Try to convert the output into an abstract plan.
+        for llm_prediction in llm_predictions:
+            ground_nsrt_plan = self._process_single_prediction(
+                llm_prediction, state, atoms, goal)
+            if ground_nsrt_plan is not None:
+                # If valid plan, add plan to memory so it can be refined!
+                memory["abstract_plan"] = ground_nsrt_plan
+                return memory["abstract_plan"].pop(0)
+        # Give up if none of the predictions work out.
+        raise ApproachFailure("No LLM predicted plan achieves the goal.")
+
+    def _process_single_prediction(
+            self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
+            goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
         objects = set(state)
         option_plan = self._llm_prediction_to_option_plan(
             llm_prediction, objects)
-        # If we failed to find a nontrivial plan, give up.
+        # If we failed to find a nontrivial plan with this prediction,
+        # continue on to next prediction.
         if len(option_plan) == 0:
-            raise ApproachFailure("LLM did not predict an abstract plan.")
-        # Otherwise, we succeeded, so attempt to turn the plan into a
-        # sequence of ground NSRTs.
+            return None
+        # Attempt to turn the plan into a sequence of ground NSRTs.
         nsrts = self._get_current_nsrts()
         predicates = self._initial_predicates
         strips_ops = [n.op for n in nsrts]
@@ -91,12 +104,11 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, predicates, strips_ops, option_specs, atoms, goal,
             option_plan)
-        # If we can't find an NSRT plan that achieves the goal, give up.
+        # If we can't find an NSRT plan that achieves the goal,
+        # continue on to next prediction.
         if not ground_nsrt_plan:
-            raise ApproachFailure("LLM predicted plan does not achieve goal.")
-        # Else, add this plan to memory so it can be refined!
-        memory["abstract_plan"] = ground_nsrt_plan
-        return memory["abstract_plan"].pop(0)
+            return None
+        return ground_nsrt_plan
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
@@ -133,7 +145,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             malformed = False
             for i, type_object_string in enumerate(typed_objects_str_list):
                 object_type_str_list = type_object_string.strip().split(':')
-                # We expect this list to be [object_name, type_name]
+                # We expect this list to be [object_name, type_name].
                 if len(object_type_str_list) != 2:
                     logging.info(f"Line {option_str} output by LLM has a "
                                  "malformed object-type list.")
