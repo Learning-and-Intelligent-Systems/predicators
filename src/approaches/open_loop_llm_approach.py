@@ -42,7 +42,7 @@ from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 import statistics
 from statistics import mode
-import openai
+
 class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
     """OpenLoopLLMApproach definition."""
 
@@ -69,10 +69,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
-        llm_predictions = openai.Completion.create(model="text-davinci-002", prompt=prompt, temperature=0.5, max_tokens=700, n=10)
-        #import pdb; pdb.set_trace()
-        for i in llm_predictions["choices"]:
-            llm_prediction = i["text"]
+        llm_predictions = self._llm.sample_completions(prompt=prompt, temperature=0.5, seed=CFG.seed,num_completions=10)
+        for llm_prediction in llm_predictions:
             objects = set(state)
             option_plan = self._llm_prediction_to_option_plan(llm_prediction,objects)
             if len(option_plan) == 0:
