@@ -1,7 +1,7 @@
-"""Open-loop large language model (LLM) meta-controller approach.
-Example command line:
-    export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach open_loop_llm --seed 0 \
+"""Open-loop large language model (LLM) meta-controller approach. Example
+command line: export OPENAI_API_KEY=<your API key> python src/main.py
+--approach open_loop_llm --seed 0 \
+
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -40,8 +40,7 @@ from predicators.src.planning import task_plan_with_option_plan_constraint
 from predicators.src.settings import CFG
 from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
-import statistics
-from statistics import mode
+
 
 class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
     """OpenLoopLLMApproach definition."""
@@ -69,24 +68,29 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
-        llm_predictions = self._llm.sample_completions(prompt=prompt, temperature=0.5, seed=CFG.seed,num_completions=10)
+        llm_predictions = self._llm.sample_completions(prompt=prompt,
+                                                       temperature=0.5,
+                                                       seed=CFG.seed,
+                                                       num_completions=10)
         for llm_prediction in llm_predictions:
             objects = set(state)
-            option_plan = self._llm_prediction_to_option_plan(llm_prediction,objects)
+            option_plan = self._llm_prediction_to_option_plan(
+                llm_prediction, objects)
             if len(option_plan) == 0:
                 continue
             nsrts = self._get_current_nsrts()
             predicates = self._initial_predicates
             strips_ops = [n.op for n in nsrts]
             option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-            ground_nsrt_plan = task_plan_with_option_plan_constraint(objects,predicates,strips_ops,option_specs,atoms,goal,option_plan)
+            ground_nsrt_plan = task_plan_with_option_plan_constraint(
+                objects, predicates, strips_ops, option_specs, atoms, goal,
+                option_plan)
             if not ground_nsrt_plan:
                 continue
             memory["abstract_plan"] = ground_nsrt_plan
             return memory["abstract_plan"].pop(0)
-        
+
         raise ApproachFailure("LLM predicted plan does not achieve goal.")
-        
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
