@@ -260,6 +260,21 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     for test_task_idx, task in enumerate(test_tasks):
         solve_start = time.time()
         try:
+            # attempts = 0
+            # max_attempts = 10
+            # num_policy_tests = 5
+            # solved_attempts = [False]
+            # while not all(solved_attempts) and attempts < max_attempts:
+            #     solved_attempts = []
+            #     policy = approach.solve(task, timeout=CFG.timeout)
+            #     last_plan = approach.get_last_plan()
+            #     for _ in range(num_policy_tests):
+            #         traj, solved = _run_plan_with_option_model(
+            #             task, test_task_idx, approach.get_option_model(),
+            #             last_plan)
+            #         solved_attempts.append(solved)
+            #         if solved == False:
+            #             break
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
@@ -312,8 +327,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     max_num_steps=CFG.horizon,
                     monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            if not solved:
-                import ipdb; ipdb.set_trace()
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:

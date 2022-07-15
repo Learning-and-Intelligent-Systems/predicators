@@ -442,7 +442,6 @@ def _run_plan_with_option_model(
     for idx in range(len(plan)):
         state = traj[idx]
         option = plan[idx]
-        #import ipdb; ipdb.set_trace()
         if not option.initiable(state):
             # The option is not initiable.
             return LowLevelTrajectory(_states=[task.init],
@@ -451,6 +450,7 @@ def _run_plan_with_option_model(
                                       _train_task_idx=task_idx), False
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
+        import ipdb; ipdb.set_trace()
         traj[idx + 1] = next_state
         # Need to make a new option without policy, initiable, and
         # terminal in order to make it a picklable trajectory.
@@ -461,7 +461,6 @@ def _run_plan_with_option_model(
             lambda s, m, o, p: True).ground(option.objects, option.params)
         action_option.memory = option.memory
         actions[idx].set_option(action_option)
-        import ipdb; ipdb.set_trace()
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):

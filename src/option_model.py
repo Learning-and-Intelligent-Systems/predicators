@@ -134,9 +134,9 @@ class _BehaviorOptionModel(_OptionModelBase):
         assert option.memory.get("planner_result") is not None
         # NOTE: We need to make sure we're in the provided state by
         # loading it!
-        if not state.allclose(
-                    env.current_ig_state_to_state(save_state=False)):
-            load_checkpoint_state(state, env)
+        # if not state.allclose(
+        #             env.current_ig_state_to_state(save_state=False)):
+        load_checkpoint_state(state, env, reset=True)
         option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
         plan, _ = option.memory["planner_result"]
