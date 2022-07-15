@@ -1,8 +1,5 @@
-import sys
 import subprocess
 import time
-import os
-import signal
 all_seeds = {"0","1","2","3","4"}
 
 for i in range(0,5):
@@ -20,6 +17,7 @@ for i in range(0,5):
     except:
         continue
 print("easy ----- blocks ---- finished")
+
 for i in range(0,5):
     try:
         theproc2 = subprocess.run(["python","src/main.py", "--seed", str(i), 
@@ -31,10 +29,12 @@ for i in range(0,5):
         "2","--pddl_delivery_procedural_test_max_want_locs","3","--pddl_delivery_procedural_test_max_extra_newspapers",
         "1","--gnn_option_policy_solve_with_shooting","false","--offline_data_planning_timeout", "100.0", "--timeout", 
         "100.0", "--debug"], shell = True)
+
+        time.sleep(1)
     except:
         continue
     
-    time.sleep(1)
+    
 print("easy ----- delivery ---- finished")
 
 

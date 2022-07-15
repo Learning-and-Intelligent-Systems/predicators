@@ -1,4 +1,3 @@
-import sys
 import subprocess
 import time
 all_seeds = {"0","1","2","3","4"}
@@ -18,7 +17,6 @@ for i in range(0,5):
     except:
         continue
 
-    
 print("medium ----- delivery ---- finished")
 
 for i in range(0,5):

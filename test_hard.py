@@ -1,4 +1,3 @@
-import sys
 import subprocess
 import time
 all_seeds = {"0","1","2","3","4"}
@@ -28,6 +27,7 @@ for i in range(0,5):
         "20","--pddl_delivery_procedural_test_max_want_locs","30","--pddl_delivery_procedural_test_max_extra_newspapers",
         "10","--gnn_option_policy_solve_with_shooting","false","--offline_data_planning_timeout", "100.0", "--timeout", 
         "100.0", "--debug"], shell = True)
+        
         time.sleep(1)
     except:
         continue
