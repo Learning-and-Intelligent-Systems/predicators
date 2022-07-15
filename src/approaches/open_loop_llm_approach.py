@@ -1,13 +1,14 @@
-"""Open-loop large language model (LLM) meta-controller approach. Example
-command line: export OPENAI_API_KEY=<your API key> \
-python src/main.py.
---approach open_loop_llm --seed 0 \
+"""Open-loop large language model (LLM) meta-controller approach.
 
+Example command line:
+    export OPENAI_API_KEY=<your API key>
+    python src/main.py --approach open_loop_llm --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
         --num_test_tasks 1 \
         --debug
+
 Easier setting:
     python src/main.py --approach open_loop_llm --seed 0 \
         --strips_learner oracle \
@@ -90,22 +91,22 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
         objects = set(state)
+        option_plan = self._llm_prediction_to_option_plan(
+            llm_prediction, objects)
+        # If we failed to find a nontrivial plan with this prediction,
+        # continue on to next prediction.
+        if len(option_plan) == 0:
+            return None
+        # Attempt to turn the plan into a sequence of ground NSRTs.
         nsrts = self._get_current_nsrts()
         predicates = self._initial_predicates
         strips_ops = [n.op for n in nsrts]
         option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-        option_plan = self._llm_prediction_to_option_plan(
-            llm_prediction, objects)
-        # If we failed to find a nontrivial plan with prediction,
-        # continue on to next prediction
-        if len(option_plan) == 0:
-            return None
-        # Attempt to turn plan into sequence of ground NSRTs
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, predicates, strips_ops, option_specs, atoms, goal,
             option_plan)
         # If we can't find an NSRT plan that achieves the goal,
-        # continue on to next prediction
+        # continue on to next prediction.
         if not ground_nsrt_plan:
             return None
         return ground_nsrt_plan
@@ -145,7 +146,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             malformed = False
             for i, type_object_string in enumerate(typed_objects_str_list):
                 object_type_str_list = type_object_string.strip().split(':')
-                # We expect this list to be [object_name, type_name]
+                # We expect this list to be [object_name, type_name].
                 if len(object_type_str_list) != 2:
                     logging.info(f"Line {option_str} output by LLM has a "
                                  "malformed object-type list.")
