@@ -84,8 +84,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 memory["abstract_plan"] = ground_nsrt_plan
                 return memory["abstract_plan"].pop(0)
         # Give up if none of the predictions work out.
-        raise ApproachFailure(
-            "None of the LLM predicted plans achieves the goal.")
+        raise ApproachFailure("No LLM predicted plan achieves the goal.")
 
     def _process_single_prediction(
             self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
