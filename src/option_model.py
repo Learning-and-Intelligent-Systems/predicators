@@ -133,7 +133,8 @@ class _BehaviorOptionModel(_OptionModelBase):
         assert option.memory.get("model_controller") is not None
         assert option.memory.get("planner_result") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
-        load_checkpoint_state(state, env, reset=True)
+        if not CFG.plan_only_eval:
+            load_checkpoint_state(state, env, reset=True)
         next_state = env.current_ig_state_to_state()
         plan, _ = option.memory["planner_result"]
         return next_state, len(plan)

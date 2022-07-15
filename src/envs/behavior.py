@@ -135,7 +135,7 @@ class BehaviorEnv(BaseEnv):
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
         self.task_instance_id = int(state.simulator_state.split("-")[1])
-        load_checkpoint_state(state, self, reset=True)
+        load_checkpoint_state(state, self, reset=not CFG.plan_only_eval)
 
         a = action.arr
         self.igibson_behavior_env.step(a)

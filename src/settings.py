@@ -44,6 +44,11 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
+    # If this is True, then we will not execute our final plan in simulation
+    # and we will say a task is solved successfully if we were able to find
+    # a plan even if the plan would not necessarily work in simulation (this
+    # is especially true of option models that don't model the simulator well)
+    plan_only_eval = False
 
     # cover env parameters
     cover_num_blocks = 2
