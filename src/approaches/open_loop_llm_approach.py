@@ -1,5 +1,4 @@
 """Open-loop large language model (LLM) meta-controller approach.
-
 Example command line:
     export OPENAI_API_KEY=<your API key>
     python src/main.py --approach open_loop_llm --seed 0 \
@@ -8,7 +7,6 @@ Example command line:
         --num_train_tasks 3 \
         --num_test_tasks 1 \
         --debug
-
 Easier setting:
     python src/main.py --approach open_loop_llm --seed 0 \
         --strips_learner oracle \
@@ -42,8 +40,9 @@ from predicators.src.planning import task_plan_with_option_plan_constraint
 from predicators.src.settings import CFG
 from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
-
-
+import statistics
+from statistics import mode
+import openai
 class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
     """OpenLoopLLMApproach definition."""
 
@@ -70,33 +69,26 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
-        llm_prediction = self._llm.sample_completions(
-            prompt,
-            temperature=CFG.open_loop_llm_temperature,
-            seed=CFG.seed,
-            num_completions=1)[0]
-        # Try to convert the output into an abstract plan.
-        objects = set(state)
-        option_plan = self._llm_prediction_to_option_plan(
-            llm_prediction, objects)
-        # If we failed to find a nontrivial plan, give up.
-        if len(option_plan) == 0:
-            raise ApproachFailure("LLM did not predict an abstract plan.")
-        # Otherwise, we succeeded, so attempt to turn the plan into a
-        # sequence of ground NSRTs.
-        nsrts = self._get_current_nsrts()
-        predicates = self._initial_predicates
-        strips_ops = [n.op for n in nsrts]
-        option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-        ground_nsrt_plan = task_plan_with_option_plan_constraint(
-            objects, predicates, strips_ops, option_specs, atoms, goal,
-            option_plan)
-        # If we can't find an NSRT plan that achieves the goal, give up.
-        if not ground_nsrt_plan:
-            raise ApproachFailure("LLM predicted plan does not achieve goal.")
-        # Else, add this plan to memory so it can be refined!
-        memory["abstract_plan"] = ground_nsrt_plan
-        return memory["abstract_plan"].pop(0)
+        llm_predictions = openai.Completion.create(model="text-davinci-002", prompt=prompt, temperature=0.5, max_tokens=700, n=10)
+        #import pdb; pdb.set_trace()
+        for i in llm_predictions["choices"]:
+            llm_prediction = i["text"]
+            objects = set(state)
+            option_plan = self._llm_prediction_to_option_plan(llm_prediction,objects)
+            if len(option_plan) == 0:
+                continue
+            nsrts = self._get_current_nsrts()
+            predicates = self._initial_predicates
+            strips_ops = [n.op for n in nsrts]
+            option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
+            ground_nsrt_plan = task_plan_with_option_plan_constraint(objects,predicates,strips_ops,option_specs,atoms,goal,option_plan)
+            if not ground_nsrt_plan:
+                continue
+            memory["abstract_plan"] = ground_nsrt_plan
+            return memory["abstract_plan"].pop(0)
+        
+        raise ApproachFailure("LLM predicted plan does not achieve goal.")
+        
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
