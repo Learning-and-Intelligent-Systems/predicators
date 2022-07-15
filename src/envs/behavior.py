@@ -583,14 +583,17 @@ def load_checkpoint_state(s: State,
     # checkpoint. Also note that we overwrite the task.init saved checkpoint
     # so that it's compatible with the new environment!
     env.task_num = new_task_num_task_instance_id[0]
+    # Since demo trajectories seeds are not saved, a seed is generated here if
+    # one does not exist yet for the task num and task instance id pair.
     if not new_task_num_task_instance_id in env.task_num_task_instance_id_to_igibson_seed:
-        # Needed for demo trajectories
-        # Need assert here
         env.task_num_task_instance_id_to_igibson_seed[
             new_task_num_task_instance_id] = 0
     if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
             and CFG.behavior_randomize_init_state) or reset:
         env.task_instance_id = new_task_num_task_instance_id[1]
+        # Frame count is overwritten by set_igibson_behavior_env and needs to
+        # be preserved across resets. So we save it before and set it after
+        # we reset the env.
         frame_count = env.igibson_behavior_env.simulator.frame_count
         env.set_igibson_behavior_env(
             task_instance_id=new_task_num_task_instance_id[1],
