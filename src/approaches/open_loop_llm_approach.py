@@ -83,7 +83,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                 # If valid plan, add plan to memory so it can be refined!
                 memory["abstract_plan"] = ground_nsrt_plan
                 return memory["abstract_plan"].pop(0)
-        # Give up if none of the predictions work out
+        # Give up if none of the predictions work out.
         raise ApproachFailure(
             "None of the LLM predicted plans achieves the goal.")
 
