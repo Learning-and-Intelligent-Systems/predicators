@@ -1041,17 +1041,18 @@ LDLRule-MyPickRule:
 
     atoms = {on_table([cup1]), hand_empty([robot])}
     goal = {on([cup1, plate1])}
+    objects = {cup1, plate1, robot}
 
     expected_nsrt = pick_nsrt.ground([cup1])
-    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+    assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
 
     atoms = {holding([cup1])}
 
     expected_nsrt = place_nsrt.ground([cup1, plate1])
-    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+    assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
 
     atoms = set()
-    assert utils.query_ldl(ldl, atoms, goal) is None
+    assert utils.query_ldl(ldl, atoms, objects, goal) is None
 
     ldl2 = LiftedDecisionList(rules)
     assert ldl == ldl2

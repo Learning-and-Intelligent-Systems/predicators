@@ -56,3 +56,23 @@ def test_online_nsrt_learning_approach():
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
+    # Tests for novelty scoring.
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    type_name_to_type = {t.name: t for t in env.types}
+    Covers = pred_name_to_pred["Covers"]
+    IsBlock = pred_name_to_pred["IsBlock"]
+    IsTarget = pred_name_to_pred["IsTarget"]
+    block_type = type_name_to_type["block"]
+    target_type = type_name_to_type["target"]
+    # Covers should appear more interesting than the IsBlock and IsTarget.
+    task = train_tasks[0]
+    block = task.init.get_objects(block_type)[0]
+    target = task.init.get_objects(target_type)[0]
+    covers = {Covers([block, target])}
+    is_block = {IsBlock([block])}
+    is_target = {IsTarget([target])}
+    covers_score = approach._score_atoms_novelty(covers)  # pylint: disable=protected-access
+    is_block_score = approach._score_atoms_novelty(is_block)  # pylint: disable=protected-access
+    is_target_score = approach._score_atoms_novelty(is_target)  # pylint: disable=protected-access
+    assert covers_score > is_block_score
+    assert covers_score > is_target_score

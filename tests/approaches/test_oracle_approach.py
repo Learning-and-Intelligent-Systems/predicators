@@ -106,6 +106,11 @@ EXTRA_ARGS_ORACLE_APPROACH["cluttered_table_place"] = [
         "cluttered_table_num_cans_test": 3
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["painting"] = [
+    {
+        "painting_initial_holding_prob": 1.0,
+    },
+]
 EXTRA_ARGS_ORACLE_APPROACH["repeated_nextto_painting"] = [
     {
         "rnt_painting_num_objs_train": [1, 2],
@@ -168,6 +173,16 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "pddl_easy_delivery_procedural_test_max_want_locs": 1,
         "pddl_easy_delivery_procedural_test_min_extra_newspapers": 0,
         "pddl_easy_delivery_procedural_test_max_extra_newspapers": 1,
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["behavior_tasks"] = [
+    {
+        "option_model_name": "oracle_behavior",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "behavior_scene_name": "Pomaria_1_int",
+        "behavior_task_name": "sorting_books",
+        "offline_data_planning_timeout": 30000.0,
     },
 ]
 

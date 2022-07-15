@@ -99,7 +99,7 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
-    # behavior env parameters
+    # BEHAVIOR env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
@@ -111,6 +111,8 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
+    behavior_option_model_eval = True
+    behavior_option_model_rrt = False
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
@@ -502,7 +504,7 @@ class GlobalSettings:
             dump_nsrts_as_strings=defaultdict(
                 lambda: False,
                 {
-                    # We cannot pickle Behavior NSRTs
+                    # We cannot pickle BEHAVIOR NSRTs
                     "behavior": True,
                 })[args.get("env", "")],
         )
