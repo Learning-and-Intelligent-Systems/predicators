@@ -567,7 +567,9 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
-def load_checkpoint_state(s: State, env: BehaviorEnv, reset: bool = False) -> None:
+def load_checkpoint_state(s: State,
+                          env: BehaviorEnv,
+                          reset: bool = False) -> None:
     """Sets the underlying iGibson environment to a particular saved state."""
     assert s.simulator_state is not None
     # Get the new_task_num_task_instance_id associated with this state
@@ -581,9 +583,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv, reset: bool = False) -> No
     # checkpoint. Also note that we overwrite the task.init saved checkpoint
     # so that it's compatible with the new environment!
     env.task_num = new_task_num_task_instance_id[0]
-    if (new_task_num_task_instance_id != (
-            env.task_num,
-            env.task_instance_id) and CFG.behavior_randomize_init_state) or reset:
+    if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
+            and CFG.behavior_randomize_init_state) or reset:
         env.task_instance_id = new_task_num_task_instance_id[1]
         frame_count = env.igibson_behavior_env.simulator.frame_count
         env.set_igibson_behavior_env(
@@ -601,7 +602,7 @@ def load_checkpoint_state(s: State, env: BehaviorEnv, reset: bool = False) -> No
         f"{CFG.behavior_task_name}__{env.task_num}__{env.task_instance_id}",
         int(s.simulator_state.split("-")[2]))
     np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
-                new_task_num_task_instance_id])
+        new_task_num_task_instance_id])
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))
