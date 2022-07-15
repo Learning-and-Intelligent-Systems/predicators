@@ -367,6 +367,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
+                            #import ipdb; ipdb.set_trace()
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -449,6 +450,7 @@ def _run_plan_with_option_model(
                                       _train_task_idx=task_idx), False
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
+        #import ipdb; ipdb.set_trace()
         traj[idx + 1] = next_state
         # Need to make a new option without policy, initiable, and
         # terminal in order to make it a picklable trajectory.
