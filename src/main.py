@@ -289,8 +289,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             # BilevelPlanningApproaches and (2) for BEHAVIOR to evaluate on
             # option models instead of the low-level simulator (with the
             # plan_only_eval and behavior_option_model_eval flags, respectively)
-            if CFG.plan_only_eval and isinstance(approach,
-                                                 BilevelPlanningApproach): # pragma: no cover
+            if CFG.plan_only_eval and isinstance(
+                    approach, BilevelPlanningApproach):  # pragma: no cover
                 if approach.get_last_plan() != []:
                     solved = True
                     exec_time = 0.0

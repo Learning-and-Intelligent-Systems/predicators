@@ -587,7 +587,7 @@ def load_checkpoint_state(s: State,
         # Needed for demo trajectories
         # Need assert here
         env.task_num_task_instance_id_to_igibson_seed[
-                new_task_num_task_instance_id] = 0
+            new_task_num_task_instance_id] = 0
     if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
             and CFG.behavior_randomize_init_state) or reset:
         env.task_instance_id = new_task_num_task_instance_id[1]
