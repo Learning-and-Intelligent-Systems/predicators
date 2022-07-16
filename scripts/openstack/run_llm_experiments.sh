@@ -113,7 +113,7 @@ MACHINES=(
 )
 
 # The main command (without the seed specified).
-EXPERIMENT_ID="${ENV_EXPERIMENT_ID}__${APPROACH_EXPERIMENT_ID}"
+EXPERIMENT_ID="${ENV_EXPERIMENT_ID}-${APPROACH_EXPERIMENT_ID}"
 CMD="python3.8 src/main.py --env ${ENV} --approach ${APPROACH} \
     --experiment_id $EXPERIMENT_ID \
     ${FLAGS} ${ENV_FLAGS} ${APPROACH_FLAGS} --debug"
