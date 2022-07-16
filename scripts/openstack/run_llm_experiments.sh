@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Experimental settings.
+EXPERIMENT_ID="test"
+ENV="blocks"
+APPROACH="nsrt_learning"
+OTHER_FLAGS=""
+
 # Run this script with either "launch" or "download" as the first argument.
 if [[ $1 != "launch" && $1 != "download" ]]; then
 echo "ERROR: Run this script with either 'launch' or 'download'."
@@ -24,7 +30,7 @@ MACHINES=(
 )
 
 # The main command (without the seed specified).
-CMD="python3.8 src/main.py --env cover --approach oracle"
+CMD="python3.8 src/main.py --env ${ENV} --approach ${APPROACH} --experiment_id ${EXPERIMENT_ID} ${OTHER_FLAGS}"
 
 # The main loop.
 SEED=$START_SEED
@@ -50,7 +56,7 @@ git pull
 rm -f results/* logs/* saved_approaches/* saved_datasets/*
 
 # Run the main command in the background and write out to a log.
-$CMD --seed $SEED &> logs/${SEED}.log &
+$CMD --seed $SEED &> logs/${ENV}__${APPROACH}__${EXPERIMENT_ID}__${SEED}.log &
 
 # Exit.
 exit
