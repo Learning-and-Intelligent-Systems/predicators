@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Callable, Generator, List, Sequence, Tuple, \
     Union
 
 import numpy as np
-from pybullet_tools.utils import get_ordered_ancestors
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
+from predicators.src.pybullet_helpers.ikfast.extract_stuff import get_ordered_ancestors
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
 from predicators.src.pybullet_helpers.utils import Pose, get_joint_info, \
     get_joint_infos, get_joint_limits, get_joint_lower_limits, \
@@ -165,8 +165,8 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
     ee_link = get_link_from_name(robot_id, ikfast_info.ee_link,
                                  physics_client_id)
 
-    ee_ancestors = get_ordered_ancestors(robot_id, ee_link)
-    tool_ancestors = get_ordered_ancestors(robot_id, tool_link)
+    ee_ancestors = get_ordered_ancestors(robot_id, ee_link, physics_client_id)
+    tool_ancestors = get_ordered_ancestors(robot_id, tool_link, physics_client_id)
     [first_joint] = [
         parent_joint_from_link(link) for link in tool_ancestors
         if get_link_parent(robot_id, parent_joint_from_link(link),
