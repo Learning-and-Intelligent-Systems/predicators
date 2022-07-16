@@ -1,7 +1,5 @@
 from typing import List
 
-import pybullet as p
-
 from predicators.src.pybullet_helpers.joint import get_joint_info
 
 

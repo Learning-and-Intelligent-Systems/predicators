@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pybullet as p
@@ -13,7 +13,7 @@ from predicators.src.pybullet_helpers.ikfast.utils import \
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.joint import JointInfo, get_joint_info, \
-    get_joint_limits, get_joint_lower_limits, get_joint_upper_limits
+    get_joint_lower_limits, get_joint_upper_limits
 from predicators.src.pybullet_helpers.link import get_link_from_name
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
