@@ -6,14 +6,16 @@ import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
+from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
-from predicators.src.pybullet_helpers.utils import JointInfo, Pose, \
-    get_joint_info, get_joint_limits, get_joint_lower_limits, \
-    get_joint_upper_limits, get_kinematic_chain, get_link_from_name
+from predicators.src.pybullet_helpers.joint import JointInfo, get_joint_info, \
+    get_joint_limits, get_joint_lower_limits, get_joint_upper_limits
+from predicators.src.pybullet_helpers.link import get_link_from_name
+from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D, Quaternion
 

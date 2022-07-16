@@ -10,13 +10,15 @@ from typing import TYPE_CHECKING, Callable, Generator, List, Sequence, Tuple, \
 
 import numpy as np
 
+from predicators.src.pybullet_helpers.geometry import Pose, matrix_from_quat, \
+    multiply_poses
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
-from predicators.src.pybullet_helpers.ikfast.extract_stuff import get_ordered_ancestors
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.src.pybullet_helpers.utils import Pose, get_joint_info, \
+from predicators.src.pybullet_helpers.joint import get_joint_info, \
     get_joint_infos, get_joint_limits, get_joint_lower_limits, \
-    get_joint_upper_limits, get_link_from_name, get_link_parent, \
-    get_link_pose, get_relative_link_pose, matrix_from_quat, multiply_poses
+    get_joint_upper_limits
+from predicators.src.pybullet_helpers.link import get_link_from_name, \
+    get_link_parent, get_link_pose, get_relative_link_pose
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState
 
@@ -26,6 +28,29 @@ Note: modified from pybullet-planning for our purposes.
 
 if TYPE_CHECKING:
     from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
+
+
+def get_ordered_ancestors(robot, link, physics_client_id):
+    # return prune_fixed_joints(robot, get_link_ancestors(robot, link)[1:] + [link])
+    return get_link_ancestors(robot, link, physics_client_id)[1:] + [link]
+
+
+def get_link_ancestors(body, link, physics_client_id):
+    # Returns in order of depth
+    # Does not include link
+    parent = get_link_parent(body, link, physics_client_id)
+    if parent is None:
+        return []
+    return get_link_ancestors(body, parent, physics_client_id) + [parent]
+
+
+def get_link_parent(body, link, physics_client_id):
+    if link == BASE_LINK:
+        return None
+    return get_joint_info(body, link, physics_client_id).parentIndex
+
+
+BASE_LINK = -1
 
 
 def get_length(vec: Union[np.ndarray, List[Number]], norm=2) -> float:
@@ -107,7 +132,7 @@ def circular_interval(lower=-np.pi):
     return (lower, lower + 2 * np.pi)
 
 
-def wrap_interval(value, interval=(0., 1.)):
+def wrap_interval(value, interval=(0.0, 1.0)):
     lower, upper = interval
     if (lower == -np.pi) and (+np.pi == upper):
         return value
@@ -117,11 +142,11 @@ def wrap_interval(value, interval=(0., 1.)):
 
 def circular_difference(theta2, theta1, **kwargs) -> float:
     interval = circular_interval(**kwargs)
-    #extent = get_interval_extent(interval) # TODO: combine with motion_planners
+    # extent = get_interval_extent(interval) # TODO: combine with motion_planners
     extent = get_aabb_extent(interval)
     diff_interval = (-extent / 2, +extent / 2)
     difference = wrap_interval(theta2 - theta1, interval=diff_interval)
-    #difference = interval_difference(theta2, theta1, interval=interval)
+    # difference = interval_difference(theta2, theta1, interval=interval)
     return difference
 
 
@@ -166,7 +191,8 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
                                  physics_client_id)
 
     ee_ancestors = get_ordered_ancestors(robot_id, ee_link, physics_client_id)
-    tool_ancestors = get_ordered_ancestors(robot_id, tool_link, physics_client_id)
+    tool_ancestors = get_ordered_ancestors(robot_id, tool_link,
+                                           physics_client_id)
     [first_joint] = [
         parent_joint_from_link(link) for link in tool_ancestors
         if get_link_parent(robot_id, parent_joint_from_link(link),
@@ -178,8 +204,10 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, ikfast_info: IKFastInfo,
                                   robot.physics_client_id)
     # assert base_link in ee_ancestors # base_link might be -1
     ik_joints = prune_fixed_joints(
-        robot_id, ee_ancestors[ee_ancestors.index(first_joint):],
-        robot.physics_client_id)
+        robot_id,
+        ee_ancestors[ee_ancestors.index(first_joint):],
+        robot.physics_client_id,
+    )
     free_joints = robot.joints_from_names(ikfast_info.free_joints)
     assert set(free_joints) <= set(ik_joints)
     assert len(ik_joints) == 6 + len(free_joints)
@@ -227,10 +255,12 @@ def ikfast_inverse_kinematics(
     ])
     lower_limits = np.maximum(
         get_joint_lower_limits(robot, free_joints, og_robot.physics_client_id),
-        current_positions - free_deltas)
+        current_positions - free_deltas,
+    )
     upper_limits = np.minimum(
         get_joint_upper_limits(robot, free_joints, og_robot.physics_client_id),
-        current_positions + free_deltas)
+        current_positions + free_deltas,
+    )
     generator = chain(
         [current_positions],  # TODO: sample from a truncated Gaussian nearby
         interval_generator(lower_limits, upper_limits),
@@ -247,8 +277,7 @@ def ikfast_inverse_kinematics(
             break
 
         # Get IK solutions
-        rot_matrix = matrix_from_quat(base_from_ee.quat_xyzw,
-                                      og_robot.physics_client_id).tolist()
+        rot_matrix = matrix_from_quat(base_from_ee.quat_xyzw).tolist()
 
         ik_candidates = ikfast.get_ik(rot_matrix, list(base_from_ee.position),
                                       list(free_positions))
