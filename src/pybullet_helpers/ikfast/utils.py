@@ -15,8 +15,8 @@ from predicators.src.pybullet_helpers.geometry import Pose, matrix_from_quat, \
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.ikfast.load import import_ikfast
 from predicators.src.pybullet_helpers.joint import get_joint_infos, \
-    get_joint_lower_limits, get_joint_upper_limits, prune_fixed_joints, \
-    violates_joint_limits
+    get_joint_lower_limits, get_joint_upper_limits, get_joints, \
+    prune_fixed_joints, violates_joint_limits
 from predicators.src.pybullet_helpers.link import get_link_ancestors, \
     get_link_from_name, get_link_parent, get_link_pose, \
     get_parent_joint_from_link, get_relative_link_pose
@@ -124,7 +124,7 @@ def get_base_from_ee(
     world_from_target: Pose,
 ) -> Pose:
     """Transform the world_from_target pose into a base_from_ee pose."""
-    ikfast_info = robot.ikfast_info
+    ikfast_info = robot.ikfast_info()
     physics_client_id = robot.physics_client_id
     robot = robot.robot_id
 
@@ -145,6 +145,7 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, tool_link: int) -> List[int]:
     """Returns the joint IDs of the robot's joints that are used in IKFast."""
     ikfast_info = robot.ikfast_info()
     physics_client_id = robot.physics_client_id
+    free_joints = robot.joints_from_names(ikfast_info.free_joints)
     robot = robot.robot_id
 
     # Get joints between base and ee
@@ -170,7 +171,6 @@ def get_ik_joints(robot: SingleArmPyBulletRobot, tool_link: int) -> List[int]:
         ee_ancestors[ee_ancestors.index(first_joint):],
         physics_client_id,
     )
-    free_joints = robot.joints_from_names(ikfast_info.free_joints)
     assert set(free_joints) <= set(ik_joints)
     assert len(ik_joints) == 6 + len(free_joints)
     return ik_joints
@@ -284,15 +284,15 @@ def ikfast_closest_inverse_kinematics(
     )
 
     # Only use up to the max candidates specified
-    candidate_solutions = list(islice(generator, CFG.ikfast_max_candidates))
-    if not candidate_solutions:
-        return []
+    if CFG.ikfast_max_candidates < np.inf:
+        generator = islice(generator, CFG.ikfast_max_candidates)
+    candidate_solutions = list(generator)
 
     # Sort the solutions by distance to the current joint positions
 
     # TODO: relative to joint limits
     difference_fn = get_difference_fn(
-        robot_id, ik_joints, robot.physics_client_id)  # get_distance_fn
+        robot.robot_id, ik_joints, robot.physics_client_id)  # get_distance_fn
     solutions = sorted(
         candidate_solutions,
         key=lambda q: get_length(difference_fn(q, current_conf),

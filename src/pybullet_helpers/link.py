@@ -74,14 +74,14 @@ def get_parent_joint_from_link(link: int) -> int:
 
 
 def get_link_ancestors(body: int, link: int, physics_client_id: int) -> list:
-    """Get the ancestors of a link in order of depth (not including the link
-    itself)."""
-    ancestors = []
+    """Get the ancestors of a link in order of depth (deepest to shallowest).
+
+    Ancestors do not include the link itself.
+    """
     parent = get_link_parent(body, link, physics_client_id)
-    while parent is not None:  # parent is None if base link
-        ancestors.append(parent)
-        parent = get_link_parent(body, parent, physics_client_id)
-    return ancestors
+    if parent is None:
+        return []
+    return get_link_ancestors(body, parent, physics_client_id) + [parent]
 
 
 def get_relative_link_pose(body: int, link1: int, link2: int,
