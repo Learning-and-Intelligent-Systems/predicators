@@ -93,7 +93,7 @@ def test_open_loop_llm_approach():
                          task_idx,
                          task.goal_holds,
                          max_num_steps=1000)
-    assert "LLM did not predict an abstract plan." in str(e)
+    assert "No LLM predicted plan achieves the goal." in str(e)
 
     llm.response = ideal_response
     original_nsrts = approach._nsrts  # pylint: disable=protected-access
@@ -106,7 +106,7 @@ def test_open_loop_llm_approach():
                          task_idx,
                          task.goal_holds,
                          max_num_steps=1000)
-    assert "LLM predicted plan does not achieve goal." in str(e)
+    assert "No LLM predicted plan achieves the goal." in str(e)
     approach._nsrts = original_nsrts  # pylint: disable=protected-access
 
     # Test failure cases of _llm_prediction_to_option_plan().
