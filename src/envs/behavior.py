@@ -585,7 +585,8 @@ def load_checkpoint_state(s: State,
     env.task_num = new_task_num_task_instance_id[0]
     # Since demo trajectories seeds are not saved, a seed is generated here if
     # one does not exist yet for the task num and task instance id pair.
-    if not new_task_num_task_instance_id in env.task_num_task_instance_id_to_igibson_seed:
+    if not new_task_num_task_instance_id in \
+        env.task_num_task_instance_id_to_igibson_seed:
         env.task_num_task_instance_id_to_igibson_seed[
             new_task_num_task_instance_id] = 0
     if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
