@@ -36,6 +36,11 @@ class JointInfo(NamedTuple):
     def is_movable(self) -> bool:
         return not self.is_fixed()
 
+    def violates_limit(self, value: float) -> bool:
+        if self.is_circular():
+            return False
+        return self.jointLowerLimit > value or value > self.jointUpperLimit
+
 
 def get_num_joints(body, physics_client_id: int):
     """Get the number of joints for a body."""
@@ -102,6 +107,22 @@ def get_joint_upper_limits(body: int, joints: List[int],
     return get_joint_limits(body, joints, physics_client_id)[1]
 
 
+def violates_joint_limit(body: int, joint: int, value: float,
+                         physics_client_id: int) -> bool:
+    """Check if the given joint violates the joint limit."""
+    joint_info = get_joint_info(body, joint, physics_client_id)
+    return joint_info.violates_limit(value)
+
+
+def violates_joint_limits(body: int, joints: List[int], values: List[float],
+                          physics_client_id: int) -> bool:
+    """Check if the given joints violate the joint limits."""
+    joint_infos = get_joint_infos(body, joints, physics_client_id)
+    return any(
+        joint_info.violates_limit(value)
+        for joint_info, value in zip(joint_infos, values))
+
+
 def is_circular_joint(body: int, joint: int, physics_client_id: int) -> bool:
     """Check if the given joint is circular."""
     return get_joint_info(body, joint, physics_client_id).is_circular()
@@ -115,3 +136,22 @@ def is_fixed_joint(body: int, joint: int, physics_client_id: int) -> bool:
 def is_movable_joint(body: int, joint: int, physics_client_id: int) -> bool:
     """Check if the given joint is movable."""
     return get_joint_info(body, joint, physics_client_id).is_movable()
+
+
+def get_movable_joints(body: int, physics_client_id: int) -> List[int]:
+    """Get the movable joints for the given body."""
+    joints = get_joints(body, physics_client_id)
+    joint_infos = get_joint_infos(body, joints, physics_client_id)
+    return [
+        joint for joint, joint_info in zip(joints, joint_infos)
+        if joint_info.is_movable()
+    ]
+
+
+def prune_fixed_joints(body: int, joints: List[int],
+                       physics_client_id: int) -> List[int]:
+    """Prune the given joints for a body to only include movable joints."""
+    return [
+        joint_id for joint_id in joints
+        if is_movable_joint(body, joint_id, physics_client_id)
+    ]
