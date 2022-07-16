@@ -109,11 +109,13 @@ def uniform_generator(d):
 
 def get_ordered_ancestors(robot: int, link: int,
                           physics_client_id: int) -> List[int]:
-    """Get Ordered Ancestors.
+    """Get the ancestors of the given link in order.
 
-    I'm not completely sure what this does...
+    The returned link ordering excludes the base link but includes the
+    given link.
     """
     ancestors = get_link_ancestors(robot, link, physics_client_id)
+    # Take from 1-index onwards as the base link is at start of ancestors
     ordered_ancestors = ancestors[1:] + [link]
     return ordered_ancestors
 
