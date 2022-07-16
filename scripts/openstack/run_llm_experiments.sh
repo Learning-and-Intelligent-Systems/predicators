@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# To run this file, leave one approach section, one experiment section, and one
+# machine group uncommented, with the rest commented out.
+
 # General settings.
 FLAGS="--num_train_tasks 5 --num_test_tasks 10 --strips_learner oracle --timeout 100"
 
@@ -105,11 +108,27 @@ DOWNLOAD_DIR="/Users/tom/Dropbox/varun_llm/openstack"
 # is equal to the desired number of seeds.
 START_SEED=456
 MACHINES=(
+    # Group 1
     "128.52.139.188"
     "128.52.139.191"
     "128.52.139.192"
     "128.52.139.193"
     "128.52.139.194"
+
+    # Group 2
+    # "128.52.139.195"
+    # "128.52.139.196"
+    # "128.52.139.197"
+    # "128.52.139.198"
+    # "128.52.139.199"
+
+    # Group 3
+    # "128.52.139.2"
+    # "128.52.139.201"
+    # "128.52.139.202"
+    # "128.52.139.203"
+    # "128.52.139.205"
+
 )
 
 # The main command (without the seed specified).
