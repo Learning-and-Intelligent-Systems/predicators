@@ -129,6 +129,27 @@ MACHINES=(
     # "128.52.139.203"
     # "128.52.139.205"
 
+    # Group 4
+    # "128.52.139.206"
+    # "128.52.139.207"
+    # "128.52.139.208"
+    # "128.52.139.209"
+    # "128.52.139.210"
+
+    # Group 5
+    # "128.52.139.215"
+    # "128.52.139.216"
+    # "128.52.139.217"
+    # "128.52.139.218"
+    # "128.52.139.222"
+
+    # Group 6
+    # "128.52.139.223"
+    # "128.52.139.224"
+    # "128.52.139.226"
+    # "128.52.139.227"
+    # "128.52.139.228"
+
 )
 
 # The main command (without the seed specified).
@@ -200,4 +221,9 @@ SEED=$(($SEED+1))
 
 done
 
-echo "Finished $1 for experiment: ${EXPERIMENT_ID}."
+# Print final message.
+if [ $1 == "launch" ]; then
+echo "Finished launching experiment: ${EXPERIMENT_ID}."
+else
+echo "Finished downloading."
+fi
