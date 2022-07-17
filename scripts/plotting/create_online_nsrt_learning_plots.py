@@ -59,12 +59,14 @@ EXPLORERS = [
     "random_options",
     "no_explore",
     "exploit_planning",
+    "glib",
 ]
 
 EXPLORER_TO_COLOR = {
     "random_options": "red",
     "no_explore": "black",
     "exploit_planning": "blue",
+    "glib": "green",
 }
 
 

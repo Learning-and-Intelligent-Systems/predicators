@@ -11,8 +11,7 @@ EXPLORERS=(
     "random_options"
     "no_explore"
     "exploit_planning"
-    # "glib"  # TODO
-    # "greedy_explore"  # TODO
+    "glib"
 )
 
 COMMON_ARGS=" --approach online_nsrt_learning \
