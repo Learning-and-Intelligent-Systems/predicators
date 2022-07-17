@@ -57,7 +57,6 @@ ENVS = ["cover", "blocks", "painting", "tools"]
 
 EXPLORERS = [
     "random_options",
-    "no_explore",
     "exploit_planning",
     "glib",
 ]
