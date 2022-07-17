@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MAX_TRANSITIONS=10000  # want this to be stop signal
+MAX_TRANSITIONS=2500  # want this to be stop signal
 CYCLES=1000000  # way too many cycles
 
 FILE="scripts/supercloud/submit_supercloud_job.py"
