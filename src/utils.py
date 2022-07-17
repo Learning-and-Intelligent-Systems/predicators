@@ -2476,11 +2476,11 @@ def parse_args(env_required: bool = True,
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
-    if value == "None":
+    if value in ("None", "none"):
         return None
-    if value == "True":
+    if value in ("True", "true"):
         return True
-    if value == "False":
+    if value in ("False", "false"):
         return False
     if value.isdigit() or value.startswith("lambda"):
         return eval(value)
