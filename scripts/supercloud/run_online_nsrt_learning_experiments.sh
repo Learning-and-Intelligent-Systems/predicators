@@ -21,6 +21,7 @@ COMMON_ARGS=" --approach online_nsrt_learning \
     --num_train_tasks 1000 \
     --num_online_learning_cycles $CYCLES \
     --online_learning_max_transitions $MAX_TRANSITIONS \
+    --max_num_steps_interaction_request 25 \
     --num_test_tasks 10 \
     --min_data_for_nsrt 10 \
     --sesame_allow_noops False"
