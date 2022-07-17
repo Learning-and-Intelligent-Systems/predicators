@@ -29,8 +29,8 @@ from predicators.src.approaches.nsrt_learning_approach import \
 from predicators.src.planning import PlanningFailure, run_low_level_search
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Box, Dataset, GroundAtom, \
-    LDLRule, LiftedAtom, LiftedDecisionList, ParameterizedOption, Predicate, \
-    State, Task, Type, Variable, _GroundNSRT
+    LDLRule, LiftedAtom, LiftedDecisionList, Object, ParameterizedOption, \
+    Predicate, State, Task, Type, Variable, _GroundNSRT
 
 
 class PG3Approach(NSRTLearningApproach):
@@ -48,10 +48,11 @@ class PG3Approach(NSRTLearningApproach):
         return "pg3"
 
     def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
+                             objects: Set[Object],
                              goal: Set[GroundAtom]) -> _GroundNSRT:
         """Predicts next GroundNSRT to be deployed based on the PG3 generated
         policy."""
-        ground_nsrt = utils.query_ldl(self._current_ldl, atoms, goal)
+        ground_nsrt = utils.query_ldl(self._current_ldl, atoms, objects, goal)
         if ground_nsrt is None:
             raise ApproachFailure("PG3 policy was not applicable!")
         return ground_nsrt
@@ -63,12 +64,14 @@ class PG3Approach(NSRTLearningApproach):
         atoms_sequence = []
         atoms = utils.abstract(task.init, self._initial_predicates)
         atoms_sequence.append(atoms)
+        current_objects = set(task.init)
         start_time = time.time()
 
         while not task.goal.issubset(atoms):
             if (time.time() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
-            ground_nsrt = self._predict_ground_nsrt(atoms, task.goal)
+            ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
+                                                    task.goal)
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
@@ -82,7 +85,6 @@ class PG3Approach(NSRTLearningApproach):
 
     def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
-
         # Set up a search over LDL space.
         _S: TypeAlias = LiftedDecisionList
         # An "action" here is a search operator and an integer representing the
@@ -312,19 +314,19 @@ class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
 
     def _get_score_for_task(self, ldl: LiftedDecisionList,
                             task_idx: int) -> float:
-        _, atoms, goal = self._abstract_train_tasks[task_idx]
-        if self._ldl_solves_abstract_task(ldl, atoms, goal):
+        objects, atoms, goal = self._abstract_train_tasks[task_idx]
+        if self._ldl_solves_abstract_task(ldl, atoms, objects, goal):
             return 0.0
         return 1.0
 
     @staticmethod
     def _ldl_solves_abstract_task(ldl: LiftedDecisionList,
-                                  atoms: Set[GroundAtom],
+                                  atoms: Set[GroundAtom], objects: Set[Object],
                                   goal: Set[GroundAtom]) -> bool:
         for _ in range(CFG.horizon):
             if goal.issubset(atoms):
                 return True
-            ground_nsrt = utils.query_ldl(ldl, atoms, goal)
+            ground_nsrt = utils.query_ldl(ldl, atoms, objects, goal)
             if ground_nsrt is None:
                 return False
             atoms = utils.apply_operator(ground_nsrt, atoms)
@@ -360,9 +362,9 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
         except PlanningFailure:
             return CFG.horizon  # worst possible score
         # Note: we need the goal because it's an input to the LDL policy.
-        _, _, goal = self._abstract_train_tasks[task_idx]
+        objects, _, goal = self._abstract_train_tasks[task_idx]
         assert goal.issubset(atom_plan[-1])
-        return self._count_missed_steps(ldl, atom_plan, goal)
+        return self._count_missed_steps(ldl, atom_plan, objects, goal)
 
     @abc.abstractmethod
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList,
@@ -376,10 +378,11 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
     @staticmethod
     def _count_missed_steps(ldl: LiftedDecisionList,
                             atoms_seq: Sequence[Set[GroundAtom]],
+                            objects: Set[Object],
                             goal: Set[GroundAtom]) -> float:
         missed_steps = 0.0
         for t in range(len(atoms_seq) - 1):
-            ground_nsrt = utils.query_ldl(ldl, atoms_seq[t], goal)
+            ground_nsrt = utils.query_ldl(ldl, atoms_seq[t], objects, goal)
             if ground_nsrt is None:
                 missed_steps += CFG.pg3_plan_compare_inapplicable_cost
             else:
@@ -475,7 +478,7 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
         )
 
         def policy(atoms: _S) -> Optional[_A]:
-            return utils.query_ldl(ldl, set(atoms), goal)
+            return utils.query_ldl(ldl, set(atoms), objects, goal)
 
         planned_frozen_atoms_seq, _ = utils.run_policy_guided_astar(
             initial_state=frozenset(init),

@@ -99,7 +99,7 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
-    # behavior env parameters
+    # BEHAVIOR env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
@@ -111,6 +111,8 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
+    behavior_option_model_eval = True
+    behavior_option_model_rrt = False
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
@@ -256,11 +258,12 @@ class GlobalSettings:
 
     # parameters for large language models
     llm_prompt_cache_dir = "llm_cache"
-    llm_openai_max_response_tokens = 250
+    llm_openai_max_response_tokens = 700
 
     # parameters for open loop LLM approach
-    open_loop_llm_model_name = "text-curie-001"
-    open_loop_llm_temperature = 0.0
+    open_loop_llm_model_name = "text-curie-001"  # "text-davinci-002"
+    open_loop_llm_temperature = 0.5
+    open_loop_llm_num_completions = 1
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
@@ -501,7 +504,7 @@ class GlobalSettings:
             dump_nsrts_as_strings=defaultdict(
                 lambda: False,
                 {
-                    # We cannot pickle Behavior NSRTs
+                    # We cannot pickle BEHAVIOR NSRTs
                     "behavior": True,
                 })[args.get("env", "")],
         )
