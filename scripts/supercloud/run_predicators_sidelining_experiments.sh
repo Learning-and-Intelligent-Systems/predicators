@@ -25,7 +25,7 @@ NUM_DEMOS=(
 for ENV in ${ALL_ENVS[@]}; do
     COMMON_ARGS="--env $ENV"
     # Oracle.
-    python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle --approach oracle --num_train_tasks 0
+    # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle --approach oracle --num_train_tasks 0
 
     for DEMOS in ${NUM_DEMOS[@]}; do
         if [ "$RUN_LOAD_EXPERIMENTS" = true ]; then
