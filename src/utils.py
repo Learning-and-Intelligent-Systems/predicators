@@ -1440,6 +1440,7 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = 0,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
@@ -1462,10 +1463,10 @@ def run_hill_climbing(
                  f"with heuristic {last_heuristic}")
     while True:
         
-        #stops offline pg3 from searching when heuristic reaches specified value
-        if last_heuristic <= 0:
+        #Stops when heuristic reaches specified value.
+        if early_termination_heuristic_thresh is not None and last_heuristic <= early_termination_heuristic_thresh:
             break
-        
+             
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
