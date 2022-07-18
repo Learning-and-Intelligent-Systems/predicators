@@ -1440,7 +1440,7 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
-        early_termination_heuristic_thresh: Optional[float] = 0,
+        early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
