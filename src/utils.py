@@ -1461,6 +1461,11 @@ def run_hill_climbing(
     logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                  f"with heuristic {last_heuristic}")
     while True:
+        
+        #stops offline pg3 from searching when heuristic reaches specified value
+        if last_heuristic <= 0:
+            break
+        
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
