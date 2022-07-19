@@ -2824,6 +2824,25 @@ def test_run_policy_guided_astar():
         'down', 'down'
     ]
 
+    # With a policy that outputs invalid actions, should ignore the policy
+    # and find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: "garbage",
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
 
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests for ops_and_specs_to_dummy_nsrts()."""
