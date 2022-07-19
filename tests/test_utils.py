@@ -2719,7 +2719,7 @@ def test_run_hill_climbing():
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
         
-    #Test early_termination_heuristic_thresh with very high value
+    # Test early_termination_heuristic_thresh with very high value.
     initial_state = (0, 0)
     state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
         initial_state, _grid_check_goal_fn, _grid_successor_fn,
