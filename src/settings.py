@@ -28,7 +28,6 @@ class GlobalSettings:
     # on tasks that have no demonstrations.
     allow_interaction_in_demo_tasks = True
     # Maximum number of steps to run an InteractionRequest policy.
-    max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
@@ -248,6 +247,15 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+
+    # parameters for PG4 approach
+    pg4_heuristic = "policy_guided"
+    pg4_search_method = "hill_climbing"
+    pg4_task_planning_heuristic = "lmcut"
+    pg4_gbfs_max_expansions = 100
+    pg4_hc_enforced_depth = 0
+    pg4_max_policy_guided_rollout = 50
+    pg4_plan_compare_inapplicable_cost = 0.99
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
