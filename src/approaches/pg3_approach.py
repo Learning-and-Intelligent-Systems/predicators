@@ -151,10 +151,10 @@ class PG3Approach(NSRTLearningApproach):
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
         # Now, learn the LDL policy.
         # TODO: CHANGE THIS BACK!
-        # self._learn_ldl(online_learning_cycle=None)
-        load_path = utils.get_approach_load_path_str()
-        with open(f"{load_path}_None.ldl", "rb") as f:
-            self._current_ldl = pkl.load(f)
+        self._learn_ldl(online_learning_cycle=None)
+        # load_path = utils.get_approach_load_path_str()
+        # with open(f"{load_path}_None.ldl", "rb") as f:
+        #     self._current_ldl = pkl.load(f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         load_path = utils.get_approach_load_path_str()

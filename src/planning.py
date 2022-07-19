@@ -298,7 +298,80 @@ def _policy_guided_skeleton_generator(abstract_policy: Callable[[Set[GroundAtom]
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
 
     # TODO: implement policy-guided planning (but with yield instead of return)
-    import ipdb; ipdb.set_trace()
+    start_time = time.time()
+    num_rollout_steps=CFG.pg3_max_policy_guided_rollout
+    current_objects = set(task.init)
+    queue: List[Tuple[float, float, _Node]] = []
+    root_node = _Node(atoms=init_atoms,
+                      skeleton=[],
+                      atoms_sequence=[init_atoms],
+                      parent=None)
+    metrics["num_nodes_created"] += 1
+    rng_prio = np.random.default_rng(seed)
+    hq.heappush(queue,
+                (heuristic(root_node.atoms), rng_prio.uniform(), root_node, ""))
+    # Start search.
+    while queue and (time.time() - start_time < timeout):
+        if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
+            raise _MaxSkeletonsFailure(
+                "Planning reached max_skeletons_optimized!")
+        _, _, node, tag = hq.heappop(queue)
+        # Good debug point #1: print out the skeleton here to see what
+        # the high-level search is doing. You can accomplish this via:
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
+        if task.goal.issubset(node.atoms):
+            # If this skeleton satisfies the goal, yield it.
+            metrics["num_skeletons_optimized"] += 1
+            print(f"Using {tag} skeleton")
+            yield node.skeleton, node.atoms_sequence
+        else:
+            # Generate successors.
+            metrics["num_nodes_expanded"] += 1
+            #Generate policy-based successors
+            policy_state = init_atoms
+            for _ in range(num_rollout_steps):
+                action = abstract_policy(node.atoms, current_objects, task.goal)
+                if action is None:
+                    break
+                child_atoms = utils.apply_operator(action, set(node.atoms))
+                child_node = _Node(atoms=child_atoms,
+                                   skeleton=node.skeleton + [action],
+                                   atoms_sequence=node.atoms_sequence +
+                                   [child_atoms],
+                                   parent=node)
+                metrics["num_nodes_created"] += 1
+                # priority is g [plan length] plus h [heuristic]
+                priority = (len(child_node.skeleton) +
+                            heuristic(child_node.atoms))
+                hq.heappush(queue, (priority, rng_prio.uniform(), child_node,
+                            "PG3 policy"))
+                node = child_node
+                if task.goal.issubset(child_node.atoms):
+                    break
+                if time.time() - start_time >= timeout:
+                    break
+            for nsrt in utils.get_applicable_operators(ground_nsrts,
+                                                       node.atoms):
+                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+                child_node = _Node(atoms=child_atoms,
+                                   skeleton=node.skeleton + [nsrt],
+                                   atoms_sequence=node.atoms_sequence +
+                                   [child_atoms],
+                                   parent=node)
+                metrics["num_nodes_created"] += 1
+                # priority is g [plan length] plus h [heuristic]
+                priority = (len(child_node.skeleton) +
+                            heuristic(child_node.atoms))
+                hq.heappush(queue, (priority, rng_prio.uniform(), child_node,
+                            "planning"))
+                if time.time() - start_time >= timeout:
+                    break
+    if not queue:
+        raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
+    assert time.time() - start_time >= timeout
+    raise _SkeletonSearchTimeout
 
 
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
