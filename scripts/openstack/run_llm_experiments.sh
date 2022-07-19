@@ -23,6 +23,12 @@ APPROACH_FLAGS=""
 # APPROACH="open_loop_llm"
 # APPROACH_FLAGS="--open_loop_llm_model_name text-davinci-002"
 
+# # LLM multi-response approach.
+# APPROACH_EXPERIMENT_ID="llm_multi"
+# APPROACH="open_loop_llm"
+# APPROACH_FLAGS="--open_loop_llm_model_name text-davinci-002 \
+#     --open_loop_llm_num_completions 5"
+
 
 # Environment settings.
 
