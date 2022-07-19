@@ -22,6 +22,12 @@ from typing import Type as TypingType
 import dill as pkl
 from typing_extensions import TypeAlias
 
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach
+from predicators.src.option_model import _OptionModelBase, create_option_model
+from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+    sesame_plan
+
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_learning_approach import \
@@ -60,28 +66,36 @@ class PG3Approach(NSRTLearningApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Searches for a low level policy that satisfies PG3's abstract
         policy."""
-        skeleton = []
-        atoms_sequence = []
-        atoms = utils.abstract(task.init, self._initial_predicates)
-        atoms_sequence.append(atoms)
-        current_objects = set(task.init)
-        start_time = time.time()
+        seed = self._seed + self._num_calls
+        nsrts = self._get_current_nsrts()
+        preds = self._get_current_predicates()
+        try:
+            plan, metrics = sesame_plan(task,
+                                        self._option_model,
+                                        nsrts,
+                                        preds,
+                                        self._types,
+                                        timeout,
+                                        seed,
+                                        self._task_planning_heuristic,
+                                        self._max_skeletons_optimized,
+                                        max_horizon=CFG.horizon,
+                                        allow_noops=CFG.sesame_allow_noops,
+                                        abstract_policy=self._predict_ground_nsrt)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
+        except PlanningTimeout as e:
+            raise ApproachTimeout(e.args[0], e.info)
 
-        while not task.goal.issubset(atoms):
-            if (time.time() - start_time) >= timeout:
-                raise ApproachFailure("Timeout exceeded")
-            ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
-                                                    task.goal)
-            atoms = utils.apply_operator(ground_nsrt, atoms)
-            skeleton.append(ground_nsrt)
-            atoms_sequence.append(atoms)
-        option_list, succeeded = run_low_level_search(
-            task, self._option_model, skeleton, atoms_sequence, self._seed,
-            timeout - (time.time() - start_time), CFG.horizon)
-        if not succeeded:
-            raise ApproachFailure("Low-level search failed")
-        policy = utils.option_plan_to_policy(option_list)
-        return policy
+        option_policy = utils.option_plan_to_policy(plan)
+
+        def _policy(s: State) -> Action:
+            try:
+                return option_policy(s)
+            except utils.OptionExecutionFailure as e:
+                raise ApproachFailure(e.args[0], e.info)
+
+        return _policy
 
     def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
@@ -136,7 +150,11 @@ class PG3Approach(NSRTLearningApproach):
         # First, learn NSRTs.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
         # Now, learn the LDL policy.
-        self._learn_ldl(online_learning_cycle=None)
+        # TODO: CHANGE THIS BACK!
+        # self._learn_ldl(online_learning_cycle=None)
+        load_path = utils.get_approach_load_path_str()
+        with open(f"{load_path}_None.ldl", "rb") as f:
+            self._current_ldl = pkl.load(f)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         load_path = utils.get_approach_load_path_str()
