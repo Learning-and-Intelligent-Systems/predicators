@@ -643,7 +643,7 @@ def create_grasp_option_model(
     roll, pitch, yaw) waypoints for the hand to pass through."""
 
     # NOTE: -1 because there are 25 timesteps that we move along the vector
-    # between the hand the object for until finally grasping, and we want 
+    # between the hand the object for until finally grasping, and we want
     # just the final orientation.
     hand_i = -1
     rh_final_grasp_postion = plan[hand_i][0:3]

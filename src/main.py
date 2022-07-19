@@ -291,7 +291,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             # plan_only_eval and behavior_option_model_eval flags, respectively)
             if CFG.plan_only_eval and isinstance(
                     approach, BilevelPlanningApproach):  # pragma: no cover
-                if approach.get_last_plan() != [] or task.goal_holds(task.init):
+                if approach.get_last_plan() != [] or task.goal_holds(
+                        task.init):
                     solved = True
                     exec_time = 0.0
                     metrics[
