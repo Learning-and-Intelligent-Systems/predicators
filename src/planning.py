@@ -261,7 +261,9 @@ def _skeleton_generator(
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        temp_node = node
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -272,16 +274,17 @@ def _skeleton_generator(
             #If an abstract ldl policy is provided, generate policy-based
             #successors first
             if abstract_ldl is not None:
+                current_node = node
                 for _ in range(num_rollout_steps):
-                    if task.goal.issubset(temp_node.atoms):
+                    if task.goal.issubset(current_node.atoms):
                         break
-                    action = utils.query_ldl(abstract_ldl, temp_node.atoms,
+                    action = utils.query_ldl(abstract_ldl, current_node.atoms,
                                              current_objects, task.goal)
                     if action is None:
                         break
                     child_atoms = utils.apply_operator(action,
-                                                       set(temp_node.atoms))
-                    child_skeleton = temp_node.skeleton + [action]
+                                                       set(current_node.atoms))
+                    child_skeleton = current_node.skeleton + [action]
                     child_skeleton_tup = tuple(child_skeleton)
                     if child_skeleton_tup in visited_skeletons:
                         continue
@@ -289,9 +292,9 @@ def _skeleton_generator(
                     child_node = _Node(
                         atoms=child_atoms,
                         skeleton=child_skeleton,
-                        atoms_sequence=temp_node.atoms_sequence +
+                        atoms_sequence=current_node.atoms_sequence +
                         [child_atoms],
-                        parent=temp_node)
+                        parent=current_node)
 
                     metrics["num_nodes_created"] += 1
                     # priority is g [plan length] plus h [heuristic]
@@ -299,24 +302,23 @@ def _skeleton_generator(
                                 heuristic(child_node.atoms))
                     hq.heappush(queue,
                                 (priority, rng_prio.uniform(), child_node))
-                    temp_node = child_node
+                    current_node = child_node
                     if time.time() - start_time >= timeout:
                         break
-            temp_node = node
             #Generate primitive successors
             for nsrt in utils.get_applicable_operators(ground_nsrts,
-                                                       temp_node.atoms):
-                child_atoms = utils.apply_operator(nsrt, set(temp_node.atoms))
-                child_skeleton = temp_node.skeleton + [nsrt]
+                                                       node.atoms):
+                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+                child_skeleton = node.skeleton + [nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
                 if child_skeleton_tup in visited_skeletons:
                     continue
                 visited_skeletons.add(child_skeleton_tup)
                 child_node = _Node(atoms=child_atoms,
                                    skeleton=child_skeleton,
-                                   atoms_sequence=temp_node.atoms_sequence +
+                                   atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
-                                   parent=temp_node)
+                                   parent=node)
                 metrics["num_nodes_created"] += 1
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
