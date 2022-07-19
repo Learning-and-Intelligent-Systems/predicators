@@ -53,16 +53,6 @@ class PG3Approach(NSRTLearningApproach):
     def get_name(cls) -> str:
         return "pg3"
 
-    def _predict_ground_nsrt(self, atoms: Set[GroundAtom],
-                             objects: Set[Object],
-                             goal: Set[GroundAtom]) -> _GroundNSRT:
-        """Predicts next GroundNSRT to be deployed based on the PG3 generated
-        policy."""
-        ground_nsrt = utils.query_ldl(self._current_ldl, atoms, objects, goal)
-        if ground_nsrt is None:
-            raise ApproachFailure("PG3 policy was not applicable!")
-        return ground_nsrt
-
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Searches for a low level policy that satisfies PG3's abstract
         policy."""
@@ -81,7 +71,7 @@ class PG3Approach(NSRTLearningApproach):
                                         self._max_skeletons_optimized,
                                         max_horizon=CFG.horizon,
                                         allow_noops=CFG.sesame_allow_noops,
-                                        abstract_policy=self._predict_ground_nsrt)
+                                        abstract_ldl=self._current_ldl)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
