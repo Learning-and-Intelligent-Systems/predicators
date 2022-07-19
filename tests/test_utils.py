@@ -2728,7 +2728,7 @@ def test_run_hill_climbing():
         _grid_heuristic_fn,
         early_termination_heuristic_thresh=10000000)
     assert state_sequence == [(0, 0)]
-    assert action_sequence == []
+    assert not action_sequence
 
 
 def test_run_policy_guided_astar():
