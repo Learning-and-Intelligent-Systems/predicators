@@ -1468,7 +1468,7 @@ def run_hill_climbing(
         # Stops when heuristic reaches specified value.
         if early_termination_heuristic_thresh is not None and last_heuristic <= early_termination_heuristic_thresh:
             break
-        
+             
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
