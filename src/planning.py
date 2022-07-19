@@ -251,8 +251,8 @@ def _skeleton_generator(
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
-    visited_skeletons: Set[Tuple[_GroundNSRT]] = set(tuple())  #initialize with
-    #empty skeleton for root
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())  #initialize
+    #with empty skeleton for root
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
