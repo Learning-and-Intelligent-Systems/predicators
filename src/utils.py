@@ -1440,15 +1440,18 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
+        
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
     an improvement over the node. If no children improve on the node, look
     at the children's children, etc., up to enforced_depth, where enforced_depth
     0 corresponds to simple hill climbing. Terminate when no improvement can
-    be found.
+    be found. early_termination_heuristic_thresh allows for searching until 
+    heuristic reaches a specified value.
 
     Lower heuristic is better.
     """
@@ -1462,8 +1465,8 @@ def run_hill_climbing(
                  f"with heuristic {last_heuristic}")
     while True:
         
-        #stops offline pg3 from searching when heuristic reaches specified value
-        if last_heuristic <= 0:
+        # Stops when heuristic reaches specified value.
+        if early_termination_heuristic_thresh is not None and last_heuristic <= early_termination_heuristic_thresh:
             break
         
         if check_goal(cur_node.state):
