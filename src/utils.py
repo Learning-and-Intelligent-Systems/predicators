@@ -1572,7 +1572,8 @@ def run_policy_guided_astar(
         policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
-            if action is None:
+            valid_actions = {a for a, _ in get_valid_actions(policy_state)}
+            if action is None or action not in valid_actions:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
