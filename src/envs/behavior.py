@@ -135,7 +135,7 @@ class BehaviorEnv(BaseEnv):
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
         self.task_instance_id = int(state.simulator_state.split("-")[1])
-        load_checkpoint_state(state, self, reset=not CFG.plan_only_eval)
+        load_checkpoint_state(state, self, reset=True)
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -570,7 +570,10 @@ class BehaviorEnv(BaseEnv):
 def load_checkpoint_state(s: State,
                           env: BehaviorEnv,
                           reset: bool = False) -> None:
-    """Sets the underlying iGibson environment to a particular saved state."""
+    """Sets the underlying iGibson environment to a particular saved state.
+    When reset is True we will create a new BehaviorEnv and load our 
+    checkpoint into it. This will ensure that all the information from
+    previous environment steps are reset as well."""
     assert s.simulator_state is not None
     # Get the new_task_num_task_instance_id associated with this state
     # from s.simulator_state.
@@ -603,7 +606,7 @@ def load_checkpoint_state(s: State,
         env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
-    env.igibson_behavior_env.reset()
+        env.igibson_behavior_env.reset()
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
