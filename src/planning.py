@@ -254,8 +254,8 @@ def _skeleton_generator(
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
-    # Initialize with empty skeleton for root
-    # We want to keep track of the visited skeletons that way we avoid
+    # Initialize with empty skeleton for root.
+    # We want to keep track of the visited skeletons so that we avoid
     # repeatedly outputting the same faulty skeletons
     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
     # Start search.
@@ -310,7 +310,7 @@ def _skeleton_generator(
                     current_node = child_node
                     if time.time() - start_time >= timeout:
                         break
-            #Generate primitive successors
+            # Generate primitive successors
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
