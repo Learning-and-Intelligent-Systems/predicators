@@ -120,6 +120,7 @@ class PG3Approach(NSRTLearningApproach):
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
+                early_termination_heuristic_thresh=0,
                 enforced_depth=CFG.pg3_hc_enforced_depth)
 
         else:
