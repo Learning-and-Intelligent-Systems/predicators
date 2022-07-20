@@ -256,7 +256,7 @@ def _skeleton_generator(
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Initialize with empty skeleton for root.
     # We want to keep track of the visited skeletons so that we avoid
-    # repeatedly outputting the same faulty skeletons
+    # repeatedly outputting the same faulty skeletons.
     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
     # Start search.
     while queue and (time.time() - start_time < timeout):
@@ -277,19 +277,23 @@ def _skeleton_generator(
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
             # If an abstract ldl policy is provided, generate policy-based
-            # successors first
+            # successors first.
             if abstract_policy is not None:
                 current_node = node
                 for _ in range(sesame_max_policy_guided_rollout):
                     if task.goal.issubset(current_node.atoms):
                         break
-                    action = abstract_policy(current_node.atoms,
-                                             current_objects, task.goal)
-                    if action is None:
+                    ground_nsrt = abstract_policy(current_node.atoms,
+                                                  current_objects, task.goal)
+                    if ground_nsrt is None:
                         break
-                    child_atoms = utils.apply_operator(action,
+                    # Make sure ground_nsrt is applicable.
+                    if not ground_nsrt.preconditions.issubset(
+                            current_node.atoms):
+                        break
+                    child_atoms = utils.apply_operator(ground_nsrt,
                                                        set(current_node.atoms))
-                    child_skeleton = current_node.skeleton + [action]
+                    child_skeleton = current_node.skeleton + [ground_nsrt]
                     child_skeleton_tup = tuple(child_skeleton)
                     if child_skeleton_tup in visited_skeletons:
                         continue
@@ -310,15 +314,16 @@ def _skeleton_generator(
                     current_node = child_node
                     if time.time() - start_time >= timeout:
                         break
-            # Generate primitive successors
+            # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_skeleton = node.skeleton + [nsrt]
-                child_skeleton_tup = tuple(child_skeleton)
-                if child_skeleton_tup in visited_skeletons:
-                    continue
-                visited_skeletons.add(child_skeleton_tup)
+                if abstract_policy is not None:
+                    child_skeleton_tup = tuple(child_skeleton)
+                    if child_skeleton_tup in visited_skeletons:
+                        continue
+                    visited_skeletons.add(child_skeleton_tup)
                 child_node = _Node(atoms=child_atoms,
                                    skeleton=child_skeleton,
                                    atoms_sequence=node.atoms_sequence +

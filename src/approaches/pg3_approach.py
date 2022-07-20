@@ -23,11 +23,10 @@ import dill as pkl
 from typing_extensions import TypeAlias
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
-from predicators.src.planning import PlanningFailure, PlanningTimeout, \
-    run_low_level_search, sesame_plan
+from predicators.src.planning import PlanningFailure, run_low_level_search
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Box, Dataset, GroundAtom, \
     LDLRule, LiftedAtom, LiftedDecisionList, Object, ParameterizedOption, \
@@ -163,56 +162,6 @@ class PG3Approach(NSRTLearningApproach):
         }
         cls = heuristic_name_to_cls[CFG.pg3_heuristic]
         return cls(preds, nsrts, self._train_tasks)
-
-
-class PG4Approach(PG3Approach):
-    """Policy-guided planning for generalized policy generation for planning
-    guidance (PG4)."""
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "pg4"
-
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-        """Generates a plan choosing the best skeletons generated from policy-
-        based skeletons and primitive successors."""
-        seed = self._seed + self._num_calls
-        nsrts = self._get_current_nsrts()
-        preds = self._get_current_predicates()
-        abstract_policy: Callable[[Set[GroundAtom], Set[Object],
-                    Set[GroundAtom]], Optional[_GroundNSRT]] = lambda a,o,g: \
-                                            utils.query_ldl(self._current_ldl,
-                                            a, o, g)
-        max_policy_guided_rollout = CFG.pg3_max_policy_guided_rollout
-        try:
-            plan, _ = sesame_plan(
-                task,
-                self._option_model,
-                nsrts,
-                preds,
-                self._types,
-                timeout,
-                seed,
-                self._task_planning_heuristic,
-                self._max_skeletons_optimized,
-                max_horizon=CFG.horizon,
-                abstract_policy=abstract_policy,
-                max_policy_guided_rollout=max_policy_guided_rollout,
-                allow_noops=CFG.sesame_allow_noops)
-        except PlanningFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
-        except PlanningTimeout as e:
-            raise ApproachTimeout(e.args[0], e.info)
-
-        option_policy = utils.option_plan_to_policy(plan)
-
-        def _policy(s: State) -> Action:
-            try:
-                return option_policy(s)
-            except utils.OptionExecutionFailure as e:
-                raise ApproachFailure(e.args[0], e.info)
-
-        return _policy
 
 
 ############################## Search Operators ###############################
