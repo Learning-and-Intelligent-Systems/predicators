@@ -1440,6 +1440,7 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
@@ -1448,7 +1449,8 @@ def run_hill_climbing(
     an improvement over the node. If no children improve on the node, look
     at the children's children, etc., up to enforced_depth, where enforced_depth
     0 corresponds to simple hill climbing. Terminate when no improvement can
-    be found.
+    be found. early_termination_heuristic_thresh allows for searching until
+    heuristic reaches a specified value.
 
     Lower heuristic is better.
     """
@@ -1461,6 +1463,12 @@ def run_hill_climbing(
     logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                  f"with heuristic {last_heuristic}")
     while True:
+
+        # Stops when heuristic reaches specified value.
+        if early_termination_heuristic_thresh is not None \
+            and last_heuristic <= early_termination_heuristic_thresh:
+            break
+
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
@@ -1564,7 +1572,8 @@ def run_policy_guided_astar(
         policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
-            if action is None:
+            valid_actions = {a for a, _ in get_valid_actions(policy_state)}
+            if action is None or action not in valid_actions:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
@@ -2476,11 +2485,11 @@ def parse_args(env_required: bool = True,
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
-    if value == "None":
+    if value in ("None", "none"):
         return None
-    if value == "True":
+    if value in ("True", "true"):
         return True
-    if value == "False":
+    if value in ("False", "false"):
         return False
     if value.isdigit() or value.startswith("lambda"):
         return eval(value)
