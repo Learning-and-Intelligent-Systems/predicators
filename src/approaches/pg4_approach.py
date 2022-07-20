@@ -12,7 +12,7 @@ Example command line:
 """
 from __future__ import annotations
 
-from typing import Callable, Optional, Set
+from typing import Callable
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -20,8 +20,7 @@ from predicators.src.approaches.pg3_approach import PG3Approach
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, GroundAtom, Object, State, Task, \
-    _GroundNSRT
+from predicators.src.structs import AbstractPolicy, Action, State, Task
 
 
 class PG4Approach(PG3Approach):
@@ -38,8 +37,7 @@ class PG4Approach(PG3Approach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        abstract_policy: Callable[[Set[GroundAtom], Set[Object],
-                    Set[GroundAtom]], Optional[_GroundNSRT]] = lambda a,o,g: \
+        abstract_policy: AbstractPolicy = lambda a,o,g: \
                                             utils.query_ldl(self._current_ldl,
                                             a, o, g)
         max_policy_guided_rollout = CFG.pg3_max_policy_guided_rollout

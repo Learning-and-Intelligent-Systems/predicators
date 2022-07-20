@@ -11,18 +11,18 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Callable, Dict, FrozenSet, Iterator, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 
 import numpy as np
 
 from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+from predicators.src.structs import NSRT, AbstractPolicy, Action, \
+    DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
+    Object, OptionSpec, ParameterizedOption, Predicate, State, \
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -48,9 +48,7 @@ def sesame_plan(task: Task,
                 task_planning_heuristic: str,
                 max_skeletons_optimized: int,
                 max_horizon: int,
-                abstract_policy: Callable[
-                    [Set[GroundAtom], Set[Object], Set[GroundAtom]],
-                    Optional[_GroundNSRT]] = None,
+                abstract_policy: Optional[AbstractPolicy] = None,
                 max_policy_guided_rollout: int = 0,
                 check_dr_reachable: bool = True,
                 allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
@@ -230,8 +228,7 @@ def _skeleton_generator(
     timeout: float,
     metrics: Metrics,
     max_skeletons_optimized: int,
-    abstract_policy: Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
-                              Optional[_GroundNSRT]] = None,
+    abstract_policy: Optional[AbstractPolicy] = None,
     sesame_max_policy_guided_rollout: int = 0
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).

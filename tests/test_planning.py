@@ -1,5 +1,6 @@
 """Test cases for planning algorithms."""
 
+import time
 from contextlib import nullcontext as does_not_raise
 
 import numpy as np
@@ -497,7 +498,8 @@ def test_policy_guided_sesame():
         CFG.sesame_task_planning_heuristic,
         CFG.sesame_max_skeletons_optimized,
         max_horizon=CFG.horizon,
-        abstract_policy=trivial_policy)
+        abstract_policy=trivial_policy,
+        max_policy_guided_rollout=50)
     assert unguided_metrics["num_nodes_created"] == \
         guided_metrics["num_nodes_created"]
     assert unguided_metrics["num_nodes_expanded"] == \
@@ -543,6 +545,59 @@ def test_policy_guided_sesame():
         CFG.sesame_task_planning_heuristic,
         CFG.sesame_max_skeletons_optimized,
         max_horizon=CFG.horizon,
-        abstract_policy=_abstract_policy)
+        abstract_policy=_abstract_policy,
+        max_policy_guided_rollout=50)
 
     assert metrics["num_nodes_expanded"] == len(plan)
+
+    # Test that a policy that outputs invalid NSRTs is not used.
+    objects = set(task.init)
+    ground_nsrts = [
+        ground_nsrt for nsrt in nsrts
+        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects)
+    ]
+
+    def _invalid_policy(atoms, objs, goal):
+        del objs, goal  # unused
+        for ground_nsrt in ground_nsrts:
+            if not ground_nsrt.preconditions.issubset(atoms):
+                return ground_nsrt
+        raise Exception("Should not happen.")  # pragma: no cover
+
+    _, invalid_policy_metrics = sesame_plan(
+        task,
+        option_model,
+        nsrts,
+        env.predicates,
+        env.types,
+        1,  # timeout
+        123,  # seed
+        CFG.sesame_task_planning_heuristic,
+        CFG.sesame_max_skeletons_optimized,
+        max_horizon=CFG.horizon,
+        abstract_policy=_invalid_policy,
+        max_policy_guided_rollout=50)
+    assert unguided_metrics["num_nodes_created"] == \
+        invalid_policy_metrics["num_nodes_created"]
+    assert unguided_metrics["num_nodes_expanded"] == \
+        invalid_policy_metrics["num_nodes_expanded"]
+
+    # Test timeout.
+    def _slow_policy(atoms, objs, goal):
+        time.sleep(0.51)
+        return _abstract_policy(atoms, objs, goal)
+
+    with pytest.raises(PlanningTimeout):
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            env.types,
+            0.5,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            max_horizon=CFG.horizon,
+            abstract_policy=_slow_policy,
+            max_policy_guided_rollout=50)

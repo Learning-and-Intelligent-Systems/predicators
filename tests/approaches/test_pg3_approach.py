@@ -6,10 +6,11 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.pg3_approach import PG3Approach, PG4Approach, \
+from predicators.src.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
     _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
     _PolicyGuidedPG3Heuristic
+from predicators.src.approaches.pg4_approach import PG4Approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
