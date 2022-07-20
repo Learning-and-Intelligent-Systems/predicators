@@ -11,8 +11,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
-from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+from typing import Callable, Dict, FrozenSet, Iterator, List, Optional, \
+    Sequence, Set, Tuple
 
 import numpy as np
 
@@ -20,9 +20,9 @@ from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LiftedDecisionList, LowLevelTrajectory, Metrics, Object, \
-    OptionSpec, ParameterizedOption, Predicate, State, STRIPSOperator, Task, \
-    Type, _GroundNSRT, _Option
+    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
+    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
+    _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -38,21 +38,22 @@ class _Node:
     parent: Optional[_Node]
 
 
-def sesame_plan(
-    task: Task,
-    option_model: _OptionModelBase,
-    nsrts: Set[NSRT],
-    initial_predicates: Set[Predicate],
-    types: Set[Type],
-    timeout: float,
-    seed: int,
-    task_planning_heuristic: str,
-    max_skeletons_optimized: int,
-    max_horizon: int,
-    check_dr_reachable: bool = True,
-    allow_noops: bool = False,
-    abstract_ldl: LiftedDecisionList = None,
-) -> Tuple[List[_Option], Metrics]:
+def sesame_plan(task: Task,
+                option_model: _OptionModelBase,
+                nsrts: Set[NSRT],
+                initial_predicates: Set[Predicate],
+                types: Set[Type],
+                timeout: float,
+                seed: int,
+                task_planning_heuristic: str,
+                max_skeletons_optimized: int,
+                max_horizon: int,
+                abstract_policy: Callable[
+                    [Set[GroundAtom], Set[Object], Set[GroundAtom]],
+                    Optional[_GroundNSRT]] = None,
+                max_policy_guided_rollout: int = 0,
+                check_dr_reachable: bool = True,
+                allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -118,7 +119,8 @@ def sesame_plan(
                                       heuristic, new_seed,
                                       timeout - (time.time() - start_time),
                                       metrics, max_skeletons_optimized,
-                                      abstract_ldl)
+                                      abstract_policy,
+                                      max_policy_guided_rollout)
             for skeleton, atoms_sequence in gen:
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
@@ -228,7 +230,9 @@ def _skeleton_generator(
     timeout: float,
     metrics: Metrics,
     max_skeletons_optimized: int,
-    abstract_ldl: LiftedDecisionList = None
+    abstract_policy: Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
+                              Optional[_GroundNSRT]] = None,
+    sesame_max_policy_guided_rollout: int = 0
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -240,7 +244,6 @@ def _skeleton_generator(
     """
 
     start_time = time.time()
-    num_rollout_steps = CFG.pg3_max_policy_guided_rollout
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
@@ -251,8 +254,10 @@ def _skeleton_generator(
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
-    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())  #initialize
-    #with empty skeleton for root
+    # Initialize with empty skeleton for root
+    # We want to keep track of the visited skeletons that way we avoid
+    # repeatedly outputting the same faulty skeletons
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -271,14 +276,14 @@ def _skeleton_generator(
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
-            #If an abstract ldl policy is provided, generate policy-based
-            #successors first
-            if abstract_ldl is not None:
+            # If an abstract ldl policy is provided, generate policy-based
+            # successors first
+            if abstract_policy is not None:
                 current_node = node
-                for _ in range(num_rollout_steps):
+                for _ in range(sesame_max_policy_guided_rollout):
                     if task.goal.issubset(current_node.atoms):
                         break
-                    action = utils.query_ldl(abstract_ldl, current_node.atoms,
+                    action = abstract_policy(current_node.atoms,
                                              current_objects, task.goal)
                     if action is None:
                         break
