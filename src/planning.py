@@ -273,7 +273,7 @@ def _skeleton_generator(
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
-            # If an abstract ldl policy is provided, generate policy-based
+            # If an abstract policy is provided, generate policy-based
             # successors first.
             if abstract_policy is not None:
                 current_node = node
