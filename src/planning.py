@@ -51,9 +51,6 @@ def sesame_plan(
     max_horizon: int,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
-    abstract_policy: Optional[Callable[[Set[GroundAtom],
-                                       Set[Object],
-                                       Set[GroundAtom]], _GroundNSRT]] = None,
 ) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
@@ -116,17 +113,10 @@ def sesame_plan(
             predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
-            if abstract_policy is None:
-                gen = _skeleton_generator(
-                        task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                        timeout - (time.time() - start_time), metrics,
-                        max_skeletons_optimized)
-            else:
-                gen = _policy_guided_skeleton_generator(
-                        abstract_policy, task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                        timeout - (time.time() - start_time), metrics,
-                        max_skeletons_optimized)
-            for skeleton, atoms_sequence in gen:
+            for skeleton, atoms_sequence in _skeleton_generator(
+                    task, reachable_nsrts, init_atoms, heuristic, new_seed,
+                    timeout - (time.time() - start_time), metrics,
+                    max_skeletons_optimized):
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
@@ -287,18 +277,6 @@ def _skeleton_generator(
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
     raise _SkeletonSearchTimeout
-
-
-def _policy_guided_skeleton_generator(abstract_policy: Callable[[Set[GroundAtom],
-                                       Set[Object],
-                                       Set[GroundAtom]], _GroundNSRT],
-    task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
-    heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
-    metrics: Metrics, max_skeletons_optimized: int
-) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
-
-    # TODO: implement policy-guided planning (but with yield instead of return)
-    import ipdb; ipdb.set_trace()
 
 
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
