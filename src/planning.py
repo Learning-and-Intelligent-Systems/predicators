@@ -19,10 +19,10 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+from predicators.src.structs import NSRT, AbstractPolicy, Action, \
+    DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
+    Object, OptionSpec, ParameterizedOption, Predicate, State, \
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
     _TaskPlanningHeuristic
 
@@ -38,20 +38,20 @@ class _Node:
     parent: Optional[_Node]
 
 
-def sesame_plan(
-    task: Task,
-    option_model: _OptionModelBase,
-    nsrts: Set[NSRT],
-    initial_predicates: Set[Predicate],
-    types: Set[Type],
-    timeout: float,
-    seed: int,
-    task_planning_heuristic: str,
-    max_skeletons_optimized: int,
-    max_horizon: int,
-    check_dr_reachable: bool = True,
-    allow_noops: bool = False,
-) -> Tuple[List[_Option], Metrics]:
+def sesame_plan(task: Task,
+                option_model: _OptionModelBase,
+                nsrts: Set[NSRT],
+                initial_predicates: Set[Predicate],
+                types: Set[Type],
+                timeout: float,
+                seed: int,
+                task_planning_heuristic: str,
+                max_skeletons_optimized: int,
+                max_horizon: int,
+                abstract_policy: Optional[AbstractPolicy] = None,
+                max_policy_guided_rollout: int = 0,
+                check_dr_reachable: bool = True,
+                allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -113,10 +113,13 @@ def sesame_plan(
             predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
-            for skeleton, atoms_sequence in _skeleton_generator(
-                    task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                    timeout - (time.time() - start_time), metrics,
-                    max_skeletons_optimized):
+            gen = _skeleton_generator(task, reachable_nsrts, init_atoms,
+                                      heuristic, new_seed,
+                                      timeout - (time.time() - start_time),
+                                      metrics, max_skeletons_optimized,
+                                      abstract_policy,
+                                      max_policy_guided_rollout)
+            for skeleton, atoms_sequence in gen:
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
@@ -217,9 +220,16 @@ def task_plan(
 
 
 def _skeleton_generator(
-    task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
-    heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
-    metrics: Metrics, max_skeletons_optimized: int
+    task: Task,
+    ground_nsrts: List[_GroundNSRT],
+    init_atoms: Set[GroundAtom],
+    heuristic: _TaskPlanningHeuristic,
+    seed: int,
+    timeout: float,
+    metrics: Metrics,
+    max_skeletons_optimized: int,
+    abstract_policy: Optional[AbstractPolicy] = None,
+    sesame_max_policy_guided_rollout: int = 0
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -231,6 +241,7 @@ def _skeleton_generator(
     """
 
     start_time = time.time()
+    current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
                       skeleton=[],
@@ -240,6 +251,10 @@ def _skeleton_generator(
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
+    # Initialize with empty skeleton for root.
+    # We want to keep track of the visited skeletons so that we avoid
+    # repeatedly outputting the same faulty skeletons.
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -258,11 +273,56 @@ def _skeleton_generator(
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
+            # If an abstract policy is provided, generate policy-based
+            # successors first.
+            if abstract_policy is not None:
+                current_node = node
+                for _ in range(sesame_max_policy_guided_rollout):
+                    if task.goal.issubset(current_node.atoms):
+                        break
+                    ground_nsrt = abstract_policy(current_node.atoms,
+                                                  current_objects, task.goal)
+                    if ground_nsrt is None:
+                        break
+                    # Make sure ground_nsrt is applicable.
+                    if not ground_nsrt.preconditions.issubset(
+                            current_node.atoms):
+                        break
+                    child_atoms = utils.apply_operator(ground_nsrt,
+                                                       set(current_node.atoms))
+                    child_skeleton = current_node.skeleton + [ground_nsrt]
+                    child_skeleton_tup = tuple(child_skeleton)
+                    if child_skeleton_tup in visited_skeletons:
+                        continue
+                    visited_skeletons.add(child_skeleton_tup)
+                    child_node = _Node(
+                        atoms=child_atoms,
+                        skeleton=child_skeleton,
+                        atoms_sequence=current_node.atoms_sequence +
+                        [child_atoms],
+                        parent=current_node)
+
+                    metrics["num_nodes_created"] += 1
+                    # priority is g [plan length] plus h [heuristic]
+                    priority = (len(child_node.skeleton) +
+                                heuristic(child_node.atoms))
+                    hq.heappush(queue,
+                                (priority, rng_prio.uniform(), child_node))
+                    current_node = child_node
+                    if time.time() - start_time >= timeout:
+                        break
+            # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
+                child_skeleton = node.skeleton + [nsrt]
+                if abstract_policy is not None:
+                    child_skeleton_tup = tuple(child_skeleton)
+                    if child_skeleton_tup in visited_skeletons:
+                        continue
+                    visited_skeletons.add(child_skeleton_tup)
                 child_node = _Node(atoms=child_atoms,
-                                   skeleton=node.skeleton + [nsrt],
+                                   skeleton=child_skeleton,
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
