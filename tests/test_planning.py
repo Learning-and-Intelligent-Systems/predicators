@@ -2,6 +2,7 @@
 
 from contextlib import nullcontext as does_not_raise
 
+import numpy as np
 import pytest
 from gym.spaces import Box
 
@@ -457,3 +458,91 @@ def test_planning_determinism():
     assert len(all_plans) == 4
     for plan in all_plans[1:]:
         assert plan == all_plans[0]
+
+
+def test_policy_guided_sesame():
+    """Tests for sesame_plan() with an abstract policy used for guidance."""
+    utils.reset_config({
+        "env": "cover",
+        "num_test_tasks": 1,
+        "cover_initial_holding_prob": 0,
+    })
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = env.get_test_tasks()[0]
+    option_model = create_option_model(CFG.option_model_name)
+    # With a trivial policy, we would expect the number of nodes to be the
+    # same as it would be if we planned with no policy.
+    unguided_plan, unguided_metrics = sesame_plan(
+        task,
+        option_model,
+        nsrts,
+        env.predicates,
+        env.types,
+        1,  # timeout
+        123,  # seed
+        CFG.sesame_task_planning_heuristic,
+        CFG.sesame_max_skeletons_optimized,
+        max_horizon=CFG.horizon,
+    )
+    trivial_policy = lambda a, o, g: None
+    guided_plan, guided_metrics = sesame_plan(
+        task,
+        option_model,
+        nsrts,
+        env.predicates,
+        env.types,
+        1,  # timeout
+        123,  # seed
+        CFG.sesame_task_planning_heuristic,
+        CFG.sesame_max_skeletons_optimized,
+        max_horizon=CFG.horizon,
+        abstract_policy=trivial_policy)
+    assert unguided_metrics["num_nodes_created"] == \
+        guided_metrics["num_nodes_created"]
+    assert unguided_metrics["num_nodes_expanded"] == \
+        guided_metrics["num_nodes_expanded"]
+    # Check that the plans are equal.
+    assert len(unguided_plan) == len(guided_plan)
+    for option1, option2 in zip(unguided_plan, guided_plan):
+        assert option1.name == option2.name
+        assert option1.objects == option2.objects
+        assert np.allclose(option1.params, option2.params)
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    pick_nsrt = nsrt_name_to_nsrt["Pick"]
+    place_nsrt = nsrt_name_to_nsrt["Place"]
+
+    # When using a perfect policy, we should only expand nodes along the plan.
+    def _abstract_policy(atoms, objs, goal):
+        del objs  # unused
+        assert all(a.predicate.name == "Covers" for a in goal)
+        block_to_target = {a.objects[0]: a.objects[1] for a in goal}
+        held_blocks = [
+            a.objects[0] for a in atoms if a.predicate.name == "Holding"
+        ]
+        assert len(held_blocks) <= 1
+        # If already holding an object, put it on the target.
+        if held_blocks:
+            block = held_blocks[0]
+            target = block_to_target[block]
+            return place_nsrt.ground([block, target])
+        # Otherwise, pick up a block that's not yet at its goal.
+        unrealized_goals = goal - atoms
+        unrealized_blocks = sorted(a.objects[0] for a in unrealized_goals)
+        block = unrealized_blocks[0]
+        return pick_nsrt.ground([block])
+
+    plan, metrics = sesame_plan(
+        task,
+        option_model,
+        nsrts,
+        env.predicates,
+        env.types,
+        1,  # timeout
+        123,  # seed
+        CFG.sesame_task_planning_heuristic,
+        CFG.sesame_max_skeletons_optimized,
+        max_horizon=CFG.horizon,
+        abstract_policy=_abstract_policy)
+
+    assert metrics["num_nodes_expanded"] == len(plan)
