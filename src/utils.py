@@ -1553,6 +1553,7 @@ def run_policy_guided_astar(
     The get_valid_actions generates (action, cost) tuples. For policy-generated
     transitions, the costs are ignored, and rollout_step_cost is used instead.
     """
+    import time
 
     # Create a new successor function that rolls out the policy first.
     # A successor here means: from this state, if you take this sequence of
@@ -1564,16 +1565,22 @@ def run_policy_guided_astar(
         policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
-            if action is None:
+            print(action)
+            valid_actions = {a for a, _ in get_valid_actions(policy_state)}
+            if action is None or action not in valid_actions:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
             policy_cost += rollout_step_cost
             yield (list(policy_action_seq), policy_state, policy_cost)
-
+        print("Hello World")
+        #time.sleep(1)
         # Get primitive successors.
         for action, cost in get_valid_actions(state):
             next_state = get_next_state(state, action)
+
+            #time.sleep(1)
+
             yield ([action], next_state, cost)
 
     _, action_subseqs = run_astar(initial_state=initial_state,
