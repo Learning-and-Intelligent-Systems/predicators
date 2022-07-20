@@ -14,17 +14,10 @@ Usage example:
         --sshkey ~/.ssh/cloud.key
 """
 
-from typing import Dict, Sequence
-
 import argparse
 import os
 
-SAVE_DIRS = [
-    "results",
-    "logs",
-    "saved_datasets",
-    "saved_approaches"
-]
+SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
 
 
 def _main() -> None:
@@ -37,7 +30,7 @@ def _main() -> None:
     openstack_dir = os.path.dirname(os.path.realpath(__file__))
     # Load the machine IPs.
     machine_file = os.path.join(openstack_dir, args.machines)
-    with open(machine_file, "r") as f:
+    with open(machine_file, "r", encoding="utf-8") as f:
         machines = f.read().splitlines()
     # Make sure that the ssh key exists.
     assert os.path.exists(args.sshkey)
@@ -48,15 +41,16 @@ def _main() -> None:
         _download_from_machine(machine, args.dir, args.sshkey)
 
 
-def _download_from_machine(machine: str, download_dir: str, ssh_key: str) -> None:
+def _download_from_machine(machine: str, download_dir: str,
+                           ssh_key: str) -> None:
     print(f"Downloading from machine {machine}")
     for save_dir in SAVE_DIRS:
         local_save_dir = os.path.join(download_dir, save_dir)
         os.makedirs(local_save_dir, exist_ok=True)
         cmd = f"scp -r -i {ssh_key} -o StrictHostKeyChecking=no " + \
               f"ubuntu@{machine}:~/predicators/{save_dir}/* {local_save_dir}"
-        status = os.system(cmd)
-        if status != 0:
+        retcode = os.system(cmd)
+        if retcode != 0:
             print(f"WARNING: command failed: {cmd}")
 
 

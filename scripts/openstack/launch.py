@@ -9,13 +9,13 @@ Requires a file that contains a list of IP addresses for instances that are:
 Usage example:
     python scripts/openstack/launch.py --config example.yaml \
         --machines machines.txt --sshkey ~/.ssh/cloud.key
-
 """
-
-from typing import Dict, Sequence
 
 import argparse
 import os
+import subprocess
+from typing import Dict, Sequence
+
 import yaml
 
 
@@ -29,11 +29,11 @@ def _main() -> None:
     openstack_dir = os.path.dirname(os.path.realpath(__file__))
     # Load the config file.
     config_file = os.path.join(openstack_dir, "configs", args.config)
-    with open(config_file, "r") as f:
+    with open(config_file, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     # Load the machine IPs.
     machine_file = os.path.join(openstack_dir, args.machines)
-    with open(machine_file, "r") as f:
+    with open(machine_file, "r", encoding="utf-8") as f:
         machines = f.read().splitlines()
     # Make sure that the ssh key exists.
     assert os.path.exists(args.sshkey)
@@ -47,7 +47,6 @@ def _main() -> None:
     available_machines = list(machines)
     start_seed = config["START_SEED"]
     cmd_args = config["ARGS"]
-    flags = config["FLAGS"]
     for seed in range(start_seed, start_seed + num_seeds):
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
@@ -62,18 +61,20 @@ def _main() -> None:
                 experiment_flags.update(env_config["FLAGS"])
                 # Launch the experiment for this approach / env / seed.
                 logfile = _create_logfile(experiment_id, approach, env, seed)
-                cmd = _create_cmd(experiment_id, approach, env, seed, cmd_args, experiment_flags)
+                cmd = _create_cmd(experiment_id, approach, env, seed, cmd_args,
+                                  experiment_flags)
                 # One experiment per machine.
                 machine = available_machines.pop()
                 _launch_experiment(cmd, machine, logfile, args.sshkey)
 
 
-def _create_logfile(experiment_id: str, approach: str, env: str, seed: int) -> str:
+def _create_logfile(experiment_id: str, approach: str, env: str,
+                    seed: int) -> str:
     return f"logs/{env}__{approach}__{experiment_id}__{seed}.log"
 
 
 def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
-    args: Sequence[str], flags: Dict) -> str:
+                args: Sequence[str], flags: Dict) -> str:
     arg_str = " ".join(f"--{a}" for a in args)
     flag_str = " ".join(f"--{f} {v}" for f, v in flags.items())
     cmd = f"python3.8 src/main.py --env {env} --approach {approach} " + \
@@ -82,17 +83,23 @@ def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
     return cmd
 
 
-def _run_cmds_on_machine(cmds: Sequence[str], machine: str, ssh_key: str) -> None:
+def _run_cmds_on_machine(cmds: Sequence[str], machine: str,
+                         ssh_key: str) -> None:
     host = f"ubuntu@{machine}"
     ssh_cmd = f"ssh -tt -i {ssh_key} -o StrictHostKeyChecking=no {host}"
     server_cmd_str = "\n".join(cmds + ["exit"])
     final_cmd = f"{ssh_cmd} << EOF\n{server_cmd_str}\nEOF"
-    status = os.system(final_cmd)
-    if status != 0:
+    response = subprocess.run(final_cmd,
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.STDOUT,
+                              shell=True,
+                              check=False)
+    if response.returncode != 0:
         raise RuntimeError(f"Command failed: {final_cmd}")
 
 
-def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str) -> None:
+def _launch_experiment(cmd: str, machine: str, logfile: str,
+                       ssh_key: str) -> None:
     print(f"Launching on machine {machine}: {cmd}")
     server_cmds = [
         # Prepare the predicators directory.
