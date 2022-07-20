@@ -20,6 +20,7 @@ ENVS:
   cover:  # PG3 should sometimes fail, but PG4 should succeed
     NAME: "cover"
     FLAGS: []
+ARGS: []
 FLAGS:
   strips_learner: oracle
   sampler_learner: oracle
