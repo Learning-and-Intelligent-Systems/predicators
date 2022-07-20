@@ -2719,6 +2719,17 @@ def test_run_hill_climbing():
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
 
+    # Test early_termination_heuristic_thresh with very high value.
+    initial_state = (0, 0)
+    state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
+        initial_state,
+        _grid_check_goal_fn,
+        _grid_successor_fn,
+        _grid_heuristic_fn,
+        early_termination_heuristic_thresh=10000000)
+    assert state_sequence == [(0, 0)]
+    assert not action_sequence
+
 
 def test_run_policy_guided_astar():
     """Tests for run_policy_guided_astar()."""
@@ -2803,6 +2814,25 @@ def test_run_policy_guided_astar():
         _get_next_state,
         _grid_heuristic_fn,
         policy=lambda s: None,
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
+    # With a policy that outputs invalid actions, should ignore the policy
+    # and find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: "garbage",
         num_rollout_steps=num_rollout_steps,
         rollout_step_cost=0)
 
