@@ -47,6 +47,7 @@ def _main() -> None:
     available_machines = list(machines)
     start_seed = config["START_SEED"]
     cmd_args = config["ARGS"]
+    branch = config["BRANCH"]
     for seed in range(start_seed, start_seed + num_seeds):
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
@@ -65,7 +66,7 @@ def _main() -> None:
                                   experiment_flags)
                 # One experiment per machine.
                 machine = available_machines.pop()
-                _launch_experiment(cmd, machine, logfile, args.sshkey)
+                _launch_experiment(cmd, machine, logfile, args.sshkey, branch)
 
 
 def _create_logfile(experiment_id: str, approach: str, env: str,
@@ -98,14 +99,14 @@ def _run_cmds_on_machine(cmds: Sequence[str], machine: str,
         raise RuntimeError(f"Command failed: {final_cmd}")
 
 
-def _launch_experiment(cmd: str, machine: str, logfile: str,
-                       ssh_key: str) -> None:
+def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
+                       branch: str) -> None:
     print(f"Launching on machine {machine}: {cmd}")
     server_cmds = [
         # Prepare the predicators directory.
         "cd ~/predicators",
         "mkdir -p logs",
-        "git checkout master",
+        f"git checkout {branch}",
         "git pull",
         # Remove old results.
         "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
