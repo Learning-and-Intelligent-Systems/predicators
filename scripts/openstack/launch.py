@@ -99,8 +99,6 @@ def run_cmds_on_machine(
                               shell=True,
                               check=False)
     if response.returncode not in allowed_return_codes:
-        import ipdb
-        ipdb.set_trace()
         raise RuntimeError(f"Command failed: {final_cmd}")
 
 
