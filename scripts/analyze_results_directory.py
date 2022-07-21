@@ -61,7 +61,7 @@ if args.sidelining:
 def pd_create_equal_selector(
         key: str, value: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
     """Create a mask for a dataframe by checking key == value."""
-    return lambda df: df[key] == value
+    return lambda df: (df[key] == value).to_frame()
 
 
 def combine_selectors(
@@ -140,7 +140,7 @@ def create_raw_dataframe(
     # Group & aggregate data.
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
-    df.columns = column_names
+    df.rename(columns=dict(zip(df.columns, column_names)), inplace=True)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
@@ -157,10 +157,10 @@ def create_dataframes(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
     df = create_raw_dataframe(column_names_and_keys, derived_keys)
-    grouped = df.groupby(groups)
+    grouped = df.groupby(list(groups))
     means = grouped.mean()
     stds = grouped.std(ddof=0)
-    sizes = grouped.size()
+    sizes = grouped.size().to_frame()
     return means, stds, sizes
 
 
@@ -169,8 +169,8 @@ def _main() -> None:
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
-            mean = means.loc[row, col]
-            std = stds.loc[row, col]
+            mean = means.loc[row][col]
+            std = stds.loc[row][col]
             means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
     means["NUM_SEEDS"] = sizes
     pd.set_option("expand_frame_repr", False)

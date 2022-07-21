@@ -70,8 +70,12 @@ TITLE_ENVS = [
 
 
 def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
-    return df["EXPERIMENT_ID"].apply(
+    series_or_frame = df["EXPERIMENT_ID"].apply(
         lambda v: v.startswith(f"{env}_{approach}_"))
+    if isinstance(series_or_frame, pd.Series):
+        return series_or_frame.to_frame()
+    assert isinstance(series_or_frame, pd.DataFrame)
+    return series_or_frame
 
 
 PLOT_GROUPS = {
