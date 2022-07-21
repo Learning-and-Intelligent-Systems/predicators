@@ -67,6 +67,16 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         if "abstract_plan" in memory and memory["abstract_plan"]:
             return memory["abstract_plan"].pop(0)
         # Otherwise, we need to make a new abstract plan.
+        action_seq = self._get_llm_based_plan(state, atoms, goal)
+
+        if action_seq is not None:
+            # If valid plan, add plan to memory so it can be refined!
+            memory["abstract_plan"] = action_seq
+            return memory["abstract_plan"].pop(0)
+        raise ApproachFailure("Approach failed to find solution")
+
+    def _get_llm_based_plan(self, state: State, atoms: Set[GroundAtom],
+                     goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
@@ -80,12 +90,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             ground_nsrt_plan = self._process_single_prediction(
                 llm_prediction, state, atoms, goal)
             if ground_nsrt_plan is not None:
-                # If valid plan, add plan to memory so it can be refined!
-                memory["abstract_plan"] = ground_nsrt_plan
-                return memory["abstract_plan"].pop(0)
-        # Give up if none of the predictions work out.
-        raise ApproachFailure("No LLM predicted plan achieves the goal.")
-
+                return ground_nsrt_plan
+        return None
     def _process_single_prediction(
             self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
