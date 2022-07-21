@@ -14,8 +14,6 @@ Usage example:
 
 import argparse
 import os
-import subprocess
-from typing import Dict, Sequence
 
 from predicators.scripts.openstack.launch import run_cmds_on_machine
 

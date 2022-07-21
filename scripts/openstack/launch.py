@@ -89,6 +89,7 @@ def run_cmds_on_machine(
     machine: str,
     ssh_key: str,
     allowed_return_codes: Tuple[int] = (0, )) -> None:
+    """SSH into the machine, run the commands, then exit."""
     host = f"ubuntu@{machine}"
     ssh_cmd = f"ssh -tt -i {ssh_key} -o StrictHostKeyChecking=no {host}"
     server_cmd_str = "\n".join(cmds + ["exit"])
