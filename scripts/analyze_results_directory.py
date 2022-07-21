@@ -59,18 +59,18 @@ if args.sidelining:
 
 
 def pd_create_equal_selector(
-        key: str, value: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
+        key: str, value: str) -> Callable[[pd.DataFrame], pd.Series]:
     """Create a mask for a dataframe by checking key == value."""
-    return lambda df: (df[key] == value).to_frame()
+    return lambda df: df[key] == value
 
 
 def combine_selectors(
-    selectors: Sequence[Callable[[pd.DataFrame], pd.DataFrame]]
-) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    selectors: Sequence[Callable[[pd.DataFrame], pd.Series]]
+) -> Callable[[pd.DataFrame], pd.Series]:
     """And together multiple selectors."""
     assert len(selectors) > 0
 
-    def _selector(df: pd.DataFrame) -> pd.DataFrame:
+    def _selector(df: pd.DataFrame) -> pd.Series:
         mask = selectors[0](df)
         for i in range(1, len(selectors)):
             mask = mask & selectors[i](df)
@@ -81,7 +81,7 @@ def combine_selectors(
 
 def get_df_for_entry(
         x_key: str, df: pd.DataFrame,
-        selector: Callable[[pd.DataFrame], pd.DataFrame]) -> pd.DataFrame:
+        selector: Callable[[pd.DataFrame], pd.Series]) -> pd.DataFrame:
     """Create a dataframe with a subset selected by selector and with rows
     sorted by x_key."""
     df = df[selector(df)]
