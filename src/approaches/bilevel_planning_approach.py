@@ -5,7 +5,7 @@ then Execution.
 """
 
 import abc
-from typing import Callable, List, Set, Tuple
+from typing import Any, Callable, List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -81,8 +81,8 @@ class BilevelPlanningApproach(BaseApproach):
         return _policy
 
     def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float,
-                         seed: int) -> Tuple[List[_Option], Metrics]:
+                         preds: Set[Predicate], timeout: float, seed: int,
+                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
         """Subclasses may override to change the arguments to sesame_plan().
 
         For example, PG4 passes an abstract policy to sesame_plan().
@@ -97,7 +97,8 @@ class BilevelPlanningApproach(BaseApproach):
                            self._task_planning_heuristic,
                            self._max_skeletons_optimized,
                            max_horizon=CFG.horizon,
-                           allow_noops=CFG.sesame_allow_noops)
+                           allow_noops=CFG.sesame_allow_noops,
+                           **kwargs)
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
