@@ -52,4 +52,5 @@ class PG4Approach(PG3Approach):
             timeout,
             seed,
             abstract_policy=abstract_policy,
-            max_policy_guided_rollout=max_policy_guided_rollout)
+            max_policy_guided_rollout=max_policy_guided_rollout,
+            **kwargs)

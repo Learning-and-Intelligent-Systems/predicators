@@ -83,9 +83,9 @@ class BilevelPlanningApproach(BaseApproach):
     def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
                          preds: Set[Predicate], timeout: float, seed: int,
                          **kwargs: Any) -> Tuple[List[_Option], Metrics]:
-        """Subclasses may override to change the arguments to sesame_plan().
+        """Subclasses may override.
 
-        For example, PG4 passes an abstract policy to sesame_plan().
+        For example, PG4 inserts an abstract policy into kwargs.
         """
         return sesame_plan(task,
                            self._option_model,
