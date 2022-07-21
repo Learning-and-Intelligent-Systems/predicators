@@ -1839,13 +1839,23 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+def all_ground_ldl_rules(rule: LDLRule,
+                         objects: Collection[Object]) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects."""
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+
+
+@functools.lru_cache(maxsize=None)
+def _cached_all_ground_ldl_rules(
+        rule: LDLRule,
+        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+    """Helper for all_ground_ldl_rules() that caches the outputs."""
+    ground_rules = []
     types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(objects, types):
-        yield rule.ground(tuple(choice))
+    for choice in get_object_combinations(frozen_objects, types):
+        ground_rule = rule.ground(tuple(choice))
+        ground_rules.append(ground_rule)
+    return ground_rules
 
 
 _T = TypeVar("_T")  # element of a set
