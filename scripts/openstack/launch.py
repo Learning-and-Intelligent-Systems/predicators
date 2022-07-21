@@ -14,7 +14,7 @@ Usage example:
 import argparse
 import os
 import subprocess
-from typing import Dict, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import yaml
 
@@ -85,10 +85,10 @@ def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
 
 
 def run_cmds_on_machine(
-    cmds: Sequence[str],
+    cmds: List[str],
     machine: str,
     ssh_key: str,
-    allowed_return_codes: Tuple[int] = (0, )) -> None:
+    allowed_return_codes: Tuple[int, ...] = (0, )) -> None:
     """SSH into the machine, run the commands, then exit."""
     host = f"ubuntu@{machine}"
     ssh_cmd = f"ssh -tt -i {ssh_key} -o StrictHostKeyChecking=no {host}"
