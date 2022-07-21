@@ -5,7 +5,7 @@ then Execution.
 """
 
 import abc
-from typing import Callable, List, Set
+from typing import Any, Callable, List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -16,8 +16,8 @@ from predicators.src.option_model import _OptionModelBase, create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+from predicators.src.structs import NSRT, Action, Metrics, \
+    ParameterizedOption, Predicate, State, Task, Type, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -50,17 +50,8 @@ class BilevelPlanningApproach(BaseApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         try:
-            plan, metrics = sesame_plan(task,
-                                        self._option_model,
-                                        nsrts,
-                                        preds,
-                                        self._types,
-                                        timeout,
-                                        seed,
-                                        self._task_planning_heuristic,
-                                        self._max_skeletons_optimized,
-                                        max_horizon=CFG.horizon,
-                                        allow_noops=CFG.sesame_allow_noops)
+            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                                  seed)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
@@ -88,6 +79,26 @@ class BilevelPlanningApproach(BaseApproach):
                 raise ApproachFailure(e.args[0], e.info)
 
         return _policy
+
+    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
+                         preds: Set[Predicate], timeout: float, seed: int,
+                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+        """Subclasses may override.
+
+        For example, PG4 inserts an abstract policy into kwargs.
+        """
+        return sesame_plan(task,
+                           self._option_model,
+                           nsrts,
+                           preds,
+                           self._types,
+                           timeout,
+                           seed,
+                           self._task_planning_heuristic,
+                           self._max_skeletons_optimized,
+                           max_horizon=CFG.horizon,
+                           allow_noops=CFG.sesame_allow_noops,
+                           **kwargs)
 
     def reset_metrics(self) -> None:
         super().reset_metrics()

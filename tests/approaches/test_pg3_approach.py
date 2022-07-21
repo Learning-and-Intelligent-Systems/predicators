@@ -90,7 +90,6 @@ def test_pg3_approach(approach_name, approach_cls):
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
-    assert str(option.objects) == "[paper-0:paper, loc-0:loc]"
     ldl = LiftedDecisionList([])
     approach._current_ldl = ldl  # pylint: disable=protected-access
     # PG3 alone fails.
