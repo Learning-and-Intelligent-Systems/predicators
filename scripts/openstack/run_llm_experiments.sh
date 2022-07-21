@@ -107,6 +107,23 @@ ENV_FLAGS="--pddl_blocks_procedural_train_min_num_blocks 3 \
 #     --pddl_delivery_procedural_test_max_want_locs 30 \
 #     --pddl_delivery_procedural_test_max_extra_newspapers 10"
 
+# # Medium spanner environment.
+# ENV_EXPERIMENT_ID="medium-spanner"
+# ENV="pddl_spanner_procedural_tasks"
+# ENV_FLAGS="--pddl_spanner_procedural_train_min_nuts 1 \
+#     --pddl_spanner_procedural_train_max_nuts 3 \
+#     --pddl_spanner_procedural_train_min_extra_spanners 0 \
+#     --pddl_spanner_procedural_train_max_extra_spanners 2 \
+#     --pddl_spanner_procedural_train_min_locs 2 \
+#     --pddl_spanner_procedural_train_max_locs 4 \
+#     --pddl_spanner_procedural_test_min_nuts 9 \
+#     --pddl_spanner_procedural_test_max_nuts 11 \
+#     --pddl_spanner_procedural_test_min_extra_spanners 0 \
+#     --pddl_spanner_procedural_test_max_extra_spanners 5 \
+#     --pddl_spanner_procedural_test_min_locs 9 \
+#     --pddl_spanner_procedural_test_max_locs 11"
+
+
 # Set this to the private key that has access to the machines.
 SSH_PRIVATE_KEY_PATH="~/.ssh/cloud.key"
 
