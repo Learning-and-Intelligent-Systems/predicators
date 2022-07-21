@@ -30,15 +30,15 @@ Easier setting:
         --debug
 """
 from __future__ import annotations
-
+from predicators.src.approaches import ApproachFailure
 from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from predicators.src import utils
 from predicators.src.approaches.open_loop_llm_approach import \
     OpenLoopLLMApproach
 from predicators.src.settings import CFG
-from predicators.src.structs import GroundAtom, ParameterizedOption, \
-    Sequence, State, _GroundNSRT, Any
+from predicators.src.structs import Any, GroundAtom, ParameterizedOption, \
+    Sequence, State, _GroundNSRT
 
 
 class LLMProbeApproach(OpenLoopLLMApproach):
@@ -60,7 +60,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
             # If valid plan, add plan to memory so it can be refined!
             memory["abstract_plan"] = action_seq
             return memory["abstract_plan"].pop(0)
-        raise "Approach does not work"
+        raise ApproachFailure("Approach failed to find solution")
 
     def _run_planner(self, state: State, atoms: Set[GroundAtom],
                      goal: Set[GroundAtom]) -> List[_GroundNSRT]:
@@ -138,7 +138,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
 
     def _get_llm_based_state_action_predictions(
             self, atoms: Set[GroundAtom], goal: Set[GroundAtom],
-            state: State) -> List[Tuple[List[Any],List[Any]]]:
+            state: State) -> List[Tuple[List[Any], List[Any]]]:
         trajectories = []
         initial_atoms = atoms
 
