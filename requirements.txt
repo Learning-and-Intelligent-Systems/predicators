@@ -18,3 +18,4 @@ sklearn
 pyqt5
 graphlib-backport
 openai
+pyyaml
