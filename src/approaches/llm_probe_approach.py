@@ -30,9 +30,11 @@ Easier setting:
         --debug
 """
 from __future__ import annotations
+
 from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
-from predicators.src.approaches import ApproachFailure
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.open_loop_llm_approach import \
     OpenLoopLLMApproach
 from predicators.src.settings import CFG
@@ -46,7 +48,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
     @classmethod
     def get_name(cls) -> str:
         return "llm_probe"
-    #
+
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:
         # If we already have an abstract plan, execute the next step.
@@ -67,13 +69,12 @@ class LLMProbeApproach(OpenLoopLLMApproach):
         initial_atoms: FrozenSet[GroundAtom] = frozenset(atoms)
         objects = set(state)
         trajectories = self._get_llm_based_state_action_predictions(
-            atoms, goal, state)
+            atoms, goal, state)  #get trajectories from llm
         final_states = []
         final_actions = []
         final_states.append(initial_atoms)
         if trajectories and trajectories[0]:
-            final_actions.append(
-                trajectories[0][1][0])  #dealing with initial that repeats
+            final_actions.append(trajectories[0][1][0])
         else:
             dictionary = None
         if trajectories:
@@ -87,6 +88,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
             new_states = []
             for s in final_states:
                 new_states.append(frozenset(s))
+            #creating dictionary for state-action combinations
             dictionary = dict(zip(new_states, final_actions))
         else:
             dictionary = None
@@ -95,6 +97,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
             for ground_nsrt in utils.all_ground_nsrts(nsrt, objects)
         ]
 
+        #dictionary used to create policy for search function
         def policy(
             sete: FrozenSet[GroundAtom]
         ) -> Optional[Dict[FrozenSet[GroundAtom], _GroundNSRT]]:

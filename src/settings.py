@@ -143,18 +143,18 @@ class GlobalSettings:
     pddl_blocks_fixed_test_indices = list(range(6, 11))
 
     # pddl delivery env parameters
-    pddl_delivery_procedural_train_min_num_locs = 5
-    pddl_delivery_procedural_train_max_num_locs = 10
-    pddl_delivery_procedural_train_min_want_locs = 2
-    pddl_delivery_procedural_train_max_want_locs = 4
+    pddl_delivery_procedural_train_min_num_locs = 4
+    pddl_delivery_procedural_train_max_num_locs = 7
+    pddl_delivery_procedural_train_min_want_locs = 1
+    pddl_delivery_procedural_train_max_want_locs = 3
     pddl_delivery_procedural_train_min_extra_newspapers = 0
     pddl_delivery_procedural_train_max_extra_newspapers = 1
-    pddl_delivery_procedural_test_min_num_locs = 31
-    pddl_delivery_procedural_test_max_num_locs = 40
-    pddl_delivery_procedural_test_min_want_locs = 20
-    pddl_delivery_procedural_test_max_want_locs = 30
+    pddl_delivery_procedural_test_min_num_locs = 17
+    pddl_delivery_procedural_test_max_num_locs = 23
+    pddl_delivery_procedural_test_min_want_locs = 11
+    pddl_delivery_procedural_test_max_want_locs = 16
     pddl_delivery_procedural_test_min_extra_newspapers = 0
-    pddl_delivery_procedural_test_max_extra_newspapers = 10
+    pddl_delivery_procedural_test_max_extra_newspapers = 5
     pddl_easy_delivery_procedural_train_min_num_locs = 3
     pddl_easy_delivery_procedural_train_max_num_locs = 5
     pddl_easy_delivery_procedural_train_min_want_locs = 1
@@ -175,13 +175,15 @@ class GlobalSettings:
     pddl_spanner_procedural_train_max_extra_spanners = 2
     pddl_spanner_procedural_train_min_locs = 2
     pddl_spanner_procedural_train_max_locs = 4
-    pddl_spanner_procedural_test_min_nuts = 10
-    pddl_spanner_procedural_test_max_nuts = 20
+    pddl_spanner_procedural_test_min_nuts = 6
+    pddl_spanner_procedural_test_max_nuts = 7
     pddl_spanner_procedural_test_min_extra_spanners = 0
-    pddl_spanner_procedural_test_max_extra_spanners = 10
-    pddl_spanner_procedural_test_min_locs = 20
-    pddl_spanner_procedural_test_max_locs = 30
-
+    pddl_spanner_procedural_test_max_extra_spanners = 5
+    pddl_spanner_procedural_test_min_locs = 5
+    pddl_spanner_procedural_test_max_locs = 6
+    #original pddl_spanner_procedural_test_min_locs = 20, pddl_spanner_procedural_test_max_locs=30
+    #at hyperparameters 1,3,0,2,2,4,5,6,0,5,5,6 there seems to be a bit of success with the oracle approach might work for easy difficulty, 1/2 accuracy, llm also seems to achieve 1/2 accuracy
+    #at
     # pddl forest env parameters
     pddl_forest_procedural_train_min_size = 8
     pddl_forest_procedural_train_max_size = 10
@@ -261,7 +263,7 @@ class GlobalSettings:
     llm_openai_max_response_tokens = 700
 
     # parameters for open loop LLM approach
-    open_loop_llm_model_name = "text-curie-001"  # "text-davinci-002"
+    open_loop_llm_model_name = "text-davinci-002"  # "text-davinci-002"
     open_loop_llm_temperature = 0.5
     open_loop_llm_num_completions = 1
 
