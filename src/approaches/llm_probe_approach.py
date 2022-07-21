@@ -30,9 +30,8 @@ Easier setting:
         --debug
 """
 from __future__ import annotations
-from predicators.src.approaches import ApproachFailure
 from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
-
+from predicators.src.approaches import ApproachFailure
 from predicators.src import utils
 from predicators.src.approaches.open_loop_llm_approach import \
     OpenLoopLLMApproach
@@ -47,7 +46,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
     @classmethod
     def get_name(cls) -> str:
         return "llm_probe"
-
+    #
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:
         # If we already have an abstract plan, execute the next step.
