@@ -1,8 +1,6 @@
-"""Create plots for option learning."""
+"""Create plots for learning from varying numbers of demonstrations."""
 
-from typing import Optional
 import os
-from functools import partial
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -12,13 +10,13 @@ from predicators.scripts.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
-plt.rcParams["font.family"] = "Serif"
+# plt.rcParams["font.family"] = "CMU Serif"
 
 ############################ Change below here ################################
 
 # Details about the plt figure.
-DPI = 600
-FONT_SIZE = 23
+DPI = 500
+FONT_SIZE = 18
 
 # Groups over which to take mean/std.
 GROUPS = [
@@ -50,60 +48,36 @@ DERIVED_KEYS = [("perc_solved",
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("NUM_TRAIN_TASKS", "# Demonstrations"),
+    ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
+    # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
-    ("PERC_SOLVED", "% Eval Tasks Solved"),
+    ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
-TITLE_ENVS = [
-    ("Screws", "screws"),
-    ("Repeated NextTo", "repeated_nextto_single_option"),
-    ("RNT Painting", "repeated_nextto_painting"),
-    ("Painting", "painting"),
-    ("Satellites", "satellites"),
-    ("Satellites Simple", "satellites_simple")
-]
-
-def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
-    # Need to do some additional work because some of the names of
-    # the environments are subsets of others.
-    if approach == "painting":
-        return df["EXPERIMENT_ID"].apply(
-            lambda v: v.startswith(f"{env}_{approach}_")
-            and "repeated_nextto" not in v)
-    elif approach == "satellites":
-        return df["EXPERIMENT_ID"].apply(
-            lambda v: v.startswith(f"{env}_{approach}_")
-            and "simple" not in v)
-    return df["EXPERIMENT_ID"].apply(
-        lambda v: v.startswith(f"{env}_{approach}_"))
-    
-
-
 PLOT_GROUPS = {
-    title: [
-        ("Ours", "darkgreen", "o", partial(_select_data, env, "backchaining")),
-        ("Cluster and Intersect", "darkorange", "x",
-         partial(_select_data, env, "cluster_and_intersect")),
-        ("LOFT", "blue", "^",
-         partial(_select_data, env, "cluster_and_search")),
-        ("Prediction Error", "purple", "s",
-         partial(_select_data, env, "prediction_error")),
-        ("GNN Shooting", "grey", "*",
-         partial(_select_data, env, "gnn_shooting")),
-        ("GNN Model-Free", "brown", "p",
-         partial(_select_data, env, "gnn_modelfree")),
-        
-        
-    ]
-    for (title, env) in TITLE_ENVS
+    "Learning from Few Demonstrations": [
+        ("Screws", "o",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "screws_backchaining_" in v)),
+        ("Repeated NextTo", ".",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "repeated_nextto_single_option_backchaining_" in v)),
+        ("RNT Painting", "v",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "repeated_nextto_painting_backchaining_" in v)
+         ),
+        ("Painting", "^",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "painting_backchaining_" in v and "repeated_nextto" not in v)),
+        ("Satellites", "s",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "satellites_backchaining_" in v)),
+        ("Satellites Simple", "P",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "satellites_simple_backchaining_" in v)),
+    ],
 }
 
 # If True, add (0, 0) to every plot
@@ -126,8 +100,8 @@ def _main() -> None:
     for x_key, x_label in X_KEY_AND_LABEL:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
-                _, ax = plt.subplots(figsize=(10, 5))
-                for label, color, marker, selector in d:
+                _, ax = plt.subplots()
+                for label, marker, selector in d:
                     exp_means = get_df_for_entry(x_key, means, selector)
                     exp_stds = get_df_for_entry(x_key, stds, selector)
                     xs = exp_means[x_key].tolist()
@@ -141,15 +115,13 @@ def _main() -> None:
                                 ys,
                                 yerr=y_stds,
                                 label=label,
-                                color=color,
                                 marker=marker)
+                ax.set_xticks(xs)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 ax.set_ylim(Y_LIM)
-                plt.legend(loc='center left',
-                           bbox_to_anchor=(1, 0.5),
-                           prop={'size': 12})
+                plt.legend()
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
