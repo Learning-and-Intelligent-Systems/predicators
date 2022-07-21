@@ -10,7 +10,7 @@ import os
 import re
 import socket
 import subprocess
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 from urllib.request import urlopen
 
 import requests
