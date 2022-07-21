@@ -240,12 +240,13 @@ EOF
 # Download command.
 else
 
-# SCP the results, logs, saved_approaches, and saved_datasets.
+# SCP the results, logs, saved_approaches, saved_datasets, llm_cache.
 SAVE_DIRS=(
     "results"
     "logs"
     "saved_datasets"
     "saved_approaches"
+    "llm_cache"
 )
 for SAVE_DIR in ${SAVE_DIRS[@]}; do
 
