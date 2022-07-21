@@ -14,7 +14,7 @@ Usage example:
 import argparse
 import os
 import subprocess
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Tuple
 
 import yaml
 
@@ -84,8 +84,11 @@ def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
     return cmd
 
 
-def _run_cmds_on_machine(cmds: Sequence[str], machine: str,
-                         ssh_key: str) -> None:
+def run_cmds_on_machine(
+    cmds: Sequence[str],
+    machine: str,
+    ssh_key: str,
+    allowed_return_codes: Tuple[int] = (0, )) -> None:
     host = f"ubuntu@{machine}"
     ssh_cmd = f"ssh -tt -i {ssh_key} -o StrictHostKeyChecking=no {host}"
     server_cmd_str = "\n".join(cmds + ["exit"])
@@ -95,7 +98,9 @@ def _run_cmds_on_machine(cmds: Sequence[str], machine: str,
                               stderr=subprocess.STDOUT,
                               shell=True,
                               check=False)
-    if response.returncode != 0:
+    if response.returncode not in allowed_return_codes:
+        import ipdb
+        ipdb.set_trace()
         raise RuntimeError(f"Command failed: {final_cmd}")
 
 
@@ -113,7 +118,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
         # Run the main command.
         f"{cmd} &> {logfile} &",
     ]
-    _run_cmds_on_machine(server_cmds, machine, ssh_key)
+    run_cmds_on_machine(server_cmds, machine, ssh_key)
 
 
 if __name__ == "__main__":
