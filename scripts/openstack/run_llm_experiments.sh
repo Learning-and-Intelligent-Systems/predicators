@@ -246,7 +246,7 @@ SAVE_DIRS=(
     "logs"
     "saved_datasets"
     "saved_approaches"
-    "llm_cache"
+    # "llm_cache"
 )
 for SAVE_DIR in ${SAVE_DIRS[@]}; do
 
