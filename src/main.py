@@ -294,9 +294,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 if approach.get_last_plan() != [] or task.goal_holds(
                         task.init):
                     solved = True
-                    exec_time = 0.0
-                    metrics[
-                        f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
+                execution_metrics = {"policy_call_time": 0.0}
             elif CFG.behavior_option_model_eval:  # pragma: no cover
                 # To evaluate BEHAVIOR on our option model, we are going
                 # to run our approach's plan on our option model.
@@ -322,7 +320,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     task.goal_holds,
                     max_num_steps=CFG.horizon,
                     monitor=monitor)
-            solved = task.goal_holds(traj.states[-1])
+                solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:

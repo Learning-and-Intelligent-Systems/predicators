@@ -117,7 +117,7 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
-    behavior_option_model_eval = True
+    behavior_option_model_eval = False
     behavior_option_model_rrt = False
 
     # general pybullet parameters
