@@ -12,6 +12,7 @@ from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
     import pybullet as p
+    import scipy
     from igibson import object_states
     from igibson.envs.behavior_env import \
         BehaviorEnv  # pylint: disable=unused-import
@@ -27,7 +28,6 @@ try:
     from igibson.utils import sampling_utils
     from igibson.utils.behavior_robot_planning_utils import \
         plan_base_motion_br, plan_hand_motion_br
-    import scipy
 
 except (ImportError, ModuleNotFoundError) as e:
     pass
