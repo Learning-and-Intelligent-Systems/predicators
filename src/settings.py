@@ -265,7 +265,7 @@ class GlobalSettings:
     # parameters for open loop LLM approach
     open_loop_llm_model_name = "text-davinci-002"  # "text-davinci-002"
     open_loop_llm_temperature = 0.5
-    open_loop_llm_num_completions = 1
+    open_loop_llm_num_completions = 2
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
