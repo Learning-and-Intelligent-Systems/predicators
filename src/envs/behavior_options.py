@@ -5,7 +5,6 @@ import logging
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import scipy
 from numpy.random._generator import Generator
 
 from predicators.src.structs import Array, State
@@ -28,6 +27,7 @@ try:
     from igibson.utils import sampling_utils
     from igibson.utils.behavior_robot_planning_utils import \
         plan_base_motion_br, plan_hand_motion_br
+    import scipy
 
 except (ImportError, ModuleNotFoundError) as e:
     pass
