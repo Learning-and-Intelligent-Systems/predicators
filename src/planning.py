@@ -36,6 +36,7 @@ class _Node:
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Set[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
+    cumulative_cost: float
 
 
 def sesame_plan(task: Task,
@@ -246,7 +247,8 @@ def _skeleton_generator(
     root_node = _Node(atoms=init_atoms,
                       skeleton=[],
                       atoms_sequence=[init_atoms],
-                      parent=None)
+                      parent=None,
+                      cumulative_cost=0)
     metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
@@ -292,19 +294,28 @@ def _skeleton_generator(
                                                        set(current_node.atoms))
                     child_skeleton = current_node.skeleton + [ground_nsrt]
                     child_skeleton_tup = tuple(child_skeleton)
-                    if child_skeleton_tup in visited_skeletons:
-                        continue
+                    # Since policy-generated actions are cost 0, the policy
+                    # will always reach new skeletons before the primitive
+                    # actions do.
+                    assert child_skeleton_tup not in visited_skeletons
                     visited_skeletons.add(child_skeleton_tup)
+                    # Note: the cost of taking a policy-generated action is 0.
+                    # This encourages the planner to trust the policy, and
+                    # also allows us to yield a policy-generated plan without
+                    # waiting to exhaustively rule out the possibility that
+                    # some other primitive plans are actually lower cost.
+                    child_cost = current_node.cumulative_cost
                     child_node = _Node(
                         atoms=child_atoms,
                         skeleton=child_skeleton,
                         atoms_sequence=current_node.atoms_sequence +
                         [child_atoms],
-                        parent=current_node)
+                        parent=current_node,
+                        cumulative_cost=child_cost)
 
                     metrics["num_nodes_created"] += 1
-                    # priority is g [plan length] plus h [heuristic]
-                    priority = (len(child_node.skeleton) +
+                    # priority is g [cost] plus h [heuristic]
+                    priority = (child_node.cumulative_cost +
                                 heuristic(child_node.atoms))
                     hq.heappush(queue,
                                 (priority, rng_prio.uniform(), child_node))
@@ -321,14 +332,17 @@ def _skeleton_generator(
                     if child_skeleton_tup in visited_skeletons:
                         continue
                     visited_skeletons.add(child_skeleton_tup)
+                # Action costs are unitary.
+                child_cost = node.cumulative_cost + 1.0
                 child_node = _Node(atoms=child_atoms,
                                    skeleton=child_skeleton,
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
-                                   parent=node)
+                                   parent=node,
+                                   cumulative_cost=child_cost)
                 metrics["num_nodes_created"] += 1
-                # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton) +
+                # priority is g [cost] plus h [heuristic]
+                priority = (child_node.cumulative_cost +
                             heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
