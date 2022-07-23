@@ -514,7 +514,7 @@ def test_policy_guided_sesame():
     pick_nsrt = nsrt_name_to_nsrt["Pick"]
     place_nsrt = nsrt_name_to_nsrt["Place"]
 
-    # When using a perfect policy, we should only expand nodes along the plan.
+    # When using a perfect policy, we should only expand the first node.
     def _abstract_policy(atoms, objs, goal):
         del objs  # unused
         assert all(a.predicate.name == "Covers" for a in goal)
@@ -548,7 +548,7 @@ def test_policy_guided_sesame():
         abstract_policy=_abstract_policy,
         max_policy_guided_rollout=50)
 
-    assert metrics["num_nodes_expanded"] == len(plan)
+    assert metrics["num_nodes_expanded"] == 1.0
 
     # Test that a policy that outputs invalid NSRTs is not used.
     objects = set(task.init)
