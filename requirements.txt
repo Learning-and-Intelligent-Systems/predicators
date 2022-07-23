@@ -19,3 +19,4 @@ pyqt5
 graphlib-backport
 openai
 pyyaml
+types-PyYAML

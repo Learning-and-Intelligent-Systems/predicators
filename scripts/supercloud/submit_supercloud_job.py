@@ -28,7 +28,7 @@ def _run() -> None:
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
         f.write(mystr)
-    cmd = ("sbatch -p normal --time=99:00:00 --partition=xeon-p8 "
+    cmd = ("sbatch --time=99:00:00 --partition=xeon-p8 "
            f"--nodes=1 --exclusive --job-name={job_name} "
            f"--array={START_SEED}-{START_SEED+NUM_SEEDS-1} "
            f"-o {logfile_pattern} {temp_run_file}")
