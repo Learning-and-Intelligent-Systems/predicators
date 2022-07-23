@@ -56,19 +56,7 @@ class BilevelPlanningApproach(BaseApproach):
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
-        for metric in [
-                "num_skeletons_optimized", "num_failures_discovered",
-                "num_nodes_expanded", "num_nodes_created", "plan_length"
-        ]:
-            self._metrics[f"total_{metric}"] += metrics[metric]
-        self._metrics["total_num_nsrts"] += len(nsrts)
-        self._metrics["total_num_preds"] += len(preds)
-        self._metrics["min_num_skeletons_optimized"] = min(
-            metrics["num_skeletons_optimized"],
-            self._metrics["min_num_skeletons_optimized"])
-        self._metrics["max_num_skeletons_optimized"] = max(
-            metrics["num_skeletons_optimized"],
-            self._metrics["max_num_skeletons_optimized"])
+        self._save_metrics(metrics, nsrts, preds)
         self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)
 
@@ -104,6 +92,22 @@ class BilevelPlanningApproach(BaseApproach):
         super().reset_metrics()
         # Initialize min to inf (max gets initialized to 0 by default).
         self._metrics["min_num_skeletons_optimized"] = float("inf")
+
+    def _save_metrics(self, metrics: Metrics, nsrts: Set[NSRT],
+                      predicates: Set[Predicate]) -> None:
+        for metric in [
+                "num_skeletons_optimized", "num_failures_discovered",
+                "num_nodes_expanded", "num_nodes_created", "plan_length"
+        ]:
+            self._metrics[f"total_{metric}"] += metrics[metric]
+        self._metrics["total_num_nsrts"] += len(nsrts)
+        self._metrics["total_num_preds"] += len(predicates)
+        self._metrics["min_num_skeletons_optimized"] = min(
+            metrics["num_skeletons_optimized"],
+            self._metrics["min_num_skeletons_optimized"])
+        self._metrics["max_num_skeletons_optimized"] = max(
+            metrics["num_skeletons_optimized"],
+            self._metrics["max_num_skeletons_optimized"])
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
