@@ -128,5 +128,10 @@ def test_llm_open_loop_approach():
     response = ideal_response.replace(":", ":dummy-")
     option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
     assert not option_plan
+    # Case where types are correct, but the number of objects is wrong.
+    assert ideal_response.startswith("\npick-up(paper-0:paper, loc-0:loc)")
+    response = "\npick-up(paper-0:paper)"
+    option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
+    assert not option_plan
 
     shutil.rmtree(cache_dir)
