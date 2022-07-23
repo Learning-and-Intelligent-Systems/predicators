@@ -534,7 +534,7 @@ def test_policy_guided_sesame():
         block = unrealized_blocks[0]
         return pick_nsrt.ground([block])
 
-    plan, metrics = sesame_plan(
+    _, metrics = sesame_plan(
         task,
         option_model,
         nsrts,
