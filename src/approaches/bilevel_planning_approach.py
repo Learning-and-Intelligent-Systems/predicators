@@ -49,13 +49,8 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        try:
-            plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                                  seed)
-        except PlanningFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
-        except PlanningTimeout as e:
-            raise ApproachTimeout(e.args[0], e.info)
+        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                              seed)
         self._save_metrics(metrics, nsrts, preds)
         self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)
@@ -75,18 +70,25 @@ class BilevelPlanningApproach(BaseApproach):
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
-        return sesame_plan(task,
-                           self._option_model,
-                           nsrts,
-                           preds,
-                           self._types,
-                           timeout,
-                           seed,
-                           self._task_planning_heuristic,
-                           self._max_skeletons_optimized,
-                           max_horizon=CFG.horizon,
-                           allow_noops=CFG.sesame_allow_noops,
-                           **kwargs)
+        try:
+            plan, metrics = sesame_plan(task,
+                                        self._option_model,
+                                        nsrts,
+                                        preds,
+                                        self._types,
+                                        timeout,
+                                        seed,
+                                        self._task_planning_heuristic,
+                                        self._max_skeletons_optimized,
+                                        max_horizon=CFG.horizon,
+                                        allow_noops=CFG.sesame_allow_noops,
+                                        **kwargs)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
+        except PlanningTimeout as e:
+            raise ApproachTimeout(e.args[0], e.info)
+
+        return plan, metrics
 
     def reset_metrics(self) -> None:
         super().reset_metrics()

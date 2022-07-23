@@ -35,10 +35,8 @@ import time
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.open_loop_llm_approach import \
     OpenLoopLLMApproach
-from predicators.src.planning import PlanningFailure, PlanningTimeout
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, Object, ParameterizedOption, \
     Sequence, State, Task, _GroundNSRT
@@ -96,19 +94,14 @@ class LLMBilevelPlanningApproach(OpenLoopLLMApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         task = Task(state, goal)
-        try:
-            options, metrics = self._run_sesame_plan(
-                task,
-                nsrts,
-                preds,
-                CFG.timeout - (time.time() - start_time),
-                CFG.seed,
-                abstract_policy=abstract_policy,
-                max_policy_guided_rollout=max_policy_guided_rollout)
-        except PlanningFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
-        except PlanningTimeout as e:
-            raise ApproachTimeout(e.args[0], e.info)
+        options, metrics = self._run_sesame_plan(
+            task,
+            nsrts,
+            preds,
+            CFG.timeout - (time.time() - start_time),
+            CFG.seed,
+            abstract_policy=abstract_policy,
+            max_policy_guided_rollout=max_policy_guided_rollout)
         self._save_metrics(metrics, nsrts, preds)
         # Now convert the options back into ground NSRTs (:facepalm:). This
         # is very circuitous and we should refactor it later. There are two
