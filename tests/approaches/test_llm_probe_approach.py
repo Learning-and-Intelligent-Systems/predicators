@@ -2,10 +2,7 @@
 
 import shutil
 
-import pytest
-
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.llm_probe_approach import LLMProbeApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
@@ -94,6 +91,23 @@ def test_llm_probe_approach():
                                max_num_steps=1000)
     assert task.goal_holds(traj.states[-1])
     worst_case_metrics = approach.metrics
+    approach.reset_metrics()
+
+    # If the LLM response is suggests an invalid action, the plan should not
+    # be used after that. In this example, the plan will just be to deliver
+    # to a location that we're not yet at.
+    llm.response = "\n".join(ideal_response.split("\n")[-1:])
+    policy = approach.solve(task, timeout=500)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "train",
+                               task_idx,
+                               task.goal_holds,
+                               max_num_steps=1000)
+    assert task.goal_holds(traj.states[-1])
+    worst_case_metrics2 = approach.metrics
+    assert worst_case_metrics2["total_num_nodes_created"] == \
+        worst_case_metrics["total_num_nodes_created"]
     approach.reset_metrics()
 
     # If the LLM response is almost perfect, it should be very helpful for

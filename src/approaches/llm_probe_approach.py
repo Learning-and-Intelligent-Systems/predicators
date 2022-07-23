@@ -62,8 +62,7 @@ class LLMProbeApproach(OpenLoopLLMApproach):
                 atoms, objects, goal):
             ground_nsrt_plan = self._option_plan_to_nsrt_plan(
                 option_plan, atoms, objects, goal)
-            if ground_nsrt_plan is None:
-                continue
+            assert ground_nsrt_plan is not None
             # Simulate the ground NSRT plan and record the (atoms, ground NSRT)
             # pairs encountered along the way to build up a partial policy.
             single_partial_policy_dict = {}
