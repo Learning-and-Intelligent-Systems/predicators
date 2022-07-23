@@ -6,22 +6,22 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.open_loop_llm_approach import \
-    OpenLoopLLMApproach
+from predicators.src.approaches.llm_open_loop_approach import \
+    LLMOpenLoopApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.llm_interface import LargeLanguageModel
 
 
-def test_open_loop_llm_approach():
-    """Tests for OpenLoopLLMApproach()."""
+def test_llm_open_loop_approach():
+    """Tests for LLMOpenLoopApproach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     cache_dir = "_fake_llm_cache_dir"
     utils.reset_config({
         "env": env_name,
         "llm_prompt_cache_dir": cache_dir,
-        "approach": "open_loop_llm",
+        "approach": "llm_open_loop",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
@@ -30,9 +30,9 @@ def test_open_loop_llm_approach():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = OpenLoopLLMApproach(env.predicates, env.options, env.types,
+    approach = LLMOpenLoopApproach(env.predicates, env.options, env.types,
                                    env.action_space, train_tasks)
-    assert approach.get_name() == "open_loop_llm"
+    assert approach.get_name() == "llm_open_loop"
     # Test "learning", i.e., constructing the prompt prefix.
     dataset = create_dataset(env, train_tasks, env.options)
     assert not approach._prompt_prefix  # pylint: disable=protected-access
