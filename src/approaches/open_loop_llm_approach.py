@@ -73,7 +73,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             # If valid plan, add plan to memory so it can be refined!
             memory["abstract_plan"] = action_seq
             return memory["abstract_plan"].pop(0)
-        raise ApproachFailure("Approach failed to find solution")
+        raise ApproachFailure("No LLM predicted plan achieves the goal.")
 
     def _get_llm_based_plan(
             self, state: State, atoms: Set[GroundAtom],
