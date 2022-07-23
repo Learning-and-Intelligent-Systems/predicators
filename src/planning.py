@@ -256,7 +256,7 @@ def _skeleton_generator(
     # Initialize with empty skeleton for root.
     # We want to keep track of the visited skeletons so that we avoid
     # repeatedly outputting the same faulty skeletons.
-    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = {tuple()}
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
