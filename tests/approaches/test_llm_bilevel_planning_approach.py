@@ -1,8 +1,10 @@
 """Test cases for the LLM bilevel_planning approach."""
 
+import pytest
 import shutil
 
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.llm_bilevel_planning_approach import \
     LLMBilevelPlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
@@ -132,3 +134,18 @@ def test_llm_bilevel_planning_approach():
     approach.reset_metrics()
 
     shutil.rmtree(cache_dir)
+
+    # Test planning timeout.
+    utils.update_config({"timeout": -1})
+    policy = approach.solve(task, 500)
+    with pytest.raises(ApproachTimeout):
+        policy(task.init)
+    utils.update_config({"timeout": 10})
+
+    # Test planning failure.
+    nsrts = approach._nsrts  # pylint: disable=protected-access
+    for nsrt in nsrts:
+        nsrt.add_effects.clear()
+    policy = approach.solve(task, 500)
+    with pytest.raises(ApproachFailure):
+        policy(task.init)
