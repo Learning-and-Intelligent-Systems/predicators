@@ -1,7 +1,8 @@
 """Test cases for the LLM bilevel_planning approach."""
 
-import pytest
 import shutil
+
+import pytest
 
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout

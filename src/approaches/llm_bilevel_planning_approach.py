@@ -38,10 +38,10 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.open_loop_llm_approach import \
     OpenLoopLLMApproach
+from predicators.src.planning import PlanningFailure, PlanningTimeout
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, Object, ParameterizedOption, \
     Sequence, State, Task, _GroundNSRT
-from predicators.src.planning import PlanningFailure, PlanningTimeout
 
 
 class LLMBilevelPlanningApproach(OpenLoopLLMApproach):
