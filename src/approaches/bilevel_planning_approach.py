@@ -100,14 +100,14 @@ class BilevelPlanningApproach(BaseApproach):
                 "num_nodes_expanded", "num_nodes_created", "plan_length"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
-            self._metrics["total_num_nsrts"] += len(nsrts)
-            self._metrics["total_num_preds"] += len(predicates)
-            self._metrics["min_num_skeletons_optimized"] = min(
-                metrics["num_skeletons_optimized"],
-                self._metrics["min_num_skeletons_optimized"])
-            self._metrics["max_num_skeletons_optimized"] = max(
-                metrics["num_skeletons_optimized"],
-                self._metrics["max_num_skeletons_optimized"])
+        self._metrics["total_num_nsrts"] += len(nsrts)
+        self._metrics["total_num_preds"] += len(predicates)
+        self._metrics["min_num_skeletons_optimized"] = min(
+            metrics["num_skeletons_optimized"],
+            self._metrics["min_num_skeletons_optimized"])
+        self._metrics["max_num_skeletons_optimized"] = max(
+            metrics["num_skeletons_optimized"],
+            self._metrics["max_num_skeletons_optimized"])
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
