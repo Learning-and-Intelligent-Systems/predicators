@@ -256,7 +256,8 @@ def _skeleton_generator(
     # Initialize with empty skeleton for root.
     # We want to keep track of the visited skeletons so that we avoid
     # repeatedly outputting the same faulty skeletons.
-    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
+    visited_skeletons.add(tuple(root_node.skeleton))
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -310,7 +311,6 @@ def _skeleton_generator(
                         [child_atoms],
                         parent=current_node,
                         cumulative_cost=child_cost)
-
                     metrics["num_nodes_created"] += 1
                     # priority is g [cost] plus h [heuristic]
                     priority = (child_node.cumulative_cost +
@@ -325,11 +325,10 @@ def _skeleton_generator(
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_skeleton = node.skeleton + [nsrt]
-                if abstract_policy is not None:
-                    child_skeleton_tup = tuple(child_skeleton)
-                    if child_skeleton_tup in visited_skeletons:
-                        continue
-                    visited_skeletons.add(child_skeleton_tup)
+                child_skeleton_tup = tuple(child_skeleton)
+                if child_skeleton_tup in visited_skeletons:
+                    continue
+                visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.
                 child_cost = node.cumulative_cost + 1.0
                 child_node = _Node(atoms=child_atoms,
