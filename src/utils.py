@@ -1551,7 +1551,7 @@ def run_policy_guided_astar(
     """Perform A* search, but at each node, roll out a given policy for a given
     number of timesteps, creating new successors at each step.
 
-    Stop the roll out prematurely if the policy returns None.
+    Stop the rollout prematurely if the policy returns None.
 
     Note that unlike the other search functions, which take get_successors as
     input, this function takes get_valid_actions and get_next_state as two
