@@ -3,6 +3,8 @@
 import os
 import shutil
 
+import pytest
+
 from predicators.src import utils
 from predicators.src.llm_interface import LargeLanguageModel, OpenAILLM
 
@@ -46,6 +48,11 @@ def test_large_language_model():
     assert completions == [expected_completion] * 3
     # Clean up the cache dir.
     shutil.rmtree(cache_dir)
+    # Test llm_use_cache_only.
+    utils.update_config({"llm_use_cache_only": True})
+    with pytest.raises(ValueError) as e:
+        completions = llm.sample_completions("Hello world!", 0.5, 123, 3)
+    assert "No cached response found for LLM prompt." in str(e)
 
 
 def test_openai_llm():
