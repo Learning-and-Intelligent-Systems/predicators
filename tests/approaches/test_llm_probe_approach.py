@@ -24,7 +24,6 @@ def test_llm_probe_approach():
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
-        "sesame_task_planning_heuristic": "hff"
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
