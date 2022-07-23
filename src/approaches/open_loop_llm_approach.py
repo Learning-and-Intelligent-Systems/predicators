@@ -54,7 +54,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Set up the LLM.
-        self._llm = OpenAILLM(CFG.open_loop_llm_model_name)
+        self._llm = OpenAILLM(CFG.llm_model_name)
         # Set after learning.
         self._prompt_prefix = ""
 
@@ -79,6 +79,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             self, state: State, atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
         # Try to convert each output into an abstract plan.
+        # Return the first abstract plan that is found this way.
         objects = set(state)
         for option_plan in self._get_llm_based_option_plans(
                 atoms, objects, goal):
@@ -97,9 +98,9 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         # Query the LLM.
         llm_predictions = self._llm.sample_completions(
             prompt=prompt,
-            temperature=CFG.open_loop_llm_temperature,
+            temperature=CFG.llm_temperature,
             seed=CFG.seed,
-            num_completions=CFG.open_loop_llm_num_completions)
+            num_completions=CFG.llm_num_completions)
         for pred in llm_predictions:
             option_plan = self._llm_prediction_to_option_plan(pred, objects)
             yield option_plan

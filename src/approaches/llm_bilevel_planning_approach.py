@@ -1,8 +1,8 @@
-"""Large language model (LLM) based policy guided bilevel planning approach.
+"""Large language model (LLM) based policy-guided bilevel planning approach.
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach llm_probe --seed 0 \
+    python src/main.py --approach llm_bilevel_planning --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -10,7 +10,7 @@ Example command line:
         --debug
 
 Easier setting:
-    python src/main.py --approach llm_probe --seed 0 \
+    python src/main.py --approach llm_bilevel_planning --seed 0 \
         --strips_learner oracle \
         --env pddl_easy_delivery_procedural_tasks \
         --pddl_easy_delivery_procedural_train_min_num_locs 2 \
@@ -42,12 +42,12 @@ from predicators.src.structs import GroundAtom, Object, ParameterizedOption, \
     Sequence, State, Task, _GroundNSRT
 
 
-class LLMProbeApproach(OpenLoopLLMApproach):
-    """LLMProbeApproach definition."""
+class LLMBilevelPlanningApproach(OpenLoopLLMApproach):
+    """LLMBilevelPlanningApproach definition."""
 
     @classmethod
     def get_name(cls) -> str:
-        return "llm_probe"
+        return "llm_bilevel_planning"
 
     def _get_llm_based_plan(
             self, state: State, atoms: Set[GroundAtom],
@@ -58,8 +58,11 @@ class LLMProbeApproach(OpenLoopLLMApproach):
         start_time = time.time()
         objects = set(state)
         partial_policy_dict: Dict[FrozenSet[GroundAtom], _GroundNSRT] = {}
+        # All option plans are merged into a single partial policy.
         for option_plan in self._get_llm_based_option_plans(
                 atoms, objects, goal):
+            # Note that this calls the overridden method, not the parent's
+            # implementation.
             ground_nsrt_plan = self._option_plan_to_nsrt_plan(
                 option_plan, atoms, objects, goal)
             assert ground_nsrt_plan is not None
@@ -84,7 +87,10 @@ class LLMProbeApproach(OpenLoopLLMApproach):
         # sesame_plan.
         abstract_policy = lambda a, o, g: partial_policy_dict.get(
             frozenset(a), None)
-        max_policy_guided_rollout = CFG.horizon  # not important
+        # Could equivalently make this the length of the longest option plan,
+        # but when the option plan runs out, the abstract policy will return
+        # None, so we just make this an upper bound.
+        max_policy_guided_rollout = CFG.horizon
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         task = Task(state, goal)

@@ -1,32 +1,34 @@
-"""Test cases for the LLM probe approach."""
+"""Test cases for the LLM bilevel_planning approach."""
 
 import shutil
 
 from predicators.src import utils
-from predicators.src.approaches.llm_probe_approach import LLMProbeApproach
+from predicators.src.approaches.llm_bilevel_planning_approach import \
+    LLMBilevelPlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.llm_interface import LargeLanguageModel
 
 
-def test_llm_probe_approach():
-    """Tests for LLMProbeApproach()."""
+def test_llm_bilevel_planning_approach():
+    """Tests for LLMBilevelPlanningApproach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     cache_dir = "_fake_llm_cache_dir"
     utils.reset_config({
         "env": env_name,
         "llm_prompt_cache_dir": cache_dir,
-        "approach": "llm_probe",
+        "approach": "llm_bilevel_planning",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = LLMProbeApproach(env.predicates, env.options, env.types,
-                                env.action_space, train_tasks)
-    assert approach.get_name() == "llm_probe"
+    approach = LLMBilevelPlanningApproach(env.predicates, env.options,
+                                          env.types, env.action_space,
+                                          train_tasks)
+    assert approach.get_name() == "llm_bilevel_planning"
     # Test "learning", i.e., constructing the prompt prefix.
     dataset = create_dataset(env, train_tasks, env.options)
     assert not approach._prompt_prefix  # pylint: disable=protected-access
@@ -127,5 +129,6 @@ def test_llm_probe_approach():
     ideal_nodes = ideal_metrics["total_num_nodes_created"]
     assert worst_case_nodes > almost_ideal_nodes
     assert almost_ideal_nodes > ideal_nodes
+    approach.reset_metrics()
 
     shutil.rmtree(cache_dir)
