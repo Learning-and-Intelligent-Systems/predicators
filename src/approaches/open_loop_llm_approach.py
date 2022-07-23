@@ -176,6 +176,10 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                     malformed = True
                     break
                 objs_list.append(obj)
+            # The types of the objects match, but we haven't yet checked if
+            # all arguments of the option have an associated object.
+            if len(objs_list) != len(option.types):
+                malformed = True
             if not malformed:
                 option_plan.append((option, objs_list))
         return option_plan
