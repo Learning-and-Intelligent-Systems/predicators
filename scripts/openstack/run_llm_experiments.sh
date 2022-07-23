@@ -21,13 +21,23 @@ APPROACH_FLAGS=""
 # # LLM standard approach.
 # APPROACH_EXPERIMENT_ID="llm_standard"
 # APPROACH="open_loop_llm"
-# APPROACH_FLAGS="--open_loop_llm_model_name text-davinci-002"
+# APPROACH_FLAGS="--llm_model_name text-davinci-002"
 
 # # LLM multi-response approach.
 # APPROACH_EXPERIMENT_ID="llm_multi"
 # APPROACH="open_loop_llm"
-# APPROACH_FLAGS="--open_loop_llm_model_name text-davinci-002 \
-#     --open_loop_llm_num_completions 5"
+# APPROACH_FLAGS="--llm_model_name text-davinci-002 \
+#     --llm_num_completions 5"
+
+# APPROACH_EXPERIMENT_ID="llm_plan_standard"
+# APPROACH="llm_bilevel_planning"
+# APPROACH_FLAGS="--llm_model_name text-davinci-002 \
+#     --llm_use_cache_only True"
+
+# APPROACH_EXPERIMENT_ID="llm_plan_multi"
+# APPROACH="llm_bilevel_planning"
+# APPROACH_FLAGS="--llm_model_name text-davinci-002 \
+#     --llm_use_cache_only True --llm_num_completions 5"
 
 
 # Environment settings.
