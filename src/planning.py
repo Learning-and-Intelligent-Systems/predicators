@@ -294,10 +294,8 @@ def _skeleton_generator(
                                                        set(current_node.atoms))
                     child_skeleton = current_node.skeleton + [ground_nsrt]
                     child_skeleton_tup = tuple(child_skeleton)
-                    # Since policy-generated actions are cost 0, the policy
-                    # will always reach new skeletons before the primitive
-                    # actions do.
-                    assert child_skeleton_tup not in visited_skeletons
+                    if child_skeleton_tup in visited_skeletons:
+                        continue
                     visited_skeletons.add(child_skeleton_tup)
                     # Note: the cost of taking a policy-generated action is 0.
                     # This encourages the planner to trust the policy, and
