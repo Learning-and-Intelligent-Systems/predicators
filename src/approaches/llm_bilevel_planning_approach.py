@@ -35,14 +35,14 @@ import time
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from predicators.src import utils
-from predicators.src.approaches.open_loop_llm_approach import \
-    OpenLoopLLMApproach
+from predicators.src.approaches.llm_open_loop_approach import \
+    LLMOpenLoopApproach
 from predicators.src.settings import CFG
 from predicators.src.structs import GroundAtom, Object, ParameterizedOption, \
     Sequence, State, Task, _GroundNSRT
 
 
-class LLMBilevelPlanningApproach(OpenLoopLLMApproach):
+class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
     """LLMBilevelPlanningApproach definition."""
 
     @classmethod
