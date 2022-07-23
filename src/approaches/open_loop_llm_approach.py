@@ -32,7 +32,8 @@ Easier setting:
 from __future__ import annotations
 
 import logging
-from typing import Collection, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Collection, Dict, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
@@ -68,7 +69,6 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             return memory["abstract_plan"].pop(0)
         # Otherwise, we need to make a new abstract plan.
         action_seq = self._get_llm_based_plan(state, atoms, goal)
-
         if action_seq is not None:
             # If valid plan, add plan to memory so it can be refined!
             memory["abstract_plan"] = action_seq
@@ -78,6 +78,20 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
     def _get_llm_based_plan(
             self, state: State, atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
+        # Try to convert each output into an abstract plan.
+        objects = set(state)
+        for option_plan in self._get_llm_based_option_plans(
+                atoms, objects, goal):
+            ground_nsrt_plan = self._option_plan_to_nsrt_plan(
+                option_plan, atoms, objects, goal)
+            if ground_nsrt_plan is not None:
+                return ground_nsrt_plan
+        return None
+
+    def _get_llm_based_option_plans(
+        self, atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom]
+    ) -> Iterator[List[Tuple[ParameterizedOption, Sequence[Object]]]]:
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
@@ -86,37 +100,22 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             temperature=CFG.open_loop_llm_temperature,
             seed=CFG.seed,
             num_completions=CFG.open_loop_llm_num_completions)
-        # Try to convert the output into an abstract plan.
-        for llm_prediction in llm_predictions:
-            ground_nsrt_plan = self._process_single_prediction(
-                llm_prediction, state, atoms, goal)
-            if ground_nsrt_plan is not None:
-                return ground_nsrt_plan
-        return None
+        for pred in llm_predictions:
+            option_plan = self._llm_prediction_to_option_plan(pred, objects)
+            yield option_plan
 
-    def _process_single_prediction(
-            self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
+    def _option_plan_to_nsrt_plan(
+            self, option_plan: List[Tuple[ParameterizedOption,
+                                          Sequence[Object]]],
+            atoms: Set[GroundAtom], objects: Set[Object],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
-        objects = set(state)
-        option_plan = self._llm_prediction_to_option_plan(
-            llm_prediction, objects)
-        # If we failed to find a nontrivial plan with this prediction,
-        # continue on to next prediction.
-        if len(option_plan) == 0:
-            return None
-        # Attempt to turn the plan into a sequence of ground NSRTs.
         nsrts = self._get_current_nsrts()
         predicates = self._initial_predicates
         strips_ops = [n.op for n in nsrts]
         option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-        ground_nsrt_plan = task_plan_with_option_plan_constraint(
-            objects, predicates, strips_ops, option_specs, atoms, goal,
-            option_plan)
-        # If we can't find an NSRT plan that achieves the goal,
-        # continue on to next prediction.
-        if not ground_nsrt_plan:
-            return None
-        return ground_nsrt_plan
+        return task_plan_with_option_plan_constraint(objects, predicates,
+                                                     strips_ops, option_specs,
+                                                     atoms, goal, option_plan)
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
