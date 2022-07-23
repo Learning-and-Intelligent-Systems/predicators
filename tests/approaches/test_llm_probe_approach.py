@@ -29,7 +29,7 @@ def test_llm_probe_approach():
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
     approach = LLMProbeApproach(env.predicates, env.options, env.types,
-                                   env.action_space, train_tasks)
+                                env.action_space, train_tasks)
     assert approach.get_name() == "llm_probe"
     # Test "learning", i.e., constructing the prompt prefix.
     dataset = create_dataset(env, train_tasks, env.options)

@@ -83,7 +83,8 @@ class LLMProbeApproach(OpenLoopLLMApproach):
         # Run policy-guided A*. Note that we importantly want to use
         # sesame_plan because we will want to report the metrics collected in
         # sesame_plan.
-        abstract_policy = lambda a,o,g: partial_policy_dict.get(frozenset(a), None)
+        abstract_policy = lambda a, o, g: partial_policy_dict.get(
+            frozenset(a), None)
         max_policy_guided_rollout = CFG.horizon  # not important
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
