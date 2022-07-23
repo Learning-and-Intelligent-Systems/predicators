@@ -138,7 +138,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             # Skip empty option strs.
             if not option_str:
                 continue
-            if option_name not in option_name_to_option.keys():
+            if option_name not in option_name_to_option.keys() or \
+                "(" not in option_str:
                 logging.info(
                     f"Line {option_str} output by LLM doesn't "
                     "contain a valid option name. Terminating option plan "
