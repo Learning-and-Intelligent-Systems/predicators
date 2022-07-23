@@ -2,7 +2,7 @@
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach open_loop_llm --seed 0 \
+    python src/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -10,7 +10,7 @@ Example command line:
         --debug
 
 Easier setting:
-    python src/main.py --approach open_loop_llm --seed 0 \
+    python src/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_easy_delivery_procedural_tasks \
         --pddl_easy_delivery_procedural_train_min_num_locs 2 \
@@ -45,8 +45,8 @@ from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
-class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
-    """OpenLoopLLMApproach definition."""
+class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
+    """LLMOpenLoopApproach definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -60,7 +60,7 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
 
     @classmethod
     def get_name(cls) -> str:
-        return "open_loop_llm"
+        return "llm_open_loop"
 
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:
