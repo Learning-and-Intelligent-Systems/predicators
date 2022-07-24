@@ -16,7 +16,7 @@ import os
 from typing import Dict, Sequence
 
 from predicators.scripts.cluster_utils import generate_run_configs, \
-    run_cmds_on_machine
+    run_cmds_on_machine, SingleSeedRunConfig
 
 
 def _main() -> None:
@@ -40,6 +40,7 @@ def _main() -> None:
     assert num_machines >= len(run_configs)
     # Launch the runs.
     for machine, cfg in zip(machines, run_configs):
+        assert isinstance(cfg, SingleSeedRunConfig)
         logfile = _create_logfile(cfg.experiment_id, cfg.approach, cfg.env,
                                   cfg.seed)
         cmd = _create_cmd(cfg.experiment_id, cfg.approach, cfg.env, cfg.seed,

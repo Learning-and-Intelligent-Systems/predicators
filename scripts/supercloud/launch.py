@@ -52,7 +52,7 @@ def _launch_from_local(config_file: str, user: str) -> None:
 
 def _launch_experiments(config_file: str) -> None:
     # Loop over run configs.
-    for cfg in generate_run_configs(config_file):
+    for cfg in generate_run_configs(config_file, batch_seeds=True):
         # Create the args and flags string.
         arg_str = " ".join(f"--{a}" for a in cfg.args)
         flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items())
