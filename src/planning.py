@@ -751,11 +751,14 @@ def _sesame_plan_with_fast_downward(
     with open(prob_file, "w", encoding="utf-8") as f:
         f.write(prob_str)
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
+    # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
     if optimal:
         alias_flag = "--alias seq-opt-lmcut"
     else:  # satisficing
         alias_flag = "--alias lama-first"
+    assert "FD_EXEC_PATH" in os.environ, \
+        "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
@@ -773,7 +776,7 @@ def _sesame_plan_with_fast_downward(
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
-    # Extract the skeleton from `output` and compute the atoms_sequence.
+    # Extract the skeleton from the output and compute the atoms_sequence.
     if "Solution found!" not in output:
         raise PlanningFailure(f"Plan not found with FD! Error: {output}")
     if "Plan length: 0 step" in output:
