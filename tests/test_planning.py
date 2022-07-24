@@ -627,7 +627,7 @@ def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
-    with expectation as e:
+    with expectation as e:  # pragma: no cover
         plan, metrics = sesame_plan(
             task,
             option_model,
