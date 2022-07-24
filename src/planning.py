@@ -142,7 +142,7 @@ def sesame_plan(task: Task,
                 partial_refinements.append((skeleton, plan))
                 if time.time() - start_time > timeout:
                     raise PlanningTimeout(
-                        "Planning timed out in backtracking!",
+                        "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
@@ -699,9 +699,11 @@ def fast_downward_plan(task: Task,
         f.write(prob_str)
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
+    # TODO: make this a setting
     alias_flag = "--alias seq-opt-lmcut"  # optimal mode
     # alias_flag = "--alias lama-first"  # satisficing mode
     fd_exec_path = os.environ["FD_EXEC_PATH"]
+    # TODO: move these instructions somewhere else
     # `git clone https://github.com/ronuchit/downward.git`
     # `cd downward && ./build.py`
     # Set environment variable FD_EXEC_PATH to the path to `downward`
@@ -712,7 +714,7 @@ def fast_downward_plan(task: Task,
     cleanup_cmd_str = f"{exec_str} --cleanup"
     subprocess.getoutput(cleanup_cmd_str)
     if time.time() - start_time > timeout:
-        raise PlanningTimeout("Planning timed out!")
+        raise PlanningTimeout("Planning timed out in call to FD!")
     # Parse and log metrics.
     metrics: Metrics = defaultdict(float)
     num_nodes_expanded = re.findall(r"Evaluated (\d+) state", output)
@@ -759,6 +761,8 @@ def fast_downward_plan(task: Task,
         # compute all the ground NSRTs ourselves when using Fast Downward.
         raise PlanningFailure("Got a DiscoveredFailure when using FD!")
     if not suc:
+        if time.time() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in refinement!")
         raise PlanningFailure("Skeleton produced by FD not refinable!")
     return plan, metrics
 
