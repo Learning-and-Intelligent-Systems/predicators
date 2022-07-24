@@ -131,7 +131,7 @@ def sesame_plan(task: Task,
                 partial_refinements.append((skeleton, plan))
                 if time.time() - start_time > timeout:
                     raise PlanningTimeout(
-                        "Planning timed out in backtracking!",
+                        "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
