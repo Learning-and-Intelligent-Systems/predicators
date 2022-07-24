@@ -1,7 +1,8 @@
 """Launch supercloud experiments defined by config files.
 
-Usage example:     python scripts/supercloud/launch.py --config
-example.yaml --user tslvr
+Usage example:
+
+    python scripts/supercloud/launch.py --config example.yaml --user tslvr
 """
 
 import argparse
