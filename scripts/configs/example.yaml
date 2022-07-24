@@ -3,7 +3,7 @@
 APPROACHES:
   my-oracle:  # used in constructing the experiment ID
     NAME: "oracle"
-    FLAGS: []
+    FLAGS: {}
   nsrt-learning:
     NAME: "nsrt_learning"
     FLAGS:
@@ -11,7 +11,7 @@ APPROACHES:
 ENVS:
   my-cover:  # used in constructing the experiment ID
     NAME: "cover"
-    FLAGS: []
+    FLAGS: {}
   single-block-cover:
     NAME: "cover"
     FLAGS:
