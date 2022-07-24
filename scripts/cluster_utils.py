@@ -35,46 +35,47 @@ class BatchSeedRunConfig(RunConfig):
     num_seeds: int
 
 
-def parse_config(config_filename: str) -> Dict[str, Any]:
+def parse_configs(config_filename: str) -> Iterator[Dict[str, Any]]:
     """Parse the YAML config file."""
     scripts_dir = os.path.dirname(os.path.realpath(__file__))
     configs_dir = os.path.join(scripts_dir, "configs")
     config_filepath = os.path.join(configs_dir, config_filename)
     with open(config_filepath, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    return config
+        for config in yaml.safe_load_all(f):
+            yield config
 
 
 def generate_run_configs(config_filename: str,
                          batch_seeds: bool = False) -> Iterator[RunConfig]:
     """Generate run configs from a (local path) config file."""
-    config = parse_config(config_filename)
-    start_seed = config["START_SEED"]
-    num_seeds = config["NUM_SEEDS"]
-    args = config["ARGS"]
-    flags = config["FLAGS"]
-    branch = config["BRANCH"]
-    # Loop over approaches.
-    for approach_exp_id, approach_config in config["APPROACHES"].items():
-        approach = approach_config["NAME"]
-        # Loop over envs.
-        for env_exp_id, env_config in config["ENVS"].items():
-            env = env_config["NAME"]
-            # Create the experiment ID and flags.
-            experiment_id = f"{env_exp_id}-{approach_exp_id}"
-            run_flags = flags.copy()
-            run_flags.update(approach_config["FLAGS"])
-            run_flags.update(env_config["FLAGS"])
-            # Loop or batch over seeds.
-            if batch_seeds:
-                yield BatchSeedRunConfig(experiment_id, approach, env, branch,
-                                         args, run_flags.copy(), start_seed,
-                                         num_seeds)
-            else:
-                for seed in range(start_seed, start_seed + num_seeds):
-                    yield SingleSeedRunConfig(experiment_id, approach,
-                                              env, branch, args,
-                                              run_flags.copy(), seed)
+    for config in parse_configs(config_filename):
+        start_seed = config["START_SEED"]
+        num_seeds = config["NUM_SEEDS"]
+        args = config["ARGS"]
+        flags = config["FLAGS"]
+        branch = config["BRANCH"]
+        # Loop over approaches.
+        for approach_exp_id, approach_config in config["APPROACHES"].items():
+            approach = approach_config["NAME"]
+            # Loop over envs.
+            for env_exp_id, env_config in config["ENVS"].items():
+                env = env_config["NAME"]
+                # Create the experiment ID and flags.
+                experiment_id = f"{env_exp_id}-{approach_exp_id}"
+                run_flags = flags.copy()
+                run_flags.update(approach_config["FLAGS"])
+                run_flags.update(env_config["FLAGS"])
+                # Loop or batch over seeds.
+                if batch_seeds:
+                    yield BatchSeedRunConfig(experiment_id,
+                                             approach, env, branch, args,
+                                             run_flags.copy(), start_seed,
+                                             num_seeds)
+                else:
+                    for seed in range(start_seed, start_seed + num_seeds):
+                        yield SingleSeedRunConfig(experiment_id, approach,
+                                                  env, branch, args,
+                                                  run_flags.copy(), seed)
 
 
 def run_cmds_on_machine(

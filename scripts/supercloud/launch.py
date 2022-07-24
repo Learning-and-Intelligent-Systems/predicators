@@ -2,14 +2,14 @@
 
 Usage example:
 
-    python scripts/supercloud/launch.py --config example.yaml --user tslvr
+    python scripts/supercloud/launch.py --config example_basic.yaml --user tslvr
 """
 
 import argparse
 import sys
 
 from predicators.scripts.cluster_utils import SUPERCLOUD_IP, \
-    BatchSeedRunConfig, generate_run_configs, parse_config, \
+    BatchSeedRunConfig, generate_run_configs, parse_configs, \
     run_cmds_on_machine
 from predicators.scripts.supercloud.submit_supercloud_job import \
     submit_supercloud_job
@@ -35,8 +35,11 @@ def _main() -> None:
 
 
 def _launch_from_local(config_file: str, user: str) -> None:
-    config = parse_config(config_file)
-    branch = config["BRANCH"]
+    configs = list(parse_configs(config_file))
+    assert configs
+    branch = configs[0]["BRANCH"]
+    assert all(c["BRANCH"] == branch for c in configs), \
+        "Experiments defined in the same config must have the same branch."
     str_args = " ".join(sys.argv)
     server_cmds = [
         # Prepare the predicators directory.
