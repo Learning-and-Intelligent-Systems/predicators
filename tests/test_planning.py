@@ -604,12 +604,7 @@ def test_policy_guided_sesame():
             max_policy_guided_rollout=50)
 
 
-@pytest.mark.parametrize(
-    "sesame_task_planner,expectation",
-    [("fdopt", pytest.raises(AssertionError)),
-     ("fdsat", pytest.raises(AssertionError)),
-     ("not a real task planner", pytest.raises(ValueError))])
-def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
+def test_sesame_plan_fast_downward():
     """Tests for sesame_plan() with Fast Downward.
 
     We don't actually want to test Fast Downward, because we don't want
@@ -617,37 +612,38 @@ def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
     is written in a way that will pass whether you have Fast Downward
     installed or not.
     """
-    utils.reset_config({
-        "env": "painting",
-        "num_test_tasks": 1,
-        "painting_lid_open_prob": 1.0,
-        "sesame_task_planner": sesame_task_planner,
-    })
-    env = PaintingEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = env.get_test_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name)
-    with expectation as e:  # pragma: no cover
-        plan, metrics = sesame_plan(
-            task,
-            option_model,
-            nsrts,
-            env.predicates,
-            env.types,
-            1,  # timeout
-            123,  # seed
-            CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,
-            max_horizon=CFG.horizon,
-        )
-        assert all(isinstance(act, _Option) for act in plan)
-        assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
-        assert False, "Planning succeeded!"  # forcibly go into upcoming `if`
-    if e.type is AssertionError:
-        # If the FD_EXEC_PATH environment variable is not set, we should crash
-        # in the planner with the first message. Otherwise, sesame_plan()
-        # should succeed, and we should crash at the end of the above `with`.
-        assert "Please follow the instructions" in str(e) or \
-            "Planning succeeded!" in str(e)
-    else:
-        assert "Unrecognized sesame_task_planner" in str(e)
+    for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
+        utils.reset_config({
+            "env": "painting",
+            "num_test_tasks": 1,
+            "painting_lid_open_prob": 1.0,
+            "sesame_task_planner": sesame_task_planner,
+        })
+        env = PaintingEnv()
+        nsrts = get_gt_nsrts(env.predicates, env.options)
+        task = env.get_test_tasks()[0]
+        option_model = create_option_model(CFG.option_model_name)
+        try:
+            plan, metrics = sesame_plan(
+                task,
+                option_model,
+                nsrts,
+                env.predicates,
+                env.types,
+                1,  # timeout
+                123,  # seed
+                CFG.sesame_task_planning_heuristic,
+                CFG.sesame_max_skeletons_optimized,
+                max_horizon=CFG.horizon,
+            )
+            # We only get to these lines if FD is installed.
+            assert all(isinstance(act, _Option)
+                       for act in plan)  # pragma: no cover
+            assert metrics["num_nodes_created"] >= \
+                metrics["num_nodes_expanded"]  # pragma: no cover
+        except AssertionError as e:
+            # If the FD_EXEC_PATH environment variable is not set, we should
+            # crash in the planner.
+            assert "Please follow the instructions" in str(e)
+        except ValueError as e:
+            assert "Unrecognized sesame_task_planner" in str(e)
