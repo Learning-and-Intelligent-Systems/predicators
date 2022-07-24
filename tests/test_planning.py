@@ -29,12 +29,13 @@ from predicators.src.structs import NSRT, Action, ParameterizedOption, \
      (True, "not a real grounder", pytest.raises(ValueError))])
 def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
                      expectation):
-    """Tests for sesame_plan()."""
+    """Tests for sesame_plan() with A*."""
     utils.reset_config({
         "env": "cover",
         "sesame_check_expected_atoms": sesame_check_expected_atoms,
         "sesame_grounder": sesame_grounder,
         "num_test_tasks": 1,
+        "sesame_task_planner": "astar",
     })
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -601,3 +602,48 @@ def test_policy_guided_sesame():
             max_horizon=CFG.horizon,
             abstract_policy=_slow_policy,
             max_policy_guided_rollout=50)
+
+
+def test_sesame_plan_fast_downward():
+    """Tests for sesame_plan() with Fast Downward.
+
+    We don't actually want to test Fast Downward, because we don't want
+    to force people (and Github) to download and build it, so this test
+    is written in a way that will pass whether you have Fast Downward
+    installed or not.
+    """
+    for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
+        utils.reset_config({
+            "env": "painting",
+            "num_test_tasks": 1,
+            "painting_lid_open_prob": 1.0,
+            "sesame_task_planner": sesame_task_planner,
+        })
+        env = PaintingEnv()
+        nsrts = get_gt_nsrts(env.predicates, env.options)
+        task = env.get_test_tasks()[0]
+        option_model = create_option_model(CFG.option_model_name)
+        try:
+            plan, metrics = sesame_plan(
+                task,
+                option_model,
+                nsrts,
+                env.predicates,
+                env.types,
+                1,  # timeout
+                123,  # seed
+                CFG.sesame_task_planning_heuristic,
+                CFG.sesame_max_skeletons_optimized,
+                max_horizon=CFG.horizon,
+            )
+            # We only get to these lines if FD is installed.
+            assert all(isinstance(act, _Option)
+                       for act in plan)  # pragma: no cover
+            assert metrics["num_nodes_created"] >= \
+                metrics["num_nodes_expanded"]  # pragma: no cover
+        except AssertionError as e:
+            # If the FD_EXEC_PATH environment variable is not set, we should
+            # crash in the planner.
+            assert "Please follow the instructions" in str(e)
+        except ValueError as e:
+            assert "Unrecognized sesame_task_planner" in str(e)
