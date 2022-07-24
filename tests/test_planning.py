@@ -610,10 +610,12 @@ def test_policy_guided_sesame():
      ("fdsat", pytest.raises(AssertionError)),
      ("not a real task planner", pytest.raises(ValueError))])
 def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
-    """Tests for sesame_plan() with Fast Downward. We don't actually want
-    to test Fast Downward, because we don't want to force people (and Github)
-    to download and build it, so this test is written in a way that will pass
-    whether you have Fast Downward installed or not.
+    """Tests for sesame_plan() with Fast Downward.
+
+    We don't actually want to test Fast Downward, because we don't want
+    to force people (and Github) to download and build it, so this test
+    is written in a way that will pass whether you have Fast Downward
+    installed or not.
     """
     utils.reset_config({
         "env": "painting",
@@ -644,7 +646,7 @@ def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
     if e.type is AssertionError:
         # If the FD_EXEC_PATH environment variable is not set, we should crash
         # in the planner with the first message. Otherwise, sesame_plan()
-        # should succeed, and we should crash at the end of the `with`.
+        # should succeed, and we should crash at the end of the above `with`.
         assert "Please follow the instructions" in str(e) or \
             "Planning succeeded!" in str(e)
     else:
