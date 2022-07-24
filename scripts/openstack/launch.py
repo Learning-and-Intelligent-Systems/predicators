@@ -13,10 +13,10 @@ Usage example:
 
 import argparse
 import os
-import subprocess
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Sequence
 
-from predicators.scripts.cluster_utils import generate_run_configs
+from predicators.scripts.cluster_utils import generate_run_configs, \
+    run_cmds_on_machine
 
 
 def _main() -> None:
@@ -62,25 +62,6 @@ def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
     return cmd
 
 
-def run_cmds_on_machine(
-    cmds: List[str],
-    machine: str,
-    ssh_key: str,
-    allowed_return_codes: Tuple[int, ...] = (0, )) -> None:
-    """SSH into the machine, run the commands, then exit."""
-    host = f"ubuntu@{machine}"
-    ssh_cmd = f"ssh -tt -i {ssh_key} -o StrictHostKeyChecking=no {host}"
-    server_cmd_str = "\n".join(cmds + ["exit"])
-    final_cmd = f"{ssh_cmd} << EOF\n{server_cmd_str}\nEOF"
-    response = subprocess.run(final_cmd,
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.STDOUT,
-                              shell=True,
-                              check=False)
-    if response.returncode not in allowed_return_codes:
-        raise RuntimeError(f"Command failed: {final_cmd}")
-
-
 def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
                        branch: str) -> None:
     print(f"Launching on machine {machine}: {cmd}")
@@ -88,6 +69,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
         # Prepare the predicators directory.
         "cd ~/predicators",
         "mkdir -p logs",
+        "git fetch --all",
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
@@ -95,7 +77,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
         # Run the main command.
         f"{cmd} &> {logfile} &",
     ]
-    run_cmds_on_machine(server_cmds, machine, ssh_key)
+    run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)
 
 
 if __name__ == "__main__":

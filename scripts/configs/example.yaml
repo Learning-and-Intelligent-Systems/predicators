@@ -22,6 +22,6 @@ ARGS:
 FLAGS:  # general flags
   num_train_tasks: 20
   num_test_tasks: 10
-BRANCH: "master"
+BRANCH: "supercloud-yaml3"
 START_SEED: 456
 NUM_SEEDS: 2
