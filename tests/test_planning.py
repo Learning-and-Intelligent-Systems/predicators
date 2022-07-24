@@ -378,7 +378,7 @@ def test_planning_determinism():
             task1,
             option_model,
             [sleep_nsrt, cry_nsrt],
-            set(),
+            {asleep, cried},
             {robot_type},
             10,  # timeout
             123,  # seed
@@ -392,7 +392,7 @@ def test_planning_determinism():
             task1,
             option_model,
             [cry_nsrt, sleep_nsrt],
-            set(),
+            {asleep, cried},
             {robot_type},
             10,  # timeout
             123,  # seed
@@ -406,7 +406,7 @@ def test_planning_determinism():
             task2,
             option_model,
             [sleep_nsrt, cry_nsrt],
-            set(),
+            {asleep, cried},
             {robot_type},
             10,  # timeout
             123,  # seed
@@ -420,7 +420,7 @@ def test_planning_determinism():
             task2,
             option_model,
             [cry_nsrt, sleep_nsrt],
-            set(),
+            {asleep, cried},
             {robot_type},
             10,  # timeout
             123,  # seed

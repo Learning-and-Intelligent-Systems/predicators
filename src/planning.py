@@ -42,7 +42,7 @@ class _Node:
 def sesame_plan(task: Task,
                 option_model: _OptionModelBase,
                 nsrts: Set[NSRT],
-                initial_predicates: Set[Predicate],
+                predicates: Set[Predicate],
                 types: Set[Type],
                 timeout: float,
                 seed: int,
@@ -59,12 +59,6 @@ def sesame_plan(task: Task,
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
     planning, then Execution.
     """
-    # Note: the types that would be extracted from the NSRTs here may not
-    # include all the environment's types, so it's better to use the
-    # types that are passed in as an argument instead.
-    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
-    # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(nsrt_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
