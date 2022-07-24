@@ -15,8 +15,8 @@ import argparse
 import os
 from typing import Dict, Sequence
 
-from predicators.scripts.cluster_utils import generate_run_configs, \
-    run_cmds_on_machine, SingleSeedRunConfig
+from predicators.scripts.cluster_utils import SingleSeedRunConfig, \
+    generate_run_configs, run_cmds_on_machine
 
 
 def _main() -> None:

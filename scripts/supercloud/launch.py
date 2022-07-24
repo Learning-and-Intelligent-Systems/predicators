@@ -66,9 +66,10 @@ def _launch_experiments(config_file: str) -> None:
             log_dir = "log_dir"
         else:
             log_dir = CFG.log_dir
-        logfile_prefix = f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}"
+        # The None is a placeholder for seed.
+        log_prefix = f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__None"
         # Launch a job for this experiment.
-        submit_supercloud_job(cfg.experiment_id, log_dir, logfile_prefix,
+        submit_supercloud_job(cfg.experiment_id, log_dir, log_prefix,
                               args_and_flags_str, cfg.start_seed,
                               cfg.num_seeds)
 
