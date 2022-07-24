@@ -69,7 +69,8 @@ def _launch_experiments(config_file: str) -> None:
         logfile_prefix = f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}"
         # Launch a job for this experiment.
         submit_supercloud_job(cfg.experiment_id, log_dir, logfile_prefix,
-                              args_and_flags_str, cfg.start_seed, cfg.num_seed)
+                              args_and_flags_str, cfg.start_seed,
+                              cfg.num_seeds)
 
 
 if __name__ == "__main__":
