@@ -727,11 +727,8 @@ def _sesame_plan_with_fast_downward(
 
     Usage: Build and compile the Fast Downward planner, then set the environment
     variable FD_EXEC_PATH to point to the `downward` directory. For example:
-
     1) git clone https://github.com/ronuchit/downward.git
-
     2) cd downward && ./build.py
-
     3) export FD_EXEC_PATH="<your path here>/downward"
     """
     # Note: the types that would be extracted from the NSRTs here may not
