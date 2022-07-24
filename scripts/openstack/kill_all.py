@@ -15,7 +15,7 @@ Usage example:
 import argparse
 import os
 
-from predicators.scripts.openstack.launch import run_cmds_on_machine
+from predicators.scripts.cluster_utils import run_cmds_on_machine
 
 
 def _main() -> None:
@@ -37,8 +37,9 @@ def _main() -> None:
         print(f"Killing machine {machine}")
         # Allow return code 1, meaning that no process was found to kill.
         run_cmds_on_machine([kill_cmd],
+                            "ubuntu",
                             machine,
-                            args.sshkey,
+                            ssh_key=args.sshkey,
                             allowed_return_codes=(0, 1))
 
 
