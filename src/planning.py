@@ -47,7 +47,7 @@ class _Node:
 def sesame_plan(task: Task,
                 option_model: _OptionModelBase,
                 nsrts: Set[NSRT],
-                initial_predicates: Set[Predicate],
+                predicates: Set[Predicate],
                 types: Set[Type],
                 timeout: float,
                 seed: int,
@@ -70,25 +70,27 @@ def sesame_plan(task: Task,
     """
     if CFG.sesame_task_planner == "astar":
         return _sesame_plan_with_astar(
-            task, option_model, nsrts, initial_predicates, types, timeout,
-            seed, task_planning_heuristic, max_skeletons_optimized,
-            max_horizon, abstract_policy, max_policy_guided_rollout,
-            check_dr_reachable, allow_noops)
+            task, option_model, nsrts, predicates, types, timeout, seed,
+            task_planning_heuristic, max_skeletons_optimized, max_horizon,
+            abstract_policy, max_policy_guided_rollout, check_dr_reachable,
+            allow_noops)
     if CFG.sesame_task_planner == "fdopt":
+        assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
                                                option_model,
                                                nsrts,
-                                               initial_predicates,
+                                               predicates,
                                                types,
                                                timeout,
                                                seed,
                                                max_horizon,
                                                optimal=True)
     if CFG.sesame_task_planner == "fdsat":
+        assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
                                                option_model,
                                                nsrts,
-                                               initial_predicates,
+                                               predicates,
                                                types,
                                                timeout,
                                                seed,
@@ -102,7 +104,7 @@ def _sesame_plan_with_astar(
         task: Task,
         option_model: _OptionModelBase,
         nsrts: Set[NSRT],
-        initial_predicates: Set[Predicate],
+        predicates: Set[Predicate],
         types: Set[Type],
         timeout: float,
         seed: int,
@@ -114,12 +116,6 @@ def _sesame_plan_with_astar(
         check_dr_reachable: bool = True,
         allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
-    # Note: the types that would be extracted from the NSRTs here may not
-    # include all the environment's types, so it's better to use the
-    # types that are passed in as an argument instead.
-    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
-    # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(nsrt_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
@@ -719,7 +715,7 @@ def task_plan_with_option_plan_constraint(
 
 def _sesame_plan_with_fast_downward(
         task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
-        initial_predicates: Set[Predicate], types: Set[Type], timeout: float,
+        predicates: Set[Predicate], types: Set[Type], timeout: float,
         seed: int, max_horizon: int,
         optimal: bool) -> Tuple[List[_Option], Metrics]:
     """A version of SeSamE that runs the Fast Downward planner to produce a
@@ -731,12 +727,6 @@ def _sesame_plan_with_fast_downward(
     2) cd downward && ./build.py
     3) export FD_EXEC_PATH="<your path here>/downward"
     """
-    # Note: the types that would be extracted from the NSRTs here may not
-    # include all the environment's types, so it's better to use the
-    # types that are passed in as an argument instead.
-    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
-    # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(nsrt_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
@@ -750,6 +740,9 @@ def _sesame_plan_with_fast_downward(
     prob_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(prob_file, "w", encoding="utf-8") as f:
         f.write(prob_str)
+    # The SAS file isn't actually used, but it's important that we give it a
+    # name, because otherwise Fast Downward uses a fixed default name, which
+    # will cause issues if you run multiple processes simultaneously.
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
     # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
