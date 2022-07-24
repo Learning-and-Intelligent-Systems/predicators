@@ -2,7 +2,7 @@
 
 Usage example:
 
-    python scripts/supercloud/launch.py --config example.yaml --user tslvr
+    python scripts/supercloud/launch.py --config example_basic.yaml --user tslvr
 """
 
 import argparse

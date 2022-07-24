@@ -4,11 +4,11 @@
 # run in blocks.
 ---
 APPROACHES:
-  my-oracle:
+  oracle:
     NAME: "oracle"
     FLAGS: {}
 ENVS:
-  my-cover:
+  cover:
     NAME: "cover"
     FLAGS: {}
 ARGS: []
@@ -19,14 +19,14 @@ NUM_SEEDS: 3
 ...
 ---
 APPROACHES:
-  my-oracle:
+  oracle:
     NAME: "oracle"
     FLAGS: {}
-  my-nsrt-learning:
+  nsrt-learning:
     NAME: "nsrt_learning"
     FLAGS: {}
 ENVS:
-  my-blocks:
+  blocks:
     NAME: "blocks"
     FLAGS: {}
 ARGS: []

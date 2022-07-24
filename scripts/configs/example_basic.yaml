@@ -9,10 +9,10 @@ APPROACHES:
     FLAGS:
       disable_harmlessness_check: True  # just an example
 ENVS:
-  my-cover:  # used in constructing the experiment ID
+  cover-default-settings:  # used in constructing the experiment ID
     NAME: "cover"
     FLAGS: {}
-  single-block-cover:
+  cover-single-blocks:
     NAME: "cover"
     FLAGS:
       cover_num_blocks: 1
