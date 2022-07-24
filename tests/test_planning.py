@@ -640,7 +640,7 @@ def test_sesame_plan_fast_downward(sesame_task_planner, expectation):
         )
         assert all(isinstance(act, _Option) for act in plan)
         assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
-        assert False, "Planning succeeded!"
+        assert False, "Planning succeeded!"  # forcibly go into upcoming `if`
     if e.type is AssertionError:
         # If the FD_EXEC_PATH environment variable is not set, we should crash
         # in the planner with the first message. Otherwise, sesame_plan()
