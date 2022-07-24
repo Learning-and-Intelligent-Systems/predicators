@@ -5,13 +5,13 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 
 from __future__ import annotations
 
+import heapq as hq
+import logging
+import os
 import re
 import subprocess
 import sys
-import os
-import heapq as hq
 import tempfile
-import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -62,8 +62,58 @@ def sesame_plan(task: Task,
 
     Return a sequence of options, and a dictionary of metrics for this
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
-    planning, then Execution.
+    planning, then Execution. The high-level planner can be either A* or
+    Fast Downward (FD). In the latter case, we allow either optimal mode
+    ("fdopt") or satisficing mode ("fdsat"). With Fast Downward, we can
+    only consider at most one skeleton, and DiscoveredFailures cannot be
+    handled.
     """
+    if CFG.sesame_task_planner == "astar":
+        return _sesame_plan_with_astar(
+            task, option_model, nsrts, initial_predicates, types, timeout,
+            seed, task_planning_heuristic, max_skeletons_optimized,
+            max_horizon, abstract_policy, max_policy_guided_rollout,
+            check_dr_reachable, allow_noops)
+    if CFG.sesame_task_planner == "fdopt":
+        return _sesame_plan_with_fast_downward(task,
+                                               option_model,
+                                               nsrts,
+                                               initial_predicates,
+                                               types,
+                                               timeout,
+                                               seed,
+                                               max_horizon,
+                                               optimal=True)
+    if CFG.sesame_task_planner == "fdsat":
+        return _sesame_plan_with_fast_downward(task,
+                                               option_model,
+                                               nsrts,
+                                               initial_predicates,
+                                               types,
+                                               timeout,
+                                               seed,
+                                               max_horizon,
+                                               optimal=False)
+    raise ValueError("Unrecognized sesame_task_planner: "
+                     f"{CFG.sesame_task_planner}")
+
+
+def _sesame_plan_with_astar(
+        task: Task,
+        option_model: _OptionModelBase,
+        nsrts: Set[NSRT],
+        initial_predicates: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: str,
+        max_skeletons_optimized: int,
+        max_horizon: int,
+        abstract_policy: Optional[AbstractPolicy] = None,
+        max_policy_guided_rollout: int = 0,
+        check_dr_reachable: bool = True,
+        allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
+    """The default version of SeSamE, which runs A* to produce skeletons."""
     # Note: the types that would be extracted from the NSRTs here may not
     # include all the environment's types, so it's better to use the
     # types that are passed in as an argument instead.
@@ -667,16 +717,22 @@ def task_plan_with_option_plan_constraint(
     return action_seq
 
 
-def fast_downward_plan(task: Task,
-                       option_model: _OptionModelBase,
-                       nsrts: Set[NSRT],
-                       initial_predicates: Set[Predicate],
-                       types: Set[Type],
-                       timeout: float,
-                       seed: int,
-                       max_horizon: int) -> Tuple[List[_Option], Metrics]:
-    """Run the Fast Downward planner to produce a single skeleton, then call
-    run_low_level_search() to turn that skeleton into a plan.
+def _sesame_plan_with_fast_downward(
+        task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
+        initial_predicates: Set[Predicate], types: Set[Type], timeout: float,
+        seed: int, max_horizon: int,
+        optimal: bool) -> Tuple[List[_Option], Metrics]:
+    """A version of SeSamE that runs the Fast Downward planner to produce a
+    single skeleton, then calls run_low_level_search() to turn it into a plan.
+
+    Usage: Build and compile the Fast Downward planner, then set the environment
+    variable FD_EXEC_PATH to point to the `downward` directory. For example:
+
+    1) git clone https://github.com/ronuchit/downward.git
+
+    2) cd downward && ./build.py
+
+    3) export FD_EXEC_PATH="<your path here>/downward"
     """
     # Note: the types that would be extracted from the NSRTs here may not
     # include all the environment's types, so it's better to use the
@@ -689,8 +745,8 @@ def fast_downward_plan(task: Task,
     start_time = time.time()
     # Create the domain and problem strings, then write them to tempfiles.
     dom_str = utils.create_pddl_domain(nsrts, predicates, types, "mydomain")
-    prob_str = utils.create_pddl_problem(
-        objects, init_atoms, task.goal, "mydomain", "myproblem")
+    prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
+                                         "mydomain", "myproblem")
     dom_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(dom_file, "w", encoding="utf-8") as f:
         f.write(dom_str)
@@ -699,14 +755,11 @@ def fast_downward_plan(task: Task,
         f.write(prob_str)
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
-    # TODO: make this a setting
-    alias_flag = "--alias seq-opt-lmcut"  # optimal mode
-    # alias_flag = "--alias lama-first"  # satisficing mode
+    if optimal:
+        alias_flag = "--alias seq-opt-lmcut"
+    else:  # satisficing
+        alias_flag = "--alias lama-first"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
-    # TODO: move these instructions somewhere else
-    # `git clone https://github.com/ronuchit/downward.git`
-    # `cd downward && ./build.py`
-    # Set environment variable FD_EXEC_PATH to the path to `downward`
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
@@ -743,8 +796,8 @@ def fast_downward_plan(task: Task,
         objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
         ground_nsrt = nsrt.ground(objs)
         skeleton.append(ground_nsrt)
-        atoms_sequence.append(utils.apply_operator(
-            ground_nsrt, atoms_sequence[-1]))
+        atoms_sequence.append(
+            utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
     if len(skeleton) > max_horizon:
         raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
     # Run low-level search on this skeleton.
@@ -752,18 +805,19 @@ def fast_downward_plan(task: Task,
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
-        plan, suc = run_low_level_search(
-            task, option_model, skeleton, atoms_sequence, seed,
-            low_level_timeout, max_horizon)
+        plan, suc = run_low_level_search(task, option_model, skeleton,
+                                         atoms_sequence, seed,
+                                         low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot
-        # modify the NSRTs as we do in SeSamE, because we don't ever
+        # modify the NSRTs as we do in SeSamE with A*, because we don't ever
         # compute all the ground NSRTs ourselves when using Fast Downward.
         raise PlanningFailure("Got a DiscoveredFailure when using FD!")
     if not suc:
         if time.time() - start_time > timeout:
             raise PlanningTimeout("Planning timed out in refinement!")
         raise PlanningFailure("Skeleton produced by FD not refinable!")
+    metrics["plan_length"] = len(plan)
     return plan, metrics
 
 
