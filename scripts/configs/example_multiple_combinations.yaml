@@ -1,0 +1,36 @@
+# An example configuration file showing how to define multiple approach/env
+# combinations, i.e., not just one cross product. In this example, the oracle
+# approach is run in cover, and both the oracle approach and nsrt_learning are
+# run in blocks.
+---
+APPROACHES:
+  oracle:
+    NAME: "oracle"
+    FLAGS: {}
+ENVS:
+  cover:
+    NAME: "cover"
+    FLAGS: {}
+ARGS: []
+FLAGS: {}
+BRANCH: "master"
+START_SEED: 456
+NUM_SEEDS: 3
+...
+---
+APPROACHES:
+  oracle:
+    NAME: "oracle"
+    FLAGS: {}
+  nsrt-learning:
+    NAME: "nsrt_learning"
+    FLAGS: {}
+ENVS:
+  blocks:
+    NAME: "blocks"
+    FLAGS: {}
+ARGS: []
+FLAGS: {}
+BRANCH: "master"
+START_SEED: 456
+NUM_SEEDS: 3
