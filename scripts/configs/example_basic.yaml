@@ -12,7 +12,7 @@ ENVS:
   cover-default-settings:  # used in constructing the experiment ID
     NAME: "cover"
     FLAGS: {}
-  cover-single-blocks:
+  cover-single-block:
     NAME: "cover"
     FLAGS:
       cover_num_blocks: 1
