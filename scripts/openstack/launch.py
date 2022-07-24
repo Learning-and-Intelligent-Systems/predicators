@@ -7,7 +7,7 @@ Requires a file that contains a list of IP addresses for instances that are:
     - Sufficient in number to run all of the experiments in the config file
 
 Usage example:
-    python scripts/openstack/launch.py --config example.yaml \
+    python scripts/openstack/launch.py --config example_basic.yaml \
         --machines machines.txt --sshkey ~/.ssh/cloud.key
 """
 
