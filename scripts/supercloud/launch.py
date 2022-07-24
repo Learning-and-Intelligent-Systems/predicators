@@ -45,7 +45,7 @@ def _launch_from_local(config_file: str, user: str) -> None:
         # Remove old results.
         "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
         # Run this file again, but with the on_supercloud flag.
-        f"./{str_args} --on_supercloud",
+        f"python {str_args} --on_supercloud",
     ]
     run_cmds_on_machine(server_cmds, user, SUPERCLOUD_IP)
 
