@@ -27,9 +27,11 @@ def _main() -> None:
     # If we're not yet on supercloud, ssh in and prepare. Then, we will
     # run this file again, but with the --on_supercloud flag.
     if not args.on_supercloud:
-        return _launch_from_local(args.config, args.user)
+        _launch_from_local(args.config, args.user)
+        print("Launched experiments.")
     # If we're already on supercloud, launch the experiments.
-    return _launch_experiments(args.config)
+    else:
+        _launch_experiments(args.config)
 
 
 def _launch_from_local(config_file: str, user: str) -> None:
