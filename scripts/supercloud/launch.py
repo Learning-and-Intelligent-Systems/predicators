@@ -8,13 +8,12 @@ Usage example:
 import argparse
 import sys
 
-from predicators.scripts.cluster_utils import BatchSeedRunConfig, \
-    generate_run_configs, parse_config, run_cmds_on_machine
+from predicators.scripts.cluster_utils import SUPERCLOUD_IP, \
+    BatchSeedRunConfig, generate_run_configs, parse_config, \
+    run_cmds_on_machine
 from predicators.scripts.supercloud.submit_supercloud_job import \
     submit_supercloud_job
 from predicators.src.settings import CFG
-
-SUPERCLOUD_IP = "txe1-login.mit.edu"
 
 
 def _main() -> None:

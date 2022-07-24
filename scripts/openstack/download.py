@@ -17,7 +17,7 @@ Usage example:
 import argparse
 import os
 
-SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
+from predicators.scripts.cluster_utils import SAVE_DIRS
 
 
 def _main() -> None:
