@@ -16,7 +16,7 @@ import os
 import subprocess
 from typing import Dict, List, Sequence, Tuple
 
-import yaml
+from predicators.scripts.cluster_utils import generate_run_configs
 
 
 def _main() -> None:
@@ -27,46 +27,24 @@ def _main() -> None:
     parser.add_argument("--sshkey", required=True, type=str)
     args = parser.parse_args()
     openstack_dir = os.path.dirname(os.path.realpath(__file__))
-    # Load the config file.
-    config_file = os.path.join(openstack_dir, "configs", args.config)
-    with open(config_file, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
     # Load the machine IPs.
     machine_file = os.path.join(openstack_dir, args.machines)
     with open(machine_file, "r", encoding="utf-8") as f:
         machines = f.read().splitlines()
     # Make sure that the ssh key exists.
     assert os.path.exists(args.sshkey)
-    # Validate that the number of machines is sufficiently high.
+    # Generate all of the run configs and make sure that we have enough
+    # machines to run them all.
+    run_configs = list(generate_run_configs(args.config))
     num_machines = len(machines)
-    num_seeds = config["NUM_SEEDS"]
-    num_approaches = len(config["APPROACHES"])
-    num_envs = len(config["ENVS"])
-    assert num_machines >= num_seeds * num_approaches * num_envs
-    # Loop over seeds.
-    available_machines = list(machines)
-    start_seed = config["START_SEED"]
-    cmd_args = config["ARGS"]
-    branch = config["BRANCH"]
-    for seed in range(start_seed, start_seed + num_seeds):
-        # Loop over approaches.
-        for approach_exp_id, approach_config in config["APPROACHES"].items():
-            approach = approach_config["NAME"]
-            # Loop over envs.
-            for env_exp_id, env_config in config["ENVS"].items():
-                env = env_config["NAME"]
-                # Create the experiment ID.
-                experiment_id = f"{env_exp_id}-{approach_exp_id}"
-                experiment_flags = config["FLAGS"].copy()
-                experiment_flags.update(approach_config["FLAGS"])
-                experiment_flags.update(env_config["FLAGS"])
-                # Launch the experiment for this approach / env / seed.
-                logfile = _create_logfile(experiment_id, approach, env, seed)
-                cmd = _create_cmd(experiment_id, approach, env, seed, cmd_args,
-                                  experiment_flags)
-                # One experiment per machine.
-                machine = available_machines.pop()
-                _launch_experiment(cmd, machine, logfile, args.sshkey, branch)
+    assert num_machines >= len(run_configs)
+    # Launch the runs.
+    for machine, cfg in zip(machines, run_configs):
+        logfile = _create_logfile(cfg.experiment_id, cfg.approach, cfg.env,
+                                  cfg.seed)
+        cmd = _create_cmd(cfg.experiment_id, cfg.approach, cfg.env, cfg.seed,
+                          cfg.args, cfg.flags)
+        _launch_experiment(cmd, machine, logfile, args.sshkey, cfg.branch)
 
 
 def _create_logfile(experiment_id: str, approach: str, env: str,
