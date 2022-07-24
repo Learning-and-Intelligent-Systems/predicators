@@ -8,7 +8,6 @@ Usage example:
 """
 
 import argparse
-import os
 
 from predicators.scripts.cluster_utils import SUPERCLOUD_IP, \
     run_cmds_on_machine
