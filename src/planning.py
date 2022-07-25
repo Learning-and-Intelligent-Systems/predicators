@@ -361,16 +361,16 @@ def _skeleton_generator(
                         break
                     child_atoms = utils.apply_operator(ground_nsrt,
                                                        set(current_node.atoms))
-                    child_skeleton = current_node.skeleton + [ground_nsrt]
-                    child_skeleton_tup = tuple(child_skeleton)
-                    if child_skeleton_tup in visited_skeletons:
-                        continue
-                    visited_skeletons.add(child_skeleton_tup)
                     if use_visited_state_set:
                         frozen_atoms = frozenset(child_atoms)
                         if frozen_atoms in visited_atom_sets:
                             continue
                         visited_atom_sets.add(frozen_atoms)
+                    child_skeleton = current_node.skeleton + [ground_nsrt]
+                    child_skeleton_tup = tuple(child_skeleton)
+                    if child_skeleton_tup in visited_skeletons:
+                        continue
+                    visited_skeletons.add(child_skeleton_tup)
                     # Note: the cost of taking a policy-generated action is 0.
                     # This encourages the planner to trust the policy, and
                     # also allows us to yield a policy-generated plan without
@@ -397,16 +397,16 @@ def _skeleton_generator(
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
-                child_skeleton = node.skeleton + [nsrt]
-                child_skeleton_tup = tuple(child_skeleton)
-                if child_skeleton_tup in visited_skeletons:
-                    continue
-                visited_skeletons.add(child_skeleton_tup)
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)
                     if frozen_atoms in visited_atom_sets:
                         continue
                     visited_atom_sets.add(frozen_atoms)
+                child_skeleton = node.skeleton + [nsrt]
+                child_skeleton_tup = tuple(child_skeleton)
+                if child_skeleton_tup in visited_skeletons:
+                    continue
+                visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.
                 child_cost = node.cumulative_cost + 1.0
                 child_node = _Node(atoms=child_atoms,

@@ -11,7 +11,8 @@ from predicators.src.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
     Task
 
 
-def test_pg4_approach():
+@pytest.mark.parametrize("use_visited_state_set", [True, False])
+def test_pg4_approach(use_visited_state_set):
     """Tests for PG4Approach().
 
     Additional tests are in test_pg3_approach().
@@ -24,6 +25,7 @@ def test_pg4_approach():
         "num_test_tasks": 1,
         "strips_learner": "oracle",
         "cover_initial_holding_prob": 1.0,
+        "sesame_use_visited_state_set": use_visited_state_set,
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()

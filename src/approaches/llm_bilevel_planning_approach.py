@@ -94,7 +94,6 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         task = Task(state, goal)
-        use_visited_state_set = CFG.llm_bilevel_planning_use_visited_state_set
         options, metrics = self._run_sesame_plan(
             task,
             nsrts,
@@ -102,8 +101,7 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
             CFG.timeout - (time.time() - start_time),
             CFG.seed,
             abstract_policy=abstract_policy,
-            max_policy_guided_rollout=max_policy_guided_rollout,
-            use_visited_state_set=use_visited_state_set)
+            max_policy_guided_rollout=max_policy_guided_rollout)
         self._save_metrics(metrics, nsrts, preds)
         # Now convert the options back into ground NSRTs (:facepalm:). This
         # is very circuitous and we should refactor it later. There are two
