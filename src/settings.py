@@ -269,6 +269,7 @@ class GlobalSettings:
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
     # of operators and objects to obtain ground operators, while the latter
