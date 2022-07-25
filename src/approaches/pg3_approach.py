@@ -100,6 +100,9 @@ class PG3Approach(NSRTLearningApproach):
         # The heuristic is what distinguishes PG3 from baseline approaches.
         heuristic = self._create_heuristic()
 
+        # Initialize the search with an empty LDL.
+        initial_state = LiftedDecisionList([])
+
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
                 for i, child in enumerate(op.get_successors(ldl)):
@@ -108,7 +111,7 @@ class PG3Approach(NSRTLearningApproach):
         if CFG.pg3_search_method == "gbfs":
             # Terminate only after max expansions.
             path, _ = utils.run_gbfs(
-                initial_state=self._current_ldl,
+                initial_state=initial_state,
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
@@ -118,7 +121,7 @@ class PG3Approach(NSRTLearningApproach):
         elif CFG.pg3_search_method == "hill_climbing":
             # Terminate when no improvement is found.
             path, _, _ = utils.run_hill_climbing(
-                initial_state=self._current_ldl,
+                initial_state=initial_state,
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
