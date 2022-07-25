@@ -300,7 +300,7 @@ def _skeleton_generator(
     Note that we can't use utils.run_astar() here because we want to
     yield multiple skeletons, whereas that utility method returns only
     a single solution. Furthermore, it's easier to track and update our
-    metrics dictionary if we re-implement the search here. Finally, if
+    metrics dictionary if we re-implement the search here. If
     use_visited_state_set is False (which is the default), then we may revisit
     the same abstract states multiple times, unlike in typical A*. See
     Issue #1117 for a discussion on why this is False by default.
@@ -324,8 +324,9 @@ def _skeleton_generator(
     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
     visited_skeletons.add(tuple(root_node.skeleton))
     if use_visited_state_set:
+        # This set will maintain (frozen) atom sets that have been fully
+        # expanded already, and ensure that we never expand redundantly.
         visited_atom_sets = set()
-        visited_atom_sets.add(frozenset(root_node.atoms))
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -361,11 +362,13 @@ def _skeleton_generator(
                         break
                     child_atoms = utils.apply_operator(ground_nsrt,
                                                        set(current_node.atoms))
-                    if use_visited_state_set:
-                        frozen_atoms = frozenset(child_atoms)
-                        if frozen_atoms in visited_atom_sets:
-                            continue
-                        visited_atom_sets.add(frozen_atoms)
+                    # If we have already fully expanded from this atom set,
+                    # that implies that we have also rolled out the policy
+                    # from it, so there is no point in continuing to roll out
+                    # the (deterministic) policy from here.
+                    if use_visited_state_set and \
+                        frozenset(child_atoms) in visited_atom_sets:
+                        break
                     child_skeleton = current_node.skeleton + [ground_nsrt]
                     child_skeleton_tup = tuple(child_skeleton)
                     if child_skeleton_tup in visited_skeletons:
