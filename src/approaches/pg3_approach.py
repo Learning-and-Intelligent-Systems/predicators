@@ -135,9 +135,13 @@ class PG3Approach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, learn NSRTs.
+        old_nsrts = self._nsrts
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
-        # Now, learn the LDL policy.
-        self._learn_ldl(online_learning_cycle=None)
+        # Now, learn the LDL policy, but only if the NSRTs have changed.
+        # If they haven't changed, there's no point in relearning the LDL
+        # because the LDL learning uses only the NSRTs.
+        if old_nsrts != self._nsrts:
+            self._learn_ldl(online_learning_cycle=None)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         load_path = utils.get_approach_load_path_str()
