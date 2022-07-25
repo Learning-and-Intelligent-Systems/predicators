@@ -332,6 +332,9 @@ def _skeleton_generator(
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
+        if use_visited_state_set:
+            frozen_atoms = frozenset(node.atoms)
+            visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
         # for act in node.skeleton:
@@ -396,7 +399,6 @@ def _skeleton_generator(
                     frozen_atoms = frozenset(child_atoms)
                     if frozen_atoms in visited_atom_sets:
                         continue
-                    visited_atom_sets.add(frozen_atoms)
                 child_skeleton = node.skeleton + [nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
                 if child_skeleton_tup in visited_skeletons:
