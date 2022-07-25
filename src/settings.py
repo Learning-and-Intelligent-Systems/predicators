@@ -263,6 +263,11 @@ class GlobalSettings:
     llm_model_name = "text-curie-001"  # "text-davinci-002"
     llm_temperature = 0.5
     llm_num_completions = 1
+    # We are currently interested in LLMs in the context of PDDL-only planning
+    # problems. For fair comparison with standard PDDL planners, we use a
+    # visited set during A* search by default. If this approach is applied in
+    # TAMP domains, this flag should be set to False.
+    llm_bilevel_planning_use_visited_state_set = True
 
     # SeSamE parameters
     sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"

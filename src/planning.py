@@ -44,20 +44,22 @@ class _Node:
     cumulative_cost: float
 
 
-def sesame_plan(task: Task,
-                option_model: _OptionModelBase,
-                nsrts: Set[NSRT],
-                predicates: Set[Predicate],
-                types: Set[Type],
-                timeout: float,
-                seed: int,
-                task_planning_heuristic: str,
-                max_skeletons_optimized: int,
-                max_horizon: int,
-                abstract_policy: Optional[AbstractPolicy] = None,
-                max_policy_guided_rollout: int = 0,
-                check_dr_reachable: bool = True,
-                allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
+def sesame_plan(
+        task: Task,
+        option_model: _OptionModelBase,
+        nsrts: Set[NSRT],
+        predicates: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: str,
+        max_skeletons_optimized: int,
+        max_horizon: int,
+        abstract_policy: Optional[AbstractPolicy] = None,
+        max_policy_guided_rollout: int = 0,
+        check_dr_reachable: bool = True,
+        allow_noops: bool = False,
+        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -73,7 +75,7 @@ def sesame_plan(task: Task,
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
             abstract_policy, max_policy_guided_rollout, check_dr_reachable,
-            allow_noops)
+            allow_noops, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -114,7 +116,8 @@ def _sesame_plan_with_astar(
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
         check_dr_reachable: bool = True,
-        allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
+        allow_noops: bool = False,
+        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -165,12 +168,11 @@ def _sesame_plan_with_astar(
             predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
-            gen = _skeleton_generator(task, reachable_nsrts, init_atoms,
-                                      heuristic, new_seed,
-                                      timeout - (time.time() - start_time),
-                                      metrics, max_skeletons_optimized,
-                                      abstract_policy,
-                                      max_policy_guided_rollout)
+            gen = _skeleton_generator(
+                task, reachable_nsrts, init_atoms, heuristic, new_seed,
+                timeout - (time.time() - start_time), metrics,
+                max_skeletons_optimized, abstract_policy,
+                max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
@@ -241,6 +243,7 @@ def task_plan(
     seed: int,
     timeout: float,
     max_skeletons_optimized: int,
+    use_visited_state_set: bool = False,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -262,9 +265,16 @@ def task_plan(
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
-                                    heuristic, seed, timeout, metrics,
-                                    max_skeletons_optimized)
+    generator = _skeleton_generator(
+        dummy_task,
+        ground_nsrts,
+        init_atoms,
+        heuristic,
+        seed,
+        timeout,
+        metrics,
+        max_skeletons_optimized,
+        use_visited_state_set=use_visited_state_set)
     # Note that we use this pattern to avoid having to catch an exception
     # when _skeleton_generator runs out of skeletons to optimize.
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
@@ -281,7 +291,8 @@ def _skeleton_generator(
     metrics: Metrics,
     max_skeletons_optimized: int,
     abstract_policy: Optional[AbstractPolicy] = None,
-    sesame_max_policy_guided_rollout: int = 0
+    sesame_max_policy_guided_rollout: int = 0,
+    use_visited_state_set: bool = False
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -289,7 +300,10 @@ def _skeleton_generator(
     Note that we can't use utils.run_astar() here because we want to
     yield multiple skeletons, whereas that utility method returns only
     a single solution. Furthermore, it's easier to track and update our
-    metrics dictionary if we re-implement the search here.
+    metrics dictionary if we re-implement the search here. Finally, if
+    use_visited_state_set is False (which is the default), then we may revisit
+    the same abstract states multiple times, unlike in typical A*. See
+    Issue #1117 for a discussion on why this is False by default.
     """
 
     start_time = time.time()
@@ -309,6 +323,9 @@ def _skeleton_generator(
     # repeatedly outputting the same faulty skeletons.
     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
     visited_skeletons.add(tuple(root_node.skeleton))
+    if use_visited_state_set:
+        visited_atom_sets = set()
+        visited_atom_sets.add(frozenset(root_node.atoms))
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
@@ -349,6 +366,11 @@ def _skeleton_generator(
                     if child_skeleton_tup in visited_skeletons:
                         continue
                     visited_skeletons.add(child_skeleton_tup)
+                    if use_visited_state_set:
+                        frozen_atoms = frozenset(child_atoms)
+                        if frozen_atoms in visited_atom_sets:
+                            continue
+                        visited_atom_sets.add(frozen_atoms)
                     # Note: the cost of taking a policy-generated action is 0.
                     # This encourages the planner to trust the policy, and
                     # also allows us to yield a policy-generated plan without
@@ -380,6 +402,11 @@ def _skeleton_generator(
                 if child_skeleton_tup in visited_skeletons:
                     continue
                 visited_skeletons.add(child_skeleton_tup)
+                if use_visited_state_set:
+                    frozen_atoms = frozenset(child_atoms)
+                    if frozen_atoms in visited_atom_sets:
+                        continue
+                    visited_atom_sets.add(frozen_atoms)
                 # Action costs are unitary.
                 child_cost = node.cumulative_cost + 1.0
                 child_node = _Node(atoms=child_atoms,
