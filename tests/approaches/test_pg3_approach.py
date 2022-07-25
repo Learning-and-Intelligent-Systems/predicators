@@ -153,8 +153,7 @@ def test_cluttered_table_pg3_approach():
             policy = approach.solve(task, timeout=500)
             act = policy(task.init)
             assert act is not None
-        except Exception as e:
-            assert isinstance(e, ApproachFailure)
+        except ApproachFailure as e:
             assert "Discovered a failure" in str(e)
 
 

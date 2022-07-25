@@ -28,8 +28,7 @@ from predicators.src.structs import NSRT, AbstractPolicy, Action, \
     DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
     Object, OptionSpec, ParameterizedOption, Predicate, State, \
     STRIPSOperator, Task, Type, _GroundNSRT, _Option
-from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
-    _TaskPlanningHeuristic
+from predicators.src.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
