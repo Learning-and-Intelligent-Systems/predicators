@@ -107,6 +107,7 @@ ENVS:
       pddl_spanner_procedural_test_max_locs: 6
 ARGS:
   - "debug"
+  - "load_data"  # because we already ran experiments once
 FLAGS:
   num_train_tasks: 5
   num_test_tasks: 10
