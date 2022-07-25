@@ -35,9 +35,9 @@ def _main() -> None:
     for machine in machines:
         # If return code is 0, print active machine.
         returncode = run_cmds_on_machine([progress_cmd],
-                            machine,
-                            args.sshkey,
-                            allowed_return_codes=(0, 1))
+                                         machine,
+                                         args.sshkey,
+                                         allowed_return_codes=(0, 1))
 
         if returncode != 1:
             print(f"{machine}")
