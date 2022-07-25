@@ -70,6 +70,7 @@ class BilevelPlanningApproach(BaseApproach):
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
+        # TODO do not merge
         if "use_visited_state_set" in kwargs:
             use_visited_state_set = kwargs.pop("use_visited_state_set")
         else:
