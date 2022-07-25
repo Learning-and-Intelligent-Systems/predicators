@@ -1,13 +1,13 @@
 """Script for getting status of active openstack predicator experiments.
 
-WARNING: Will return the status of any other python3.8 processes running on
+    WARNING: Will return the status of any other python3.8 processes running on
         each machine in machines.txt
 
-See launch.py for information about the format of machines.txt.
+    See launch.py for information about the format of machines.txt.
 
-Usage example:
-    python scripts/openstack/progress.py --machines machines.txt \
-        --sshkey ~/.ssh/cloud.key
+    Usage example:
+        python scripts/openstack/progress.py --machines machines.txt \
+            --sshkey ~/.ssh/cloud.key
 """
 
 import argparse
