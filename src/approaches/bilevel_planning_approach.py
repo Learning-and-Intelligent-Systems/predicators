@@ -71,18 +71,20 @@ class BilevelPlanningApproach(BaseApproach):
         For example, PG4 inserts an abstract policy into kwargs.
         """
         try:
-            plan, metrics = sesame_plan(task,
-                                        self._option_model,
-                                        nsrts,
-                                        preds,
-                                        self._types,
-                                        timeout,
-                                        seed,
-                                        self._task_planning_heuristic,
-                                        self._max_skeletons_optimized,
-                                        max_horizon=CFG.horizon,
-                                        allow_noops=CFG.sesame_allow_noops,
-                                        **kwargs)
+            plan, metrics = sesame_plan(
+                task,
+                self._option_model,
+                nsrts,
+                preds,
+                self._types,
+                timeout,
+                seed,
+                self._task_planning_heuristic,
+                self._max_skeletons_optimized,
+                max_horizon=CFG.horizon,
+                allow_noops=CFG.sesame_allow_noops,
+                use_visited_state_set=CFG.sesame_use_visited_state_set,
+                **kwargs)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
