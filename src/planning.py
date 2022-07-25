@@ -362,13 +362,6 @@ def _skeleton_generator(
                         break
                     child_atoms = utils.apply_operator(ground_nsrt,
                                                        set(current_node.atoms))
-                    # If we have already fully expanded from this atom set,
-                    # that implies that we have also rolled out the policy
-                    # from it, so there is no point in continuing to roll out
-                    # the (deterministic) policy from here.
-                    if use_visited_state_set and \
-                        frozenset(child_atoms) in visited_atom_sets:
-                        break
                     child_skeleton = current_node.skeleton + [ground_nsrt]
                     child_skeleton_tup = tuple(child_skeleton)
                     if child_skeleton_tup in visited_skeletons:
