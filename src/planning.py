@@ -28,8 +28,7 @@ from predicators.src.structs import NSRT, AbstractPolicy, Action, \
     DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
     Object, OptionSpec, ParameterizedOption, Predicate, State, \
     STRIPSOperator, Task, Type, _GroundNSRT, _Option
-from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
-    _TaskPlanningHeuristic
+from predicators.src.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -844,6 +843,14 @@ def _sesame_plan_with_fast_downward(
     return plan, metrics
 
 
+class PlanningFailure(utils.ExceptionWithInfo):
+    """Raised when the planner fails."""
+
+
+class PlanningTimeout(utils.ExceptionWithInfo):
+    """Raised when the planner times out."""
+
+
 @dataclass(frozen=True, eq=False)
 class _DiscoveredFailure:
     """Container class for holding information related to a low-level discovery
@@ -853,7 +860,7 @@ class _DiscoveredFailure:
     failing_nsrt: _GroundNSRT
 
 
-class _DiscoveredFailureException(ExceptionWithInfo):
+class _DiscoveredFailureException(PlanningFailure):
     """Exception class for DiscoveredFailure propagation."""
 
     def __init__(self,
@@ -862,14 +869,6 @@ class _DiscoveredFailureException(ExceptionWithInfo):
                  info: Optional[Dict] = None):
         super().__init__(message, info)
         self.discovered_failure = discovered_failure
-
-
-class PlanningFailure(utils.ExceptionWithInfo):
-    """Raised when the planner fails."""
-
-
-class PlanningTimeout(utils.ExceptionWithInfo):
-    """Raised when the planner times out."""
 
 
 class _MaxSkeletonsFailure(PlanningFailure):
