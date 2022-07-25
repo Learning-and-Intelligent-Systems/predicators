@@ -814,6 +814,14 @@ def _sesame_plan_with_fast_downward(
     return plan, metrics
 
 
+class PlanningFailure(utils.ExceptionWithInfo):
+    """Raised when the planner fails."""
+
+
+class PlanningTimeout(utils.ExceptionWithInfo):
+    """Raised when the planner times out."""
+
+
 @dataclass(frozen=True, eq=False)
 class _DiscoveredFailure:
     """Container class for holding information related to a low-level discovery
@@ -823,7 +831,7 @@ class _DiscoveredFailure:
     failing_nsrt: _GroundNSRT
 
 
-class _DiscoveredFailureException(ExceptionWithInfo):
+class _DiscoveredFailureException(PlanningFailure):
     """Exception class for DiscoveredFailure propagation."""
 
     def __init__(self,
@@ -832,14 +840,6 @@ class _DiscoveredFailureException(ExceptionWithInfo):
                  info: Optional[Dict] = None):
         super().__init__(message, info)
         self.discovered_failure = discovered_failure
-
-
-class PlanningFailure(utils.ExceptionWithInfo):
-    """Raised when the planner fails."""
-
-
-class PlanningTimeout(utils.ExceptionWithInfo):
-    """Raised when the planner times out."""
 
 
 class _MaxSkeletonsFailure(PlanningFailure):

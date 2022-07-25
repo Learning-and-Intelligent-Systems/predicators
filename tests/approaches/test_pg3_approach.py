@@ -125,6 +125,39 @@ def test_pg3_approach(approach_name, approach_cls):
         approach.learn_from_offline_dataset(dataset)
 
 
+def test_cluttered_table_pg3_approach():
+    """Tests for PG3Approach() in cluttered_table."""
+    # Learning is very fast, so we can run the full pipeline. This also covers
+    # an important case where a discovered failure is raised during low-level
+    # search.
+    env_name = "cluttered_table"
+    utils.reset_config({
+        "env": env_name,
+        "approach": "pg3",
+        "num_train_tasks": 5,
+        "num_test_tasks": 10,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+    })
+    env = create_new_env(env_name)
+    train_tasks = env.get_train_tasks()
+    approach = PG3Approach(env.predicates, env.options, env.types,
+                           env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
+    approach.learn_from_offline_dataset(dataset)
+    # Test several tasks to make sure we encounter at least one discovered
+    # failure.
+    for task in env.get_test_tasks():
+        # Should not crash, but may not solve the task.
+        try:
+            policy = approach.solve(task, timeout=500)
+            act = policy(task.init)
+            assert act is not None
+        except Exception as e:
+            assert isinstance(e, ApproachFailure)
+            assert "Discovered a failure" in str(e)
+
+
 def test_pg3_search_operators():
     """Tests for PG3 search operator classes."""
     env_name = "pddl_easy_delivery_procedural_tasks"
