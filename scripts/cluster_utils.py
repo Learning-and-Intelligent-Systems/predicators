@@ -83,7 +83,7 @@ def run_cmds_on_machine(
     user: str,
     machine: str,
     ssh_key: str = None,
-    allowed_return_codes: Tuple[int, ...] = (0, )) -> int:
+    allowed_return_codes: Tuple[int, ...] = (0, )) -> None:
     """SSH into the machine, run the commands, then exit."""
     host = f"{user}@{machine}"
     ssh_cmd = f"ssh -tt -o StrictHostKeyChecking=no {host}"
@@ -98,4 +98,3 @@ def run_cmds_on_machine(
                               check=False)
     if response.returncode not in allowed_return_codes:
         raise RuntimeError(f"Command failed: {final_cmd}")
-    return response.returncode
