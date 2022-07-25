@@ -40,7 +40,7 @@ def _main() -> None:
                                          allowed_return_codes=(0, 1))
 
         if returncode != 1:
-            print(f"{machine}")
+            print(machine)
 
 
 if __name__ == "__main__":
