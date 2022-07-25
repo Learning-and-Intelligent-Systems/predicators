@@ -12,7 +12,6 @@ Usage example:
 
 import argparse
 import os
-import subprocess
 
 from predicators.scripts.openstack.launch import run_cmds_on_machine
 
@@ -35,19 +34,10 @@ def _main() -> None:
     print("The following machines are still running:\n")
     for machine in machines:
         # If return code is 0, print active machine.
-        host = f"ubuntu@{machine}"
-        ssh_cmd = f"ssh -tt -i {args.sshkey} -o StrictHostKeyChecking=no {host}"
-        server_cmd_str = "\n".join([progress_cmd] + ["exit"])
-        final_cmd = f"{ssh_cmd} << EOF\n{server_cmd_str}\nEOF"
-        response = subprocess.run(final_cmd,
-                                  stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.STDOUT,
-                                  shell=True,
-                                  check=False)
         returncode = run_cmds_on_machine([progress_cmd],
-                            machine,
-                            args.sshkey,
-                            allowed_return_codes=(0, 1))
+                                         machine,
+                                         args.sshkey,
+                                         allowed_return_codes=(0, 1))
 
         if returncode != 1:
             print(f"{machine}")
