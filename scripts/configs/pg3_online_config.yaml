@@ -2,18 +2,18 @@
 ---
 APPROACHES:
   pg3:
-    NAME: "online pg3"
+    NAME: "online_pg3"
     FLAGS: {}
   pg3-random-options:
-    NAME: "online pg3"
+    NAME: "online_pg3"
     FLAGS:
       explorer: random_options
   pg3-glib:
-    NAME: "online pg3"
+    NAME: "online_pg3"
     FLAGS:
       explorer: glib
   pg3-given-ops:
-    NAME: "online pg3"
+    NAME: "online_pg3"
     FLAGS: 
       strips_learner: oracle 
   plan-only:
