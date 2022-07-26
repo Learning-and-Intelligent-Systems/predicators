@@ -1,4 +1,5 @@
-"""Open-loop large language model (LLM) meta-controller approach with prompt modification where predicate names are randomly generated.
+"""Open-loop large language model (LLM) meta-controller approach with
+prompt modification where predicate names are randomly generated.
 Note: Predicate and Task classes must be set to frozen=False
 Example command line:
     export OPENAI_API_KEY=<your API key>
@@ -47,14 +48,14 @@ class LLMPredicateRenamingApproach(LLMOpenLoopApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self.original_predicates = []
-        self.random_predicates = []
+        self.original_predicates: List[str] = []
+        self.random_predicates: List[str] = []
 
     @classmethod
     def get_name(cls) -> str:
         return "llm_predicate_renaming"
 
-    def _generate_guess(self, sentence: str) -> str:
+    def _generate_guess(self, sentence: str) -> List[str]:
         alphabet = [
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
             'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
@@ -80,18 +81,19 @@ Solution:
         return prompt
 
     def _replace_with_random_predicate_names(
-            self, set: Set[GroundAtom]) -> List[str]:
-        set_arr = []
-        for i in set:
-            i = str(i)
-            sub = i[0:i.index('(')]
+            self, original_set: Set[GroundAtom]) -> List[str]:
+        modified_set = []
+        for i in original_set:
+            name = str(i)
+            sub = name[0:name.index('(')]
             if sub in self.original_predicates:
-                set_arr.append(self.random_predicates[
-                    self.original_predicates.index(sub)] + i[i.index('('):])
+                modified_set.append(self.random_predicates[
+                    self.original_predicates.index(sub)] +
+                                    name[name.index('('):])
             else:
                 self.original_predicates.append(sub)
                 sub_random = ''.join(self._generate_guess(sub))
                 self.random_predicates.append(sub_random)
-                i = i.replace(sub, sub_random)
-                set_arr.append(i)
-        return set_arr
+                name = name.replace(sub, sub_random)
+                modified_set.append(name)
+        return modified_set

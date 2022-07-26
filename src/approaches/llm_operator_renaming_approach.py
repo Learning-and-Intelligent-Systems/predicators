@@ -1,4 +1,5 @@
-"""Open-loop large language model (LLM) meta-controller approach with prompt modification where operator names are randomly generated.
+"""Open-loop large language model (LLM) meta-controller approach with
+ prompt modification where operator names are randomly generated.
 Note: Predicate and Task classes must be set to frozen=False
 Example command line:
     export OPENAI_API_KEY=<your API key>
@@ -31,21 +32,15 @@ Easier setting:
 """
 from __future__ import annotations
 
-import logging
-from typing import Collection, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Collection, List, Sequence, Set, Tuple
 
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.nsrt_metacontroller_approach import \
-    NSRTMetacontrollerApproach
-from predicators.src.llm_interface import OpenAILLM
-from predicators.src.planning import task_plan_with_option_plan_constraint
-from predicators.src.settings import CFG
-from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
-from predicators.src.approaches.llm_predicate_renaming_approach import \
-    LLMPredicateRenamingApproach
 from predicators.src.approaches.llm_open_loop_approach import \
     LLMOpenLoopApproach
+from predicators.src.approaches.llm_predicate_renaming_approach import \
+    LLMPredicateRenamingApproach
+from predicators.src.structs import Box, GroundAtom, Object, \
+    ParameterizedOption, Predicate, Task, Type, _Option
+
 
 class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
     """LLMOperatorRenamingApproach definition."""
@@ -55,8 +50,8 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self.original_operators = []
-        self.random_operators = []
+        self.original_operators: List[str] = []
+        self.random_operators: List[str] = []
 
     @classmethod
     def get_name(cls) -> str:
@@ -81,10 +76,12 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                     sub = option_str[startIndex:option_str.index('(')]
                     options_str_list[options_str_list.index(
                         option_str)] = option_str.replace(
-                            sub, self.original_operators[self.random_operators.index(j)])
+                            sub, self.original_operators[
+                                self.random_operators.index(j)])
                     break
         unmodified_prediction = "\n".join(options_str_list)
-        option_plan = super()._llm_prediction_to_option_plan(unmodified_prediction,objects)
+        option_plan = super()._llm_prediction_to_option_plan(
+            unmodified_prediction, objects)
         return option_plan
 
     def _create_prompt(self, init: Set[GroundAtom], goal: Set[GroundAtom],
@@ -92,11 +89,12 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
         for option in options:
             sub = option.name
             if sub in self.original_operators:
-                option.name = self.random_operators[self.original_operators.index(sub)]
+                option.name = self.random_operators[
+                    self.original_operators.index(sub)]
             else:
                 self.original_operators.append(sub)
                 sub_random = ''.join(self._generate_guess(sub))
                 self.random_operators.append(sub_random)
                 option.name = sub_random
-        prompt = LLMOpenLoopApproach._create_prompt(self,init,goal,options)
+        prompt = LLMOpenLoopApproach._create_prompt(self, init, goal, options)  # pylint: disable=protected-access
         return prompt
