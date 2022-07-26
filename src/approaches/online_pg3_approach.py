@@ -49,8 +49,11 @@ class OnlinePG3Approach(PG3Approach, OnlineNSRTLearningApproach):
             self, results: Sequence[InteractionResult]) -> None:
         # This does three things: adds data to self._dataset, re-learns NSRTs,
         # and advances the online learning cycle counter.
+        old_nsrts = self._nsrts
         OnlineNSRTLearningApproach.learn_from_interaction_results(
             self, results)
-        # Then, relearn the generalized policy.
         save_cycle = self._online_learning_cycle - 1
-        self._learn_ldl(online_learning_cycle=save_cycle)
+        # Then, relearn the generalized policy, but only if the NSRTs have
+        # changed, because LDL learning is only a function of the NSRTs.
+        if old_nsrts != self._nsrts:
+            self._learn_ldl(online_learning_cycle=save_cycle)

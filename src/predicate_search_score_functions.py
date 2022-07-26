@@ -333,10 +333,16 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             else:
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
-            generator = task_plan(init_atoms, goal, ground_nsrts,
-                                  reachable_atoms, heuristic, CFG.seed,
+            assert not CFG.sesame_use_visited_state_set
+            generator = task_plan(init_atoms,
+                                  goal,
+                                  ground_nsrts,
+                                  reachable_atoms,
+                                  heuristic,
+                                  CFG.seed,
                                   CFG.grammar_search_task_planning_timeout,
-                                  max_skeletons)
+                                  max_skeletons,
+                                  use_visited_state_set=False)
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):

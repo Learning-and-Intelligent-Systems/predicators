@@ -7,6 +7,11 @@ from __future__ import annotations
 
 import heapq as hq
 import logging
+import os
+import re
+import subprocess
+import sys
+import tempfile
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -23,8 +28,7 @@ from predicators.src.structs import NSRT, AbstractPolicy, Action, \
     DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
     Object, OptionSpec, ParameterizedOption, Predicate, State, \
     STRIPSOperator, Task, Type, _GroundNSRT, _Option
-from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
-    _TaskPlanningHeuristic
+from predicators.src.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -36,34 +40,84 @@ class _Node:
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Set[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
+    cumulative_cost: float
 
 
-def sesame_plan(task: Task,
-                option_model: _OptionModelBase,
-                nsrts: Set[NSRT],
-                initial_predicates: Set[Predicate],
-                types: Set[Type],
-                timeout: float,
-                seed: int,
-                task_planning_heuristic: str,
-                max_skeletons_optimized: int,
-                max_horizon: int,
-                abstract_policy: Optional[AbstractPolicy] = None,
-                max_policy_guided_rollout: int = 0,
-                check_dr_reachable: bool = True,
-                allow_noops: bool = False) -> Tuple[List[_Option], Metrics]:
+def sesame_plan(
+        task: Task,
+        option_model: _OptionModelBase,
+        nsrts: Set[NSRT],
+        predicates: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: str,
+        max_skeletons_optimized: int,
+        max_horizon: int,
+        abstract_policy: Optional[AbstractPolicy] = None,
+        max_policy_guided_rollout: int = 0,
+        check_dr_reachable: bool = True,
+        allow_noops: bool = False,
+        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
-    planning, then Execution.
+    planning, then Execution. The high-level planner can be either A* or
+    Fast Downward (FD). In the latter case, we allow either optimal mode
+    ("fdopt") or satisficing mode ("fdsat"). With Fast Downward, we can
+    only consider at most one skeleton, and DiscoveredFailures cannot be
+    handled.
     """
-    # Note: the types that would be extracted from the NSRTs here may not
-    # include all the environment's types, so it's better to use the
-    # types that are passed in as an argument instead.
-    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
-    # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(nsrt_preds.values())
+    if CFG.sesame_task_planner == "astar":
+        return _sesame_plan_with_astar(
+            task, option_model, nsrts, predicates, types, timeout, seed,
+            task_planning_heuristic, max_skeletons_optimized, max_horizon,
+            abstract_policy, max_policy_guided_rollout, check_dr_reachable,
+            allow_noops, use_visited_state_set)
+    if CFG.sesame_task_planner == "fdopt":
+        assert abstract_policy is None
+        return _sesame_plan_with_fast_downward(task,
+                                               option_model,
+                                               nsrts,
+                                               predicates,
+                                               types,
+                                               timeout,
+                                               seed,
+                                               max_horizon,
+                                               optimal=True)
+    if CFG.sesame_task_planner == "fdsat":
+        assert abstract_policy is None
+        return _sesame_plan_with_fast_downward(task,
+                                               option_model,
+                                               nsrts,
+                                               predicates,
+                                               types,
+                                               timeout,
+                                               seed,
+                                               max_horizon,
+                                               optimal=False)
+    raise ValueError("Unrecognized sesame_task_planner: "
+                     f"{CFG.sesame_task_planner}")
+
+
+def _sesame_plan_with_astar(
+        task: Task,
+        option_model: _OptionModelBase,
+        nsrts: Set[NSRT],
+        predicates: Set[Predicate],
+        types: Set[Type],
+        timeout: float,
+        seed: int,
+        task_planning_heuristic: str,
+        max_skeletons_optimized: int,
+        max_horizon: int,
+        abstract_policy: Optional[AbstractPolicy] = None,
+        max_policy_guided_rollout: int = 0,
+        check_dr_reachable: bool = True,
+        allow_noops: bool = False,
+        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+    """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
@@ -113,12 +167,11 @@ def sesame_plan(task: Task,
             predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
-            gen = _skeleton_generator(task, reachable_nsrts, init_atoms,
-                                      heuristic, new_seed,
-                                      timeout - (time.time() - start_time),
-                                      metrics, max_skeletons_optimized,
-                                      abstract_policy,
-                                      max_policy_guided_rollout)
+            gen = _skeleton_generator(
+                task, reachable_nsrts, init_atoms, heuristic, new_seed,
+                timeout - (time.time() - start_time), metrics,
+                max_skeletons_optimized, abstract_policy,
+                max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
@@ -136,7 +189,7 @@ def sesame_plan(task: Task,
                 partial_refinements.append((skeleton, plan))
                 if time.time() - start_time > timeout:
                     raise PlanningTimeout(
-                        "Planning timed out in backtracking!",
+                        "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
@@ -189,6 +242,7 @@ def task_plan(
     seed: int,
     timeout: float,
     max_skeletons_optimized: int,
+    use_visited_state_set: bool = False,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -210,9 +264,16 @@ def task_plan(
         raise PlanningFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
-                                    heuristic, seed, timeout, metrics,
-                                    max_skeletons_optimized)
+    generator = _skeleton_generator(
+        dummy_task,
+        ground_nsrts,
+        init_atoms,
+        heuristic,
+        seed,
+        timeout,
+        metrics,
+        max_skeletons_optimized,
+        use_visited_state_set=use_visited_state_set)
     # Note that we use this pattern to avoid having to catch an exception
     # when _skeleton_generator runs out of skeletons to optimize.
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
@@ -229,7 +290,8 @@ def _skeleton_generator(
     metrics: Metrics,
     max_skeletons_optimized: int,
     abstract_policy: Optional[AbstractPolicy] = None,
-    sesame_max_policy_guided_rollout: int = 0
+    sesame_max_policy_guided_rollout: int = 0,
+    use_visited_state_set: bool = False
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -237,7 +299,10 @@ def _skeleton_generator(
     Note that we can't use utils.run_astar() here because we want to
     yield multiple skeletons, whereas that utility method returns only
     a single solution. Furthermore, it's easier to track and update our
-    metrics dictionary if we re-implement the search here.
+    metrics dictionary if we re-implement the search here. If
+    use_visited_state_set is False (which is the default), then we may revisit
+    the same abstract states multiple times, unlike in typical A*. See
+    Issue #1117 for a discussion on why this is False by default.
     """
 
     start_time = time.time()
@@ -246,7 +311,8 @@ def _skeleton_generator(
     root_node = _Node(atoms=init_atoms,
                       skeleton=[],
                       atoms_sequence=[init_atoms],
-                      parent=None)
+                      parent=None,
+                      cumulative_cost=0)
     metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
@@ -254,13 +320,21 @@ def _skeleton_generator(
     # Initialize with empty skeleton for root.
     # We want to keep track of the visited skeletons so that we avoid
     # repeatedly outputting the same faulty skeletons.
-    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set(tuple())
+    visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
+    visited_skeletons.add(tuple(root_node.skeleton))
+    if use_visited_state_set:
+        # This set will maintain (frozen) atom sets that have been fully
+        # expanded already, and ensure that we never expand redundantly.
+        visited_atom_sets = set()
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
+        if use_visited_state_set:
+            frozen_atoms = frozenset(node.atoms)
+            visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
         # for act in node.skeleton:
@@ -295,16 +369,22 @@ def _skeleton_generator(
                     if child_skeleton_tup in visited_skeletons:
                         continue
                     visited_skeletons.add(child_skeleton_tup)
+                    # Note: the cost of taking a policy-generated action is 0.
+                    # This encourages the planner to trust the policy, and
+                    # also allows us to yield a policy-generated plan without
+                    # waiting to exhaustively rule out the possibility that
+                    # some other primitive plans are actually lower cost.
+                    child_cost = current_node.cumulative_cost
                     child_node = _Node(
                         atoms=child_atoms,
                         skeleton=child_skeleton,
                         atoms_sequence=current_node.atoms_sequence +
                         [child_atoms],
-                        parent=current_node)
-
+                        parent=current_node,
+                        cumulative_cost=child_cost)
                     metrics["num_nodes_created"] += 1
-                    # priority is g [plan length] plus h [heuristic]
-                    priority = (len(child_node.skeleton) +
+                    # priority is g [cost] plus h [heuristic]
+                    priority = (child_node.cumulative_cost +
                                 heuristic(child_node.atoms))
                     hq.heappush(queue,
                                 (priority, rng_prio.uniform(), child_node))
@@ -315,20 +395,26 @@ def _skeleton_generator(
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
-                child_skeleton = node.skeleton + [nsrt]
-                if abstract_policy is not None:
-                    child_skeleton_tup = tuple(child_skeleton)
-                    if child_skeleton_tup in visited_skeletons:
+                if use_visited_state_set:
+                    frozen_atoms = frozenset(child_atoms)
+                    if frozen_atoms in visited_atom_sets:
                         continue
-                    visited_skeletons.add(child_skeleton_tup)
+                child_skeleton = node.skeleton + [nsrt]
+                child_skeleton_tup = tuple(child_skeleton)
+                if child_skeleton_tup in visited_skeletons:
+                    continue
+                visited_skeletons.add(child_skeleton_tup)
+                # Action costs are unitary.
+                child_cost = node.cumulative_cost + 1.0
                 child_node = _Node(atoms=child_atoms,
                                    skeleton=child_skeleton,
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
-                                   parent=node)
+                                   parent=node,
+                                   cumulative_cost=child_cost)
                 metrics["num_nodes_created"] += 1
-                # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton) +
+                # priority is g [cost] plus h [heuristic]
+                priority = (child_node.cumulative_cost +
                             heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
@@ -651,6 +737,115 @@ def task_plan_with_option_plan_constraint(
     return action_seq
 
 
+def _sesame_plan_with_fast_downward(
+        task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
+        predicates: Set[Predicate], types: Set[Type], timeout: float,
+        seed: int, max_horizon: int,
+        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+    """A version of SeSamE that runs the Fast Downward planner to produce a
+    single skeleton, then calls run_low_level_search() to turn it into a plan.
+
+    Usage: Build and compile the Fast Downward planner, then set the environment
+    variable FD_EXEC_PATH to point to the `downward` directory. For example:
+    1) git clone https://github.com/ronuchit/downward.git
+    2) cd downward && ./build.py
+    3) export FD_EXEC_PATH="<your path here>/downward"
+    """
+    init_atoms = utils.abstract(task.init, predicates)
+    objects = list(task.init)
+    start_time = time.time()
+    # Create the domain and problem strings, then write them to tempfiles.
+    dom_str = utils.create_pddl_domain(nsrts, predicates, types, "mydomain")
+    prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
+                                         "mydomain", "myproblem")
+    dom_file = tempfile.NamedTemporaryFile(delete=False).name
+    with open(dom_file, "w", encoding="utf-8") as f:
+        f.write(dom_str)
+    prob_file = tempfile.NamedTemporaryFile(delete=False).name
+    with open(prob_file, "w", encoding="utf-8") as f:
+        f.write(prob_str)
+    # The SAS file isn't actually used, but it's important that we give it a
+    # name, because otherwise Fast Downward uses a fixed default name, which
+    # will cause issues if you run multiple processes simultaneously.
+    sas_file = tempfile.NamedTemporaryFile(delete=False).name
+    # Run Fast Downward followed by cleanup. Capture the output.
+    timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
+    if optimal:
+        alias_flag = "--alias seq-opt-lmcut"
+    else:  # satisficing
+        alias_flag = "--alias lama-first"
+    assert "FD_EXEC_PATH" in os.environ, \
+        "Please follow the instructions in the docstring of this method!"
+    fd_exec_path = os.environ["FD_EXEC_PATH"]
+    exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
+               f"--sas-file {sas_file} {dom_file} {prob_file}")
+    output = subprocess.getoutput(cmd_str)
+    cleanup_cmd_str = f"{exec_str} --cleanup"
+    subprocess.getoutput(cleanup_cmd_str)
+    if time.time() - start_time > timeout:
+        raise PlanningTimeout("Planning timed out in call to FD!")
+    # Parse and log metrics.
+    metrics: Metrics = defaultdict(float)
+    num_nodes_expanded = re.findall(r"Evaluated (\d+) state", output)
+    num_nodes_created = re.findall(r"Generated (\d+) state", output)
+    assert len(num_nodes_expanded) == 1
+    assert len(num_nodes_created) == 1
+    metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
+    metrics["num_nodes_created"] = float(num_nodes_created[0])
+    # Extract the skeleton from the output and compute the atoms_sequence.
+    if "Solution found!" not in output:
+        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+    if "Plan length: 0 step" in output:
+        # Handle the special case where the plan is found to be trivial.
+        skeleton_str = []
+    else:
+        skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
+        if not skeleton_str:
+            raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+    skeleton = []
+    atoms_sequence = [init_atoms]
+    nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+    obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+    for nsrt_str in skeleton_str:
+        str_split = nsrt_str.split()
+        nsrt = nsrt_name_to_nsrt[str_split[0]]
+        objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
+        ground_nsrt = nsrt.ground(objs)
+        skeleton.append(ground_nsrt)
+        atoms_sequence.append(
+            utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
+    if len(skeleton) > max_horizon:
+        raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
+    # Run low-level search on this skeleton.
+    low_level_timeout = timeout - (time.time() - start_time)
+    metrics["num_skeletons_optimized"] = 1
+    metrics["num_failures_discovered"] = 0
+    try:
+        plan, suc = run_low_level_search(task, option_model, skeleton,
+                                         atoms_sequence, seed,
+                                         low_level_timeout, max_horizon)
+    except _DiscoveredFailureException:
+        # If we get a DiscoveredFailure, give up. Note that we cannot
+        # modify the NSRTs as we do in SeSamE with A*, because we don't ever
+        # compute all the ground NSRTs ourselves when using Fast Downward.
+        raise PlanningFailure("Got a DiscoveredFailure when using FD!")
+    if not suc:
+        if time.time() - start_time > timeout:
+            raise PlanningTimeout("Planning timed out in refinement!")
+        raise PlanningFailure("Skeleton produced by FD not refinable!")
+    metrics["plan_length"] = len(plan)
+    return plan, metrics
+
+
+class PlanningFailure(utils.ExceptionWithInfo):
+    """Raised when the planner fails."""
+
+
+class PlanningTimeout(utils.ExceptionWithInfo):
+    """Raised when the planner times out."""
+
+
 @dataclass(frozen=True, eq=False)
 class _DiscoveredFailure:
     """Container class for holding information related to a low-level discovery
@@ -660,7 +855,7 @@ class _DiscoveredFailure:
     failing_nsrt: _GroundNSRT
 
 
-class _DiscoveredFailureException(ExceptionWithInfo):
+class _DiscoveredFailureException(PlanningFailure):
     """Exception class for DiscoveredFailure propagation."""
 
     def __init__(self,
@@ -669,14 +864,6 @@ class _DiscoveredFailureException(ExceptionWithInfo):
                  info: Optional[Dict] = None):
         super().__init__(message, info)
         self.discovered_failure = discovered_failure
-
-
-class PlanningFailure(utils.ExceptionWithInfo):
-    """Raised when the planner fails."""
-
-
-class PlanningTimeout(utils.ExceptionWithInfo):
-    """Raised when the planner times out."""
 
 
 class _MaxSkeletonsFailure(PlanningFailure):

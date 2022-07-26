@@ -16,13 +16,22 @@ def _run() -> None:
     utils.update_config(args)
     assert CFG.seed is None, "Do not pass in a seed to this script!"
     job_name = CFG.experiment_id
-    os.makedirs(CFG.log_dir, exist_ok=True)
-    logfile_pattern = os.path.join(CFG.log_dir,
-                                   f"{utils.get_config_path_str()}__%j.log")
+    log_dir = CFG.log_dir
+    logfile_prefix = utils.get_config_path_str()
+    args_and_flags_str = " ".join(sys.argv[1:])
+    return submit_supercloud_job(job_name, log_dir, logfile_prefix,
+                                 args_and_flags_str, START_SEED, NUM_SEEDS)
+
+
+def submit_supercloud_job(job_name: str, log_dir: str, logfile_prefix: str,
+                          args_and_flags_str: str, start_seed: int,
+                          num_seeds: int) -> None:
+    """Launch the supercloud job."""
+    os.makedirs(log_dir, exist_ok=True)
+    logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
     assert logfile_pattern.count("None") == 1
     logfile_pattern = logfile_pattern.replace("None", "%a")
-    argsstr = " ".join(sys.argv[1:])
-    mystr = (f"#!/bin/bash\npython src/main.py {argsstr} "
+    mystr = (f"#!/bin/bash\npython src/main.py {args_and_flags_str} "
              f"--seed $SLURM_ARRAY_TASK_ID")
     temp_run_file = "temp_run_file.sh"
     assert not os.path.exists(temp_run_file)
@@ -30,7 +39,7 @@ def _run() -> None:
         f.write(mystr)
     cmd = ("sbatch --time=99:00:00 --partition=xeon-p8 "
            f"--nodes=1 --exclusive --job-name={job_name} "
-           f"--array={START_SEED}-{START_SEED+NUM_SEEDS-1} "
+           f"--array={start_seed}-{start_seed+num_seeds-1} "
            f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)

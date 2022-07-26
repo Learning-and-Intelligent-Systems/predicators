@@ -70,6 +70,8 @@ class LargeLanguageModel(abc.ABC):
         cache_filename = f"{llm_id}_{config_id}_{prompt_id}.txt"
         cache_filepath = os.path.join(CFG.llm_prompt_cache_dir, cache_filename)
         if not os.path.exists(cache_filepath):
+            if CFG.llm_use_cache_only:
+                raise ValueError("No cached response found for LLM prompt.")
             logging.debug(f"Querying LLM {llm_id} with new prompt.")
             # Query the LLM.
             completions = self._sample_completions(prompt, temperature, seed,
