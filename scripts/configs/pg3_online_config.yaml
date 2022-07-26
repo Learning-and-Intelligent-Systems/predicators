@@ -8,6 +8,10 @@ APPROACHES:
     NAME: "pg3"
     FLAGS:
       explorer: random_options
+  pg3-glib:
+    NAME: "pg3"
+    FLAGS:
+      explorer: glib
   pg3-given-ops:
     NAME: "pg3"
     FLAGS: 
