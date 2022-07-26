@@ -64,7 +64,7 @@ To run our default suite of experiments (will take many hours to complete, we re
 
 Upon running that script, you should see many printouts, such as:
 ```
-Running command: sbatch -p normal --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=cover_oracle --array=456-465 -o logs/cover__oracle__%a______cover_oracle__%j.log temp_run_file.sh
+Running command: sbatch --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=cover_oracle --array=456-465 -o logs/cover__oracle__%a______cover_oracle__%j.log temp_run_file.sh
 ```
 
 After experiments are running:
