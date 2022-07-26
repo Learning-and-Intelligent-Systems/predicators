@@ -21,21 +21,26 @@ def _main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str)
     parser.add_argument("--user", required=True, type=str)
+    # Optionally override the branch specified in the CFG.
+    parser.add_argument("--branch", required=False, type=str)
     # This flag is used internally by the script.
     parser.add_argument("--on_supercloud", action="store_true")
     args = parser.parse_args()
+    if args.branch:
+        branch = args.branch
+    else:
+        branch = config_file_to_branch(args.config)
     # If we're not yet on supercloud, ssh in and prepare. Then, we will
     # run this file again, but with the --on_supercloud flag.
     if not args.on_supercloud:
-        _launch_from_local(args.config, args.user)
+        _launch_from_local(args.user, branch)
         print("Launched experiments.")
     # If we're already on supercloud, launch the experiments.
     else:
         _launch_experiments(args.config)
 
 
-def _launch_from_local(config_file: str, user: str) -> None:
-    branch = config_file_to_branch(config_file)
+def _launch_from_local(user: str, branch: str) -> None:
     str_args = " ".join(sys.argv)
     # Enter the repo.
     server_cmds = ["predicate"]

@@ -25,6 +25,8 @@ def _main() -> None:
     parser.add_argument("--config", required=True, type=str)
     parser.add_argument("--machines", required=True, type=str)
     parser.add_argument("--sshkey", required=True, type=str)
+    # Optionally override the branch specified in the CFG.
+    parser.add_argument("--branch", required=False, type=str)
     args = parser.parse_args()
     openstack_dir = os.path.dirname(os.path.realpath(__file__))
     # Load the machine IPs.
@@ -44,7 +46,11 @@ def _main() -> None:
         logfile = os.path.join("logs", config_to_logfile(cfg))
         cmd_flags = config_to_cmd_flags(cfg)
         cmd = f"python3.8 src/main.py {cmd_flags}"
-        _launch_experiment(cmd, machine, logfile, args.sshkey, cfg.branch)
+        if args.branch:
+            branch = args.branch
+        else:
+            branch = cfg.branch
+        _launch_experiment(cmd, machine, logfile, args.sshkey, branch)
 
 
 def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,

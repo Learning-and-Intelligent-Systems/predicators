@@ -18,8 +18,13 @@ def _main() -> None:
     # Set up argparse.
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str)
+    # Optionally override the branch specified in the CFG.
+    parser.add_argument("--branch", required=False, type=str)
     args = parser.parse_args()
-    branch = config_file_to_branch(args.config)
+    if args.branch:
+        branch = args.branch
+    else:
+        branch = config_file_to_branch(args.config)
     # Prepare the repo.
     for cmd in get_cmds_to_prep_repo(branch):
         subprocess.run(cmd, shell=True, check=False)
