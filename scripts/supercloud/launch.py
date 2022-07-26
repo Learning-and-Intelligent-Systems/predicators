@@ -9,8 +9,8 @@ import argparse
 import sys
 
 from predicators.scripts.cluster_utils import SUPERCLOUD_IP, \
-    BatchSeedRunConfig, config_to_cmd_flags, config_to_logfile, \
-    generate_run_configs, get_cmds_to_prep_repo, parse_configs, \
+    BatchSeedRunConfig, config_file_to_branch, config_to_cmd_flags, \
+    config_to_logfile, generate_run_configs, get_cmds_to_prep_repo, \
     run_cmds_on_machine
 from predicators.scripts.supercloud.submit_supercloud_job import \
     submit_supercloud_job
@@ -35,11 +35,7 @@ def _main() -> None:
 
 
 def _launch_from_local(config_file: str, user: str) -> None:
-    configs = list(parse_configs(config_file))
-    assert configs
-    branch = configs[0]["BRANCH"]
-    assert all(c["BRANCH"] == branch for c in configs), \
-        "Experiments defined in the same config must have the same branch."
+    branch = config_file_to_branch(config_file)
     str_args = " ".join(sys.argv)
     # Enter the repo.
     server_cmds = ["predicate"]
@@ -55,7 +51,6 @@ def _launch_experiments(config_file: str) -> None:
     for cfg in generate_run_configs(config_file, batch_seeds=True):
         assert isinstance(cfg, BatchSeedRunConfig)
         cmd_flags = config_to_cmd_flags(cfg)
-        # The None is a placeholder for seed.
         log_dir = "logs"
         log_prefix = config_to_logfile(cfg, suffix="")
         # Launch a job for this experiment.

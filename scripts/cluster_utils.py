@@ -42,6 +42,16 @@ class BatchSeedRunConfig(RunConfig):
     num_seeds: int
 
 
+def config_file_to_branch(config_file: str) -> str:
+    """Extract the branch from a config file."""
+    configs = list(parse_configs(config_file))
+    assert configs
+    branch = configs[0]["BRANCH"]
+    assert all(c["BRANCH"] == branch for c in configs), \
+        "Experiments defined in the same config must have the same branch."
+    return branch
+
+
 def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
     """Create a log file name from a run config."""
     if isinstance(cfg, SingleSeedRunConfig):
@@ -114,6 +124,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
     before launching the experiments."""
     return [
         "mkdir -p logs",
+        "git stash",
         "git fetch --all",
         f"git checkout {branch}",
         "git pull",
