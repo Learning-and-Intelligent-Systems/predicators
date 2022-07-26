@@ -57,8 +57,7 @@ class LLMPredicateRenamingApproach(LLMOpenLoopApproach):
     def _generate_guess(self, sentence: str) -> str:
         alphabet = [
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-            'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-            ' '
+            'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
         ]
         return [self._rng.choice(alphabet) for i in range(len(sentence))]
 
