@@ -1,6 +1,7 @@
 """Open-loop large language model (LLM) meta-controller approach with
- prompt modification where operator names are randomly generated.
-Note: Predicate and Task classes must be set to frozen=False
+
+prompt modification where operator names are randomly generated.
+
 Example command line:
     export OPENAI_API_KEY=<your API key>
     python src/main.py --approach llm_operator_renaming --seed 0 \
@@ -50,9 +51,8 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self.original_operators: List[str] = []
-        self.random_operators: List[str] = []
-
+        self._original_operators: List[str] = []
+        self._random_operators: List[str] = []
     @classmethod
     def get_name(cls) -> str:
         return "llm_operator_renaming"
@@ -60,24 +60,21 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
     ) -> List[Tuple[ParameterizedOption, Sequence[Object]]]:
-        """Convert the output of the LLM into a sequence of
-        ParameterizedOptions coupled with a list of objects that will be used
-        to ground the ParameterizedOption."""
         # We assume the LLM's output is such that each line contains a
         # option_name(obj0:type0, obj1:type1,...).
         options_str_list = llm_prediction.split('\n')
         for option_str in options_str_list:
-            for j in self.random_operators:
-                if j in option_str:
+            for random_operator in self._random_operators:
+                if random_operator in option_str:
                     for i in option_str:
                         if i != " ":
-                            startIndex = option_str.index(i)
+                            start_index = option_str.index(i)
                             break
-                    sub = option_str[startIndex:option_str.index('(')]
+                    sub = option_str[start_index:option_str.index('(')]
                     options_str_list[options_str_list.index(
                         option_str)] = option_str.replace(
-                            sub, self.original_operators[
-                                self.random_operators.index(j)])
+                            sub, self._original_operators[
+                                self._random_operators.index(random_operator)])
                     break
         unmodified_prediction = "\n".join(options_str_list)
         option_plan = super()._llm_prediction_to_option_plan(
@@ -88,13 +85,13 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                        options: Sequence[_Option]) -> str:
         for option in options:
             sub = option.name
-            if sub in self.original_operators:
-                option.name = self.random_operators[
-                    self.original_operators.index(sub)]
+            if sub in self._original_operators:
+                option.name = self._random_operators[
+                    self._original_operators.index(sub)]
             else:
-                self.original_operators.append(sub)
-                sub_random = ''.join(self._generate_guess(sub))
-                self.random_operators.append(sub_random)
+                self._original_operators.append(sub)
+                sub_random = ''.join(self._generate_random_string(sub))
+                self._random_operators.append(sub_random)
                 option.name = sub_random
         prompt = LLMOpenLoopApproach._create_prompt(self, init, goal, options)  # pylint: disable=protected-access
         return prompt

@@ -1,6 +1,7 @@
 """Open-loop large language model (LLM) meta-controller approach with
+
 prompt modification where predicate names are randomly generated.
-Note: Predicate and Task classes must be set to frozen=False
+
 Example command line:
     export OPENAI_API_KEY=<your API key>
     python src/main.py --approach llm_predicate_renaming --seed 0 \
@@ -48,14 +49,14 @@ class LLMPredicateRenamingApproach(LLMOpenLoopApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self.original_predicates: List[str] = []
-        self.random_predicates: List[str] = []
+        self._original_predicates: List[str] = []
+        self._random_predicates: List[str] = []
 
     @classmethod
     def get_name(cls) -> str:
         return "llm_predicate_renaming"
 
-    def _generate_guess(self, sentence: str) -> List[str]:
+    def _generate_random_string(self, sentence: str) -> List[str]:
         alphabet = [
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
             'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
@@ -86,14 +87,14 @@ Solution:
         for i in original_set:
             name = str(i)
             sub = name[0:name.index('(')]
-            if sub in self.original_predicates:
-                modified_set.append(self.random_predicates[
-                    self.original_predicates.index(sub)] +
+            if sub in self._original_predicates:
+                modified_set.append(self._random_predicates[
+                    self._original_predicates.index(sub)] +
                                     name[name.index('('):])
             else:
-                self.original_predicates.append(sub)
-                sub_random = ''.join(self._generate_guess(sub))
-                self.random_predicates.append(sub_random)
+                self._original_predicates.append(sub)
+                sub_random = ''.join(self._generate_random_string(sub))
+                self._random_predicates.append(sub_random)
                 name = name.replace(sub, sub_random)
                 modified_set.append(name)
         return modified_set
