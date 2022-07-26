@@ -185,7 +185,8 @@ def _plot(all_data: List) -> None:
     os.makedirs(outdir, exist_ok=True)
     column_names = [c for (c, _) in COLUMN_NAMES_AND_KEYS]
     df_all = pd.DataFrame(all_data)
-    df_all.columns = column_names
+    df_all.rename(columns=dict(zip(df_all.columns, column_names)),
+                  inplace=True)
     print(df_all)
     for plot_title, d in PLOT_GROUPS.items():
         _, ax = plt.subplots()

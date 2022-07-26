@@ -2,7 +2,7 @@
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach open_loop_llm --seed 0 \
+    python src/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -10,7 +10,7 @@ Example command line:
         --debug
 
 Easier setting:
-    python src/main.py --approach open_loop_llm --seed 0 \
+    python src/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_easy_delivery_procedural_tasks \
         --pddl_easy_delivery_procedural_train_min_num_locs 2 \
@@ -32,7 +32,8 @@ Easier setting:
 from __future__ import annotations
 
 import logging
-from typing import Collection, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Collection, Dict, Iterator, List, Optional, Sequence, Set, \
+    Tuple
 
 from predicators.src.approaches import ApproachFailure
 from predicators.src.approaches.nsrt_metacontroller_approach import \
@@ -44,8 +45,8 @@ from predicators.src.structs import Box, Dataset, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, _GroundNSRT, _Option
 
 
-class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
-    """OpenLoopLLMApproach definition."""
+class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
+    """LLMOpenLoopApproach definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -53,13 +54,13 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Set up the LLM.
-        self._llm = OpenAILLM(CFG.open_loop_llm_model_name)
+        self._llm = OpenAILLM(CFG.llm_model_name)
         # Set after learning.
         self._prompt_prefix = ""
 
     @classmethod
     def get_name(cls) -> str:
-        return "open_loop_llm"
+        return "llm_open_loop"
 
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:
@@ -68,55 +69,54 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             return memory["abstract_plan"].pop(0)
         # Otherwise, we need to make a new abstract plan.
         action_seq = self._get_llm_based_plan(state, atoms, goal)
-
         if action_seq is not None:
             # If valid plan, add plan to memory so it can be refined!
             memory["abstract_plan"] = action_seq
             return memory["abstract_plan"].pop(0)
-        raise ApproachFailure("Approach failed to find solution")
+        raise ApproachFailure("No LLM predicted plan achieves the goal.")
 
     def _get_llm_based_plan(
             self, state: State, atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
+        # Try to convert each output into an abstract plan.
+        # Return the first abstract plan that is found this way.
+        objects = set(state)
+        for option_plan in self._get_llm_based_option_plans(
+                atoms, objects, goal):
+            ground_nsrt_plan = self._option_plan_to_nsrt_plan(
+                option_plan, atoms, objects, goal)
+            if ground_nsrt_plan is not None:
+                return ground_nsrt_plan
+        return None
+
+    def _get_llm_based_option_plans(
+        self, atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom]
+    ) -> Iterator[List[Tuple[ParameterizedOption, Sequence[Object]]]]:
         new_prompt = self._create_prompt(atoms, goal, [])
         prompt = self._prompt_prefix + new_prompt
         # Query the LLM.
         llm_predictions = self._llm.sample_completions(
             prompt=prompt,
-            temperature=CFG.open_loop_llm_temperature,
+            temperature=CFG.llm_temperature,
             seed=CFG.seed,
-            num_completions=CFG.open_loop_llm_num_completions)
-        # Try to convert the output into an abstract plan.
-        for llm_prediction in llm_predictions:
-            ground_nsrt_plan = self._process_single_prediction(
-                llm_prediction, state, atoms, goal)
-            if ground_nsrt_plan is not None:
-                return ground_nsrt_plan
-        return None
+            num_completions=CFG.llm_num_completions)
+        for pred in llm_predictions:
+            option_plan = self._llm_prediction_to_option_plan(pred, objects)
+            yield option_plan
 
-    def _process_single_prediction(
-            self, llm_prediction: str, state: State, atoms: Set[GroundAtom],
+    def _option_plan_to_nsrt_plan(
+            self, option_plan: List[Tuple[ParameterizedOption,
+                                          Sequence[Object]]],
+            atoms: Set[GroundAtom], objects: Set[Object],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
-        objects = set(state)
-        option_plan = self._llm_prediction_to_option_plan(
-            llm_prediction, objects)
-        # If we failed to find a nontrivial plan with this prediction,
-        # continue on to next prediction.
-        if len(option_plan) == 0:
-            return None
-        # Attempt to turn the plan into a sequence of ground NSRTs.
         nsrts = self._get_current_nsrts()
         predicates = self._initial_predicates
         strips_ops = [n.op for n in nsrts]
         option_specs = [(n.option, list(n.option_vars)) for n in nsrts]
-        ground_nsrt_plan = task_plan_with_option_plan_constraint(
-            objects, predicates, strips_ops, option_specs, atoms, goal,
-            option_plan)
-        # If we can't find an NSRT plan that achieves the goal,
-        # continue on to next prediction.
-        if not ground_nsrt_plan:
-            return None
-        return ground_nsrt_plan
+        return task_plan_with_option_plan_constraint(objects, predicates,
+                                                     strips_ops, option_specs,
+                                                     atoms, goal, option_plan)
 
     def _llm_prediction_to_option_plan(
         self, llm_prediction: str, objects: Collection[Object]
@@ -138,7 +138,8 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
             # Skip empty option strs.
             if not option_str:
                 continue
-            if option_name not in option_name_to_option.keys():
+            if option_name not in option_name_to_option.keys() or \
+                "(" not in option_str:
                 logging.info(
                     f"Line {option_str} output by LLM doesn't "
                     "contain a valid option name. Terminating option plan "
@@ -175,6 +176,10 @@ class OpenLoopLLMApproach(NSRTMetacontrollerApproach):
                     malformed = True
                     break
                 objs_list.append(obj)
+            # The types of the objects match, but we haven't yet checked if
+            # all arguments of the option have an associated object.
+            if len(objs_list) != len(option.types):
+                malformed = True
             if not malformed:
                 option_plan.append((option, objs_list))
         return option_plan

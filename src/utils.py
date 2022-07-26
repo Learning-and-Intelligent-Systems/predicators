@@ -1551,7 +1551,7 @@ def run_policy_guided_astar(
     """Perform A* search, but at each node, roll out a given policy for a given
     number of timesteps, creating new successors at each step.
 
-    Stop the roll out prematurely if the policy returns None.
+    Stop the rollout prematurely if the policy returns None.
 
     Note that unlike the other search functions, which take get_successors as
     input, this function takes get_valid_actions and get_next_state as two
@@ -1839,13 +1839,23 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+def all_ground_ldl_rules(rule: LDLRule,
+                         objects: Collection[Object]) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects."""
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+
+
+@functools.lru_cache(maxsize=None)
+def _cached_all_ground_ldl_rules(
+        rule: LDLRule,
+        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+    """Helper for all_ground_ldl_rules() that caches the outputs."""
+    ground_rules = []
     types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(objects, types):
-        yield rule.ground(tuple(choice))
+    for choice in get_object_combinations(frozen_objects, types):
+        ground_rule = rule.ground(tuple(choice))
+        ground_rules.append(ground_rule)
+    return ground_rules
 
 
 _T = TypeVar("_T")  # element of a set

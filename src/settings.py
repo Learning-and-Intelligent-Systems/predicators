@@ -261,16 +261,17 @@ class GlobalSettings:
     # parameters for large language models
     llm_prompt_cache_dir = "llm_cache"
     llm_openai_max_response_tokens = 700
-
-    # parameters for open loop LLM approach
-    open_loop_llm_model_name = "text-davinci-002"  # "text-davinci-002"
-    open_loop_llm_temperature = 0.5
-    open_loop_llm_num_completions = 2
+    llm_use_cache_only = False
+    llm_model_name = "text-curie-001"  # "text-davinci-002"
+    llm_temperature = 0.5
+    llm_num_completions = 1
 
     # SeSamE parameters
+    sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
     # of operators and objects to obtain ground operators, while the latter
