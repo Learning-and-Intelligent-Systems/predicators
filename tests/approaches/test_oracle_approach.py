@@ -157,6 +157,7 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
         "pddl_delivery_procedural_test_max_want_locs": 1,
         "pddl_delivery_procedural_test_min_extra_newspapers": 0,
         "pddl_delivery_procedural_test_max_extra_newspapers": 1,
+        "sesame_use_visited_state_set": True,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
@@ -173,6 +174,7 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "pddl_easy_delivery_procedural_test_max_want_locs": 1,
         "pddl_easy_delivery_procedural_test_min_extra_newspapers": 0,
         "pddl_easy_delivery_procedural_test_max_extra_newspapers": 1,
+        "sesame_use_visited_state_set": True,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["behavior_tasks"] = [
