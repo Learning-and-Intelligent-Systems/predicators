@@ -1,7 +1,8 @@
 """Predicatorobot slack bot code.
 
-To launch on supercloud (e.g., after a downtime has ended): `rm -f
-nohup.out && nohup python launch_slack_bot.py &`
+To launch on supercloud (e.g., after a downtime has ended):
+
+`rm -f nohup.out && nohup python scripts/launch_slack_bot.py &`
 """
 
 import abc
@@ -9,7 +10,7 @@ import os
 import re
 import socket
 import subprocess
-from typing import List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 from urllib.request import urlopen
 
 import requests
@@ -379,7 +380,7 @@ def _get_response_object(query: str, inquirer: str) -> Response:
 
 
 @app.event("app_mention")
-def _callback(ack, body):
+def _callback(ack: Callable[[], None], body: Dict) -> None:
     """This callback is triggered whenever someone @mentions this bot."""
     ack()  # all callback functions must run this
     event = body["event"]
@@ -388,7 +389,7 @@ def _callback(ack, body):
     channel_id = event["channel"]
     home_dir = os.path.expanduser("~")
     host_name = socket.gethostname()
-    bot_user_id = app.client.auth_test().data["user_id"]
+    bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)

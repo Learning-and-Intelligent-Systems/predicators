@@ -5,7 +5,7 @@ then Execution.
 """
 
 import abc
-from typing import Callable, List, Set
+from typing import Any, Callable, List, Set, Tuple
 
 from gym.spaces import Box
 
@@ -16,8 +16,8 @@ from predicators.src.option_model import _OptionModelBase, create_option_model
 from predicators.src.planning import PlanningFailure, PlanningTimeout, \
     sesame_plan
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+from predicators.src.structs import NSRT, Action, Metrics, \
+    ParameterizedOption, Predicate, State, Task, Type, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -49,35 +49,9 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        try:
-            plan, metrics = sesame_plan(task,
-                                        self._option_model,
-                                        nsrts,
-                                        preds,
-                                        self._types,
-                                        timeout,
-                                        seed,
-                                        self._task_planning_heuristic,
-                                        self._max_skeletons_optimized,
-                                        max_horizon=CFG.horizon,
-                                        allow_noops=CFG.sesame_allow_noops)
-        except PlanningFailure as e:
-            raise ApproachFailure(e.args[0], e.info)
-        except PlanningTimeout as e:
-            raise ApproachTimeout(e.args[0], e.info)
-        for metric in [
-                "num_skeletons_optimized", "num_failures_discovered",
-                "num_nodes_expanded", "num_nodes_created", "plan_length"
-        ]:
-            self._metrics[f"total_{metric}"] += metrics[metric]
-        self._metrics["total_num_nsrts"] += len(nsrts)
-        self._metrics["total_num_preds"] += len(preds)
-        self._metrics["min_num_skeletons_optimized"] = min(
-            metrics["num_skeletons_optimized"],
-            self._metrics["min_num_skeletons_optimized"])
-        self._metrics["max_num_skeletons_optimized"] = max(
-            metrics["num_skeletons_optimized"],
-            self._metrics["max_num_skeletons_optimized"])
+        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
+                                              seed)
+        self._save_metrics(metrics, nsrts, preds)
         self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)
 
@@ -89,10 +63,55 @@ class BilevelPlanningApproach(BaseApproach):
 
         return _policy
 
+    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
+                         preds: Set[Predicate], timeout: float, seed: int,
+                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+        """Subclasses may override.
+
+        For example, PG4 inserts an abstract policy into kwargs.
+        """
+        try:
+            plan, metrics = sesame_plan(
+                task,
+                self._option_model,
+                nsrts,
+                preds,
+                self._types,
+                timeout,
+                seed,
+                self._task_planning_heuristic,
+                self._max_skeletons_optimized,
+                max_horizon=CFG.horizon,
+                allow_noops=CFG.sesame_allow_noops,
+                use_visited_state_set=CFG.sesame_use_visited_state_set,
+                **kwargs)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
+        except PlanningTimeout as e:
+            raise ApproachTimeout(e.args[0], e.info)
+
+        return plan, metrics
+
     def reset_metrics(self) -> None:
         super().reset_metrics()
         # Initialize min to inf (max gets initialized to 0 by default).
         self._metrics["min_num_skeletons_optimized"] = float("inf")
+
+    def _save_metrics(self, metrics: Metrics, nsrts: Set[NSRT],
+                      predicates: Set[Predicate]) -> None:
+        for metric in [
+                "num_skeletons_optimized", "num_failures_discovered",
+                "num_nodes_expanded", "num_nodes_created", "plan_length"
+        ]:
+            self._metrics[f"total_{metric}"] += metrics[metric]
+        self._metrics["total_num_nsrts"] += len(nsrts)
+        self._metrics["total_num_preds"] += len(predicates)
+        self._metrics["min_num_skeletons_optimized"] = min(
+            metrics["num_skeletons_optimized"],
+            self._metrics["min_num_skeletons_optimized"])
+        self._metrics["max_num_skeletons_optimized"] = max(
+            metrics["num_skeletons_optimized"],
+            self._metrics["max_num_skeletons_optimized"])
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
