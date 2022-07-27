@@ -89,7 +89,6 @@ class BilevelPlanningApproach(BaseApproach):
             raise ApproachFailure(e.args[0], e.info)
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
-
         return plan, metrics
 
     def reset_metrics(self) -> None:
