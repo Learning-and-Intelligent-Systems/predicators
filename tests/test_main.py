@@ -211,7 +211,7 @@ def test_env_failure():
         "timeout": 10,
         "make_test_videos": False,
         "cover_initial_holding_prob": 0.0,
-        "num_test_tasks": 1
+        "num_test_tasks": 1,
     })
     env = _DummyCoverEnv()
     train_tasks = env.get_train_tasks()
@@ -239,4 +239,5 @@ def test_env_failure():
     assert not approach.is_learning_based
     task = train_tasks[0]
     approach.solve(task, timeout=500)
-    _run_testing(env, approach)
+    metrics = _run_testing(env, approach)
+    assert metrics["num_solved"] == 1

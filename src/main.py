@@ -256,6 +256,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     video_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
+        #Run the approach's solve() method to get a policy for this task.
         solve_start = time.time()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
@@ -284,11 +285,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             monitor = None
         try:
-            # Will evaluate all approaches on our simulator with the options
-            # to (1) only evaluate based on ability to find a plan for
-            # BilevelPlanningApproaches and (2) for BEHAVIOR to evaluate on
-            # option models instead of the low-level simulator (with the
-            # plan_only_eval and behavior_option_model_eval flags, respectively)
+            # Now, measure success by running the policy in the environment.
+            # There are two special cases that we handle first. In the if,
+            # we consider the case where plan_only_eval is True, in which
+            # case we only check whether this BilevelPlanningApproach found
+            # a plan. In the elif, we consider the case where
+            # behavior_option_model_eval is True, in which case for BEHAVIOR
+            # we evaluate on option models instead of the low-level simulator.
+            # Finally, the else handles the default case, where we use
+            # utils.run_policy to roll out the policy in the environment.
             if CFG.plan_only_eval:
                 assert isinstance(approach, BilevelPlanningApproach)
                 if approach.get_last_plan() != [] or task.goal_holds(

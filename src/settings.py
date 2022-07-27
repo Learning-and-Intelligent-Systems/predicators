@@ -48,7 +48,8 @@ class GlobalSettings:
     # and we will say a task is solved successfully if we were able to find
     # a plan. Note, we might solve the task even if the plan we found would
     # not necessarily work in simulation (this is especially true of option
-    # models that don't model the simulator well).
+    # models that don't model the simulator well). This can only be True if
+    # the approach is a subclass of BilevelPlanningApproach.
     plan_only_eval = False
 
     # cover env parameters
