@@ -177,13 +177,14 @@ class GNNOptionPolicyApproach(GNNApproach):
 
     def _solve_without_shooting(self, task: Task) -> Callable[[State], Action]:
         cur_option = DummyOption
+        memory: Dict = {}  # optionally updated by predict()
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
                 param_opt, objects, params_mean = self._predict(
-                    state, atoms, task.goal)
+                    state, atoms, task.goal, memory)
                 # Just use the mean parameters to ground the option.
                 cur_option = param_opt.ground(objects, params_mean)
                 if not cur_option.initiable(state):
@@ -197,6 +198,7 @@ class GNNOptionPolicyApproach(GNNApproach):
     def _solve_with_shooting(self, task: Task,
                              timeout: int) -> Callable[[State], Action]:
         start_time = time.time()
+        memory: Dict = {}  # optionally updated by predict()
         # Keep trying until the timeout.
         while time.time() - start_time < timeout:
             total_num_act = 0
@@ -218,7 +220,7 @@ class GNNOptionPolicyApproach(GNNApproach):
                     return _policy
                 atoms = utils.abstract(state, self._initial_predicates)
                 param_opt, objects, params_mean = self._predict(
-                    state, atoms, task.goal)
+                    state, atoms, task.goal, memory)
                 low = param_opt.params_space.low
                 high = param_opt.params_space.high
                 # Sample an initiable option.

@@ -44,6 +44,13 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
+    # If this is True, then we will not execute our final plan in simulation
+    # and we will say a task is solved successfully if we were able to find
+    # a plan. Note, we might solve the task even if the plan we found would
+    # not necessarily work in simulation (this is especially true of option
+    # models that don't model the simulator well). This can only be True if
+    # the approach is a subclass of BilevelPlanningApproach.
+    plan_only_eval = False
 
     # cover env parameters
     cover_num_blocks = 2
@@ -99,7 +106,7 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
-    # behavior env parameters
+    # BEHAVIOR env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
@@ -111,6 +118,8 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
+    behavior_option_model_eval = False
+    behavior_option_model_rrt = False
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
@@ -165,6 +174,26 @@ class GlobalSettings:
     pddl_easy_delivery_procedural_test_max_want_locs = 3
     pddl_easy_delivery_procedural_test_min_extra_newspapers = 0
     pddl_easy_delivery_procedural_test_max_extra_newspapers = 1
+
+    # pddl spanner env parameters
+    pddl_spanner_procedural_train_min_nuts = 1
+    pddl_spanner_procedural_train_max_nuts = 3
+    pddl_spanner_procedural_train_min_extra_spanners = 0
+    pddl_spanner_procedural_train_max_extra_spanners = 2
+    pddl_spanner_procedural_train_min_locs = 2
+    pddl_spanner_procedural_train_max_locs = 4
+    pddl_spanner_procedural_test_min_nuts = 10
+    pddl_spanner_procedural_test_max_nuts = 20
+    pddl_spanner_procedural_test_min_extra_spanners = 0
+    pddl_spanner_procedural_test_max_extra_spanners = 10
+    pddl_spanner_procedural_test_min_locs = 20
+    pddl_spanner_procedural_test_max_locs = 30
+
+    # pddl forest env parameters
+    pddl_forest_procedural_train_min_size = 8
+    pddl_forest_procedural_train_max_size = 10
+    pddl_forest_procedural_test_min_size = 10
+    pddl_forest_procedural_test_max_size = 12
 
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
@@ -234,10 +263,20 @@ class GlobalSettings:
     nsrt_rl_option_learner = "dummy_rl"
     nsrt_rl_valid_reward_steps_threshold = 10
 
+    # parameters for large language models
+    llm_prompt_cache_dir = "llm_cache"
+    llm_openai_max_response_tokens = 700
+    llm_use_cache_only = False
+    llm_model_name = "text-curie-001"  # "text-davinci-002"
+    llm_temperature = 0.5
+    llm_num_completions = 1
+
     # SeSamE parameters
+    sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
     # of operators and objects to obtain ground operators, while the latter
@@ -323,21 +362,26 @@ class GlobalSettings:
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
-    interactive_action_strategy = "greedy_lookahead"
     interactive_query_policy = "threshold"
     interactive_score_function = "entropy"
     interactive_score_threshold = 0.1
     interactive_random_query_prob = 0.5  # for query policy random
-    interactive_num_babbles = 10  # for action strategy glib
-    interactive_max_num_atoms_babbled = 1  # for action strategy glib
-    # for action strategy greedy_lookahead
-    interactive_max_num_trajectories = 100
-    # for action strategy greedy_lookahead
-    interactive_max_trajectory_length = 2
     interactive_num_requests_per_cycle = 10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 1000
     predicate_knn_classifier_n_neighbors = 1
+
+    # online NSRT learning parameters
+    online_nsrt_learning_requests_per_cycle = 10
+
+    # glib explorer parameters
+    glib_min_goal_size = 1
+    glib_max_goal_size = 1
+    glib_num_babbles = 10
+
+    # greedy lookahead explorer parameters
+    greedy_lookahead_max_num_trajectories = 100
+    greedy_lookahead_max_traj_length = 2
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -440,6 +484,7 @@ class GlobalSettings:
                 lambda: 8,
                 {
                     # For these environments, allow more skeletons.
+                    "behavior": 1000,
                     "coffee": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
@@ -468,7 +513,7 @@ class GlobalSettings:
             dump_nsrts_as_strings=defaultdict(
                 lambda: False,
                 {
-                    # We cannot pickle Behavior NSRTs
+                    # We cannot pickle BEHAVIOR NSRTs
                     "behavior": True,
                 })[args.get("env", "")],
         )

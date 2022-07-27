@@ -588,6 +588,14 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
+    class _CountingMonitor(utils.Monitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, state, action):
+            self.num_observations += 1
+
     with pytest.raises(ValueError) as e:
         utils.run_policy(_policy,
                          env,
@@ -596,14 +604,17 @@ def test_run_policy():
                          task.goal_holds,
                          max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj4, _ = utils.run_policy(_policy,
                                 env,
                                 "test",
                                 0,
                                 task.goal_holds,
                                 max_num_steps=5,
-                                exceptions_to_break_on={ValueError})
+                                exceptions_to_break_on={ValueError},
+                                monitor=monitor)
     assert len(traj4.states) == 1
+    assert monitor.num_observations == 1
 
     class _MockEnv:
 
@@ -621,6 +632,7 @@ def test_run_policy():
 
     mock_env = _MockEnv()
     policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj5, _ = utils.run_policy(
         policy,
         mock_env,
@@ -628,9 +640,11 @@ def test_run_policy():
         0,
         lambda s: False,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj5.states) == 1
     assert len(traj5.actions) == 0
+    assert monitor.num_observations == 1
 
     # Test policy call time.
     def _policy(_):
@@ -646,13 +660,6 @@ def test_run_policy():
     assert metrics["policy_call_time"] >= 3 * 0.1
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
-
-        def __init__(self):
-            self.num_observations = 0
-
-        def observe(self, state, action):
-            self.num_observations += 1
 
     def _policy(_):
         raise ValueError("mock error")
@@ -766,27 +773,33 @@ def test_run_policy_with_simulator():
                                         _terminal,
                                         max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
                                            _terminal,
                                            max_num_steps=5,
-                                           exceptions_to_break_on={ValueError})
+                                           exceptions_to_break_on={ValueError},
+                                           monitor=monitor)
     assert len(traj.states) == 1
+    assert monitor.num_observations == 1
 
     def _simulator(state, action):
         raise utils.EnvironmentFailure("mock failure")
 
     _policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(
         _policy,
         _simulator,
         state,
         _terminal,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
+    assert monitor.num_observations == 1
 
 
 def test_option_plan_to_policy():
@@ -1770,6 +1783,9 @@ def test_all_possible_ground_atoms():
 
 def test_create_ground_atom_dataset():
     """Tests for create_ground_atom_dataset()."""
+    utils.reset_config({
+        "env": "test_env",
+    })
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type],
@@ -1780,19 +1796,19 @@ def test_create_ground_atom_dataset():
     plate2 = plate_type("plate2")
     states = [
         State({
-            cup1: [0.5],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([0.5]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         }),
         State({
-            cup1: [1.1],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([1.1]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         })
     ]
-    actions = [DummyOption]
+    actions = [Action(np.array([0.0]), DummyOption)]
     dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
@@ -2703,6 +2719,17 @@ def test_run_hill_climbing():
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
 
+    # Test early_termination_heuristic_thresh with very high value.
+    initial_state = (0, 0)
+    state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
+        initial_state,
+        _grid_check_goal_fn,
+        _grid_successor_fn,
+        _grid_heuristic_fn,
+        early_termination_heuristic_thresh=10000000)
+    assert state_sequence == [(0, 0)]
+    assert not action_sequence
+
 
 def test_run_policy_guided_astar():
     """Tests for run_policy_guided_astar()."""
@@ -2797,6 +2824,25 @@ def test_run_policy_guided_astar():
         'down', 'down'
     ]
 
+    # With a policy that outputs invalid actions, should ignore the policy
+    # and find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: "garbage",
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
 
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests for ops_and_specs_to_dummy_nsrts()."""
@@ -2839,6 +2885,9 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
     assert utils.string_to_python_object("None") is None
+    assert utils.string_to_python_object("true") is True
+    assert utils.string_to_python_object("false") is False
+    assert utils.string_to_python_object("none") is None
     assert utils.string_to_python_object("[3.2]") == [3.2]
     assert utils.string_to_python_object("[3.2,4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]

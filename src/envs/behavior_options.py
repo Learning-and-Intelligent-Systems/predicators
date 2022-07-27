@@ -148,12 +148,14 @@ def get_delta_low_level_base_action(robot_z: float,
 def navigate_to_param_sampler(rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
-    assert len(objects) in [2, 3]
+    assert len(objects) == 1
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
-    obj_to_sample_near = objects[-1]
-    closeness_limit = 1.25
-    distance = closeness_limit * rng.random()
+    obj_to_sample_near = objects[0]
+    closeness_limit = 0.75
+    nearness_limit = 0.5
+    distance = nearness_limit + (
+        (closeness_limit - nearness_limit) * rng.random())
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -350,22 +352,27 @@ def navigate_to_obj_pos(
         return None
 
     p.restoreState(state)
-    obstacles = get_body_ids(env)
-    if env.robots[0].parts["right_hand"].object_in_hand is not None:
-        obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
-    plan = plan_base_motion_br(
-        robot=env.robots[0],
-        end_conf=[
-            valid_position[0][0],
-            valid_position[0][1],
-            valid_position[1][2],
-        ],
-        base_limits=(),
-        obstacles=obstacles,
-        override_sample_fn=lambda: sample_fn(env, rng),
-        rng=rng,
-    )
-    p.restoreState(state)
+    end_conf = [
+        valid_position[0][0],
+        valid_position[0][1],
+        valid_position[1][2],
+    ]
+    if env.use_rrt:
+        obstacles = get_body_ids(env)
+        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+            obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
+        plan = plan_base_motion_br(
+            robot=env.robots[0],
+            end_conf=end_conf,
+            base_limits=(),
+            obstacles=obstacles,
+            override_sample_fn=lambda: sample_fn(env, rng),
+            rng=rng,
+        )
+        p.restoreState(state)
+    else:
+        pos = env.robots[0].get_position()
+        plan = [[pos[0], pos[1], original_orientation[2]], end_conf]
 
     if plan is None:
         p.restoreState(state)
@@ -635,9 +642,10 @@ def create_grasp_option_model(
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
 
-    # NOTE: -26 because there are 25 timesteps that we move along the vector
-    # between the hand the object for until finally grasping
-    hand_i = -26
+    # NOTE: -1 because there are 25 timesteps that we move along the vector
+    # between the hand the object for until finally grasping, and we want
+    # just the final orientation.
+    hand_i = -1
     rh_final_grasp_postion = plan[hand_i][0:3]
     rh_final_grasp_orn = plan[hand_i][3:6]
 
@@ -651,53 +659,6 @@ def create_grasp_option_model(
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_final_grasp_postion,
             p.getQuaternionFromEuler(rh_final_grasp_orn))
-
-        # 2. Slowly move hand to the surface of the object to be grasped.
-        # We can't simply teleport here since this might be slightly
-        # inside the object!
-        # Use an error-correcting closed-loop!
-        atol_xyz = 1e-4
-        atol_vel = 5e-3
-
-        # Error-correcting closed loop.
-        ec_loop_counter = 0
-        while hand_i < 0 and ec_loop_counter < 60:
-            current_pos = list(
-                env.robots[0].parts["right_hand"].get_position())
-            current_orn = list(
-                p.getEulerFromQuaternion(
-                    env.robots[0].parts["right_hand"].get_orientation()))
-            expected_pos = np.array(plan[hand_i][0:3])
-            # If we're not where we expect in the plan, take some corrective
-            # action
-            if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
-                low_level_action = get_delta_low_level_hand_action(
-                    env.robots[0].parts["body"],
-                    np.array(current_pos),
-                    np.array(current_orn),
-                    np.array(plan[hand_i][0:3]),
-                    np.array(plan[hand_i][3:]),
-                )
-                # if the corrective action is 0, move on
-                if np.allclose(
-                        low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
-                        atol=atol_vel,
-                ):
-                    low_level_action = get_delta_low_level_hand_action(
-                        env.robots[0].parts["body"],
-                        np.array(current_pos),
-                        np.array(current_orn),
-                        np.array(plan[hand_i + 1][0:3]),
-                        np.array(plan[hand_i + 1][3:]),
-                    )
-                    hand_i += 1
-                env.step(low_level_action)
-            # Else, move the hand_i pointer to make the expected position
-            # the next position in the plan.
-            else:
-                hand_i += 1
-            ec_loop_counter += 1
 
         # 3. Close hand and simulate grasp
         a = np.zeros(env.action_space.shape, dtype=float)
@@ -842,25 +803,34 @@ def grasp_obj_at_pos(
             euler_angles = np.array([0.0, np.pi, 0.0])
 
     state = p.saveState()
-    # plan a motion to the pose [x, y, z, euler_angles[0],
-    # euler_angles[1], euler_angles[2]]
-    plan = plan_hand_motion_br(
-        robot=env.robots[0],
-        obj_in_hand=None,
-        end_conf=[
-            x,
-            y,
-            z,
-            euler_angles[0],
-            euler_angles[1],
-            euler_angles[2],
-        ],
-        hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-        obstacles=get_body_ids(env, include_self=True,
-                               include_right_hand=True),
-        rng=rng,
-    )
-    p.restoreState(state)
+    end_conf = [
+        x,
+        y,
+        z,
+        euler_angles[0],
+        euler_angles[1],
+        euler_angles[2],
+    ]
+    if env.use_rrt:
+        # plan a motion to the pose [x, y, z, euler_angles[0],
+        # euler_angles[1], euler_angles[2]]
+        plan = plan_hand_motion_br(
+            robot=env.robots[0],
+            obj_in_hand=None,
+            end_conf=end_conf,
+            hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
+            obstacles=get_body_ids(env,
+                                   include_self=True,
+                                   include_right_hand=True),
+            rng=rng,
+        )
+        p.restoreState(state)
+    else:
+        pos = env.robots[0].parts["right_hand"].get_position()
+        plan = [[pos[0], pos[1], pos[2]] + list(
+            p.getEulerFromQuaternion(
+                env.robots[0].parts["right_hand"].get_orientation())),
+                end_conf]
 
     # NOTE: This below line is *VERY* important after the
     # pybullet state is restored. The hands keep an internal
@@ -941,23 +911,31 @@ def place_obj_plan(
 
     obstacles = get_body_ids(env, include_self=False)
     obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
-    plan = plan_hand_motion_br(
-        robot=env.robots[0],
-        obj_in_hand=obj_in_hand,
-        end_conf=[
-            x,
-            y,
-            z + 0.2,
-            0,
-            np.pi * 7 / 6,
-            0,
-        ],
-        hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-        obstacles=obstacles,
-        rng=rng,
-    )
-    p.restoreState(original_state)
-    p.removeState(original_state)
+    end_conf = [
+        x,
+        y,
+        z + 0.2,
+        0,
+        np.pi * 7 / 6,
+        0,
+    ]
+    if env.use_rrt:
+        plan = plan_hand_motion_br(
+            robot=env.robots[0],
+            obj_in_hand=obj_in_hand,
+            end_conf=end_conf,
+            hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
+            obstacles=obstacles,
+            rng=rng,
+        )
+        p.restoreState(original_state)
+        p.removeState(original_state)
+    else:
+        pos = env.robots[0].parts["right_hand"].get_position()
+        plan = [[pos[0], pos[1], pos[2]] + list(
+            p.getEulerFromQuaternion(
+                env.robots[0].parts["right_hand"].get_orientation())),
+                end_conf]
 
     # NOTE: This below line is *VERY* important after the
     # pybullet state is restored. The hands keep an internal
@@ -1002,8 +980,12 @@ def place_ontop_obj_pos_sampler(
     )
 
     if sampling_results[0] is None or sampling_results[0][0] is None:
-        # If sampling fails, returns a particular constant set of params
-        return np.array([0.0, 0.0, 0.5])
+        # If sampling fails, returns a random set of params
+        return np.array([
+            rng.uniform(-0.5, 0.5),
+            rng.uniform(-0.5, 0.5),
+            rng.uniform(0.3, 1.0)
+        ])
 
     rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
     return rnd_params
@@ -1240,10 +1222,15 @@ def place_ontop_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    obj_in_hand = env.scene.get_objects()[
-        env.robots[0].parts["right_hand"].object_in_hand]
-    logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
-                 f"{obj.name} with params {place_rel_pos}")
+    try:
+        obj_in_hand = env.scene.get_objects()[
+            env.robots[0].parts["right_hand"].object_in_hand]
+        logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
+                     f"{obj.name} with params {place_rel_pos}")
+    except ValueError:
+        logging.info("Cannot place; either no object in hand or holding "
+                     "the object to be placed on top of!")
+        return None
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None

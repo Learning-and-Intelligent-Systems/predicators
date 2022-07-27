@@ -47,11 +47,11 @@ from predicators.src.structs import Action, Array, GroundAtom, Object, \
 
 
 class BehaviorEnv(BaseEnv):
-    """Behavior (iGibson) environment."""
+    """BEHAVIOR (iGibson) environment."""
 
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
-            raise ModuleNotFoundError("Behavior is not installed.")
+            raise ModuleNotFoundError("BEHAVIOR is not installed.")
         # behavior_randomize_init_state will always be False in this
         # config_file because we are not using their scene samplers.
         # We are loading pre-computed scenes.
@@ -61,14 +61,22 @@ class BehaviorEnv(BaseEnv):
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
-        self.set_igibson_behavior_env(task_instance_id=0, seed=self._seed)
+        self.task_num = 0  # unique id to differentiate tasks
+        self.task_instance_id = 0  # id used for scene
+        self.set_igibson_behavior_env(task_instance_id=self.task_instance_id,
+                                      seed=self._seed)
         self._type_name_to_type: Dict[str, Type] = {}
-        # a unique id for saving and loading each task's state
-        self.task_num: int = 0
         # a map between task nums and the snapshot id for saving/loading
         # purposes
-        self.task_num_to_igibson_seed: Dict[int, int] = {}
+        self.task_num_task_instance_id_to_igibson_seed: Dict[Tuple[int, int],
+                                                             int] = {}
+        # Everytime we load a new scene in BEHAVIOR we also need to set
+        # the valid options again, because there might be new type combos.
+        self.set_options()
 
+    def set_options(self) -> None:
+        """Sets the underlying options for this particular task using the
+        current type list."""
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
@@ -126,9 +134,8 @@ class BehaviorEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(
-                self.current_ig_state_to_state(save_state=False)):
-            load_checkpoint_state(state, self)
+        self.task_instance_id = int(state.simulator_state.split("-")[1])
+        load_checkpoint_state(state, self, reset=True)
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -174,22 +181,28 @@ class BehaviorEnv(BaseEnv):
                    rng: np.random.Generator,
                    testing: bool = False) -> List[Task]:
         tasks = []
-        # Max 10 train and test tasks for behavior
-        assert num <= CFG.num_train_tasks
-        assert CFG.num_train_tasks <= 10
-        if testing:
-            self.task_num = CFG.num_train_tasks
         for _ in range(num):
-            # Behavior uses np.random everywhere. This is a somewhat
+            # BEHAVIOR uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             curr_env_seed = rng.integers(0, (2**32) - 1)
+            # ID used to generate scene in BEHAVIOR default scene is 0
+            self.task_instance_id = 0
             if CFG.behavior_randomize_init_state:
-                self.set_igibson_behavior_env(task_instance_id=self.task_num,
-                                              seed=curr_env_seed)
+                # Get random scene for BEHAVIOR between O-9 and 10-20
+                # if train or test, respectively.
+                if testing:
+                    self.task_instance_id = rng.integers(10, 20)
+                else:
+                    self.task_instance_id = rng.integers(0, 10)
+                self.set_igibson_behavior_env(
+                    task_instance_id=self.task_instance_id, seed=curr_env_seed)
+                self.set_options()
             self.igibson_behavior_env.reset()
-            self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
+            self.task_num_task_instance_id_to_igibson_seed[(
+                self.task_num, self.task_instance_id)] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                        f"{CFG.behavior_task_name}__{self.task_num}",
+                        f"{CFG.behavior_task_name}__{self.task_num}__" +
+                        f"{self.task_instance_id}",
                         exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
@@ -255,35 +268,18 @@ class BehaviorEnv(BaseEnv):
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
 
-        # Second, add in custom predicates except reachable-nothing
+        # Second, add in custom predicates.
         custom_predicate_specs = [
+            ("reachable-nothing", self._reachable_nothing_classifier, 0),
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
-            ("reachable", self._reachable_classifier, 2),
+            ("reachable", self._reachable_classifier, 1),
         ]
 
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
-                # We only care about reachable when the agent is one of the
-                # types.
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
-                if name == "reachable" and not any(type_i.name == "agent"
-                                                   for type_i in type_combo):
-                    continue
-                predicates.add(pred)
-
-        # Finally, add the reachable-nothing predicate, which only applies
-        # to the 'agent' type
-        for i in range(len(types_lst)):
-            if types_lst[i].name == "agent":
-                pred_name = self._create_type_combo_name(
-                    "reachable-nothing", (types_lst[i], ))
-                pred = Predicate(
-                    pred_name,
-                    [types_lst[i]],
-                    self._reachable_nothing_classifier,
-                )
                 predicates.add(pred)
 
         return predicates
@@ -376,8 +372,10 @@ class BehaviorEnv(BaseEnv):
                                "environment that meets bddl initial "
                                "conditions!")
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
+        self.igibson_behavior_env.use_rrt = CFG.behavior_option_model_rrt
 
-    @functools.lru_cache(maxsize=None)
+    # Do not add @functools.lru_cache(maxsize=None) here this will
+    # lead to wrong mappings when we load a different scene
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
         type_name = ig_obj.category
         obj_type = self._type_name_to_type[type_name]
@@ -428,10 +426,11 @@ class BehaviorEnv(BaseEnv):
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                f"{CFG.behavior_task_name}__{self.task_num}/")
-
-        return utils.BehaviorState(state_data,
-                                   f"{self.task_num}-{simulator_state}")
+                f"{CFG.behavior_task_name}__{self.task_num}__" +
+                f"{self.task_instance_id}/")
+        return utils.BehaviorState(
+            state_data,
+            f"{self.task_num}-{self.task_instance_id}-{simulator_state}")
 
     def _create_classifier_from_bddl(
         self,
@@ -474,27 +473,33 @@ class BehaviorEnv(BaseEnv):
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 2
+        assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
-        ig_other_obj = self.object_to_ig_object(objs[1])
+        # We assume we're running BEHAVIOR with only 1 agent
+        # in the scene.
+        assert len(self.igibson_behavior_env.robots) == 1
+        robot_obj = self.igibson_behavior_env.robots[0]
         # If the two objects are the same (i.e reachable(agent, agent)),
         # we always want to return False so that when we learn
         # operators, such predicates don't needlessly appear in preconditions.
-        if ig_obj == ig_other_obj:
+        if self._holding_classifier(state=state, objs=[objs[0]]):
+            return False
+        # We also always want reachable-agent to be False so it doesn't
+        # appear in any preconditions.
+        if ig_obj.name == "agent":
             return False
         return (np.linalg.norm(  # type: ignore
-            np.array(ig_obj.get_position()) -
-            np.array(ig_other_obj.get_position())) < 2)
+            np.array(robot_obj.get_position()) -
+            np.array(ig_obj.get_position())) < 2)
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(
                 self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
-        assert len(objs) == 1
+        assert len(objs) == 0
         for obj in state:
-            if self._reachable_classifier(
-                    state=state, objs=[obj, objs[0]]) and (obj != objs[0]):
+            if self._reachable_classifier(state=state, objs=[obj]):
                 return False
         return True
 
@@ -556,33 +561,62 @@ class BehaviorEnv(BaseEnv):
     @staticmethod
     def _create_type_combo_name(original_name: str,
                                 type_combo: Sequence[Type]) -> str:
+        if len(type_combo) == 0:
+            return original_name
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
 
 
-def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
-    """Sets the underlying iGibson environment to a particular saved state."""
+def load_checkpoint_state(s: State,
+                          env: BehaviorEnv,
+                          reset: bool = False) -> None:
+    """Sets the underlying iGibson environment to a particular saved state.
+
+    When reset is True we will create a new BehaviorEnv and load our
+    checkpoint into it. This will ensure that all the information from
+    previous environment steps are reset as well.
+    """
     assert s.simulator_state is not None
-    # Get the task_num associated with this state from s.simulator_state
-    new_task_num = int(s.simulator_state.split("-")[0])
-    # If the task_num is new, then we need to load a new iGibson behavior
-    # env with our random seed saved in env.task_num_to_igibson_seed. Otherwise
+    # Get the new_task_num_task_instance_id associated with this state
+    # from s.simulator_state.
+    new_task_num_task_instance_id = (int(s.simulator_state.split("-")[0]),
+                                     int(s.simulator_state.split("-")[1]))
+    # If the new_task_num_task_instance_id is new, then we need to load
+    # a new iGibson behavior env with our random seed saved in
+    # env.new_task_num_task_instance_id_to_igibson_seed. Otherwise
     # we're already in the correct environment and can just load the
     # checkpoint. Also note that we overwrite the task.init saved checkpoint
     # so that it's compatible with the new environment!
-    if new_task_num != env.task_num and CFG.behavior_randomize_init_state:
+    env.task_num = new_task_num_task_instance_id[0]
+    # Since demo trajectories seeds are not saved, a seed is generated here if
+    # one does not exist yet for the task num and task instance id pair.
+    if not new_task_num_task_instance_id in \
+        env.task_num_task_instance_id_to_igibson_seed:
+        env.task_num_task_instance_id_to_igibson_seed[
+            new_task_num_task_instance_id] = 0
+    if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
+            and CFG.behavior_randomize_init_state) or reset:
+        env.task_instance_id = new_task_num_task_instance_id[1]
+        # Frame count is overwritten by set_igibson_behavior_env and needs to
+        # be preserved across resets. So we save it before and set it after
+        # we reset the env.
+        frame_count = env.igibson_behavior_env.simulator.frame_count
         env.set_igibson_behavior_env(
-            task_instance_id=new_task_num,
-            seed=env.task_num_to_igibson_seed[new_task_num])
-        env.task_num = new_task_num
+            task_instance_id=new_task_num_task_instance_id[1],
+            seed=env.task_num_task_instance_id_to_igibson_seed[
+                new_task_num_task_instance_id])
+        env.igibson_behavior_env.simulator.frame_count = frame_count
+        env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
-    env.task_num = new_task_num
+        env.igibson_behavior_env.reset()
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-        f"{CFG.behavior_task_name}__{env.task_num}",
-        int(s.simulator_state.split("-")[1]))
+        f"{CFG.behavior_task_name}__{env.task_num}__{env.task_instance_id}",
+        int(s.simulator_state.split("-")[2]))
+    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
+        new_task_num_task_instance_id])
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))

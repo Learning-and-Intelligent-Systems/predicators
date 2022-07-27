@@ -1,0 +1,36 @@
+# Online PG3 Configuration File 
+---
+APPROACHES:
+  pg3:
+    NAME: "online_pg3"
+    FLAGS: {}
+  pg3-random-options:
+    NAME: "online_pg3"
+    FLAGS:
+      explorer: random_options
+  pg3-glib:
+    NAME: "online_pg3"
+    FLAGS:
+      explorer: glib
+  pg3-given-ops:
+    NAME: "online_pg3"
+    FLAGS: 
+      strips_learner: oracle 
+  plan-only:
+    NAME: "oracle"
+    FLAGS: {}
+ENVS:
+  delivery:
+    NAME: "pddl_easy_delivery_procedural_tasks"
+    FLAGS: {}
+  spanner:
+    NAME: "pddl_spanner_procedural_tasks"
+    FLAGS: {}
+ARGS: []
+FLAGS:
+  num_train_tasks: 50
+  num_test_tasks: 10
+  max_initial_demos: 1
+  max_num_steps_interaction_request: 10 
+START_SEED: 456
+NUM_SEEDS: 10

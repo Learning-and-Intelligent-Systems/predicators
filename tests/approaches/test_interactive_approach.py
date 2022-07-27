@@ -12,10 +12,10 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.interaction.teacher import Teacher
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
+from predicators.src.teacher import Teacher
 
 
 @pytest.mark.parametrize("predicate_classifier_model,expectation",
@@ -41,7 +41,7 @@ def test_interactive_learning_approach(predicate_classifier_model,
         "interactive_num_ensemble_members": 1,
         "interactive_num_requests_per_cycle": 1,
         # old default settings, for test coverage
-        "interactive_action_strategy": "glib",
+        "explorer": "glib",
         "interactive_query_policy": "strict_best_seen",
         "interactive_score_function": "frequency",
     })
@@ -83,22 +83,22 @@ def test_interactive_learning_approach(predicate_classifier_model,
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
-    # Test interactive_action_strategy random.
+    # Test explorer random.
     utils.update_config({
-        "interactive_action_strategy": "random",
+        "explorer": "random_options",
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
-    # Test interactive_action_strategy do nothing.
+    # Test explorer do nothing.
     utils.update_config({
-        "interactive_action_strategy": "do_nothing",
+        "explorer": "no_explore",
     })
     interaction_requests = approach.get_interaction_requests()
     assert interaction_requests
     _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib falls back to random if no solvable task can be found.
     utils.update_config({
-        "interactive_action_strategy": "glib",
+        "explorer": "glib",
         "timeout": 0.0,
     })
     interaction_requests = approach.get_interaction_requests()
@@ -158,9 +158,9 @@ def test_interactive_learning_approach(predicate_classifier_model,
     _generate_interaction_results(env, teacher, interaction_requests)
     # Test with greedy lookahead action strategy.
     utils.update_config({
-        "interactive_action_strategy": "greedy_lookahead",
-        "interactive_max_num_trajectories": 1,
-        "interactive_max_trajectory_length": 1,
+        "explorer": "greedy_lookahead",
+        "greedy_lookahead_max_num_trajectories": 1,
+        "greedy_lookahead_max_traj_length": 1,
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
@@ -191,19 +191,19 @@ def test_interactive_learning_approach(predicate_classifier_model,
     approach._nsrts = set()  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)
-    # Cover unrecognized interactive_action_strategy.
+    # Cover unrecognized explorer.
     utils.update_config({
-        "interactive_action_strategy": "not a real action strategy",
+        "explorer": "not a real action strategy",
         "interactive_query_policy": "strict_best_seen",
         "interactive_score_function": "frequency",
         "timeout": 10.0,
     })
     with pytest.raises(NotImplementedError) as e:
         approach.get_interaction_requests()
-    assert "Unrecognized interactive_action_strategy" in str(e)
+    assert "Unrecognized explorer" in str(e)
     # Cover unrecognized interactive_query_policy.
     utils.update_config({
-        "interactive_action_strategy": "glib",
+        "explorer": "glib",
         "interactive_query_policy": "not a real query policy",
         "interactive_score_function": "frequency",
     })
@@ -212,7 +212,7 @@ def test_interactive_learning_approach(predicate_classifier_model,
     assert "Unrecognized interactive_query_policy" in str(e)
     # Cover unrecognized interactive_score_function.
     utils.update_config({
-        "interactive_action_strategy":
+        "explorer":
         "glib",
         "interactive_query_policy":
         "strict_best_seen",

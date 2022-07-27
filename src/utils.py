@@ -843,7 +843,7 @@ class SingletonParameterizedOption(ParameterizedOption):
 
 
 class BehaviorState(State):
-    """A Behavior state that stores the index of the temporary behavior state
+    """A BEHAVIOR state that stores the index of the temporary BEHAVIOR state
     folder in addition to the features that are exposed in the object-centric
     state."""
 
@@ -913,9 +913,11 @@ def run_policy(
     actions: List[Action] = []
     metrics: Metrics = defaultdict(float)
     metrics["policy_call_time"] = 0.0
+    exception_raised_in_step = False
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
+            exception_raised_in_step = False
             try:
                 start_time = time.time()
                 act = policy(state)
@@ -932,13 +934,15 @@ def run_policy(
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
-    if monitor is not None:
+    if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj, metrics
@@ -976,9 +980,11 @@ def run_policy_with_simulator(
     state = init_state
     states = [state]
     actions: List[Action] = []
+    exception_raised_in_step = False
     if not termination_function(state):
         for _ in range(max_num_steps):
             monitor_observed = False
+            exception_raised_in_step = False
             try:
                 act = policy(state)
                 if monitor is not None:
@@ -990,13 +996,15 @@ def run_policy_with_simulator(
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
+                    if monitor_observed:
+                        exception_raised_in_step = True
                     break
                 if monitor is not None and not monitor_observed:
                     monitor.observe(state, None)
                 raise e
             if termination_function(state):
                 break
-    if monitor is not None:
+    if monitor is not None and not exception_raised_in_step:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
@@ -1056,6 +1064,40 @@ def option_plan_to_policy(
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
+
+    return _policy
+
+
+def create_random_option_policy(
+        options: Collection[ParameterizedOption], rng: np.random.Generator,
+        fallback_policy: Callable[[State],
+                                  Action]) -> Callable[[State], Action]:
+    """Create a policy that executes random initiable options.
+
+    If no applicable option can be found, query the fallback policy.
+    """
+    sorted_options = sorted(options, key=lambda o: o.name)
+    cur_option = DummyOption
+
+    def _policy(state: State) -> Action:
+        nonlocal cur_option
+        if cur_option is DummyOption or cur_option.terminal(state):
+            cur_option = DummyOption
+            for _ in range(CFG.random_options_max_tries):
+                param_opt = sorted_options[rng.choice(len(sorted_options))]
+                objs = get_random_object_combination(list(state),
+                                                     param_opt.types, rng)
+                if objs is None:
+                    continue
+                params = param_opt.params_space.sample()
+                opt = param_opt.ground(objs, params)
+                if opt.initiable(state):
+                    cur_option = opt
+                    break
+            else:
+                return fallback_policy(state)
+        act = cur_option.policy(state)
+        return act
 
     return _policy
 
@@ -1398,6 +1440,7 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
@@ -1406,7 +1449,8 @@ def run_hill_climbing(
     an improvement over the node. If no children improve on the node, look
     at the children's children, etc., up to enforced_depth, where enforced_depth
     0 corresponds to simple hill climbing. Terminate when no improvement can
-    be found.
+    be found. early_termination_heuristic_thresh allows for searching until
+    heuristic reaches a specified value.
 
     Lower heuristic is better.
     """
@@ -1419,6 +1463,12 @@ def run_hill_climbing(
     logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                  f"with heuristic {last_heuristic}")
     while True:
+
+        # Stops when heuristic reaches specified value.
+        if early_termination_heuristic_thresh is not None \
+            and last_heuristic <= early_termination_heuristic_thresh:
+            break
+
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
@@ -1501,7 +1551,7 @@ def run_policy_guided_astar(
     """Perform A* search, but at each node, roll out a given policy for a given
     number of timesteps, creating new successors at each step.
 
-    Stop the roll out prematurely if the policy returns None.
+    Stop the rollout prematurely if the policy returns None.
 
     Note that unlike the other search functions, which take get_successors as
     input, this function takes get_valid_actions and get_next_state as two
@@ -1522,7 +1572,8 @@ def run_policy_guided_astar(
         policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
-            if action is None:
+            valid_actions = {a for a, _ in get_valid_actions(policy_state)}
+            if action is None or action not in valid_actions:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
@@ -1788,13 +1839,23 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+def all_ground_ldl_rules(rule: LDLRule,
+                         objects: Collection[Object]) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects."""
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+
+
+@functools.lru_cache(maxsize=None)
+def _cached_all_ground_ldl_rules(
+        rule: LDLRule,
+        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+    """Helper for all_ground_ldl_rules() that caches the outputs."""
+    ground_rules = []
     types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(objects, types):
-        yield rule.ground(tuple(choice))
+    for choice in get_object_combinations(frozen_objects, types):
+        ground_rule = rule.ground(tuple(choice))
+        ground_rules.append(ground_rule)
+    return ground_rules
 
 
 _T = TypeVar("_T")  # element of a set
@@ -1813,6 +1874,39 @@ def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
                           replace=False)
         sample = {universe[i] for i in idxs}
         yield sample
+
+
+def create_dataset_filename_str(
+        saving_ground_atoms: bool,
+        online_learning_cycle: Optional[int] = None) -> Tuple[str, str]:
+    """Generate strings to be used for the filename for a dataset file that is
+    about to be saved.
+
+    Returns a tuple of strings where the first element is the dataset
+    filename itself and the second is a template string used to generate
+    it. If saving_ground_atoms is True, then we will name the file with
+    a "_ground_atoms" suffix.
+    """
+    # Setup the dataset filename for saving/loading GroundAtoms.
+    regex = r"(\d+)"
+    suffix_str = ""
+    suffix_str += f"__{online_learning_cycle}"
+    if saving_ground_atoms:
+        suffix_str += "__ground_atoms"
+    suffix_str += ".data"
+    if CFG.env == "behavior":  # pragma: no cover
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    else:
+        dataset_fname_template = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    dataset_fname = os.path.join(
+        CFG.data_dir,
+        dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
+    return dataset_fname, dataset_fname_template
 
 
 def create_ground_atom_dataset(
@@ -2401,11 +2495,11 @@ def parse_args(env_required: bool = True,
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
-    if value == "None":
+    if value in ("None", "none"):
         return None
-    if value == "True":
+    if value in ("True", "true"):
         return True
-    if value == "False":
+    if value in ("False", "false"):
         return False
     if value.isdigit() or value.startswith("lambda"):
         return eval(value)
@@ -2533,6 +2627,7 @@ def nostdout() -> Generator[None, None, None]:
 
 
 def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+              objects: Set[Object],
               goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
@@ -2541,7 +2636,6 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
 
     If no rule is applicable, returns None.
     """
-    objects = {o for a in atoms | goal for o in a.objects}
     for rule in ldl.rules:
         for ground_rule in all_ground_ldl_rules(rule, objects):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \

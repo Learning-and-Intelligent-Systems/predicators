@@ -13,7 +13,7 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv, get_or_create_env
-from predicators.src.envs.behavior import BehaviorEnv
+from predicators.src.envs.behavior import BehaviorEnv, load_checkpoint_state
 from predicators.src.settings import CFG
 from predicators.src.structs import DefaultState, State, _Option
 
@@ -132,6 +132,8 @@ class _BehaviorOptionModel(_OptionModelBase):
         assert isinstance(env, BehaviorEnv)
         assert option.memory.get("model_controller") is not None
         assert option.memory.get("planner_result") is not None
+        if not CFG.plan_only_eval:
+            load_checkpoint_state(state, env, reset=True)
         option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
         plan, _ = option.memory["planner_result"]

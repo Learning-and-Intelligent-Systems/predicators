@@ -18,6 +18,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--included_options", default="", type=str)
     parser.add_argument("--seed", required=seed_required, type=int)
     parser.add_argument("--option_learner", type=str, default="no_learning")
+    parser.add_argument("--explorer", type=str, default="no_explore")
     # NOTE: this timeout affects both data generation and evaluation.
     # If you want to change only the data generation timeout,
     # modify offline_data_planning_timeout.
@@ -28,6 +29,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--make_demo_videos", action="store_true")
     parser.add_argument("--load_approach", action="store_true")
     parser.add_argument("--load_data", action="store_true")
+    parser.add_argument("--load_atoms", action="store_true")
     parser.add_argument("--skip_until_cycle", default=-1, type=int)
     parser.add_argument("--experiment_id", default="", type=str)
     parser.add_argument("--load_experiment_id", default="", type=str)
