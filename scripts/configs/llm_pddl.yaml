@@ -1,0 +1,120 @@
+# Varun's experiments on applying LLMs to PDDL.
+---
+APPROACHES:
+  python_planner:
+    NAME: "oracle"
+    FLAGS: {}
+  fd_planner:
+    NAME: "oracle"
+    FLAGS:
+      sesame_task_planner: fdsat
+  gnn_mf:
+    NAME: "gnn_option_policy"
+    FLAGS:
+      gnn_option_policy_solve_with_shooting: False
+  llm_standard:
+    NAME: "llm_open_loop"
+    FLAGS:
+      llm_num_completions: 1
+  llm_multi:
+    NAME: "llm_open_loop"
+    FLAGS:
+      llm_num_completions: 5
+  llm_plan_standard:
+    NAME: "llm_bilevel_planning"
+    FLAGS:
+      llm_num_completions: 1
+  llm_plan_multi:
+    NAME: "llm_bilevel_planning"
+    FLAGS:
+      llm_num_completions: 5
+ENVS:
+  easy_blocks:
+    NAME: "pddl_blocks_procedural_tasks"
+    FLAGS:
+      pddl_blocks_procedural_train_min_num_blocks: 3
+      pddl_blocks_procedural_train_max_num_blocks: 4
+      pddl_blocks_procedural_train_min_num_blocks_goal: 2
+      pddl_blocks_procedural_train_max_num_blocks_goal: 3
+      pddl_blocks_procedural_test_min_num_blocks: 5
+      pddl_blocks_procedural_test_max_num_blocks: 6
+      pddl_blocks_procedural_test_min_num_blocks_goal: 2
+      pddl_blocks_procedural_test_max_num_blocks_goal: 5
+  medium_blocks:
+    NAME: "pddl_blocks_procedural_tasks"
+    FLAGS:
+      pddl_blocks_procedural_train_min_num_blocks: 7
+      pddl_blocks_procedural_train_max_num_blocks: 8
+      pddl_blocks_procedural_train_min_num_blocks_goal: 6
+      pddl_blocks_procedural_train_max_num_blocks_goal: 7
+      pddl_blocks_procedural_test_min_num_blocks: 9
+      pddl_blocks_procedural_test_max_num_blocks: 10
+      pddl_blocks_procedural_test_min_num_blocks_goal: 6
+      pddl_blocks_procedural_test_max_num_blocks_goal: 9
+  easy_delivery:
+    NAME: "pddl_delivery_procedural_tasks"
+    FLAGS:
+      pddl_delivery_procedural_train_min_num_locs: 3
+      pddl_delivery_procedural_train_max_num_locs: 5
+      pddl_delivery_procedural_train_min_want_locs: 1
+      pddl_delivery_procedural_train_max_want_locs: 2
+      pddl_delivery_procedural_test_min_num_locs: 4
+      pddl_delivery_procedural_test_max_num_locs: 6
+      pddl_delivery_procedural_test_min_want_locs: 2
+      pddl_delivery_procedural_test_max_want_locs: 3
+      pddl_delivery_procedural_test_max_extra_newspapers: 1
+  medium_delivery:
+    NAME: "pddl_delivery_procedural_tasks"
+    FLAGS:
+      pddl_delivery_procedural_train_min_num_locs: 4
+      pddl_delivery_procedural_train_max_num_locs: 7
+      pddl_delivery_procedural_train_min_want_locs: 1
+      pddl_delivery_procedural_train_max_want_locs: 3
+      pddl_delivery_procedural_test_min_num_locs: 17
+      pddl_delivery_procedural_test_max_num_locs: 23
+      pddl_delivery_procedural_test_min_want_locs: 11
+      pddl_delivery_procedural_test_max_want_locs: 16
+      pddl_delivery_procedural_test_max_extra_newspapers: 5
+  easy_spanner:
+    NAME: "pddl_spanner_procedural_tasks"
+    FLAGS:
+      pddl_spanner_procedural_train_min_nuts: 1
+      pddl_spanner_procedural_train_max_nuts: 2
+      pddl_spanner_procedural_train_min_extra_spanners: 0
+      pddl_spanner_procedural_train_max_extra_spanners: 2
+      pddl_spanner_procedural_train_min_locs: 1
+      pddl_spanner_procedural_train_max_locs: 3
+      pddl_spanner_procedural_test_min_nuts: 2
+      pddl_spanner_procedural_test_max_nuts: 4
+      pddl_spanner_procedural_test_min_extra_spanners: 0
+      pddl_spanner_procedural_test_max_extra_spanners: 3
+      pddl_spanner_procedural_test_min_locs: 2
+      pddl_spanner_procedural_test_max_locs: 4
+  medium_spanner:
+    NAME: "pddl_spanner_procedural_tasks"
+    FLAGS:
+      pddl_spanner_procedural_train_min_nuts: 1
+      pddl_spanner_procedural_train_max_nuts: 3
+      pddl_spanner_procedural_train_min_extra_spanners: 0
+      pddl_spanner_procedural_train_max_extra_spanners: 2
+      pddl_spanner_procedural_train_min_locs: 2
+      pddl_spanner_procedural_train_max_locs: 4
+      pddl_spanner_procedural_test_min_nuts: 6
+      pddl_spanner_procedural_test_max_nuts: 7
+      pddl_spanner_procedural_test_min_extra_spanners: 0
+      pddl_spanner_procedural_test_max_extra_spanners: 5
+      pddl_spanner_procedural_test_min_locs: 5
+      pddl_spanner_procedural_test_max_locs: 6
+ARGS:
+  - "debug"
+FLAGS:
+  num_train_tasks: 5
+  num_test_tasks: 10
+  strips_learner: "oracle"
+  timeout: 100
+  llm_model_name: "text-davinci-002"
+  sesame_use_visited_state_set: True  # because envs are PDDL-only
+  llm_use_cache_only: True  # because we already ran experiments once
+BRANCH: "master"
+START_SEED: 456
+NUM_SEEDS: 5
