@@ -370,11 +370,13 @@ def _skeleton_generator(
                     if child_skeleton_tup in visited_skeletons:
                         continue
                     visited_skeletons.add(child_skeleton_tup)
-                    # Note: the cost of taking a policy-generated action is 0.
-                    # This encourages the planner to trust the policy, and
-                    # also allows us to yield a policy-generated plan without
-                    # waiting to exhaustively rule out the possibility that
-                    # some other primitive plans are actually lower cost.
+                    # Note: the cost of taking a policy-generated action is 1,
+                    # but the policy-generated skeleton is immediately yielded
+                    # once it reaches a goal. This allows the planner to always
+                    # trust the policy first, but it also allows us to yield a
+                    # policy-generated plan without waiting to exhaustively
+                    # rule out the possibility that some other primitive plans
+                    # are actually lower cost.
                     child_cost = 1 + current_node.cumulative_cost
                     child_node = _Node(
                         atoms=child_atoms,
