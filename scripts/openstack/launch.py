@@ -13,10 +13,10 @@ Usage example:
 
 import argparse
 import os
-from typing import Dict, Sequence
 
 from predicators.scripts.cluster_utils import SingleSeedRunConfig, \
-    generate_run_configs, run_cmds_on_machine
+    config_to_cmd_flags, config_to_logfile, generate_run_configs, \
+    get_cmds_to_prep_repo, run_cmds_on_machine
 
 
 def _main() -> None:
@@ -41,43 +41,21 @@ def _main() -> None:
     # Launch the runs.
     for machine, cfg in zip(machines, run_configs):
         assert isinstance(cfg, SingleSeedRunConfig)
-        logfile = _create_logfile(cfg.experiment_id, cfg.approach, cfg.env,
-                                  cfg.seed)
-        cmd = _create_cmd(cfg.experiment_id, cfg.approach, cfg.env, cfg.seed,
-                          cfg.args, cfg.flags)
+        logfile = os.path.join("logs", config_to_logfile(cfg))
+        cmd_flags = config_to_cmd_flags(cfg)
+        cmd = f"python3.8 src/main.py {cmd_flags}"
         _launch_experiment(cmd, machine, logfile, args.sshkey, cfg.branch)
-
-
-def _create_logfile(experiment_id: str, approach: str, env: str,
-                    seed: int) -> str:
-    return f"logs/{env}__{approach}__{experiment_id}__{seed}.log"
-
-
-def _create_cmd(experiment_id: str, approach: str, env: str, seed: int,
-                args: Sequence[str], flags: Dict) -> str:
-    arg_str = " ".join(f"--{a}" for a in args)
-    flag_str = " ".join(f"--{f} {v}" for f, v in flags.items())
-    cmd = f"python3.8 src/main.py --env {env} --approach {approach} " + \
-              f"--seed {seed} --experiment_id {experiment_id} {arg_str} " + \
-              f"{flag_str}"
-    return cmd
 
 
 def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
                        branch: str) -> None:
     print(f"Launching on machine {machine}: {cmd}")
-    server_cmds = [
-        # Prepare the predicators directory.
-        "cd ~/predicators",
-        "mkdir -p logs",
-        "git fetch --all",
-        f"git checkout {branch}",
-        "git pull",
-        # Remove old results.
-        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
-        # Run the main command.
-        f"{cmd} &> {logfile} &",
-    ]
+    # Enter the repo.
+    server_cmds = ["cd ~/predicators"]
+    # Prepare the repo.
+    server_cmds.extend(get_cmds_to_prep_repo(branch))
+    # Run the main command.
+    server_cmds.append(f"{cmd} &> {logfile} &")
     run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)
 
 
