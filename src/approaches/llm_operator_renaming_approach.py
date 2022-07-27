@@ -1,4 +1,4 @@
-"""Open-loop large language model (LLM) meta-controller approach with
+"""Open-loop large language model (LLM) meta-controller approach with.
 
 prompt modification where operator names are randomly generated.
 
@@ -33,17 +33,17 @@ Easier setting:
 """
 from __future__ import annotations
 
+import string
 from typing import Collection, List, Sequence, Set, Tuple
 
+from predicators.src import utils
 from predicators.src.approaches.llm_open_loop_approach import \
     LLMOpenLoopApproach
-from predicators.src.approaches.llm_predicate_renaming_approach import \
-    LLMPredicateRenamingApproach
 from predicators.src.structs import Box, GroundAtom, Object, \
     ParameterizedOption, Predicate, Task, Type, _Option
 
 
-class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
+class LLMOperatorRenamingApproach(LLMOpenLoopApproach):
     """LLMOperatorRenamingApproach definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
@@ -51,8 +51,9 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self._original_operators: List[str] = []
-        self._random_operators: List[str] = []
+        self._original_to_random_dictionary: dict = {}
+        self._alphabet: List[str] = list(string.ascii_lowercase)
+
     @classmethod
     def get_name(cls) -> str:
         return "llm_operator_renaming"
@@ -62,21 +63,20 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
     ) -> List[Tuple[ParameterizedOption, Sequence[Object]]]:
         # We assume the LLM's output is such that each line contains a
         # option_name(obj0:type0, obj1:type1,...).
-        options_str_list = llm_prediction.split('\n')
-        for option_str in options_str_list:
-            for random_operator in self._random_operators:
+        option_str_list = llm_prediction.split('\n')
+        for option_str in option_str_list:
+            for random_operator in self._original_to_random_dictionary.values(
+            ):
                 if random_operator in option_str:
-                    for i in option_str:
-                        if i != " ":
-                            start_index = option_str.index(i)
-                            break
-                    sub = option_str[start_index:option_str.index('(')]
-                    options_str_list[options_str_list.index(
+                    key_list = list(self._original_to_random_dictionary.keys())
+                    val_list = list(
+                        self._original_to_random_dictionary.values())
+                    option_str_list[option_str_list.index(
                         option_str)] = option_str.replace(
-                            sub, self._original_operators[
-                                self._random_operators.index(random_operator)])
+                            random_operator,
+                            key_list[val_list.index(random_operator)])
                     break
-        unmodified_prediction = "\n".join(options_str_list)
+        unmodified_prediction = "\n".join(option_str_list)
         option_plan = super()._llm_prediction_to_option_plan(
             unmodified_prediction, objects)
         return option_plan
@@ -85,13 +85,13 @@ class LLMOperatorRenamingApproach(LLMPredicateRenamingApproach):
                        options: Sequence[_Option]) -> str:
         for option in options:
             sub = option.name
-            if sub in self._original_operators:
-                option.name = self._random_operators[
-                    self._original_operators.index(sub)]
+            if sub in self._original_to_random_dictionary:
+                option.name = self._original_to_random_dictionary[sub]
             else:
-                self._original_operators.append(sub)
-                sub_random = ''.join(self._generate_random_string(sub))
-                self._random_operators.append(sub_random)
+                sub_random = ''.join(
+                    utils.generate_random_string(sub, self._alphabet,
+                                                 self._rng))
+                self._original_to_random_dictionary[sub] = sub_random
                 option.name = sub_random
-        prompt = LLMOpenLoopApproach._create_prompt(self, init, goal, options)  # pylint: disable=protected-access
+        prompt = super()._create_prompt(init, goal, options)
         return prompt

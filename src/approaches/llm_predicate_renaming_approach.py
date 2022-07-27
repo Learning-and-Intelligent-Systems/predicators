@@ -1,4 +1,4 @@
-"""Open-loop large language model (LLM) meta-controller approach with
+"""Open-loop large language model (LLM) meta-controller approach with.
 
 prompt modification where predicate names are randomly generated.
 
@@ -33,8 +33,10 @@ Easier setting:
 """
 from __future__ import annotations
 
+import string
 from typing import List, Sequence, Set
 
+from predicators.src import utils
 from predicators.src.approaches.llm_open_loop_approach import \
     LLMOpenLoopApproach
 from predicators.src.structs import Box, GroundAtom, ParameterizedOption, \
@@ -49,25 +51,18 @@ class LLMPredicateRenamingApproach(LLMOpenLoopApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self._original_predicates: List[str] = []
-        self._random_predicates: List[str] = []
+        self._original_to_random_dictionary: dict = {}
+        self._alphabet: List[str] = list(string.ascii_lowercase)
 
     @classmethod
     def get_name(cls) -> str:
         return "llm_predicate_renaming"
 
-    def _generate_random_string(self, sentence: str) -> List[str]:
-        alphabet = [
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-            'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
-        ]
-        return [self._rng.choice(alphabet) for i in range(len(sentence))]
-
     def _create_prompt(self, init: Set[GroundAtom], goal: Set[GroundAtom],
                        options: Sequence[_Option]) -> str:
-        init_arr = self._replace_with_random_predicate_names(init)
+        init_arr = self._replace_with_random_predicate_names(sorted(init))
         init_str = "\n  ".join(init_arr)
-        goal_arr = self._replace_with_random_predicate_names(goal)
+        goal_arr = self._replace_with_random_predicate_names(sorted(goal))
         goal_str = "\n  ".join(goal_arr)
         options_str = "\n  ".join(map(self._option_to_str, options))
         prompt = f"""
@@ -82,19 +77,24 @@ Solution:
         return prompt
 
     def _replace_with_random_predicate_names(
-            self, original_set: Set[GroundAtom]) -> List[str]:
-        modified_set = []
-        for i in original_set:
-            name = str(i)
-            sub = name[0:name.index('(')]
-            if sub in self._original_predicates:
-                modified_set.append(self._random_predicates[
-                    self._original_predicates.index(sub)] +
-                                    name[name.index('('):])
+            self, original_set: List[GroundAtom]) -> List[str]:
+        list_with_random_predicate_names = []
+        for ground_atom in original_set:
+            ground_atom_str = str(ground_atom)
+            original_predicate_name = ground_atom_str[0:ground_atom_str.
+                                                      index('(')]
+            if original_predicate_name in self._original_to_random_dictionary:
+                list_with_random_predicate_names.append(
+                    self.
+                    _original_to_random_dictionary[original_predicate_name] +
+                    ground_atom_str[ground_atom_str.index('('):])
             else:
-                self._original_predicates.append(sub)
-                sub_random = ''.join(self._generate_random_string(sub))
-                self._random_predicates.append(sub_random)
-                name = name.replace(sub, sub_random)
-                modified_set.append(name)
-        return modified_set
+                new_predicate_name = ''.join(
+                    utils.generate_random_string(original_predicate_name,
+                                                 self._alphabet, self._rng))
+                self._original_to_random_dictionary[
+                    original_predicate_name] = new_predicate_name
+                ground_atom_str = ground_atom_str.replace(
+                    original_predicate_name, new_predicate_name)
+                list_with_random_predicate_names.append(ground_atom_str)
+        return list_with_random_predicate_names

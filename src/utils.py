@@ -2643,3 +2643,14 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
+
+
+def generate_random_string(sentence: str, alphabet: List[str],
+                           rng: np.random.Generator) -> List[str]:
+    """Generates a random list of strings using the provided set of
+    characters (alphabet).
+
+    The list has the same length as the original string (sentence)
+    passed to it.
+    """
+    return [rng.choice(alphabet) for i in range(len(sentence))]
