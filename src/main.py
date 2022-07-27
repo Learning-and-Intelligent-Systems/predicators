@@ -256,7 +256,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     video_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
-        #Run the approach's solve() method to get a policy for this task.
+        # Run the approach's solve() method to get a policy for this task.
         solve_start = time.time()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
