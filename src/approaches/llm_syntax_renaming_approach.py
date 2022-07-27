@@ -34,10 +34,14 @@ class LLMSyntaxRenamingApproach(LLMBaseRenamingApproach):
 
     @property
     def _renaming_suffixes(self) -> List[str]:
+        # Since we're replacing single characters, we don't need to worry about
+        # the possibility that one string is a substring of another.
         return [""]
 
     def _create_replacements(self) -> Dict[str, str]:
-        # Without replacement!
+        # Without replacement because if multiple original characters mapped
+        # to the same replacement character, the inverse substitution would be
+        # not well defined and the parsing of the option plan would fail.
         replacement_chars = self._rng.choice(REPLACEMENT_CHARS,
                                              size=len(ORIGINAL_CHARS),
                                              replace=False)
