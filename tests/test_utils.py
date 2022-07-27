@@ -3062,3 +3062,13 @@ def test_nostdout(capfd):
             _hello_world()
         out, _ = capfd.readouterr()
         assert out == ""
+
+
+def test_generate_random_string():
+    """Tests for generate_random_str()."""
+    rng = np.random.default_rng(123)
+    assert utils.generate_random_string(0, ["a"], rng) == ""
+    assert utils.generate_random_string(5, ["a"], rng) == "aaaaa"
+    assert len(utils.generate_random_string(5, ["a", "b"], rng)) == 5
+    with pytest.raises(AssertionError):
+        utils.generate_random_string(5, ["a", "bb"], rng)
