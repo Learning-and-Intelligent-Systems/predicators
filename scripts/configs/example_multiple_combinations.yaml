@@ -13,7 +13,6 @@ ENVS:
     FLAGS: {}
 ARGS: []
 FLAGS: {}
-BRANCH: "master"
 START_SEED: 456
 NUM_SEEDS: 3
 ...
@@ -31,6 +30,5 @@ ENVS:
     FLAGS: {}
 ARGS: []
 FLAGS: {}
-BRANCH: "master"
 START_SEED: 456
 NUM_SEEDS: 3
