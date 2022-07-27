@@ -306,7 +306,6 @@ def _skeleton_generator(
     """
 
     start_time = time.time()
-    first_yield = True
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
@@ -354,7 +353,7 @@ def _skeleton_generator(
                 current_node = node
                 for _ in range(sesame_max_policy_guided_rollout):
                     if task.goal.issubset(current_node.atoms):
-                        yield current_node.skeleton,current_node.atoms_sequence
+                        yield current_node.skeleton, current_node.atoms_sequence
                         break
                     ground_nsrt = abstract_policy(current_node.atoms,
                                                   current_objects, task.goal)
@@ -376,14 +375,14 @@ def _skeleton_generator(
                     # also allows us to yield a policy-generated plan without
                     # waiting to exhaustively rule out the possibility that
                     # some other primitive plans are actually lower cost.
-                    child_cost = current_node.cumulative_cost
+                    child_cost = 1 + current_node.cumulative_cost
                     child_node = _Node(
                         atoms=child_atoms,
                         skeleton=child_skeleton,
                         atoms_sequence=current_node.atoms_sequence +
                         [child_atoms],
                         parent=current_node,
-                        cumulative_cost=(1+child_cost))
+                        cumulative_cost=child_cost)
                     metrics["num_nodes_created"] += 1
                     # priority is g [cost] plus h [heuristic]
                     priority = (child_node.cumulative_cost +
