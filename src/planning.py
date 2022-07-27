@@ -313,7 +313,7 @@ def _skeleton_generator(
                       skeleton=[],
                       atoms_sequence=[init_atoms],
                       parent=None,
-                      cumulative_cost=1)
+                      cumulative_cost=0)
     metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
@@ -354,11 +354,7 @@ def _skeleton_generator(
                 current_node = node
                 for _ in range(sesame_max_policy_guided_rollout):
                     if task.goal.issubset(current_node.atoms):
-                        # _, _, _= hq.heappop(queue)
-                        # if first_yield:
-                        #     _, _, node = hq.heappop(queue)
-                        #     first_yield = False
-                        # yield current_node.skeleton,current_node.atoms_sequence
+                        yield current_node.skeleton,current_node.atoms_sequence
                         break
                     ground_nsrt = abstract_policy(current_node.atoms,
                                                   current_objects, task.goal)
@@ -387,7 +383,7 @@ def _skeleton_generator(
                         atoms_sequence=current_node.atoms_sequence +
                         [child_atoms],
                         parent=current_node,
-                        cumulative_cost=child_cost)
+                        cumulative_cost=(1+child_cost))
                     metrics["num_nodes_created"] += 1
                     # priority is g [cost] plus h [heuristic]
                     priority = (child_node.cumulative_cost +
