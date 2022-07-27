@@ -146,146 +146,145 @@ def test_backchaining_strips_learner():
 def test_backchaining_strips_learner_order_dependence():
     """Test that the BackchainingSTRIPSLearner is invariant to order of
     traversal through trajectories."""
-    # utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
-    # # Set up the types and predicates.
-    # light_type = Type("light_type", ["brightness", "color"])
-    # LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
-    # NotLightOn = Predicate("NotLightOn", [light_type],
-    #                        lambda s, o: s[o[0]][0] <= 0.5)
-    # LightColorBlue = Predicate("LightColorBlue", [light_type],
-    #                            lambda s, o: s[o[0]][1] > 0.5)
-    # LightColorRed = Predicate("LightColorRed", [light_type],
-    #                           lambda s, o: s[o[0]][1] <= 0.5)
-    # fridge_type = Type("fridge_type", ["x", "y"])
-    # robot_type = Type("robot_type", ["x", "y"])
-    # RobotAt = Predicate(
-    #     "RobotAt", [robot_type, fridge_type], lambda s, o: abs(s[o[0]][0] - s[
-    #         o[1]][0]) < 0.05 and abs(s[o[0]][1] - s[o[1]][1]) < 0.05)
-    # light = light_type("light")
-    # fridge = fridge_type("fridge")
-    # robby = robot_type("robby")
-    # # Create states to be used as part of trajectories.
-    # not_on_light_red = State({
-    #     light: [0.0, 0.0],
-    #     robby: [0.0, 0.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # at_fridge_not_on_light_red = State({
-    #     light: [0.0, 0.0],
-    #     robby: [1.0, 1.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # on_light_blue = State({
-    #     light: [1.0, 1.0],
-    #     robby: [0.0, 0.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # at_fridge_on_light_red = State({
-    #     light: [1.0, 0.0],
-    #     robby: [1.0, 1.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # not_on_light_blue = State({
-    #     light: [0.0, 1.0],
-    #     robby: [0.0, 0.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # at_fridge_on_light_blue = State({
-    #     light: [1.0, 0.0],
-    #     robby: [1.0, 1.0],
-    #     fridge: [1.03, 1.03]
-    # })
-    # # Create the single necessary option and action.
-    # move_and_mess_with_lights = utils.SingletonParameterizedOption(
-    #     "MoveAndMessWithLights", lambda s, m, o, p: None)
-    # MoveAndMessWithLights = move_and_mess_with_lights.ground([], [])
-    # act = Action([], MoveAndMessWithLights)
-    # # Now create the trajectories, goals and tasks.
-    # traj1 = LowLevelTrajectory([not_on_light_red, at_fridge_not_on_light_red],
-    #                            [act], True, 0)
-    # goal1 = {
-    #     RobotAt([robby, fridge]),
-    # }
-    # traj2 = LowLevelTrajectory([on_light_blue, at_fridge_on_light_red], [act],
-    #                            True, 1)
-    # traj3 = LowLevelTrajectory([not_on_light_blue, at_fridge_on_light_blue],
-    #                            [act], True, 2)
-    # goal2 = {RobotAt([robby, fridge]), LightOn([light])}
-    # task1 = Task(not_on_light_red, goal1)
-    # task2 = Task(on_light_blue, goal2)
-    # task3 = Task(not_on_light_blue, goal2)
-    # # Define the 3 demos to backchain over.
-    # segment1 = Segment(
-    #     traj1,
-    #     {NotLightOn([light]), LightColorRed([light])},
-    #     goal1 | {NotLightOn([light])}, MoveAndMessWithLights)
-    # segment2 = Segment(
-    #     traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
-    #     MoveAndMessWithLights)
-    # segment3 = Segment(
-    #     traj3,
-    #     {NotLightOn([light]), LightColorBlue([light])}, goal2,
-    #     MoveAndMessWithLights)
+    utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
+    # Set up the types and predicates.
+    light_type = Type("light_type", ["brightness", "color"])
+    LightOn = Predicate("LightOn", [light_type], lambda s, o: s[o[0]][0] > 0.5)
+    NotLightOn = Predicate("NotLightOn", [light_type],
+                           lambda s, o: s[o[0]][0] <= 0.5)
+    LightColorBlue = Predicate("LightColorBlue", [light_type],
+                               lambda s, o: s[o[0]][1] > 0.5)
+    LightColorRed = Predicate("LightColorRed", [light_type],
+                              lambda s, o: s[o[0]][1] <= 0.5)
+    fridge_type = Type("fridge_type", ["x", "y"])
+    robot_type = Type("robot_type", ["x", "y"])
+    RobotAt = Predicate(
+        "RobotAt", [robot_type, fridge_type], lambda s, o: abs(s[o[0]][0] - s[
+            o[1]][0]) < 0.05 and abs(s[o[0]][1] - s[o[1]][1]) < 0.05)
+    light = light_type("light")
+    fridge = fridge_type("fridge")
+    robby = robot_type("robby")
+    # Create states to be used as part of trajectories.
+    not_on_light_red = State({
+        light: [0.0, 0.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_not_on_light_red = State({
+        light: [0.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    on_light_blue = State({
+        light: [1.0, 1.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_on_light_red = State({
+        light: [1.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    not_on_light_blue = State({
+        light: [0.0, 1.0],
+        robby: [0.0, 0.0],
+        fridge: [1.03, 1.03]
+    })
+    at_fridge_on_light_blue = State({
+        light: [1.0, 0.0],
+        robby: [1.0, 1.0],
+        fridge: [1.03, 1.03]
+    })
+    # Create the single necessary option and action.
+    move_and_mess_with_lights = utils.SingletonParameterizedOption(
+        "MoveAndMessWithLights", lambda s, m, o, p: None)
+    MoveAndMessWithLights = move_and_mess_with_lights.ground([], [])
+    act = Action([], MoveAndMessWithLights)
+    # Now create the trajectories, goals and tasks.
+    traj1 = LowLevelTrajectory([not_on_light_red, at_fridge_not_on_light_red],
+                               [act], True, 0)
+    goal1 = {
+        RobotAt([robby, fridge]),
+    }
+    traj2 = LowLevelTrajectory([on_light_blue, at_fridge_on_light_red], [act],
+                               True, 1)
+    traj3 = LowLevelTrajectory([not_on_light_blue, at_fridge_on_light_blue],
+                               [act], True, 2)
+    goal2 = {RobotAt([robby, fridge]), LightOn([light])}
+    task1 = Task(not_on_light_red, goal1)
+    task2 = Task(on_light_blue, goal2)
+    task3 = Task(not_on_light_blue, goal2)
+    # Define the 3 demos to backchain over.
+    segment1 = Segment(
+        traj1,
+        {NotLightOn([light]), LightColorRed([light])},
+        goal1 | {NotLightOn([light])}, MoveAndMessWithLights)
+    segment2 = Segment(
+        traj2, {LightOn([light]), LightColorBlue([light])}, goal2,
+        MoveAndMessWithLights)
+    segment3 = Segment(
+        traj3,
+        {NotLightOn([light]), LightColorBlue([light])}, goal2,
+        MoveAndMessWithLights)
 
-    # # Create and run the learner with the 3 demos in the natural order.
-    # learner = _MockBackchainingSTRIPSLearner(
-    #     [traj1, traj2, traj3], [task1, task2, task3],
-    #     {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
-    #     [[segment1], [segment2], [segment3]],
-    #     verify_harmlessness=True)
-    # natural_order_pnads = learner.learn()
-    # # Now, create and run the learner with the 3 demos in the reverse order.
-    # learner = _MockBackchainingSTRIPSLearner(
-    #     [traj3, traj2, traj1], [task1, task2, task3],
-    #     {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
-    #     [[segment3], [segment2], [segment1]],
-    #     verify_harmlessness=True)
-    # # Be sure to reset the segment add effects before doing this.
-    # learner.reset_all_segment_add_effs()
-    # reverse_order_pnads = learner.learn()
+    # Create and run the learner with the 3 demos in the natural order.
+    learner = _MockBackchainingSTRIPSLearner(
+        [traj1, traj2, traj3], [task1, task2, task3],
+        {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
+        [[segment1], [segment2], [segment3]],
+        verify_harmlessness=True)
+    natural_order_pnads = learner.learn()
+    # Now, create and run the learner with the 3 demos in the reverse order.
+    learner = _MockBackchainingSTRIPSLearner(
+        [traj3, traj2, traj1], [task1, task2, task3],
+        {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
+        [[segment3], [segment2], [segment1]],
+        verify_harmlessness=True)
+    # Be sure to reset the segment add effects before doing this.
+    learner.reset_all_segment_add_effs()
+    reverse_order_pnads = learner.learn()
 
-    # # First, check that the two sets of PNADs have the same number of PNADs.
-    # assert len(natural_order_pnads) == len(reverse_order_pnads) == 2
+    # First, check that the two sets of PNADs have the same number of PNADs.
+    assert len(natural_order_pnads) == len(reverse_order_pnads) == 2
 
-    # correct_pnads = {
-    #     """STRIPS-MoveAndMessWithLights:
-    # Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
-    # Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
-    # Add Effects: [LightOn(?x1:light_type), """ +
-    #     """RobotAt(?x2:robot_type, ?x0:fridge_type)]
-    # Delete Effects: [LightColorBlue(?x1:light_type), """ +
-    #     """NotLightOn(?x1:light_type)]
-    # Side Predicates: []
-    # Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
-    # Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
-    # Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
-    # Add Effects: [LightOn(?x2:light_type), """ +
-    #     """RobotAt(?x1:robot_type, ?x0:fridge_type)]
-    # Delete Effects: [LightColorBlue(?x2:light_type), """ +
-    #     """NotLightOn(?x2:light_type)]
-    # Side Predicates: []
-    # Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
-    # Parameters: [?x0:fridge_type, ?x1:robot_type]
-    # Preconditions: []
-    # Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
-    # Delete Effects: []
-    # Side Predicates: [LightColorBlue, LightColorRed]
-    # Option Spec: MoveAndMessWithLights()"""
-    # }
-    # # Edit the names of all the returned PNADs to match the correct ones for
-    # # easy checking.
-    # for i in range(len(natural_order_pnads)):
-    #     natural_order_pnads[i].op = natural_order_pnads[i].op.copy_with(
-    #         name="MoveAndMessWithLights")
-    #     reverse_order_pnads[i].op = reverse_order_pnads[i].op.copy_with(
-    #         name="MoveAndMessWithLights")
+    correct_pnads = {
+        """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:light_type, ?x2:robot_type]
+    Preconditions: [LightColorBlue(?x1:light_type), NotLightOn(?x1:light_type)]
+    Add Effects: [LightOn(?x1:light_type), """ +
+        """RobotAt(?x2:robot_type, ?x0:fridge_type)]
+    Delete Effects: [LightColorBlue(?x1:light_type), """ +
+        """NotLightOn(?x1:light_type)]
+    Side Predicates: []
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
+    Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
+    Add Effects: [LightOn(?x2:light_type), """ +
+        """RobotAt(?x1:robot_type, ?x0:fridge_type)]
+    Delete Effects: [LightColorBlue(?x2:light_type), """ +
+        """NotLightOn(?x2:light_type)]
+    Side Predicates: []
+    Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
+    Parameters: [?x0:fridge_type, ?x1:robot_type]
+    Preconditions: []
+    Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
+    Delete Effects: []
+    Side Predicates: [LightColorBlue, LightColorRed]
+    Option Spec: MoveAndMessWithLights()"""
+    }
+    # Edit the names of all the returned PNADs to match the correct ones for
+    # easy checking.
+    for i in range(len(natural_order_pnads)):
+        natural_order_pnads[i].op = natural_order_pnads[i].op.copy_with(
+            name="MoveAndMessWithLights")
+        reverse_order_pnads[i].op = reverse_order_pnads[i].op.copy_with(
+            name="MoveAndMessWithLights")
 
-    #     # Check that the two sets of PNADs are both correct.
-    #     assert str(natural_order_pnads[i]) in correct_pnads
-    #     assert str(reverse_order_pnads[i]) in correct_pnads
+        # Check that the two sets of PNADs are both correct.
+        assert str(natural_order_pnads[i]) in correct_pnads
+        assert str(reverse_order_pnads[i]) in correct_pnads
 
-    ###
-    # Weird Case
+    # Weird Case: This case shows that our algorithm is not data invariant!
     utils.reset_config({
         "approach": "nsrt_learning",
         "strips_learner": "backchaining"
@@ -307,8 +306,7 @@ def test_backchaining_strips_learner_order_dependence():
     shelf = shelf_type("shelf")
     # Predicates
     NextTo = Predicate(
-        "NextTo", [hardback_type],
-        lambda s, o: s[o[0]][0] == s[agent][0] or
+        "NextTo", [hardback_type], lambda s, o: s[o[0]][0] == s[agent][0] or
         (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
     NextToShelf = Predicate("NextToShelf", [shelf_type],
                             lambda s, o: s[agent][0] == 2)
@@ -556,7 +554,6 @@ def test_backchaining_strips_learner_order_dependence():
     # First, check that the two sets of PNADs have the same number of PNADs.
     # Uh oh, they don't
     assert len(natural_order_pnads) != len(reverse_order_pnads)
-    import ipdb; ipdb.set_trace()
 
 
 def test_spawn_new_pnad():
