@@ -168,16 +168,20 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
             init_strs.add(f"(wantsPaper {loc})")
             init_strs.add(f"(safe {loc})")
             goal_strs.add(f"(satisfied {loc})")
-
+        if locs.index(loc) % 2 == 1:
+            init_strs.add(f"(isMansion {loc})")
+        
+    
     # Create papers.
     papers = [f"paper-{i}" for i in range(num_newspapers)]
     # Add the initial state atoms about the papers.
-    counter = 0
+    
     for paper in papers:
         init_strs.add(f"(unpacked {paper})")
-        if counter % 2 == 0:
+        init_strs.add(f"(isUnpacked {paper})")
+        if papers.index(paper) % 2 == 0:
             init_strs.add(f"(wrinkledNewsPaper {paper})")
-        counter = counter + 1
+       
 
     # Finalize PDDL problem str.
     locs_str = "\n        ".join(locs)
