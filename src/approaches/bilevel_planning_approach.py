@@ -70,11 +70,6 @@ class BilevelPlanningApproach(BaseApproach):
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
-        # TODO do not merge
-        if "use_visited_state_set" in kwargs:
-            use_visited_state_set = kwargs.pop("use_visited_state_set")
-        else:
-            use_visited_state_set = CFG.sesame_use_visited_state_set
         try:
             plan, metrics = sesame_plan(
                 task,
@@ -88,7 +83,7 @@ class BilevelPlanningApproach(BaseApproach):
                 self._max_skeletons_optimized,
                 max_horizon=CFG.horizon,
                 allow_noops=CFG.sesame_allow_noops,
-                use_visited_state_set=use_visited_state_set,
+                use_visited_state_set=CFG.sesame_use_visited_state_set,
                 **kwargs)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)

@@ -101,8 +101,7 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
             CFG.timeout - (time.time() - start_time),
             CFG.seed,
             abstract_policy=abstract_policy,
-            max_policy_guided_rollout=max_policy_guided_rollout,
-            use_visited_state_set=True)  # TODO: remove
+            max_policy_guided_rollout=max_policy_guided_rollout)
         self._save_metrics(metrics, nsrts, preds)
         # Now convert the options back into ground NSRTs (:facepalm:). This
         # is very circuitous and we should refactor it later. There are two

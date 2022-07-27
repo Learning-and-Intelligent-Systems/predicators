@@ -3,10 +3,7 @@
 APPROACHES:
   python_planner:
     NAME: "oracle"
-    # TODO: change this back
-    # FLAGS: {}
-    FLAGS:
-      sesame_use_visited_state_set: True
+    FLAGS: {}
   fd_planner:
     NAME: "oracle"
     FLAGS:
@@ -116,12 +113,8 @@ FLAGS:
   strips_learner: "oracle"
   timeout: 100
   llm_model_name: "text-davinci-002"
-  # TEMPORARY HACK: changing this inside the code itself because of
-  # caching headaches...
-  # sesame_use_visited_state_set: True  # because envs are PDDL-only
+  sesame_use_visited_state_set: True  # because envs are PDDL-only
   llm_use_cache_only: True  # because we already ran experiments once
-# TODO: change back to master
-# BRANCH: "master"
-BRANCH: "llm-yaml-config"
+BRANCH: "master"
 START_SEED: 456
 NUM_SEEDS: 5
