@@ -146,6 +146,9 @@ class PG3Approach(NSRTLearningApproach):
         self._learn_ldl(online_learning_cycle=None)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
+        # Load the NSRTs.
+        super().load(online_learning_cycle)
+        # Load the LDL policy.
         load_path = utils.get_approach_load_path_str()
         with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
             self._current_ldl = pkl.load(f)

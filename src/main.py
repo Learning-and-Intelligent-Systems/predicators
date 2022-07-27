@@ -256,6 +256,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     video_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
+        # Run the approach's solve() method to get a policy for this task.
         solve_start = time.time()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
@@ -284,14 +285,29 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             monitor = None
         try:
-            if CFG.env == "behavior" and \
-                CFG.behavior_option_model_eval:  # pragma: no cover
+            # Now, measure success by running the policy in the environment.
+            # There are two special cases that we handle first. In the if,
+            # we consider the case where plan_only_eval is True, in which
+            # case we only check whether this BilevelPlanningApproach found
+            # a plan. In the elif, we consider the case where
+            # behavior_option_model_eval is True, in which case for BEHAVIOR
+            # we evaluate on option models instead of the low-level simulator.
+            # Finally, the else handles the default case, where we use
+            # utils.run_policy to roll out the policy in the environment.
+            if CFG.plan_only_eval:
+                assert isinstance(approach, BilevelPlanningApproach)
+                if approach.get_last_plan() != [] or task.goal_holds(
+                        task.init):
+                    solved = True
+                execution_metrics = {"policy_call_time": 0.0}
+            elif CFG.behavior_option_model_eval:  # pragma: no cover
                 # To evaluate BEHAVIOR on our option model, we are going
                 # to run our approach's plan on our option model.
                 # Note that if approach is not a BilevelPlanningApproach
                 # we cannot use this method to evaluate and would need to
                 # run the policy on the option model, not the plan
-                assert isinstance(approach, BilevelPlanningApproach)
+                assert CFG.env == "behavior" and isinstance(
+                    approach, BilevelPlanningApproach)
                 last_plan = approach.get_last_plan()
                 option_model_start_time = time.time()
                 traj, solved = _run_plan_with_option_model(
@@ -309,7 +325,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     task.goal_holds,
                     max_num_steps=CFG.horizon,
                     monitor=monitor)
-            solved = task.goal_holds(traj.states[-1])
+                solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:

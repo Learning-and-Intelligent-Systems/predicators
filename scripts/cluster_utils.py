@@ -9,6 +9,7 @@ import yaml
 
 SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
 SUPERCLOUD_IP = "txe1-login.mit.edu"
+DEFAULT_BRANCH = "master"
 
 
 @dataclass(frozen=True)
@@ -17,9 +18,15 @@ class RunConfig:
     experiment_id: str
     approach: str
     env: str
-    branch: str  # e.g. master
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
+
+    def __post_init__(self) -> None:
+        # For simplicity, disallow overrides of the SAVE_DIRS.
+        assert "results_dir" not in self.flags
+        assert "log_dir" not in self.flags
+        assert "approach_dir" not in self.flags
+        assert "data_dir" not in self.flags
 
 
 @dataclass(frozen=True)
@@ -33,6 +40,30 @@ class BatchSeedRunConfig(RunConfig):
     """Config for a run where seeds are batched together."""
     start_seed: int
     num_seeds: int
+
+
+def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
+    """Create a log file name from a run config."""
+    if isinstance(cfg, SingleSeedRunConfig):
+        seed = cfg.seed
+    else:
+        assert isinstance(cfg, BatchSeedRunConfig)
+        seed = None
+    return f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__{seed}" + suffix
+
+
+def config_to_cmd_flags(cfg: RunConfig) -> str:
+    """Create a string of command flags from a run config."""
+    arg_str = " ".join(f"--{a}" for a in cfg.args)
+    flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items())
+    args_and_flags_str = (f"--env {cfg.env} "
+                          f"--approach {cfg.approach} "
+                          f"--experiment_id {cfg.experiment_id} "
+                          f"{arg_str} "
+                          f"{flag_str}")
+    if isinstance(cfg, SingleSeedRunConfig):
+        args_and_flags_str += f" --seed {cfg.seed}"
+    return args_and_flags_str
 
 
 def parse_configs(config_filename: str) -> Iterator[Dict[str, Any]]:
@@ -53,7 +84,6 @@ def generate_run_configs(config_filename: str,
         num_seeds = config["NUM_SEEDS"]
         args = config["ARGS"]
         flags = config["FLAGS"]
-        branch = config["BRANCH"]
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
             approach = approach_config["NAME"]
@@ -68,14 +98,27 @@ def generate_run_configs(config_filename: str,
                 # Loop or batch over seeds.
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id,
-                                             approach, env, branch, args,
+                                             approach, env, args,
                                              run_flags.copy(), start_seed,
                                              num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id, approach,
-                                                  env, branch, args,
-                                                  run_flags.copy(), seed)
+                        yield SingleSeedRunConfig(experiment_id, approach, env,
+                                                  args, run_flags.copy(), seed)
+
+
+def get_cmds_to_prep_repo(branch: str) -> List[str]:
+    """Get the commands that should be run while already in the repository but
+    before launching the experiments."""
+    return [
+        "mkdir -p logs",
+        "git stash",
+        "git fetch --all",
+        f"git checkout {branch}",
+        "git pull",
+        # Remove old results.
+        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
+    ]
 
 
 def run_cmds_on_machine(
