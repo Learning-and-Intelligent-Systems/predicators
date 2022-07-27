@@ -9,6 +9,8 @@ Requires a file that contains a list of IP addresses for instances that are:
 Usage example:
     python scripts/openstack/launch.py --config example_basic.yaml \
         --machines machines.txt --sshkey ~/.ssh/cloud.key
+
+The default branch can be overridden with the --branch flag.
 """
 
 import argparse

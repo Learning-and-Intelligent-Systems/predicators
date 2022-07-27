@@ -3,6 +3,8 @@
 Usage example:
 
     python scripts/supercloud/launch.py --config example_basic.yaml --user tslvr
+
+The default branch can be overridden with the --branch flag.
 """
 
 import argparse
