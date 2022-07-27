@@ -10,7 +10,7 @@ Example command line:
         --num_test_tasks 1 \
         --debug
 """
-from typing import Dict
+from typing import Dict, List
 
 from predicators.src.approaches.llm_renaming_base_approach import \
     LLMBaseRenamingApproach
@@ -25,6 +25,16 @@ class LLMSyntaxRenamingApproach(LLMBaseRenamingApproach):
     @classmethod
     def get_name(cls) -> str:
         return "llm_syntax_renaming"
+
+    @property
+    def _renaming_prefixes(self) -> List[str]:
+        # Since we're replacing single characters, we don't need to worry about
+        # the possibility that one string is a substring of another.
+        return [""]
+
+    @property
+    def _renaming_suffixes(self) -> List[str]:
+        return [""]
 
     def _create_replacements(self) -> Dict[str, str]:
         # Without replacement!

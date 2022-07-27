@@ -11,7 +11,7 @@ Example command line:
         --debug
 """
 import string
-from typing import Dict
+from typing import Dict, List
 
 from predicators.src import utils
 from predicators.src.approaches.llm_renaming_base_approach import \
@@ -24,6 +24,16 @@ class LLMPredicateRenamingApproach(LLMBaseRenamingApproach):
     @classmethod
     def get_name(cls) -> str:
         return "llm_predicate_renaming"
+
+    @property
+    def _renaming_prefixes(self) -> List[str]:
+        # Predicates start with either a new line or a white space.
+        return [" ", "\n"]
+
+    @property
+    def _renaming_suffixes(self) -> List[str]:
+        # Predicate names end with a left parenthesis.
+        return ["("]
 
     def _create_replacements(self) -> Dict[str, str]:
         return {

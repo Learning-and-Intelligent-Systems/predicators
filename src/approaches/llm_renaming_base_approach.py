@@ -30,12 +30,31 @@ class LLMBaseRenamingApproach(LLMOpenLoopApproach):
         """Create a map from original strings to replacement strings."""
         raise NotImplementedError("Override me!")
 
+    @property
+    @abc.abstractmethod
+    def _renaming_prefixes(self) -> List[str]:
+        """When performing replacements, loop through each prefix and suffix
+        and wrap the words before substituting.
+
+        This is designed to avoid cases like at(...) and bat(...)
+        colliding.
+        """
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def _renaming_suffixes(self) -> List[str]:
+        """See _renaming_prefixes().'."""
+        raise NotImplementedError("Override me!")
+
     def _create_prompt(self, init: Set[GroundAtom], goal: Set[GroundAtom],
                        options: Sequence[_Option]) -> str:
         prompt = super()._create_prompt(init, goal, options)
         # Substitute the originals with the replacements.
         for orig, repl in self._orig_to_replace.items():
-            prompt = prompt.replace(orig, repl)
+            for pre in self._renaming_prefixes:
+                for suf in self._renaming_suffixes:
+                    prompt = prompt.replace(pre + orig + suf, pre + repl + suf)
         return prompt
 
     def _llm_prediction_to_option_plan(
@@ -43,5 +62,8 @@ class LLMBaseRenamingApproach(LLMOpenLoopApproach):
     ) -> List[Tuple[ParameterizedOption, Sequence[Object]]]:
         # Substitute the replacements with the originals.
         for orig, repl in self._orig_to_replace.items():
-            llm_prediction = llm_prediction.replace(repl, orig)
+            for pre in self._renaming_prefixes:
+                for suf in self._renaming_suffixes:
+                    llm_prediction = llm_prediction.replace(
+                        pre + repl + suf, pre + orig + suf)
         return super()._llm_prediction_to_option_plan(llm_prediction, objects)
