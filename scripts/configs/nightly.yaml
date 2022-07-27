@@ -3,40 +3,40 @@
 # except stick_button_option_learning, which should get ~40-45 / 50.
 
 # oracle, NSRT learning, and predicate invention experiments
-# ---
-# APPROACHES:
-#   oracle:
-#     NAME: "oracle"
-#     FLAGS: {}
-#   nsrt_learning:
-#     NAME: "nsrt_learning"
-#     FLAGS: {}
-#   invent_allexclude:
-#     NAME: "grammar_search_invention"
-#     FLAGS:
-#       excluded_predicates: "all"
-# ENVS:
-#   cover:
-#     NAME: "cover"
-#     FLAGS: {}
-#   pybullet_blocks:
-#     NAME: "pybullet_blocks"
-#     FLAGS: {}
-#   painting:
-#     NAME: "painting"
-#     FLAGS: {}
-#   tools:
-#     NAME: "tools"
-#     FLAGS:
-#       num_train_tasks: 200  # requires more data (default is 50)
-#   pybullet_cover:
-#     NAME: "pybullet_cover"
-#     FLAGS: {}
-# ARGS: []
-# FLAGS: {}
-# START_SEED: 456
-# NUM_SEEDS: 10
-# ...
+---
+APPROACHES:
+  oracle:
+    NAME: "oracle"
+    FLAGS: {}
+  nsrt_learning:
+    NAME: "nsrt_learning"
+    FLAGS: {}
+  invent_allexclude:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      excluded_predicates: "all"
+ENVS:
+  cover:
+    NAME: "cover"
+    FLAGS: {}
+  pybullet_blocks:
+    NAME: "pybullet_blocks"
+    FLAGS: {}
+  painting:
+    NAME: "painting"
+    FLAGS: {}
+  tools:
+    NAME: "tools"
+    FLAGS:
+      num_train_tasks: 200  # requires more data (default is 50)
+  pybullet_cover:
+    NAME: "pybullet_cover"
+    FLAGS: {}
+ARGS: []
+FLAGS: {}
+START_SEED: 456
+NUM_SEEDS: 10
+...
 
 # other environments with oracle and NSRT learning
 ---
