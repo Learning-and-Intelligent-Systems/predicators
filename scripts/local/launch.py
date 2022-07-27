@@ -3,13 +3,15 @@
 Run experiments sequentially, not in parallel.
 
     python scripts/local/launch.py --config example_basic.yaml
+
+The default branch can be overridden with the --branch flag.
 """
 
 import argparse
 import os
 import subprocess
 
-from predicators.scripts.cluster_utils import config_file_to_branch, \
+from predicators.scripts.cluster_utils import DEFAULT_BRANCH, \
     config_to_cmd_flags, config_to_logfile, generate_run_configs, \
     get_cmds_to_prep_repo
 
@@ -18,10 +20,10 @@ def _main() -> None:
     # Set up argparse.
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=str)
+    parser.add_argument("--branch", type=str, default=DEFAULT_BRANCH)
     args = parser.parse_args()
-    branch = config_file_to_branch(args.config)
     # Prepare the repo.
-    for cmd in get_cmds_to_prep_repo(branch):
+    for cmd in get_cmds_to_prep_repo(args.branch):
         subprocess.run(cmd, shell=True, check=False)
     # Create the run commands.
     cmds = []
