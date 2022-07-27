@@ -16,7 +16,7 @@ from predicators.src.structs import Box, GroundAtom, Object, \
 
 
 class LLMBaseRenamingApproach(LLMOpenLoopApproach):
-    """LLMBaseRenamingApproach definition."""
+    """F definition."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],

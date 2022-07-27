@@ -2,8 +2,7 @@
 
 from predicators.src import utils
 from predicators.src.approaches.llm_syntax_renaming_approach import \
-    LLMSyntaxRenamingApproach, ORIGINAL_CHARS, REPLACEMENT_CHARS
-
+    ORIGINAL_CHARS, REPLACEMENT_CHARS, LLMSyntaxRenamingApproach
 from predicators.src.envs import create_new_env
 
 
