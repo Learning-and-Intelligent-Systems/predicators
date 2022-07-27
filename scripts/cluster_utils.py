@@ -9,6 +9,7 @@ import yaml
 
 SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
 SUPERCLOUD_IP = "txe1-login.mit.edu"
+DEFAULT_BRANCH = "master"
 
 
 @dataclass(frozen=True)
@@ -17,7 +18,6 @@ class RunConfig:
     experiment_id: str
     approach: str
     env: str
-    branch: str  # e.g. master
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
 
@@ -40,16 +40,6 @@ class BatchSeedRunConfig(RunConfig):
     """Config for a run where seeds are batched together."""
     start_seed: int
     num_seeds: int
-
-
-def config_file_to_branch(config_file: str) -> str:
-    """Extract the branch from a config file."""
-    configs = list(parse_configs(config_file))
-    assert configs
-    branch = configs[0]["BRANCH"]
-    assert all(c["BRANCH"] == branch for c in configs), \
-        "Experiments defined in the same config must have the same branch."
-    return branch
 
 
 def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
@@ -94,7 +84,6 @@ def generate_run_configs(config_filename: str,
         num_seeds = config["NUM_SEEDS"]
         args = config["ARGS"]
         flags = config["FLAGS"]
-        branch = config["BRANCH"]
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
             approach = approach_config["NAME"]
@@ -109,14 +98,13 @@ def generate_run_configs(config_filename: str,
                 # Loop or batch over seeds.
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id,
-                                             approach, env, branch, args,
+                                             approach, env, args,
                                              run_flags.copy(), start_seed,
                                              num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id, approach,
-                                                  env, branch, args,
-                                                  run_flags.copy(), seed)
+                        yield SingleSeedRunConfig(experiment_id, approach, env,
+                                                  args, run_flags.copy(), seed)
 
 
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
