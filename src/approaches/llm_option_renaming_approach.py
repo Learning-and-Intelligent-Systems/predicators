@@ -14,7 +14,7 @@ import string
 from typing import Dict
 
 from predicators.src import utils
-from predicators.src.approaches.llm_renaming_base import \
+from predicators.src.approaches.llm_renaming_base_approach import \
     LLMBaseRenamingApproach
 
 

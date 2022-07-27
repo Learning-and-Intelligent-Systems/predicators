@@ -12,7 +12,7 @@ Example command line:
 """
 from typing import Dict
 
-from predicators.src.approaches.llm_renaming_base import \
+from predicators.src.approaches.llm_renaming_base_approach import \
     LLMBaseRenamingApproach
 
 ORIGINAL_CHARS = ['(', ')', ':']
