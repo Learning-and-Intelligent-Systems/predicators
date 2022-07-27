@@ -37,7 +37,6 @@ FLAGS: {}
 START_SEED: 456
 NUM_SEEDS: 10
 ...
----
 
 # other environments with oracle and NSRT learning
 ---
@@ -63,7 +62,6 @@ FLAGS: {}
 START_SEED: 456
 NUM_SEEDS: 10
 ...
----
 
 # option learning
 ---
