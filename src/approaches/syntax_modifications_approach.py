@@ -2,7 +2,7 @@
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach llm_open_loop --seed 0 \
+    python src/main.py --approach syntax_modifications --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -10,7 +10,7 @@ Example command line:
         --debug
 
 Easier setting:
-    python src/main.py --approach llm_open_loop --seed 0 \
+    python src/main.py --approach syntax_modifications --seed 0 \
         --strips_learner oracle \
         --env pddl_easy_delivery_procedural_tasks \
         --pddl_easy_delivery_procedural_train_min_num_locs 2 \
@@ -47,15 +47,15 @@ class SyntaxModifications(LLMOpenLoopApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self.modification_one = "".join(self._generate_guess(")"))
-        self.modification_two = "".join(self._generate_guess("("))
-        self.modification_three = "".join(self._generate_guess(":"))
+        self._modification_one = "".join(self._generate_random_string(")"))
+        self._modification_two = "".join(self._generate_random_string("("))
+        self._modification_three = "".join(self._generate_random_string(":"))
 
     @classmethod
     def get_name(cls) -> str:
         return "syntax_modifications"
 
-    def _generate_guess(self, sentence: str) -> List[str]:
+    def _generate_random_string(self, sentence: str) -> List[str]:
         alphabet = ['^', '$', '#', '!', '*']
         return [self._rng.choice(alphabet) for i in range(len(sentence))]
 
@@ -71,10 +71,10 @@ class SyntaxModifications(LLMOpenLoopApproach):
         # Iterate through prompt and replace with modifications.
         for ind in range(len(prompt_list)):
             if prompt_list[ind] == ")":
-                prompt_list[ind] = self.modification_one
+                prompt_list[ind] = self._modification_one
             elif prompt_list[ind] == "(":
-                prompt_list[ind] = self.modification_two
+                prompt_list[ind] = self._modification_two
             elif prompt_list[ind] == ":":
-                prompt_list[ind] = self.modification_three
+                prompt_list[ind] = self._modification_three
         prompt = "".join(prompt_list)
         return prompt
