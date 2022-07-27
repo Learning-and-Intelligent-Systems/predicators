@@ -2649,4 +2649,5 @@ def generate_random_string(length: int, alphabet: Sequence[str],
                            rng: np.random.Generator) -> str:
     """Generates a random string of the given length using the provided set of
     characters (alphabet)."""
+    assert all(len(c) == 1 for c in alphabet)
     return "".join(rng.choice(alphabet, size=length))
