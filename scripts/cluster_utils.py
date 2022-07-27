@@ -9,6 +9,7 @@ import yaml
 
 SAVE_DIRS = ["results", "logs", "saved_datasets", "saved_approaches"]
 SUPERCLOUD_IP = "txe1-login.mit.edu"
+DEFAULT_BRANCH = "master"
 
 
 @dataclass(frozen=True)
@@ -40,16 +41,6 @@ class BatchSeedRunConfig(RunConfig):
     """Config for a run where seeds are batched together."""
     start_seed: int
     num_seeds: int
-
-
-def config_file_to_branch(config_file: str) -> str:
-    """Extract the branch from a config file."""
-    configs = list(parse_configs(config_file))
-    assert configs
-    branch = configs[0]["BRANCH"]
-    assert all(c["BRANCH"] == branch for c in configs), \
-        "Experiments defined in the same config must have the same branch."
-    return branch
 
 
 def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
