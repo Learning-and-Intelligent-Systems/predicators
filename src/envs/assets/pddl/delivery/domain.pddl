@@ -9,6 +9,7 @@
         (safe ?loc - loc)
         (unpacked ?paper - paper)
         (carrying ?paper - paper)
+        (wrinkledNewsPaper ?paper - paper)
     )
     
     (:action pick-up

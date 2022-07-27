@@ -172,8 +172,12 @@ def _generate_delivery_problem(num_locs: int, num_want_locs: int,
     # Create papers.
     papers = [f"paper-{i}" for i in range(num_newspapers)]
     # Add the initial state atoms about the papers.
+    counter = 0
     for paper in papers:
         init_strs.add(f"(unpacked {paper})")
+        if counter % 2 == 0:
+            init_strs.add(f"(wrinkledNewsPaper {paper})")
+        counter = counter + 1
 
     # Finalize PDDL problem str.
     locs_str = "\n        ".join(locs)
