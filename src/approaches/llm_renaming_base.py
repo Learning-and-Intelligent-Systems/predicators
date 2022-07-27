@@ -9,7 +9,6 @@ are aware of English words and/or PDDL syntax.
 import abc
 from typing import Collection, Dict, List, Sequence, Set, Tuple
 
-from predicators.src import utils
 from predicators.src.approaches.llm_open_loop_approach import \
     LLMOpenLoopApproach
 from predicators.src.structs import Box, GroundAtom, Object, \
