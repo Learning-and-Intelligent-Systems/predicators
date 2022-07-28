@@ -18,15 +18,22 @@ ENVS:
   cover:  # PG3 should sometimes fail, but PG4 should succeed
     NAME: "cover"
     FLAGS: {}
-  painting-no-lid-no-holding:
+  painting-no-holding-shelf-only:
+    NAME: "painting"
+    FLAGS:
+      painting_initial_holding_prob: 0.0
+      painting_goal_receptacles: "shelf"
+  painting-no-lid-no-holding-box-only:
     NAME: "painting"
     FLAGS:
       painting_lid_open_prob: 1.0
       painting_initial_holding_prob: 0.0
-  painting-lid-no-holding:
+      painting_goal_receptacles: "box"
+  painting-lid-no-holding-box-only:
     NAME: "painting"
     FLAGS:
       painting_initial_holding_prob: 0.0
+      painting_goal_receptacles: "box"
   screws:
     NAME: "screws"
     FLAGS: {}
@@ -48,6 +55,5 @@ FLAGS:
   strips_learner: oracle
   sampler_learner: oracle
   num_train_tasks: 50
-BRANCH: master
 START_SEED: 456
 NUM_SEEDS: 10
