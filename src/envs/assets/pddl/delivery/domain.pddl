@@ -9,6 +9,9 @@
         (safe ?loc - loc)
         (unpacked ?paper - paper)
         (carrying ?paper - paper)
+        (wrinkledNewsPaper ?paper - paper)
+        (isMansion ?loc - loc)
+        (isUnpacked ?paper - paper)
     )
     
     (:action pick-up
