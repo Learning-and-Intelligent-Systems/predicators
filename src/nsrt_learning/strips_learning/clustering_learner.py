@@ -70,8 +70,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     atom.lift(obj_to_var)
                     for atom in segment.delete_effects
                 }
-                ignore_effects: Set[Predicate] = set(
-                )  # will be learned later
+                ignore_effects: Set[Predicate] = set()  # will be learned later
                 op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                     add_effects, delete_effects,
                                     ignore_effects)
@@ -365,7 +364,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
         for i in range(len(s)):
             pnad = s[i]
             _, option_vars = pnad.option_spec
-            # ...consider changing each of its add effects to a side predicate.
+            # ...consider changing each of its add effects to an ignore effect.
             for effect in pnad.op.add_effects:
                 if len(pnad.op.add_effects) > 1:
                     # We don't want sidelining to result in a noop.
@@ -386,7 +385,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
 class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a prediction error score
-    function for side predicate learning."""
+    function for ignore effect learning."""
 
     @classmethod
     def get_name(cls) -> str:
@@ -411,7 +410,7 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
 class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a harmlessness score
-    function for side predicate learning."""
+    function for ignore effect learning."""
 
     @classmethod
     def get_name(cls) -> str:
