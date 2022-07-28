@@ -535,7 +535,7 @@ class STRIPSOperator:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
-    side_predicates: Set[Predicate]
+    ignore_effects: Set[Predicate]
 
     def make_nsrt(
         self,
@@ -547,7 +547,7 @@ class STRIPSOperator:
         additional fields."""
         return NSRT(self.name, self.parameters, self.preconditions,
                     self.add_effects, self.delete_effects,
-                    self.side_predicates, option, option_vars, sampler)
+                    self.ignore_effects, option, option_vars, sampler)
 
     @lru_cache(maxsize=None)
     def ground(self, objects: Tuple[Object]) -> _GroundSTRIPSOperator:
@@ -573,7 +573,7 @@ class STRIPSOperator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Side Predicates: {sorted(self.side_predicates, key=str)}"""
+    Ignore Effects: {sorted(self.ignore_effects, key=str)}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -628,7 +628,7 @@ class STRIPSOperator:
                               preconditions=self.preconditions,
                               add_effects=self.add_effects,
                               delete_effects=self.delete_effects,
-                              side_predicates=self.side_predicates)
+                              ignore_effects=self.ignore_effects)
         assert set(kwargs.keys()).issubset(default_kwargs.keys())
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:
@@ -659,7 +659,7 @@ class STRIPSOperator:
         new_params = [p for p in self.parameters if p in remaining_params]
         return STRIPSOperator(self.name, new_params, self.preconditions,
                               new_add_effects, new_delete_effects,
-                              self.side_predicates | {effect.predicate})
+                              self.ignore_effects | {effect.predicate})
 
     def get_complexity(self) -> float:
         """Get the complexity of this operator.
@@ -690,7 +690,7 @@ class _GroundSTRIPSOperator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Side Predicates: {sorted(self.side_predicates, key=str)}"""
+    Ignore Effects: {sorted(self.ignore_effects, key=str)}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -702,9 +702,9 @@ class _GroundSTRIPSOperator:
         return self.parent.name
 
     @property
-    def side_predicates(self) -> Set[Predicate]:
-        """Side predicates from the parent."""
-        return self.parent.side_predicates
+    def ignore_effects(self) -> Set[Predicate]:
+        """Ignore effects from the parent."""
+        return self.parent.ignore_effects
 
     def __str__(self) -> str:
         return self._str
@@ -741,7 +741,7 @@ class NSRT:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
-    side_predicates: Set[Predicate]
+    ignore_effects: Set[Predicate]
     option: ParameterizedOption
     # A subset of parameters corresponding to the (lifted) arguments of the
     # option that this NSRT contains.
@@ -757,7 +757,7 @@ class NSRT:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Side Predicates: {sorted(self.side_predicates, key=str)}
+    Ignore Effects: {sorted(self.ignore_effects, key=str)}
     Option Spec: {self.option.name}({option_var_str})"""
 
     @cached_property
@@ -769,7 +769,7 @@ class NSRT:
         """Return the STRIPSOperator associated with this NSRT."""
         return STRIPSOperator(self.name, self.parameters, self.preconditions,
                               self.add_effects, self.delete_effects,
-                              self.side_predicates)
+                              self.ignore_effects)
 
     def __str__(self) -> str:
         return self._str
@@ -837,7 +837,7 @@ class NSRT:
 
     def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions, add effects,
-        delete effects, and side predicates.
+        delete effects, and ignore effects.
 
         Note that the parameters must stay the same for the sake of the
         sampler inputs.
@@ -848,9 +848,9 @@ class NSRT:
             a
             for a in self.delete_effects if a.predicate in kept
         }
-        side_predicates = {a for a in self.side_predicates if a in kept}
+        ignore_effects = {a for a in self.ignore_effects if a in kept}
         return NSRT(self.name, self.parameters, preconditions, add_effects,
-                    delete_effects, side_predicates, self.option,
+                    delete_effects, ignore_effects, self.option,
                     self.option_vars, self._sampler)
 
 
@@ -876,7 +876,7 @@ class _GroundNSRT:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Side Predicates: {sorted(self.side_predicates, key=str)}
+    Ignore Effects: {sorted(self.ignore_effects, key=str)}
     Option: {self.option}
     Option Objects: {self.option_objs}"""
 
@@ -890,9 +890,9 @@ class _GroundNSRT:
         return self.parent.name
 
     @property
-    def side_predicates(self) -> Set[Predicate]:
-        """Side predicates from the parent."""
-        return self.parent.side_predicates
+    def ignore_effects(self) -> Set[Predicate]:
+        """Ignore effects from the parent."""
+        return self.parent.ignore_effects
 
     def __str__(self) -> str:
         return self._str

@@ -203,7 +203,7 @@ class NSRTReinforcementLearningApproach(NSRTLearningApproach):
                 corresponding_nsrt.preconditions,
                 corresponding_nsrt.add_effects,
                 corresponding_nsrt.delete_effects,
-                corresponding_nsrt.side_predicates, updated_option,
+                corresponding_nsrt.ignore_effects, updated_option,
                 corresponding_nsrt.option_vars, corresponding_nsrt.sampler)
             self._nsrts.remove(corresponding_nsrt)
             self._nsrts.add(replaced_nsrt)

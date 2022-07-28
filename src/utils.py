@@ -2016,11 +2016,11 @@ def get_applicable_operators(
 def apply_operator(op: GroundNSRTOrSTRIPSOperator,
                    atoms: Set[GroundAtom]) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator."""
-    # Note that we are removing the side predicates before the
+    # Note that we are removing the ignore effects before the
     # application of the operator, because if the side predicate
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
-    new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
+    new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
     for atom in op.delete_effects:
         new_atoms.discard(atom)
     for atom in op.add_effects:

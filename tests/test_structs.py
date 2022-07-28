@@ -482,7 +482,7 @@ def test_operators_and_nsrts(state):
     preconditions = {not_on([cup_var, plate_var])}
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
-    side_predicates = {on}
+    ignore_effects = {on}
     params_space = Box(-10, 10, (2, ))
     parameterized_option = ParameterizedOption("Pick", [], params_space,
                                                lambda s, m, o, p: 2 * p,
@@ -496,23 +496,23 @@ def test_operators_and_nsrts(state):
     # STRIPSOperator
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects,
-                                     side_predicates)
+                                     ignore_effects)
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     assert strips_operator.get_complexity() == 4.0  # 2^2
     assert isinstance(hash(strips_operator), int)
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects,
-                                      side_predicates)
+                                      ignore_effects)
     assert strips_operator == strips_operator2
     strips_operator3 = STRIPSOperator("PickDuplicate", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, side_predicates)
+                                      delete_effects, ignore_effects)
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
     with pytest.raises(AssertionError):
@@ -538,7 +538,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: []
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     sidelined_delete = strips_operator.effect_to_side_predicate(
         next(iter(delete_effects)), [], "delete")
     assert str(sidelined_delete) == repr(sidelined_delete) == \
@@ -547,7 +547,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: []
-    Side Predicates: [NotOn, On]"""
+    Ignore Effects: [NotOn, On]"""
     # Test copy_with().
     strips_operator4 = strips_operator.copy_with(preconditions=set())
     assert str(strips_operator4) == repr(strips_operator4) == \
@@ -556,14 +556,14 @@ def test_operators_and_nsrts(state):
     Preconditions: []
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
@@ -575,7 +575,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     ground_op2 = strips_operator2.ground((cup, plate))
     ground_op3 = strips_operator3.ground((cup, plate))
     assert ground_op == ground_op2
@@ -584,23 +584,23 @@ def test_operators_and_nsrts(state):
     assert hash(ground_op) == hash(ground_op2)
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects, delete_effects,
-                side_predicates, parameterized_option, [], sampler)
+                ignore_effects, parameterized_option, [], sampler)
     assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Pick()"""
     assert str(nsrt.op) == repr(nsrt.op) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     assert isinstance(hash(nsrt), int)
     nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
-                 delete_effects, side_predicates, parameterized_option, [],
+                 delete_effects, ignore_effects, parameterized_option, [],
                  sampler)
     assert nsrt == nsrt2
     nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
@@ -615,7 +615,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     assert isinstance(hash(ground_nsrt), int)
@@ -623,7 +623,7 @@ def test_operators_and_nsrts(state):
     assert ground_nsrt == ground_nsrt2
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
-                 delete_effects, side_predicates, parameterized_option, [],
+                 delete_effects, ignore_effects, parameterized_option, [],
                  sampler)
     assert nsrt2 > nsrt4
     assert nsrt4 < nsrt2
@@ -650,7 +650,7 @@ def test_operators_and_nsrts(state):
     Preconditions: []
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     ground_nsrt_copy3 = ground_nsrt.copy_with(add_effects=set())
@@ -659,7 +659,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: []
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
 
@@ -830,10 +830,10 @@ def test_pnad():
     preconditions = {on([cup_var, plate_var])}
     add_effects = {not_on([cup_var, plate_var])}
     delete_effects = {on([cup_var, plate_var])}
-    side_predicates = {on}
+    ignore_effects = {on}
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects,
-                                     side_predicates)
+                                     ignore_effects)
     pnad = PartialNSRTAndDatastore(strips_operator, datastore,
                                    (parameterized_option, []))
     assert len(pnad.datastore) == 1
@@ -849,7 +849,7 @@ def test_pnad():
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Move()"""
     with pytest.raises(AssertionError):  # no sampler
         pnad.make_nsrt()
@@ -860,7 +860,7 @@ def test_pnad():
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Move()"""
 
 
@@ -909,7 +909,7 @@ def test_lifted_decision_lists():
                      preconditions={on_table([cup_var])},
                      add_effects={holding([cup_var])},
                      delete_effects={on_table([cup_var])},
-                     side_predicates=set(),
+                     ignore_effects=set(),
                      option=pick_option,
                      option_vars=[],
                      _sampler=utils.null_sampler)
@@ -919,7 +919,7 @@ def test_lifted_decision_lists():
                       preconditions={holding([cup_var])},
                       add_effects={on([cup_var, plate_var])},
                       delete_effects={not_on([cup_var, plate_var])},
-                      side_predicates=set(),
+                      ignore_effects=set(),
                       option=place_option,
                       option_vars=[plate_var],
                       _sampler=utils.null_sampler)

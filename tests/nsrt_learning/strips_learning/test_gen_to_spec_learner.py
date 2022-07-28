@@ -101,13 +101,13 @@ def test_backchaining_strips_learner():
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Cry()""", """STRIPS-Eat0:
     Parameters: []
     Preconditions: []
     Add Effects: []
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Eat()"""
     ]
     for pnad, exp_str in zip(sorted(pnads, key=lambda pnad: pnad.op.name),
@@ -138,7 +138,7 @@ def test_backchaining_strips_learner():
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Cry()"""
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
@@ -255,7 +255,7 @@ def test_backchaining_strips_learner_order_dependence():
         """RobotAt(?x2:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
         """NotLightOn(?x1:light_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
     Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
@@ -263,13 +263,13 @@ def test_backchaining_strips_learner_order_dependence():
         """RobotAt(?x1:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x2:light_type), """ +
         """NotLightOn(?x2:light_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type]
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
     Delete Effects: []
-    Side Predicates: [LightColorBlue, LightColorRed]
+    Ignore Effects: [LightColorBlue, LightColorRed]
     Option Spec: MoveAndMessWithLights()"""
     }
     # Edit the names of all the returned PNADs to match the correct ones for
@@ -596,7 +596,7 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: [Asleep, Happy]"""
+    Ignore Effects: [Asleep, Happy]"""
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification(
@@ -609,7 +609,7 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: [Asleep, Happy]"""
+    Ignore Effects: [Asleep, Happy]"""
     new_pnad = learner.spawn_new_pnad({Asleep([bob])},
                                       Segment(traj, {Happy([bob])},
                                               {Asleep([bob])}, Move))
@@ -751,26 +751,26 @@ def test_keep_effect_data_partitioning():
         """MachineOn(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: TurnOn()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()"""
     ])
 
@@ -958,39 +958,39 @@ def test_combinatorial_keep_effect_data_partitioning():
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: TurnOn()""", """STRIPS-Fix:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Fix()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), """ +
@@ -998,7 +998,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
 
@@ -1027,7 +1027,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
 
@@ -1118,13 +1118,13 @@ def test_keep_effect_adding_new_variables():
     Preconditions: [PotatoIntact(?x1:potato_type)]
     Add Effects: [ButtonPressed(?x0:button_type), PotatoIntact(?x1:potato_type)]
     Delete Effects: []
-    Side Predicates: [PotatoIntact]
+    Ignore Effects: [PotatoIntact]
     Option Spec: Press(?x0:button_type)""", """STRIPS-Pick:
     Parameters: [?x0:potato_type]
     Preconditions: [PotatoIntact(?x0:potato_type)]
     Add Effects: [PotatoHeld(?x0:potato_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Pick(?x0:potato_type)"""
     ])
 
@@ -1221,19 +1221,19 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B()]
     Delete Effects: []
-    Side Predicates: [C]
+    Ignore Effects: [C]
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
     Add Effects: [D(), E()]
     Delete Effects: [B()]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
     Add Effects: [C(), D()]
     Delete Effects: [B()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Place()"""
         ]
     else:
@@ -1243,19 +1243,19 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B(), C()]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), C()]
     Add Effects: [D()]
     Delete Effects: [B()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), E()]
     Add Effects: [D(), E()]
     Delete Effects: [B()]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Place()"""
         ]
 
@@ -1337,31 +1337,31 @@ def test_backchaining_segment_not_in_datastore():
     Preconditions: [C(), E()]
     Add Effects: [B()]
     Delete Effects: []
-    Side Predicates: [A, D]
+    Ignore Effects: [A, D]
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [B(), D(), E()]
     Add Effects: [A(), C()]
     Delete Effects: [B(), E()]
-    Side Predicates: [B, E]
+    Ignore Effects: [B, E]
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), C(), D()]
     Add Effects: [A(), B(), D()]
     Delete Effects: [C()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), D()]
     Add Effects: [A(), B()]
     Delete Effects: [D()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), B(), D()]
     Add Effects: [C(), E()]
     Delete Effects: [A(), B(), D()]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Pick()"""
     ]
     for pnad in learned_pnads:

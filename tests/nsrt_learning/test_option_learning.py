@@ -184,7 +184,7 @@ def test_learned_neural_parameterized_option():
                                    pick_nsrt.preconditions,
                                    pick_nsrt.add_effects,
                                    pick_nsrt.delete_effects,
-                                   pick_nsrt.side_predicates)
+                                   pick_nsrt.ignore_effects)
     # In this example, both of the parameters (block and robot) are changing.
     # For simplicity, assume that the first and third features for the
     # block and the robot are changing.

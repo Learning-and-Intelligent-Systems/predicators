@@ -30,7 +30,7 @@ def test_cluster_and_intersect_strips_learner():
     Preconditions: []
     Add Effects: []
     Delete Effects: []
-    Side Predicates: []"""
+    Ignore Effects: []"""
     unknown_option_pnads = learn_strips_operators([unknown_option_ll_traj],
                                                   None,
                                                   None,
@@ -43,7 +43,7 @@ def test_cluster_and_intersect_strips_learner():
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Side Predicates: []"""  # pylint: disable=line-too-long
+    Ignore Effects: []"""  # pylint: disable=line-too-long
 
 
 def test_cluster_and_search_strips_learner():
@@ -107,7 +107,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: []
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op0.datastore) == 2
     assert str(op1) == """STRIPS-Op1:
@@ -115,7 +115,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: [IsBlue(?x0:obj_type)]
     Add Effects: [IsSad(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op1.datastore) == 1
 
@@ -136,7 +136,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: [IsRed(?x0:obj_type)]
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op0.datastore) == 1
     assert str(op1) == """STRIPS-Op0-1:
@@ -144,7 +144,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: [IsGreen(?x0:obj_type)]
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op1.datastore) == 1
     assert str(op2) == """STRIPS-Op1-0:
@@ -152,7 +152,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: [IsBlue(?x0:obj_type)]
     Add Effects: [IsSad(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op2.datastore) == 1
 
@@ -174,7 +174,7 @@ def test_cluster_and_search_strips_learner():
     Preconditions: []
     Add Effects: [IsHappy(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op0.datastore) == 2
     assert str(op1) == """STRIPS-Op1-0:
@@ -182,6 +182,6 @@ def test_cluster_and_search_strips_learner():
     Preconditions: [IsBlue(?x0:obj_type)]
     Add Effects: [IsSad(?x0:obj_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Interact()"""
     assert len(op1.datastore) == 1

@@ -1846,7 +1846,7 @@ def test_get_reachable_atoms():
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1855,7 +1855,7 @@ def test_get_reachable_atoms():
                  preconditions2,
                  add_effects2,
                  delete_effects2,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1899,7 +1899,7 @@ def test_nsrt_application():
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1908,7 +1908,7 @@ def test_nsrt_application():
                  preconditions2,
                  add_effects2,
                  delete_effects2,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1954,14 +1954,14 @@ def test_nsrt_application():
         utils.get_applicable_operators(ground_nsrts, {pred3([cup2, plate1])}))
     assert not list(
         utils.get_applicable_operators(ground_nsrts, {pred3([cup2, plate2])}))
-    # Tests with side predicates.
-    side_predicates = {pred2}
+    # Tests with ignore effects.
+    ignore_effects = {pred2}
     nsrt3 = NSRT("Pick",
                  parameters,
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=side_predicates,
+                 ignore_effects=ignore_effects,
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1982,7 +1982,7 @@ def test_nsrt_application():
                  preconditions1,
                  add_effects,
                  delete_effects,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -2088,14 +2088,14 @@ def test_operator_application():
     assert not list(
         utils.get_successors_from_ground_ops({pred3([cup2, plate2])},
                                              ground_ops))
-    # Tests with side predicates.
-    side_predicates = {pred2}
+    # Tests with ignore effects.
+    ignore_effects = {pred2}
     op3 = STRIPSOperator("Pick",
                          parameters,
                          preconditions1,
                          add_effects1,
                          delete_effects1,
-                         side_predicates=side_predicates)
+                         ignore_effects=ignore_effects)
     ground_ops = sorted(utils.all_ground_operators(op3, objects))
     applicable = list(
         utils.get_applicable_operators(ground_ops, {pred1([cup1, plate1])}))

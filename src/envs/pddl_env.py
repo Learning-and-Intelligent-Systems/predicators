@@ -603,7 +603,7 @@ def _parse_pddl_domain(
                                    preconditions,
                                    add_effects,
                                    delete_effects,
-                                   side_predicates=set())
+                                   ignore_effects=set())
         operators.add(strips_op)
     # Collect the final outputs.
     types = set(pyperplan_type_to_type.values())
