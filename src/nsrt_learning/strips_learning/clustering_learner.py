@@ -70,11 +70,10 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     atom.lift(obj_to_var)
                     for atom in segment.delete_effects
                 }
-                side_predicates: Set[Predicate] = set(
-                )  # will be learned later
+                ignore_effects: Set[Predicate] = set()  # will be learned later
                 op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                     add_effects, delete_effects,
-                                    side_predicates)
+                                    ignore_effects)
                 datastore = [(segment, var_to_obj)]
                 option_vars = [obj_to_var[o] for o in segment_option_objs]
                 option_spec = (segment_param_option, option_vars)
@@ -85,8 +84,8 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         # is flexible; subclasses choose how to implement it.
         pnads = self._learn_pnad_preconditions(pnads)
 
-        # Handle optional postprocessing to learn side predicates.
-        pnads = self._postprocessing_learn_side_predicates(pnads)
+        # Handle optional postprocessing to learn ignore effects.
+        pnads = self._postprocessing_learn_ignore_effects(pnads)
 
         # Log and return the PNADs.
         if self._verbose:
@@ -105,10 +104,10 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         """
         raise NotImplementedError("Override me!")
 
-    def _postprocessing_learn_side_predicates(
+    def _postprocessing_learn_ignore_effects(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
-        """Optionally postprocess to learn side predicates."""
+        """Optionally postprocess to learn ignore effects."""
         _ = self  # unused, but may be used in subclasses
         return pnads
 
@@ -327,7 +326,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
     """Base class for a clustering-based STRIPS learner that does sidelining
     via hill climbing, after operator learning."""
 
-    def _postprocessing_learn_side_predicates(
+    def _postprocessing_learn_ignore_effects(
             self, pnads: List[PartialNSRTAndDatastore]
     ) -> List[PartialNSRTAndDatastore]:
         # Run hill climbing search, starting from original PNADs.
@@ -365,12 +364,12 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
         for i in range(len(s)):
             pnad = s[i]
             _, option_vars = pnad.option_spec
-            # ...consider changing each of its add effects to a side predicate.
+            # ...consider changing each of its add effects to an ignore effect.
             for effect in pnad.op.add_effects:
                 if len(pnad.op.add_effects) > 1:
                     # We don't want sidelining to result in a noop.
                     new_pnad = PartialNSRTAndDatastore(
-                        pnad.op.effect_to_side_predicate(
+                        pnad.op.effect_to_ignore_effect(
                             effect, option_vars, "add"), pnad.datastore,
                         pnad.option_spec)
                     sprime = list(s)
@@ -386,7 +385,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
 class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a prediction error score
-    function for side predicate learning."""
+    function for ignore effect learning."""
 
     @classmethod
     def get_name(cls) -> str:
@@ -411,7 +410,7 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
 class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         ClusterAndIntersectSidelineSTRIPSLearner):
     """A STRIPS learner that uses hill climbing with a harmlessness score
-    function for side predicate learning."""
+    function for ignore effect learning."""
 
     @classmethod
     def get_name(cls) -> str:
@@ -422,11 +421,11 @@ class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
         preserves_harmlessness = self._check_harmlessness(list(s))
         if preserves_harmlessness:
             # If harmlessness is preserved, the score is the number of
-            # operators that we have, minus the number of side predicates.
-            # This means we prefer fewer operators and more side predicates.
+            # operators that we have, minus the number of ignore effects.
+            # This means we prefer fewer operators and more ignore effects.
             score = 2 * len(s)
             for pnad in s:
-                score -= len(pnad.op.side_predicates)
+                score -= len(pnad.op.ignore_effects)
         else:
             # If harmlessness is not preserved, the score is an arbitrary
             # constant bigger than the total number of operators at the
