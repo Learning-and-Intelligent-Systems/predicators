@@ -369,7 +369,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
                 if len(pnad.op.add_effects) > 1:
                     # We don't want sidelining to result in a noop.
                     new_pnad = PartialNSRTAndDatastore(
-                        pnad.op.effect_to_side_predicate(
+                        pnad.op.effect_to_ignore_effect(
                             effect, option_vars, "add"), pnad.datastore,
                         pnad.option_spec)
                     sprime = list(s)

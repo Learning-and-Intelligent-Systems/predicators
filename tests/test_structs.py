@@ -516,21 +516,20 @@ def test_operators_and_nsrts(state):
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(
+        strips_operator.effect_to_ignore_effect(next(
             iter(add_effects)), [], "dummy")  # invalid last argument
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(
+        strips_operator.effect_to_ignore_effect(next(
             iter(add_effects)), [], "delete")  # not a delete effect!
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(iter(delete_effects)),
-                                                 [],
-                                                 "add")  # not an add effect!
+        strips_operator.effect_to_ignore_effect(next(iter(delete_effects)), [],
+                                                "add")  # not an add effect!
     strips_operator_zero_params = strips_operator.copy_with(parameters=[])
     assert strips_operator_zero_params.get_complexity() == 1.0  # 2^0
     strips_operator_three_params = strips_operator.copy_with(
         parameters=[1, 2, 3])
     assert strips_operator_three_params.get_complexity() == 8.0  # 2^3
-    sidelined_add = strips_operator.effect_to_side_predicate(
+    sidelined_add = strips_operator.effect_to_ignore_effect(
         next(iter(add_effects)), [], "add")
     assert str(sidelined_add) == repr(sidelined_add) == \
         """STRIPS-Pick:
@@ -539,7 +538,7 @@ def test_operators_and_nsrts(state):
     Add Effects: []
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Ignore Effects: [On]"""
-    sidelined_delete = strips_operator.effect_to_side_predicate(
+    sidelined_delete = strips_operator.effect_to_ignore_effect(
         next(iter(delete_effects)), [], "delete")
     assert str(sidelined_delete) == repr(sidelined_delete) == \
         """STRIPS-Pick:

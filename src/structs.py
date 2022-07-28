@@ -528,7 +528,9 @@ DummyOption.parent.params_space.seed(0)  # for reproducibility
 class STRIPSOperator:
     """Struct defining a symbolic operator (as in STRIPS).
 
-    Lifted!
+    Lifted! Note here that the ignore_effects - unlike the
+    add_effects and delete_effects - are universally
+    quantified over all possible groundings.
     """
     name: str
     parameters: Sequence[Variable]
@@ -635,9 +637,9 @@ class STRIPSOperator:
         # https://github.com/python/mypy/issues/5382
         return STRIPSOperator(**default_kwargs)  # type: ignore
 
-    def effect_to_side_predicate(self, effect: LiftedAtom,
-                                 option_vars: Sequence[Variable],
-                                 add_or_delete: str) -> STRIPSOperator:
+    def effect_to_ignore_effect(self, effect: LiftedAtom,
+                                option_vars: Sequence[Variable],
+                                add_or_delete: str) -> STRIPSOperator:
         """Return a new STRIPS operator resulting from turning the given effect
         (either add or delete) into an ignore effect."""
         assert add_or_delete in ("add", "delete")
