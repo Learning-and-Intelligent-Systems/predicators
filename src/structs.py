@@ -546,8 +546,8 @@ class STRIPSOperator:
         """Make an NSRT out of this STRIPSOperator object, given the necessary
         additional fields."""
         return NSRT(self.name, self.parameters, self.preconditions,
-                    self.add_effects, self.delete_effects,
-                    self.ignore_effects, option, option_vars, sampler)
+                    self.add_effects, self.delete_effects, self.ignore_effects,
+                    option, option_vars, sampler)
 
     @lru_cache(maxsize=None)
     def ground(self, objects: Tuple[Object]) -> _GroundSTRIPSOperator:
@@ -639,7 +639,7 @@ class STRIPSOperator:
                                  option_vars: Sequence[Variable],
                                  add_or_delete: str) -> STRIPSOperator:
         """Return a new STRIPS operator resulting from turning the given effect
-        (either add or delete) into a side predicate."""
+        (either add or delete) into an ignore effect."""
         assert add_or_delete in ("add", "delete")
         if add_or_delete == "add":
             assert effect in self.add_effects

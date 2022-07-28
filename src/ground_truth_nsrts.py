@@ -1863,7 +1863,7 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
     # After grasping, it's possible that you could end up NextToNothing,
     # but it's also possible that you remain next to something else.
-    # Note that NextTo isn't a side predicate here because it's not
+    # Note that NextTo isn't an ignore effect here because it's not
     # something we'd be unsure about for any object. For every object we
     # are NextTo but did not grasp, we will stay NextTo it.
     ignore_effects = {NextToNothing}
@@ -2105,8 +2105,8 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         return np.array([pick_pos], dtype=np.float32)
 
     pick_stick_nsrt = NSRT("PickStickFromNothing", parameters, preconditions,
-                           add_effects, delete_effects, ignore_effects,
-                           option, option_vars, pick_stick_sampler)
+                           add_effects, delete_effects, ignore_effects, option,
+                           option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
     # PickStickFromButton
@@ -2130,8 +2130,8 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     }
     ignore_effects = set()
     pick_stick_nsrt = NSRT("PickStickFromButton", parameters, preconditions,
-                           add_effects, delete_effects, ignore_effects,
-                           option, option_vars, pick_stick_sampler)
+                           add_effects, delete_effects, ignore_effects, option,
+                           option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
     # StickPressButtonFromNothing
@@ -2153,8 +2153,7 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     ignore_effects = set()
     stick_button_nsrt = NSRT("StickPressButtonFromNothing", parameters,
                              preconditions, add_effects, delete_effects,
-                             ignore_effects, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(stick_button_nsrt)
 
     # StickPressButtonFromButton
@@ -2177,8 +2176,7 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     ignore_effects = set()
     stick_button_nsrt = NSRT("StickPressButtonFromButton", parameters,
                              preconditions, add_effects, delete_effects,
-                             ignore_effects, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(stick_button_nsrt)
 
     return nsrts
@@ -2218,8 +2216,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     ignore_effects: Set[Predicate] = set()
     move_to_door_nsrt = NSRT("MoveToDoorFromMainRoom", parameters,
                              preconditions, add_effects, delete_effects,
-                             ignore_effects, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(move_to_door_nsrt)
 
     # MoveToDoorFromDoorWay
@@ -2241,8 +2238,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     ignore_effects = set()
     move_to_door_nsrt = NSRT("MoveToDoorFromDoorWay", parameters,
                              preconditions, add_effects, delete_effects,
-                             ignore_effects, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(move_to_door_nsrt)
 
     # OpenDoor

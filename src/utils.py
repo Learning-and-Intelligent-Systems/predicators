@@ -2017,7 +2017,7 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
                    atoms: Set[GroundAtom]) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator."""
     # Note that we are removing the ignore effects before the
-    # application of the operator, because if the side predicate
+    # application of the operator, because if the ignore effect
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
