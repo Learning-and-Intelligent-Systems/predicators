@@ -25,18 +25,18 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         parameters = utils.create_new_variables(parameterized_option.types)
         option_spec = (parameterized_option, parameters)
 
-        # In the most general operator, the side predicates contain ALL
+        # In the most general operator, the ignore effects contain ALL
         # predicates.
-        side_predicates = self._predicates.copy()
+        ignore_effects = self._predicates.copy()
 
         # There are no add effects or delete effects. The preconditions
         # are initialized to be trivial. They will be recomputed next.
         op = STRIPSOperator(parameterized_option.name, parameters, set(),
-                            set(), set(), side_predicates)
+                            set(), set(), ignore_effects)
         pnad = PartialNSRTAndDatastore(op, [], option_spec)
 
         # Recompute datastore. This simply clusters by option, since the
-        # side predicates contain all predicates, and effects are trivial.
+        # ignore effects contain all predicates, and effects are trivial.
         self._recompute_datastores_from_segments([pnad])
 
         # Determine the initial preconditions via a lifted intersection.
@@ -78,7 +78,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # operators with only parameters, preconditions, and add effects.
             self._backchain_multipass(param_opt_to_nec_pnads)
 
-            # Induce delete effects, side predicates and potentially
+            # Induce delete effects, ignore effects and potentially
             # keep effects.
             self._induce_delete_side_keep(param_opt_to_nec_pnads)
 
@@ -348,7 +348,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             pnads_with_keep_effects = set()
             for pnad in nec_pnad_list:
                 self._compute_pnad_delete_effects(pnad)
-                self._compute_pnad_side_predicates(pnad)
+                self._compute_pnad_ignore_effects(pnad)
                 pnads_with_keep_effects |= self._get_pnads_with_keep_effects(
                     pnad)
             param_opt_to_nec_pnads[option].extend(
@@ -483,22 +483,22 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         pnad.op = pnad.op.copy_with(delete_effects=delete_effects)
 
     @staticmethod
-    def _compute_pnad_side_predicates(pnad: PartialNSRTAndDatastore) -> None:
-        """Update the given PNAD to change the side predicates to ones that
+    def _compute_pnad_ignore_effects(pnad: PartialNSRTAndDatastore) -> None:
+        """Update the given PNAD to change the ignore effects to ones that
         include every unmodeled add or delete effect seen in the data."""
-        # First, strip out any existing side predicates so that the call
+        # First, strip out any existing ignore effects so that the call
         # to apply_operator() cannot use them, which would defeat the purpose.
-        pnad.op = pnad.op.copy_with(side_predicates=set())
-        side_predicates = set()
+        pnad.op = pnad.op.copy_with(ignore_effects=set())
+        ignore_effects = set()
         for (segment, var_to_obj) in pnad.datastore:
             objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
             ground_op = pnad.op.ground(objs)
             next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
             for atom in segment.final_atoms - next_atoms:
-                side_predicates.add(atom.predicate)
+                ignore_effects.add(atom.predicate)
             for atom in next_atoms - segment.final_atoms:
-                side_predicates.add(atom.predicate)
-        pnad.op = pnad.op.copy_with(side_predicates=side_predicates)
+                ignore_effects.add(atom.predicate)
+        pnad.op = pnad.op.copy_with(ignore_effects=ignore_effects)
 
     @staticmethod
     def _get_pnads_with_keep_effects(
@@ -507,11 +507,11 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         PNAD."""
         # The keep effects that we want are the subset of possible keep
         # effects which are not already in the PNAD's add effects, and
-        # whose predicates were determined to be side predicates.
+        # whose predicates were determined to be ignore effects.
         keep_effects = {
             eff
             for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
-            and eff.predicate in pnad.op.side_predicates
+            and eff.predicate in pnad.op.ignore_effects
         }
         new_pnads_with_keep_effects = set()
         # Given these keep effects, we need to create a combinatorial number of

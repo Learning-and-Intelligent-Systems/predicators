@@ -975,10 +975,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         delete_effects = set()
         # Moving could have us end up NextTo other objects, and
         # can turn off being next to the box or the shelf.
-        side_predicates = {NextTo, NextToBox, NextToShelf}
+        ignore_effects = {NextTo, NextToBox, NextToShelf}
 
         movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions,
-                              add_effects, delete_effects, side_predicates,
+                              add_effects, delete_effects, ignore_effects,
                               option, option_vars, moveto_sampler)
         nsrts.add(movetoobj_nsrt)
 
@@ -1003,9 +1003,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo}
+        ignore_effects = {NextTo}
         movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
-                              add_effects, delete_effects, side_predicates,
+                              add_effects, delete_effects, ignore_effects,
                               option, option_vars, moveto_sampler)
         nsrts.add(movetobox_nsrt)
 
@@ -1030,9 +1030,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(OnTable, [obj])
         }
         # Moving could have us end up NextTo other objects.
-        side_predicates = {NextTo}
+        ignore_effects = {NextTo}
         movetoshelf_nsrt = NSRT("MoveToShelf", parameters, preconditions,
-                                add_effects, delete_effects, side_predicates,
+                                add_effects, delete_effects, ignore_effects,
                                 option, option_vars, moveto_sampler)
         nsrts.add(movetoshelf_nsrt)
 
@@ -1846,9 +1846,9 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects: Set[LiftedAtom] = set()
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
-    side_predicates = {NextTo, NextToNothing}
+    ignore_effects = {NextTo, NextToNothing}
     move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
-                     delete_effects, side_predicates, option, option_vars,
+                     delete_effects, ignore_effects, option, option_vars,
                      lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
     nsrts.add(move_nsrt)
 
@@ -1863,12 +1863,12 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
     # After grasping, it's possible that you could end up NextToNothing,
     # but it's also possible that you remain next to something else.
-    # Note that NextTo isn't a side predicate here because it's not
+    # Note that NextTo isn't an ignore effect here because it's not
     # something we'd be unsure about for any object. For every object we
     # are NextTo but did not grasp, we will stay NextTo it.
-    side_predicates = {NextToNothing}
+    ignore_effects = {NextToNothing}
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
-                      delete_effects, side_predicates, option, option_vars,
+                      delete_effects, ignore_effects, option, option_vars,
                       null_sampler)
     nsrts.add(grasp_nsrt)
 
@@ -1891,7 +1891,7 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
     move_nsrt = NSRT(
         rn_move_nsrt.name, rn_move_nsrt.parameters, rn_move_nsrt.preconditions,
         rn_move_nsrt.add_effects, rn_move_nsrt.delete_effects,
-        rn_move_nsrt.side_predicates, MoveGrasp, rn_move_nsrt.option_vars,
+        rn_move_nsrt.ignore_effects, MoveGrasp, rn_move_nsrt.option_vars,
         lambda s, g, rng, o: np.array([-1.0, 0.0], dtype=np.float32))
     nsrts.add(move_nsrt)
 
@@ -1899,7 +1899,7 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
     grasp_nsrt = NSRT(
         rn_grasp_nsrt.name, rn_grasp_nsrt.parameters,
         rn_grasp_nsrt.preconditions, rn_grasp_nsrt.add_effects,
-        rn_grasp_nsrt.delete_effects, rn_grasp_nsrt.side_predicates, MoveGrasp,
+        rn_grasp_nsrt.delete_effects, rn_grasp_nsrt.ignore_effects, MoveGrasp,
         rn_grasp_nsrt.option_vars,
         lambda s, g, rng, o: np.array([1.0, 0.0], dtype=np.float32))
     nsrts.add(grasp_nsrt)
@@ -1935,9 +1935,9 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     preconditions: Set[LiftedAtom] = set()
     add_effects = {LiftedAtom(GripperCanPickScrew, [robot, screw])}
     delete_effects: Set[LiftedAtom] = set()
-    side_predicates = {GripperCanPickScrew}
+    ignore_effects = {GripperCanPickScrew}
     move_to_screw_nsrt = NSRT("MoveToScrew", parameters, preconditions,
-                              add_effects, delete_effects, side_predicates,
+                              add_effects, delete_effects, ignore_effects,
                               option, option_vars, null_sampler)
     nsrts.add(move_to_screw_nsrt)
 
@@ -1950,10 +1950,10 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     option = MoveToReceptacle
     preconditions = {LiftedAtom(HoldingScrew, [robot, screw])}
     add_effects = {LiftedAtom(AboveReceptacle, [robot, receptacle])}
-    side_predicates = {GripperCanPickScrew}
+    ignore_effects = {GripperCanPickScrew}
     move_to_receptacle_nsrt = NSRT("MoveToReceptacle", parameters,
                                    preconditions, add_effects, delete_effects,
-                                   side_predicates, option, option_vars,
+                                   ignore_effects, option, option_vars,
                                    null_sampler)
     nsrts.add(move_to_receptacle_nsrt)
 
@@ -1965,10 +1965,10 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     option = MagnetizeGripper
     preconditions = {LiftedAtom(GripperCanPickScrew, [robot, screw])}
     add_effects = {LiftedAtom(HoldingScrew, [robot, screw])}
-    side_predicates = {HoldingScrew}
+    ignore_effects = {HoldingScrew}
     magnetize_gripper_nsrt = NSRT("MagnetizeGripper", parameters,
                                   preconditions, add_effects, delete_effects,
-                                  side_predicates, option, option_vars,
+                                  ignore_effects, option, option_vars,
                                   null_sampler)
     nsrts.add(magnetize_gripper_nsrt)
 
@@ -1985,10 +1985,10 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     }
     add_effects = {LiftedAtom(ScrewInReceptacle, [screw, receptacle])}
     delete_effects = {LiftedAtom(HoldingScrew, [robot, screw])}
-    side_predicates = {HoldingScrew}
+    ignore_effects = {HoldingScrew}
     demagnetize_gripper_nsrt = NSRT("DemagnetizeGripper", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    side_predicates, option, option_vars,
+                                    ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(demagnetize_gripper_nsrt)
 
@@ -2012,9 +2012,9 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     preconditions: Set[LiftedAtom] = set()
     add_effects = {LiftedAtom(Touched, [robot, target])}
     delete_effects: Set[LiftedAtom] = set()
-    side_predicates: Set[Predicate] = set()
+    ignore_effects: Set[Predicate] = set()
     move_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
-                     delete_effects, side_predicates, option, option_vars,
+                     delete_effects, ignore_effects, option, option_vars,
                      null_sampler)
     nsrts.add(move_nsrt)
 
@@ -2049,10 +2049,10 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(RobotAboveButton, [robot, button])
     }
     delete_effects = {LiftedAtom(AboveNoButton, [])}
-    side_predicates: Set[Predicate] = set()
+    ignore_effects: Set[Predicate] = set()
     robot_press_button_nsrt = NSRT("RobotPressButtonFromNothing", parameters,
                                    preconditions, add_effects, delete_effects,
-                                   side_predicates, option, option_vars,
+                                   ignore_effects, option, option_vars,
                                    null_sampler)
     nsrts.add(robot_press_button_nsrt)
 
@@ -2072,10 +2072,10 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(RobotAboveButton, [robot, button])
     }
     delete_effects = {LiftedAtom(RobotAboveButton, [robot, from_button])}
-    side_predicates = set()
+    ignore_effects = set()
     robot_press_button_nsrt = NSRT("RobotPressButtonFromButton", parameters,
                                    preconditions, add_effects, delete_effects,
-                                   side_predicates, option, option_vars,
+                                   ignore_effects, option, option_vars,
                                    null_sampler)
     nsrts.add(robot_press_button_nsrt)
 
@@ -2093,7 +2093,7 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Grasped, [robot, stick]),
     }
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    side_predicates = set()
+    ignore_effects = set()
 
     def pick_stick_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
@@ -2105,8 +2105,8 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         return np.array([pick_pos], dtype=np.float32)
 
     pick_stick_nsrt = NSRT("PickStickFromNothing", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates,
-                           option, option_vars, pick_stick_sampler)
+                           add_effects, delete_effects, ignore_effects, option,
+                           option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
     # PickStickFromButton
@@ -2128,10 +2128,10 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(HandEmpty, [robot]),
         LiftedAtom(RobotAboveButton, [robot, button]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     pick_stick_nsrt = NSRT("PickStickFromButton", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates,
-                           option, option_vars, pick_stick_sampler)
+                           add_effects, delete_effects, ignore_effects, option,
+                           option_vars, pick_stick_sampler)
     nsrts.add(pick_stick_nsrt)
 
     # StickPressButtonFromNothing
@@ -2150,11 +2150,10 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Pressed, [button])
     }
     delete_effects = {LiftedAtom(AboveNoButton, [])}
-    side_predicates = set()
+    ignore_effects = set()
     stick_button_nsrt = NSRT("StickPressButtonFromNothing", parameters,
                              preconditions, add_effects, delete_effects,
-                             side_predicates, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(stick_button_nsrt)
 
     # StickPressButtonFromButton
@@ -2174,11 +2173,10 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Pressed, [button])
     }
     delete_effects = {LiftedAtom(StickAboveButton, [stick, from_button])}
-    side_predicates = set()
+    ignore_effects = set()
     stick_button_nsrt = NSRT("StickPressButtonFromButton", parameters,
                              preconditions, add_effects, delete_effects,
-                             side_predicates, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(stick_button_nsrt)
 
     return nsrts
@@ -2215,11 +2213,10 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(InDoorway, [robot, door])
     }
     delete_effects = {LiftedAtom(InMainRoom, [robot, room])}
-    side_predicates: Set[Predicate] = set()
+    ignore_effects: Set[Predicate] = set()
     move_to_door_nsrt = NSRT("MoveToDoorFromMainRoom", parameters,
                              preconditions, add_effects, delete_effects,
-                             side_predicates, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(move_to_door_nsrt)
 
     # MoveToDoorFromDoorWay
@@ -2238,11 +2235,10 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(InDoorway, [robot, end_door])
     }
     delete_effects = {LiftedAtom(InDoorway, [robot, start_door])}
-    side_predicates = set()
+    ignore_effects = set()
     move_to_door_nsrt = NSRT("MoveToDoorFromDoorWay", parameters,
                              preconditions, add_effects, delete_effects,
-                             side_predicates, option, option_vars,
-                             null_sampler)
+                             ignore_effects, option, option_vars, null_sampler)
     nsrts.add(move_to_door_nsrt)
 
     # OpenDoor
@@ -2259,7 +2255,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(TouchingDoor, [robot, door]),
     }
-    side_predicates = set()
+    ignore_effects = set()
 
     # Allow protected access because this is an oracle. Used in the sampler.
     env = get_or_create_env(CFG.env)
@@ -2291,7 +2287,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
         return np.array([delta_rot, delta_open], dtype=np.float32)
 
     open_door_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
-                          delete_effects, side_predicates, option, option_vars,
+                          delete_effects, ignore_effects, option, option_vars,
                           open_door_sampler)
     nsrts.add(open_door_nsrt)
 
@@ -2316,9 +2312,9 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(InRoom, [robot, start_room]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     move_through_door_nsrt = NSRT("MoveThroughDoor", parameters, preconditions,
-                                  add_effects, delete_effects, side_predicates,
+                                  add_effects, delete_effects, ignore_effects,
                                   option, option_vars, null_sampler)
     nsrts.add(move_through_door_nsrt)
 
@@ -2358,9 +2354,9 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
     }
-    side_predicates: Set[Predicate] = set()
+    ignore_effects: Set[Predicate] = set()
     move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters, preconditions,
-                                  add_effects, delete_effects, side_predicates,
+                                  add_effects, delete_effects, ignore_effects,
                                   option, option_vars, null_sampler)
     nsrts.add(move_to_twist_jug_nsrt)
 
@@ -2380,7 +2376,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(Twisting, [robot, jug]),
     }
-    side_predicates = set()
+    ignore_effects = set()
 
     def twist_jug_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -2389,7 +2385,7 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
 
     twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions, add_effects,
-                          delete_effects, side_predicates, option, option_vars,
+                          delete_effects, ignore_effects, option, option_vars,
                           twist_jug_sampler)
     nsrts.add(twist_jug_nsrt)
 
@@ -2410,10 +2406,10 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [jug]),
         LiftedAtom(HandEmpty, [robot])
     }
-    side_predicates = set()
+    ignore_effects = set()
     pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    side_predicates, option, option_vars,
+                                    ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(pick_jug_from_table_nsrt)
 
@@ -2434,10 +2430,10 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(Holding, [robot, jug]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
                                      preconditions, add_effects,
-                                     delete_effects, side_predicates, option,
+                                     delete_effects, ignore_effects, option,
                                      option_vars, null_sampler)
     nsrts.add(place_jug_in_machine_nsrt)
 
@@ -2458,9 +2454,9 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(PressingButton, [robot, machine]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
-                                add_effects, delete_effects, side_predicates,
+                                add_effects, delete_effects, ignore_effects,
                                 option, option_vars, null_sampler)
     nsrts.add(turn_machine_on_nsrt)
 
@@ -2484,10 +2480,10 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(JugInMachine, [jug, machine]),
         LiftedAtom(PressingButton, [robot, machine]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     pick_jug_from_machine_nsrt = NSRT("PickJugFromMachine", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, side_predicates, option,
+                                      delete_effects, ignore_effects, option,
                                       option_vars, null_sampler)
     nsrts.add(pick_jug_from_machine_nsrt)
 
@@ -2511,9 +2507,9 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(NotAboveCup, [robot, jug]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     pour_from_nowhere_nsrt = NSRT("PourFromNowhere", parameters, preconditions,
-                                  add_effects, delete_effects, side_predicates,
+                                  add_effects, delete_effects, ignore_effects,
                                   option, option_vars, null_sampler)
     nsrts.add(pour_from_nowhere_nsrt)
 
@@ -2541,10 +2537,10 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
     }
-    side_predicates = set()
+    ignore_effects = set()
     pour_from_other_cup_nsrt = NSRT("PourFromOtherCup", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    side_predicates, option, option_vars,
+                                    ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(pour_from_other_cup_nsrt)
 
@@ -2580,7 +2576,7 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Sees, [sat, obj]),
     }
     delete_effects: Set[LiftedAtom] = set()
-    side_predicates = {Sees}
+    ignore_effects = {Sees}
 
     def moveto_sampler(state: State, goal: Set[GroundAtom],
                        rng: np.random.Generator,
@@ -2598,7 +2594,7 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         return np.array([x, y], dtype=np.float32)
 
     moveto_nsrt = NSRT("MoveTo", parameters, preconditions, add_effects,
-                       delete_effects, side_predicates, option, option_vars,
+                       delete_effects, ignore_effects, option, option_vars,
                        moveto_sampler)
     nsrts.add(moveto_nsrt)
 
@@ -2616,9 +2612,9 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(IsCalibrated, [sat]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     calibrate_nsrt = NSRT("Calibrate", parameters, preconditions, add_effects,
-                          delete_effects, side_predicates, option, option_vars,
+                          delete_effects, ignore_effects, option, option_vars,
                           null_sampler)
     nsrts.add(calibrate_nsrt)
 
@@ -2636,9 +2632,9 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(HasChemX, [obj]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     shoot_chem_x_nsrt = NSRT("ShootChemX", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates,
+                             add_effects, delete_effects, ignore_effects,
                              option, option_vars, null_sampler)
     nsrts.add(shoot_chem_x_nsrt)
 
@@ -2656,9 +2652,9 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(HasChemY, [obj]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     shoot_chem_y_nsrt = NSRT("ShootChemY", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates,
+                             add_effects, delete_effects, ignore_effects,
                              option, option_vars, null_sampler)
     nsrts.add(shoot_chem_y_nsrt)
 
@@ -2679,10 +2675,10 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(CameraReadingTaken, [sat, obj]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     take_camera_reading_nsrt = NSRT("TakeCameraReading", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    side_predicates, option, option_vars,
+                                    ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(take_camera_reading_nsrt)
 
@@ -2703,10 +2699,10 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(InfraredReadingTaken, [sat, obj]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     take_infrared_reading_nsrt = NSRT("TakeInfraredReading", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, side_predicates, option,
+                                      delete_effects, ignore_effects, option,
                                       option_vars, null_sampler)
     nsrts.add(take_infrared_reading_nsrt)
 
@@ -2726,10 +2722,10 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GeigerReadingTaken, [sat, obj]),
     }
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     take_geiger_reading_nsrt = NSRT("TakeGeigerReading", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    side_predicates, option, option_vars,
+                                    ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(take_geiger_reading_nsrt)
 
@@ -2768,7 +2764,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
     # We start by creating reachable predicates for the agent and
     # all possible other types. These predicates will
-    # be used as side predicates for navigateTo operators.
+    # be used as ignore effects for navigateTo operators.
     reachable_predicates = set()
     for reachable_pred_type in env.types:
         # We don't care about the "reachable(agent)" predicate
