@@ -1,7 +1,8 @@
 """Predicatorobot slack bot code.
 
-To launch on supercloud (e.g., after a downtime has ended): `rm -f
-nohup.out && nohup python launch_slack_bot.py &`
+To launch on supercloud (e.g., after a downtime has ended):
+
+`rm -f nohup.out && nohup python scripts/launch_slack_bot.py &`
 """
 
 import abc
@@ -9,7 +10,7 @@ import os
 import re
 import socket
 import subprocess
-from typing import List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 from urllib.request import urlopen
 
 import requests
@@ -18,7 +19,8 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 REPO_NAME = "Learning-and-Intelligent-Systems/predicators"
 ANALYSIS_CMD = "python scripts/analyze_results_directory.py"
-LAUNCH_CMD = "./scripts/supercloud/run_nightly_experiments.sh"
+LAUNCH_CMD = ("python scripts/supercloud/launch.py --config nightly.yaml "
+              "--user $USER --on_supercloud")
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
 GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
@@ -379,7 +381,7 @@ def _get_response_object(query: str, inquirer: str) -> Response:
 
 
 @app.event("app_mention")
-def _callback(ack, body):
+def _callback(ack: Callable[[], None], body: Dict) -> None:
     """This callback is triggered whenever someone @mentions this bot."""
     ack()  # all callback functions must run this
     event = body["event"]
@@ -388,7 +390,7 @@ def _callback(ack, body):
     channel_id = event["channel"]
     home_dir = os.path.expanduser("~")
     host_name = socket.gethostname()
-    bot_user_id = app.client.auth_test().data["user_id"]
+    bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)

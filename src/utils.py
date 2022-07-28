@@ -1440,6 +1440,7 @@ def run_hill_climbing(
         check_goal: Callable[[_S], bool],
         get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
         heuristic: Callable[[_S], float],
+        early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
         parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
@@ -1448,7 +1449,8 @@ def run_hill_climbing(
     an improvement over the node. If no children improve on the node, look
     at the children's children, etc., up to enforced_depth, where enforced_depth
     0 corresponds to simple hill climbing. Terminate when no improvement can
-    be found.
+    be found. early_termination_heuristic_thresh allows for searching until
+    heuristic reaches a specified value.
 
     Lower heuristic is better.
     """
@@ -1461,6 +1463,12 @@ def run_hill_climbing(
     logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
                  f"with heuristic {last_heuristic}")
     while True:
+
+        # Stops when heuristic reaches specified value.
+        if early_termination_heuristic_thresh is not None \
+            and last_heuristic <= early_termination_heuristic_thresh:
+            break
+
         if check_goal(cur_node.state):
             logging.info("\nTerminating hill climbing, achieved goal")
             break
@@ -1543,7 +1551,7 @@ def run_policy_guided_astar(
     """Perform A* search, but at each node, roll out a given policy for a given
     number of timesteps, creating new successors at each step.
 
-    Stop the roll out prematurely if the policy returns None.
+    Stop the rollout prematurely if the policy returns None.
 
     Note that unlike the other search functions, which take get_successors as
     input, this function takes get_valid_actions and get_next_state as two
@@ -1564,7 +1572,8 @@ def run_policy_guided_astar(
         policy_cost = 0.0
         for _ in range(num_rollout_steps):
             action = policy(policy_state)
-            if action is None:
+            valid_actions = {a for a, _ in get_valid_actions(policy_state)}
+            if action is None or action not in valid_actions:
                 break
             policy_state = get_next_state(policy_state, action)
             policy_action_seq.append(action)
@@ -1830,13 +1839,23 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object]) -> Iterator[_GroundLDLRule]:
+def all_ground_ldl_rules(rule: LDLRule,
+                         objects: Collection[Object]) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects."""
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+
+
+@functools.lru_cache(maxsize=None)
+def _cached_all_ground_ldl_rules(
+        rule: LDLRule,
+        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+    """Helper for all_ground_ldl_rules() that caches the outputs."""
+    ground_rules = []
     types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(objects, types):
-        yield rule.ground(tuple(choice))
+    for choice in get_object_combinations(frozen_objects, types):
+        ground_rule = rule.ground(tuple(choice))
+        ground_rules.append(ground_rule)
+    return ground_rules
 
 
 _T = TypeVar("_T")  # element of a set
@@ -2476,11 +2495,11 @@ def parse_args(env_required: bool = True,
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
-    if value == "None":
+    if value in ("None", "none"):
         return None
-    if value == "True":
+    if value in ("True", "true"):
         return True
-    if value == "False":
+    if value in ("False", "false"):
         return False
     if value.isdigit() or value.startswith("lambda"):
         return eval(value)
@@ -2624,3 +2643,11 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
+
+
+def generate_random_string(length: int, alphabet: Sequence[str],
+                           rng: np.random.Generator) -> str:
+    """Generates a random string of the given length using the provided set of
+    characters (alphabet)."""
+    assert all(len(c) == 1 for c in alphabet)
+    return "".join(rng.choice(alphabet, size=length))

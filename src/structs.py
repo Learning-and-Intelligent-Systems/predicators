@@ -1521,3 +1521,5 @@ PDDLProblemGenerator = Callable[[int, np.random.Generator], List[str]]
 # a model, or a function that produces this number given the amount of data.
 MaxTrainIters = Union[int, Callable[[int], int]]
 ExplorationStrategy = Tuple[Callable[[State], Action], Callable[[State], bool]]
+AbstractPolicy = Callable[[Set[GroundAtom], Set[Object], Set[GroundAtom]],
+                          Optional[_GroundNSRT]]

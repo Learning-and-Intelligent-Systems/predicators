@@ -1,38 +1,34 @@
-"""Test cases for the open-loop LLM approach."""
+"""Test cases for the LLM bilevel_planning approach."""
 
 import shutil
 
-import pytest
-
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.open_loop_llm_approach import \
-    OpenLoopLLMApproach
+from predicators.src.approaches.llm_bilevel_planning_approach import \
+    LLMBilevelPlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.llm_interface import LargeLanguageModel
 
 
-def test_open_loop_llm_approach():
-    """Tests for OpenLoopLLMApproach()."""
+def test_llm_bilevel_planning_approach():
+    """Tests for LLMBilevelPlanningApproach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     cache_dir = "_fake_llm_cache_dir"
     utils.reset_config({
         "env": env_name,
         "llm_prompt_cache_dir": cache_dir,
-        "approach": "open_loop_llm",
+        "approach": "llm_bilevel_planning",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
-        "offline_data_method": "demo+replay",
-        "offline_data_num_replays": 3,
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = OpenLoopLLMApproach(env.predicates, env.options, env.types,
-                                   env.action_space, train_tasks)
-    assert approach.get_name() == "open_loop_llm"
+    approach = LLMBilevelPlanningApproach(env.predicates, env.options,
+                                          env.types, env.action_space,
+                                          train_tasks)
+    assert approach.get_name() == "llm_bilevel_planning"
     # Test "learning", i.e., constructing the prompt prefix.
     dataset = create_dataset(env, train_tasks, env.options)
     assert not approach._prompt_prefix  # pylint: disable=protected-access
@@ -82,51 +78,57 @@ def test_open_loop_llm_approach():
                                task.goal_holds,
                                max_num_steps=1000)
     assert task.goal_holds(traj.states[-1])
+    ideal_metrics = approach.metrics
+    approach.reset_metrics()
 
-    # Test general approach failures.
+    # If the LLM response is garbage, we should still find a plan that achieves
+    # the goal, because we will just fall back to regular planning.
     llm.response = "garbage"
     policy = approach.solve(task, timeout=500)
-    with pytest.raises(ApproachFailure) as e:
-        utils.run_policy(policy,
-                         env,
-                         "train",
-                         task_idx,
-                         task.goal_holds,
-                         max_num_steps=1000)
-    assert "No LLM predicted plan achieves the goal." in str(e)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "train",
+                               task_idx,
+                               task.goal_holds,
+                               max_num_steps=1000)
+    assert task.goal_holds(traj.states[-1])
+    worst_case_metrics = approach.metrics
+    approach.reset_metrics()
 
-    llm.response = ideal_response
-    original_nsrts = approach._nsrts  # pylint: disable=protected-access
-    approach._nsrts = set()  # pylint: disable=protected-access
+    # If the LLM response is suggests an invalid action, the plan should not
+    # be used after that. In this example, the plan will just be to deliver
+    # to a location that we're not yet at.
+    llm.response = "\n".join(ideal_response.split("\n")[-1:])
     policy = approach.solve(task, timeout=500)
-    with pytest.raises(ApproachFailure) as e:
-        utils.run_policy(policy,
-                         env,
-                         "train",
-                         task_idx,
-                         task.goal_holds,
-                         max_num_steps=1000)
-    assert "No LLM predicted plan achieves the goal." in str(e)
-    approach._nsrts = original_nsrts  # pylint: disable=protected-access
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "train",
+                               task_idx,
+                               task.goal_holds,
+                               max_num_steps=1000)
+    assert task.goal_holds(traj.states[-1])
+    worst_case_metrics2 = approach.metrics
+    assert worst_case_metrics2["total_num_nodes_created"] == \
+        worst_case_metrics["total_num_nodes_created"]
+    approach.reset_metrics()
 
-    # Test failure cases of _llm_prediction_to_option_plan().
-    objects = set(task.init)
-    assert approach._llm_prediction_to_option_plan(ideal_response, objects)  # pylint: disable=protected-access
-    # Case where a line does not contain a valid option.
-    response = "garbage\n" + ideal_response
-    option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
-    assert not option_plan
-    # Case where object types are malformed.
-    response = ideal_response.replace(":", "-")
-    option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
-    assert not option_plan
-    # Case where object names are incorrect.
-    response = ideal_response.replace(":", "-dummy:")
-    option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
-    assert not option_plan
-    # Case where type names are incorrect.
-    response = ideal_response.replace(":", ":dummy-")
-    option_plan = approach._llm_prediction_to_option_plan(response, objects)  # pylint: disable=protected-access
-    assert not option_plan
+    # If the LLM response is almost perfect, it should be very helpful for
+    # planning guidance.
+    llm.response = "\n".join(ideal_response.split("\n")[:-1])
+    policy = approach.solve(task, timeout=500)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "train",
+                               task_idx,
+                               task.goal_holds,
+                               max_num_steps=1000)
+    assert task.goal_holds(traj.states[-1])
+    almost_ideal_metrics = approach.metrics
+    worst_case_nodes = worst_case_metrics["total_num_nodes_created"]
+    almost_ideal_nodes = almost_ideal_metrics["total_num_nodes_created"]
+    ideal_nodes = ideal_metrics["total_num_nodes_created"]
+    assert worst_case_nodes > almost_ideal_nodes
+    assert almost_ideal_nodes > ideal_nodes
+    approach.reset_metrics()
 
     shutil.rmtree(cache_dir)

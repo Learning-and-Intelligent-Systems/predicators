@@ -10,18 +10,21 @@ from predicators.src.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
     _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
     _PolicyGuidedPG3Heuristic
+from predicators.src.approaches.pg4_approach import PG4Approach
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.structs import LDLRule, LiftedDecisionList
 
 
-def test_pg3_approach():
-    """Tests for PG3Approach()."""
+@pytest.mark.parametrize("approach_name,approach_cls", [("pg3", PG3Approach),
+                                                        ("pg4", PG4Approach)])
+def test_pg3_approach(approach_name, approach_cls):
+    """Tests for PG3Approach() and PG4Approach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": "pg3",
+        "approach": approach_name,
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
@@ -31,13 +34,14 @@ def test_pg3_approach():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    approach = PG3Approach(env.predicates, env.options, env.types,
-                           env.action_space, train_tasks)
-    assert approach.get_name() == "pg3"
-
-    # Test prediction with a good policy.
+    approach = approach_cls(env.predicates, env.options, env.types,
+                            env.action_space, train_tasks)
+    assert approach.get_name() == approach_name
     nsrts = get_gt_nsrts(env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+    approach._nsrts = nsrts  # pylint: disable=protected-access
+
+    # Test prediction with a good policy.
     deliver_nsrt = name_to_nsrt["deliver"]
     pick_up_nsrt = name_to_nsrt["pick-up"]
     move_nsrt = name_to_nsrt["move"]
@@ -86,13 +90,20 @@ def test_pg3_approach():
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
-    assert str(option.objects) == "[paper-0:paper, loc-0:loc]"
     ldl = LiftedDecisionList([])
     approach._current_ldl = ldl  # pylint: disable=protected-access
-    with pytest.raises(ApproachFailure) as e:
-        approach.solve(task, timeout=500)
-    assert "PG3 policy was not applicable!" in str(e)
-
+    # PG3 alone fails.
+    if approach_name == "pg3":
+        with pytest.raises(ApproachFailure) as e:
+            approach.solve(task, timeout=500)
+        assert "PG3 policy was not applicable!" in str(e)
+    # PG4 falls back to sesame, so succeeds.
+    else:
+        assert approach_name == "pg4"
+        policy = approach.solve(task, timeout=500)
+        act = policy(task.init)
+        option = act.get_option()
+        assert option.name == "pick-up"
     # Test learning with a fast heuristic.
     dataset = create_dataset(env, train_tasks, env.options)
     approach.learn_from_offline_dataset(dataset)
@@ -112,6 +123,38 @@ def test_pg3_approach():
     })
     with pytest.raises(NotImplementedError):
         approach.learn_from_offline_dataset(dataset)
+
+
+def test_cluttered_table_pg3_approach():
+    """Tests for PG3Approach() in cluttered_table."""
+    # Learning is very fast, so we can run the full pipeline. This also covers
+    # an important case where a discovered failure is raised during low-level
+    # search.
+    env_name = "cluttered_table"
+    utils.reset_config({
+        "env": env_name,
+        "approach": "pg3",
+        "num_train_tasks": 5,
+        "num_test_tasks": 10,
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+    })
+    env = create_new_env(env_name)
+    train_tasks = env.get_train_tasks()
+    approach = PG3Approach(env.predicates, env.options, env.types,
+                           env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks, env.options)
+    approach.learn_from_offline_dataset(dataset)
+    # Test several tasks to make sure we encounter at least one discovered
+    # failure.
+    for task in env.get_test_tasks():
+        # Should not crash, but may not solve the task.
+        try:
+            policy = approach.solve(task, timeout=500)
+            act = policy(task.init)
+            assert act is not None
+        except ApproachFailure as e:
+            assert "Discovered a failure" in str(e)
 
 
 def test_pg3_search_operators():

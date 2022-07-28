@@ -44,6 +44,13 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
+    # If this is True, then we will not execute our final plan in simulation
+    # and we will say a task is solved successfully if we were able to find
+    # a plan. Note, we might solve the task even if the plan we found would
+    # not necessarily work in simulation (this is especially true of option
+    # models that don't model the simulator well). This can only be True if
+    # the approach is a subclass of BilevelPlanningApproach.
+    plan_only_eval = False
 
     # cover env parameters
     cover_num_blocks = 2
@@ -111,7 +118,7 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
-    behavior_option_model_eval = True
+    behavior_option_model_eval = False
     behavior_option_model_rrt = False
 
     # general pybullet parameters
@@ -259,16 +266,17 @@ class GlobalSettings:
     # parameters for large language models
     llm_prompt_cache_dir = "llm_cache"
     llm_openai_max_response_tokens = 700
-
-    # parameters for open loop LLM approach
-    open_loop_llm_model_name = "text-curie-001"  # "text-davinci-002"
-    open_loop_llm_temperature = 0.5
-    open_loop_llm_num_completions = 1
+    llm_use_cache_only = False
+    llm_model_name = "text-curie-001"  # "text-davinci-002"
+    llm_temperature = 0.5
+    llm_num_completions = 1
 
     # SeSamE parameters
+    sesame_task_planner = "astar"  # "astar" or "fdopt" or "fdsat"
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
     sesame_check_expected_atoms = True
+    sesame_use_visited_state_set = False
     # The algorithm used for grounding the planning problem. Choices are
     # "naive" or "fd_translator". The former does a type-aware cross product
     # of operators and objects to obtain ground operators, while the latter
@@ -476,6 +484,7 @@ class GlobalSettings:
                 lambda: 8,
                 {
                     # For these environments, allow more skeletons.
+                    "behavior": 1000,
                     "coffee": 1000,
                     "tools": 1000,
                     "stick_button": 1000,

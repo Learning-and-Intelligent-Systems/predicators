@@ -75,9 +75,12 @@ class PG3Approach(NSRTLearningApproach):
             atoms = utils.apply_operator(ground_nsrt, atoms)
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
-        option_list, succeeded = run_low_level_search(
-            task, self._option_model, skeleton, atoms_sequence, self._seed,
-            timeout - (time.time() - start_time), CFG.horizon)
+        try:
+            option_list, succeeded = run_low_level_search(
+                task, self._option_model, skeleton, atoms_sequence, self._seed,
+                timeout - (time.time() - start_time), CFG.horizon)
+        except PlanningFailure as e:
+            raise ApproachFailure(e.args[0], e.info)
         if not succeeded:
             raise ApproachFailure("Low-level search failed")
         policy = utils.option_plan_to_policy(option_list)
@@ -97,6 +100,9 @@ class PG3Approach(NSRTLearningApproach):
         # The heuristic is what distinguishes PG3 from baseline approaches.
         heuristic = self._create_heuristic()
 
+        # Initialize the search with an empty LDL.
+        initial_state = LiftedDecisionList([])
+
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
                 for i, child in enumerate(op.get_successors(ldl)):
@@ -105,7 +111,7 @@ class PG3Approach(NSRTLearningApproach):
         if CFG.pg3_search_method == "gbfs":
             # Terminate only after max expansions.
             path, _ = utils.run_gbfs(
-                initial_state=self._current_ldl,
+                initial_state=initial_state,
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
@@ -115,10 +121,11 @@ class PG3Approach(NSRTLearningApproach):
         elif CFG.pg3_search_method == "hill_climbing":
             # Terminate when no improvement is found.
             path, _, _ = utils.run_hill_climbing(
-                initial_state=self._current_ldl,
+                initial_state=initial_state,
                 check_goal=lambda _: False,
                 get_successors=get_successors,
                 heuristic=heuristic,
+                early_termination_heuristic_thresh=0,
                 enforced_depth=CFG.pg3_hc_enforced_depth)
 
         else:
@@ -139,6 +146,9 @@ class PG3Approach(NSRTLearningApproach):
         self._learn_ldl(online_learning_cycle=None)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
+        # Load the NSRTs.
+        super().load(online_learning_cycle)
+        # Load the LDL policy.
         load_path = utils.get_approach_load_path_str()
         with open(f"{load_path}_{online_learning_cycle}.ldl", "rb") as f:
             self._current_ldl = pkl.load(f)
