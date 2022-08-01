@@ -610,26 +610,26 @@ def _run_plan_with_option_model(
             state, option)
         traj[idx + 1] = next_state
         #
-        if idx != len(plan) - 1:
-            actions[idx].set_option(option)
-        else:
-            action_option = ParameterizedOption(
-                option.name, option.parent.types, option.parent.params_space,
-                option.policy,
-                option.initiable,
-                lambda s, m, o, p: True).ground(option.objects, option.params)
-            action_option.memory = option.memory
-            actions[idx].set_option(action_option)
+        # if idx != len(plan) - 1:
+        #     actions[idx].set_option(option)
+        # else:
+        #     action_option = ParameterizedOption(
+        #         option.name, option.parent.types, option.parent.params_space,
+        #         option.policy,
+        #         option.initiable,
+        #         lambda s, m, o, p: True).ground(option.objects, option.params)
+        #     action_option.memory = option.memory
+        #     actions[idx].set_option(action_option)
         #
-        # # Need to make a new option without policy, initiable, and
-        # # terminal in order to make it a picklable trajectory.
-        # action_option = ParameterizedOption(
-        #     option.name, option.parent.types, option.parent.params_space,
-        #     lambda s, m, o, p: Action(np.array([0.0])),
-        #     lambda s, m, o, p: False,
-        #     lambda s, m, o, p: True).ground(option.objects, option.params)
-        # action_option.memory = option.memory
-        # actions[idx].set_option(action_option)
+        # Need to make a new option without policy, initiable, and
+        # terminal in order to make it a picklable trajectory.
+        action_option = ParameterizedOption(
+            option.name, option.parent.types, option.parent.params_space,
+            lambda s, m, o, p: Action(np.array([0.0])),
+            lambda s, m, o, p: True,
+            lambda s, m, o, p: True).ground(option.objects, option.params)
+        action_option.memory = option.memory
+        actions[idx].set_option(action_option)
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):
