@@ -26,6 +26,9 @@ ENVS:
   spanner:
     NAME: "pddl_spanner_procedural_tasks"
     FLAGS: {}
+  forest:
+    NAME: "pddl_forest_procedural_tasks"
+    FLAGS: {}
 ARGS: []
 FLAGS:
   num_train_tasks: 50
