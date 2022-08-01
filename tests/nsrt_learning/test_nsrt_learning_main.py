@@ -55,7 +55,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     # Test the learned samplers
     for _ in range(10):
@@ -99,7 +99,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     # The following two tests check edge cases of unification with respect to
     # the split between add and delete effects. Specifically, it's important
@@ -149,7 +149,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type, ?x2:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type, ?x2:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()""",
         "Op1":
         """NSRT-Op1:
@@ -157,7 +157,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x2:cup_type, ?x3:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x2:cup_type, ?x3:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     }
     pred0 = Predicate("Pred0", [cup_type, cup_type],
@@ -197,7 +197,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: []
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()""",
         "Op1":
         """NSRT-Op1:
@@ -205,7 +205,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Add Effects: []
     Delete Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     }
     for nsrt in nsrts:

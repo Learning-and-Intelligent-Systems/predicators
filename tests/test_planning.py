@@ -95,7 +95,7 @@ def test_task_plan():
         strips_ops.append(
             STRIPSOperator(nsrt.name, nsrt.parameters, nsrt.preconditions,
                            nsrt.add_effects, nsrt.delete_effects,
-                           nsrt.side_predicates))
+                           nsrt.ignore_effects))
         option_specs.append((nsrt.option, nsrt.option_vars))
     ground_nsrts, reachable_atoms = task_plan_grounding(
         init_atoms, objects, strips_ops, option_specs)
@@ -285,7 +285,7 @@ def test_sesame_plan_uninitiable_option():
         new_nsrts.add(
             NSRT(nsrt.name + "UNINITIABLE", nsrt.parameters,
                  nsrt.preconditions, nsrt.add_effects, nsrt.delete_effects,
-                 nsrt.side_predicates, new_option, nsrt.option_vars,
+                 nsrt.ignore_effects, new_option, nsrt.option_vars,
                  nsrt._sampler))
     task = env.get_train_tasks()[0]
     with pytest.raises(PlanningFailure) as e:
@@ -316,7 +316,7 @@ def test_planning_determinism():
     preconditions = set()
     add_effects = {asleep([robot_var])}
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     neg_params_space = Box(-0.75, -0.25, (1, ))
     sleep_option = utils.SingletonParameterizedOption(
         "Sleep",
@@ -324,7 +324,7 @@ def test_planning_determinism():
         types=[robot_type],
         params_space=neg_params_space)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
-                              delete_effects, side_predicates)
+                              delete_effects, ignore_effects)
     sleep_nsrt = sleep_op.make_nsrt(
         sleep_option, [robot_var],
         lambda s, g, rng, objs: neg_params_space.sample())
@@ -333,7 +333,7 @@ def test_planning_determinism():
     preconditions = set()
     add_effects = {cried([robot_var])}
     delete_effects = set()
-    side_predicates = set()
+    ignore_effects = set()
     pos_params_space = Box(0.25, 0.75, (1, ))
     cry_option = utils.SingletonParameterizedOption(
         "Cry",
@@ -341,7 +341,7 @@ def test_planning_determinism():
         types=[robot_type],
         params_space=pos_params_space)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
-                            delete_effects, side_predicates)
+                            delete_effects, ignore_effects)
     cry_nsrt = cry_op.make_nsrt(
         cry_option, [robot_var],
         lambda s, g, rng, objs: pos_params_space.sample())

@@ -1,0 +1,39 @@
+# Varun's experiments on predicate, operator, and syntax renaming.
+---
+APPROACHES:
+  llm_predicate_renaming:
+    NAME: "llm_predicate_renaming"
+    FLAGS:
+      llm_num_completions: 1
+  llm_option_renaming:
+    NAME: "llm_option_renaming"
+    FLAGS:
+      llm_num_completions: 1
+  llm_syntax_renaming:
+    NAME: "llm_syntax_renaming"
+    FLAGS:
+      llm_num_completions: 1
+ENVS:
+  easy_delivery:
+    NAME: "pddl_delivery_procedural_tasks"
+    FLAGS:
+      pddl_delivery_procedural_train_min_num_locs: 3
+      pddl_delivery_procedural_train_max_num_locs: 5
+      pddl_delivery_procedural_train_min_want_locs: 1
+      pddl_delivery_procedural_train_max_want_locs: 2
+      pddl_delivery_procedural_test_min_num_locs: 4
+      pddl_delivery_procedural_test_max_num_locs: 6
+      pddl_delivery_procedural_test_min_want_locs: 2
+      pddl_delivery_procedural_test_max_want_locs: 3
+      pddl_delivery_procedural_test_max_extra_newspapers: 1
+ARGS:
+  - "debug"
+FLAGS:
+  num_train_tasks: 5
+  num_test_tasks: 10
+  strips_learner: "oracle"
+  timeout: 100
+  llm_model_name: "text-davinci-002"
+  llm_use_cache_only: False  # change to true to rerun
+START_SEED: 456
+NUM_SEEDS: 5

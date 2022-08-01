@@ -2016,11 +2016,11 @@ def get_applicable_operators(
 def apply_operator(op: GroundNSRTOrSTRIPSOperator,
                    atoms: Set[GroundAtom]) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator."""
-    # Note that we are removing the side predicates before the
-    # application of the operator, because if the side predicate
+    # Note that we are removing the ignore effects before the
+    # application of the operator, because if the ignore effect
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
-    new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
+    new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
     for atom in op.delete_effects:
         new_atoms.discard(atom)
     for atom in op.add_effects:
@@ -2643,3 +2643,11 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                ground_rule.goal_preconditions.issubset(goal):
                 return ground_rule.ground_nsrt
     return None
+
+
+def generate_random_string(length: int, alphabet: Sequence[str],
+                           rng: np.random.Generator) -> str:
+    """Generates a random string of the given length using the provided set of
+    characters (alphabet)."""
+    assert all(len(c) == 1 for c in alphabet)
+    return "".join(rng.choice(alphabet, size=length))
