@@ -1,3 +1,4 @@
+"""Pybullet helper class for geometry utilities."""
 from typing import NamedTuple, Sequence
 
 import numpy as np
@@ -20,6 +21,7 @@ class Pose(NamedTuple):
 
     @classmethod
     def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> "Pose":
+        """Create a Pose from translation and Euler roll-pitch-yaw angles."""
         return cls(translation, quaternion_from_euler(*rpy))
 
     @property
@@ -30,6 +32,7 @@ class Pose(NamedTuple):
 
     @property
     def quat_wxyz(self) -> Quaternion:
+        """Get the wxyz quaternion representation."""
         return (
             self.quat_xyzw[3],
             self.quat_xyzw[0],
@@ -39,10 +42,12 @@ class Pose(NamedTuple):
 
     @property
     def rpy(self) -> RollPitchYaw:
+        """Get the Euler roll-pitch-yaw representation."""
         return euler_from_quaternion(self.quat_xyzw)
 
     @classmethod
     def identity(cls) -> "Pose":
+        """Unit pose."""
         return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
 
     def multiply(self, *poses: "Pose") -> "Pose":
@@ -50,6 +55,7 @@ class Pose(NamedTuple):
         return multiply_poses(self, *poses)
 
     def invert(self) -> "Pose":
+        """Invert the pose (i.e., transform)."""
         pos, quat = p.invertTransform(self.position, self.quat_xyzw)
         return Pose(pos, quat)
 

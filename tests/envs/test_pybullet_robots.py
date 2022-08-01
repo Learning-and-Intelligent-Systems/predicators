@@ -10,10 +10,10 @@ from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
+from predicators.src.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
 from predicators.src.pybullet_helpers.robots.panda import PandaPyBulletRobot
-from predicators.src.pybullet_helpers.robots.single_arm import \
-    create_single_arm_pybullet_robot
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 

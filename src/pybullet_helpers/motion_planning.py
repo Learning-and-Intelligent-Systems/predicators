@@ -1,3 +1,4 @@
+"""Motion Planning in Pybullet."""
 from typing import Collection, Iterator, Optional, Sequence
 
 import numpy as np

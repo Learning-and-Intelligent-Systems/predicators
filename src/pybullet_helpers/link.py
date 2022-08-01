@@ -1,3 +1,4 @@
+"""Pybullet helper class for link utilities."""
 from typing import NamedTuple, Optional
 
 import pybullet as p
@@ -12,6 +13,7 @@ BASE_LINK: int = -1
 
 
 class LinkState(NamedTuple):
+    """Link state from Pybullet."""
     linkWorldPosition: Pose3D
     linkWorldOrientation: Quaternion
     localInertialFramePosition: Pose3D
@@ -19,9 +21,14 @@ class LinkState(NamedTuple):
     worldLinkFramePosition: Pose3D
     worldLinkFrameOrientation: Quaternion
 
-    def cartesian_pose(self) -> Pose:
-        """Cartesian (center of mass) pose of link."""
+    def com_pose(self) -> Pose:
+        """Center of mass (COM) pose of link."""
         return Pose(self.linkWorldPosition, self.linkWorldOrientation)
+
+    def pose(self) -> Pose:
+        """Pose of link in world frame."""
+        return Pose(self.worldLinkFramePosition,
+                    self.worldLinkFrameOrientation)
 
 
 def get_link_from_name(body: int, name: str, physics_client_id: int) -> int:
@@ -55,7 +62,7 @@ def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
         return get_pose(body, physics_client_id)
 
     link_state = get_link_state(body, link, physics_client_id)
-    return link_state.cartesian_pose()
+    return link_state.pose()
 
 
 def get_link_parent(body: int, link: int,

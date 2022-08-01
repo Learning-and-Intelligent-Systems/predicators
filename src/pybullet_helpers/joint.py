@@ -1,3 +1,4 @@
+"""Pybullet helper class for joint utilities."""
 from typing import List, NamedTuple, Sequence, Tuple
 
 import numpy as np
@@ -7,6 +8,7 @@ from predicators.src.structs import Pose3D, Quaternion
 
 
 class JointInfo(NamedTuple):
+    """Joint Information from Pybullet."""
     jointIndex: int
     jointName: str
     jointType: int
@@ -26,28 +28,32 @@ class JointInfo(NamedTuple):
     parentIndex: int
 
     def is_circular(self) -> bool:
+        """Whether the joint is circular or not."""
         if self.is_fixed():
             return False
         return self.jointUpperLimit < self.jointLowerLimit
 
     def is_fixed(self) -> bool:
+        """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
 
     def is_movable(self) -> bool:
+        """Whether the joint is movable or not."""
         return not self.is_fixed()
 
     def violates_limit(self, value: float) -> bool:
+        """Whether the given value violates the joint's limits."""
         if self.is_circular():
             return False
         return self.jointLowerLimit > value or value > self.jointUpperLimit
 
 
-def get_num_joints(body, physics_client_id: int):
+def get_num_joints(body: int, physics_client_id: int) -> int:
     """Get the number of joints for a body."""
     return p.getNumJoints(body, physicsClientId=physics_client_id)
 
 
-def get_joints(body, physics_client_id: int) -> List[int]:
+def get_joints(body: int, physics_client_id: int) -> List[int]:
     """Get joint indices for a body."""
     return list(range(get_num_joints(body, physics_client_id)))
 

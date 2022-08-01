@@ -1,3 +1,4 @@
+"""Franka Emika Panda robot."""
 from typing import Optional
 
 from predicators.src import utils

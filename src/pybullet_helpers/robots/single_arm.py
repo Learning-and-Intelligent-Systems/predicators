@@ -1,3 +1,5 @@
+"""Abstract class for single armed manipulators with Pybullet helper
+functions."""
 import abc
 from functools import cached_property
 from typing import List, Optional
@@ -32,7 +34,8 @@ class SingleArmPyBulletRobot(abc.ABC):
     ) -> None:
         # Initial pose for the end effector.
         self._ee_home_pose = ee_home_pose
-        # Orientation of the end effector. IK will use this as target orientation.
+        # Orientation of the end effector.
+        # IK will use this as target orientation.
         self._ee_orientation = ee_orientation
         self.physics_client_id = physics_client_id
 
@@ -129,9 +132,11 @@ class SingleArmPyBulletRobot(abc.ABC):
         return joint_names
 
     def joint_from_name(self, joint_name: str) -> int:
+        """Get the joint index for a joint name."""
         return self.joint_names.index(joint_name)
 
     def joints_from_names(self, joint_names: List[str]) -> List[int]:
+        """Get the joint indices for a given joint names."""
         return [self.joint_from_name(name) for name in joint_names]
 
     @property
@@ -247,7 +252,8 @@ class SingleArmPyBulletRobot(abc.ABC):
                                        self.end_effector_id,
                                        physicsClientId=self.physics_client_id)
         rx, ry, rz = ee_link_state[4]
-        # Note: we assume both left and right gripper have the same joint position
+        # Note: we assume both left and right gripper have the same joint
+        # position
         rf = p.getJointState(
             self.robot_id,
             self.left_finger_id,
@@ -263,7 +269,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         If joint_indices is None, then return the state for all joints.
         Otherwise, return the state for the specified joint indices.
         """
-        joint_indices = self.arm_joints if joint_indices is None else joint_indices
+        joint_indices = (self.arm_joints
+                         if joint_indices is None else joint_indices)
 
         joints_state = [
             joint_state[0]  # extract joint position only
@@ -308,9 +315,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         elif CFG.pybullet_control_mode == "reset":
             self.set_joints(joints_state)
         else:
-            raise NotImplementedError(
-                f"Unrecognized pybullet_control_mode: {CFG.pybullet_control_mode}"
-            )
+            raise NotImplementedError("Unrecognized pybullet_control_mode: "
+                                      f"{CFG.pybullet_control_mode}")
 
     def go_home(self) -> None:
         """Move the robot to its home end-effector pose."""
@@ -343,7 +349,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         # Store current joint positions so we can reset
         initial_joint_states = self.get_joints()
 
-        # Set joint states, forward kinematics to determine end-effector position
+        # Set joint states, forward kinematics to determine EE position
         self.set_joints(joints_state)
         ee_pos = self.get_state()[:3]
         target_pos = target_pose
@@ -356,8 +362,8 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         if not pos_is_close:
             raise ValueError(
-                f"Joint states do not match target pose {target_pos} from {ee_pos}"
-            )
+                f"Joint states do not match target pose {target_pos} "
+                f"from {ee_pos}")
 
     @classmethod
     def ikfast_info(cls) -> Optional[IKFastInfo]:
@@ -384,8 +390,8 @@ class SingleArmPyBulletRobot(abc.ABC):
         )
         if not ik_solutions:
             raise ValueError(
-                f"No IK solution found for target pose {world_from_target} using IKFast"
-            )
+                f"No IK solution found for target pose {world_from_target} "
+                f"using IKFast")
 
         # Use first solution as it is closest to current joint state
         joint_state = ik_solutions[0]
@@ -419,13 +425,13 @@ class SingleArmPyBulletRobot(abc.ABC):
                 self._validate_joints_state(joint_positions,
                                             target_pose=end_effector_pose)
             return joint_positions
-        else:
-            return pybullet_inverse_kinematics(
-                self.robot_id,
-                self.end_effector_id,
-                end_effector_pose,
-                self._ee_orientation,
-                self.arm_joints,
-                physics_client_id=self.physics_client_id,
-                validate=validate,
-            )
+
+        return pybullet_inverse_kinematics(
+            self.robot_id,
+            self.end_effector_id,
+            end_effector_pose,
+            self._ee_orientation,
+            self.arm_joints,
+            physics_client_id=self.physics_client_id,
+            validate=validate,
+        )

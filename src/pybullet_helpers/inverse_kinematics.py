@@ -1,8 +1,15 @@
+"""Vanilla Pybullet Inverse Kinematics.
+
+The IKFast solver is preferred over Pybullet IK, if available for the
+given robot.
+"""
+
 from typing import Sequence
 
 import numpy as np
 import pybullet as p
 
+from predicators.src.pybullet_helpers.link import get_link_pose
 from predicators.src.settings import CFG
 from predicators.src.structs import JointsState, Pose3D
 
@@ -35,9 +42,10 @@ def pybullet_inverse_kinematics(
     assert set(joints).issubset(set(free_joints))
 
     # Record the initial state of the joints so that we can reset them after.
+    initial_joints_states = p.getJointStates(robot,
+                                             free_joints,
+                                             physicsClientId=physics_client_id)
     if validate:
-        initial_joints_states = p.getJointStates(
-            robot, free_joints, physicsClientId=physics_client_id)
         assert len(initial_joints_states) == len(free_joints)
 
     # Running IK once is often insufficient, so we run it multiple times until
@@ -61,16 +69,12 @@ def pybullet_inverse_kinematics(
                               joint,
                               targetValue=joint_val,
                               physicsClientId=physics_client_id)
-        # TODO can this be replaced with get_link_pose?
-        ee_link_state = p.getLinkState(
-            robot,
-            end_effector,
-            computeForwardKinematics=True,
-            physicsClientId=physics_client_id,
-        )
-        position = ee_link_state[4]
-        # Note: we are checking positions only for convergence.
-        if np.allclose(position, target_position, atol=convergence_tol):
+
+        # Note: we are checking end-effector positions only for convergence.
+        ee_link_pose = get_link_pose(robot, end_effector, physics_client_id)
+        if np.allclose(ee_link_pose.position,
+                       target_position,
+                       atol=convergence_tol):
             break
     else:
         raise Exception("Inverse kinematics failed to converge.")

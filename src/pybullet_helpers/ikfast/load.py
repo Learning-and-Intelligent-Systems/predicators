@@ -1,8 +1,12 @@
+"""This module installs and loads the IKFast module for a given robot specified
+by its IKFastInfo."""
+
 import glob
 import importlib
 import logging
 import os
 import sys
+from importlib.abc import Loader
 from types import ModuleType
 
 from predicators.src.pybullet_helpers.ikfast import IKFastInfo
@@ -28,8 +32,8 @@ def _install_ikfast_module(ikfast_dir: str) -> None:
     exit_value = os.system(cmd)
     if exit_value != 0:
         raise RuntimeError(
-            f"IKFast install failed with exit code {exit_value}. Check messages above."
-        )
+            f"IKFast install failed with exit code {exit_value}. "
+            "Check messages above.")
 
 
 def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
@@ -70,18 +74,21 @@ def import_ikfast(ikfast_info: IKFastInfo) -> ModuleType:
         ikfast = sys.modules[ikfast_info.module_name]
         return ikfast
 
-    # Otherwise, we load the IKFast module and build it if it isn't already built.
+    # Otherwise, load IKFast module and build if it isn't already built.
     module_filepath = _install_ikfast_if_required(ikfast_info)
 
     # Import the module.
     # See https://docs.python.org/3/library/importlib.html.
     spec = importlib.util.spec_from_file_location(ikfast_info.module_name,
                                                   module_filepath)
-    if spec is None:
+    if spec is None or spec.loader is None:
         raise ImportError("IKFast module could not be found.")
 
     ikfast = importlib.util.module_from_spec(spec)
     sys.modules[ikfast_info.module_name] = ikfast
+
+    # Keeps mypy happy
+    assert isinstance(spec.loader, Loader)
     spec.loader.exec_module(ikfast)
     logging.debug(
         f"Loaded IKFast module {ikfast_info.module_name} from {module_filepath}"

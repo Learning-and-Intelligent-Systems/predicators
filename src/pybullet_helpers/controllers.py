@@ -1,3 +1,4 @@
+"""Generic controllers for the robots."""
 from typing import Callable, Dict, Sequence, Set, Tuple, cast
 
 import numpy as np
@@ -36,7 +37,8 @@ def create_move_end_effector_to_pose_option(
                 params: Array) -> Action:
         del memory  # unused
         # First handle the main arm joints.
-        current, target, finger_status = get_current_and_target_pose_and_finger_status(
+        current, target, finger_status = \
+            get_current_and_target_pose_and_finger_status(
             state, objects, params)
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)

@@ -5,6 +5,7 @@ from typing import ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
+from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
@@ -18,7 +19,7 @@ from predicators.src.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Object, \
-    ParameterizedOption, Pose3D, State, Type
+    ParameterizedOption, Pose3D, Quaternion, State, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -30,10 +31,10 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
 
     # Robot parameters.
-    _ee_orn: ClassVar[Dict[str, Sequence[float]]] = {
+    _ee_orn: ClassVar[Dict[str, Quaternion]] = {
         # Fetch and Panda gripper down and parallel to x-axis
-        "fetch": p.getQuaternionFromEuler([np.pi / 2, np.pi / 2, -np.pi]),
-        "panda": p.getQuaternionFromEuler([np.pi, 0, np.pi / 2])
+        "fetch": quaternion_from_euler(np.pi / 2, np.pi / 2, -np.pi),
+        "panda": quaternion_from_euler(np.pi, 0, np.pi / 2)
     }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 

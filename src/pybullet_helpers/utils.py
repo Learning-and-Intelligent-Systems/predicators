@@ -1,3 +1,5 @@
+"""Other Pybullet utility functions."""
+
 from typing import List
 
 from predicators.src.pybullet_helpers.joint import get_joint_info
@@ -16,10 +18,6 @@ def get_kinematic_chain(robot: int, end_effector: int,
     Returns
     -------
     List of joint IDs from end effector to base.
-    """
-    """
-
-    Includes the end effector.
     """
     kinematic_chain = []
     current_joint = end_effector
