@@ -37,6 +37,9 @@ def learn_nsrts_from_data(
     base_strips_learner.py).
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    #####
+    # TODO (wbm3): Try data reshuffling (trajectories and ground_atom_dataset)
+    #####
 
     # STEP 1: Segment each trajectory in the dataset based on changes in
     #         either predicates or options. If we are doing option learning,

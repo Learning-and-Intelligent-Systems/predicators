@@ -43,13 +43,13 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         # NOTE: This is necessary because BEHAVIOR options save
         # the BEHAVIOR environment object in their memory, and this
         # can't be pickled.
-        if CFG.env == "behavior":  # pragma: no cover
-            for traj in dataset.trajectories:
-                for act in traj.actions:
-                    act.get_option().memory = {}
+        # if CFG.env == "behavior":  # pragma: no cover
+        #     for traj in dataset.trajectories:
+        #         for act in traj.actions:
+        #             act.get_option().memory = {}
 
-        with open(dataset_fname, "wb") as f:
-            pkl.dump(dataset, f)
+        # with open(dataset_fname, "wb") as f:
+        #     pkl.dump(dataset, f)
     return dataset
 
 

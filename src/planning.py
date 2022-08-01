@@ -173,6 +173,19 @@ def _sesame_plan_with_astar(
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
+                #
+                good_plan = ["Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place"]
+                for i, op in enumerate(skeleton):
+                    if str(op.name).split("-")[0] == good_plan[i]:
+                        print(op.name)
+                    else:
+                        print("Broke", op.name)
+                        break
+                
+                #import ipdb; ipdb.set_trace()
+                print(max_skeletons_optimized)
+                print()
+                #
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
@@ -591,30 +604,43 @@ def _run_plan_with_option_model(
             # The option is not initiable.
             return LowLevelTrajectory(_states=[task.init],
                                       _actions=[],
-                                      _is_demo=True,
+                                      _is_demo=False,
                                       _train_task_idx=task_idx), False
         next_state, _ = option_model.get_next_state_and_num_actions(
             state, option)
         traj[idx + 1] = next_state
-        # Need to make a new option without policy, initiable, and
-        # terminal in order to make it a picklable trajectory.
-        action_option = ParameterizedOption(
-            option.name, option.parent.types, option.parent.params_space,
-            lambda s, m, o, p: Action(np.array([0.0])),
-            lambda s, m, o, p: False,
-            lambda s, m, o, p: True).ground(option.objects, option.params)
-        action_option.memory = option.memory
-        actions[idx].set_option(action_option)
+        #
+        if idx != len(plan) - 1:
+            actions[idx].set_option(option)
+        else:
+            action_option = ParameterizedOption(
+                option.name, option.parent.types, option.parent.params_space,
+                option.policy,
+                option.initiable,
+                lambda s, m, o, p: True).ground(option.objects, option.params)
+            action_option.memory = option.memory
+            actions[idx].set_option(action_option)
+        #
+        # # Need to make a new option without policy, initiable, and
+        # # terminal in order to make it a picklable trajectory.
+        # action_option = ParameterizedOption(
+        #     option.name, option.parent.types, option.parent.params_space,
+        #     lambda s, m, o, p: Action(np.array([0.0])),
+        #     lambda s, m, o, p: False,
+        #     lambda s, m, o, p: True).ground(option.objects, option.params)
+        # action_option.memory = option.memory
+        # actions[idx].set_option(action_option)
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):
+        import ipdb; ipdb.set_trace()
         return LowLevelTrajectory(_states=traj,
                                   _actions=actions,
                                   _is_demo=True,
                                   _train_task_idx=task_idx), True  # success!
     return LowLevelTrajectory(_states=[task.init],
                               _actions=[],
-                              _is_demo=True,
+                              _is_demo=False,
                               _train_task_idx=task_idx), False
 
 
