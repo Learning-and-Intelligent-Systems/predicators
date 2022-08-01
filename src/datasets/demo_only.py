@@ -32,6 +32,18 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                                                  known_options,
                                                  dataset_fname_template,
                                                  dataset_fname)
+    # NOTE: This is necessary because we replace BEHAVIOR
+    # options with dummy options in order to pickle them, so
+    # when we load them, we need to make sure they have the
+    # correct options from the environment.    
+    if CFG.env == "behavior":  # pragma: no cover
+        option_name_to_option = env.option_name_to_option
+        for traj in dataset.trajectories:
+            for act in traj.actions:
+                dummy_opt = act.get_option()
+                gt_param_opt = option_name_to_option[dummy_opt.name]
+                gt_opt = gt_param_opt.ground(dummy_opt.objects, dummy_opt.params)
+                act.set_option(gt_opt)
     else:
         trajectories = _generate_demonstrations(env,
                                                 train_tasks,
@@ -50,9 +62,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
-
-    # TODO: Swap dummy options with real behavior options
-    ####
     return dataset
 
 

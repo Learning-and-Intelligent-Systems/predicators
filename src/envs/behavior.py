@@ -312,6 +312,17 @@ class BehaviorEnv(BaseEnv):
         return self._options
 
     @property
+    def option_name_to_option(self) -> Dict[str, ParameterizedOption]:
+        """A method that returns a dictionary mapping option name strings
+        to ParameterizedOptions. Useful when loading BEHAVIOR trajectories
+        (which will have dummy options) and resetting the options used
+        in the trajectories."""
+        option_name_to_option = {}
+        for opt in self._options:
+            option_name_to_option[opt.name] = opt
+        return option_name_to_option
+
+    @property
     def action_space(self) -> Box:
         # 17-dimensional, between -1 and 1
         assert self.igibson_behavior_env.action_space.shape == (17, )
