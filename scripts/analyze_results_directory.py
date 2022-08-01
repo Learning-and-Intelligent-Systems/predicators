@@ -171,7 +171,7 @@ def _main() -> None:
         for row in means[col].keys():
             mean = means.loc[row][col]
             std = stds.loc[row][col]
-            means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
+            means.loc[row, col] = f"{mean:.4f} ({std:.4f})"
     means["NUM_SEEDS"] = sizes
     pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")

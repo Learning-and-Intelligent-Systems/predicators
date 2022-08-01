@@ -32,7 +32,7 @@ ARGS: []
 FLAGS:
   num_train_tasks: 50
   num_test_tasks: 10
-  max_initial_demos: 1
+  max_initial_demos: 0
   max_num_steps_interaction_request: 10 
 
 BRANCH: master
