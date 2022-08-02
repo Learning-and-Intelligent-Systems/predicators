@@ -39,6 +39,10 @@ def learn_nsrts_from_data(
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
     #####
     # TODO (wbm3): Try data reshuffling (trajectories and ground_atom_dataset)
+    def total_add_effects(traj):
+        return sum([len(seg.add_effects) for seg in segment_trajectory(traj)])
+    trajectories = [traj for _, traj in sorted(zip(ground_atom_dataset, trajectories), key=lambda pair: total_add_effects(pair[0]))]
+    ground_atom_dataset.sort(key = total_add_effects)
     #####
 
     # STEP 1: Segment each trajectory in the dataset based on changes in
