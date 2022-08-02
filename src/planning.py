@@ -633,7 +633,6 @@ def _run_plan_with_option_model(
     # Since we're not checking the expected_atoms, we need to
     # explicitly check if the goal is achieved.
     if task.goal_holds(traj[-1]):
-        import ipdb; ipdb.set_trace()
         return LowLevelTrajectory(_states=traj,
                                   _actions=actions,
                                   _is_demo=True,
