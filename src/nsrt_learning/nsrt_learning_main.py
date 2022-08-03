@@ -40,9 +40,31 @@ def learn_nsrts_from_data(
     #####
     # TODO (wbm3): Try data reshuffling (trajectories and ground_atom_dataset)
     def total_add_effects(traj):
-        return sum([len(seg.add_effects) for seg in segment_trajectory(traj)])
-    trajectories = [traj for _, traj in sorted(zip(ground_atom_dataset, trajectories), key=lambda pair: total_add_effects(pair[0]))]
-    ground_atom_dataset.sort(key = total_add_effects)
+            return sum([len(seg.add_effects) for seg in segment_trajectory(traj)])
+
+    def max_add_effects(traj):
+        return max([len(seg.add_effects) for seg in segment_trajectory(traj)])
+    
+    def min_length(traj):
+        return len(traj[1])
+
+    def weighted_add_effects(traj):
+        return sum([(i + 1) * len(seg.add_effects) for i, seg in enumerate(segment_trajectory(traj))])
+
+    if CFG.sort_data != "default":
+        if CFG.sort_data == "sum":
+            sorting_heuristic = total_add_effects
+        elif CFG.sort_data == "max":
+            sorting_heuristic = max_add_effects
+        elif CFG.sort_data == "min_len":
+            sorting_heuristic = min_length
+        elif CFG.sort_data == "weighted_max":
+            sorting_heuristic = weighted_add_effects
+        else:
+            raise NotImplementedError(f"Not a vaild sorting heuristic {CFG.sort_data}")
+
+        trajectories = [traj for _, traj in sorted(zip(ground_atom_dataset, trajectories), key=lambda pair: sorting_heuristic(pair[0]))]
+        ground_atom_dataset.sort(key = sorting_heuristic)
     #####
 
     # STEP 1: Segment each trajectory in the dataset based on changes in
