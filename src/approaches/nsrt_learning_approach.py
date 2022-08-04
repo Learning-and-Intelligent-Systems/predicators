@@ -95,7 +95,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
                 ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
-                    ground_atom_seq = ground_atom_dataset_atoms[i]
+                    ground_atom_seq = new_ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
                         (traj, [set(atoms) for atoms in ground_atom_seq]))
             else:
@@ -118,6 +118,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                         # linked to the simulator, which cannot be pickled.
                         # Thus, we must strip away the classifiers and replace
                         # them with dummies.
+                        # TODO: Fix this
                         trajectory.append({
                             GroundAtom(
                                 Predicate(atom.predicate.name,

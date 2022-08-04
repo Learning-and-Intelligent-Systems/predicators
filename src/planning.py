@@ -182,7 +182,6 @@ def _sesame_plan_with_astar(
                         print("Broke", op.name)
                         break
                 
-                #import ipdb; ipdb.set_trace()
                 print(max_skeletons_optimized)
                 print()
                 #

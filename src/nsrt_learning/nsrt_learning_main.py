@@ -6,6 +6,7 @@ import logging
 from typing import Dict, List, Set, Tuple
 
 from gym.spaces import Box
+from scipy import rand
 
 from predicators.src.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
@@ -50,7 +51,10 @@ def learn_nsrts_from_data(
 
     def weighted_add_effects(traj):
         return sum([(i + 1) * len(seg.add_effects) for i, seg in enumerate(segment_trajectory(traj))])
+    
+    import random
 
+    rnd_seed = 37774 #int(random.random() * 1000000)
     if CFG.sort_data != "default":
         if CFG.sort_data == "sum":
             sorting_heuristic = total_add_effects
@@ -60,10 +64,14 @@ def learn_nsrts_from_data(
             sorting_heuristic = min_length
         elif CFG.sort_data == "weighted_max":
             sorting_heuristic = weighted_add_effects
+        elif CFG.sort_data == "random":
+            random.seed(rnd_seed)
+            sorting_heuristic = lambda traj: random.random()
         else:
             raise NotImplementedError(f"Not a vaild sorting heuristic {CFG.sort_data}")
 
         trajectories = [traj for _, traj in sorted(zip(ground_atom_dataset, trajectories), key=lambda pair: sorting_heuristic(pair[0]))]
+        random.seed(rnd_seed)
         ground_atom_dataset.sort(key = sorting_heuristic)
     #####
 
