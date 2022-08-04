@@ -1,6 +1,6 @@
 import dill as pkl
 
-for num in [21, 22, 23, 24, 25, 26]:
+for num in [10, 11, 12, 15]:
     f = open(f"results/behavior__nsrt_learning__{num}________None.pkl","rb")
     results = pkl.load(f)
     print(results['config'].seed)
