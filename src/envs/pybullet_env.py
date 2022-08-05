@@ -13,7 +13,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.pybullet_robots import _SingleArmPyBulletRobot
+from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Pose3D, State, Task, Video
 
@@ -116,7 +116,7 @@ class PyBulletEnv(BaseEnv):
 
     @abc.abstractmethod
     def _create_pybullet_robot(
-            self, physics_client_id: int) -> _SingleArmPyBulletRobot:
+            self, physics_client_id: int) -> SingleArmPyBulletRobot:
         """Make and return a PyBullet robot object in the given
         physics_client_id.
 
