@@ -1,3 +1,4 @@
+"""Handles the creation of robots."""
 from typing import Sequence
 
 from predicators.src.pybullet_helpers.robots.single_arm import \

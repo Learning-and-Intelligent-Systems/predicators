@@ -1,3 +1,5 @@
+"""Abstract class for single armed manipulators with Pybullet helper
+functions."""
 import abc
 from typing import ClassVar, Sequence
 
