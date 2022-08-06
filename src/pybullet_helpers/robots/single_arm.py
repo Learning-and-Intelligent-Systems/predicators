@@ -9,7 +9,8 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_robots import get_kinematic_chain
-from predicators.src.pybullet_helpers.inverse_kinematics import pybullet_inverse_kinematics
+from predicators.src.pybullet_helpers.inverse_kinematics import \
+    pybullet_inverse_kinematics
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState, Pose3D
 

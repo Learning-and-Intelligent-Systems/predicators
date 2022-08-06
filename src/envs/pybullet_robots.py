@@ -1,8 +1,8 @@
 """Interfaces to PyBullet robots."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Collection, Iterator, List, \
-    Optional, Sequence
+from typing import TYPE_CHECKING, Collection, Iterator, List, Optional, \
+    Sequence
 
 import numpy as np
 import pybullet as p
@@ -13,7 +13,6 @@ from predicators.src.structs import JointsState
 
 if TYPE_CHECKING:
     from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
-
 
 ########################### Other utility functions ###########################
 

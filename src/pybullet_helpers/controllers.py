@@ -1,14 +1,15 @@
 """Generic controllers for the robots."""
 from __future__ import annotations
 
-from typing import Sequence, Callable, Tuple, Dict, cast
+from typing import Callable, Dict, Sequence, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
-from predicators.src.structs import Type, State, Object, Array, Pose3D, ParameterizedOption, Action
+from predicators.src.structs import Action, Array, Object, \
+    ParameterizedOption, Pose3D, State, Type
 
 
 def create_move_end_effector_to_pose_option(

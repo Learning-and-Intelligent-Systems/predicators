@@ -8,7 +8,8 @@ from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
 from predicators.src.envs.pybullet_robots import get_kinematic_chain, \
     run_motion_planning
-from predicators.src.pybullet_helpers.inverse_kinematics import pybullet_inverse_kinematics
+from predicators.src.pybullet_helpers.inverse_kinematics import \
+    pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG

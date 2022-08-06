@@ -11,7 +11,7 @@ import numpy as np
 import pybullet as p
 
 from predicators.src.settings import CFG
-from predicators.src.structs import Pose3D, JointsState
+from predicators.src.structs import JointsState, Pose3D
 
 
 def pybullet_inverse_kinematics(
