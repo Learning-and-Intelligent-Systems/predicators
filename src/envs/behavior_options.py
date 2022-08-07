@@ -148,10 +148,11 @@ def get_delta_low_level_base_action(robot_z: float,
 def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
                               rng: Generator, objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
-    assert len(objects) == 1
+    #assert len(objects) == 1
+    #import ipdb; ipdb.set_trace()
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
-    obj_to_sample_near = objects[0]
+    obj_to_sample_near = objects[-1]
     closeness_limit = 0.75
     nearness_limit = 0.5
     distance = nearness_limit + (
