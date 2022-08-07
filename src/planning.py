@@ -17,11 +17,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from itertools import islice
 from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+    Tuple, cast
 
 import numpy as np
 
 from predicators.src import utils
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, AbstractPolicy, Action, \
@@ -486,7 +488,20 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(state, task.goal, rng_sampler)
+        if CFG.env == "behavior":
+            # Note that the sampler takes in ALL self.objects, not just the subset
+            # self.option_objs of objects that are passed into the option.
+            env_base = get_or_create_env("behavior")
+            env = cast(BehaviorEnv, env_base)
+            objects = [env.object_to_ig_object(o_i) for o_i in nsrt.objects]
+            params = nsrt._sampler(state, task.goal, rng_sampler, objects)
+            # Clip the params into the params_space of self.option, for safety.
+            low = nsrt.option.params_space.low
+            high = nsrt.option.params_space.high
+            params = np.clip(params, low, high)
+            option = nsrt.option.ground(nsrt.option_objs, params)
+        else:
+            option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1

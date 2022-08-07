@@ -2,13 +2,13 @@
 # pylint: disable=import-error
 
 import logging
-from typing import Callable, List, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import scipy
 from numpy.random._generator import Generator
 
-from predicators.src.structs import Array, State
+from predicators.src.structs import Array, State, GroundAtom
 from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
@@ -145,8 +145,8 @@ def get_delta_low_level_base_action(robot_z: float,
     return ret_action
 
 
-def navigate_to_param_sampler(rng: Generator,
-                              objects: Sequence["URDFObject"]) -> Array:
+def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
+                              rng: Generator, objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) == 1
     # The navigation nsrts are designed such that this is true (the target
@@ -391,7 +391,7 @@ def navigate_to_obj_pos(
 
 
 # Sampler for grasp continuous params
-def grasp_obj_param_sampler(rng: Generator) -> Array:
+def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom], rng: Generator, objects: Sequence["URDFObject"]) -> Array:
     """Sampler for grasp option."""
     x_offset = (rng.random() * 0.4) - 0.2
     y_offset = (rng.random() * 0.4) - 0.2
@@ -951,8 +951,9 @@ def place_obj_plan(
 
 
 def place_ontop_obj_pos_sampler(
-    obj: Union["URDFObject", "RoomFloor"],
-    rng: Optional[Generator] = None,
+    state: State, goal: Set[GroundAtom],
+    rng: Generator,
+    obj: Union["URDFObject", "RoomFloor"]
 ) -> Array:
     """Sampler for placeOnTop option."""
     if rng is None:

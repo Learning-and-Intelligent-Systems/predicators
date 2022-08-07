@@ -854,7 +854,7 @@ class NSRT:
                     self.option_vars, self._sampler)
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class _GroundNSRT:
     """A ground NSRT is an NSRT + objects.
 

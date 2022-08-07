@@ -8,6 +8,8 @@ import numpy as np
 
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
+from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
+    navigate_to_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
@@ -34,6 +36,9 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
                                             op.preconditions, op.add_effects,
                                             op.delete_effects, param_option, i)
+        elif sampler_learner == "behavior":
+            str_to_samplers = {"Grasp": grasp_obj_param_sampler, "NavigateTo": navigate_to_param_sampler, "PlaceOnTop": place_ontop_obj_pos_sampler}
+            sampler = str_to_samplers[op.name.split("-")[0]]
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
