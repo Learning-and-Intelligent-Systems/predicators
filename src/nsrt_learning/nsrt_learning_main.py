@@ -54,7 +54,8 @@ def learn_nsrts_from_data(
     
     import random
 
-    rnd_seed = 37774 #int(random.random() * 1000000)
+    #######
+    rnd_seed = 323610 #int(random.random() * 1000000)
     if CFG.sort_data != "default":
         if CFG.sort_data == "sum":
             sorting_heuristic = total_add_effects
