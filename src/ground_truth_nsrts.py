@@ -2797,7 +2797,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             if target_obj_type_name == "agent":
                 continue
 
-            # Navigate to from nothing reachable.
+            # Navigate To.
             parameters = [target_obj]
             option_vars = [target_obj]
             preconditions: Set[LiftedAtom] = set()

@@ -10,6 +10,8 @@ from numpy.random._generator import Generator
 
 from predicators.src.structs import Array, State, GroundAtom
 from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.behavior import load_checkpoint_state
 
 try:
     import pybullet as p
@@ -148,10 +150,17 @@ def get_delta_low_level_base_action(robot_z: float,
 def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
                               rng: Generator, objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
-    #assert len(objects) == 1
-    #import ipdb; ipdb.set_trace()
-    # The navigation nsrts are designed such that this is true (the target
-    # obj is always last in the params list).
+    # Get the current env for collision checking.
+    env = get_or_create_env("behavior")
+    if not state.allclose(
+            env.current_ig_state_to_state(save_state=False)):
+        load_checkpoint_state(state, env)
+    # TODO: use the env.igibson_behavior_env to make this sampler
+    # collision aware.
+
+
+    # The navigation nsrts are designed such that the target
+    # obj is always last in the params list.
     obj_to_sample_near = objects[-1]
     closeness_limit = 0.75
     nearness_limit = 0.5
