@@ -94,12 +94,12 @@ PLOT_GROUPS = {
          partial(_select_data, env, "cluster_and_intersect")),
         ("LOFT", "blue", "^",
          partial(_select_data, env, "cluster_and_search")),
-        ("Prediction Error", "purple", "s",
-         partial(_select_data, env, "prediction_error")),
-        ("GNN Shooting", "grey", "*",
+        ("GNN Shooting", "red", "*",
          partial(_select_data, env, "gnn_shooting")),
         ("GNN Model-Free", "brown", "p",
          partial(_select_data, env, "gnn_modelfree")),
+        ("Prediction Error", "purple", "s",
+         partial(_select_data, env, "pred_error")),
         
         
     ]
@@ -142,7 +142,8 @@ def _main() -> None:
                                 yerr=y_stds,
                                 label=label,
                                 color=color,
-                                marker=marker)
+                                marker=marker,
+                                alpha=0.5)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
