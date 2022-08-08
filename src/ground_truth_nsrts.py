@@ -2812,7 +2812,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     s,
                     g,
                     r,
-                    [env.object_to_ig_object(o_i) for o_i in o],
+                    [env.object_to_ig_object(o_i) if isinstance(o_i, Object) else o_i for o_i in o],
                 ))
             nsrts.add(nsrt)
 
@@ -2882,7 +2882,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     lambda s, g, r, o: place_ontop_obj_pos_sampler(
                         s,
                         g,
-                        obj=[env.object_to_ig_object(o_i) for o_i in o],
+                        obj=[env.object_to_ig_object(o_i) if isinstance(o_i, Object) else o_i for o_i in o],
                         rng=r,
                     ),
                 )

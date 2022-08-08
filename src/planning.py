@@ -489,28 +489,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        if CFG.env == "behavior":
-            # Note that the sampler takes in ALL self.objects, not just the subset
-            # self.option_objs of objects that are passed into the option.
-            env_base = get_or_create_env("behavior")
-            env = cast(BehaviorEnv, env_base)
-            # TODO: the samplers already run env.object_to_ig_object, so this below
-            # line is actively harmful when planning normally
-            # objects = [env.object_to_ig_object(o_i) for o_i in nsrt.objects]
-            # Check if state is incorrect and reload if necessary.
-            if not state.allclose(
-                    env.current_ig_state_to_state(save_state=False)):
-                load_checkpoint_state(state, env)
-            # TODO!: For learned NSRTs, we need to make sure that if we have a 
-            # NavigateTo Shelf NSRT, the shelf object is LAST!
-            params = nsrt._sampler(state, task.goal, rng_sampler, nsrt.objects)
-            # Clip the params into the params_space of self.option, for safety.
-            low = nsrt.option.params_space.low
-            high = nsrt.option.params_space.high
-            params = np.clip(params, low, high)
-            option = nsrt.option.ground(nsrt.option_objs, params)
-        else:
-            option = nsrt.sample_option(state, task.goal, rng_sampler)
+        option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
