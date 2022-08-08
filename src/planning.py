@@ -24,6 +24,7 @@ import numpy as np
 from predicators.src import utils
 from predicators.src.envs import get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
+from predicators.src.envs.behavior_options import load_checkpoint_state
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, AbstractPolicy, Action, \
@@ -493,10 +494,16 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             # self.option_objs of objects that are passed into the option.
             env_base = get_or_create_env("behavior")
             env = cast(BehaviorEnv, env_base)
-            objects = [env.object_to_ig_object(o_i) for o_i in nsrt.objects]
+            # TODO: the samplers already run env.object_to_ig_object, so this below
+            # line is actively harmful when planning normally
+            # objects = [env.object_to_ig_object(o_i) for o_i in nsrt.objects]
+            # Check if state is incorrect and reload if necessary.
+            if not state.allclose(
+                    env.current_ig_state_to_state(save_state=False)):
+                load_checkpoint_state(state, env)
             # TODO!: For learned NSRTs, we need to make sure that if we have a 
             # NavigateTo Shelf NSRT, the shelf object is LAST!
-            params = nsrt._sampler(state, task.goal, rng_sampler, objects)
+            params = nsrt._sampler(state, task.goal, rng_sampler, nsrt.objects)
             # Clip the params into the params_space of self.option, for safety.
             low = nsrt.option.params_space.low
             high = nsrt.option.params_space.high
