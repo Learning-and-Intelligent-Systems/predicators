@@ -494,6 +494,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
             env_base = get_or_create_env("behavior")
             env = cast(BehaviorEnv, env_base)
             objects = [env.object_to_ig_object(o_i) for o_i in nsrt.objects]
+            # TODO!: For learned NSRTs, we need to make sure that if we have a 
+            # NavigateTo Shelf NSRT, the shelf object is LAST!
             params = nsrt._sampler(state, task.goal, rng_sampler, objects)
             # Clip the params into the params_space of self.option, for safety.
             low = nsrt.option.params_space.low
