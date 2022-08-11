@@ -119,7 +119,7 @@ def _sesame_plan_with_astar(
         max_policy_guided_rollout: int = 0,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics, List[State]]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -176,19 +176,7 @@ def _sesame_plan_with_astar(
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
-                #
-                good_plan = ["Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place", "NavigateTo", "Grasp", "NavigateTo", "Place"]
-                for i, op in enumerate(skeleton):
-                    if str(op.name).split("-")[0] == good_plan[i]:
-                        print(op.name)
-                    else:
-                        print("Broke", op.name)
-                        break
-                
-                print(max_skeletons_optimized)
-                print()
-                #
-                plan, suc = run_low_level_search(
+                plan, suc, traj = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time), max_horizon)
                 if suc:
@@ -200,7 +188,7 @@ def _sesame_plan_with_astar(
                         f"skeletons, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
-                    return plan, metrics
+                    return plan, metrics, traj
                 partial_refinements.append((skeleton, plan))
                 if time.time() - start_time > timeout:
                     raise PlanningTimeout(
@@ -444,7 +432,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          skeleton: List[_GroundNSRT],
                          atoms_sequence: List[Set[GroundAtom]], seed: int,
                          timeout: float,
-                         max_horizon: int) -> Tuple[List[_Option], bool]:
+                         max_horizon: int) -> Tuple[List[_Option], bool, List[State]]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -479,7 +467,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     ]
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
-            return longest_failed_refinement, False
+            return longest_failed_refinement, False, traj
         assert num_tries[cur_idx] < max_tries[cur_idx]
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
@@ -527,9 +515,15 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # utils.abstract(traj[cur_idx], predicates).
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
+                        print("Success: Expected Atoms Check Passed!")
                         if cur_idx == len(skeleton):
-                            return plan, True  # success!
+                            return plan, True, traj  # success!
                     else:
+                        print("Failure: Expected Atoms Check Failed.")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                print(a)
+                        print()
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -537,7 +531,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            return plan, True  # success!
+                            return plan, True, traj  # success!
                         can_continue_on = False
         else:
             # The option is not initiable.
@@ -580,15 +574,15 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                                     "longest_failed_refinement":
                                     longest_failed_refinement
                                 })
-                    return longest_failed_refinement, False
+                    return longest_failed_refinement, False, traj
     # Should only get here if the skeleton was empty.
     assert not skeleton
-    return [], True
+    return [], True, traj
 
 
 def _run_plan_with_option_model(
         task: Task, task_idx: int, option_model: _OptionModelBase,
-        plan: List[_Option]) -> Tuple[LowLevelTrajectory, bool]:
+        plan: List[_Option], last_traj: List[State]) -> Tuple[LowLevelTrajectory, bool]:
     """Runs a plan on an option model to generate a low-level trajectory.
 
     Returns a LowLevelTrajectory and a boolean. If the boolean is True,
@@ -608,8 +602,11 @@ def _run_plan_with_option_model(
                                       _actions=[],
                                       _is_demo=False,
                                       _train_task_idx=task_idx), False
-        next_state, _ = option_model.get_next_state_and_num_actions(
-            state, option)
+        if CFG.plan_only_eval:
+            next_state = option_model.load_state(last_traj[idx + 1])
+        else:
+            next_state, _ = option_model.get_next_state_and_num_actions(
+                state, option)
         traj[idx + 1] = next_state
         #
         # if idx != len(plan) - 1:
@@ -768,7 +765,7 @@ def _sesame_plan_with_fast_downward(
         task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
         predicates: Set[Predicate], types: Set[Type], timeout: float,
         seed: int, max_horizon: int,
-        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+        optimal: bool) -> Tuple[List[_Option], Metrics, List[State]]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -849,7 +846,7 @@ def _sesame_plan_with_fast_downward(
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
-        plan, suc = run_low_level_search(task, option_model, skeleton,
+        plan, suc, traj = run_low_level_search(task, option_model, skeleton,
                                          atoms_sequence, seed,
                                          low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
@@ -862,7 +859,7 @@ def _sesame_plan_with_fast_downward(
             raise PlanningTimeout("Planning timed out in refinement!")
         raise PlanningFailure("Skeleton produced by FD not refinable!")
     metrics["plan_length"] = len(plan)
-    return plan, metrics
+    return plan, metrics, traj
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

@@ -42,7 +42,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
-        plan, metrics = sesame_plan(
+        plan, metrics, _ = sesame_plan(
             task,
             option_model,
             nsrts,
@@ -624,7 +624,7 @@ def test_sesame_plan_fast_downward():
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
         try:
-            plan, metrics = sesame_plan(
+            plan, metrics, _ = sesame_plan(
                 task,
                 option_model,
                 nsrts,

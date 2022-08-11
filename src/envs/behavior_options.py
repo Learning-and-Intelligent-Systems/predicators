@@ -1358,7 +1358,8 @@ def load_checkpoint_state(s: State,
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-        f"{CFG.behavior_task_name}__{env.task_num}__{env.task_instance_id}",
+        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+        f"{CFG.seed}__{env.task_num}__{env.task_instance_id}",
         int(s.simulator_state.split("-")[2]))
     np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
         new_task_num_task_instance_id])

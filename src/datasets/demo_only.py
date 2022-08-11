@@ -206,8 +206,9 @@ def _generate_demonstrations(
                 # our plan on our option models. Since option models
                 # return only states, we will add dummy actions to the
                 # states to create our low-level trajectories.
+                last_traj = oracle_approach.get_last_traj()
                 traj, success = _run_plan_with_option_model(
-                    task, idx, oracle_approach.get_option_model(), last_plan)
+                    task, idx, oracle_approach.get_option_model(), last_plan, last_traj)
                 # Is successful if we found a low-level plan that achieves
                 # our goal using option models.
                 if not success:

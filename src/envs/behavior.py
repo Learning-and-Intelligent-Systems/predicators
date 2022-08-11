@@ -202,7 +202,8 @@ class BehaviorEnv(BaseEnv):
             self.task_num_task_instance_id_to_igibson_seed[(
                 self.task_num, self.task_instance_id)] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                        f"{CFG.behavior_task_name}__{self.task_num}__" +
+                        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                        f"{CFG.seed}__{self.task_num}__" +
                         f"{self.task_instance_id}",
                         exist_ok=True)
             init_state = self.current_ig_state_to_state()
@@ -438,7 +439,8 @@ class BehaviorEnv(BaseEnv):
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                f"{CFG.behavior_task_name}__{self.task_num}__" +
+                f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                f"{CFG.seed}__{self.task_num}__" +
                 f"{self.task_instance_id}/")
         return utils.BehaviorState(
             state_data,

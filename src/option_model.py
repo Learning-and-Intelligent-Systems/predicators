@@ -138,3 +138,10 @@ class _BehaviorOptionModel(_OptionModelBase):
         next_state = env.current_ig_state_to_state()
         plan, _ = option.memory["planner_result"]
         return next_state, len(plan)
+
+    def load_state(
+            self, state: State) -> Tuple[State, int]:  # pragma: no cover
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+        load_checkpoint_state(state, env)
+        return env.current_ig_state_to_state()
