@@ -481,7 +481,12 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         plan[cur_idx] = option
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
-        if option.initiable(state):
+        skip = False
+        try:
+            option.initiable(state)
+        except TypeError:
+            skip = True
+        if (not skip) and option.initiable(state):
             try:
                 next_state, num_actions = \
                     option_model.get_next_state_and_num_actions(state, option)
@@ -529,10 +534,16 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # If we're not checking expected_atoms, we need to
                     # explicitly check the goal on the final timestep.
                     can_continue_on = True
+                    print("Success: Expected Atoms Check Passed!")
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
                             return plan, True, traj  # success!
                         can_continue_on = False
+                        print("Failure: Expected Atoms Check Failed.")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                print(a)
+                        print()
         else:
             # The option is not initiable.
             can_continue_on = False
