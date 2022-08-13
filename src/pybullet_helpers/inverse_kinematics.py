@@ -3,15 +3,16 @@
 The IKFast solver is preferred over Pybullet IK, if available for the
 given robot.
 """
-from __future__ import annotations
 
 from typing import Sequence
 
 import numpy as np
 import pybullet as p
 
+from predicators.src.pybullet_helpers.geometry import Pose3D
+from predicators.src.pybullet_helpers.link import get_link_pose
 from predicators.src.settings import CFG
-from predicators.src.structs import JointsState, Pose3D
+from predicators.src.structs import JointsState
 
 
 def pybullet_inverse_kinematics(
@@ -42,9 +43,10 @@ def pybullet_inverse_kinematics(
     assert set(joints).issubset(set(free_joints))
 
     # Record the initial state of the joints so that we can reset them after.
+    initial_joints_states = p.getJointStates(robot,
+                                             free_joints,
+                                             physicsClientId=physics_client_id)
     if validate:
-        initial_joints_states = p.getJointStates(
-            robot, free_joints, physicsClientId=physics_client_id)
         assert len(initial_joints_states) == len(free_joints)
 
     # Running IK once is often insufficient, so we run it multiple times until
@@ -56,7 +58,8 @@ def pybullet_inverse_kinematics(
             end_effector,
             target_position,
             targetOrientation=target_orientation,
-            physicsClientId=physics_client_id)
+            physicsClientId=physics_client_id,
+        )
         assert len(free_joints) == len(free_joint_vals)
         if not validate:
             break
@@ -67,13 +70,12 @@ def pybullet_inverse_kinematics(
                               joint,
                               targetValue=joint_val,
                               physicsClientId=physics_client_id)
-        ee_link_state = p.getLinkState(robot,
-                                       end_effector,
-                                       computeForwardKinematics=True,
-                                       physicsClientId=physics_client_id)
-        position = ee_link_state[4]
-        # Note: we are checking positions only for convergence.
-        if np.allclose(position, target_position, atol=convergence_tol):
+
+        # Note: we are checking end-effector positions only for convergence.
+        ee_link_pose = get_link_pose(robot, end_effector, physics_client_id)
+        if np.allclose(ee_link_pose.position,
+                       target_position,
+                       atol=convergence_tol):
             break
     else:
         raise Exception("Inverse kinematics failed to converge.")
@@ -82,11 +84,13 @@ def pybullet_inverse_kinematics(
     # PyBullet internal state.
     if validate:
         for joint, (pos, vel, _, _) in zip(free_joints, initial_joints_states):
-            p.resetJointState(robot,
-                              joint,
-                              targetValue=pos,
-                              targetVelocity=vel,
-                              physicsClientId=physics_client_id)
+            p.resetJointState(
+                robot,
+                joint,
+                targetValue=pos,
+                targetVelocity=vel,
+                physicsClientId=physics_client_id,
+            )
     # Order the found free_joint_vals based on the requested joints.
     joint_vals = []
     for joint in joints:

@@ -122,7 +122,7 @@ class GlobalSettings:
     behavior_option_model_rrt = False
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
+    pybullet_use_gui = True  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900

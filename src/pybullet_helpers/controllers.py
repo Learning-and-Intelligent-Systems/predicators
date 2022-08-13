@@ -7,9 +7,10 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
+from predicators.src.pybullet_helpers.geometry import Pose3D
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.src.structs import Action, Array, Object, \
-    ParameterizedOption, Pose3D, State, Type
+    ParameterizedOption, State, Type
 
 
 def create_move_end_effector_to_pose_option(

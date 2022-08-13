@@ -13,11 +13,11 @@ from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
 from predicators.src.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, Object, ParameterizedOption, \
-    Pose3D, State
+from predicators.src.structs import Array, Object, ParameterizedOption, State
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -29,10 +29,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
+    _ee_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
         [0.0, np.pi / 2, -np.pi])
     _move_to_pose_tol: ClassVar[float] = 1e-4
 

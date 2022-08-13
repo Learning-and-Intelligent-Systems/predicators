@@ -6,12 +6,14 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
+from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
-from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
+from predicators.src.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
+from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 
@@ -158,12 +160,13 @@ def test_pybullet_inverse_kinematics(scene_attributes):
 
 def test_fetch_pybullet_robot():
     """Tests for FetchPyBulletRobot()."""
-    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
     physics_client_id = p.connect(p.DIRECT)
 
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id)
+    base_pose = Pose((0.75, 0.7441, 0.0))
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
+                               base_pose)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -186,22 +189,30 @@ def test_fetch_pybullet_robot():
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
     action_arr = np.array(joint_target, dtype=np.float32)
+
+    # Not a valid control mode.
+    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
     with pytest.raises(NotImplementedError) as e:
         robot.set_motors(action_arr)
     assert "Unrecognized pybullet_control_mode" in str(e)
+
+    # Reset control mode.
     utils.reset_config({"pybullet_control_mode": "reset"})
     robot.set_motors(action_arr)  # just make sure it doesn't crash
+
+    # Position control mode.
     utils.reset_config({"pybullet_control_mode": "position"})
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
     expected_state = tuple(ee_target) + (f_value, )
     recovered_state = robot.get_state()
+
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
     # Test forward kinematics.
     fk_result = robot.forward_kinematics(action_arr)
-    assert np.allclose(fk_result, ee_target, atol=1e-3)
+    assert np.allclose(fk_result, ee_target, atol=1e-2)
 
 
 def test_create_single_arm_pybullet_robot():
@@ -209,9 +220,13 @@ def test_create_single_arm_pybullet_robot():
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+
+    # Fetch
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
+
+    # Unknown robot
     with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, physics_client_id)
