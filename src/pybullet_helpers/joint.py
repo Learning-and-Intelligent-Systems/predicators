@@ -44,6 +44,11 @@ class JointInfo(NamedTuple):
         return self.jointUpperLimit < self.jointLowerLimit
 
     @property
+    def is_movable(self) -> bool:
+        """Whether the joint is movable or not."""
+        return not self.is_fixed
+
+    @property
     def is_fixed(self) -> bool:
         """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
@@ -111,3 +116,30 @@ def get_joint_upper_limits(body: int, joints: List[int],
                            physics_client_id: int) -> List[float]:
     """Get the upper joint limits for the given joints for a body."""
     return get_joint_limits(body, joints, physics_client_id)[1]
+
+
+def get_movable_joints(body: int, physics_client_id: int) -> List[int]:
+    """Get joints that are movable (i.e., not fixed)."""
+    joint_infos = get_joint_infos(body, get_joints(body, physics_client_id),
+                                  physics_client_id)
+    joint_idxs = [
+        joint_info.jointIndex for joint_info in joint_infos
+        if joint_info.is_movable
+    ]
+    return joint_idxs
+
+
+def get_kinematic_chain(body: int, end_effector: int,
+                        physics_client_id: int) -> List[int]:
+    """Get all the free joints from robot body base to end effector.
+
+    Includes the end effector.
+    """
+    kinematic_chain = []
+    while end_effector > -1:
+        joint_info = get_joint_info(body, end_effector, physics_client_id)
+        print(joint_info.jointIndex, joint_info.jointName)
+        if joint_info.qIndex > -1:
+            kinematic_chain.append(end_effector)
+        end_effector = joint_info[-1]
+    return kinematic_chain

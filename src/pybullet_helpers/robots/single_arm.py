@@ -14,9 +14,8 @@ from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.joint import JointInfo, JointPositions, \
     get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
-    get_num_joints
+    get_movable_joints
 from predicators.src.pybullet_helpers.link import get_link_state
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 from predicators.src.structs import Array
 
@@ -96,26 +95,18 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     @cached_property
     def arm_joints(self) -> List[int]:
-        """The PyBullet joint IDs of the joints of the robot arm.
+        """The PyBullet joint IDs of the movable joints of the robot arm,
+        including the fingers.
 
         Note these are joint indices not body IDs.
         """
-        joint_ids = get_kinematic_chain(
-            self.robot_id,
-            self.end_effector_id,
-            physics_client_id=self.physics_client_id,
-        )
-        # NOTE: pybullet tools assumes sorted arm joints.
-        joint_ids = sorted(joint_ids)
-        joint_ids.extend([self.left_finger_id, self.right_finger_id])
+        joint_ids = get_movable_joints(self.robot_id, self.physics_client_id)
         return joint_ids
 
     @cached_property
     def joint_infos(self) -> List[JointInfo]:
         """Get the joint info for each joint of the robot."""
-        joint_ids = list(
-            range(get_num_joints(self.robot_id, self.physics_client_id)))
-        return get_joint_infos(self.robot_id, joint_ids,
+        return get_joint_infos(self.robot_id, self.arm_joints,
                                self.physics_client_id)
 
     @cached_property
