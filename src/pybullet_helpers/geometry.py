@@ -22,25 +22,20 @@ class Pose(NamedTuple):
     We use a NamedTuple as it supports retrieving by integer indexing
     and most closely follows the PyBullet API.
     """
-
+    # Cartesian (x, y, z) position
     position: Pose3D
-    quat_xyzw: Quaternion = (0.0, 0.0, 0.0, 1.0)
+    # Quaternion in (x, y, z, w) representation
+    orientation: Quaternion = (0.0, 0.0, 0.0, 1.0)
 
     @classmethod
     def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> Pose:
         """Create a Pose from translation and Euler roll-pitch-yaw angles."""
         return cls(translation, quaternion_from_euler(*rpy))
 
-    @property
-    def orientation(self) -> Quaternion:
-        """The default quaternion representation is xyzw as followed by
-        PyBullet."""
-        return self.quat_xyzw
-
     @cached_property
     def rpy(self) -> RollPitchYaw:
         """Get the Euler roll-pitch-yaw representation."""
-        return euler_from_quaternion(self.quat_xyzw)
+        return euler_from_quaternion(self.orientation)
 
     @classmethod
     def identity(cls) -> Pose:
@@ -53,7 +48,7 @@ class Pose(NamedTuple):
 
     def invert(self) -> Pose:
         """Invert the pose (i.e., transform)."""
-        pos, quat = p.invertTransform(self.position, self.quat_xyzw)
+        pos, quat = p.invertTransform(self.position, self.orientation)
         return Pose(pos, quat)
 
 
@@ -61,8 +56,9 @@ def multiply_poses(*poses: Pose) -> Pose:
     """Multiplies poses (which are essentially transforms) together."""
     pose = poses[0]
     for next_pose in poses[1:]:
-        pybullet_pose = p.multiplyTransforms(pose[0], pose[1], next_pose[0],
-                                             next_pose[1])
+        pybullet_pose = p.multiplyTransforms(pose.position, pose.orientation,
+                                             next_pose.position,
+                                             next_pose.orientation)
         pose = Pose(pybullet_pose[0], pybullet_pose[1])
     return pose
 

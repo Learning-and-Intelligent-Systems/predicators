@@ -45,7 +45,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         self.robot_id = p.loadURDF(
             self.urdf_path(),
             basePosition=self._base_pose.position,
-            baseOrientation=self._base_pose.quat_xyzw,
+            baseOrientation=self._base_pose.orientation,
             useFixedBase=True,
             physicsClientId=self.physics_client_id,
         )
@@ -209,7 +209,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         p.resetBasePositionAndOrientation(
             self.robot_id,
             self._base_pose.position,
-            self._base_pose.quat_xyzw,
+            self._base_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
         # First, reset the joint values to initial joint state,
