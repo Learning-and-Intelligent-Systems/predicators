@@ -34,10 +34,11 @@ from pyperplan.heuristics.heuristic_base import \
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 
 from predicators.src.args import create_arg_parser
+from predicators.src.pybullet_helpers.joint import JointPositions
 from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
-    GroundNSRTOrSTRIPSOperator, Image, JointsState, LDLRule, LiftedAtom, \
+    GroundNSRTOrSTRIPSOperator, Image, LDLRule, LiftedAtom, \
     LiftedDecisionList, LiftedOrGroundAtom, LowLevelTrajectory, Metrics, \
     NSRTOrSTRIPSOperator, Object, ObjectOrVariable, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
@@ -853,13 +854,13 @@ class BehaviorState(State):
 
 
 class PyBulletState(State):
-    """A PyBullet state that stores the robot joint states in addition to the
+    """A PyBullet state that stores the robot joint positions in addition to the
     features that are exposed in the object-centric state."""
 
     @property
-    def joints_state(self) -> JointsState:
+    def joints_state(self) -> JointPositions:
         """Expose the current joints state in the simulator_state."""
-        return cast(JointsState, self.simulator_state)
+        return cast(JointPositions, self.simulator_state)
 
     def allclose(self, other: State) -> bool:
         # Ignores the simulator state.

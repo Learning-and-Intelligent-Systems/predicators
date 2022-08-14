@@ -6,6 +6,11 @@ import pybullet as p
 
 from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
 
+# Joint Positions (i.e., angles) of each joint in the body.
+# Not to be conflated with PyBullet joint states which include
+# positions, velocities and forces.
+JointPositions = List[float]
+
 
 class JointInfo(NamedTuple):
     """Joint Information to match the output of the PyBullet getJointInfo API.

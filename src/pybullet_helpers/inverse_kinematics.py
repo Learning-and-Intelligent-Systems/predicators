@@ -9,22 +9,22 @@ from typing import Sequence
 import numpy as np
 import pybullet as p
 
-from predicators.src.pybullet_helpers.geometry import Pose3D
+from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
+from predicators.src.pybullet_helpers.joint import JointPositions
 from predicators.src.pybullet_helpers.link import get_link_pose
 from predicators.src.settings import CFG
-from predicators.src.structs import JointsState
 
 
 def pybullet_inverse_kinematics(
     robot: int,
     end_effector: int,
     target_position: Pose3D,
-    target_orientation: Sequence[float],
+    target_orientation: Quaternion,
     joints: Sequence[int],
     physics_client_id: int,
     validate: bool = True,
-) -> JointsState:
-    """Runs IK and returns a joints state for the given (free) joints.
+) -> JointPositions:
+    """Runs IK and returns joint positions for the given (free) joints.
 
     If validate is True, the PyBullet IK solver is called multiple
     times, resetting the robot state each time, until the target
@@ -42,7 +42,8 @@ def pybullet_inverse_kinematics(
             free_joints.append(idx)
     assert set(joints).issubset(set(free_joints))
 
-    # Record the initial state of the joints so that we can reset them after.
+    # Record the initial state of the joints (positions and velocities) so
+    # that we can reset them after.
     initial_joints_states = p.getJointStates(robot,
                                              free_joints,
                                              physicsClientId=physics_client_id)
@@ -80,8 +81,8 @@ def pybullet_inverse_kinematics(
     else:
         raise Exception("Inverse kinematics failed to converge.")
 
-    # Reset the joint states to their initial values to avoid modifying the
-    # PyBullet internal state.
+    # Reset the joint state (positions and velocities) to their initial values
+    # to avoid modifying the PyBullet internal state.
     if validate:
         for joint, (pos, vel, _, _) in zip(free_joints, initial_joints_states):
             p.resetJointState(
