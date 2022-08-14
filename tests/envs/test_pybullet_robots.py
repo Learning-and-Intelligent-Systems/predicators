@@ -9,12 +9,12 @@ from predicators.src.envs.pybullet_env import create_pybullet_block
 from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
+from predicators.src.pybullet_helpers.joint import get_kinematic_chain
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
 from predicators.src.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 
 
@@ -96,7 +96,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
     target_position = scene_attributes["robot_home"]
     # With validate = False, one call to IK is not good enough.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joint_positions = pybullet_inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -104,7 +104,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
-    for joint, joint_val in zip(arm_joints, joints_state):
+    for joint, joint_val in zip(arm_joints, joint_positions):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
@@ -119,7 +119,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joint_positions = pybullet_inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -127,7 +127,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
-    for joint, joint_val in zip(arm_joints, joints_state):
+    for joint, joint_val in zip(arm_joints, joint_positions):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
@@ -179,7 +179,7 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
-                       robot.initial_joints_state,
+                       robot.initial_joint_positions,
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
