@@ -48,7 +48,7 @@ def create_move_end_effector_to_pose_option(
         ee_action = np.add(current, ee_delta)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
-        joints_state = robot.inverse_kinematics(
+        joint_positions = robot.inverse_kinematics(
             (ee_action[0], ee_action[1], ee_action[2]), validate=False)
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
@@ -65,9 +65,9 @@ def create_move_end_effector_to_pose_option(
         # The finger action is an absolute joint position for the fingers.
         f_action = finger_state + finger_delta
         # Override the meaningless finger values in joint_action.
-        joints_state[robot.left_finger_joint_idx] = f_action
-        joints_state[robot.right_finger_joint_idx] = f_action
-        action_arr = np.array(joints_state, dtype=np.float32)
+        joint_positions[robot.left_finger_joint_idx] = f_action
+        joint_positions[robot.right_finger_joint_idx] = f_action
+        action_arr = np.array(joint_positions, dtype=np.float32)
         # This clipping is needed sometimes for the joint limits.
         action_arr = np.clip(action_arr, robot.action_space.low,
                              robot.action_space.high)

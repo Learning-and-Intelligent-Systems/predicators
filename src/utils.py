@@ -854,8 +854,8 @@ class BehaviorState(State):
 
 
 class PyBulletState(State):
-    """A PyBullet state that stores the robot joint positions in addition to the
-    features that are exposed in the object-centric state."""
+    """A PyBullet state that stores the robot joint positions in addition to
+    the features that are exposed in the object-centric state."""
 
     @property
     def joints_state(self) -> JointPositions:

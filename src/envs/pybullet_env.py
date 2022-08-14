@@ -245,7 +245,8 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        self._pybullet_robot.set_motors(action.arr.tolist())
+        target_joint_positions = action.arr.tolist()
+        self._pybullet_robot.set_motors(target_joint_positions)
 
         # If we are setting the robot joints directly, and if there is a held
         # object, we need to reset the pose of the held object directly. This

@@ -232,8 +232,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # constraint before we can call PyBullet.
         # Use self._pybullet_robot2 to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
-        joints_state = action.arr.tolist()
-        _, ry, rz = self._pybullet_robot2.forward_kinematics(joints_state)
+        joint_positions = action.arr.tolist()
+        _, ry, rz = self._pybullet_robot2.forward_kinematics(joint_positions)
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.
@@ -257,7 +257,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         rx, ry, rz, _ = self._pybullet_robot.get_state()
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
-        joints_state = self._pybullet_robot.get_joints()
+        joint_positions = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -289,7 +289,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[target] = np.array([0.0, 1.0, width, pose],
                                           dtype=np.float32)
 
-        state = utils.PyBulletState(state_dict, simulator_state=joints_state)
+        state = utils.PyBulletState(state_dict,
+                                    simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
