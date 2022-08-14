@@ -1,4 +1,4 @@
-"""Motion Planning in Pybullet."""
+"""Motion Planning in PyBullet."""
 from __future__ import annotations
 
 from typing import Collection, Iterator, Optional, Sequence

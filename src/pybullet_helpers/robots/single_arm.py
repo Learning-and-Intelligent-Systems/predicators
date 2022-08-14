@@ -1,4 +1,4 @@
-"""Abstract class for single armed manipulators with Pybullet helper
+"""Abstract class for single armed manipulators with PyBullet helper
 functions."""
 import abc
 from functools import cached_property
@@ -15,6 +15,7 @@ from predicators.src.pybullet_helpers.inverse_kinematics import \
 from predicators.src.pybullet_helpers.joint import JointInfo, \
     get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
     get_num_joints
+from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.pybullet_helpers.utils import get_kinematic_chain
 from predicators.src.settings import CFG
 from predicators.src.structs import Array, JointsState
@@ -95,7 +96,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     @cached_property
     def arm_joints(self) -> List[int]:
-        """The Pybullet joint IDs of the joints of the robot arm.
+        """The PyBullet joint IDs of the joints of the robot arm.
 
         Note these are joint indices not body IDs.
         """
@@ -232,10 +233,11 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         This corresponds to the State vector for the robot object.
         """
-        ee_link_state = p.getLinkState(self.robot_id,
-                                       self.end_effector_id,
-                                       physicsClientId=self.physics_client_id)
-        rx, ry, rz = ee_link_state[4]
+        ee_link_state = get_link_state(
+            self.robot_id,
+            self.end_effector_id,
+            physics_client_id=self.physics_client_id)
+        rx, ry, rz = ee_link_state.worldLinkFramePosition
         # Note: we assume both left and right gripper have the same joint
         # position
         rf = p.getJointState(

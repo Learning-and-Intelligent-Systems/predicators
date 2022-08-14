@@ -1,4 +1,4 @@
-"""Pybullet helper class for joint utilities."""
+"""PyBullet helper class for joint utilities."""
 from typing import List, NamedTuple, Sequence, Tuple
 
 import numpy as np
@@ -8,7 +8,11 @@ from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
 
 
 class JointInfo(NamedTuple):
-    """Joint Information from Pybullet."""
+    """Joint Information to match the output of the PyBullet getJointInfo API.
+
+    We use a NamedTuple as it supports retrieving by integer indexing
+    and most closely follows the PyBullet API.
+    """
     jointIndex: int
     jointName: str
     jointType: int
@@ -62,7 +66,7 @@ def get_joint_info(body: int, joint: int, physics_client_id: int) -> JointInfo:
 
 def get_joint_infos(body: int, joints: List[int],
                     physics_client_id: int) -> List[JointInfo]:
-    """Get the infos the given joints for a body."""
+    """Get the infos for the given joints for a body."""
     return [
         get_joint_info(body, joint_id, physics_client_id)
         for joint_id in joints
@@ -73,11 +77,10 @@ def get_joint_limits(
         body: int, joints: List[int],
         physics_client_id: int) -> Tuple[List[float], List[float]]:
     """Get the joint limits for the given joints for a body. Circular joints do
-    not have limits (represented by ±np.pi).
+    not have limits (represented by ±np.inf).
 
-    Returns
-    -------
-    Tuple with the lower limits as a list, and the upper limits as list.
+    We return a Tuple where the first element is the list of lower limits, and
+    the second element is the list of upper limits.
     """
     joint_infos = get_joint_infos(body, joints, physics_client_id)
     lower_limits = [

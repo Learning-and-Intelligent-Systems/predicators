@@ -1,4 +1,4 @@
-"""Other Pybullet utility functions."""
+"""Other PyBullet utility functions."""
 from __future__ import annotations
 
 from typing import List

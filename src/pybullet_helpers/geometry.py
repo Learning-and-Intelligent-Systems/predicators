@@ -1,7 +1,7 @@
-"""Pybullet helper class for geometry utilities."""
+"""PyBullet helper class for geometry utilities."""
 from __future__ import annotations
 
-from typing import NamedTuple, Sequence, Tuple
+from typing import NamedTuple, Tuple
 
 import numpy as np
 import pybullet as p
@@ -19,21 +19,21 @@ class Pose(NamedTuple):
     """Pose which is a position (translation) and rotation.
 
     We use a NamedTuple as it supports retrieving by integer indexing
-    and most closely follows the pybullet API.
+    and most closely follows the PyBullet API.
     """
 
     position: Pose3D
     quat_xyzw: Quaternion = (0.0, 0.0, 0.0, 1.0)
 
     @classmethod
-    def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> "Pose":
+    def from_rpy(cls, translation: Pose3D, rpy: RollPitchYaw) -> Pose:
         """Create a Pose from translation and Euler roll-pitch-yaw angles."""
         return cls(translation, quaternion_from_euler(*rpy))
 
     @property
     def orientation(self) -> Quaternion:
         """The default quaternion representation is xyzw as followed by
-        pybullet."""
+        PyBullet."""
         return self.quat_xyzw
 
     @property
@@ -42,15 +42,15 @@ class Pose(NamedTuple):
         return euler_from_quaternion(self.quat_xyzw)
 
     @classmethod
-    def identity(cls) -> "Pose":
+    def identity(cls) -> Pose:
         """Unit pose."""
         return cls((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
 
-    def multiply(self, *poses: "Pose") -> "Pose":
+    def multiply(self, *poses: Pose) -> Pose:
         """Multiplies poses (i.e., rigid transforms) together."""
         return multiply_poses(self, *poses)
 
-    def invert(self) -> "Pose":
+    def invert(self) -> Pose:
         """Invert the pose (i.e., transform)."""
         pos, quat = p.invertTransform(self.position, self.quat_xyzw)
         return Pose(pos, quat)
@@ -60,13 +60,13 @@ def multiply_poses(*poses: Pose) -> Pose:
     """Multiplies poses (which are essentially transforms) together."""
     pose = poses[0]
     for next_pose in poses[1:]:
-        pose = p.multiplyTransforms(pose[0], pose[1], next_pose[0],
-                                    next_pose[1])
-        pose = Pose(pose[0], pose[1])
+        pybullet_pose = p.multiplyTransforms(pose[0], pose[1], next_pose[0],
+                                             next_pose[1])
+        pose = Pose(pybullet_pose[0], pybullet_pose[1])
     return pose
 
 
-def matrix_from_quat(quat: Sequence[float]) -> Array:
+def matrix_from_quat(quat: Quaternion) -> Array:
     """Get 3x3 rotation matrix from quaternion (xyzw)."""
     return np.array(p.getMatrixFromQuaternion(quat)).reshape(3, 3)
 

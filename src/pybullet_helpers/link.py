@@ -1,4 +1,4 @@
-"""Pybullet helper class for link utilities."""
+"""PyBullet helper class for link utilities."""
 from typing import NamedTuple
 
 import pybullet as p
@@ -10,7 +10,11 @@ BASE_LINK: int = -1
 
 
 class LinkState(NamedTuple):
-    """Link state from Pybullet."""
+    """Link state to match the output of the PyBullet getLinkState API.
+
+    We use a NamedTuple as it supports retrieving by integer indexing
+    and most closely follows the PyBullet API.
+    """
     linkWorldPosition: Pose3D
     linkWorldOrientation: Quaternion
     localInertialFramePosition: Pose3D
@@ -35,7 +39,7 @@ def get_link_state(body: int, link: int, physics_client_id: int) -> LinkState:
 
 
 def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
-    """Get the position and orientation for a link."""
+    """Get the pose for a link in a given body."""
     if link == BASE_LINK:
         return get_pose(body, physics_client_id)
 

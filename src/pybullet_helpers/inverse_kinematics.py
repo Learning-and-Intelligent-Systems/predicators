@@ -1,6 +1,6 @@
-"""Vanilla Pybullet Inverse Kinematics.
+"""Vanilla PyBullet Inverse Kinematics.
 
-The IKFast solver is preferred over Pybullet IK, if available for the
+The IKFast solver is preferred over PyBullet IK, if available for the
 given robot.
 """
 
