@@ -31,12 +31,14 @@ class JointInfo(NamedTuple):
     parentFrameOrn: Quaternion
     parentIndex: int
 
+    @property
     def is_circular(self) -> bool:
         """Whether the joint is circular or not."""
-        if self.is_fixed():
+        if self.is_fixed:
             return False
         return self.jointUpperLimit < self.jointLowerLimit
 
+    @property
     def is_fixed(self) -> bool:
         """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
@@ -79,16 +81,16 @@ def get_joint_limits(
     """Get the joint limits for the given joints for a body. Circular joints do
     not have limits (represented by ±np.inf).
 
-    We return a Tuple where the first element is the list of lower limits, and
-    the second element is the list of upper limits.
+    We return a Tuple where the first element is the list of lower
+    limits, and the second element is the list of upper limits.
     """
     joint_infos = get_joint_infos(body, joints, physics_client_id)
     lower_limits = [
-        joint.jointLowerLimit if not joint.is_circular() else -np.inf
+        joint.jointLowerLimit if not joint.is_circular else -np.inf
         for joint in joint_infos
     ]
     upper_limits = [
-        joint.jointUpperLimit if not joint.is_circular() else np.inf
+        joint.jointUpperLimit if not joint.is_circular else np.inf
         for joint in joint_infos
     ]
     return lower_limits, upper_limits

@@ -1,6 +1,7 @@
 """PyBullet helper class for geometry utilities."""
 from __future__ import annotations
 
+from functools import cached_property
 from typing import NamedTuple, Tuple
 
 import numpy as np
@@ -36,7 +37,7 @@ class Pose(NamedTuple):
         PyBullet."""
         return self.quat_xyzw
 
-    @property
+    @cached_property
     def rpy(self) -> RollPitchYaw:
         """Get the Euler roll-pitch-yaw representation."""
         return euler_from_quaternion(self.quat_xyzw)

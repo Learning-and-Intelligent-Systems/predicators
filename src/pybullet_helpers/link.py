@@ -22,10 +22,12 @@ class LinkState(NamedTuple):
     worldLinkFramePosition: Pose3D
     worldLinkFrameOrientation: Quaternion
 
+    @property
     def com_pose(self) -> Pose:
         """Center of mass (COM) pose of link."""
         return Pose(self.linkWorldPosition, self.linkWorldOrientation)
 
+    @property
     def pose(self) -> Pose:
         """Pose of link in world frame."""
         return Pose(self.worldLinkFramePosition,
@@ -44,4 +46,4 @@ def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
         return get_pose(body, physics_client_id)
 
     link_state = get_link_state(body, link, physics_client_id)
-    return link_state.pose()
+    return link_state.pose
