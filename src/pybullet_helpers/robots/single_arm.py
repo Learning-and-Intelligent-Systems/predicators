@@ -308,13 +308,11 @@ class SingleArmPyBulletRobot(abc.ABC):
         should NOT be used during simulation.
         """
         self.set_joints(joint_positions)
-        ee_link_state = p.getLinkState(
+        ee_link_state = get_link_state(
             self.robot_id,
             self.end_effector_id,
-            computeForwardKinematics=True,
-            physicsClientId=self.physics_client_id,
-        )
-        position = ee_link_state[4]
+            physics_client_id=self.physics_client_id)
+        position = ee_link_state.worldLinkFramePosition
         return position
 
     def _validate_joint_positions(self, joint_positions: JointPositions,

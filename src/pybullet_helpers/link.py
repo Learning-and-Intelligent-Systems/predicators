@@ -34,9 +34,18 @@ class LinkState(NamedTuple):
                     self.worldLinkFrameOrientation)
 
 
-def get_link_state(body: int, link: int, physics_client_id: int) -> LinkState:
+def get_link_state(body: int,
+                   link: int,
+                   physics_client_id: int,
+                   compute_forward_kinematics: bool = True) -> LinkState:
     """Get the state of a link in a given body."""
-    link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
+    # Note: does computeForwardKinematics even do anything? Caelan and Rachel
+    # use it with False
+    link_state = p.getLinkState(
+        body,
+        link,
+        computeForwardKinematics=compute_forward_kinematics,
+        physicsClientId=physics_client_id)
     return LinkState(*link_state)
 
 
