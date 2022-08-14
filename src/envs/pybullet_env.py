@@ -14,6 +14,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.pybullet_helpers.geometry import Pose3D
+from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, State, Task, Video
@@ -254,10 +255,10 @@ class PyBulletEnv(BaseEnv):
         # resetJointState (the robot will sometimes drop the object).
         if CFG.pybullet_control_mode == "reset" and \
             self._held_obj_id is not None:
-            world_to_base_link = p.getLinkState(
+            world_to_base_link = get_link_state(
                 self._pybullet_robot.robot_id,
                 self._pybullet_robot.end_effector_id,
-                physicsClientId=self._physics_client_id)[:2]
+                physics_client_id=self._physics_client_id).com_pose
             base_link_to_held_obj = p.invertTransform(
                 *self._held_obj_to_base_link)
             world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
