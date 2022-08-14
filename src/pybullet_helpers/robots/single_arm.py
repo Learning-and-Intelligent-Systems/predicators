@@ -14,7 +14,7 @@ from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.joint import JointInfo, JointPositions, \
     get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
-    get_kinematic_chain, get_num_joints
+    get_joints, get_kinematic_chain
 from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.settings import CFG
 from predicators.src.structs import Array
@@ -114,8 +114,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         This may be a superset of the arm joints.
         """
-        num_joints = get_num_joints(self.robot_id, self.physics_client_id)
-        all_joint_ids = list(range(num_joints))
+        all_joint_ids = get_joints(self.robot_id, self.physics_client_id)
         return get_joint_infos(self.robot_id, all_joint_ids,
                                self.physics_client_id)
 

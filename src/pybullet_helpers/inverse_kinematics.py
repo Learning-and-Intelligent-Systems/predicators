@@ -11,7 +11,7 @@ import pybullet as p
 
 from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.src.pybullet_helpers.joint import JointPositions, \
-    get_joint_infos, get_num_joints
+    get_joint_infos, get_joints
 from predicators.src.pybullet_helpers.link import get_link_pose
 from predicators.src.settings import CFG
 
@@ -33,9 +33,9 @@ def pybullet_inverse_kinematics(
     maximum number of iters, an exception is raised.
     """
     # Figure out which joint each dimension of the return of IK corresponds to.
-    num_joints = get_num_joints(robot, physics_client_id=physics_client_id)
+    all_joints = get_joints(robot, physics_client_id=physics_client_id)
     joint_infos = get_joint_infos(robot,
-                                  list(range(num_joints)),
+                                  all_joints,
                                   physics_client_id=physics_client_id)
     free_joints = [
         joint_info.jointIndex for joint_info in joint_infos
