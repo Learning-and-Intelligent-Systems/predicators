@@ -61,9 +61,9 @@ def create_move_end_effector_to_pose_option(
             finger_delta = -finger_action_nudge_magnitude
         # Extract the current finger state.
         state = cast(utils.PyBulletState, state)
-        finger_state = state.joints_state[robot.left_finger_joint_idx]
+        finger_positions = state.joint_positions[robot.left_finger_joint_idx]
         # The finger action is an absolute joint position for the fingers.
-        f_action = finger_state + finger_delta
+        f_action = finger_positions + finger_delta
         # Override the meaningless finger values in joint_action.
         joint_positions[robot.left_finger_joint_idx] = f_action
         joint_positions[robot.right_finger_joint_idx] = f_action
@@ -118,7 +118,7 @@ def create_change_fingers_option(
         f_action = current_val + f_delta
         # Don't change the rest of the joints.
         state = cast(utils.PyBulletState, state)
-        target = np.array(state.joints_state, dtype=np.float32)
+        target = np.array(state.joint_positions, dtype=np.float32)
         target[robot.left_finger_joint_idx] = f_action
         target[robot.right_finger_joint_idx] = f_action
         # This clipping is needed sometimes for the joint limits.

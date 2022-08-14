@@ -5,6 +5,7 @@ from typing import ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
+from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
@@ -29,8 +30,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Quaternion] = p.getQuaternionFromEuler(
-        [np.pi / 2, np.pi / 2, -np.pi])
+    _ee_orn: ClassVar[Quaternion] = quaternion_from_euler(
+        np.pi / 2, np.pi / 2, -np.pi)
     _move_to_pose_tol: ClassVar[float] = 1e-7
 
     # Object parameters.

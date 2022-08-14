@@ -373,16 +373,17 @@ class PyBulletEnv(BaseEnv):
         f_delta = self._action_to_finger_delta(action)
         return f_delta > self._finger_action_tol
 
-    def _get_finger_state(self, state: State) -> float:
+    def _get_finger_position(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
         state = cast(utils.PyBulletState, state)
-        joint_idx = self._pybullet_robot.left_finger_joint_idx
-        return state.joints_state[joint_idx]
+        joint_positions = state.joint_positions
+        finger_joint_idx = self._pybullet_robot.left_finger_joint_idx
+        return joint_positions[finger_joint_idx]
 
     def _action_to_finger_delta(self, action: Action) -> float:
-        finger_state = self._get_finger_state(self._current_state)
+        finger_position = self._get_finger_position(self._current_state)
         target = action.arr[-1]
-        return target - finger_state
+        return target - finger_position
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],

@@ -858,7 +858,7 @@ class PyBulletState(State):
     the features that are exposed in the object-centric state."""
 
     @property
-    def joints_state(self) -> JointPositions:
+    def joint_positions(self) -> JointPositions:
         """Expose the current joints state in the simulator_state."""
         return cast(JointPositions, self.simulator_state)
 
@@ -868,7 +868,7 @@ class PyBulletState(State):
 
     def copy(self) -> State:
         state_dict_copy = super().copy().data
-        simulator_state_copy = list(self.joints_state)
+        simulator_state_copy = list(self.joint_positions)
         return PyBulletState(state_dict_copy, simulator_state_copy)
 
 
