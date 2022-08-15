@@ -366,7 +366,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         WARNING: if validate is True, physics may be overridden, and so it
         should not be used within simulation.
         """
-        if self.ikfast_info():
+        if self.ikfast_info():  # pragma: no cover
             raise NotImplementedError(
                 "IKFast not supported yet. Coming soon...")
 

@@ -17,10 +17,8 @@ def create_single_arm_pybullet_robot(
         physics_client_id: int) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name == "fetch":
-        if robot_name not in _ROBOT_TO_BASE_POSE:
-            raise ValueError(
-                f"Base pose not specified for robot {robot_name}.")
-
+        assert robot_name in _ROBOT_TO_BASE_POSE, \
+            f"Base pose not specified for robot {robot_name}."
         base_pose = _ROBOT_TO_BASE_POSE[robot_name]
         return FetchPyBulletRobot(ee_home_pose,
                                   ee_orientation,

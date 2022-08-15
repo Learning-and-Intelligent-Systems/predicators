@@ -10,6 +10,7 @@ from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.joint import get_kinematic_chain
+from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
 from predicators.src.pybullet_helpers.robots import \
@@ -110,11 +111,9 @@ def test_pybullet_inverse_kinematics(scene_attributes):
             joint,
             targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
-    ee_link_state = p.getLinkState(
-        scene_attributes["fetch_id"],
-        scene_attributes["ee_id"],
-        computeForwardKinematics=True,
-        physicsClientId=scene_attributes["physics_client_id"])
+    ee_link_state = get_link_state(scene_attributes["fetch_id"],
+                                   scene_attributes["ee_id"],
+                                   scene_attributes["physics_client_id"])
     assert not np.allclose(
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
@@ -133,11 +132,9 @@ def test_pybullet_inverse_kinematics(scene_attributes):
             joint,
             targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
-    ee_link_state = p.getLinkState(
-        scene_attributes["fetch_id"],
-        scene_attributes["ee_id"],
-        computeForwardKinematics=True,
-        physicsClientId=scene_attributes["physics_client_id"])
+    ee_link_state = get_link_state(scene_attributes["fetch_id"],
+                                   scene_attributes["ee_id"],
+                                   scene_attributes["physics_client_id"])
     assert np.allclose(ee_link_state[4],
                        target_position,
                        atol=CFG.pybullet_ik_tol)
@@ -225,6 +222,7 @@ def test_create_single_arm_pybullet_robot():
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
+    assert robot.tool_link_name == "gripper_link"
 
     # Unknown robot
     with pytest.raises(NotImplementedError) as e:
