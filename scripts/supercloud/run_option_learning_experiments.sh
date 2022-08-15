@@ -16,9 +16,9 @@ ALL_NUM_TRAIN_TASKS=(
     "1000"
 )
 ENVS=(
-    "cover_multistep_options"
+    # "cover_multistep_options"
     "stick_button"
-    "doors"
+    # "doors"
     "coffee"
 )
 
@@ -28,7 +28,11 @@ for ENV in ${ENVS[@]}; do
         COMMON_ARGS="--env $ENV --min_perc_data_for_nsrt 1 \
                 --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
                 --gnn_num_epochs 1000 --disable_harmlessness_check True \
-                --neural_gaus_regressor_max_itr 50000"
+                --neural_gaus_regressor_max_itr 50000 \
+                --stick_button_num_buttons_train '[3,4]' \
+                --stick_button_num_buttons_test '[1,2]' \
+                --coffee_num_cups_train '[2,3]' \
+                --coffee_num_cups_train '[1,2]'"
 
         # Include the motion planning options for the doors environment.
         if [ $ENV = "doors" ]; then
@@ -54,8 +58,7 @@ for ENV in ${ENVS[@]}; do
             # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
             # direct BC (main approach)
-            # NOTE: LOADING
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load_a --load_d --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_revgen --approach nsrt_learning --option_learner direct_bc
 
             # GNN metacontroller with direct BC options
             # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_gnn_metacontroller_param_${NUM_TRAIN_TASKS} --approach gnn_metacontroller --option_learner direct_bc
