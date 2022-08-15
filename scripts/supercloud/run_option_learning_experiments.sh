@@ -62,7 +62,7 @@ for ENV in ${ENVS[@]}; do
             # direct BC (main approach) no expected atoms check
             # NOTE: LOADING
             # NOTE: sesame_check_expected_atoms False
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load-a --load-d --sesame_check_expected_atoms False --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_expected_atoms --load_experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load_approach --load_d --sesame_check_expected_atoms False --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_expected_atoms --load_experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
 
             # # direct BC (main approach) no filtering
             # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_no_filt --approach nsrt_learning --option_learner direct_bc
