@@ -143,7 +143,8 @@ def _main() -> None:
                                 label=label,
                                 color=color,
                                 marker=marker,
-                                alpha=0.5)
+                                alpha=0.5,
+                                linewidth=3)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
