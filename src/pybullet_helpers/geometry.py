@@ -1,7 +1,6 @@
 """PyBullet helper class for geometry utilities."""
 from __future__ import annotations
 
-from functools import cached_property
 from typing import NamedTuple, Tuple
 
 import numpy as np
@@ -14,6 +13,8 @@ from predicators.src.structs import Array
 Pose3D = Tuple[float, float, float]
 Quaternion = Tuple[float, float, float, float]
 RollPitchYaw = Tuple[float, float, float]
+
+from dataclasses import dataclass
 
 
 class Pose(NamedTuple):
@@ -32,7 +33,7 @@ class Pose(NamedTuple):
         """Create a Pose from translation and Euler roll-pitch-yaw angles."""
         return cls(translation, quaternion_from_euler(*rpy))
 
-    @cached_property
+    @property
     def rpy(self) -> RollPitchYaw:
         """Get the Euler roll-pitch-yaw representation."""
         return euler_from_quaternion(self.orientation)
@@ -50,6 +51,11 @@ class Pose(NamedTuple):
         """Invert the pose (i.e., transform)."""
         pos, quat = p.invertTransform(self.position, self.orientation)
         return Pose(pos, quat)
+
+    def allclose(self, other: Pose, atol: float = 1e-6) -> bool:
+        """Return whether this pose is close enough to another pose."""
+        return np.allclose(self.position, other.position, atol=atol) and \
+            np.allclose(self.orientation, other.orientation, atol=atol)
 
 
 def multiply_poses(*poses: Pose) -> Pose:
