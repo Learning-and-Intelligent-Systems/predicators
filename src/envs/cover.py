@@ -111,10 +111,12 @@ class CoverEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng,
+            num_irrelevant_objs=CFG.cover_train_num_irrelevant_blocks)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng,
+            num_irrelevant_objs=CFG.cover_test_num_irrelevant_blocks)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -230,19 +232,22 @@ class CoverEnv(BaseEnv):
                  state.get(targ, "pose") + state.get(targ, "width") / 10))
         return hand_regions
 
-    def _create_blocks_and_targets(self) -> Tuple[List[Object], List[Object]]:
+    def _create_blocks_and_targets(self, num_irrelevant_blocks: int) -> Tuple[List[Object], List[Object]]:
         blocks = []
         targets = []
         for i in range(CFG.cover_num_blocks):
             blocks.append(Object(f"block{i}", self._block_type))
+        for i in range(num_irrelevant_blocks):
+            blocks.append(Object(f"irrelevant-block{i}", self._block_type))
         for i in range(CFG.cover_num_targets):
             targets.append(Object(f"target{i}", self._target_type))
         return blocks, targets
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int, rng: np.random.Generator,
+                   num_irrelevant_objs: int) -> List[Task]:
         tasks = []
         # Create blocks and targets.
-        blocks, targets = self._create_blocks_and_targets()
+        blocks, targets = self._create_blocks_and_targets(num_irrelevant_objs)
         # Create goals.
         goal1 = {GroundAtom(self._Covers, [blocks[0], targets[0]])}
         goals = [goal1]
@@ -256,7 +261,7 @@ class CoverEnv(BaseEnv):
             goals.append(goal3)
         for i in range(num):
             init = self._create_initial_state(blocks, targets, rng)
-            assert init.get_objects(self._block_type) == blocks
+            # assert init.get_objects(self._block_type) == blocks
             assert init.get_objects(self._target_type) == targets
             tasks.append(Task(init, goals[i % len(goals)]))
         return tasks
@@ -822,6 +827,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         sufficiently tune the difficulty through hand region specification),
         and (2) choosing hand region intervals on the targets and blocks such
         that the problem is solvable."""
+        
+        irrelevant_blocks = [b for b in blocks if b.name.startswith("irrelevant")]
+        blocks = [b for b in blocks if b.name.startswith("block")]
         assert len(blocks) == CFG.cover_num_blocks
         assert len(targets) == CFG.cover_num_targets
 
@@ -884,6 +892,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 1.0, 0.0, width, x, -1.0, self.initial_block_y,
                 self.block_height
             ])
+
+        irrelevant_block_x = -100 # off screen
+        irrelevant_block_width = 1e-3  # doesn't matter
+        for irrelevant_block in irrelevant_blocks:
+            data[irrelevant_block] = np.array([
+                1.0, 0.0, irrelevant_block_width, irrelevant_block_x, -1.0,
+                self.initial_block_y,
+                self.block_height
+            ])
+
         # [x, y, grip, holding]
         data[self._robot] = np.array([0.0, self.initial_robot_y, -1.0, -1.0])
 
