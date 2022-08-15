@@ -25,8 +25,7 @@ ENVS=(
 for ENV in ${ENVS[@]}; do
     for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
 
-         # --min_perc_data_for_nsrt 1 \
-        COMMON_ARGS="--env $ENV \
+        COMMON_ARGS="--env $ENV --min_perc_data_for_nsrt 1 \
                 --segmenter contacts --num_train_tasks $NUM_TRAIN_TASKS --timeout 300 \
                 --gnn_num_epochs 1000 --disable_harmlessness_check True \
                 --neural_gaus_regressor_max_itr 50000"
@@ -60,8 +59,13 @@ for ENV in ${ENVS[@]}; do
             # included for this oracle approach.
             # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
-            # direct BC (main approach) no filtering
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_no_filt --approach nsrt_learning --option_learner direct_bc
+            # direct BC (main approach) no expected atoms check
+            # NOTE: LOADING
+            # NOTE: sesame_check_expected_atoms False
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --load-a --load-d --sesame_check_expected_atoms False --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_expected_atoms --approach nsrt_learning --option_learner direct_bc
+
+            # # direct BC (main approach) no filtering
+            # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_no_filt --approach nsrt_learning --option_learner direct_bc
 
             # # direct BC (main approach) reverse generalization
             # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_revgen --approach nsrt_learning --option_learner direct_bc
