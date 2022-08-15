@@ -60,8 +60,8 @@ for ENV in ${ENVS[@]}; do
             # included for this oracle approach.
             # python $FILE $COMMON_ARGS --experiment_id ${ENV}_oracle_options_${NUM_TRAIN_TASKS} --approach nsrt_learning --strips_learner oracle
 
-            # # direct BC (main approach) no filtering
-            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS} --approach nsrt_learning --option_learner direct_bc
+            # direct BC (main approach) no filtering
+            python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_no_filt --approach nsrt_learning --option_learner direct_bc
 
             # # direct BC (main approach) reverse generalization
             # python $FILE $COMMON_ARGS $INCLUDED_OPTIONS --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}_revgen --approach nsrt_learning --option_learner direct_bc
