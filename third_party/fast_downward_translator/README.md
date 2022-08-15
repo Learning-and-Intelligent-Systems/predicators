@@ -1,4 +1,4 @@
-Fast Downward translator, with light modifications made by Rohan.
+Fast Downward translator, with light modifications.
 
 Code copied from the `src/translate/` directory in the [official repository at this commit from May 9, 2022](https://github.com/aibasel/downward/tree/3e3759d091196515fa68c44a729153100747c4bf). All credits go to the original authors.
 
