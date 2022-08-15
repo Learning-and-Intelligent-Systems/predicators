@@ -191,21 +191,35 @@ def _generate_or_load_offline_dataset(
         env: BaseEnv, train_tasks: List[Task],
         known_options: Set[ParameterizedOption]) -> Dataset:
     """Create offline dataset from training tasks."""
-    dataset_filename = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
-        f"__{CFG.included_options}__{CFG.seed}.data")
+    if CFG.env == "singleton_cover":
+        dataset_filename = (
+            f"cover_multistep_options__{CFG.offline_data_method}__{CFG.num_train_tasks}"
+            f"__{CFG.included_options}__{CFG.seed}.data")
+    else:
+        dataset_filename = (
+            f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
+            f"__{CFG.included_options}__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
         assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
         with open(dataset_filepath, "rb") as f:
             dataset = pkl.load(f)
         logging.info("\n\nLOADED DATASET")
+        if CFG.env == "singleton_cover":
+            singleton_option, = env.options
+            for traj in dataset._trajectories:
+                for state, action in zip(traj.states, traj.actions):
+                    # HACK
+                    option = singleton_option.ground([], action.arr)
+                    assert option.initiable(state)
+                    action.set_option(option)
     else:
         dataset = create_dataset(env, train_tasks, known_options)
         logging.info("\n\nCREATED DATASET")
         os.makedirs(CFG.data_dir, exist_ok=True)
-        with open(dataset_filepath, "wb") as f:
-            pkl.dump(dataset, f)
+        if CFG.env != "singleton_cover":
+            with open(dataset_filepath, "wb") as f:
+                pkl.dump(dataset, f)
     return dataset
 
 

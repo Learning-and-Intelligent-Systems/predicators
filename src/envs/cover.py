@@ -1135,3 +1135,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
                (by - bh == 0)
+
+
+
+class SingletonCoverMultistepOption(CoverMultistepOptions):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._SingletonOption = utils.SingletonParameterizedOption(
+            "SingletonOption",
+            policy=lambda s,m,o,p: Action(p),
+            params_space=self.action_space)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "singleton_cover"
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._SingletonOption}
+
