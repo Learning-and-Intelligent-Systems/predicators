@@ -14,8 +14,6 @@ Pose3D = Tuple[float, float, float]
 Quaternion = Tuple[float, float, float, float]
 RollPitchYaw = Tuple[float, float, float]
 
-from dataclasses import dataclass
-
 
 class Pose(NamedTuple):
     """Pose which is a position (translation) and rotation.
