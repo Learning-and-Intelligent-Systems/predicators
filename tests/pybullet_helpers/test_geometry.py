@@ -1,8 +1,10 @@
 """Tests for geometry PyBullet helper utilities."""
 
 import numpy as np
+import pybullet as p
 
-from predicators.src.pybullet_helpers.geometry import Pose, matrix_from_quat
+from predicators.src.pybullet_helpers.geometry import Pose, get_pose, \
+    matrix_from_quat
 
 
 def test_pose():
@@ -35,3 +37,22 @@ def test_matrix_from_quat():
         [0.0, 1.0, 0.0],
     ])
     assert np.allclose(mat, expected_mat)
+
+
+def test_get_pose():
+    """Tests for get_pose()."""
+    physics_client_id = p.connect(p.DIRECT)
+    collision_id = p.createCollisionShape(p.GEOM_BOX,
+                                          halfExtents=[1, 1, 1],
+                                          physicsClientId=physics_client_id)
+    mass = 0
+    position = (1.0, 0.0, 3.0)
+    orientation = (0.0, 1.0, 0.0, 0.0)
+    expected_pose = Pose(position, orientation)
+    body = p.createMultiBody(mass,
+                             collision_id,
+                             basePosition=position,
+                             baseOrientation=orientation,
+                             physicsClientId=physics_client_id)
+    pose = get_pose(body, physics_client_id)
+    assert pose.allclose(expected_pose)

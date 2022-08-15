@@ -10,7 +10,8 @@ from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.src.pybullet_helpers.joint import get_kinematic_chain
-from predicators.src.pybullet_helpers.link import get_link_state
+from predicators.src.pybullet_helpers.link import BASE_LINK, get_link_pose, \
+    get_link_state
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
 from predicators.src.pybullet_helpers.robots import \
@@ -43,6 +44,8 @@ def _setup_pybullet_test_scene():
                                       base_pose,
                                       base_orientation,
                                       physicsClientId=physics_client_id)
+    reconstructed_pose = get_link_pose(fetch_id, BASE_LINK, physics_client_id)
+    assert reconstructed_pose.allclose(Pose(base_pose, base_orientation))
 
     joint_names = [
         p.getJointInfo(fetch_id, i,
