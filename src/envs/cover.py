@@ -120,10 +120,26 @@ class CoverEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {
+        predicates = {
             self._IsBlock, self._IsTarget, self._Covers, self._HandEmpty,
             self._Holding
         }
+        for i in range(CFG.cover_num_irrelevant_static_preds):
+            pred = Predicate(f"IrrelevantStatic{i}", [self._robot_type],
+                             lambda _1,_2: True)
+            predicates.add(pred)
+        for i in range(CFG.cover_num_irrelevant_dynamic_preds):
+            thresh = self._train_rng.uniform(0, self.initial_robot_y)
+            pred = Predicate(f"IrrelevantDynamic{i}", [self._robot_type],
+                             lambda s,o: s.get(o[0], "y") > thresh)
+            predicates.add(pred)
+        import sys
+        for i in range(CFG.cover_num_irrelevant_random_preds):
+            thresh = self._train_rng.integers(-10000, 10000)
+            pred = Predicate(f"IrrelevantRandom{i}", [self._robot_type],
+                             lambda s,o: id(s) - id(o) < thresh)
+            predicates.add(pred)
+        return predicates
 
     @property
     def goal_predicates(self) -> Set[Predicate]:

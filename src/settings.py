@@ -41,6 +41,9 @@ class GlobalSettings:
     cover_num_blocks = 2
     cover_train_num_irrelevant_blocks = 0
     cover_test_num_irrelevant_blocks = 0
+    cover_num_irrelevant_static_preds = 0
+    cover_num_irrelevant_dynamic_preds = 0
+    cover_num_irrelevant_random_preds = 0
     cover_num_targets = 2
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
