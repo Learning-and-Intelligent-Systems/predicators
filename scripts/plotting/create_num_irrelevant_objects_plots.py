@@ -69,11 +69,11 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Impact of Irrelevant Objects: Train": [
+    "Irrelevant Objects During Training": [
         ("Cover", "o",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_train_" in v)),
     ],
-    "Impact of Irrelevant Objects: Eval": [
+    "Irrelevant Objects During Eval": [
         ("Cover", "o",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_test_" in v)),
     ],
@@ -121,7 +121,7 @@ def _main() -> None:
                 ax.set_ylabel(y_label)
                 if y_key == "PERC_SOLVED":
                     ax.set_ylim(Y_LIM)
-                plt.legend()
+                # plt.legend()
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
