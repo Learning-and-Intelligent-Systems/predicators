@@ -5,12 +5,12 @@ test_nsrt_learning_approach.py, which runs end-to-end tests of the
 algorithms on actual domains.
 """
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.strips_learning import \
+from predicators import utils
+from predicators.nsrt_learning.strips_learning import \
     learn_strips_operators
-from predicators.src.structs import Action, LowLevelTrajectory, Predicate, \
+from predicators.structs import Action, LowLevelTrajectory, Predicate, \
     Segment, State, Task, Type
-from predicators.tests.nsrt_learning.test_segmentation import \
+from tests.nsrt_learning.test_segmentation import \
     test_segment_trajectory
 
 

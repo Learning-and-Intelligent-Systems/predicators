@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv, CoverEnvRegrasp, \
+from predicators import utils
+from predicators.envs.cover import CoverEnv, CoverEnvRegrasp, \
     CoverEnvTypedOptions, CoverMultistepOptions
-from predicators.src.structs import Action, Task
+from predicators.structs import Action, Task
 
 
 def test_cover():

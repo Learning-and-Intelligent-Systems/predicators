@@ -2,13 +2,13 @@
 
 import shutil
 
-from predicators.src import utils
-from predicators.src.approaches.llm_bilevel_planning_approach import \
+from predicators import utils
+from predicators.approaches.llm_bilevel_planning_approach import \
     LLMBilevelPlanningApproach
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.llm_interface import LargeLanguageModel
+from predicators.approaches.oracle_approach import OracleApproach
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.llm_interface import LargeLanguageModel
 
 
 def test_llm_bilevel_planning_approach():

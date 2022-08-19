@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.touch_point import TouchPointEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.touch_point import TouchPointEnv
+from predicators.structs import Action
 
 
 def test_touch_point():

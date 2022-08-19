@@ -2,14 +2,14 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches.nsrt_rl_approach import \
+from predicators import utils
+from predicators.approaches.nsrt_rl_approach import \
     NSRTReinforcementLearningApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs.cover import CoverMultistepOptions
-from predicators.src.main import _generate_interaction_results
-from predicators.src.structs import InteractionResult, Task
-from predicators.src.teacher import Teacher
+from predicators.datasets import create_dataset
+from predicators.envs.cover import CoverMultistepOptions
+from predicators.main import _generate_interaction_results
+from predicators.structs import InteractionResult, Task
+from predicators.teacher import Teacher
 
 
 class _MockNSRTReinforcementLearningApproach(NSRTReinforcementLearningApproach

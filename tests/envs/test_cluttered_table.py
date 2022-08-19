@@ -3,10 +3,10 @@
 import numpy as np
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
+from predicators import utils
+from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
-from predicators.src.structs import Action, GroundAtom
+from predicators.structs import Action, GroundAtom
 
 
 def test_cluttered_table(place_version=False):

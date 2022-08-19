@@ -10,10 +10,10 @@ The default branch can be overridden with the --branch flag.
 import argparse
 import sys
 
-from predicators.scripts.cluster_utils import DEFAULT_BRANCH, SUPERCLOUD_IP, \
+from scripts.cluster_utils import DEFAULT_BRANCH, SUPERCLOUD_IP, \
     BatchSeedRunConfig, config_to_cmd_flags, config_to_logfile, \
     generate_run_configs, get_cmds_to_prep_repo, run_cmds_on_machine
-from predicators.scripts.supercloud.submit_supercloud_job import \
+from scripts.supercloud.submit_supercloud_job import \
     submit_supercloud_job
 
 

@@ -4,16 +4,16 @@ import numpy as np
 import pybullet as p
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.pybullet_env import create_pybullet_block
-from predicators.src.pybullet_helpers.inverse_kinematics import \
+from predicators import utils
+from predicators.envs.pybullet_env import create_pybullet_block
+from predicators.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
-from predicators.src.pybullet_helpers.motion_planning import \
+from predicators.pybullet_helpers.motion_planning import \
     run_motion_planning
-from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
+from predicators.pybullet_helpers.robots import FetchPyBulletRobot, \
     create_single_arm_pybullet_robot
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain
-from predicators.src.settings import CFG
+from predicators.pybullet_helpers.utils import get_kinematic_chain
+from predicators.settings import CFG
 
 
 @pytest.fixture(scope="module", name="scene_attributes")

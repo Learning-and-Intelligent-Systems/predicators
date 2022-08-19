@@ -6,14 +6,14 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.datasets import create_dataset
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.cluttered_table import ClutteredTableEnv
-from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names
-from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, GroundAtom, Task
+from predicators import utils
+from predicators.datasets import create_dataset
+from predicators.envs.blocks import BlocksEnv
+from predicators.envs.cluttered_table import ClutteredTableEnv
+from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.settings import CFG
+from predicators.structs import Dataset, GroundAtom, Task
 
 
 def test_demo_dataset():

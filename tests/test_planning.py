@@ -7,18 +7,18 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.option_model import _OptionModelBase, \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout
+from predicators.approaches.oracle_approach import OracleApproach
+from predicators.envs.cover import CoverEnv
+from predicators.envs.painting import PaintingEnv
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.option_model import _OptionModelBase, \
     _OracleOptionModel, create_option_model
-from predicators.src.planning import PlanningFailure, PlanningTimeout, \
+from predicators.planning import PlanningFailure, PlanningTimeout, \
     _run_plan_with_option_model, sesame_plan, task_plan, task_plan_grounding
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, ParameterizedOption, \
     Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 

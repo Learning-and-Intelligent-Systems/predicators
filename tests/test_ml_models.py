@@ -5,8 +5,8 @@ import time
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.ml_models import BinaryClassifierEnsemble, \
+from predicators import utils
+from predicators.ml_models import BinaryClassifierEnsemble, \
     DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
     KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
     MLPRegressor, NeuralGaussianRegressor

@@ -16,7 +16,7 @@ The default branch can be overridden with the --branch flag.
 import argparse
 import os
 
-from predicators.scripts.cluster_utils import DEFAULT_BRANCH, \
+from scripts.cluster_utils import DEFAULT_BRANCH, \
     SingleSeedRunConfig, config_to_cmd_flags, config_to_logfile, \
     generate_run_configs, get_cmds_to_prep_repo, run_cmds_on_machine
 
@@ -46,7 +46,7 @@ def _main() -> None:
         assert isinstance(cfg, SingleSeedRunConfig)
         logfile = os.path.join("logs", config_to_logfile(cfg))
         cmd_flags = config_to_cmd_flags(cfg)
-        cmd = f"python3.8 src/main.py {cmd_flags}"
+        cmd = f"python3.8 predicators/main.py {cmd_flags}"
         _launch_experiment(cmd, machine, logfile, args.sshkey, args.branch)
 
 

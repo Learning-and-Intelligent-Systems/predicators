@@ -6,15 +6,15 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
+from predicators import utils
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
+from predicators.settings import CFG
+from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
-from predicators.tests.conftest import longrun
+from tests.conftest import longrun
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):

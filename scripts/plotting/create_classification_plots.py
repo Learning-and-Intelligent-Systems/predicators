@@ -7,16 +7,16 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from predicators.scripts.evaluate_interactive_approach_classifiers import \
+from scripts.evaluate_interactive_approach_classifiers import \
     create_states_cover
-from predicators.src import utils
-from predicators.src.approaches import create_approach
-from predicators.src.approaches.interactive_learning_approach import \
+from predicators import utils
+from predicators.approaches import create_approach
+from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.envs import create_new_env
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import Array, Image, Predicate, Task
+from predicators.envs import create_new_env
+from predicators.envs.cover import CoverEnv
+from predicators.settings import CFG
+from predicators.structs import Array, Image, Predicate, Task
 
 
 def _main() -> None:

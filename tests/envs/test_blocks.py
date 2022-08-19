@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.blocks import BlocksEnv
+from predicators import utils
+from predicators.envs.blocks import BlocksEnv
 
 
 def test_blocks():

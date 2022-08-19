@@ -4,16 +4,16 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, create_approach
-from predicators.src.approaches.gnn_metacontroller_approach import \
+from predicators import utils
+from predicators.approaches import ApproachFailure, create_approach
+from predicators.approaches.gnn_metacontroller_approach import \
     GNNMetacontrollerApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.gnn.gnn_utils import get_single_model_prediction
-from predicators.src.option_model import _OptionModelBase
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.gnn.gnn_utils import get_single_model_prediction
+from predicators.option_model import _OptionModelBase
+from predicators.settings import CFG
+from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Task, Type
 
 

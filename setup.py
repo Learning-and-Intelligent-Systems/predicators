@@ -1,11 +1,10 @@
 """Setup script."""
 
-from setuptools import find_namespace_packages, setup
+from setuptools import setup
 
 setup(name="predicators",
       version="0.1.0",
-      packages=find_namespace_packages(where='src'),
-      package_dir={"": "src"},
+      packages=['predicators'],
       install_requires=[
           "numpy>=1.22.3", "pytest", "gym==0.21.0", "matplotlib", "imageio",
           "imageio-ffmpeg", "pandas", "torch", "scipy", "tabulate", "dill",
@@ -13,7 +12,6 @@ setup(name="predicators",
           "sklearn", "pyqt5", "graphlib-backport", "openai", "pyyaml",
           "types-PyYAML"
       ],
-      setup_requires=['setuptools_scm'],
       include_package_data=True,
       extras_require={
           "develop": [

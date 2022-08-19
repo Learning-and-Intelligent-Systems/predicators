@@ -5,15 +5,15 @@ from typing import List, Optional, Sequence
 
 import numpy as np
 
-from predicators.scripts.evaluate_interactive_approach_classifiers import \
+from scripts.evaluate_interactive_approach_classifiers import \
     create_states_cover, evaluate_approach
-from predicators.src import utils
-from predicators.src.approaches.interactive_learning_approach import \
+from predicators import utils
+from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.envs import BaseEnv
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import Object, State
+from predicators.envs import BaseEnv
+from predicators.envs.cover import CoverEnv
+from predicators.settings import CFG
+from predicators.structs import Object, State
 
 
 def evaluate_pred_ensemble(env: BaseEnv, approach: InteractiveLearningApproach,
