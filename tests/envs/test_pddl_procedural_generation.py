@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from predicators.src.envs.pddl_procedural_generation import \
+from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
     create_forest_pddl_generator, create_spanner_pddl_generator
 

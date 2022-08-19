@@ -8,11 +8,7 @@ from setuptools import find_packages, setup
 
 setup(name="predicators",
       version="0.1.0",
-      # Tried:
-      # packages=find_packages(include=["predicators.src.*"]),
-      # packages=find_packages(include=["src.*"]),
-      # package_dir = {"": "src"}
-      packages=find_packages(include=["predicators", "predicators.src.*"]),
+      packages=find_packages(include=["predicators", "predicators.*"]),
       install_requires=[
           "numpy>=1.22.3", "pytest", "gym==0.21.0", "matplotlib", "imageio",
           "imageio-ffmpeg", "pandas", "torch", "scipy", "tabulate", "dill",

@@ -3,10 +3,10 @@
 import numpy as np
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.nsrt_learning_main import \
+from predicators import utils
+from predicators.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
-from predicators.src.structs import Action, LowLevelTrajectory, Predicate, \
+from predicators.structs import Action, LowLevelTrajectory, Predicate, \
     State, Type
 
 

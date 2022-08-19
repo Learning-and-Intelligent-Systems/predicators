@@ -3,23 +3,24 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
-from predicators.src.datasets import create_dataset
-from predicators.src.datasets.demo_replay import create_demo_replay_data
-from predicators.src.envs import create_new_env
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.ml_models import MLPRegressor
-from predicators.src.nsrt_learning.option_learning import \
+from predicators.datasets import create_dataset
+from predicators.datasets.demo_replay import create_demo_replay_data
+from predicators.envs import create_new_env
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.ml_models import MLPRegressor
+from predicators.nsrt_learning.option_learning import \
     _LearnedNeuralParameterizedOption, create_option_learner, \
     create_rl_option_learner
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning import \
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning import \
     learn_strips_operators
-from predicators.src.settings import CFG
-from predicators.src.structs import STRIPSOperator
-from predicators.tests.conftest import longrun
+from predicators.settings import CFG
+from predicators.structs import STRIPSOperator
+
+longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
 def test_known_options_option_learner():

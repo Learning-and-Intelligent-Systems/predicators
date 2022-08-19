@@ -1,9 +1,9 @@
 """Test cases for the random actions approach class."""
 
-from predicators.src import utils
-from predicators.src.approaches.random_actions_approach import \
+from predicators import utils
+from predicators.approaches.random_actions_approach import \
     RandomActionsApproach
-from predicators.src.envs.cover import CoverEnv
+from predicators.envs.cover import CoverEnv
 
 
 def test_random_actions_approach():

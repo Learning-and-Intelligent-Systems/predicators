@@ -12,7 +12,7 @@ from collections import defaultdict
 import dill as pkl
 import matplotlib.pyplot as plt
 
-from predicators.src.settings import CFG
+from predicators.settings import CFG
 
 DPI = 500
 

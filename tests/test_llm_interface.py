@@ -5,8 +5,8 @@ import shutil
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.llm_interface import LargeLanguageModel, OpenAILLM
+from predicators import utils
+from predicators.llm_interface import LargeLanguageModel, OpenAILLM
 
 
 class _DummyLLM(LargeLanguageModel):

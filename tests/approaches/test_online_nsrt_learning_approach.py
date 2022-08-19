@@ -2,16 +2,16 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.online_nsrt_learning_approach import \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout
+from predicators.approaches.online_nsrt_learning_approach import \
     OnlineNSRTLearningApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import _generate_interaction_results
-from predicators.src.settings import CFG
-from predicators.src.structs import Dataset
-from predicators.src.teacher import Teacher
+from predicators.datasets import create_dataset
+from predicators.envs.cover import CoverEnv
+from predicators.main import _generate_interaction_results
+from predicators.settings import CFG
+from predicators.structs import Dataset
+from predicators.teacher import Teacher
 
 
 def test_online_nsrt_learning_approach():

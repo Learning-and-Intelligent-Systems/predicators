@@ -4,8 +4,8 @@ import os
 import subprocess
 import sys
 
-from predicators.src import utils
-from predicators.src.settings import CFG
+from predicators import utils
+from predicators.settings import CFG
 
 START_SEED = 456
 NUM_SEEDS = 10

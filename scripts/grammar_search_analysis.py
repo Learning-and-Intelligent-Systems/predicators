@@ -9,18 +9,18 @@ from typing import Any, DefaultDict, Dict, List, Sequence, Set, Tuple
 
 import pandas as pd
 
-from predicators.src import utils
-from predicators.src.approaches import create_approach
-from predicators.src.approaches.grammar_search_invention_approach import \
+from predicators import utils
+from predicators.approaches import create_approach
+from predicators.approaches.grammar_search_invention_approach import \
     _ForallClassifier, _SingleAttributeCompareClassifier
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import BaseEnv, create_new_env
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names
-from predicators.src.main import _run_testing
-from predicators.src.predicate_search_score_functions import \
+from predicators.datasets import create_dataset
+from predicators.envs import BaseEnv, create_new_env
+from predicators.envs.cover import CoverEnv
+from predicators.ground_truth_nsrts import _get_predicates_by_names
+from predicators.main import _run_testing
+from predicators.predicate_search_score_functions import \
     create_score_function
-from predicators.src.structs import Dataset, Object, Predicate, State, Task
+from predicators.structs import Dataset, Object, Predicate, State, Task
 
 DEFAULT_ENV_NAMES = [
     "cover",

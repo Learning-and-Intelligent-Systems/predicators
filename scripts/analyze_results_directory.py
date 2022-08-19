@@ -8,7 +8,7 @@ import dill as pkl
 import numpy as np
 import pandas as pd
 
-from predicators.src.settings import CFG
+from predicators.settings import CFG
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--sidelining", action="store_true")

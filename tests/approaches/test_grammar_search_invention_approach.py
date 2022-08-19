@@ -5,15 +5,15 @@ from operator import gt
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches.grammar_search_invention_approach import \
+from predicators import utils
+from predicators.approaches.grammar_search_invention_approach import \
     _create_grammar, _DataBasedPredicateGrammar, _ForallClassifier, \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
+from predicators.envs.cover import CoverEnv
+from predicators.settings import CFG
+from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     Object, Predicate, State, Type
 
 
