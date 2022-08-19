@@ -50,12 +50,13 @@ def learn_nsrts_from_data(
         random.seed(rnd_seed)
         ground_atom_dataset.sort(key = sorting_heuristic)
         return trajectories, ground_atom_dataset
+    #
 
     # TODO search over data orderings
     max_num_orderings = 10
-    min_num_pnads = 100000
-    best_pnads = None
+    smallest_pnads = None
     for i in range(max_num_orderings):
+        # Step 0: Shuffle dataset to learn from. 
         trajectories, ground_atom_dataset = order_data(trajectories, ground_atom_dataset)
 
         # STEP 1: Segment each trajectory in the dataset based on changes in
@@ -65,11 +66,6 @@ def learn_nsrts_from_data(
         segmented_trajs = [
             segment_trajectory(traj) for traj in ground_atom_dataset
         ]
-        # We delete ground_atom_dataset because it's prone to causing bugs --
-        # we should rarely care about the low-level ground atoms sequence after
-        # segmentation.
-        # del ground_atom_dataset
-
         # If performing goal-conditioned sampler learning, we need to attach the
         # goals to the segments.
         if CFG.sampler_learning_use_goals:
@@ -86,7 +82,6 @@ def learn_nsrts_from_data(
         #         PartialNSRTAndDatastore (PNAD) objects. Each PNAD contains a
         #         STRIPSOperator, Datastore, and OptionSpec. The samplers will be
         #         filled in on a later step.
-
         pnads = learn_strips_operators(
             trajectories,
             train_tasks,
@@ -95,11 +90,17 @@ def learn_nsrts_from_data(
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"))
 
-        if len(pnads) < min_num_pnads:
-            min_num_pnads = len(pnads)
-            best_pnads = pnads
+        # Save smallest learned PNAD set across data orderings.
+        if smallest_pnads is None or len(pnads) < len(smallest_pnads):
+            smallest_pnads = pnads
 
-    pnads = best_pnads
+    assert smallest_pnads is not None
+    pnads = smallest_pnads
+
+    # We delete ground_atom_dataset because it's prone to causing bugs --
+    # we should rarely care about the low-level ground atoms sequence after
+    # segmentation.
+    # del ground_atom_dataset
     del ground_atom_dataset
 
     # STEP 3: Learn options (option_learning.py) and update PNADs.
