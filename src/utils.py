@@ -2243,6 +2243,12 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
     """Create a PDDL domain str from STRIPSOperators or NSRTs."""
     # Sort everything to ensure determinism.
     preds_lst = sorted(predicates)
+    # Organize the type hierarchy.
+    parent_to_children_types = {t: [] for t in types}
+    for t in sorted(types):
+        if t.parent:
+            parent_to_children_types[t.parent].append(t)
+    import ipdb; ipdb.set_trace()
     types_lst = sorted(types)
     ops_lst = sorted(operators)
     types_str = " ".join(t.name for t in types_lst)

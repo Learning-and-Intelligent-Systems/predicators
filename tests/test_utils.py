@@ -12,6 +12,7 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.src.envs.pddl_env import ProceduralTasksSpannerPDDLEnv
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
@@ -2250,6 +2251,15 @@ def test_create_pddl():
   (:goal (and (Covers block0 target0)))
 )
 """
+
+    # Test spanner domain, which has hierarchical types.
+    utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
+    # All predicates and options
+    env = ProceduralTasksSpannerPDDLEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+                                          "spanner")
+    import ipdb; ipdb.set_trace()
 
 
 def test_VideoMonitor():
