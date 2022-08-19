@@ -11,6 +11,7 @@ from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, Object, OptionSpec, PartialNSRTAndDatastore, \
     Predicate, Segment, State, STRIPSOperator, Task, Variable, \
     _GroundSTRIPSOperator
+from predicators.src.utils import HarmlessnessCheckFailure
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -43,14 +44,32 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
-        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
-            logging.info("\nRunning harmlessness check...")
-            assert self._check_harmlessness(learned_pnads)
-        min_data = max(CFG.min_data_for_nsrt,
-                       self._num_segments * CFG.min_perc_data_for_nsrt / 100)
-        learned_pnads = [
-            pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
-        ]
+        min_harmless_pnads =  learned_pnads
+        init_min_data_for_nsrt = CFG.min_data_for_nsrt
+        #
+        # TODO Remove pnads by increasing min_data_perc until harmlessness breaks
+        # Make this a learn_strips_operators_with_pruning(...) function
+        for tmp_min_data_for_nsrt in range(init_min_data_for_nsrt, 101):
+            CFG.min_data_for_nsrt = tmp_min_data_for_nsrt
+            learned_pnads = self._learn()
+            min_data = max(CFG.min_data_for_nsrt,
+                        self._num_segments * CFG.min_perc_data_for_nsrt / 100)
+            learned_pnads = [
+                pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
+            ]
+            if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+                logging.info("\nRunning harmlessness check...")
+                if not self._check_harmlessness(learned_pnads):
+                    CFG.min_data_for_nsrt -= 1
+                    break
+            else:
+                break
+
+            min_harmless_pnads = learned_pnads
+
+            if CFG.disable_harmlessness_check:
+                break
+        learned_pnads = min_harmless_pnads
         return learned_pnads
 
     @abc.abstractmethod
