@@ -21,7 +21,7 @@ jobs:
         pip install pytest-cov
     - name: Pytest
       run: |
-        pytest -s tests/ --cov-config=.coveragerc --cov=llm4pddl/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
+        pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
       env:
         PYTHONHASHSEED: 0
   static-type-checking:
