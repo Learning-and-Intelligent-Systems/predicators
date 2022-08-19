@@ -20,9 +20,9 @@ from torch.utils.data import DataLoader
 from predicators import utils
 from predicators.approaches import BaseApproach
 from predicators.gnn.gnn import EncodeProcessDecode, setup_graph_net
-from predicators.gnn.gnn_utils import GraphDictDataset, \
-    compute_normalizers, get_single_model_prediction, graph_batch_collate, \
-    normalize_graph, train_model
+from predicators.gnn.gnn_utils import GraphDictDataset, compute_normalizers, \
+    get_single_model_prediction, graph_batch_collate, normalize_graph, \
+    train_model
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, ParameterizedOption, \
     Predicate, State, Task, Type

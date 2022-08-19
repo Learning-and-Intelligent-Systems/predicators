@@ -24,8 +24,7 @@ from typing_extensions import TypeAlias
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
-from predicators.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.planning import PlanningFailure, run_low_level_search
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Box, Dataset, GroundAtom, \

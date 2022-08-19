@@ -11,8 +11,7 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.base_approach import ApproachFailure, \
     ApproachTimeout
-from predicators.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.nsrt_learning.option_learning import \
     _LearnedNeuralParameterizedOption, _RLOptionLearnerBase, \
     create_rl_option_learner

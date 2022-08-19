@@ -15,8 +15,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.envs.painting import PaintingEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Object, \
-    ParameterizedOption, Predicate, State, Task
+from predicators.structs import Action, Array, Object, ParameterizedOption, \
+    Predicate, State, Task
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):

@@ -14,10 +14,9 @@ import numpy as np
 
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import \
-    learn_strips_operators
-from predicators.planning import PlanningFailure, PlanningTimeout, \
-    task_plan, task_plan_grounding
+from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
+    task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \

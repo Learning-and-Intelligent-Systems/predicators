@@ -4,10 +4,9 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
-from predicators.structs import Action, LowLevelTrajectory, Predicate, \
-    State, Type
+from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
+from predicators.structs import Action, LowLevelTrajectory, Predicate, State, \
+    Type
 
 
 def test_nsrt_learning_specific_nsrts():

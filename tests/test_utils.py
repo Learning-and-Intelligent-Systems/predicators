@@ -19,8 +19,8 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
     State, STRIPSOperator, Type, Variable
-from predicators.utils import GoalCountHeuristic, \
-    _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
+    _TaskPlanningHeuristic
 
 
 @pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",
