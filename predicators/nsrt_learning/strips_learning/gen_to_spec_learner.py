@@ -8,8 +8,8 @@ from typing import Dict, List, Set
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import ParameterizedOption, PartialNSRTAndDatastore, \
-    Segment, STRIPSOperator
+from predicators.structs import ParameterizedOption, \
+    PartialNSRTAndDatastore, Segment, STRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):

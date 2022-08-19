@@ -8,15 +8,16 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.explorers import create_explorer
 from predicators.ml_models import BinaryClassifierEnsemble, \
     KNeighborsClassifier, LearnedPredicateClassifier, MLPBinaryClassifier
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtom, GroundAtomsHoldQuery, \
-    GroundAtomsHoldResponse, InteractionRequest, InteractionResult, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Query, State, Task, \
-    Type
+from predicators.structs import Dataset, GroundAtom, \
+    GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Query, State, Task, Type
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):

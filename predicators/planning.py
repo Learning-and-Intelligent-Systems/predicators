@@ -24,10 +24,10 @@ import numpy as np
 from predicators import utils
 from predicators.option_model import _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import NSRT, AbstractPolicy, Action, DefaultState, \
-    DummyOption, GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
-    ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
-    _GroundNSRT, _Option
+from predicators.structs import NSRT, AbstractPolicy, Action, \
+    DefaultState, DummyOption, GroundAtom, LowLevelTrajectory, Metrics, \
+    Object, OptionSpec, ParameterizedOption, Predicate, State, \
+    STRIPSOperator, Task, Type, _GroundNSRT, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"

@@ -11,7 +11,8 @@ from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.settings import CFG
 from predicators.structs import NSRT, GroundAtomTrajectory, \
     LowLevelTrajectory, ParameterizedOption, PartialNSRTAndDatastore, \

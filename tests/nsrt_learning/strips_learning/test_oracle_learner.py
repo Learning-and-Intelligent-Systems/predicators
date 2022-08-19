@@ -4,7 +4,8 @@ from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.nsrt_learning.strips_learning import \
+    learn_strips_operators
 
 
 def test_oracle_strips_learner():

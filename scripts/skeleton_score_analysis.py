@@ -19,9 +19,10 @@ from predicators import utils
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
-from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
-    task_plan_grounding
+from predicators.nsrt_learning.strips_learning import \
+    learn_strips_operators
+from predicators.planning import PlanningFailure, PlanningTimeout, \
+    task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import Dataset, Predicate, Task
 

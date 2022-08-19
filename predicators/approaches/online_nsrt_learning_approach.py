@@ -20,7 +20,8 @@ from typing import DefaultDict, FrozenSet, List, Sequence, Set
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.explorers import create_explorer
 from predicators.settings import CFG
 from predicators.structs import Dataset, GroundAtom, InteractionRequest, \

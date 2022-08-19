@@ -11,10 +11,11 @@ from typing import Callable, Dict, Set
 
 from predicators import utils
 from predicators.approaches import ApproachFailure
-from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.settings import CFG
-from predicators.structs import Action, DummyOption, GroundAtom, State, Task, \
-    _GroundNSRT, _Option
+from predicators.structs import Action, DummyOption, GroundAtom, State, \
+    Task, _GroundNSRT, _Option
 
 
 class NSRTMetacontrollerApproach(NSRTLearningApproach):

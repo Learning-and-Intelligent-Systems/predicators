@@ -9,14 +9,15 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
-from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
+from predicators.envs.pybullet_env import PyBulletEnv, \
+    create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, Pose3D, \
-    State
+from predicators.structs import Array, Object, ParameterizedOption, \
+    Pose3D, State
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):

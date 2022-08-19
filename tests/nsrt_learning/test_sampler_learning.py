@@ -6,9 +6,10 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cluttered_table import ClutteredTablePlaceEnv
-from predicators.ml_models import MLPBinaryClassifier, NeuralGaussianRegressor
-from predicators.nsrt_learning.sampler_learning import _create_sampler_data, \
-    _LearnedSampler, learn_samplers
+from predicators.ml_models import MLPBinaryClassifier, \
+    NeuralGaussianRegressor
+from predicators.nsrt_learning.sampler_learning import \
+    _create_sampler_data, _LearnedSampler, learn_samplers
 from predicators.structs import Action, LiftedAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, State, Type
 

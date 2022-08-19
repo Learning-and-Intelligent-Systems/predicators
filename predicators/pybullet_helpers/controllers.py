@@ -8,8 +8,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
-from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    Pose3D, State, Type
+from predicators.structs import Action, Array, Object, \
+    ParameterizedOption, Pose3D, State, Type
 
 
 def create_move_end_effector_to_pose_option(

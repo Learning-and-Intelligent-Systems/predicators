@@ -13,8 +13,8 @@ from predicators.approaches.grammar_search_invention_approach import \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
 from predicators.envs.cover import CoverEnv
 from predicators.settings import CFG
-from predicators.structs import Action, Dataset, LowLevelTrajectory, Object, \
-    Predicate, State, Type
+from predicators.structs import Action, Dataset, LowLevelTrajectory, \
+    Object, Predicate, State, Type
 
 
 @pytest.mark.parametrize("segmenter", ["atom_changes", "contacts"])

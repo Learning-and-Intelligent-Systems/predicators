@@ -9,9 +9,10 @@ are aware of English words and/or PDDL syntax.
 import abc
 from typing import Collection, Dict, List, Sequence, Set, Tuple
 
-from predicators.approaches.llm_open_loop_approach import LLMOpenLoopApproach
-from predicators.structs import Box, GroundAtom, Object, ParameterizedOption, \
-    Predicate, Task, Type, _Option
+from predicators.approaches.llm_open_loop_approach import \
+    LLMOpenLoopApproach
+from predicators.structs import Box, GroundAtom, Object, \
+    ParameterizedOption, Predicate, Task, Type, _Option
 
 
 class LLMBaseRenamingApproach(LLMOpenLoopApproach):

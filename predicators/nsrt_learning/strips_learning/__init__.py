@@ -8,8 +8,8 @@ from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import LowLevelTrajectory, PartialNSRTAndDatastore, \
-    Predicate, Segment, Task
+from predicators.structs import LowLevelTrajectory, \
+    PartialNSRTAndDatastore, Predicate, Segment, Task
 
 __all__ = ["BaseSTRIPSLearner"]
 

@@ -15,7 +15,8 @@ from predicators.nsrt_learning.option_learning import \
     _LearnedNeuralParameterizedOption, create_option_learner, \
     create_rl_option_learner
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.settings import CFG
 from predicators.structs import STRIPSOperator
 

@@ -13,12 +13,13 @@ from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
 from predicators.envs.playroom import PlayroomEnv
-from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.envs.repeated_nextto_painting import \
+    RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv
 from predicators.envs.tools import ToolsEnv
 from predicators.settings import CFG
-from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
-    ParameterizedOption, Predicate, State, Type, Variable
+from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, \
+    Object, ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
 
 

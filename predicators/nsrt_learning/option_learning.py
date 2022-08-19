@@ -12,11 +12,12 @@ from gym.spaces import Box
 
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
-from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, \
+    Regressor
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
-    ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
-    VarToObjSub
+from predicators.structs import Action, Array, Datastore, Object, \
+    OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
+    Variable, VarToObjSub
 from predicators.utils import OptionExecutionFailure
 
 

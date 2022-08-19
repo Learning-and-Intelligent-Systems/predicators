@@ -3,7 +3,8 @@
 from predicators import utils
 from predicators.approaches.llm_base_renaming_approach import \
     LLMBaseRenamingApproach
-from predicators.approaches.llm_open_loop_approach import LLMOpenLoopApproach
+from predicators.approaches.llm_open_loop_approach import \
+    LLMOpenLoopApproach
 from predicators.envs import create_new_env
 
 

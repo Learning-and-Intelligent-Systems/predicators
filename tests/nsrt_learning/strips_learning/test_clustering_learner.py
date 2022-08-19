@@ -5,14 +5,15 @@ test_nsrt_learning_approach.py, which runs end-to-end tests of the
 algorithms on actual domains.
 """
 
-import numpy as np
 from gym.spaces import Box
+import numpy as np
 
 from predicators import utils
+from predicators.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import learn_strips_operators
-from predicators.structs import Action, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, State, Task, Type
+from predicators.structs import Action, LowLevelTrajectory, Predicate, \
+    ParameterizedOption, Segment, State, Task, Type
 
 
 def test_cluster_and_intersect_strips_learner():

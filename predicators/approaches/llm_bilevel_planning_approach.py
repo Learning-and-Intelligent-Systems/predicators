@@ -35,7 +35,8 @@ import time
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from predicators import utils
-from predicators.approaches.llm_open_loop_approach import LLMOpenLoopApproach
+from predicators.approaches.llm_open_loop_approach import \
+    LLMOpenLoopApproach
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, Object, ParameterizedOption, \
     Sequence, State, Task, _GroundNSRT
