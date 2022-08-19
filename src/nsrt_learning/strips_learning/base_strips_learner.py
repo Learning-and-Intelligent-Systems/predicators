@@ -44,16 +44,12 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
+        # Remove pnads by increasing min_data_perc until harmlessness breaks.
         min_harmless_pnads =  learned_pnads
-        init_min_data_for_nsrt = CFG.min_data_for_nsrt
-        #
-        # TODO Remove pnads by increasing min_data_perc until harmlessness breaks
-        # Make this a learn_strips_operators_with_pruning(...) function
-        for tmp_min_data_for_nsrt in range(init_min_data_for_nsrt, 101):
-            CFG.min_data_for_nsrt = tmp_min_data_for_nsrt
+        for min_perc_data_for_nsrt in range(CFG.min_perc_data_for_nsrt, 100):
             learned_pnads = self._learn()
             min_data = max(CFG.min_data_for_nsrt,
-                        self._num_segments * CFG.min_perc_data_for_nsrt / 100)
+                        self._num_segments * min_perc_data_for_nsrt / 100)
             learned_pnads = [
                 pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
             ]
@@ -64,9 +60,7 @@ class BaseSTRIPSLearner(abc.ABC):
                     break
             else:
                 break
-
             min_harmless_pnads = learned_pnads
-
             if CFG.disable_harmlessness_check:
                 break
         learned_pnads = min_harmless_pnads
