@@ -2259,7 +2259,88 @@ def test_create_pddl():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
                                           "spanner")
-    import ipdb; ipdb.set_trace()
+    assert domain_str == """(define (domain spanner)
+  (:requirements :typing)
+  (:types 
+    man nut spanner - locatable
+    locatable location - object)
+
+  (:predicates
+    (at ?x0 - locatable ?x1 - location)
+    (carrying ?x0 - man ?x1 - spanner)
+    (link ?x0 - location ?x1 - location)
+    (loose ?x0 - nut)
+    (tightened ?x0 - nut)
+    (useable ?x0 - spanner)
+  )
+
+  (:action pickup_spanner
+    :parameters (?l - location ?s - spanner ?m - man)
+    :precondition (and (at ?m ?l)
+        (at ?s ?l))
+    :effect (and (carrying ?m ?s)
+        (not (at ?s ?l)))
+  )
+
+  (:action tighten_nut
+    :parameters (?l - location ?s - spanner ?m - man ?n - nut)
+    :precondition (and (at ?m ?l)
+        (at ?n ?l)
+        (carrying ?m ?s)
+        (loose ?n)
+        (useable ?s))
+    :effect (and (tightened ?n)
+        (not (loose ?n))
+        (not (useable ?s)))
+  )
+
+  (:action walk
+    :parameters (?start - location ?end - location ?m - man)
+    :precondition (and (at ?m ?start)
+        (link ?start ?end))
+    :effect (and (at ?m ?end)
+        (not (at ?m ?start)))
+  )
+)"""
+
+    train_task = env.get_train_tasks()[0]
+    state = train_task.init
+    objects = list(state)
+    init_atoms = utils.abstract(state, env.predicates)
+    goal = train_task.goal
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                            "spanner", "spanner-0")
+    assert problem_str == """(define (problem spanner-0) (:domain spanner)
+  (:objects
+    bob - man
+    gate - location
+    location0 - location
+    location1 - location
+    location2 - location
+    nut0 - nut
+    shed - location
+    spanner0 - spanner
+    spanner1 - spanner
+    spanner2 - spanner
+  )
+  (:init
+    (at bob shed)
+    (at nut0 gate)
+    (at spanner0 location0)
+    (at spanner1 location2)
+    (at spanner2 location0)
+    (link location0 location1)
+    (link location1 location2)
+    (link location2 gate)
+    (link shed location0)
+    (loose nut0)
+    (useable spanner0)
+    (useable spanner1)
+    (useable spanner2)
+  )
+  (:goal (and (tightened nut0)))
+)
+"""
 
 
 def test_VideoMonitor():
