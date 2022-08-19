@@ -19,7 +19,7 @@ A simple implementation of search-then-sample bilevel planning is provided in `s
 
 ## Installation
 * This repository uses Python versions 3.8+.
-* Run `pip install -r requirements.txt` to install dependencies.
+* Run `pip install -e .` to install dependencies.
 
 ## Instructions For Running Code
 
@@ -29,7 +29,6 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 
 ### Locally
 * (recommended) Make a new virtual env or conda env.
-* Make sure the parent of the repository is on your PYTHONPATH.
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
 
 ### Running Experiments on Supercloud
@@ -39,7 +38,7 @@ See [these instructions](supercloud.md).
 See [these instructions](behavior.md).
 
 ## Instructions For Contributing
-* Run `pip install -r requirements-dev.txt` to install all dependencies for development.
+* Run `pip install -e .[develop]` to install all dependencies for development.
 * You can't push directly to master. Make a new branch in this repository (don't use a fork, since that will not properly trigger the checks when you make a PR). When your code is ready for review, make a PR and request reviews from the appropriate people.
 * To merge a PR, you need at least one approval, and you have to pass the 4 checks defined in `.github/workflows/predicators.yml`, which you can run locally in one line via `./scripts/run_checks.sh`, or individually as follows:
     * `pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=0`

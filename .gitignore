@@ -12,6 +12,7 @@ build
 dist
 pylint_recursive.py
 .coverage
+.eggs
 results
 videos
 logs
