@@ -11,9 +11,8 @@ import argparse
 import os
 import subprocess
 
-from predicators.scripts.cluster_utils import DEFAULT_BRANCH, \
-    config_to_cmd_flags, config_to_logfile, generate_run_configs, \
-    get_cmds_to_prep_repo
+from scripts.cluster_utils import DEFAULT_BRANCH, config_to_cmd_flags, \
+    config_to_logfile, generate_run_configs, get_cmds_to_prep_repo
 
 
 def _main() -> None:

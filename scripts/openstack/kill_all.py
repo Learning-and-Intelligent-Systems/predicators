@@ -15,7 +15,7 @@ Usage example:
 import argparse
 import os
 
-from predicators.scripts.cluster_utils import run_cmds_on_machine
+from scripts.cluster_utils import run_cmds_on_machine
 
 
 def _main() -> None:

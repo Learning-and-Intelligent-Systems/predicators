@@ -1,4 +1,3 @@
-
 """Setup script.
 
 Usage examples:     pip install -e .     pip install -e .[develop]

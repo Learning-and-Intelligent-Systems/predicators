@@ -3,6 +3,7 @@
 See https://docs.pytest.org/en/6.2.x/fixture.html.
 """
 
+
 def pytest_addoption(parser):
     """Enable a command line flag for running tests decorated with @longrun."""
     parser.addoption('--longrun',

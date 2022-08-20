@@ -13,9 +13,9 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.envs import BaseEnv, create_new_env
 from predicators.envs.cover import CoverEnv
-from predicators.scripts.analyze_results_directory import get_df_for_entry
 from predicators.settings import CFG
 from predicators.structs import Object, Predicate, State, Task
+from scripts.analyze_results_directory import get_df_for_entry
 
 
 def evaluate_approach(evaluate_fn: Callable[

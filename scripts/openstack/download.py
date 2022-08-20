@@ -17,7 +17,7 @@ Usage example:
 import argparse
 import os
 
-from predicators.scripts.cluster_utils import SAVE_DIRS
+from scripts.cluster_utils import SAVE_DIRS
 
 
 def _main() -> None:

@@ -10,10 +10,10 @@ from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.envs import BaseEnv
 from predicators.envs.cover import CoverEnv
-from predicators.scripts.evaluate_interactive_approach_classifiers import \
-    create_states_cover, evaluate_approach
 from predicators.settings import CFG
 from predicators.structs import Object, State
+from scripts.evaluate_interactive_approach_classifiers import \
+    create_states_cover, evaluate_approach
 
 
 def evaluate_pred_ensemble(env: BaseEnv, approach: InteractiveLearningApproach,
