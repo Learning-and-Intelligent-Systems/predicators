@@ -1,7 +1,4 @@
-"""Setup script.
-
-Usage examples:     pip install -e .     pip install -e .[develop]
-"""
+"""Setup script."""
 from setuptools import find_packages, setup
 
 setup(name="predicators",
