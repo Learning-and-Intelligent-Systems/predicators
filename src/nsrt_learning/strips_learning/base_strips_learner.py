@@ -11,7 +11,6 @@ from predicators.src.structs import DummyOption, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, Object, OptionSpec, PartialNSRTAndDatastore, \
     Predicate, Segment, State, STRIPSOperator, Task, Variable, \
     _GroundSTRIPSOperator
-from predicators.src.utils import HarmlessnessCheckFailure
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -45,23 +44,29 @@ class BaseSTRIPSLearner(abc.ABC):
         """
         learned_pnads = self._learn()
         # Remove pnads by increasing min_data_perc until harmlessness breaks.
-        min_harmless_pnads =  learned_pnads
+        if CFG.enable_harmless_op_pruning:
+            assert self._verify_harmlessness and \
+                not CFG.disable_harmlessness_check
+        min_harmless_pnads = learned_pnads
         for min_perc_data_for_nsrt in range(CFG.min_perc_data_for_nsrt, 100):
             learned_pnads = self._learn()
             min_data = max(CFG.min_data_for_nsrt,
-                        self._num_segments * min_perc_data_for_nsrt / 100)
+                           self._num_segments * min_perc_data_for_nsrt / 100)
             learned_pnads = [
-                pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
+                pnad for pnad in learned_pnads
+                if len(pnad.datastore) >= min_data
             ]
-            if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+            if self._verify_harmlessness and \
+                not CFG.disable_harmlessness_check:
                 logging.info("\nRunning harmlessness check...")
                 if not self._check_harmlessness(learned_pnads):
-                    CFG.min_data_for_nsrt -= 1
                     break
             else:
+                min_harmless_pnads = learned_pnads
                 break
             min_harmless_pnads = learned_pnads
-            if CFG.disable_harmlessness_check:
+            if CFG.disable_harmlessness_check or \
+                not CFG.enable_harmless_op_pruning:
                 break
         learned_pnads = min_harmless_pnads
         return learned_pnads
