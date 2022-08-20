@@ -8,7 +8,7 @@ setup(name="predicators",
           "numpy>=1.22.3", "pytest", "gym==0.21.0", "matplotlib", "imageio",
           "imageio-ffmpeg", "pandas", "torch", "scipy", "tabulate", "dill",
           "pyperplan", "pathos", "requests", "slack_bolt", "pybullet>=3.2.0",
-          "sklearn", "pyqt5", "graphlib-backport", "openai", "pyyaml",
+          "sklearn", "graphlib-backport", "openai", "pyyaml",
           "types-PyYAML"
       ],
       include_package_data=True,
