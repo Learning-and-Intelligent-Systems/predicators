@@ -39,17 +39,11 @@ def get_link_state(
     link: int,
     physics_client_id: int,
 ) -> LinkState:
-    """Get the state of a link in a given body.
-
-    Note: it is unclear what the computeForwardKinematics flag does as we
-    could not reproduce any difference in the resulting Cartesian world
-    position or orientation of the link after setting joint positions
-    with both the flag set to False or True.
-
-    The default PyBullet flag is computeForwardKinematics=False, so we
-    will stick to that.
-    """
-    link_state = p.getLinkState(body, link, physicsClientId=physics_client_id)
+    """Get the state of a link in a given body."""
+    link_state = p.getLinkState(body,
+                                link,
+                                computeForwardKinematics=True,
+                                physicsClientId=physics_client_id)
     return LinkState(*link_state)
 
 
