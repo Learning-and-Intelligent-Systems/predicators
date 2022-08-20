@@ -56,11 +56,11 @@ def draw_text(
 
         uv_top_left += [0, h * line_spacing]
 
-name = "videos/pybullet_blocks__oracle__0________task1.mp4"
+name = "videos/pybullet_blocks__oracle__1________task1.mp4"
 
 
 
-video = imageio.mimread(name)
+video = imageio.mimread(name, memtest=False)
 with open(f"{name}.states.txt", "r", encoding="utf-8") as f:
     states = f.read().split("\n")
 with open(f"{name}.options.txt", "r", encoding="utf-8") as f:
@@ -73,4 +73,6 @@ for option, state, img in zip(options, states, video):
     text[-1] = text[-1][:-1]
     draw_text(img, text, (50, 140), fontScale=1.25, color=(0, 0, 0), outline_color=None, thickness=2)
 
-imageio.mimsave("videos/modified_video.mp4", video[:-1])
+final_video = [img[:, :-256] for img in video[:-1]]
+
+imageio.mimsave("videos/modified_video.mp4", final_video, fps=30)
