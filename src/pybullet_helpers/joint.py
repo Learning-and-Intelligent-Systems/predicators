@@ -41,6 +41,8 @@ class JointInfo(NamedTuple):
         """Whether the joint is circular or not."""
         if self.is_fixed:
             return False
+        # For continuous/circular joints, the PyBullet parser will give
+        # us an upper limit (-1.0) that is lower than the lower limit (0.0).
         return self.jointUpperLimit < self.jointLowerLimit
 
     @property

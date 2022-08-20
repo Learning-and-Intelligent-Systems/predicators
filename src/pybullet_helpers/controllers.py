@@ -61,9 +61,9 @@ def create_move_end_effector_to_pose_option(
             finger_delta = -finger_action_nudge_magnitude
         # Extract the current finger state.
         state = cast(utils.PyBulletState, state)
-        finger_positions = state.joint_positions[robot.left_finger_joint_idx]
+        finger_position = state.joint_positions[robot.left_finger_joint_idx]
         # The finger action is an absolute joint position for the fingers.
-        f_action = finger_positions + finger_delta
+        f_action = finger_position + finger_delta
         # Override the meaningless finger values in joint_action.
         joint_positions[robot.left_finger_joint_idx] = f_action
         joint_positions[robot.right_finger_joint_idx] = f_action

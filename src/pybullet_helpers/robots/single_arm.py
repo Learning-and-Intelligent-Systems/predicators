@@ -319,31 +319,6 @@ class SingleArmPyBulletRobot(abc.ABC):
         position = ee_link_state.worldLinkFramePosition
         return position
 
-    def _validate_joint_positions(self, joint_positions: JointPositions,
-                                  target_pos: Pose3D) -> None:
-        """Validate that the given joint positions matches the target pose.
-
-        This method should NOT be used during simulation mode as it
-        resets the joint positions.
-        """
-        # Store current joint positions so we can reset
-        initial_joint_positions = self.get_joints()
-
-        # Set joint positions, forward kinematics to determine EE position
-        self.set_joints(joint_positions)
-        ee_pos = self.get_state()[:3]
-        pos_is_close = np.allclose(ee_pos,
-                                   target_pos,
-                                   atol=CFG.pybullet_ik_tol)
-
-        # Reset joint positions before returning/raising error
-        self.set_joints(initial_joint_positions)
-
-        if not pos_is_close:
-            raise ValueError(
-                f"Joint positions do not match target pose {target_pos} "
-                f"from {ee_pos}")
-
     @classmethod
     def ikfast_info(cls) -> Optional[IKFastInfo]:
         """IKFastInfo for this robot.

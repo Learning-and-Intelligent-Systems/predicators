@@ -39,9 +39,8 @@ def test_matrix_from_quat():
     assert np.allclose(mat, expected_mat)
 
 
-def test_get_pose():
+def test_get_pose(physics_client_id):
     """Tests for get_pose()."""
-    physics_client_id = p.connect(p.DIRECT)
     collision_id = p.createCollisionShape(p.GEOM_BOX,
                                           halfExtents=[1, 1, 1],
                                           physicsClientId=physics_client_id)

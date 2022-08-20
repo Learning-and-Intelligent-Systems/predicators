@@ -65,7 +65,10 @@ def _setup_pybullet_test_scene():
     scene["initial_joints_states"] = p.getJointStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
-    return scene
+    yield scene
+
+    # Disconnect from physics server so it does not linger
+    p.disconnect(physics_client_id)
 
 
 def test_get_kinematic_chain(scene_attributes):
@@ -158,10 +161,8 @@ def test_pybullet_inverse_kinematics(scene_attributes):
     assert "Inverse kinematics failed to converge." in str(e)
 
 
-def test_fetch_pybullet_robot():
+def test_fetch_pybullet_robot(physics_client_id):
     """Tests for FetchPyBulletRobot()."""
-    physics_client_id = p.connect(p.DIRECT)
-
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     base_pose = Pose((0.75, 0.7441, 0.0))
@@ -215,7 +216,7 @@ def test_fetch_pybullet_robot():
     assert np.allclose(fk_result, ee_target, atol=1e-2)
 
 
-def test_create_single_arm_pybullet_robot():
+def test_create_single_arm_pybullet_robot(physics_client_id):
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
@@ -234,9 +235,8 @@ def test_create_single_arm_pybullet_robot():
     assert "Unrecognized robot name" in str(e)
 
 
-def test_run_motion_planning():
+def test_run_motion_planning(physics_client_id):
     """Tests for run_motion_planning()."""
-    physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     seed = 123
