@@ -13,8 +13,7 @@ import sys
 from scripts.cluster_utils import DEFAULT_BRANCH, SUPERCLOUD_IP, \
     BatchSeedRunConfig, config_to_cmd_flags, config_to_logfile, \
     generate_run_configs, get_cmds_to_prep_repo, run_cmds_on_machine
-from scripts.supercloud.submit_supercloud_job import \
-    submit_supercloud_job
+from scripts.supercloud.submit_supercloud_job import submit_supercloud_job
 
 
 def _main() -> None:

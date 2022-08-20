@@ -6,12 +6,10 @@ algorithms on actual domains.
 """
 
 from predicators import utils
-from predicators.nsrt_learning.strips_learning import \
-    learn_strips_operators
+from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.structs import Action, LowLevelTrajectory, Predicate, \
     Segment, State, Task, Type
-from tests.nsrt_learning.test_segmentation import \
-    test_segment_trajectory
+from tests.nsrt_learning.test_segmentation import test_segment_trajectory
 
 
 def test_cluster_and_intersect_strips_learner():

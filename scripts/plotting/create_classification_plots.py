@@ -7,8 +7,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scripts.evaluate_interactive_approach_classifiers import \
-    create_states_cover
 from predicators import utils
 from predicators.approaches import create_approach
 from predicators.approaches.interactive_learning_approach import \
@@ -17,6 +15,8 @@ from predicators.envs import create_new_env
 from predicators.envs.cover import CoverEnv
 from predicators.settings import CFG
 from predicators.structs import Array, Image, Predicate, Task
+from scripts.evaluate_interactive_approach_classifiers import \
+    create_states_cover
 
 
 def _main() -> None:

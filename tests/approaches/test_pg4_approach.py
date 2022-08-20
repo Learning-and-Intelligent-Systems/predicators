@@ -7,8 +7,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
-    Task
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, Task
 
 
 def test_pg4_approach():

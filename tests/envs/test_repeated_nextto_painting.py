@@ -3,8 +3,7 @@
 import numpy as np
 
 from predicators import utils
-from predicators.envs.repeated_nextto_painting import \
-    RepeatedNextToPaintingEnv
+from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 
 
 def test_repeated_nextto_painting():

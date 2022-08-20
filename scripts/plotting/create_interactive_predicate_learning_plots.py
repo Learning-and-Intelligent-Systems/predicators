@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 
-from scripts.analyze_results_directory import \
-    create_raw_dataframe, get_df_for_entry
+from scripts.analyze_results_directory import create_raw_dataframe, \
+    get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

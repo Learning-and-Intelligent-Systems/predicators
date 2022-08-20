@@ -16,9 +16,9 @@ The default branch can be overridden with the --branch flag.
 import argparse
 import os
 
-from scripts.cluster_utils import DEFAULT_BRANCH, \
-    SingleSeedRunConfig, config_to_cmd_flags, config_to_logfile, \
-    generate_run_configs, get_cmds_to_prep_repo, run_cmds_on_machine
+from scripts.cluster_utils import DEFAULT_BRANCH, SingleSeedRunConfig, \
+    config_to_cmd_flags, config_to_logfile, generate_run_configs, \
+    get_cmds_to_prep_repo, run_cmds_on_machine
 
 
 def _main() -> None:
