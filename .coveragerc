@@ -2,6 +2,7 @@
 omit =
     predicators/envs/behavior.py
     predicators/envs/behavior_options.py
+    predicators/third_party
 
 [report]
 # Regexes for lines to exclude from consideration
