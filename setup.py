@@ -1,8 +1,7 @@
 
 """Setup script.
-Usage examples:
-    pip install -e .
-    pip install -e .[develop]
+
+Usage examples:     pip install -e .     pip install -e .[develop]
 """
 from setuptools import find_packages, setup
 

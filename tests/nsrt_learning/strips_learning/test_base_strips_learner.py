@@ -4,9 +4,8 @@ import pytest
 
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
-from predicators.structs import LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type
+from predicators.structs import LowLevelTrajectory, PartialNSRTAndDatastore, \
+    Predicate, Segment, State, STRIPSOperator, Task, Type
 from predicators.utils import SingletonParameterizedOption
 
 

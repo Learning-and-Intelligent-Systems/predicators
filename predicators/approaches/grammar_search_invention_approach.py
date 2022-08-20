@@ -15,17 +15,14 @@ from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
+from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning import \
-    learn_strips_operators
+from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.predicate_search_score_functions import \
     _PredicateSearchScoreFunction, create_score_function
 from predicators.settings import CFG
-from predicators.structs import Dataset, GroundAtom, \
-    GroundAtomTrajectory, Object, ParameterizedOption, Predicate, State, \
-    Task, Type
+from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
+    Object, ParameterizedOption, Predicate, State, Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #

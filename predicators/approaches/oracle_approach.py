@@ -13,8 +13,8 @@ from gym.spaces import Box
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.structs import NSRT, ParameterizedOption, Predicate, \
-    Task, Type
+from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
+    Type
 
 
 class OracleApproach(BilevelPlanningApproach):
