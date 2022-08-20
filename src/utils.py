@@ -2292,15 +2292,33 @@ class VideoMonitor(Monitor):
     render.
     """
     _render_fn: Callable[[Optional[Action], Optional[str]], Video]
+    _predicates: Set[Predicate]
     _video: Video = field(init=False, default_factory=list)
+    _option_strs: List[str] = field(init=False, default_factory=list)
+    _abstract_state_strs: List[str] = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
-        del state  # unused
         self._video.extend(self._render_fn(action, None))
+        abstract_state = sorted(abstract(state, self._predicates))
+        abstract_state_str = "{" + ", ".join(a.str_no_types() for a in abstract_state) + "}"
+        self._abstract_state_strs.append(abstract_state_str)
+        if action:
+            option = action.get_option()
+            args_str = ", ".join(o.name for o in option.objects)
+            option_str = f"{option.name}({args_str})"
+            self._option_strs.append(option_str)
 
     def get_video(self) -> Video:
         """Return the video."""
         return self._video
+
+    def get_option_strs(self) -> Video:
+        """Return the option strings."""
+        return self._option_strs
+
+    def get_abstract_state_strs(self) -> Video:
+        """Return the option strings."""
+        return self._abstract_state_strs
 
 
 @dataclass

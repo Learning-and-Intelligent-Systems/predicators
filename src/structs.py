@@ -333,6 +333,10 @@ class _Atom:
         entities_str = " ".join(e.name for e in self.entities)
         return f"({self.predicate.name} {entities_str})"
 
+    def str_no_types(self) -> str:
+        entities_str = ", ".join(e.name for e in self.entities)
+        return f"{self.predicate.name}({entities_str})"
+
     def __hash__(self) -> int:
         return self._hash
 
