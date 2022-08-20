@@ -13,9 +13,11 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.pybullet_helpers.geometry import Pose3D
+from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Pose3D, State, Task, Video
+from predicators.src.structs import Action, Array, State, Task, Video
 
 
 class PyBulletEnv(BaseEnv):
@@ -244,7 +246,8 @@ class PyBulletEnv(BaseEnv):
 
     def step(self, action: Action) -> State:
         # Send the action to the robot.
-        self._pybullet_robot.set_motors(action.arr.tolist())
+        target_joint_positions = action.arr.tolist()
+        self._pybullet_robot.set_motors(target_joint_positions)
 
         # If we are setting the robot joints directly, and if there is a held
         # object, we need to reset the pose of the held object directly. This
@@ -252,10 +255,10 @@ class PyBulletEnv(BaseEnv):
         # resetJointState (the robot will sometimes drop the object).
         if CFG.pybullet_control_mode == "reset" and \
             self._held_obj_id is not None:
-            world_to_base_link = p.getLinkState(
+            world_to_base_link = get_link_state(
                 self._pybullet_robot.robot_id,
                 self._pybullet_robot.end_effector_id,
-                physicsClientId=self._physics_client_id)[:2]
+                physics_client_id=self._physics_client_id).com_pose
             base_link_to_held_obj = p.invertTransform(
                 *self._held_obj_to_base_link)
             world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
@@ -370,16 +373,16 @@ class PyBulletEnv(BaseEnv):
         f_delta = self._action_to_finger_delta(action)
         return f_delta > self._finger_action_tol
 
-    def _get_finger_state(self, state: State) -> float:
+    def _get_finger_position(self, state: State) -> float:
         # Arbitrarily use the left finger as reference.
         state = cast(utils.PyBulletState, state)
-        joint_idx = self._pybullet_robot.left_finger_joint_idx
-        return state.joints_state[joint_idx]
+        finger_joint_idx = self._pybullet_robot.left_finger_joint_idx
+        return state.joint_positions[finger_joint_idx]
 
     def _action_to_finger_delta(self, action: Action) -> float:
-        finger_state = self._get_finger_state(self._current_state)
+        finger_position = self._get_finger_position(self._current_state)
         target = action.arr[-1]
-        return target - finger_state
+        return target - finger_position
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],

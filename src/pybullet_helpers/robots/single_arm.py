@@ -1,49 +1,56 @@
-"""Abstract class for single armed manipulators with Pybullet helper
+"""Abstract class for single armed manipulators with PyBullet helper
 functions."""
 import abc
-from typing import ClassVar, Sequence
+from functools import cached_property
+from typing import List, Optional
 
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
 
-from predicators.src import utils
+from predicators.src.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.src.pybullet_helpers.ikfast import IKFastInfo
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain
+from predicators.src.pybullet_helpers.joint import JointInfo, JointPositions, \
+    get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
+    get_joints, get_kinematic_chain
+from predicators.src.pybullet_helpers.link import get_link_state
 from predicators.src.settings import CFG
-from predicators.src.structs import Array, JointsState, Pose3D
+from predicators.src.structs import Array
 
 
 class SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
 
-    def __init__(self, ee_home_pose: Pose3D, ee_orientation: Sequence[float],
-                 physics_client_id: int) -> None:
-        # Initial position for the end effector.
+    def __init__(
+            self,
+            ee_home_pose: Pose3D,
+            ee_orientation: Quaternion,
+            physics_client_id: int,
+            base_pose: Pose = Pose.identity(),
+    ) -> None:
+        # Initial pose for the end effector.
         self._ee_home_pose = ee_home_pose
-        # Orientation for the end effector.
+        # Orientation of the end effector.
+        # IK will use this as target orientation.
         self._ee_orientation = ee_orientation
-        self._physics_client_id = physics_client_id
-        # These get overridden in initialize(), but type checking needs to be
-        # aware that it exists.
-        self._initial_joints_state: JointsState = []
-        self._initialize()
+        self.physics_client_id = physics_client_id
 
-    @property
-    def initial_joints_state(self) -> JointsState:
-        """The joint values for the robot in its home pose."""
-        return self._initial_joints_state
+        # Pose of base of robot
+        self._base_pose = base_pose
 
-    @property
-    def action_space(self) -> Box:
-        """The action space for the robot.
+        # Load the robot and set base position and orientation.
+        self.robot_id = p.loadURDF(
+            self.urdf_path(),
+            basePosition=self._base_pose.position,
+            baseOrientation=self._base_pose.orientation,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
 
-        Represents position control of the arm and finger joints.
-        """
-        return Box(np.array(self.joint_lower_limits, dtype=np.float32),
-                   np.array(self.joint_upper_limits, dtype=np.float32),
-                   dtype=np.float32)
+        # Robot initially at home pose
+        self.go_home()
 
     @classmethod
     @abc.abstractmethod
@@ -51,57 +58,127 @@ class SingleArmPyBulletRobot(abc.ABC):
         """Get the name of the robot."""
         raise NotImplementedError("Override me!")
 
+    @classmethod
     @abc.abstractmethod
-    def _initialize(self) -> None:
+    def urdf_path(cls) -> str:
+        """Get the path to the URDF file for the robot."""
         raise NotImplementedError("Override me!")
 
     @property
-    @abc.abstractmethod
-    def robot_id(self) -> int:
-        """The PyBullet ID for the robot."""
-        raise NotImplementedError("Override me!")
+    def action_space(self) -> Box:
+        """The action space for the robot.
+
+        Represents position control of the arm and finger joints.
+        """
+        return Box(
+            np.array(self.joint_lower_limits, dtype=np.float32),
+            np.array(self.joint_upper_limits, dtype=np.float32),
+            dtype=np.float32,
+        )
 
     @property
     @abc.abstractmethod
+    def end_effector_name(self) -> str:
+        """The name of the end effector."""
+        raise NotImplementedError("Override me!")
+
+    @property
     def end_effector_id(self) -> int:
-        """The PyBullet ID for the end effector."""
+        """The PyBullet joint ID for the end effector."""
+        return self.joint_from_name(self.end_effector_name)
+
+    @property
+    @abc.abstractmethod
+    def tool_link_name(self) -> str:
+        """The name of the end effector link (i.e., the tool link)."""
+        raise NotImplementedError("Override me!")
+
+    @cached_property
+    def arm_joints(self) -> List[int]:
+        """The PyBullet joint IDs of the joints of the robot arm, including the
+        fingers, as determined by the kinematic chain.
+
+        Note these are joint indices not body IDs, and that the arm
+        joints may be a subset of all the robot joints.
+        """
+        joint_ids = get_kinematic_chain(self.robot_id, self.end_effector_id,
+                                        self.physics_client_id)
+        # NOTE: pybullet tools assumes sorted arm joints.
+        joint_ids = sorted(joint_ids)
+        joint_ids.extend([self.left_finger_id, self.right_finger_id])
+        return joint_ids
+
+    @cached_property
+    def joint_infos(self) -> List[JointInfo]:
+        """Get the joint info for each joint of the robot.
+
+        This may be a superset of the arm joints.
+        """
+        all_joint_ids = get_joints(self.robot_id, self.physics_client_id)
+        return get_joint_infos(self.robot_id, all_joint_ids,
+                               self.physics_client_id)
+
+    @cached_property
+    def joint_names(self) -> List[str]:
+        """Get the names of all the joints in the robot."""
+        joint_names = [info.jointName for info in self.joint_infos]
+        return joint_names
+
+    def joint_from_name(self, joint_name: str) -> int:
+        """Get the joint index for a joint name."""
+        return self.joint_names.index(joint_name)
+
+    @property
+    @abc.abstractmethod
+    def left_finger_joint_name(self) -> str:
+        """The name of the left finger joint."""
         raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod
+    def right_finger_joint_name(self) -> str:
+        """The name of the right finger joint."""
+        raise NotImplementedError("Override me!")
+
+    @cached_property
     def left_finger_id(self) -> int:
-        """The PyBullet ID for the left finger."""
-        raise NotImplementedError("Override me!")
+        """The PyBullet joint ID for the left finger."""
+        return self.joint_from_name(self.left_finger_joint_name)
 
-    @property
-    @abc.abstractmethod
+    @cached_property
     def right_finger_id(self) -> int:
-        """The PyBullet ID for the right finger."""
-        raise NotImplementedError("Override me!")
+        """The PyBullet joint ID for the right finger."""
+        return self.joint_from_name(self.right_finger_joint_name)
 
-    @property
-    @abc.abstractmethod
+    @cached_property
     def left_finger_joint_idx(self) -> int:
-        """The index into the joints corresponding to the left finger."""
-        raise NotImplementedError("Override me!")
+        """The index into the joints corresponding to the left finger.
 
-    @property
-    @abc.abstractmethod
+        Note this is not the joint ID, but the index of the joint within
+        the list of arm joints.
+        """
+        return self.arm_joints.index(self.left_finger_id)
+
+    @cached_property
     def right_finger_joint_idx(self) -> int:
-        """The index into the joints corresponding to the right finger."""
-        raise NotImplementedError("Override me!")
+        """The index into the joints corresponding to the right finger.
 
-    @property
-    @abc.abstractmethod
-    def joint_lower_limits(self) -> JointsState:
+        Note this is not the joint ID, but the index of the joint within
+        the list of arm joints.
+        """
+        return self.arm_joints.index(self.right_finger_id)
+
+    @cached_property
+    def joint_lower_limits(self) -> JointPositions:
         """Lower bound on the arm joint limits."""
-        raise NotImplementedError("Override me!")
+        return get_joint_lower_limits(self.robot_id, self.arm_joints,
+                                      self.physics_client_id)
 
-    @property
-    @abc.abstractmethod
-    def joint_upper_limits(self) -> JointsState:
+    @cached_property
+    def joint_upper_limits(self) -> JointPositions:
         """Upper bound on the arm joint limits."""
-        raise NotImplementedError("Override me!")
+        return get_joint_upper_limits(self.robot_id, self.arm_joints,
+                                      self.physics_client_id)
 
     @property
     @abc.abstractmethod
@@ -115,259 +192,165 @@ class SingleArmPyBulletRobot(abc.ABC):
         """The value at which the finger joints should be closed."""
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
+    @cached_property
+    def initial_joint_positions(self) -> JointPositions:
+        """The joint values for the robot in its home pose."""
+        joint_positions = self.inverse_kinematics(self._ee_home_pose,
+                                                  validate=True)
+        # The initial joint values for the fingers should be open. IK may
+        # return anything for them.
+        joint_positions[self.left_finger_joint_idx] = self.open_fingers
+        joint_positions[self.right_finger_joint_idx] = self.open_fingers
+        return joint_positions
+
     def reset_state(self, robot_state: Array) -> None:
         """Reset the robot state to match the input state.
 
         The robot_state corresponds to the State vector for the robot
         object.
         """
-        raise NotImplementedError("Override me!")
+        rx, ry, rz, rf = robot_state
+        p.resetBasePositionAndOrientation(
+            self.robot_id,
+            self._base_pose.position,
+            self._base_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+        # First, reset the joint values to initial joint positions,
+        # so that IK is consistent (less sensitive to initialization).
+        self.set_joints(self.initial_joint_positions)
 
-    @abc.abstractmethod
+        # Now run IK to get to the actual starting rx, ry, rz. We use
+        # validate=True to ensure that this initialization works.
+        joint_values = self.inverse_kinematics((rx, ry, rz), validate=True)
+        self.set_joints(joint_values)
+
+        # Handle setting the robot finger joints.
+        for finger_id in [self.left_finger_id, self.right_finger_id]:
+            p.resetJointState(self.robot_id,
+                              finger_id,
+                              rf,
+                              physicsClientId=self.physics_client_id)
+
     def get_state(self) -> Array:
         """Get the robot state vector based on the current PyBullet state.
 
         This corresponds to the State vector for the robot object.
         """
-        raise NotImplementedError("Override me!")
+        ee_link_state = get_link_state(
+            self.robot_id,
+            self.end_effector_id,
+            physics_client_id=self.physics_client_id)
+        rx, ry, rz = ee_link_state.worldLinkFramePosition
+        # Note: we assume both left and right gripper have the same joint
+        # position
+        rf = p.getJointState(
+            self.robot_id,
+            self.left_finger_id,
+            physicsClientId=self.physics_client_id,
+        )[0]
+        # pose_x, pose_y, pose_z, fingers
+        return np.array([rx, ry, rz, rf], dtype=np.float32)
 
-    @abc.abstractmethod
-    def get_joints(self) -> JointsState:
-        """Get the joints state from the current PyBullet state."""
-        raise NotImplementedError("Override me!")
+    def get_joints(self) -> JointPositions:
+        """Get the joint positions from the current PyBullet state."""
+        joint_positions = [
+            joint_state[0]  # extract joint position only
+            for joint_state in p.getJointStates(
+                self.robot_id,
+                self.arm_joints,
+                physicsClientId=self.physics_client_id)
+        ]
+        return joint_positions
 
-    @abc.abstractmethod
-    def set_joints(self, joints_state: JointsState) -> None:
-        """Directly set the joint states.
+    def set_joints(self, joint_positions: JointPositions) -> None:
+        """Directly set the joint positions.
 
         Outside of resetting to an initial state, this should not be
         used with the robot that uses stepSimulation(); it should only
         be used for motion planning, collision checks, etc., in a robot
         that does not maintain state.
         """
-        raise NotImplementedError("Override me!")
+        assert len(joint_positions) == len(self.arm_joints)
+        for joint_id, joint_val in zip(self.arm_joints, joint_positions):
+            p.resetJointState(
+                self.robot_id,
+                joint_id,
+                targetValue=joint_val,
+                targetVelocity=0,
+                physicsClientId=self.physics_client_id,
+            )
 
-    @abc.abstractmethod
-    def set_motors(self, joints_state: JointsState) -> None:
-        """Update the motors to move toward the given joints state."""
-        raise NotImplementedError("Override me!")
+    def set_motors(self, joint_positions: JointPositions) -> None:
+        """Update the motors to move toward the given joint positions."""
+        assert len(joint_positions) == len(self.arm_joints)
 
-    @abc.abstractmethod
-    def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
+        # Set arm joint motors.
+        if CFG.pybullet_control_mode == "position":
+            p.setJointMotorControlArray(
+                bodyUniqueId=self.robot_id,
+                jointIndices=self.arm_joints,
+                controlMode=p.POSITION_CONTROL,
+                targetPositions=joint_positions,
+                physicsClientId=self.physics_client_id,
+            )
+        elif CFG.pybullet_control_mode == "reset":
+            self.set_joints(joint_positions)
+        else:
+            raise NotImplementedError("Unrecognized pybullet_control_mode: "
+                                      f"{CFG.pybullet_control_mode}")
+
+    def go_home(self) -> None:
+        """Move the robot to its home end-effector pose."""
+        self.set_motors(self.initial_joint_positions)
+
+    def forward_kinematics(self, joint_positions: JointPositions) -> Pose3D:
         """Compute the end effector position that would result if the robot arm
-        joints state was equal to the input joints_state.
+        joint positions was equal to the input joint_positions.
 
         WARNING: This method will make use of resetJointState(), and so it
         should NOT be used during simulation.
         """
-        raise NotImplementedError("Override me!")
+        self.set_joints(joint_positions)
+        ee_link_state = get_link_state(
+            self.robot_id,
+            self.end_effector_id,
+            physics_client_id=self.physics_client_id)
+        position = ee_link_state.worldLinkFramePosition
+        return position
 
-    @abc.abstractmethod
+    @classmethod
+    def ikfast_info(cls) -> Optional[IKFastInfo]:
+        """IKFastInfo for this robot.
+
+        If this is specified, then IK will use IKFast.
+        """
+        return None
+
     def inverse_kinematics(self, end_effector_pose: Pose3D,
-                           validate: bool) -> JointsState:
-        """Compute a joints state from a target end effector position.
+                           validate: bool) -> JointPositions:
+        """Compute joint positions from a target end effector position. Uses
+        IKFast if the robot has IKFast info specified.
 
         The target orientation is always self._ee_orientation.
 
-        If validate is True, guarantee that the returned joints state
+        If validate is True, we guarantee that the returned joint positions
         would result in end_effector_pose if run through
         forward_kinematics.
 
         WARNING: if validate is True, physics may be overridden, and so it
         should not be used within simulation.
         """
-        raise NotImplementedError("Override me!")
+        if self.ikfast_info():  # pragma: no cover
+            raise NotImplementedError(
+                "IKFast not supported yet. Coming soon...")
 
-
-class FetchPyBulletRobot(SingleArmPyBulletRobot):
-    """A Fetch robot with a fixed base and only one arm in use."""
-
-    # Parameters that aren't important enough to need to clog up settings.py
-    _base_pose: ClassVar[Pose3D] = (0.75, 0.7441, 0.0)
-    _base_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
-
-    @classmethod
-    def get_name(cls) -> str:
-        return "fetch"
-
-    def _initialize(self) -> None:
-        self._fetch_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id)
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id)
-
-        # Extract IDs for individual robot links and joints.
-        joint_names = [
-            p.getJointInfo(
-                self._fetch_id, i,
-                physicsClientId=self._physics_client_id)[1].decode("utf-8")
-            for i in range(
-                p.getNumJoints(self._fetch_id,
-                               physicsClientId=self._physics_client_id))
-        ]
-        self._ee_id = joint_names.index('gripper_axis')
-        self._arm_joints = get_kinematic_chain(
-            self._fetch_id,
-            self._ee_id,
-            physics_client_id=self._physics_client_id)
-        self._left_finger_id = joint_names.index("l_gripper_finger_joint")
-        self._right_finger_id = joint_names.index("r_gripper_finger_joint")
-        self._arm_joints.append(self._left_finger_id)
-        self._arm_joints.append(self._right_finger_id)
-
-        self._initial_joints_state = self.inverse_kinematics(
-            self._ee_home_pose, validate=True)
-        # The initial joint values for the fingers should be open. IK may
-        # return anything for them.
-        self._initial_joints_state[-2] = self.open_fingers
-        self._initial_joints_state[-1] = self.open_fingers
-        # Establish the lower and upper limits for the arm joints.
-        self._joint_lower_limits = []
-        self._joint_upper_limits = []
-        for i in self._arm_joints:
-            info = p.getJointInfo(self._fetch_id,
-                                  i,
-                                  physicsClientId=self._physics_client_id)
-            lower_limit = info[8]
-            upper_limit = info[9]
-            # Per PyBullet documentation, values ignored if upper < lower.
-            if upper_limit < lower_limit:
-                self._joint_lower_limits.append(-np.inf)
-                self._joint_upper_limits.append(np.inf)
-            else:
-                self._joint_lower_limits.append(lower_limit)
-                self._joint_upper_limits.append(upper_limit)
-
-    @property
-    def robot_id(self) -> int:
-        return self._fetch_id
-
-    @property
-    def end_effector_id(self) -> int:
-        return self._ee_id
-
-    @property
-    def left_finger_id(self) -> int:
-        return self._left_finger_id
-
-    @property
-    def right_finger_id(self) -> int:
-        return self._right_finger_id
-
-    @property
-    def left_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 2
-
-    @property
-    def right_finger_joint_idx(self) -> int:
-        return len(self._arm_joints) - 1
-
-    @property
-    def joint_lower_limits(self) -> JointsState:
-        return self._joint_lower_limits
-
-    @property
-    def joint_upper_limits(self) -> JointsState:
-        return self._joint_upper_limits
-
-    @property
-    def open_fingers(self) -> float:
-        return 0.04
-
-    @property
-    def closed_fingers(self) -> float:
-        return 0.01
-
-    def reset_state(self, robot_state: Array) -> None:
-        rx, ry, rz, rf = robot_state
-        p.resetBasePositionAndOrientation(
-            self._fetch_id,
-            self._base_pose,
-            self._base_orientation,
-            physicsClientId=self._physics_client_id)
-        # First, reset the joint values to self._initial_joints_state,
-        # so that IK is consistent (less sensitive to initialization).
-        self.set_joints(self._initial_joints_state)
-        # Now run IK to get to the actual starting rx, ry, rz. We use
-        # validate=True to ensure that this initialization works.
-        joints_state = self.inverse_kinematics((rx, ry, rz), validate=True)
-        self.set_joints(joints_state)
-        # Handle setting the robot finger joints.
-        for finger_id in [self._left_finger_id, self._right_finger_id]:
-            p.resetJointState(self._fetch_id,
-                              finger_id,
-                              rf,
-                              physicsClientId=self._physics_client_id)
-
-    def get_state(self) -> Array:
-        ee_link_state = p.getLinkState(self._fetch_id,
-                                       self._ee_id,
-                                       physicsClientId=self._physics_client_id)
-        rx, ry, rz = ee_link_state[4]
-        rf = p.getJointState(self._fetch_id,
-                             self._left_finger_id,
-                             physicsClientId=self._physics_client_id)[0]
-        # pose_x, pose_y, pose_z, fingers
-        return np.array([rx, ry, rz, rf], dtype=np.float32)
-
-    def get_joints(self) -> JointsState:
-        joints_state = []
-        for joint_idx in self._arm_joints:
-            joint_val = p.getJointState(
-                self._fetch_id,
-                joint_idx,
-                physicsClientId=self._physics_client_id)[0]
-            joints_state.append(joint_val)
-        return joints_state
-
-    def set_joints(self, joints_state: JointsState) -> None:
-        assert len(joints_state) == len(self._arm_joints)
-        for joint_id, joint_val in zip(self._arm_joints, joints_state):
-            p.resetJointState(self._fetch_id,
-                              joint_id,
-                              targetValue=joint_val,
-                              targetVelocity=0,
-                              physicsClientId=self._physics_client_id)
-
-    def set_motors(self, joints_state: JointsState) -> None:
-        assert len(joints_state) == len(self._arm_joints)
-
-        # Set arm joint motors.
-        if CFG.pybullet_control_mode == "position":
-            p.setJointMotorControlArray(
-                bodyUniqueId=self._fetch_id,
-                jointIndices=self._arm_joints,
-                controlMode=p.POSITION_CONTROL,
-                targetPositions=joints_state,
-                physicsClientId=self._physics_client_id)
-        elif CFG.pybullet_control_mode == "reset":
-            self.set_joints(joints_state)
-        else:
-            raise NotImplementedError("Unrecognized pybullet_control_mode: "
-                                      f"{CFG.pybullet_control_mode}")
-
-    def forward_kinematics(self, joints_state: JointsState) -> Pose3D:
-        self.set_joints(joints_state)
-        ee_link_state = p.getLinkState(self._fetch_id,
-                                       self._ee_id,
-                                       computeForwardKinematics=True,
-                                       physicsClientId=self._physics_client_id)
-        position = ee_link_state[4]
-        return position
-
-    def inverse_kinematics(self, end_effector_pose: Pose3D,
-                           validate: bool) -> JointsState:
         return pybullet_inverse_kinematics(
-            self._fetch_id,
-            self._ee_id,
+            self.robot_id,
+            self.end_effector_id,
             end_effector_pose,
             self._ee_orientation,
-            self._arm_joints,
-            physics_client_id=self._physics_client_id,
-            validate=validate)
+            self.arm_joints,
+            physics_client_id=self.physics_client_id,
+            validate=validate,
+        )
