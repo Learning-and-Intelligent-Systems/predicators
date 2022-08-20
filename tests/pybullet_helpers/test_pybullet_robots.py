@@ -6,13 +6,17 @@ import pytest
 
 from predicators.src import utils
 from predicators.src.envs.pybullet_env import create_pybullet_block
+from predicators.src.pybullet_helpers.geometry import Pose
 from predicators.src.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
+from predicators.src.pybullet_helpers.joint import get_kinematic_chain
+from predicators.src.pybullet_helpers.link import BASE_LINK, get_link_pose, \
+    get_link_state
 from predicators.src.pybullet_helpers.motion_planning import \
     run_motion_planning
-from predicators.src.pybullet_helpers.robots import FetchPyBulletRobot, \
+from predicators.src.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
-from predicators.src.pybullet_helpers.utils import get_kinematic_chain
+from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
 from predicators.src.settings import CFG
 
 
@@ -40,6 +44,8 @@ def _setup_pybullet_test_scene():
                                       base_pose,
                                       base_orientation,
                                       physicsClientId=physics_client_id)
+    reconstructed_pose = get_link_pose(fetch_id, BASE_LINK, physics_client_id)
+    assert reconstructed_pose.allclose(Pose(base_pose, base_orientation))
 
     joint_names = [
         p.getJointInfo(fetch_id, i,
@@ -59,7 +65,10 @@ def _setup_pybullet_test_scene():
     scene["initial_joints_states"] = p.getJointStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
-    return scene
+    yield scene
+
+    # Disconnect from physics server so it does not linger
+    p.disconnect(physics_client_id)
 
 
 def test_get_kinematic_chain(scene_attributes):
@@ -94,7 +103,7 @@ def test_pybullet_inverse_kinematics(scene_attributes):
     target_position = scene_attributes["robot_home"]
     # With validate = False, one call to IK is not good enough.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joint_positions = pybullet_inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -102,22 +111,20 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=False)
-    for joint, joint_val in zip(arm_joints, joints_state):
+    for joint, joint_val in zip(arm_joints, joint_positions):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
-    ee_link_state = p.getLinkState(
-        scene_attributes["fetch_id"],
-        scene_attributes["ee_id"],
-        computeForwardKinematics=True,
-        physicsClientId=scene_attributes["physics_client_id"])
+    ee_link_state = get_link_state(scene_attributes["fetch_id"],
+                                   scene_attributes["ee_id"],
+                                   scene_attributes["physics_client_id"])
     assert not np.allclose(
         ee_link_state[4], target_position, atol=CFG.pybullet_ik_tol)
     # With validate = True, IK does work.
     _reset_joints()
-    joints_state = pybullet_inverse_kinematics(
+    joint_positions = pybullet_inverse_kinematics(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
         target_position,
@@ -125,17 +132,15 @@ def test_pybullet_inverse_kinematics(scene_attributes):
         arm_joints,
         physics_client_id=scene_attributes["physics_client_id"],
         validate=True)
-    for joint, joint_val in zip(arm_joints, joints_state):
+    for joint, joint_val in zip(arm_joints, joint_positions):
         p.resetJointState(
             scene_attributes["fetch_id"],
             joint,
             targetValue=joint_val,
             physicsClientId=scene_attributes["physics_client_id"])
-    ee_link_state = p.getLinkState(
-        scene_attributes["fetch_id"],
-        scene_attributes["ee_id"],
-        computeForwardKinematics=True,
-        physicsClientId=scene_attributes["physics_client_id"])
+    ee_link_state = get_link_state(scene_attributes["fetch_id"],
+                                   scene_attributes["ee_id"],
+                                   scene_attributes["physics_client_id"])
     assert np.allclose(ee_link_state[4],
                        target_position,
                        atol=CFG.pybullet_ik_tol)
@@ -156,14 +161,13 @@ def test_pybullet_inverse_kinematics(scene_attributes):
     assert "Inverse kinematics failed to converge." in str(e)
 
 
-def test_fetch_pybullet_robot():
+def test_fetch_pybullet_robot(physics_client_id):
     """Tests for FetchPyBulletRobot()."""
-    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
-    physics_client_id = p.connect(p.DIRECT)
-
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id)
+    base_pose = Pose((0.75, 0.7441, 0.0))
+    robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
+                               base_pose)
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -176,7 +180,7 @@ def test_fetch_pybullet_robot():
     recovered_state = robot.get_state()
     assert np.allclose(robot_state, recovered_state, atol=1e-3)
     assert np.allclose(robot.get_joints(),
-                       robot.initial_joints_state,
+                       robot.initial_joint_positions,
                        atol=1e-2)
 
     ee_delta = (-0.01, 0.0, 0.01)
@@ -186,41 +190,53 @@ def test_fetch_pybullet_robot():
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
     action_arr = np.array(joint_target, dtype=np.float32)
+
+    # Not a valid control mode.
+    utils.reset_config({"pybullet_control_mode": "not a real control mode"})
     with pytest.raises(NotImplementedError) as e:
         robot.set_motors(action_arr)
     assert "Unrecognized pybullet_control_mode" in str(e)
+
+    # Reset control mode.
     utils.reset_config({"pybullet_control_mode": "reset"})
     robot.set_motors(action_arr)  # just make sure it doesn't crash
+
+    # Position control mode.
     utils.reset_config({"pybullet_control_mode": "position"})
     robot.set_motors(action_arr)
     for _ in range(CFG.pybullet_sim_steps_per_action):
         p.stepSimulation(physicsClientId=physics_client_id)
     expected_state = tuple(ee_target) + (f_value, )
     recovered_state = robot.get_state()
+
     # IK is currently not precise enough to increase this tolerance.
     assert np.allclose(expected_state, recovered_state, atol=1e-2)
     # Test forward kinematics.
     fk_result = robot.forward_kinematics(action_arr)
-    assert np.allclose(fk_result, ee_target, atol=1e-3)
+    assert np.allclose(fk_result, ee_target, atol=1e-2)
 
 
-def test_create_single_arm_pybullet_robot():
+def test_create_single_arm_pybullet_robot(physics_client_id):
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
+
+    # Fetch
     robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
                                              physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
+    assert robot.tool_link_name == "gripper_link"
+
+    # Unknown robot
     with pytest.raises(NotImplementedError) as e:
         create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
                                          ee_orn, physics_client_id)
     assert "Unrecognized robot name" in str(e)
 
 
-def test_run_motion_planning():
+def test_run_motion_planning(physics_client_id):
     """Tests for run_motion_planning()."""
-    physics_client_id = p.connect(p.DIRECT)
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     seed = 123

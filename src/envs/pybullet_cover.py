@@ -5,6 +5,7 @@ from typing import ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
+from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators.src import utils
 from predicators.src.envs.cover import CoverEnv
@@ -12,11 +13,12 @@ from predicators.src.envs.pybullet_env import PyBulletEnv, \
     create_pybullet_block
 from predicators.src.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.src.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.src.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, Object, \
-    ParameterizedOption, Pose3D, State, Type
+    ParameterizedOption, State, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -25,11 +27,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
-        [np.pi / 2, np.pi / 2, -np.pi])
+    _ee_orn: ClassVar[Quaternion] = quaternion_from_euler(
+        np.pi / 2, np.pi / 2, -np.pi)
     _move_to_pose_tol: ClassVar[float] = 1e-7
 
     # Object parameters.
@@ -231,8 +233,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # constraint before we can call PyBullet.
         # Use self._pybullet_robot2 to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
-        joints_state = action.arr.tolist()
-        _, ry, rz = self._pybullet_robot2.forward_kinematics(joints_state)
+        joint_positions = action.arr.tolist()
+        _, ry, rz = self._pybullet_robot2.forward_kinematics(joint_positions)
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.
@@ -256,7 +258,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         rx, ry, rz, _ = self._pybullet_robot.get_state()
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         state_dict[self._robot] = np.array([hand, rx, rz], dtype=np.float32)
-        joints_state = self._pybullet_robot.get_joints()
+        joint_positions = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -288,7 +290,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             state_dict[target] = np.array([0.0, 1.0, width, pose],
                                           dtype=np.float32)
 
-        state = utils.PyBulletState(state_dict, simulator_state=joints_state)
+        state = utils.PyBulletState(state_dict,
+                                    simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")
