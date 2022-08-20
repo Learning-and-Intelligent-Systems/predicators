@@ -6,17 +6,18 @@ from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
+from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.pybullet_env import PyBulletEnv, create_pybullet_block
 from predicators.pybullet_helpers.controllers import \
     create_change_fingers_option, create_move_end_effector_to_pose_option
+from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, Pose3D, \
-    State
+from predicators.structs import Array, Object, ParameterizedOption, State
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -28,11 +29,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Table parameters.
     _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
+    _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Sequence[float]] = p.getQuaternionFromEuler(
-        [0.0, np.pi / 2, -np.pi])
+    _ee_orn: ClassVar[Quaternion] = quaternion_from_euler(
+        0.0, np.pi / 2, -np.pi)
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:
@@ -288,7 +289,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         fingers = self._fingers_joint_to_state(rf)
         state_dict[self._robot] = np.array([rx, ry, rz, fingers],
                                            dtype=np.float32)
-        joints_state = self._pybullet_robot.get_joints()
+        joint_positions = self._pybullet_robot.get_joints()
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
@@ -298,7 +299,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             # pose_x, pose_y, pose_z, held
             state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
 
-        state = utils.PyBulletState(state_dict, simulator_state=joints_state)
+        state = utils.PyBulletState(state_dict,
+                                    simulator_state=joint_positions)
         assert set(state) == set(self._current_state), \
             (f"Reconstructed state has objects {set(state)}, but "
              f"self._current_state has objects {set(self._current_state)}.")

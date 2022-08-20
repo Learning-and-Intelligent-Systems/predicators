@@ -7,9 +7,10 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    Pose3D, State, Type
+    State, Type
 
 
 def create_move_end_effector_to_pose_option(
@@ -47,7 +48,7 @@ def create_move_end_effector_to_pose_option(
         ee_action = np.add(current, ee_delta)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
-        joints_state = robot.inverse_kinematics(
+        joint_positions = robot.inverse_kinematics(
             (ee_action[0], ee_action[1], ee_action[2]), validate=False)
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
@@ -60,13 +61,13 @@ def create_move_end_effector_to_pose_option(
             finger_delta = -finger_action_nudge_magnitude
         # Extract the current finger state.
         state = cast(utils.PyBulletState, state)
-        finger_state = state.joints_state[robot.left_finger_joint_idx]
+        finger_position = state.joint_positions[robot.left_finger_joint_idx]
         # The finger action is an absolute joint position for the fingers.
-        f_action = finger_state + finger_delta
+        f_action = finger_position + finger_delta
         # Override the meaningless finger values in joint_action.
-        joints_state[robot.left_finger_joint_idx] = f_action
-        joints_state[robot.right_finger_joint_idx] = f_action
-        action_arr = np.array(joints_state, dtype=np.float32)
+        joint_positions[robot.left_finger_joint_idx] = f_action
+        joint_positions[robot.right_finger_joint_idx] = f_action
+        action_arr = np.array(joint_positions, dtype=np.float32)
         # This clipping is needed sometimes for the joint limits.
         action_arr = np.clip(action_arr, robot.action_space.low,
                              robot.action_space.high)
@@ -117,7 +118,7 @@ def create_change_fingers_option(
         f_action = current_val + f_delta
         # Don't change the rest of the joints.
         state = cast(utils.PyBulletState, state)
-        target = np.array(state.joints_state, dtype=np.float32)
+        target = np.array(state.joint_positions, dtype=np.float32)
         target[robot.left_finger_joint_idx] = f_action
         target[robot.right_finger_joint_idx] = f_action
         # This clipping is needed sometimes for the joint limits.
