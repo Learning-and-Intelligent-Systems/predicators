@@ -753,6 +753,9 @@ def _sesame_plan_with_fast_downward(
     1) git clone https://github.com/ronuchit/downward.git
     2) cd downward && ./build.py
     3) export FD_EXEC_PATH="<your path here>/downward"
+
+    On MacOS, to use gtimeout:
+    4) brew install coreutils
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -790,8 +793,8 @@ def _sesame_plan_with_fast_downward(
         raise PlanningTimeout("Planning timed out in call to FD!")
     # Parse and log metrics.
     metrics: Metrics = defaultdict(float)
-    num_nodes_expanded = re.findall(r"Evaluated (\d+) state", output)
-    num_nodes_created = re.findall(r"Generated (\d+) state", output)
+    num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
+    num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
     assert len(num_nodes_expanded) == 1
     assert len(num_nodes_created) == 1
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
