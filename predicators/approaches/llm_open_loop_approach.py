@@ -2,7 +2,7 @@
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach llm_open_loop --seed 0 \
+    python predicators/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \
@@ -10,7 +10,7 @@ Example command line:
         --debug
 
 Easier setting:
-    python src/main.py --approach llm_open_loop --seed 0 \
+    python predicators/main.py --approach llm_open_loop --seed 0 \
         --strips_learner oracle \
         --env pddl_easy_delivery_procedural_tasks \
         --pddl_easy_delivery_procedural_train_min_num_locs 2 \

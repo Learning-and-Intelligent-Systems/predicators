@@ -1,7 +1,7 @@
 """Online learning of generalized policies via PG3.
 
 Example command line:
-    python src/main.py --approach online_pg3 --seed 0 \
+    python predicators/main.py --approach online_pg3 --seed 0 \
         --env pddl_easy_delivery_procedural_tasks \
         --explorer random_options \
         --max_initial_demos 1 \

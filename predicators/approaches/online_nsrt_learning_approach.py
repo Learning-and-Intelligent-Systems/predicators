@@ -1,7 +1,7 @@
 """An NSRT learning approach that collects and learns from data online.
 
 Example command:
-    python src/main.py --approach online_nsrt_learning --seed 0 \
+    python predicators/main.py --approach online_nsrt_learning --seed 0 \
         --env cover \
         --explorer glib \
         --max_initial_demos 1 \

@@ -3,7 +3,7 @@ modification where certain PDDL syntax is replaced with random characters.
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach llm_syntax_renaming --seed 0 \
+    python predicators/main.py --approach llm_syntax_renaming --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \

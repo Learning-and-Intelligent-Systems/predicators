@@ -1,36 +1,36 @@
 """Main entry point for running approaches in environments.
 
 Example usage with learning NSRTs:
-    python src/main.py --env cover --approach nsrt_learning --seed 0
+    python predicators/main.py --env cover --approach nsrt_learning --seed 0
 
 Example usage with oracle NSRTs:
-    python src/main.py --env cover --approach oracle --seed 0
+    python predicators/main.py --env cover --approach oracle --seed 0
 
 Example with verbose logging:
-    python src/main.py --env cover --approach oracle --seed 0 --debug
+    python predicators/main.py --env cover --approach oracle --seed 0 --debug
 
 To load a saved approach:
-    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+    python predicators/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_approach
 
 To load saved data:
-    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+    python predicators/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_data
 
 To make videos of test tasks:
-    python src/main.py --env cover --approach oracle --seed 0 \
+    python predicators/main.py --env cover --approach oracle --seed 0 \
         --make_test_videos --num_test_tasks 1
 
 To run interactive learning approach:
-    python src/main.py --env cover --approach interactive_learning \
+    python predicators/main.py --env cover --approach interactive_learning \
          --seed 0
 
 To exclude predicates:
-    python src/main.py --env cover --approach oracle --seed 0 \
+    python predicators/main.py --env cover --approach oracle --seed 0 \
          --excluded_predicates Holding
 
 To run grammar search predicate invention (example):
-    python src/main.py --env cover --approach grammar_search_invention \
+    python predicators/main.py --env cover --approach grammar_search_invention \
         --seed 0 --excluded_predicates all
 """
 

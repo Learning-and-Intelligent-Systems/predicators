@@ -3,7 +3,7 @@ modification where option names are replaced with random strings.
 
 Example command line:
     export OPENAI_API_KEY=<your API key>
-    python src/main.py --approach llm_option_renaming --seed 0 \
+    python predicators/main.py --approach llm_option_renaming --seed 0 \
         --strips_learner oracle \
         --env pddl_blocks_procedural_tasks \
         --num_train_tasks 3 \

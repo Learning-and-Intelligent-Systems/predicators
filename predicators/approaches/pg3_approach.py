@@ -5,7 +5,7 @@ but it is also possible to use this approach with operators learned from
 demonstrations.
 
 Example command line:
-    python src/main.py --approach pg3 --seed 0 \
+    python predicators/main.py --approach pg3 --seed 0 \
         --env pddl_easy_delivery_procedural_tasks \
         --strips_learner oracle --num_train_tasks 10
 """

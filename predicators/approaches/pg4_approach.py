@@ -6,7 +6,7 @@ but it is also possible to use this approach with operators learned from
 demonstrations.
 
 Example command line:
-    python src/main.py --approach pg4 --seed 0 \
+    python predicators/main.py --approach pg4 --seed 0 \
         --env cover \
         --strips_learner oracle --num_train_tasks 50
 """

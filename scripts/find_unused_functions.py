@@ -7,9 +7,9 @@ Note: this can report false positives because we only check for the string:
 import re
 import subprocess
 
-FILENAME = "src/utils.py"
+FILENAME = "predicators/utils.py"
 DIRS_TO_CHECK = [
-    "src/",
+    "predicators/",
     "scripts/",
     # "tests/",
 ]

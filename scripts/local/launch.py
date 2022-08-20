@@ -30,7 +30,7 @@ def _main() -> None:
         cmd_flags = config_to_cmd_flags(cfg)
         logfile = os.path.join("logs", config_to_logfile(cfg))
         cmd_flags = config_to_cmd_flags(cfg)
-        cmd = f"python src/main.py {cmd_flags} > {logfile}"
+        cmd = f"python predicators/main.py {cmd_flags} > {logfile}"
         cmds.append(cmd)
     # Run the commands in order.
     num_cmds = len(cmds)
