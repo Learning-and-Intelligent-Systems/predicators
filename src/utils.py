@@ -2303,7 +2303,7 @@ class VideoMonitor(Monitor):
         abstract_state_str = "{" + ", ".join(a.str_no_types() for a in abstract_state) + "}"
         self._abstract_state_strs.append(abstract_state_str)
         if action:
-            option = action.get_option()
+            option = action.get_option()._nsrt
             args_str = ", ".join(o.name for o in option.objects)
             option_str = f"{option.name}({args_str})"
             self._option_strs.append(option_str)

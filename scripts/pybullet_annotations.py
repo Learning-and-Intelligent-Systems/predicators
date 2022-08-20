@@ -56,7 +56,7 @@ def draw_text(
 
         uv_top_left += [0, h * line_spacing]
 
-name = "videos/pybullet_blocks__oracle__1________task1.mp4"
+name = "videos/pybullet_blocks__oracle__0________task1.mp4"
 
 
 
@@ -67,7 +67,7 @@ with open(f"{name}.options.txt", "r", encoding="utf-8") as f:
     options = f.read().split("\n")
 
 for option, state, img in zip(options, states, video):
-    text = [f"Skill: {option}", "", "Abstract State:", ""]
+    text = [option, "", "Abstract State:", ""]
     # text.extend(textwrap.wrap(state, width=30))
     text.extend(x + ")" for x in state[1:-1].split("), "))
     text[-1] = text[-1][:-1]
