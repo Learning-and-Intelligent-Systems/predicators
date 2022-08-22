@@ -289,10 +289,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             # There are two special cases that we handle first. In the if,
             # we consider the case where plan_only_eval is True, in which
             # case we only check whether this BilevelPlanningApproach found
-            # a plan. In the elif, we consider the case where
-            # behavior_option_model_eval is True, in which case for BEHAVIOR
-            # we evaluate on option models instead of the low-level simulator.
-            # Finally, the else handles the default case, where we use
+            # a plan. The else handles the default case, where we use
             # utils.run_policy to roll out the policy in the environment.
             if CFG.plan_only_eval:
                 assert isinstance(approach, BilevelPlanningApproach)
@@ -300,22 +297,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                         task.init):
                     solved = True
                 execution_metrics = {"policy_call_time": 0.0}
-            elif CFG.behavior_option_model_eval:  # pragma: no cover
-                # To evaluate BEHAVIOR on our option model, we are going
-                # to run our approach's plan on our option model.
-                # Note that if approach is not a BilevelPlanningApproach
-                # we cannot use this method to evaluate and would need to
-                # run the policy on the option model, not the plan
-                assert CFG.env == "behavior" and isinstance(
-                    approach, BilevelPlanningApproach)
-                last_plan = approach.get_last_plan()
-                option_model_start_time = time.time()
-                traj, solved = _run_plan_with_option_model(
-                    task, test_task_idx, approach.get_option_model(),
-                    last_plan)
-                execution_metrics = {
-                    "policy_call_time": option_model_start_time - time.time()
-                }
             else:
                 traj, execution_metrics = utils.run_policy(
                     policy,

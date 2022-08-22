@@ -3037,17 +3037,6 @@ def test_null_sampler():
     assert utils.null_sampler(None, None, None, None).shape == (0, )
 
 
-def test_behavior_state():
-    """Tests for BehaviorState."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
-    other_state = state.copy()
-    assert state.allclose(other_state)
-
-
 def test_nostdout(capfd):
     """Tests for nostdout()."""
 

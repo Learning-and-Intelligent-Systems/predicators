@@ -106,21 +106,6 @@ class GlobalSettings:
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
-    # BEHAVIOR env parameters
-    behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples",
-        "configs",
-        "wbm3_modifiable_full_obs.yaml",
-    )
-    behavior_mode = "headless"  # headless, pbgui, iggui
-    behavior_action_timestep = 1.0 / 10.0
-    behavior_physics_timestep = 1.0 / 120.0
-    behavior_task_name = "re-shelving_library_books"
-    behavior_scene_name = "Pomaria_1_int"
-    behavior_randomize_init_state = True
-    behavior_option_model_eval = False
-    behavior_option_model_rrt = False
-
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
@@ -426,7 +411,6 @@ class GlobalSettings:
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
-                    "behavior": 5000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
@@ -471,8 +455,6 @@ class GlobalSettings:
             option_model_name=defaultdict(
                 lambda: "oracle",
                 {
-                    # For the BEHAVIOR environment, use a special option model.
-                    "behavior": "oracle_behavior",
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
@@ -484,7 +466,6 @@ class GlobalSettings:
                 lambda: 8,
                 {
                     # For these environments, allow more skeletons.
-                    "behavior": 1000,
                     "coffee": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
@@ -507,14 +488,6 @@ class GlobalSettings:
                 {
                     # For the tools environment, keep it much lower.
                     "tools": 1,
-                })[args.get("env", "")],
-
-            # Used to save NSRTs as strings in pickle file.
-            dump_nsrts_as_strings=defaultdict(
-                lambda: False,
-                {
-                    # We cannot pickle BEHAVIOR NSRTs
-                    "behavior": True,
                 })[args.get("env", "")],
         )
 

@@ -18,6 +18,5 @@ logs
 saved_approaches
 saved_datasets
 scripts/results
-tmp_behavior_states
 llm_cache
 machines.txt

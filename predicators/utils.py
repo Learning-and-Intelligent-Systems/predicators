@@ -843,16 +843,6 @@ class SingletonParameterizedOption(ParameterizedOption):
                          terminal=_terminal)
 
 
-class BehaviorState(State):
-    """A BEHAVIOR state that stores the index of the temporary BEHAVIOR state
-    folder in addition to the features that are exposed in the object-centric
-    state."""
-
-    def allclose(self, other: State) -> bool:
-        # Ignores the simulator state.
-        return State(self.data).allclose(State(other.data))
-
-
 class PyBulletState(State):
     """A PyBullet state that stores the robot joint positions in addition to
     the features that are exposed in the object-centric state."""
@@ -1895,15 +1885,9 @@ def create_dataset_filename_str(
     if saving_ground_atoms:
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
-    if CFG.env == "behavior":  # pragma: no cover
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
-            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
-    else:
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    dataset_fname_template = (
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+        f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
