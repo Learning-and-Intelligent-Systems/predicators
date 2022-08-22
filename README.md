@@ -1,8 +1,8 @@
-# predicators
+# predicators_behavior
 
 ## Repository Description
 
-This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*, as described in [this paper](https://arxiv.org/abs/2203.09634). Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers. 
+This codebase is a version of the [original codebase](https://github.com/Learning-and-Intelligent-Systems/predicators) of the same name that is integrated with the [iGibson simulator](https://svl.stanford.edu/igibson/), specifically [BEHAVIOR](https://behavior.stanford.edu/). Several features are concurrently under active development. **Please contact <njk@mit.edu> and <wbm3@mit.edu> before attempting to use it for your own research.** In particular, this codebase aims to enable features implemented in the original codebase to be evaluated on the large-scale problems from BEHAVIOR!
 
 ### Code Structure
 
@@ -19,7 +19,11 @@ A simple implementation of search-then-sample bilevel planning is provided in `p
 
 ## Installation
 * This repository uses Python versions 3.8+.
-* Run `pip install -e .` to install dependencies.
+* (recommended) Make a new virtual env or conda env. If you have the original repository installed on your system, we recommend you use a *different* virtual environment for this repository. 
+* Run `pip install -e .` to install dependencies (except BEHAVIOR dependencies).
+
+### Installing BEHAVIOR dependencies.
+See [these instructions](behavior.md).
 
 ## Instructions For Running Code
 
@@ -28,14 +32,8 @@ Our code assumes that python hashing is deterministic between processes, which i
 Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add this line to your bash profile, or prepend `export PYTHONHASHSEED=0` to any command line call, e.g., `export PYTHONHASHSEED=0 python predicators/main.py --env ...`.
 
 ### Locally
-* (recommended) Make a new virtual env or conda env.
+* (recommended) Make a new virtual env or conda env. If you have the original repository installed on your system, we recommend you use a *different* virtual environment for this repository. 
 * Run, e.g., `python predicators/main.py --env cover --approach oracle --seed 0` to run the system.
-
-### Running Experiments on Supercloud
-See [these instructions](supercloud.md).
-
-### Running BEHAVIOR Experiments
-See [these instructions](behavior.md).
 
 ## Instructions For Contributing
 * Run `pip install -e .[develop]` to install all dependencies for development.
