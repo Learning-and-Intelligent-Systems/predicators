@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.doors import DoorsEnv
-from predicators.src.structs import Action, GroundAtom, Object, State, Task
+from predicators import utils
+from predicators.envs.doors import DoorsEnv
+from predicators.structs import Action, GroundAtom, Object, State, Task
 
 
 def test_doors():

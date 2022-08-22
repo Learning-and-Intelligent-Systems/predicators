@@ -1,6 +1,6 @@
 """Tests for link PyBullet helper utilities."""
 
-from predicators.src.pybullet_helpers.link import LinkState
+from predicators.pybullet_helpers.link import LinkState
 
 
 def test_link_state():

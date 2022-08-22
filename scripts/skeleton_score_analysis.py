@@ -15,16 +15,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 
-from predicators.src import utils
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning import \
-    learn_strips_operators
-from predicators.src.planning import PlanningFailure, PlanningTimeout, \
-    task_plan, task_plan_grounding
-from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, Predicate, Task
+from predicators import utils
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
+    task_plan_grounding
+from predicators.settings import CFG
+from predicators.structs import Dataset, Predicate, Task
 
 FORCE_REMAKE_RESULTS = False
 

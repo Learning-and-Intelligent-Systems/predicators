@@ -4,14 +4,13 @@ import shutil
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.llm_open_loop_approach import \
-    LLMOpenLoopApproach
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.llm_interface import LargeLanguageModel
+from predicators import utils
+from predicators.approaches import ApproachFailure
+from predicators.approaches.llm_open_loop_approach import LLMOpenLoopApproach
+from predicators.approaches.oracle_approach import OracleApproach
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.llm_interface import LargeLanguageModel
 
 
 def test_llm_open_loop_approach():

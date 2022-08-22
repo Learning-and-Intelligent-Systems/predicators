@@ -2,11 +2,11 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import create_approach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.settings import CFG
+from predicators import utils
+from predicators.approaches import create_approach
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.settings import CFG
 
 
 def test_gnn_action_policy_approach():

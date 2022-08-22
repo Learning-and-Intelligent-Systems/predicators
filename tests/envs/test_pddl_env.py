@@ -6,12 +6,12 @@ import shutil
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
+from predicators import utils
+from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksForestPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
     _FixedTasksPDDLEnv, _PDDLEnv
-from predicators.src.structs import Action
+from predicators.structs import Action
 
 
 @pytest.fixture(scope="module", name="domain_str")

@@ -3,10 +3,10 @@
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.option_model import _BehaviorOptionModel, \
+from predicators import utils
+from predicators.option_model import _BehaviorOptionModel, \
     _OracleOptionModel, create_option_model
-from predicators.src.structs import Action, ParameterizedOption, State, Type
+from predicators.structs import Action, ParameterizedOption, State, Type
 
 
 def test_default_option_model():

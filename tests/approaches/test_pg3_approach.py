@@ -4,17 +4,17 @@ import os
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.pg3_approach import PG3Approach, \
+from predicators import utils
+from predicators.approaches import ApproachFailure
+from predicators.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
     _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
     _PolicyGuidedPG3Heuristic
-from predicators.src.approaches.pg4_approach import PG4Approach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.structs import LDLRule, LiftedDecisionList
+from predicators.approaches.pg4_approach import PG4Approach
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.structs import LDLRule, LiftedDecisionList
 
 
 @pytest.mark.parametrize("approach_name,approach_cls", [("pg3", PG3Approach),

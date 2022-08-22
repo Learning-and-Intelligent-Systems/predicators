@@ -10,17 +10,17 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
+from predicators import utils
+from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
     State, STRIPSOperator, Type, Variable
-from predicators.src.utils import GoalCountHeuristic, \
-    _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
+    _TaskPlanningHeuristic
 
 
 @pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",

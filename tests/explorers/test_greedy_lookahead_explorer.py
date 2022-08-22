@@ -2,12 +2,12 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.explorers import create_explorer
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.option_model import _OracleOptionModel
-from predicators.src.structs import NSRT
+from predicators import utils
+from predicators.envs.cover import CoverEnv
+from predicators.explorers import create_explorer
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.option_model import _OracleOptionModel
+from predicators.structs import NSRT
 
 
 @pytest.mark.parametrize("target_predicate", ["Covers", "Holding"])

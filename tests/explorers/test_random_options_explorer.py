@@ -2,10 +2,10 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.explorers import create_explorer
-from predicators.src.structs import ParameterizedOption
+from predicators import utils
+from predicators.envs.cover import CoverEnv
+from predicators.explorers import create_explorer
+from predicators.structs import ParameterizedOption
 
 
 def test_random_options_explorer():

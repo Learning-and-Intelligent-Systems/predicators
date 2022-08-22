@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.structs import Action
 
 
 def test_repeated_nextto():

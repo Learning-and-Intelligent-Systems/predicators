@@ -4,20 +4,19 @@ import numpy as np
 import pybullet as p
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.pybullet_env import create_pybullet_block
-from predicators.src.pybullet_helpers.geometry import Pose
-from predicators.src.pybullet_helpers.inverse_kinematics import \
+from predicators import utils
+from predicators.envs.pybullet_env import create_pybullet_block
+from predicators.pybullet_helpers.geometry import Pose
+from predicators.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
-from predicators.src.pybullet_helpers.joint import get_kinematic_chain
-from predicators.src.pybullet_helpers.link import BASE_LINK, get_link_pose, \
+from predicators.pybullet_helpers.joint import get_kinematic_chain
+from predicators.pybullet_helpers.link import BASE_LINK, get_link_pose, \
     get_link_state
-from predicators.src.pybullet_helpers.motion_planning import \
-    run_motion_planning
-from predicators.src.pybullet_helpers.robots import \
+from predicators.pybullet_helpers.motion_planning import run_motion_planning
+from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
-from predicators.src.pybullet_helpers.robots.fetch import FetchPyBulletRobot
-from predicators.src.settings import CFG
+from predicators.pybullet_helpers.robots.fetch import FetchPyBulletRobot
+from predicators.settings import CFG
 
 
 @pytest.fixture(scope="module", name="scene_attributes")

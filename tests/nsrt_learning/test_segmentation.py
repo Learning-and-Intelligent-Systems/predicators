@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.structs import Action, LowLevelTrajectory, \
+from predicators import utils
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.structs import Action, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Type
 
 
@@ -193,9 +193,6 @@ def test_segment_trajectory():
     utils.reset_config({"segmenter": "not a real segmenter"})
     with pytest.raises(NotImplementedError):
         segment_trajectory(trajectory)
-    # Return for use elsewhere.
-    return (known_option_ll_traj, known_option_segments,
-            unknown_option_ll_traj, unknown_option_segments)
 
 
 @pytest.mark.parametrize("env", [
