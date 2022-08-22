@@ -14,7 +14,6 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
-from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -170,7 +169,7 @@ def _generate_demonstrations(
                                            idx, num_tasks, task,
                                            event_to_action)
                 termination_function = task.goal_holds
-            
+
             if CFG.make_demo_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:

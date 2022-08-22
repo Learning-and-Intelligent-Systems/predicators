@@ -125,7 +125,14 @@ class BilevelPlanningApproach(BaseApproach):
         return self._initial_predicates
 
     def get_option_model(self) -> _OptionModelBase:
-        """For ONLY an oracle approach, we allow the user to get
-        the current option model."""
+        """For ONLY an oracle approach, we allow the user to get the current
+        option model."""
         assert self.get_name() == "oracle"
         return self._option_model
+
+    def get_last_plan(self) -> List[_Option]:
+        """Note that this doesn't fit into the standard API for an Approach,
+        since solve() returns a policy, which abstracts away the details of
+        whether that policy is actually a plan under the hood."""
+        assert self.get_name() == "oracle"
+        return self._last_plan

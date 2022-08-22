@@ -121,12 +121,10 @@ def _test_approach(env_name,
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
-    approach = _test_approach(
-        env_name="blocks",
-        approach_name="nsrt_learning",
-        try_solving=False,
-        no_loading_nsrts=True,
-        additional_settings={"dump_nsrts_as_strings": True})
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              no_loading_nsrts=True)
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
@@ -163,13 +161,11 @@ def test_saving_and_loading_atoms():
     """Test learning with saving and loading groudn atoms functionality."""
     # First, call the approach with load_atoms=False so that the
     # atoms get saved.
-    approach = _test_approach(
-        env_name="blocks",
-        approach_name="nsrt_learning",
-        try_solving=False,
-        no_loading_nsrts=True,
-        load_atoms=False,
-        additional_settings={"dump_nsrts_as_strings": True})
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              no_loading_nsrts=True,
+                              load_atoms=False)
     # Next, try to manually load these saved atoms.
     dataset_fname, _ = utils.create_dataset_filename_str(
         saving_ground_atoms=True, online_learning_cycle=None)

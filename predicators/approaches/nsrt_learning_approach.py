@@ -18,8 +18,8 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, GroundAtom, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
+from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -105,10 +105,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            if CFG.dump_nsrts_as_strings:
-                pkl.dump(str(self._nsrts), f)
-            else:
-                pkl.dump(self._nsrts, f)
+            pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 

@@ -116,4 +116,3 @@ class _OracleOptionModel(_OptionModelBase):
         # since we are not actually rolling out the option in the full
         # simulator, but that's okay; it leads to optimistic planning.
         return traj.states[-1], len(traj.actions)
-

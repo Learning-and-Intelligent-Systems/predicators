@@ -1,7 +1,6 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-import itertools
-from typing import List, Sequence, Set, cast
+from typing import List, Sequence, Set
 
 import numpy as np
 

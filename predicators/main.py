@@ -46,11 +46,8 @@ import dill as pkl
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
-from predicators.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
-from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -286,27 +283,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            # There are two special cases that we handle first. In the if,
-            # we consider the case where plan_only_eval is True, in which
-            # case we only check whether this BilevelPlanningApproach found
-            # a plan. The else handles the default case, where we use
-            # utils.run_policy to roll out the policy in the environment.
-            if CFG.plan_only_eval:
-                assert isinstance(approach, BilevelPlanningApproach)
-                if approach.get_last_plan() != [] or task.goal_holds(
-                        task.init):
-                    solved = True
-                execution_metrics = {"policy_call_time": 0.0}
-            else:
-                traj, execution_metrics = utils.run_policy(
-                    policy,
-                    env,
-                    "test",
-                    test_task_idx,
-                    task.goal_holds,
-                    max_num_steps=CFG.horizon,
-                    monitor=monitor)
-                solved = task.goal_holds(traj.states[-1])
+            traj, execution_metrics = utils.run_policy(
+                policy,
+                env,
+                "test",
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
+            solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
