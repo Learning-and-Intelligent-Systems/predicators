@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.playroom import PlayroomEnv
+from predicators.structs import Action
 
 
 def test_playroom():

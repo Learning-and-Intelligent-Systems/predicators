@@ -1,10 +1,10 @@
 """Test cases for the base environment class."""
 
 import pytest
+from test_oracle_approach import ENV_NAME_AND_CLS
 
-from predicators.src import utils
-from predicators.src.envs import BaseEnv, create_new_env, get_or_create_env
-from predicators.tests.approaches.test_oracle_approach import ENV_NAME_AND_CLS
+from predicators import utils
+from predicators.envs import BaseEnv, create_new_env, get_or_create_env
 
 
 def test_env_creation():

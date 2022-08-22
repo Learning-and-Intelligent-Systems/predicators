@@ -11,9 +11,8 @@ import argparse
 import os
 import subprocess
 
-from predicators.scripts.cluster_utils import DEFAULT_BRANCH, \
-    config_to_cmd_flags, config_to_logfile, generate_run_configs, \
-    get_cmds_to_prep_repo
+from scripts.cluster_utils import DEFAULT_BRANCH, config_to_cmd_flags, \
+    config_to_logfile, generate_run_configs, get_cmds_to_prep_repo
 
 
 def _main() -> None:
@@ -31,7 +30,7 @@ def _main() -> None:
         cmd_flags = config_to_cmd_flags(cfg)
         logfile = os.path.join("logs", config_to_logfile(cfg))
         cmd_flags = config_to_cmd_flags(cfg)
-        cmd = f"python src/main.py {cmd_flags} > {logfile}"
+        cmd = f"python predicators/main.py {cmd_flags} > {logfile}"
         cmds.append(cmd)
     # Run the commands in order.
     num_cmds = len(cmds)

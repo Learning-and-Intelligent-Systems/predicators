@@ -1,11 +1,10 @@
 """Tests for oracle STRIPS operator learning."""
 
-from predicators.src import utils
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning import \
-    learn_strips_operators
+from predicators import utils
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning import learn_strips_operators
 
 
 def test_oracle_strips_learner():

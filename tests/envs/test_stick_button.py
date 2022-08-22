@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.stick_button import StickButtonEnv
-from predicators.src.structs import Action, GroundAtom, Task
+from predicators import utils
+from predicators.envs.stick_button import StickButtonEnv
+from predicators.structs import Action, GroundAtom, Task
 
 
 def test_stick_button():

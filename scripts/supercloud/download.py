@@ -14,7 +14,7 @@ at ~/predicators. Otherwise, use the --supercloud_dir flag. Example:
 import argparse
 import os
 
-from predicators.scripts.cluster_utils import SAVE_DIRS, SUPERCLOUD_IP
+from scripts.cluster_utils import SAVE_DIRS, SUPERCLOUD_IP
 
 
 def _main() -> None:

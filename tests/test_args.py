@@ -2,7 +2,7 @@
 
 import sys
 
-from predicators.src import utils
+from predicators import utils
 
 
 def test_args():

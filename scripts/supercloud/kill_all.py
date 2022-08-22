@@ -9,8 +9,7 @@ Usage example:
 
 import argparse
 
-from predicators.scripts.cluster_utils import SUPERCLOUD_IP, \
-    run_cmds_on_machine
+from scripts.cluster_utils import SUPERCLOUD_IP, run_cmds_on_machine
 
 
 def _main() -> None:

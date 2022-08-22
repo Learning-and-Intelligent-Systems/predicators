@@ -2,9 +2,6 @@
 
 See https://docs.pytest.org/en/6.2.x/fixture.html.
 """
-import pytest
-
-longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
 def pytest_addoption(parser):
