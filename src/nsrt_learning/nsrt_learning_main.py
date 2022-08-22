@@ -106,7 +106,6 @@ def learn_nsrts_from_data(
     # We delete ground_atom_dataset because it's prone to causing bugs --
     # we should rarely care about the low-level ground atoms sequence after
     # segmentation.
-    # del ground_atom_dataset
     del ground_atom_dataset
 
     # STEP 3: Learn options (option_learning.py) and update PNADs.
