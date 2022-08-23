@@ -16,7 +16,6 @@ def _test_approach(env_name,
                    approach_name,
                    excluded_predicates="",
                    try_solving=True,
-                   no_loading_nsrts=False,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
@@ -90,10 +89,7 @@ def _test_approach(env_name,
                                                    task.goal_holds,
                                                    max_num_steps=CFG.horizon)
             assert task.goal_holds(traj.states[-1])
-    # Do not load NSRTs from pickle file. This is because we cannot load
-    # NSRTs when they are saved as strings (Necessary for behavior)
-    if no_loading_nsrts:
-        return approach
+
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -123,8 +119,7 @@ def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
-                              try_solving=False,
-                              no_loading_nsrts=True)
+                              try_solving=False)
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
@@ -164,7 +159,6 @@ def test_saving_and_loading_atoms():
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
-                              no_loading_nsrts=True,
                               load_atoms=False)
     # Next, try to manually load these saved atoms.
     dataset_fname, _ = utils.create_dataset_filename_str(
@@ -183,7 +177,6 @@ def test_saving_and_loading_atoms():
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
-                              no_loading_nsrts=True,
                               load_atoms=True,
                               additional_settings={
                                   "compute_sidelining_objective_value": True,
@@ -200,7 +193,6 @@ def test_saving_and_loading_atoms():
         approach = _test_approach(env_name="blocks",
                                   approach_name="nsrt_learning",
                                   try_solving=False,
-                                  no_loading_nsrts=True,
                                   load_atoms=True)
     assert "Cannot load ground atoms" in str(e)
 
