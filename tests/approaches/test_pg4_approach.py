@@ -2,13 +2,12 @@
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.pg4_approach import PG4Approach
-from predicators.src.envs import create_new_env
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
-    Task
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout
+from predicators.approaches.pg4_approach import PG4Approach
+from predicators.envs import create_new_env
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, Task
 
 
 def test_pg4_approach():

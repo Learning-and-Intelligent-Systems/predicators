@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.screws import ScrewsEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.screws import ScrewsEnv
+from predicators.structs import Action
 
 
 def test_screws():

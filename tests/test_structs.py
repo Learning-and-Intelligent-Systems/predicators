@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.structs import NSRT, Action, DefaultState, \
+from predicators import utils
+from predicators.structs import NSRT, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
     LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
     ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \

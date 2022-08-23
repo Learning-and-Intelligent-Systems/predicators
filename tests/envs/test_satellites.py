@@ -3,9 +3,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
+from predicators.structs import Action
 
 
 def test_satellites():

@@ -3,11 +3,11 @@
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
-from predicators.src.approaches.random_options_approach import \
+from predicators import utils
+from predicators.approaches import ApproachFailure
+from predicators.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.structs import Action, ParameterizedOption, Predicate, \
+from predicators.structs import Action, ParameterizedOption, Predicate, \
     State, Task, Type
 
 

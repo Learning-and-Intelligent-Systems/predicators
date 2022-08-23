@@ -2,9 +2,8 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.repeated_nextto_painting import \
-    RepeatedNextToPaintingEnv
+from predicators import utils
+from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 
 
 def test_repeated_nextto_painting():

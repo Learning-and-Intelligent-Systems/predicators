@@ -1,9 +1,9 @@
 """Test cases for the option-renaming open-loop LLM approach."""
 
-from predicators.src import utils
-from predicators.src.approaches.llm_option_renaming_approach import \
+from predicators import utils
+from predicators.approaches.llm_option_renaming_approach import \
     LLMOptionRenamingApproach
-from predicators.src.envs import create_new_env
+from predicators.envs import create_new_env
 
 
 def test_llm_option_renaming_approach():

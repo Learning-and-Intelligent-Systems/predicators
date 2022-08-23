@@ -6,16 +6,16 @@ from typing import Dict, Sequence
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.approaches.interactive_learning_approach import \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout
+from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import _generate_interaction_results
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, Array, Dataset, Object, State
-from predicators.src.teacher import Teacher
+from predicators.datasets import create_dataset
+from predicators.envs.cover import CoverEnv
+from predicators.main import _generate_interaction_results
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, Array, Dataset, Object, State
+from predicators.teacher import Teacher
 
 
 @pytest.mark.parametrize("predicate_classifier_model,expectation",

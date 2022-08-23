@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.coffee import CoffeeEnv
-from predicators.src.structs import Action, GroundAtom
+from predicators import utils
+from predicators.envs.coffee import CoffeeEnv
+from predicators.structs import Action, GroundAtom
 
 
 def test_coffee():

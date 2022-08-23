@@ -42,7 +42,7 @@ LLsub -i
 # Activate conda and switch to the repository.
 predicate
 # Run a short experiment.
-python src/main.py --env cover --approach oracle --seed 0
+python predicators/main.py --env cover --approach oracle --seed 0
 # Exit the interactive session.
 exit
 ```

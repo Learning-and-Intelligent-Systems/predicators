@@ -7,12 +7,12 @@ from typing import Callable
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import _run_testing, main
-from predicators.src.structs import Action, State, Task
+from predicators.envs.cover import CoverEnv
+from predicators.main import _run_testing, main
+from predicators.structs import Action, State, Task
 
 
 class _DummyFailureApproach(BaseApproach):
