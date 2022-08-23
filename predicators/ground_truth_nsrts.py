@@ -1,14 +1,10 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-import itertools
-from typing import List, Sequence, Set, cast
+from typing import List, Sequence, Set
 
 import numpy as np
 
 from predicators.envs import get_or_create_env
-from predicators.envs.behavior import BehaviorEnv
-from predicators.envs.behavior_options import grasp_obj_param_sampler, \
-    navigate_to_param_sampler, place_ontop_obj_pos_sampler
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
@@ -35,8 +31,6 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
     elif CFG.env in ("blocks", "pybullet_blocks"):
         nsrts = _get_blocks_gt_nsrts()
-    elif CFG.env == "behavior":
-        nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
     elif CFG.env in ("painting", "repeated_nextto_painting"):
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "tools":
@@ -2727,161 +2721,6 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
                                     ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(take_geiger_reading_nsrt)
-
-    return nsrts
-
-
-def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
-    """Create ground truth nsrts for BehaviorEnv."""
-    # Without this cast, mypy complains:
-    #   "BaseEnv" has no attribute "object_to_ig_object"
-    # and using isinstance(env, BehaviorEnv) instead does not work.
-    env_base = get_or_create_env("behavior")
-    env = cast(BehaviorEnv, env_base)
-
-    # NOTE: These two methods below are necessary to help instantiate
-    # all combinations of types for predicates (e.g. reachable(robot, book),
-    # reachable(robot, fridge), etc). If we had support for hierarchical types
-    # such that all types could inherit from 'object' we would not need
-    # to perform this combinatorial enumeration.
-
-    type_name_to_type = {t.name: t for t in env.types}
-    pred_name_to_pred = {p.name: p for p in env.predicates}
-
-    def _get_lifted_atom(base_pred_name: str,
-                         objects: Sequence[Variable]) -> LiftedAtom:
-        pred = _get_predicate(base_pred_name, [o.type for o in objects])
-        return LiftedAtom(pred, objects)
-
-    def _get_predicate(base_pred_name: str,
-                       types: Sequence[Type]) -> Predicate:
-        if len(types) == 0:
-            return pred_name_to_pred[base_pred_name]
-        type_names = "-".join(t.name for t in types)
-        pred_name = f"{base_pred_name}-{type_names}"
-        return pred_name_to_pred[pred_name]
-
-    # We start by creating reachable predicates for the agent and
-    # all possible other types. These predicates will
-    # be used as ignore effects for navigateTo operators.
-    reachable_predicates = set()
-    for reachable_pred_type in env.types:
-        # We don't care about the "reachable(agent)" predicate
-        # since it will always be False.
-        if reachable_pred_type.name == "agent":
-            continue
-        reachable_predicates.add(
-            _get_predicate("reachable", [reachable_pred_type]))
-
-    nsrts = set()
-    op_name_count_nav = itertools.count()
-    op_name_count_pick = itertools.count()
-    op_name_count_place = itertools.count()
-
-    for option in env.options:
-        split_name = option.name.split("-")
-        base_option_name = split_name[0]
-        option_arg_type_names = split_name[1:]
-
-        if base_option_name == "NavigateTo":
-            assert len(option_arg_type_names) == 1
-            target_obj_type_name = option_arg_type_names[0]
-            target_obj_type = type_name_to_type[target_obj_type_name]
-            target_obj = Variable("?targ", target_obj_type)
-            # We don't need an NSRT to navigate to the agent.
-            if target_obj_type_name == "agent":
-                continue
-
-            # Navigate to from nothing reachable.
-            parameters = [target_obj]
-            option_vars = [target_obj]
-            preconditions: Set[LiftedAtom] = set()
-            add_effects = {_get_lifted_atom("reachable", [target_obj])}
-            reachable_nothing = _get_lifted_atom("reachable-nothing", [])
-            delete_effects = {reachable_nothing}
-            nsrt = NSRT(
-                f"{option.name}-{next(op_name_count_nav)}", parameters,
-                preconditions, add_effects, delete_effects,
-                reachable_predicates, option, option_vars,
-                lambda s, g, r, o: navigate_to_param_sampler(
-                    r,
-                    [env.object_to_ig_object(o_i) for o_i in o],
-                ))
-            nsrts.add(nsrt)
-
-        elif base_option_name == "Grasp":
-            assert len(option_arg_type_names) == 1
-            target_obj_type_name = option_arg_type_names[0]
-            target_obj_type = type_name_to_type[target_obj_type_name]
-            target_obj = Variable("?targ", target_obj_type)
-
-            # Grasp an object from ontop some surface.
-            for surf_obj_type in sorted(env.types):
-                surf_obj = Variable("?surf", surf_obj_type)
-                parameters = [target_obj, surf_obj]
-                option_vars = [target_obj]
-                handempty = _get_lifted_atom("handempty", [])
-                targ_reachable = _get_lifted_atom("reachable", [target_obj])
-                targ_holding = _get_lifted_atom("holding", [target_obj])
-                ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
-                preconditions = {handempty, targ_reachable, ontop}
-                add_effects = {targ_holding}
-                delete_effects = {handempty, ontop, targ_reachable}
-                nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count_pick)}",
-                    parameters,
-                    preconditions,
-                    add_effects,
-                    delete_effects,
-                    set(),
-                    option,
-                    option_vars,
-                    lambda s, g, r, o: grasp_obj_param_sampler(r),
-                )
-                nsrts.add(nsrt)
-
-        elif base_option_name == "PlaceOnTop":
-            assert len(option_arg_type_names) == 1
-            surf_obj_type_name = option_arg_type_names[0]
-            surf_obj_type = type_name_to_type[surf_obj_type_name]
-            surf_obj = Variable("?surf", surf_obj_type)
-            # We don't need an NSRT to place objects on top of the
-            # agent because this is never necessary.
-            if surf_obj.type.name == "agent":
-                continue
-
-            # We need to place the object we're holding!
-            for held_obj_types in sorted(env.types):
-                held_obj = Variable("?held", held_obj_types)
-                parameters = [held_obj, surf_obj]
-                option_vars = [surf_obj]
-                handempty = _get_lifted_atom("handempty", [])
-                held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_reachable = _get_lifted_atom("reachable", [surf_obj])
-                held_reachable = _get_lifted_atom("reachable", [held_obj])
-                ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
-                preconditions = {held_holding, surf_reachable}
-                add_effects = {ontop, handempty, held_reachable}
-                delete_effects = {held_holding}
-                nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count_place)}",
-                    parameters,
-                    preconditions,
-                    add_effects,
-                    delete_effects,
-                    set(),
-                    option,
-                    option_vars,
-                    lambda s, g, r, o: place_ontop_obj_pos_sampler(
-                        [env.object_to_ig_object(o_i) for o_i in o],
-                        rng=r,
-                    ),
-                )
-                nsrts.add(nsrt)
-
-        else:
-            raise ValueError(
-                f"Unexpected base option name: {base_option_name}")
 
     return nsrts
 

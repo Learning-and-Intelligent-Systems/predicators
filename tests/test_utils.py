@@ -157,36 +157,6 @@ def test_num_options_in_action_sequence():
         assert utils.num_options_in_action_sequence(actions) == expected_num
 
 
-def test_aabb_volume():
-    """Tests for get_aabb_volume()."""
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    # Test zero volume calculation
-    assert utils.get_aabb_volume(lo, lo) == 0.0
-    # Test ordinary calculation
-    assert utils.get_aabb_volume(lo, hi) == 1.0
-    with pytest.raises(AssertionError):
-        # Test assertion error when lower bound is
-        # greater than upper bound
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        assert utils.get_aabb_volume(lo1, hi1)
-
-
-def test_aabb_closest_point():
-    """Tests for get_closest_point_on_aabb()."""
-    # Test ordinary usage
-    xyz = [1.5, 3.0, -2.5]
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
-    with pytest.raises(AssertionError):
-        # Test error where lower bound is greater than upper bound.
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        utils.get_closest_point_on_aabb(xyz, lo1, hi1)
-
-
 def test_entropy():
     """Tests for entropy()."""
     assert np.allclose(utils.entropy(0.0), 0.0)
@@ -3126,17 +3096,6 @@ def test_parse_config_included_options():
 def test_null_sampler():
     """Tests for null_sampler()."""
     assert utils.null_sampler(None, None, None, None).shape == (0, )
-
-
-def test_behavior_state():
-    """Tests for BehaviorState."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
-    other_state = state.copy()
-    assert state.allclose(other_state)
 
 
 def test_nostdout(capfd):

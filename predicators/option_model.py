@@ -13,7 +13,6 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.behavior import BehaviorEnv, load_checkpoint_state
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
@@ -23,8 +22,6 @@ def create_option_model(name: str) -> _OptionModelBase:
     if name == "oracle":
         env = get_or_create_env(CFG.env)
         return _OracleOptionModel(env)
-    if name == "oracle_behavior":
-        return _BehaviorOptionModel()
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
         env = get_or_create_env(env_name)
@@ -119,22 +116,3 @@ class _OracleOptionModel(_OptionModelBase):
         # since we are not actually rolling out the option in the full
         # simulator, but that's okay; it leads to optimistic planning.
         return traj.states[-1], len(traj.actions)
-
-
-class _BehaviorOptionModel(_OptionModelBase):
-    """An oracle option model that is specific to BEHAVIOR, since simulation is
-    expensive in this environment."""
-
-    def get_next_state_and_num_actions(
-            self, state: State,
-            option: _Option) -> Tuple[State, int]:  # pragma: no cover
-        env = get_or_create_env("behavior")
-        assert isinstance(env, BehaviorEnv)
-        assert option.memory.get("model_controller") is not None
-        assert option.memory.get("planner_result") is not None
-        if not CFG.plan_only_eval:
-            load_checkpoint_state(state, env, reset=True)
-        option.memory["model_controller"](state, env.igibson_behavior_env)
-        next_state = env.current_ig_state_to_state()
-        plan, _ = option.memory["planner_result"]
-        return next_state, len(plan)
