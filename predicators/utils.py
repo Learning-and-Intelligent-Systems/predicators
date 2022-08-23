@@ -2244,9 +2244,25 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
     """Create a PDDL domain str from STRIPSOperators or NSRTs."""
     # Sort everything to ensure determinism.
     preds_lst = sorted(predicates)
-    types_lst = sorted(types)
+    # Case 1: no type hierarchy.
+    if all(t.parent is None for t in types):
+        types_str = " ".join(t.name for t in sorted(types))
+    # Case 2: type hierarchy.
+    else:
+        parent_to_children_types: Dict[Type,
+                                       List[Type]] = {t: []
+                                                      for t in types}
+        for t in sorted(types):
+            if t.parent:
+                parent_to_children_types[t.parent].append(t)
+        types_str = ""
+        for parent_type in sorted(parent_to_children_types):
+            child_types = parent_to_children_types[parent_type]
+            if not child_types:
+                continue
+            child_type_str = " ".join(t.name for t in child_types)
+            types_str += f"\n    {child_type_str} - {parent_type.name}"
     ops_lst = sorted(operators)
-    types_str = " ".join(t.name for t in types_lst)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
     return f"""(define (domain {domain_name})
