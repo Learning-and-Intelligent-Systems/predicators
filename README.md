@@ -34,9 +34,6 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 ### Running Experiments on Supercloud
 See [these instructions](supercloud.md).
 
-### Running BEHAVIOR Experiments
-See [these instructions](behavior.md).
-
 ## Instructions For Contributing
 * Run `pip install -e .[develop]` to install all dependencies for development.
 * You can't push directly to master. Make a new branch in this repository (don't use a fork, since that will not properly trigger the checks when you make a PR). When your code is ready for review, make a PR and request reviews from the appropriate people.

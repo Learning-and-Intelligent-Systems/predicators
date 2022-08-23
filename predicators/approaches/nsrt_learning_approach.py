@@ -18,8 +18,8 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, GroundAtom, \
-    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task, Type
+from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -68,27 +68,6 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 assert len(trajectories) == len(ground_atom_dataset_atoms)
                 logging.info("\n\nLOADED GROUND ATOM DATASET")
 
-                if CFG.env == "behavior":  # pragma: no cover
-                    pred_name_to_pred = {
-                        pred.name: pred
-                        for pred in self._get_current_predicates()
-                    }
-                    new_ground_atom_dataset_atoms = []
-                    # Since we save ground atoms for behavior with dummy
-                    # classifiers, we need to restore the correct classifers.
-                    for ground_atom_seq in ground_atom_dataset_atoms:
-                        new_ground_atom_seq = []
-                        for ground_atom_set in ground_atom_seq:
-                            new_ground_atom_set = {
-                                GroundAtom(
-                                    pred_name_to_pred[atom.predicate.name],
-                                    atom.entities)
-                                for atom in ground_atom_set
-                            }
-                            new_ground_atom_seq.append(new_ground_atom_set)
-                        new_ground_atom_dataset_atoms.append(
-                            new_ground_atom_seq)
-
                 # The saved ground atom dataset consists only of sequences
                 # of sets of GroundAtoms, we need to recombine this with
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
@@ -111,21 +90,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             for gt_traj in ground_atom_dataset:
                 trajectory = []
                 for ground_atom_set in gt_traj[1]:
-                    if CFG.env == "behavior":  # pragma: no cover
-                        # In the case of behavior, we cannot directly pickle
-                        # the ground atoms dataset because the classifiers are
-                        # linked to the simulator, which cannot be pickled.
-                        # Thus, we must strip away the classifiers and replace
-                        # them with dummies.
-                        trajectory.append({
-                            GroundAtom(
-                                Predicate(atom.predicate.name,
-                                          atom.predicate.types,
-                                          lambda s, o: False), atom.entities)
-                            for atom in ground_atom_set
-                        })
-                    else:
-                        trajectory.append(ground_atom_set)
+                    trajectory.append(ground_atom_set)
                 ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
@@ -140,10 +105,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            if CFG.dump_nsrts_as_strings:
-                pkl.dump(str(self._nsrts), f)
-            else:
-                pkl.dump(self._nsrts, f)
+            pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 

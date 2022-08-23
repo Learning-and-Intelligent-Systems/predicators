@@ -179,35 +179,6 @@ def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
     return num_options
 
 
-def get_aabb_volume(lo: Array, hi: Array) -> float:
-    """Simple utility function to compute the volume of an aabb.
-
-    lo refers to the minimum values of the bbox in the x, y and z axes,
-    while hi refers to the highest values. Both lo and hi must be three-
-    dimensional.
-    """
-    assert np.all(hi >= lo)
-    dimension = hi - lo
-    return dimension[0] * dimension[1] * dimension[2]
-
-
-def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
-    """Get the closest point on an aabb from a particular xyz coordinate."""
-    assert np.all(hi >= lo)
-    closest_point_on_aabb = [0.0, 0.0, 0.0]
-    for i in range(3):
-        # if the coordinate is between the min and max of the aabb, then
-        # use that coordinate directly
-        if xyz[i] < hi[i] and xyz[i] > lo[i]:
-            closest_point_on_aabb[i] = xyz[i]
-        else:
-            if abs(xyz[i] - hi[i]) < abs(xyz[i] - lo[i]):
-                closest_point_on_aabb[i] = hi[i]
-            else:
-                closest_point_on_aabb[i] = lo[i]
-    return closest_point_on_aabb
-
-
 def entropy(p: float) -> float:
     """Entropy of a Bernoulli variable with parameter p."""
     assert 0.0 <= p <= 1.0
@@ -841,16 +812,6 @@ class SingletonParameterizedOption(ParameterizedOption):
                          policy=policy,
                          initiable=_initiable,
                          terminal=_terminal)
-
-
-class BehaviorState(State):
-    """A BEHAVIOR state that stores the index of the temporary BEHAVIOR state
-    folder in addition to the features that are exposed in the object-centric
-    state."""
-
-    def allclose(self, other: State) -> bool:
-        # Ignores the simulator state.
-        return State(self.data).allclose(State(other.data))
 
 
 class PyBulletState(State):
@@ -1895,15 +1856,9 @@ def create_dataset_filename_str(
     if saving_ground_atoms:
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
-    if CFG.env == "behavior":  # pragma: no cover
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
-            f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
-    else:
-        dataset_fname_template = (
-            f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
-            f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
+    dataset_fname_template = (
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.demonstrator}__"
+        f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     dataset_fname = os.path.join(
         CFG.data_dir,
         dataset_fname_template.replace(regex, str(CFG.num_train_tasks)))
