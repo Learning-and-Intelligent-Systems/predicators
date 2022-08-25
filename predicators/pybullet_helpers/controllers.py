@@ -1,16 +1,17 @@
 """Generic controllers for the robots."""
-from __future__ import annotations
-
-from typing import Callable, Dict, Sequence, Tuple, cast
+from typing import Callable, Dict, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.pybullet_helpers.geometry import Pose3D
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     State, Type
+
+_SUPPORTED_ROBOTS: Set[str] = {"fetch", "panda"}
 
 
 def create_move_end_effector_to_pose_option(
@@ -29,8 +30,9 @@ def create_move_end_effector_to_pose_option(
     state, objects, and parameters, and returns the current pose and target
     pose of the end effector, and the finger status."""
 
-    assert robot.get_name() == "fetch", "Move end effector to pose option " + \
-        f"not implemented for robot {robot.get_name()}."
+    assert robot.get_name() in _SUPPORTED_ROBOTS, (
+        "Move end effector to pose option " +
+        f"not implemented for robot {robot.get_name()}.")
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
@@ -38,7 +40,7 @@ def create_move_end_effector_to_pose_option(
         # First handle the main arm joints.
         current, target, finger_status = \
             get_current_and_target_pose_and_finger_status(
-                state, objects, params)
+            state, objects, params)
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)
         # Reduce the target to conform to the max velocity constraint.
@@ -105,8 +107,9 @@ def create_change_fingers_option(
     robot fingers, given a function that takes in the current state, objects,
     and parameters, and returns the current and target finger joint values."""
 
-    assert robot.get_name() == "fetch", "Change fingers option not " + \
-        f"implemented for robot {robot.get_name()}."
+    assert robot.get_name() in _SUPPORTED_ROBOTS, (
+        "Change fingers option not " +
+        f"implemented for robot {robot.get_name()}.")
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
