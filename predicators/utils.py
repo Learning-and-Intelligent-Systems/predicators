@@ -165,6 +165,28 @@ def segment_trajectory_to_atoms_sequence(
     assert len(atoms_seq) == len(seg_traj) + 1
     return atoms_seq
 
+def order_data(
+        trajectories: List[LowLevelTrajectory],
+        ground_atom_dataset: List[GroundAtomTrajectory],
+        rng: np.random.Generator
+    ) -> Tuple[List[LowLevelTrajectory], List[GroundAtomTrajectory]]:
+    """Re-orders a list of trajectories and matching list of ground atoms,
+    using the np.random.Generator provided.
+
+    This function returns another list of trajectories and matching list
+    of ground atoms in a new order.
+    """
+    rnd_seed = int(rng.random() * 1000000)
+    order_rng = np.random.default_rng(rnd_seed)
+    sorting_heuristic = lambda traj: order_rng.random()
+    trajectories = [
+        traj
+        for _, traj in sorted(zip(ground_atom_dataset, trajectories),
+                                key=lambda pair: sorting_heuristic(pair[0]))
+    ]
+    order_rng = np.random.default_rng(rnd_seed)
+    ground_atom_dataset.sort(key=sorting_heuristic)
+    return trajectories, ground_atom_dataset
 
 def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
     """Given a sequence of actions with options included, get the number of

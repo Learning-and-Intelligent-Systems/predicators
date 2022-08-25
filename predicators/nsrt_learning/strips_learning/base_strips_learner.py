@@ -43,14 +43,44 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
-        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
-            logging.info("\nRunning harmlessness check...")
-            assert self._check_harmlessness(learned_pnads)
-        min_data = max(CFG.min_data_for_nsrt,
-                       self._num_segments * CFG.min_perc_data_for_nsrt / 100)
-        learned_pnads = [
-            pnad for pnad in learned_pnads if len(pnad.datastore) >= min_data
-        ]
+        # Remove pnads by increasing min_data_perc until harmlessness breaks.
+        if CFG.enable_harmless_op_pruning:
+            assert self._verify_harmlessness
+            assert not CFG.disable_harmlessness_check
+        # Keeps track of latest set of harmless pnads. Will interating over
+        # all min_perc_data_for_nsrts until it breaks.
+        min_harmless_pnads = learned_pnads
+        for min_perc_data_for_nsrt in range(CFG.min_perc_data_for_nsrt, 100):
+            learned_pnads = self._learn()
+            min_data = max(CFG.min_data_for_nsrt,
+                           self._num_segments * min_perc_data_for_nsrt / 100)
+            learned_pnads = [
+                pnad for pnad in learned_pnads
+                if len(pnad.datastore) >= min_data
+            ]
+            if self._verify_harmlessness and \
+                not CFG.disable_harmlessness_check:
+                logging.info("\nRunning harmlessness check...")
+                if not self._check_harmlessness(learned_pnads):
+                    if CFG.enable_harmless_op_pruning:
+                        break
+                    else:
+                        raise Exception("Failed Harmlessness Check!")
+            else:
+                # If we are not verifying harmlessness than we assume that
+                # we are not doing harmless operator pruning and return
+                # current nsrts at current min_perc_data_for_nsrts.
+                min_harmless_pnads = learned_pnads
+                break
+            # We successfully verified harmlessness than we save this set of
+            # pnads and continue reducing min_perc_data_for_nsrts.
+            min_harmless_pnads = learned_pnads
+            if CFG.disable_harmlessness_check or \
+                not CFG.enable_harmless_op_pruning:
+                # We are not doing harmless operator pruning and return
+                # current nsrts at current min_perc_data_for_nsrts.
+                break
+        learned_pnads = min_harmless_pnads
         return learned_pnads
 
     @abc.abstractmethod

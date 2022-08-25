@@ -7,6 +7,8 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
+from predicators.nsrt_learning.nsrt_learning_main import \
+    learn_nsrts_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
@@ -288,7 +290,10 @@ def test_backchaining_strips_learner_order_dependence():
     # Weird Case: This case shows that our algorithm is not data invariant!
     utils.reset_config({
         "approach": "nsrt_learning",
-        "strips_learner": "backchaining"
+        "strips_learner": "backchaining",
+        # Following are neccessary to solve this case.
+        "data_orderings_to_search": 10,
+        "enable_harmless_op_pruning": True,
     })
     # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
     # holding: True or False whether an object is in hand
@@ -531,6 +536,21 @@ def test_backchaining_strips_learner_order_dependence():
                                              segmented_trajs,
                                              verify_harmlessness=True)
     natural_order_pnads = learner.learn()
+    action_space = Box(0, 1, (1, ))
+    dataset = [traj1, traj2]
+    train_tasks = [task1, task2]
+    options = {
+        moveto_param_option, pick_param_option, movetoshelf_param_option,
+        place_param_option
+    }
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+    natural_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
 
     traj1 = LowLevelTrajectory([
         state1, state2, state3, state4, state5, state6, state7, state8, state9
@@ -551,10 +571,28 @@ def test_backchaining_strips_learner_order_dependence():
     # Be sure to reset the segment add effects before doing this.
     learner.reset_all_segment_add_effs()
     reverse_order_pnads = learner.learn()
+    action_space = Box(0, 1, (1, ))
+    dataset = [traj2, traj1]
+    train_tasks = [task2, task1]
+    options = {
+        moveto_param_option, pick_param_option, movetoshelf_param_option,
+        place_param_option
+    }
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+    reverse_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
 
     # First, check that the two sets of PNADs have the same number of PNADs.
     # Uh oh, they don't
     assert len(natural_order_pnads) != len(reverse_order_pnads)
+    # Second, check that the two sets of NSRTs have the same number of NSRTs.
+    # They do! Because of dataset reordering and harmless operator pruning.
+    assert len(natural_order_nsrts) == len(reverse_order_nsrts)
 
 
 def test_spawn_new_pnad():
