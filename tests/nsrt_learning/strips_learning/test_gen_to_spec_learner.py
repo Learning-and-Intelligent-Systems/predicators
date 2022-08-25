@@ -7,8 +7,7 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
+from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner

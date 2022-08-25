@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-import numpy as np
 from typing import Dict, List, Set, Tuple
 
+import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
@@ -44,7 +44,7 @@ def learn_nsrts_from_data(
     # only do one iteration, because all other appraoches are
     # data invariant.
     smallest_pnads = None
-    smallest_pnad_complexity = None
+    smallest_pnad_complexity = float('inf')
     rng = np.random.default_rng(CFG.seed)
     for _ in range(CFG.data_orderings_to_search):
         # Step 0: Shuffle dataset to learn from.
@@ -84,10 +84,11 @@ def learn_nsrts_from_data(
             verbose=(CFG.option_learner != "no_learning"))
 
         # Save smallest learned PNAD set across data orderings.
-        pnads_complexity = [pnad.op.get_complexity() for pnad in pnads]
-        if smallest_pnads is None or  pnads_complexity < smallest_pnad_complexity:
+        pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)
+        if pnads_complexity < smallest_pnad_complexity:
             smallest_pnad_complexity = pnads_complexity
             smallest_pnads = pnads
+        assert smallest_pnads is not None  # smallest pnads should be set here
 
         if CFG.strips_learner != 'backchaining':
             break

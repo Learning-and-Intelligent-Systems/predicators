@@ -62,10 +62,7 @@ class BaseSTRIPSLearner(abc.ABC):
                 not CFG.disable_harmlessness_check:
                 logging.info("\nRunning harmlessness check...")
                 if not self._check_harmlessness(learned_pnads):
-                    if CFG.enable_harmless_op_pruning:
-                        break
-                    else:
-                        raise Exception("Failed Harmlessness Check!")
+                    break
             else:
                 # If we are not verifying harmlessness than we assume that
                 # we are not doing harmless operator pruning and return
@@ -81,6 +78,8 @@ class BaseSTRIPSLearner(abc.ABC):
                 # current nsrts at current min_perc_data_for_nsrts.
                 break
         learned_pnads = min_harmless_pnads
+        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+            assert self._check_harmlessness(learned_pnads)
         return learned_pnads
 
     @abc.abstractmethod

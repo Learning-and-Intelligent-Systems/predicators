@@ -292,7 +292,7 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     min_perc_data_for_nsrt = 0
-    data_orderings_to_search = 1 # NSRT learning data ordering parameters
+    data_orderings_to_search = 1  # NSRT learning data ordering parameters
     # STRIPS learning algorithm. See get_name() functions in the directory
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
