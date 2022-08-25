@@ -38,7 +38,10 @@
 //// START
 // I don't know if this is still needed since I include the files for each arm.
 // It doesn't seem to hurt, so just leave it in.
-#include "python2.7/Python.h"
+// Update 2022-06-04 (willshen): newer OS installations don't have Python 2.7
+// installed by default so including this line breaks things. Removing it
+// doesn't seem to break anything so let's leave it out.
+// #include "python2.7/Python.h"
 //// END
 
 #ifndef IKFAST_HEADER_COMMON
