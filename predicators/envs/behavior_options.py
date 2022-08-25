@@ -2,13 +2,14 @@
 # pylint: disable=import-error
 
 import logging
-from typing import Callable, List, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import scipy
 from numpy.random._generator import Generator
 
-from predicators.structs import Array, State
+from predicators.settings import CFG
+from predicators.structs import Array, GroundAtom, State
 from predicators.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
@@ -28,6 +29,7 @@ try:
     from igibson.utils import sampling_utils
     from igibson.utils.behavior_robot_planning_utils import \
         plan_base_motion_br, plan_hand_motion_br
+    from igibson.utils.checkpoint_utils import load_checkpoint
 
 except (ImportError, ModuleNotFoundError) as e:
     pass
@@ -86,10 +88,10 @@ def detect_robot_collision(robot: "BaseRobot") -> bool:
     """Function to detect whether the robot is currently colliding with any
     object in the scene."""
     object_in_hand = robot.parts["right_hand"].object_in_hand
-    return (detect_collision(robot.parts["body"].body_id)
-            or detect_collision(robot.parts["left_hand"].body_id)
-            or detect_collision(robot.parts["right_hand"].body_id,
-                                object_in_hand))
+    return (
+        detect_collision(robot.parts["body"].body_id, object_in_hand)
+        or detect_collision(robot.parts["left_hand"].body_id, object_in_hand)
+        or detect_collision(robot.parts["right_hand"].body_id, object_in_hand))
 
 
 def reset_and_release_hand(env: "BehaviorEnv") -> None:
@@ -145,13 +147,22 @@ def get_delta_low_level_base_action(robot_z: float,
     return ret_action
 
 
-def navigate_to_param_sampler(rng: Generator,
+def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
+                              rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
-    assert len(objects) == 1
-    # The navigation nsrts are designed such that this is true (the target
-    # obj is always last in the params list).
-    obj_to_sample_near = objects[0]
+    del goal
+    from predicators.envs import \
+        get_or_create_env  # pylint: disable=import-outside-toplevel
+
+    # Get the current env for collision checking.
+    env = get_or_create_env("behavior")
+    if not state.allclose(env.current_ig_state_to_state(save_state=False)):
+        load_checkpoint_state(state, env)
+
+    # The navigation nsrts are designed such that the target
+    # obj is always last in the params list.
+    obj_to_sample_near = objects[-1]
     closeness_limit = 0.75
     nearness_limit = 0.5
     distance = nearness_limit + (
@@ -159,19 +170,28 @@ def navigate_to_param_sampler(rng: Generator,
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
+    sampler_output = np.array([x, y])
 
     # The below while loop avoids sampling values that are inside
     # the bounding box of the object and therefore will
     # certainly be in collision with the object if the robot
     # tries to move there.
-    while (abs(x) <= obj_to_sample_near.bounding_box[0]
-           and abs(y) <= obj_to_sample_near.bounding_box[1]):
+    logging.info("Sampling params for navigation...")
+    num_samples_tried = 0
+    while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                              sampler_output) is None):
         distance = closeness_limit * rng.random()
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
+        sampler_output = np.array([x, y])
+        if num_samples_tried % 50 == 0:
+            logging.info(f"Number of navigation samples: {num_samples_tried}")
+        num_samples_tried += 1
 
-    return np.array([x, y])
+    assert check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                              sampler_output) is not None
+    return sampler_output
 
 
 def create_navigate_policy(
@@ -319,36 +339,14 @@ def navigate_to_obj_pos(
                       f"{pos_offset} fail")
         return None
 
-    obj_pos = obj.get_position()
-    pos = [
-        pos_offset[0] + obj_pos[0],
-        pos_offset[1] + obj_pos[1],
-        env.robots[0].initial_z_offset,
-    ]
-    yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
-    orn = [0, 0, yaw_angle]
-    env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))
-    eye_pos = env.robots[0].parts["eye"].get_position()
-    ray_test_res = p.rayTest(eye_pos, obj_pos)
-    # Test to see if the robot is obstructed by some object, but make sure
-    # that object is not either the robot's body or the object we want to
-    # pick up!
-    blocked = len(ray_test_res) > 0 and (ray_test_res[0][0] not in (
-        env.robots[0].parts["body"].get_body_id(),
-        obj.get_body_id(),
-    ))
-    if not detect_robot_collision(env.robots[0]) and not blocked:
-        valid_position = (pos, orn)
+    valid_position = check_nav_end_pose(env, obj, pos_offset)
 
     if valid_position is None:
-        if blocked:
-            logging.warning("WARNING: Position commanded is blocked!")
-        else:
-            logging.warning("WARNING: Position commanded is in collision!")
         p.restoreState(state)
         p.removeState(state)
         logging.warning(f"PRIMITIVE: navigate to {obj.name} with params "
-                        f"{pos_offset} fail")
+                        f"{pos_offset} failed, sampler is problematic!")
+        check_nav_end_pose(env, obj, pos_offset)
         return None
 
     p.restoreState(state)
@@ -390,9 +388,59 @@ def navigate_to_obj_pos(
     return plan, original_orientation
 
 
+def check_nav_end_pose(
+        env: "BehaviorEnv", obj: Union["URDFObject", "RoomFloor"],
+        pos_offset: Array) -> Optional[Tuple[List[int], List[int]]]:
+    """Check that the robot can reach pos_offset from the obj without (1) being
+    in collision with anything, or (2) being blocked from obj by some other
+    solid object.
+
+    If this is true, return the ((x,y,z),(roll, pitch, yaw)), else
+    return None
+    """
+    valid_position = None
+    state = p.saveState()
+    obj_pos = obj.get_position()
+    pos = [
+        pos_offset[0] + obj_pos[0],
+        pos_offset[1] + obj_pos[1],
+        env.robots[0].initial_z_offset,
+    ]
+    yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
+    orn = [0, 0, yaw_angle]
+    env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))
+    eye_pos = env.robots[0].parts["eye"].get_position()
+    ray_test_res = p.rayTest(eye_pos, obj_pos)
+    # Test to see if the robot is obstructed by some object, but make sure
+    # that object is not either the robot's body or the object we want to
+    # pick up!
+    blocked = len(ray_test_res) > 0 and (ray_test_res[0][0] not in (
+        env.robots[0].parts["body"].get_body_id(),
+        obj.get_body_id(),
+    ))
+    if not detect_robot_collision(env.robots[0]) and not blocked:
+        valid_position = (pos, orn)
+
+    # if blocked:
+    #     logging.info(f"Params {pos_offset} blocked!")
+    # elif valid_position is None:
+    #     logging.info(f"Params {pos_offset} in collision!")
+
+    # if valid_position is not None:
+    #     logging.info(f"Params {pos_offset} is fine!")
+
+    p.restoreState(state)
+    p.removeState(state)
+
+    return valid_position
+
+
 # Sampler for grasp continuous params
-def grasp_obj_param_sampler(rng: Generator) -> Array:
+def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
+                            rng: Generator,
+                            objects: Sequence["URDFObject"]) -> Array:
     """Sampler for grasp option."""
+    del state, goal, objects
     x_offset = (rng.random() * 0.4) - 0.2
     y_offset = (rng.random() * 0.4) - 0.2
     z_offset = rng.random() * 0.2
@@ -951,10 +999,10 @@ def place_obj_plan(
 
 
 def place_ontop_obj_pos_sampler(
-    obj: Union["URDFObject", "RoomFloor"],
-    rng: Optional[Generator] = None,
-) -> Array:
+        state: State, goal: Set[GroundAtom], rng: Generator,
+        obj: Union["URDFObject", "RoomFloor"]) -> Array:
     """Sampler for placeOnTop option."""
+    del state, goal
     if rng is None:
         rng = np.random.default_rng(23)
     # objA is the object the robot is currently holding, and objB
@@ -1271,3 +1319,59 @@ def place_ontop_obj_pos(
     logging.info(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with "
                  f"continuous params {place_rel_pos}.")
     return plan, original_orientation
+
+
+def load_checkpoint_state(s: State,
+                          env: BehaviorEnv,
+                          reset: bool = False) -> None:
+    """Sets the underlying iGibson environment to a particular saved state.
+
+    When reset is True we will create a new BehaviorEnv and load our
+    checkpoint into it. This will ensure that all the information from
+    previous environment steps are reset as well.
+    """
+    assert s.simulator_state is not None
+    # Get the new_task_num_task_instance_id associated with this state
+    # from s.simulator_state.
+    new_task_num_task_instance_id = (int(s.simulator_state.split("-")[0]),
+                                     int(s.simulator_state.split("-")[1]))
+    # If the new_task_num_task_instance_id is new, then we need to load
+    # a new iGibson behavior env with our random seed saved in
+    # env.new_task_num_task_instance_id_to_igibson_seed. Otherwise
+    # we're already in the correct environment and can just load the
+    # checkpoint. Also note that we overwrite the task.init saved checkpoint
+    # so that it's compatible with the new environment!
+    env.task_num = new_task_num_task_instance_id[0]
+    # Since demo trajectories seeds are not saved, a seed is generated here if
+    # one does not exist yet for the task num and task instance id pair.
+    if not new_task_num_task_instance_id in \
+        env.task_num_task_instance_id_to_igibson_seed:
+        env.task_num_task_instance_id_to_igibson_seed[
+            new_task_num_task_instance_id] = 0
+    if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
+            and CFG.behavior_randomize_init_state) or reset:
+        env.task_instance_id = new_task_num_task_instance_id[1]
+        # Frame count is overwritten by set_igibson_behavior_env and needs to
+        # be preserved across resets. So we save it before and set it after
+        # we reset the env.
+        frame_count = env.igibson_behavior_env.simulator.frame_count
+        env.set_igibson_behavior_env(
+            task_instance_id=new_task_num_task_instance_id[1],
+            seed=env.task_num_task_instance_id_to_igibson_seed[
+                new_task_num_task_instance_id])
+        env.igibson_behavior_env.simulator.frame_count = frame_count
+        env.set_options()
+        env.current_ig_state_to_state(
+        )  # overwrite the old task_init checkpoint file!
+        env.igibson_behavior_env.reset()
+    load_checkpoint(
+        env.igibson_behavior_env.simulator,
+        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+        f"{CFG.seed}__{env.task_num}__{env.task_instance_id}",
+        int(s.simulator_state.split("-")[2]))
+    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
+        new_task_num_task_instance_id])
+    # We step the environment to update the visuals of where the robot is!
+    env.igibson_behavior_env.step(
+        np.zeros(env.igibson_behavior_env.action_space.shape))

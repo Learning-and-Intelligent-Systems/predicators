@@ -2792,7 +2792,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             if target_obj_type_name == "agent":
                 continue
 
-            # Navigate to from nothing reachable.
+            # Navigate To.
             parameters = [target_obj]
             option_vars = [target_obj]
             preconditions: Set[LiftedAtom] = set()
@@ -2804,8 +2804,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 preconditions, add_effects, delete_effects,
                 reachable_predicates, option, option_vars,
                 lambda s, g, r, o: navigate_to_param_sampler(
+                    s,
+                    g,
                     r,
-                    [env.object_to_ig_object(o_i) for o_i in o],
+                    [
+                        env.object_to_ig_object(o_i)
+                        if isinstance(o_i, Object) else o_i for o_i in o
+                    ],
                 ))
             nsrts.add(nsrt)
 
@@ -2836,7 +2841,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    lambda s, g, r, o: grasp_obj_param_sampler(r),
+                    grasp_obj_param_sampler,
                 )
                 nsrts.add(nsrt)
 
@@ -2873,7 +2878,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     option,
                     option_vars,
                     lambda s, g, r, o: place_ontop_obj_pos_sampler(
-                        [env.object_to_ig_object(o_i) for o_i in o],
+                        s,
+                        g,
+                        obj=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
                         rng=r,
                     ),
                 )

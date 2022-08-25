@@ -309,10 +309,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 assert CFG.env == "behavior" and isinstance(
                     approach, BilevelPlanningApproach)
                 last_plan = approach.get_last_plan()
+                last_traj = approach.get_last_traj()
                 option_model_start_time = time.time()
                 traj, solved = _run_plan_with_option_model(
                     task, test_task_idx, approach.get_option_model(),
-                    last_plan)
+                    last_plan, last_traj)
                 execution_metrics = {
                     "policy_call_time": option_model_start_time - time.time()
                 }

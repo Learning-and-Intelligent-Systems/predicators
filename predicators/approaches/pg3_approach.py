@@ -75,7 +75,7 @@ class PG3Approach(NSRTLearningApproach):
             skeleton.append(ground_nsrt)
             atoms_sequence.append(atoms)
         try:
-            option_list, succeeded = run_low_level_search(
+            option_list, succeeded, _ = run_low_level_search(
                 task, self._option_model, skeleton, atoms_sequence, self._seed,
                 timeout - (time.time() - start_time), CFG.horizon)
         except PlanningFailure as e:

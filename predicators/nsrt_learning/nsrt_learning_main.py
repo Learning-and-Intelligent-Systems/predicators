@@ -93,6 +93,8 @@ def learn_nsrts_from_data(
         logging.info(nsrt)
     logging.info("")
 
+    #import ipdb; ipdb.set_trace()
+
     return set(nsrts), segmented_trajs, seg_to_nsrt
 
 
