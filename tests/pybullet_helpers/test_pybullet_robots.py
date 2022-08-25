@@ -32,9 +32,10 @@ def _setup_pybullet_test_scene():
 
     p.resetSimulation(physicsClientId=physics_client_id)
 
-    fetch_id = p.loadURDF(utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-                          useFixedBase=True,
-                          physicsClientId=physics_client_id)
+    fetch_id = p.loadURDF(
+        utils.get_env_asset_path("urdf/fetch_description/robots/fetch.urdf"),
+        useFixedBase=True,
+        physicsClientId=physics_client_id)
     scene["fetch_id"] = fetch_id
 
     base_pose = [0.75, 0.7441, 0.0]
