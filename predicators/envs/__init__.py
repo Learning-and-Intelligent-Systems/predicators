@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from predicators import utils
 from predicators.envs.base_env import BaseEnv
+from predicators.envs.behavior import BehaviorEnv
 
 __all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
@@ -51,3 +52,19 @@ def get_or_create_env(name: str) -> BaseEnv:
             f"find {name} in the cache. Making a new instance.")
         create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]
+
+
+def get_or_create_igibson_behavior_env(name: str) -> BehaviorEnv:
+    """Get the most recent cached env instance. If one does not exist in the
+    cache, create it using create_new_env().
+
+    If you use this function, you should NOT be doing anything that
+    relies on the environment's internal state (i.e., you should not
+    call reset() or step()).
+    """
+    if name not in _MOST_RECENT_ENV_INSTANCE:
+        logging.warning(
+            "WARNING: you called get_or_create_env, but I couldn't "
+            f"find {name} in the cache. Making a new instance.")
+        create_new_env(name, do_cache=True)
+    return _MOST_RECENT_ENV_INSTANCE[name].igibson_behavior_env

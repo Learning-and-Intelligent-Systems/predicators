@@ -22,7 +22,7 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
 import numpy as np
 
 from predicators import utils
-from predicators.option_model import _OptionModelBase
+from predicators.option_model import _BehaviorOptionModel, _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, Action, DefaultState, \
     DummyOption, GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
@@ -609,6 +609,7 @@ def _run_plan_with_option_model(
                                       _is_demo=False,
                                       _train_task_idx=task_idx), False
         if CFG.plan_only_eval:
+            assert isinstance(option_model, _BehaviorOptionModel)
             next_state = option_model.load_state(last_traj[idx + 1])
         else:
             next_state, _ = option_model.get_next_state_and_num_actions(

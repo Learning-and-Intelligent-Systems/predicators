@@ -51,7 +51,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
-        # NOTE: This is necessary because we replace BEHAVIOR
+    # NOTE: This is necessary because we replace BEHAVIOR
     # options with dummy options in order to pickle them, so
     # when we load them, we need to make sure they have the
     # correct options from the environment.
@@ -70,11 +70,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                     gt_param_opt = option_name_to_option[dummy_opt.name]
                     option = gt_param_opt.ground(dummy_opt.objects,
                                                  dummy_opt.params)
-                    action_option = ParameterizedOption(
-                        option.name, option.parent.types,
-                        option.parent.params_space, option.policy,
-                        option.initiable, lambda s, m, o, p: True).ground(
-                            option.objects, option.params)
+                    action_option = None
+                    for op in env.options:
+                        if op.name == option.name:
+                            action_option = op.ground(option.objects,
+                                                      option.params)
+                    assert action_option is not None
                     action_option.memory = option.memory
                     act.set_option(action_option)
     return dataset

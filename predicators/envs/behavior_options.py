@@ -153,12 +153,14 @@ def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
     """Sampler for navigateTo option."""
     del goal
     from predicators.envs import \
-        get_or_create_env  # pylint: disable=import-outside-toplevel
+        get_or_create_igibson_behavior_env # pylint: disable=import-outside-toplevel
+    from predicators.envs import \
+        get_or_create_env # pylint: disable=import-outside-toplevel
 
     # Get the current env for collision checking.
     env = get_or_create_env("behavior")
-    if not state.allclose(env.current_ig_state_to_state(save_state=False)):
-        load_checkpoint_state(state, env)
+    load_checkpoint_state(state, env)
+    env = get_or_create_igibson_behavior_env("behavior")
 
     # The navigation nsrts are designed such that the target
     # obj is always last in the params list.
@@ -178,8 +180,8 @@ def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
     # tries to move there.
     logging.info("Sampling params for navigation...")
     num_samples_tried = 0
-    while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
-                              sampler_output) is None):
+    while (check_nav_end_pose(env, obj_to_sample_near, sampler_output) is
+           None):
         distance = closeness_limit * rng.random()
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
@@ -189,7 +191,7 @@ def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
             logging.info(f"Number of navigation samples: {num_samples_tried}")
         num_samples_tried += 1
 
-    assert check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+    assert check_nav_end_pose(env, obj_to_sample_near,
                               sampler_output) is not None
     return sampler_output
 
@@ -1003,8 +1005,7 @@ def place_ontop_obj_pos_sampler(
         obj: Union["URDFObject", "RoomFloor"]) -> Array:
     """Sampler for placeOnTop option."""
     del state, goal
-    if rng is None:
-        rng = np.random.default_rng(23)
+    assert rng is not None
     # objA is the object the robot is currently holding, and objB
     # is the surface that it must place onto.
     # The BEHAVIOR NSRT's are designed such that objA is the 0th

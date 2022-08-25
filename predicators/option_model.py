@@ -13,7 +13,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.behavior import BehaviorEnv, load_checkpoint_state
+from predicators.envs.behavior import BehaviorEnv
+from predicators.envs.behavior_options import load_checkpoint_state
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
