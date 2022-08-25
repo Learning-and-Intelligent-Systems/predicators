@@ -292,7 +292,7 @@ def test_backchaining_strips_learner_order_dependence():
         "strips_learner": "backchaining",
         # Following are neccessary to solve this case.
         "data_orderings_to_search": 10,
-        "enable_harmless_op_pruning": True,
+        "enable_harmless_op_pruning": True
     })
     # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
     # holding: True or False whether an object is in hand
