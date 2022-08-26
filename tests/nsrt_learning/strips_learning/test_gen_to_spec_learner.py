@@ -286,7 +286,8 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(natural_order_pnads[i]) in correct_pnads
         assert str(reverse_order_pnads[i]) in correct_pnads
 
-    # Weird Case: This case shows that our algorithm is not data order invariant!
+    # Weird Case: This case shows that our algorithm is not data order
+    # invariant!
     utils.reset_config({
         "approach": "nsrt_learning",
         "strips_learner": "backchaining",
@@ -590,7 +591,7 @@ def test_backchaining_strips_learner_order_dependence():
     # Uh oh, they don't
     assert len(natural_order_pnads) != len(reverse_order_pnads)
     # Second, check that the two sets of NSRTs have the same number of NSRTs.
-    # They do! Because our NSRTs were learned with dataset reordering and 
+    # They do! Because our NSRTs were learned with dataset reordering and
     # harmless operator pruning, as opposed to our PNADs which were learned
     # with our _MockBackchainingSTRIPSLearner that does not have these
     # additions.
