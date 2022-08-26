@@ -39,7 +39,7 @@ def learn_nsrts_from_data(
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
-    # Search over data orderings to find smallest PNAD set.
+    # Search over data orderings to find least complex PNAD set.
     # If the strips learner is not Backchaining then it will
     # only do one iteration, because all other appraoches are
     # data invariant.
@@ -83,7 +83,7 @@ def learn_nsrts_from_data(
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"))
 
-        # Save smallest learned PNAD set across data orderings.
+        # Save least complex learned PNAD set across data orderings.
         pnads_complexity = sum(pnad.op.get_complexity() for pnad in pnads)
         if pnads_complexity < smallest_pnad_complexity:
             smallest_pnad_complexity = pnads_complexity
