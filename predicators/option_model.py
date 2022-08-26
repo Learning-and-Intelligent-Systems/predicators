@@ -140,7 +140,8 @@ class _BehaviorOptionModel(_OptionModelBase):
         plan, _ = option.memory["planner_result"]
         return next_state, len(plan)
 
-    def load_state(self, state: State) -> State:  # pragma: no cover
+    @staticmethod
+    def load_state(state: State) -> State:  # pragma: no cover
         """Loads BEHAVIOR state by getting or creating our current BEHAVIOR
         env."""
         env = get_or_create_env("behavior")

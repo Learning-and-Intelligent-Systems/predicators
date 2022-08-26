@@ -1323,7 +1323,7 @@ def place_ontop_obj_pos(
 
 
 def load_checkpoint_state(s: State,
-                          env: BehaviorEnv,
+                          env: "BehaviorEnv",
                           reset: bool = False) -> None:
     """Sets the underlying iGibson environment to a particular saved state.
 
