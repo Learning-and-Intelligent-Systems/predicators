@@ -153,9 +153,9 @@ def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
     """Sampler for navigateTo option."""
     del goal
     from predicators.envs import \
-        get_or_create_igibson_behavior_env # pylint: disable=import-outside-toplevel
+        get_or_create_env  # pylint: disable=import-outside-toplevel
     from predicators.envs import \
-        get_or_create_env # pylint: disable=import-outside-toplevel
+        get_or_create_igibson_behavior_env  # pylint: disable=import-outside-toplevel
 
     # Get the current env for collision checking.
     env = get_or_create_env("behavior")
