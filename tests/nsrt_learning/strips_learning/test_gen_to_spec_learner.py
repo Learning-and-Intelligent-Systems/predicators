@@ -286,7 +286,7 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(natural_order_pnads[i]) in correct_pnads
         assert str(reverse_order_pnads[i]) in correct_pnads
 
-    # Weird Case: This case shows that our algorithm is not data invariant!
+    # Weird Case: This case shows that our algorithm is not data order invariant!
     utils.reset_config({
         "approach": "nsrt_learning",
         "strips_learner": "backchaining",
