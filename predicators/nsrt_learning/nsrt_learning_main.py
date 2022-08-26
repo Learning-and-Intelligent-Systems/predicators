@@ -42,7 +42,7 @@ def learn_nsrts_from_data(
     # Search over data orderings to find least complex PNAD set.
     # If the strips learner is not Backchaining then it will
     # only do one iteration, because all other appraoches are
-    # data invariant.
+    # data order invariant.
     smallest_pnads = None
     smallest_pnad_complexity = float('inf')
     rng = np.random.default_rng(CFG.seed)
