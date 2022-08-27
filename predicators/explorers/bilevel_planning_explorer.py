@@ -19,7 +19,6 @@ class BilevelPlanningExplorer(BaseExplorer):
     This explorer is abstract: subclasses decide how to use the _solve
     method implemented in this class, which calls sesame_plan().
     """
-
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],

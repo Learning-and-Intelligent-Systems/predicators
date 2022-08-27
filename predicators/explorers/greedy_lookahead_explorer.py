@@ -22,7 +22,6 @@ class GreedyLookaheadExplorer(BaseExplorer):
     The score function takes the atoms and state as input and returns a
     score, with higher better.
     """
-
     def __init__(
             self, predicates: Set[Predicate],
             options: Set[ParameterizedOption], types: Set[Type],

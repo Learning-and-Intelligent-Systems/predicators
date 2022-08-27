@@ -30,7 +30,6 @@ from predicators.structs import Dataset, GroundAtom, InteractionRequest, \
 
 class OnlineNSRTLearningApproach(NSRTLearningApproach):
     """OnlineNSRTLearningApproach implementation."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

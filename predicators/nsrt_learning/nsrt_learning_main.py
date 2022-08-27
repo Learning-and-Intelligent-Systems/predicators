@@ -8,7 +8,6 @@ from typing import Dict, List, Set, Tuple
 import numpy as np
 from gym.spaces import Box
 
-from predicators import utils
 from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers
@@ -41,7 +40,7 @@ def learn_nsrts_from_data(
 
     # Search over data orderings to find least complex PNAD set.
     # If the strips learner is not Backchaining then it will
-    # only do one iteration, because all other appraoches are
+    # only do one iteration, because all other approaches are
     # data order invariant.
     smallest_pnads = None
     smallest_pnad_complexity = float('inf')
@@ -49,9 +48,13 @@ def learn_nsrts_from_data(
     for _ in range(CFG.data_orderings_to_search):
         # Step 0: Shuffle dataset to learn from.
         if CFG.data_orderings_to_search > 1:
-            trajectories, ground_atom_dataset = utils.order_data(
-                trajectories, ground_atom_dataset, rng)
-
+            random_data_indices = sorted(
+                [int(i) for i in range(len(trajectories))],
+                key=lambda _: rng.random())
+            trajectories = [trajectories[i] for i in random_data_indices]
+            ground_atom_dataset = [
+                ground_atom_dataset[i] for i in random_data_indices
+            ]
         # STEP 1: Segment each trajectory in the dataset based on changes in
         #         either predicates or options. If we are doing option learning,
         #         then the data will not contain options, so this segmenting

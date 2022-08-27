@@ -12,7 +12,6 @@ from predicators.structs import Datastore, DummyOption, PartialNSRTAndDatastore
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for an oracle STRIPS learner."""
-
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         env = get_or_create_env(CFG.env)
         gt_nsrts = get_gt_nsrts(env.predicates, env.options)

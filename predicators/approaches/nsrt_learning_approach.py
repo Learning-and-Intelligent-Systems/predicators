@@ -24,7 +24,6 @@ from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
 
 class NSRTLearningApproach(BilevelPlanningApproach):
     """A bilevel planning approach that learns NSRTs."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

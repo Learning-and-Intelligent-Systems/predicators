@@ -5,7 +5,6 @@ import time
 
 
 class Timer:
-
     def __init__(self):
         self.start_time = time.time()
         self.start_clock = self._clock()

@@ -24,7 +24,6 @@ from predicators.structs import Action, Array, Dataset, DummyOption, \
 
 class GNNOptionPolicyApproach(GNNApproach):
     """Trains and uses a goal-conditioned GNN policy that produces options."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

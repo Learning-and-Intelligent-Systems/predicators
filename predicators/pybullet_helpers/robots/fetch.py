@@ -7,7 +7,6 @@ from predicators.pybullet_helpers.robots.single_arm import \
 
 class FetchPyBulletRobot(SingleArmPyBulletRobot):
     """A Fetch robot with a fixed base and only one arm in use."""
-
     @classmethod
     def get_name(cls) -> str:
         return "fetch"

@@ -104,7 +104,6 @@ def ensure_inequality(system, literal1, literal2):
 
 
 class InvariantPart:
-
     def __init__(self, predicate, order, omitted_pos=-1):
         self.predicate = predicate
         self.order = order

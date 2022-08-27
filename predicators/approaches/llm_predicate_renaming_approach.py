@@ -20,7 +20,6 @@ from predicators.approaches.llm_base_renaming_approach import \
 
 class LLMPredicateRenamingApproach(LLMBaseRenamingApproach):
     """LLMPredicateRenamingApproach definition."""
-
     @classmethod
     def get_name(cls) -> str:
         return "llm_predicate_renaming"

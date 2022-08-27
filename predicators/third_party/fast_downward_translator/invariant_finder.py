@@ -10,7 +10,6 @@ import predicators.third_party.fast_downward_translator.timers as timers
 
 
 class BalanceChecker:
-
     def __init__(self, task, reachable_action_params):
         self.predicates_to_add_actions = defaultdict(set)
         self.action_to_heavy_action = {}

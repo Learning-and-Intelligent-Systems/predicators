@@ -14,7 +14,6 @@ from predicators.structs import Action, GroundAtom, GroundAtomsHoldQuery, \
 
 class _MockApproach(BaseApproach):
     """Mock approach that generates interaction requests for testing."""
-
     def __init__(self, initial_predicates, initial_options, types,
                  action_space, train_tasks):
         super().__init__(initial_predicates, initial_options, types,

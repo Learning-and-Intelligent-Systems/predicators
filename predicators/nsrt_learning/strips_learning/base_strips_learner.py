@@ -15,7 +15,6 @@ from predicators.structs import DummyOption, GroundAtom, LiftedAtom, \
 
 class BaseSTRIPSLearner(abc.ABC):
     """Base class definition."""
-
     def __init__(
         self,
         trajectories: List[LowLevelTrajectory],
@@ -47,39 +46,46 @@ class BaseSTRIPSLearner(abc.ABC):
         if CFG.enable_harmless_op_pruning:
             assert self._verify_harmlessness
             assert not CFG.disable_harmlessness_check
-        # Keeps track of latest set of harmless pnads. Will interating over
-        # all min_perc_data_for_nsrts until it breaks.
-        min_harmless_pnads = learned_pnads
-        for min_perc_data_for_nsrt in range(CFG.min_perc_data_for_nsrt, 100):
-            learned_pnads = self._learn()
-            min_data = max(CFG.min_data_for_nsrt,
-                           self._num_segments * min_perc_data_for_nsrt / 100)
+            # Keeps track of latest set of harmless pnads.
+            min_harmless_pnads = learned_pnads
+            # Find the percentage of data in each PNAD uses from lowest
+            # to highest.
+            pnad_perc_data_low_to_high = [
+                len(pnad.datastore) / float(self._num_segments)
+                for pnad in learned_pnads
+            ]
+            pnad_perc_data_low_to_high.sort()
+            # Iterates over each PNAD in the learned PNADs removing the
+            # PNAD that uses the least amount of data.
+            for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
+                learned_pnads = self._learn()
+                min_data = max(CFG.min_data_for_nsrt,
+                               self._num_segments * min_perc_data_for_nsrt)
+                learned_pnads = [
+                    pnad for pnad in learned_pnads
+                    if len(pnad.datastore) >= min_data
+                ]
+                # Runs harmlessness check after we have pruned operators.
+                logging.info("\nRunning harmlessness check...")
+                if not self._check_harmlessness(learned_pnads):
+                    break
+                # We successfully verified harmlessness than we save this set of
+                # pnads and continue reducing min_perc_data_for_nsrts.
+                min_harmless_pnads = learned_pnads
+            learned_pnads = min_harmless_pnads
+        else:
+            # We are not doing harmless operator pruning and return
+            # current nsrts at current min_perc_data_for_nsrts.
+            if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+                logging.info("\nRunning harmlessness check...")
+                assert self._check_harmlessness(learned_pnads)
+            min_data = max(
+                CFG.min_data_for_nsrt,
+                self._num_segments * CFG.min_perc_data_for_nsrt / 100)
             learned_pnads = [
                 pnad for pnad in learned_pnads
                 if len(pnad.datastore) >= min_data
             ]
-            if self._verify_harmlessness and \
-                not CFG.disable_harmlessness_check:
-                logging.info("\nRunning harmlessness check...")
-                if not self._check_harmlessness(learned_pnads):
-                    break
-            else:
-                # If we are not verifying harmlessness than we assume that
-                # we are not doing harmless operator pruning and return
-                # current nsrts at current min_perc_data_for_nsrts.
-                min_harmless_pnads = learned_pnads
-                break
-            # We successfully verified harmlessness than we save this set of
-            # pnads and continue reducing min_perc_data_for_nsrts.
-            min_harmless_pnads = learned_pnads
-            if CFG.disable_harmlessness_check or \
-                not CFG.enable_harmless_op_pruning:
-                # We are not doing harmless operator pruning and return
-                # current nsrts at current min_perc_data_for_nsrts.
-                break
-        learned_pnads = min_harmless_pnads
-        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
-            assert self._check_harmlessness(learned_pnads)
         return learned_pnads
 
     @abc.abstractmethod

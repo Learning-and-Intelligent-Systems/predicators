@@ -21,7 +21,6 @@ longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
-
     def spawn_new_pnad(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
@@ -291,7 +290,7 @@ def test_backchaining_strips_learner_order_dependence():
     utils.reset_config({
         "approach": "nsrt_learning",
         "strips_learner": "backchaining",
-        # Following are neccessary to solve this case.
+        # Following are necessary to solve this case.
         "data_orderings_to_search": 10,
         "enable_harmless_op_pruning": True
     })

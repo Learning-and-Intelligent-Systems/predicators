@@ -18,7 +18,6 @@ def _get_type_predicate_name(type_name):
 
 
 class Type:
-
     def __init__(self, name, basetype_name=None):
         self.name = name
         self.basetype_name = basetype_name
@@ -34,7 +33,6 @@ class Type:
 
 
 class TypedObject:
-
     def __init__(self, name, type_name):
         self.name = name
         self.type_name = type_name

@@ -560,7 +560,6 @@ def test_run_policy():
         raise ValueError("mock error")
 
     class _CountingMonitor(utils.Monitor):
-
         def __init__(self):
             self.num_observations = 0
 
@@ -588,7 +587,6 @@ def test_run_policy():
     assert monitor.num_observations == 1
 
     class _MockEnv:
-
         @staticmethod
         def reset(train_or_test, task_idx):
             """Reset the mock environment."""
@@ -695,7 +693,6 @@ def test_run_policy_with_simulator():
 
     # Test with monitor.
     class _NullMonitor(utils.Monitor):
-
         def observe(self, state, action):
             pass
 
@@ -711,7 +708,6 @@ def test_run_policy_with_simulator():
 
     # Test with monitor in case where an uncaught exception is raised.
     class _CountingMonitor(utils.Monitor):
-
         def __init__(self):
             self.num_observations = 0
 
@@ -3100,7 +3096,6 @@ def test_null_sampler():
 
 def test_nostdout(capfd):
     """Tests for nostdout()."""
-
     def _hello_world():
         print("Hello world!")
 
