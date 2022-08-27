@@ -43,6 +43,7 @@ from predicators.structs import GroundAtom, Object, ParameterizedOption, \
 
 class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
     """LLMBilevelPlanningApproach definition."""
+
     @classmethod
     def get_name(cls) -> str:
         return "llm_bilevel_planning"

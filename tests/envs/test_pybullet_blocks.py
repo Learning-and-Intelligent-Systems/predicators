@@ -12,6 +12,7 @@ _GUI_ON = False  # toggle for debugging
 
 
 class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
+
     @property
     def block_type(self):
         """Expose the block type."""

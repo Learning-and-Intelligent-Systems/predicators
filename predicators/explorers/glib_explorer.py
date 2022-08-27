@@ -23,6 +23,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
     from the highest-scoring goal, terminating at the first goal for
     which we find a plan.
     """
+
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task], nsrts: Set[NSRT],

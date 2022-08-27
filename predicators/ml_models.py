@@ -31,6 +31,7 @@ torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 class Regressor(abc.ABC):
     """ABC for regressor classes."""
+
     def __init__(self, seed: int) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(self._seed)
@@ -54,6 +55,7 @@ class Regressor(abc.ABC):
 
 class _ScikitLearnRegressor(Regressor):
     """A regressor that lightly wraps a scikit-learn regression model."""
+
     def __init__(self, seed: int, **kwargs: Any) -> None:
         super().__init__(seed)
         self._model = self._initialize_model(**kwargs)
@@ -74,6 +76,7 @@ class _NormalizingRegressor(Regressor):
 
     Also infers the dimensionality of the inputs and outputs from fit().
     """
+
     def __init__(self, seed: int) -> None:
         super().__init__(seed)
         # Set in fit().
@@ -119,6 +122,7 @@ class _NormalizingRegressor(Regressor):
 
 class PyTorchRegressor(_NormalizingRegressor, nn.Module):
     """ABC for PyTorch regression models."""
+
     def __init__(self, seed: int, max_train_iters: MaxTrainIters,
                  clip_gradients: bool, clip_value: float,
                  learning_rate: float) -> None:
@@ -181,6 +185,7 @@ class PyTorchRegressor(_NormalizingRegressor, nn.Module):
 
 class DistributionRegressor(abc.ABC):
     """ABC for classes that learn a continuous conditional sampler."""
+
     @abc.abstractmethod
     def fit(self, X: Array, y: Array) -> None:
         """Train the model on the given data.
@@ -200,6 +205,7 @@ class DistributionRegressor(abc.ABC):
 
 class BinaryClassifier(abc.ABC):
     """ABC for binary classifier classes."""
+
     def __init__(self, seed: int) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
@@ -231,6 +237,7 @@ class BinaryClassifier(abc.ABC):
 
 class _ScikitLearnBinaryClassifier(BinaryClassifier):
     """A regressor that lightly wraps a scikit-learn classification model."""
+
     def __init__(self, seed: int, **kwargs: Any) -> None:
         super().__init__(seed)
         self._model = self._initialize_model(**kwargs)
@@ -260,6 +267,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 
     Also implements data balancing (optionally) and single-class prediction.
     """
+
     def __init__(self, seed: int, balance_data: bool) -> None:
         super().__init__(seed)
         self._balance_data = balance_data
@@ -325,6 +333,7 @@ class _NormalizingBinaryClassifier(BinaryClassifier):
 
 class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     """ABC for PyTorch binary classification models."""
+
     def __init__(self, seed: int, balance_data: bool,
                  max_train_iters: MaxTrainIters, learning_rate: float,
                  n_iter_no_change: int) -> None:
@@ -403,6 +412,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
 class MLPRegressor(PyTorchRegressor):
     """A basic multilayer perceptron regressor."""
+
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: MaxTrainIters, clip_gradients: bool,
                  clip_value: float, learning_rate: float) -> None:
@@ -471,6 +481,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
     ignores the num_samples_per_inference keyword argument and instead uses the
     grid_num_ticks_per_dim.
     """
+
     def __init__(self,
                  seed: int,
                  hid_sizes: List[int],
@@ -693,6 +704,7 @@ class ImplicitMLPRegressor(PyTorchRegressor):
 
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
+
     def __init__(self, seed: int, hid_sizes: List[int],
                  max_train_iters: MaxTrainIters, clip_gradients: bool,
                  clip_value: float, learning_rate: float) -> None:
@@ -783,6 +795,7 @@ class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
 
     Implemented as an MLPRegressor().
     """
+
     def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
         del rng  # unused
         return self.predict(x)
@@ -790,6 +803,7 @@ class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
 
 class KNeighborsRegressor(_ScikitLearnRegressor):
     """K nearest neighbors from scikit-learn."""
+
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsRegressor(**kwargs)
 
@@ -799,6 +813,7 @@ class KNeighborsRegressor(_ScikitLearnRegressor):
 
 class MLPBinaryClassifier(PyTorchBinaryClassifier):
     """MLPBinaryClassifier definition."""
+
     def __init__(self, seed: int, balance_data: bool,
                  max_train_iters: MaxTrainIters, learning_rate: float,
                  n_iter_no_change: int, hid_sizes: List[int]) -> None:
@@ -828,12 +843,14 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 
 class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
     """K nearest neighbors from scikit-learn."""
+
     def _initialize_model(self, **kwargs: Any) -> BaseEstimator:
         return _SKLearnKNeighborsClassifier(**kwargs)
 
 
 class BinaryClassifierEnsemble(BinaryClassifier):
     """BinaryClassifierEnsemble definition."""
+
     def __init__(self, seed: int, ensemble_size: int,
                  member_cls: TypingType[BinaryClassifier],
                  **kwargs: Any) -> None:

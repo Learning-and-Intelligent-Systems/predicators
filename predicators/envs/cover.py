@@ -368,6 +368,7 @@ class CoverEnvTypedOptions(CoverEnv):
 
     This means we need two options (one for block, one for target).
     """
+
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
@@ -403,6 +404,7 @@ class CoverEnvTypedOptions(CoverEnv):
 
 class CoverEnvHierarchicalTypes(CoverEnv):
     """Toy cover domain with hierarchical types, just for testing."""
+
     def __init__(self) -> None:
         super().__init__()
         # Change blocks to be of a derived type

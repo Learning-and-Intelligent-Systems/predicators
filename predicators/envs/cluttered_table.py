@@ -20,6 +20,7 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
 
 class ClutteredTableEnv(BaseEnv):
     """Toy cluttered table domain."""
+
     def __init__(self) -> None:
         super().__init__()
         # Types
@@ -295,6 +296,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
     [0,0.4] by [0,1.0] region. The goal behavior is to learn to pick up
     the colliding can and place it out of the way of the goal can.
     """
+
     def __init__(self) -> None:
         super().__init__()
         self._Place = utils.SingletonParameterizedOption(

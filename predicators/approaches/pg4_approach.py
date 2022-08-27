@@ -26,6 +26,7 @@ from predicators.structs import NSRT, AbstractPolicy, Action, Metrics, \
 class PG4Approach(PG3Approach):
     """Policy-guided planning for generalized policy generation for planning
     guidance (PG4)."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pg4"

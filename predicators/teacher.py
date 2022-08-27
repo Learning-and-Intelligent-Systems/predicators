@@ -23,6 +23,7 @@ from predicators.structs import Action, DemonstrationQuery, \
 
 class Teacher:
     """The teacher can respond to queries of various types."""
+
     def __init__(self, train_tasks: Sequence[Task]) -> None:
         self._train_tasks = train_tasks
         env = get_or_create_env(CFG.env)
@@ -212,6 +213,7 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
 
     The render_fn is generally env.render.
     """
+
     def observe(self, state: State, action: Optional[Action]) -> None:
         query = self._request.query_policy(state)
         if query is None:

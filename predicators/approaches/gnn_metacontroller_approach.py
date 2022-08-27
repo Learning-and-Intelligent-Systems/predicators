@@ -25,6 +25,7 @@ from predicators.structs import NSRT, Dataset, GroundAtom, \
 
 class GNNMetacontrollerApproach(GNNApproach, NSRTMetacontrollerApproach):
     """GNNMetacontrollerApproach definition."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

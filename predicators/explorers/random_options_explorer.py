@@ -7,6 +7,7 @@ from predicators.structs import Action, ExplorationStrategy, State
 
 class RandomOptionsExplorer(BaseExplorer):
     """Samples random options."""
+
     @classmethod
     def get_name(cls) -> str:
         return "random_options"

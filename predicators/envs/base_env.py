@@ -16,6 +16,7 @@ from predicators.structs import Action, DefaultState, DefaultTask, \
 
 class BaseEnv(abc.ABC):
     """Base environment."""
+
     def __init__(self) -> None:
         self._current_state = DefaultState  # set in reset
         self._current_task = DefaultTask  # set in reset

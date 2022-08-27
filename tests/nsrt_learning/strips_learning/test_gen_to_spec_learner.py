@@ -21,6 +21,7 @@ longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
+
     def spawn_new_pnad(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects

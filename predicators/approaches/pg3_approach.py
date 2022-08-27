@@ -34,6 +34,7 @@ from predicators.structs import NSRT, Action, Box, Dataset, GroundAtom, \
 
 class PG3Approach(NSRTLearningApproach):
     """Policy-guided planning for generalized policy generation (PG3)."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
@@ -177,6 +178,7 @@ class PG3Approach(NSRTLearningApproach):
 
 class _PG3SearchOperator(abc.ABC):
     """Given an LDL policy, generate zero or more successor LDL policies."""
+
     def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT]) -> None:
         self._predicates = predicates
         self._nsrts = nsrts
@@ -190,6 +192,7 @@ class _PG3SearchOperator(abc.ABC):
 
 class _AddRulePG3SearchOperator(_PG3SearchOperator):
     """An operator that adds new rules to an existing LDL policy."""
+
     def get_successors(
             self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
         for idx in range(len(ldl.rules) + 1):
@@ -217,6 +220,7 @@ class _AddRulePG3SearchOperator(_PG3SearchOperator):
 
 class _AddConditionPG3SearchOperator(_PG3SearchOperator):
     """An operator that adds new preconditions to existing LDL rules."""
+
     def get_successors(
             self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
         for rule_idx, rule in enumerate(ldl.rules):
@@ -283,6 +287,7 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
 
 class _PG3Heuristic(abc.ABC):
     """Given an LDL policy, produce a score, with lower better."""
+
     def __init__(
         self,
         predicates: Set[Predicate],
@@ -315,6 +320,7 @@ class _PG3Heuristic(abc.ABC):
 class _PolicyEvaluationPG3Heuristic(_PG3Heuristic):
     """Score a policy based on the number of train tasks it solves at the
     abstract level."""
+
     def _get_score_for_task(self, ldl: LiftedDecisionList,
                             task_idx: int) -> float:
         objects, atoms, goal = self._abstract_train_tasks[task_idx]
@@ -341,6 +347,7 @@ class _PlanComparisonPG3Heuristic(_PG3Heuristic):
 
     Which plans are used to compute agreement is defined by subclasses.
     """
+
     def __init__(
         self,
         predicates: Set[Predicate],
@@ -400,6 +407,7 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
 
     The demos are generated with a planner, once per train task.
     """
+
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList,
                                 task_idx: int) -> Sequence[Set[GroundAtom]]:
         del ldl  # unused
@@ -448,6 +456,7 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
     """Score a policy based on agreement with policy-guided plans."""
+
     def _get_atom_plan_for_task(self, ldl: LiftedDecisionList,
                                 task_idx: int) -> Sequence[Set[GroundAtom]]:
 
