@@ -64,7 +64,7 @@ jobs:
         pip install pytest-pylint
     - name: Pylint
       run: |
-        pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
+        pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc --ignore setup.py
       env:
         PYTHONHASHSEED: 0
   autoformat:
