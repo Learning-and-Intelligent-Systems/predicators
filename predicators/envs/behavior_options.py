@@ -2,14 +2,14 @@
 # pylint: disable=import-error
 
 import logging
-from typing import Callable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy
 from numpy.random._generator import Generator
 
 from predicators.settings import CFG
-from predicators.structs import Array, GroundAtom, State
+from predicators.structs import Array, State
 from predicators.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
@@ -17,8 +17,7 @@ try:
     from igibson import object_states
     from igibson.envs.behavior_env import \
         BehaviorEnv  # pylint: disable=unused-import
-    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS, \
-        get_aabb, get_aabb_extent
+    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
     from igibson.object_states.on_floor import \
         RoomFloor  # pylint: disable=unused-import
     from igibson.objects.articulated_object import URDFObject
@@ -26,7 +25,6 @@ try:
         BRBody  # pylint: disable=unused-import
     from igibson.robots.robot_base import \
         BaseRobot  # pylint: disable=unused-import
-    from igibson.utils import sampling_utils
     from igibson.utils.behavior_robot_planning_utils import \
         plan_base_motion_br, plan_hand_motion_br
     from igibson.utils.checkpoint_utils import load_checkpoint
@@ -145,55 +143,6 @@ def get_delta_low_level_base_action(robot_z: float,
     ret_action[0:3] = np.array([delta_pos[0], delta_pos[1], delta_orn[2]])
 
     return ret_action
-
-
-def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
-                              rng: Generator,
-                              objects: Sequence["URDFObject"]) -> Array:
-    """Sampler for navigateTo option."""
-    del goal
-    from predicators.envs import \
-        get_or_create_env  # pylint: disable=import-outside-toplevel
-    from predicators.envs import \
-        get_or_create_igibson_behavior_env  # pylint: disable=import-outside-toplevel
-
-    # Get the current env for collision checking.
-    env = get_or_create_env("behavior")
-    load_checkpoint_state(state, env)
-    env = get_or_create_igibson_behavior_env("behavior")
-
-    # The navigation nsrts are designed such that the target
-    # obj is always last in the params list.
-    obj_to_sample_near = objects[-1]
-    closeness_limit = 0.75
-    nearness_limit = 0.5
-    distance = nearness_limit + (
-        (closeness_limit - nearness_limit) * rng.random())
-    yaw = rng.random() * (2 * np.pi) - np.pi
-    x = distance * np.cos(yaw)
-    y = distance * np.sin(yaw)
-    sampler_output = np.array([x, y])
-
-    # The below while loop avoids sampling values that are inside
-    # the bounding box of the object and therefore will
-    # certainly be in collision with the object if the robot
-    # tries to move there.
-    logging.info("Sampling params for navigation...")
-    num_samples_tried = 0
-    while (check_nav_end_pose(env, obj_to_sample_near, sampler_output) is
-           None):
-        distance = closeness_limit * rng.random()
-        yaw = rng.random() * (2 * np.pi) - np.pi
-        x = distance * np.cos(yaw)
-        y = distance * np.sin(yaw)
-        sampler_output = np.array([x, y])
-        if num_samples_tried % 50 == 0:
-            logging.info(f"Number of navigation samples: {num_samples_tried}")
-        num_samples_tried += 1
-
-    assert check_nav_end_pose(env, obj_to_sample_near,
-                              sampler_output) is not None
-    return sampler_output
 
 
 def create_navigate_policy(
@@ -435,18 +384,6 @@ def check_nav_end_pose(
     p.removeState(state)
 
     return valid_position
-
-
-# Sampler for grasp continuous params
-def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
-                            rng: Generator,
-                            objects: Sequence["URDFObject"]) -> Array:
-    """Sampler for grasp option."""
-    del state, goal, objects
-    x_offset = (rng.random() * 0.4) - 0.2
-    y_offset = (rng.random() * 0.4) - 0.2
-    z_offset = rng.random() * 0.2
-    return np.array([x_offset, y_offset, z_offset])
 
 
 def get_delta_low_level_hand_action(
@@ -998,46 +935,6 @@ def place_obj_plan(
         env.robots[0].parts["left_hand"].get_position())
 
     return plan
-
-
-def place_ontop_obj_pos_sampler(
-        state: State, goal: Set[GroundAtom], rng: Generator,
-        obj: Union["URDFObject", "RoomFloor"]) -> Array:
-    """Sampler for placeOnTop option."""
-    del state, goal
-    assert rng is not None
-    # objA is the object the robot is currently holding, and objB
-    # is the surface that it must place onto.
-    # The BEHAVIOR NSRT's are designed such that objA is the 0th
-    # argument, and objB is the last.
-    objA = obj[0]
-    objB = obj[-1]
-
-    params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
-    aabb = get_aabb(objA.get_body_id())
-    aabb_extent = get_aabb_extent(aabb)
-
-    random_seed_int = rng.integers(10000000)
-    sampling_results = sampling_utils.sample_cuboid_on_object(
-        objB,
-        num_samples=1,
-        cuboid_dimensions=aabb_extent,
-        axis_probabilities=[0, 0, 1],
-        refuse_downwards=True,
-        random_seed_number=random_seed_int,
-        **params,
-    )
-
-    if sampling_results[0] is None or sampling_results[0][0] is None:
-        # If sampling fails, returns a random set of params
-        return np.array([
-            rng.uniform(-0.5, 0.5),
-            rng.uniform(-0.5, 0.5),
-            rng.uniform(0.3, 1.0)
-        ])
-
-    rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
-    return rnd_params
 
 
 def create_place_policy(
