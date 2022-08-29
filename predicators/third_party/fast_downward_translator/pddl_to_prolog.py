@@ -8,6 +8,7 @@ import predicators.third_party.fast_downward_translator.timers as timers
 
 
 class PrologProgram:
+
     def __init__(self):
         self.facts = []
         self.rules = []
@@ -126,6 +127,7 @@ def get_variables(symbolic_atoms):
 
 
 class Fact:
+
     def __init__(self, atom):
         self.atom = atom
 
@@ -134,6 +136,7 @@ class Fact:
 
 
 class Rule:
+
     def __init__(self, conditions, effect):
         self.conditions = conditions
         self.effect = effect

@@ -7,6 +7,7 @@ import predicators.third_party.fast_downward_translator.pddl_to_prolog as pddl_t
 class OccurrencesTracker:
     """Keeps track of the number of times each variable appears in a list of
     symbolic atoms."""
+
     def __init__(self, rule):
         self.occurrences = {}
         self.update(rule.effect, +1)
@@ -28,6 +29,7 @@ class OccurrencesTracker:
 
 
 class CostMatrix:
+
     def __init__(self, joinees):
         self.joinees = []
         self.cost_matrix = []
@@ -79,6 +81,7 @@ class CostMatrix:
 
 
 class ResultList:
+
     def __init__(self, rule, name_generator):
         self.final_effect = rule.effect
         self.result = []

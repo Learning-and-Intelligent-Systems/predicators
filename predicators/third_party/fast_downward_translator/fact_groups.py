@@ -31,6 +31,7 @@ def instantiate_groups(groups, task, reachable_facts):
 
 
 class GroupCoverQueue:
+
     def __init__(self, groups):
         if groups:
             self.max_size = max([len(group) for group in groups])

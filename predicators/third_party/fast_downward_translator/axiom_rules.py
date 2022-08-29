@@ -9,6 +9,7 @@ DEBUG = False
 
 
 class AxiomDependencies(object):
+
     def __init__(self, axioms):
         if DEBUG:
             assert all(isinstance(axiom.effect, pddl.Atom) for axiom in axioms)
@@ -39,6 +40,7 @@ class AxiomDependencies(object):
 
 
 class AxiomCluster(object):
+
     def __init__(self, derived_variables):
         self.variables = derived_variables
         self.axioms = dict((v, []) for v in derived_variables)

@@ -2,6 +2,7 @@ __all__ = ["ParseError", "parse_nested_list"]
 
 
 class ParseError(Exception):
+
     def __init__(self, value):
         self.value = value
 

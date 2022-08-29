@@ -6,6 +6,7 @@
 
 
 class Condition:
+
     def __init__(self, parts):
         self.parts = tuple(parts)
         self.hash = hash((self.__class__, self.parts))
@@ -112,6 +113,7 @@ class Impossible(Exception):
 
 
 class Falsity(ConstantCondition):
+
     def instantiate(self, var_mapping, init_facts, fluent_facts, result):
         raise Impossible()
 
@@ -120,6 +122,7 @@ class Falsity(ConstantCondition):
 
 
 class Truth(ConstantCondition):
+
     def to_untyped_strips(self):
         return []
 
@@ -144,6 +147,7 @@ class JunctorCondition(Condition):
 
 
 class Conjunction(JunctorCondition):
+
     def _simplified(self, parts):
         result_parts = []
         for part in parts:
@@ -175,6 +179,7 @@ class Conjunction(JunctorCondition):
 
 
 class Disjunction(JunctorCondition):
+
     def _simplified(self, parts):
         result_parts = []
         for part in parts:
@@ -241,6 +246,7 @@ class QuantifiedCondition(Condition):
 
 
 class UniversalCondition(QuantifiedCondition):
+
     def _untyped(self, parts):
         type_literals = [par.get_atom().negate() for par in self.parameters]
         return UniversalCondition(self.parameters,
@@ -255,6 +261,7 @@ class UniversalCondition(QuantifiedCondition):
 
 
 class ExistentialCondition(QuantifiedCondition):
+
     def _untyped(self, parts):
         type_literals = [par.get_atom() for par in self.parameters]
         return ExistentialCondition(self.parameters,

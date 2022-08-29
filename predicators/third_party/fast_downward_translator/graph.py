@@ -2,6 +2,7 @@
 
 
 class Graph:
+
     def __init__(self, nodes):
         self.nodes = nodes
         self.neighbours = {u: set() for u in nodes}

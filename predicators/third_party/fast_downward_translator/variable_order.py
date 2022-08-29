@@ -23,6 +23,7 @@ class CausalGraph:
     original implementation in the preprocessor component of the
     planner.
     """
+
     def __init__(self, sas_task):
         self.weighted_graph = defaultdict(lambda: defaultdict(int))
         ## var_no -> (var_no -> number)
@@ -124,6 +125,7 @@ class MaxDAG:
     computation of total order of vertices when pruning the causal graph
     in the Fast Downward JAIR 2006 paper).
     """
+
     def __init__(self, graph, input_order):
         self.weighted_graph = graph
         # input_order is only used to get the same tie-breaking as
@@ -180,6 +182,7 @@ class MaxDAG:
 
 class VariableOrder:
     """Apply a given variable order to a SAS task."""
+
     def __init__(self, ordering):
         """Ordering is a list of variable numbers in the desired order.
 

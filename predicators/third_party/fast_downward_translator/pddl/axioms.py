@@ -2,6 +2,7 @@ from . import conditions
 
 
 class Axiom:
+
     def __init__(self, name, parameters, num_external_parameters, condition):
         # For an explanation of num_external_parameters, see the
         # related Action class. Note that num_external_parameters
@@ -46,6 +47,7 @@ class Axiom:
 
 
 class PropositionalAxiom:
+
     def __init__(self, name, condition, effect):
         self.name = name
         self.condition = condition

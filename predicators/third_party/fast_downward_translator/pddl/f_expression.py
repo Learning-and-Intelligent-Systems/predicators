@@ -1,4 +1,5 @@
 class FunctionalExpression:
+
     def __init__(self, parts):
         self.parts = tuple(parts)
 
@@ -74,6 +75,7 @@ class PrimitiveNumericExpression(FunctionalExpression):
 
 
 class FunctionAssignment:
+
     def __init__(self, fluent, expression):
         self.fluent = fluent
         self.expression = expression
@@ -104,6 +106,7 @@ class FunctionAssignment:
 
 
 class Assign(FunctionAssignment):
+
     def __str__(self):
         return "%s := %s" % (self.fluent, self.expression)
 

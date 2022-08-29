@@ -2,6 +2,7 @@ from . import axioms, predicates
 
 
 class Task:
+
     def __init__(self, domain_name, task_name, requirements, types, objects,
                  predicates, functions, init, goal, actions, axioms,
                  use_metric):
@@ -57,6 +58,7 @@ class Task:
 
 
 class Requirements:
+
     def __init__(self, requirements):
         self.requirements = requirements
         for req in requirements:

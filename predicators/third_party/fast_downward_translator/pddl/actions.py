@@ -4,6 +4,7 @@ from . import conditions
 
 
 class Action:
+
     def __init__(self, name, parameters, num_external_parameters, precondition,
                  effects, cost):
         assert 0 <= num_external_parameters <= len(parameters)
@@ -107,6 +108,7 @@ class Action:
 
 
 class PropositionalAction:
+
     def __init__(self, name, precondition, effects, cost):
         self.name = name
         self.precondition = precondition

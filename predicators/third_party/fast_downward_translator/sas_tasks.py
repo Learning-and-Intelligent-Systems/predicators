@@ -11,6 +11,7 @@ class SASTask:
     be sorted and mention each variable at most once. See the validate
     methods for details.
     """
+
     def __init__(self, variables, mutexes, init, goal, operators, axioms,
                  metric):
         self.variables = variables
@@ -110,6 +111,7 @@ class SASTask:
 
 
 class SASVariables:
+
     def __init__(self, ranges, axiom_layers, value_names):
         self.ranges = ranges
         self.axiom_layers = axiom_layers
@@ -178,6 +180,7 @@ class SASVariables:
 
 
 class SASMutexGroup:
+
     def __init__(self, facts):
         self.facts = sorted(facts)
 
@@ -204,6 +207,7 @@ class SASMutexGroup:
 
 
 class SASInit:
+
     def __init__(self, values):
         self.values = values
 
@@ -230,6 +234,7 @@ class SASInit:
 
 
 class SASGoal:
+
     def __init__(self, pairs):
         self.pairs = sorted(pairs)
 
@@ -254,6 +259,7 @@ class SASGoal:
 
 
 class SASOperator:
+
     def __init__(self, name, prevail, pre_post, cost):
         self.name = name
         self.prevail = sorted(prevail)
@@ -404,6 +410,7 @@ class SASOperator:
 
 
 class SASAxiom:
+
     def __init__(self, condition, effect):
         self.condition = sorted(condition)
         self.effect = effect

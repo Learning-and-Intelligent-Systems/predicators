@@ -6,6 +6,7 @@ import predicators.third_party.fast_downward_translator.pddl as pddl
 
 
 class ConditionProxy:
+
     def clone_owner(self):
         clone = copy.copy(self)
         clone.owner = copy.copy(clone.owner)
@@ -13,6 +14,7 @@ class ConditionProxy:
 
 
 class PreconditionProxy(ConditionProxy):
+
     def __init__(self, action):
         self.owner = action
         self.condition = action.precondition
@@ -37,6 +39,7 @@ class PreconditionProxy(ConditionProxy):
 
 
 class EffectConditionProxy(ConditionProxy):
+
     def __init__(self, action, effect):
         self.action = action
         self.owner = effect
@@ -64,6 +67,7 @@ class EffectConditionProxy(ConditionProxy):
 
 
 class AxiomConditionProxy(ConditionProxy):
+
     def __init__(self, axiom):
         self.owner = axiom
         self.condition = axiom.condition
@@ -93,6 +97,7 @@ class AxiomConditionProxy(ConditionProxy):
 
 
 class GoalConditionProxy(ConditionProxy):
+
     def __init__(self, task):
         self.owner = task
         self.condition = task.goal
@@ -167,6 +172,7 @@ def all_conditions(task):
 
 
 def remove_universal_quantifiers(task):
+
     def recurse(condition):
         # Uses new_axioms_by_condition and type_map from surrounding scope.
         if isinstance(condition, pddl.UniversalCondition):
@@ -201,6 +207,7 @@ def remove_universal_quantifiers(task):
 # (2) exists(vars, or(phi, psi))  ==  or(exists(vars, phi), exists(vars, psi))
 # (3) and(phi, or(psi, psi'))     ==  or(and(phi, psi), and(phi, psi'))
 def build_DNF(task):
+
     def recurse(condition):
         disjunctive_parts = []
         other_parts = []
@@ -266,6 +273,7 @@ def split_disjunctions(task):
 # (2) and(phi, exists(vars, psi))       ==  exists(vars, and(phi, psi)),
 #       if var does not occur in phi as a free variable.
 def move_existential_quantifiers(task):
+
     def recurse(condition):
         existential_parts = []
         other_parts = []

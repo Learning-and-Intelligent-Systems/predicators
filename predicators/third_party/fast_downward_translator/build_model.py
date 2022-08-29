@@ -53,6 +53,7 @@ def variables_to_numbers(effect, conditions):
 
 
 class BuildRule:
+
     def prepare_effect(self, new_atom, cond_index):
         effect_args = list(self.effect.args)
         cond = self.conditions[cond_index]
@@ -69,6 +70,7 @@ class BuildRule:
 
 
 class JoinRule(BuildRule):
+
     def __init__(self, effect, conditions):
         self.effect = effect
         self.conditions = conditions
@@ -122,6 +124,7 @@ class JoinRule(BuildRule):
 
 
 class ProductRule(BuildRule):
+
     def __init__(self, effect, conditions):
         self.effect = effect
         self.conditions = conditions
@@ -179,6 +182,7 @@ class ProductRule(BuildRule):
 
 
 class ProjectRule(BuildRule):
+
     def __init__(self, effect, conditions):
         self.effect = effect
         self.conditions = conditions
@@ -195,6 +199,7 @@ class ProjectRule(BuildRule):
 
 
 class Unifier:
+
     def __init__(self, rules):
         self.predicate_to_rule_generator = {}
         for rule in rules:
@@ -260,6 +265,7 @@ class LeafGenerator:
 
 
 class MatchGenerator:
+
     def __init__(self, index, next):
         self.index = index
         self.matches = []
@@ -311,6 +317,7 @@ class MatchGenerator:
 
 
 class Queue:
+
     def __init__(self, atoms):
         self.queue = atoms
         self.queue_pos = 0

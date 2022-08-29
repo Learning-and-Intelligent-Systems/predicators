@@ -13,6 +13,7 @@ def cartesian_product(*sequences):
 
 
 class Effect:
+
     def __init__(self, parameters, condition, literal):
         self.parameters = parameters
         self.condition = condition
@@ -91,6 +92,7 @@ class Effect:
 
 
 class ConditionalEffect:
+
     def __init__(self, condition, effect):
         if isinstance(effect, ConditionalEffect):
             self.condition = conditions.Conjunction(
@@ -127,6 +129,7 @@ class ConditionalEffect:
 
 
 class UniversalEffect:
+
     def __init__(self, parameters, effect):
         if isinstance(effect, UniversalEffect):
             self.parameters = parameters + effect.parameters
@@ -156,6 +159,7 @@ class UniversalEffect:
 
 
 class ConjunctiveEffect:
+
     def __init__(self, effects):
         flattened_effects = []
         for effect in effects:
@@ -188,6 +192,7 @@ class ConjunctiveEffect:
 
 
 class SimpleEffect:
+
     def __init__(self, effect):
         self.effect = effect
 
@@ -202,6 +207,7 @@ class SimpleEffect:
 
 
 class CostEffect:
+
     def __init__(self, effect):
         self.effect = effect
 

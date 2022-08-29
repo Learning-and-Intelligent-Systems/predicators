@@ -24,6 +24,7 @@ class NegativeClause:
 
 
 class Assignment:
+
     def __init__(self, equalities):
         self.equalities = tuple(equalities)
         # represents a conjunction of expressions ?x = ?y or ?x = d
@@ -87,6 +88,7 @@ class Assignment:
 
 
 class ConstraintSystem:
+
     def __init__(self):
         self.combinatorial_assignments = []
         self.neg_clauses = []

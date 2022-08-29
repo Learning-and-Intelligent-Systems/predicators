@@ -54,6 +54,7 @@ class DomainTransitionGraph:
     negation by failure should be used for `init`, so that it is
     always considered reachable.
     """
+
     def __init__(self, init, size):
         """Create a DTG with no arcs."""
         self.init = init
@@ -177,6 +178,7 @@ class DoesNothing(Exception):
 
 
 class VarValueRenaming:
+
     def __init__(self):
         self.new_var_nos = []  # indexed by old var_no
         self.new_values = []  # indexed by old var_no and old value
