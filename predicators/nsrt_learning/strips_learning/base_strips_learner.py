@@ -43,6 +43,9 @@ class BaseSTRIPSLearner(abc.ABC):
         filtering may break it.
         """
         learned_pnads = self._learn()
+        if self._verify_harmlessness and not CFG.disable_harmlessness_check:
+            logging.info("\nRunning harmlessness check...")
+            assert self._check_harmlessness(learned_pnads)
         # Remove pnads by increasing min_data_perc until harmlessness breaks.
         if CFG.enable_harmless_op_pruning:
             assert self._verify_harmlessness
@@ -56,37 +59,32 @@ class BaseSTRIPSLearner(abc.ABC):
                 for pnad in learned_pnads
             ]
             pnad_perc_data_low_to_high.sort()
-            # Iterates over each PNAD in the learned PNADs removing the
-            # PNAD that uses the least amount of data.
-            for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
-                learned_pnads = self._learn()
-                min_data = max(CFG.min_data_for_nsrt,
-                               self._num_segments * min_perc_data_for_nsrt)
-                learned_pnads = [
-                    pnad for pnad in learned_pnads
-                    if len(pnad.datastore) >= min_data
-                ]
-                # Runs harmlessness check after we have pruned operators.
-                logging.info("\nRunning harmlessness check...")
-                if not self._check_harmlessness(learned_pnads):
-                    break
-                # We successfully verified harmlessness than we save this set of
-                # pnads and continue reducing min_perc_data_for_nsrts.
-                min_harmless_pnads = learned_pnads
-            learned_pnads = min_harmless_pnads
         else:
-            # We are not doing harmless operator pruning and return
-            # current nsrts at current min_perc_data_for_nsrts.
-            if self._verify_harmlessness and not CFG.disable_harmlessness_check:
-                logging.info("\nRunning harmlessness check...")
-                assert self._check_harmlessness(learned_pnads)
-            min_data = max(
-                CFG.min_data_for_nsrt,
-                self._num_segments * CFG.min_perc_data_for_nsrt / 100)
+            # If we are not doing harmless operator pruning, return
+            # PNADs at current min_perc_data_for_nsrts.
+            pnad_perc_data_low_to_high = [CFG.min_perc_data_for_nsrt / 100.0]
+        # Iterates over each PNAD in the learned PNADs removing the
+        # PNAD that uses the least amount of data.
+        for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
+            learned_pnads = self._learn()
+            min_data = max(CFG.min_data_for_nsrt,
+                           self._num_segments * min_perc_data_for_nsrt)
             learned_pnads = [
                 pnad for pnad in learned_pnads
                 if len(pnad.datastore) >= min_data
             ]
+            if not CFG.enable_harmless_op_pruning:
+                # If we are not doing harmless operator pruning, return
+                # PNADs at current min_perc_data_for_nsrts.
+                break
+            # Runs harmlessness check after we have pruned operators.
+            logging.info("\nRunning harmlessness check...")
+            if not self._check_harmlessness(learned_pnads):
+                break
+            # We successfully verified harmlessness than we save this set of
+            # pnads and continue reducing min_perc_data_for_nsrts.
+            min_harmless_pnads = learned_pnads
+        learned_pnads = min_harmless_pnads
         return learned_pnads
 
     @abc.abstractmethod
