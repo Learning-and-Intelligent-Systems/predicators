@@ -21,7 +21,6 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomsHoldQuery, \
 
 class InteractiveLearningApproach(NSRTLearningApproach):
     """An approach that learns predicates from a teacher."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
@@ -226,7 +225,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _create_best_seen_query_policy(
             self, strict: bool) -> Callable[[State], Optional[Query]]:
         """Only query if the atom has the best score seen so far."""
-
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
             # Decide whether to ask about each possible atom.
             ground_atoms = utils.all_possible_ground_atoms(
@@ -246,7 +244,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _create_threshold_query_policy(
             self) -> Callable[[State], Optional[Query]]:
         """Only query if the atom has score above the set threshold."""
-
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
             ground_atoms = utils.all_possible_ground_atoms(
                 s, self._predicates_to_learn)
@@ -262,7 +259,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _create_random_query_policy(
             self) -> Callable[[State], Optional[Query]]:
         """Query each possible atom with a certain probability."""
-
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
             ground_atoms = utils.all_possible_ground_atoms(
                 s, self._predicates_to_learn)

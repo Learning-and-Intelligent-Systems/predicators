@@ -14,7 +14,6 @@ from predicators.structs import ParameterizedOption, PartialNSRTAndDatastore, \
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a general-to-specific STRIPS learner."""
-
     @functools.lru_cache(maxsize=None)
     def _create_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
@@ -48,7 +47,6 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
 
 class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     """Learn STRIPS operators by backchaining."""
-
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.

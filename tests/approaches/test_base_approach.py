@@ -15,7 +15,6 @@ from predicators.structs import Action, ParameterizedOption, Predicate, \
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing."""
-
     @classmethod
     def get_name(cls) -> str:
         return "dummy"

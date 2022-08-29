@@ -15,7 +15,6 @@ from predicators.teacher import Teacher
 class _MockNSRTReinforcementLearningApproach(NSRTReinforcementLearningApproach
                                              ):
     """Mock class that exposes self._requests_info for testing."""
-
     def get_requests_info(self):
         """Get the current self._requests_info."""
         return self._requests_info
