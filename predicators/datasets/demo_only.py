@@ -14,6 +14,7 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.envs.behavior import BehaviorEnv
 from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
@@ -50,6 +51,20 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
+    # NOTE: This is necessary because we replace BEHAVIOR
+    # options with dummy options in order to pickle them, so
+    # when we load them, we need to make sure they have the
+    # correct options from the environment.
+    if CFG.env == "behavior":  # pragma: no cover
+        assert isinstance(env, BehaviorEnv)
+        option_name_to_option = env.option_name_to_option
+        for traj in dataset.trajectories:
+            for act in traj.actions:
+                dummy_opt = act.get_option()
+                gt_param_opt = option_name_to_option[dummy_opt.name]
+                gt_opt = gt_param_opt.ground(dummy_opt.objects,
+                                             dummy_opt.params)
+                act.set_option(gt_opt)
     return dataset
 
 
@@ -183,8 +198,10 @@ def _generate_demonstrations(
                 # our plan on our option models. Since option models
                 # return only states, we will add dummy actions to the
                 # states to create our low-level trajectories.
+                last_traj = oracle_approach.get_last_traj()
                 traj, success = _run_plan_with_option_model(
-                    task, idx, oracle_approach.get_option_model(), last_plan)
+                    task, idx, oracle_approach.get_option_model(), last_plan,
+                    last_traj)
                 # Is successful if we found a low-level plan that achieves
                 # our goal using option models.
                 if not success:

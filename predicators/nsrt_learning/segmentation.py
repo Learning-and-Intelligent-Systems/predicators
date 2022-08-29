@@ -88,6 +88,8 @@ def _segment_with_option_changes(
         option_t = traj.actions[t].get_option()
         # As a special case, if this is the last timestep, then use the
         # option's terminal function to check if it completed.
+        if CFG.env == "behavior":  # pragma: no cover
+            return True
         if t == len(traj.actions) - 1:
             return option_t.terminal(traj.states[t + 1])
         return option_t is not traj.actions[t + 1].get_option()

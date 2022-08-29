@@ -94,7 +94,11 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
                 ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
-                    ground_atom_seq = ground_atom_dataset_atoms[i]
+                    if CFG.env == "behavior":
+                        ground_atom_seq = new_ground_atom_dataset_atoms[
+                            i]  # pragma: no cover
+                    else:
+                        ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
                         (traj, [set(atoms) for atoms in ground_atom_seq]))
             else:

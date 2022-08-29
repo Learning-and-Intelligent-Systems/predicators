@@ -13,7 +13,8 @@ import numpy as np
 
 from predicators import utils
 from predicators.envs import BaseEnv, get_or_create_env
-from predicators.envs.behavior import BehaviorEnv, load_checkpoint_state
+from predicators.envs.behavior import BehaviorEnv
+from predicators.envs.behavior_options import load_checkpoint_state
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
@@ -138,3 +139,12 @@ class _BehaviorOptionModel(_OptionModelBase):
         next_state = env.current_ig_state_to_state()
         plan, _ = option.memory["planner_result"]
         return next_state, len(plan)
+
+    @staticmethod
+    def load_state(state: State) -> State:  # pragma: no cover
+        """Loads BEHAVIOR state by getting or creating our current BEHAVIOR
+        env."""
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+        load_checkpoint_state(state, env)
+        return env.current_ig_state_to_state()

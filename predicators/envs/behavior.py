@@ -24,7 +24,7 @@ try:
         URDFObject  # pylint: disable=unused-import
     from igibson.robots.behavior_robot import BRBody
     from igibson.simulator import Simulator  # pylint: disable=unused-import
-    from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
+    from igibson.utils.checkpoint_utils import save_checkpoint
     from igibson.utils.utils import modify_config_file
 
     _BEHAVIOR_IMPORTED = True
@@ -40,7 +40,8 @@ from predicators.envs import BaseEnv
 from predicators.envs.behavior_options import create_grasp_option_model, \
     create_grasp_policy, create_navigate_option_model, \
     create_navigate_policy, create_place_option_model, create_place_policy, \
-    grasp_obj_at_pos, navigate_to_obj_pos, place_ontop_obj_pos
+    grasp_obj_at_pos, load_checkpoint_state, navigate_to_obj_pos, \
+    place_ontop_obj_pos
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type, Video
@@ -73,6 +74,10 @@ class BehaviorEnv(BaseEnv):
         # Everytime we load a new scene in BEHAVIOR we also need to set
         # the valid options again, because there might be new type combos.
         self.set_options()
+        # Create option_name_to_option once
+        self._option_name_to_option = {}
+        for opt in self._options:
+            self._option_name_to_option[opt.name] = opt
 
     def set_options(self) -> None:
         """Sets the underlying options for this particular task using the
@@ -201,7 +206,8 @@ class BehaviorEnv(BaseEnv):
             self.task_num_task_instance_id_to_igibson_seed[(
                 self.task_num, self.task_instance_id)] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                        f"{CFG.behavior_task_name}__{self.task_num}__" +
+                        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                        f"{CFG.seed}__{self.task_num}__" +
                         f"{self.task_instance_id}",
                         exist_ok=True)
             init_state = self.current_ig_state_to_state()
@@ -310,6 +316,16 @@ class BehaviorEnv(BaseEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return self._options
+
+    @property
+    def option_name_to_option(self) -> Dict[str, ParameterizedOption]:
+        """A method that returns a dictionary mapping option name strings to
+        ParameterizedOptions.
+
+        Useful when loading BEHAVIOR trajectories (which will have dummy
+        options) and resetting the options used in the trajectories.
+        """
+        return self._option_name_to_option
 
     @property
     def action_space(self) -> Box:
@@ -426,8 +442,8 @@ class BehaviorEnv(BaseEnv):
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                f"{CFG.behavior_task_name}__{self.task_num}__" +
-                f"{self.task_instance_id}/")
+                f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                f"{CFG.seed}__{self.task_num}__" + f"{self.task_instance_id}/")
         return utils.BehaviorState(
             state_data,
             f"{self.task_num}-{self.task_instance_id}-{simulator_state}")
@@ -565,61 +581,6 @@ class BehaviorEnv(BaseEnv):
             return original_name
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
-
-
-def load_checkpoint_state(s: State,
-                          env: BehaviorEnv,
-                          reset: bool = False) -> None:
-    """Sets the underlying iGibson environment to a particular saved state.
-
-    When reset is True we will create a new BehaviorEnv and load our
-    checkpoint into it. This will ensure that all the information from
-    previous environment steps are reset as well.
-    """
-    assert s.simulator_state is not None
-    # Get the new_task_num_task_instance_id associated with this state
-    # from s.simulator_state.
-    new_task_num_task_instance_id = (int(s.simulator_state.split("-")[0]),
-                                     int(s.simulator_state.split("-")[1]))
-    # If the new_task_num_task_instance_id is new, then we need to load
-    # a new iGibson behavior env with our random seed saved in
-    # env.new_task_num_task_instance_id_to_igibson_seed. Otherwise
-    # we're already in the correct environment and can just load the
-    # checkpoint. Also note that we overwrite the task.init saved checkpoint
-    # so that it's compatible with the new environment!
-    env.task_num = new_task_num_task_instance_id[0]
-    # Since demo trajectories seeds are not saved, a seed is generated here if
-    # one does not exist yet for the task num and task instance id pair.
-    if not new_task_num_task_instance_id in \
-        env.task_num_task_instance_id_to_igibson_seed:
-        env.task_num_task_instance_id_to_igibson_seed[
-            new_task_num_task_instance_id] = 0
-    if (new_task_num_task_instance_id != (env.task_num, env.task_instance_id)
-            and CFG.behavior_randomize_init_state) or reset:
-        env.task_instance_id = new_task_num_task_instance_id[1]
-        # Frame count is overwritten by set_igibson_behavior_env and needs to
-        # be preserved across resets. So we save it before and set it after
-        # we reset the env.
-        frame_count = env.igibson_behavior_env.simulator.frame_count
-        env.set_igibson_behavior_env(
-            task_instance_id=new_task_num_task_instance_id[1],
-            seed=env.task_num_task_instance_id_to_igibson_seed[
-                new_task_num_task_instance_id])
-        env.igibson_behavior_env.simulator.frame_count = frame_count
-        env.set_options()
-        env.current_ig_state_to_state(
-        )  # overwrite the old task_init checkpoint file!
-        env.igibson_behavior_env.reset()
-    load_checkpoint(
-        env.igibson_behavior_env.simulator,
-        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-        f"{CFG.behavior_task_name}__{env.task_num}__{env.task_instance_id}",
-        int(s.simulator_state.split("-")[2]))
-    np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
-        new_task_num_task_instance_id])
-    # We step the environment to update the visuals of where the robot is!
-    env.igibson_behavior_env.step(
-        np.zeros(env.igibson_behavior_env.action_space.shape))
 
 
 def make_behavior_option(

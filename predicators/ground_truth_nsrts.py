@@ -1,14 +1,17 @@
 """Definitions of ground truth NSRTs for all environments."""
 
 import itertools
-from typing import List, Sequence, Set, cast
+import logging
+from typing import List, Sequence, Set, Union, cast
 
 import numpy as np
+from numpy.random._generator import Generator
 
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
-from predicators.envs.behavior_options import grasp_obj_param_sampler, \
-    navigate_to_param_sampler, place_ontop_obj_pos_sampler
+from predicators.envs.behavior_options import \
+    _ON_TOP_RAY_CASTING_SAMPLING_PARAMS, check_nav_end_pose, \
+    load_checkpoint_state
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
@@ -20,6 +23,16 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
+
+try:  # pragma: no cover
+    from igibson.external.pybullet_tools.utils import get_aabb, get_aabb_extent
+    from igibson.object_states.on_floor import \
+        RoomFloor  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import \
+        URDFObject  # pylint: disable=unused-import
+    from igibson.utils import sampling_utils
+except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
+    pass
 
 
 def get_gt_nsrts(predicates: Set[Predicate],
@@ -2778,6 +2791,100 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     op_name_count_pick = itertools.count()
     op_name_count_place = itertools.count()
 
+    # NavigateTo sampler definition.
+    def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: Generator,
+                                  objects: Sequence["URDFObject"]) -> Array:
+        """Sampler for navigateTo option."""
+        del goal
+        # Get the current env for collision checking.
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+        load_checkpoint_state(state, env)
+        # The navigation nsrts are designed such that the target
+        # obj is always last in the params list.
+        obj_to_sample_near = objects[-1]
+        closeness_limit = 0.75
+        nearness_limit = 0.5
+        distance = nearness_limit + (
+            (closeness_limit - nearness_limit) * rng.random())
+        yaw = rng.random() * (2 * np.pi) - np.pi
+        x = distance * np.cos(yaw)
+        y = distance * np.sin(yaw)
+        sampler_output = np.array([x, y])
+        # The below while loop avoids sampling values that are inside
+        # the bounding box of the object and therefore will
+        # certainly be in collision with the object if the robot
+        # tries to move there.
+        logging.info("Sampling params for navigation...")
+        num_samples_tried = 0
+        while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                                  sampler_output) is None):
+            distance = closeness_limit * rng.random()
+            yaw = rng.random() * (2 * np.pi) - np.pi
+            x = distance * np.cos(yaw)
+            y = distance * np.sin(yaw)
+            sampler_output = np.array([x, y])
+            if num_samples_tried % 50 == 0:
+                logging.info(
+                    f"Number of navigation samples: {num_samples_tried}")
+            num_samples_tried += 1
+
+        assert check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                                  sampler_output) is not None
+        return sampler_output
+
+    # Grasp sampler definition.
+    def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
+                                rng: Generator,
+                                objects: Sequence["URDFObject"]) -> Array:
+        """Sampler for grasp option."""
+        del state, goal, objects
+        x_offset = (rng.random() * 0.4) - 0.2
+        y_offset = (rng.random() * 0.4) - 0.2
+        z_offset = rng.random() * 0.2
+        return np.array([x_offset, y_offset, z_offset])
+
+    # Place OnTop sampler definition.
+    def place_ontop_obj_pos_sampler(
+            state: State, goal: Set[GroundAtom], rng: Generator,
+            obj: Union["URDFObject", "RoomFloor"]) -> Array:
+        """Sampler for placeOnTop option."""
+        del state, goal
+        assert rng is not None
+        # objA is the object the robot is currently holding, and
+        # objB is the surface that it must place onto.
+        # The BEHAVIOR NSRT's are designed such that objA is the 0th
+        # argument, and objB is the last.
+        objA = obj[0]
+        objB = obj[-1]
+
+        params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
+        aabb = get_aabb(objA.get_body_id())
+        aabb_extent = get_aabb_extent(aabb)
+
+        random_seed_int = rng.integers(10000000)
+        sampling_results = sampling_utils.sample_cuboid_on_object(
+            objB,
+            num_samples=1,
+            cuboid_dimensions=aabb_extent,
+            axis_probabilities=[0, 0, 1],
+            refuse_downwards=True,
+            random_seed_number=random_seed_int,
+            **params,
+        )
+
+        if sampling_results[0] is None or sampling_results[0][0] is None:
+            # If sampling fails, returns a random set of params
+            return np.array([
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(0.3, 1.0)
+            ])
+
+        rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
+        return rnd_params
+
     for option in env.options:
         split_name = option.name.split("-")
         base_option_name = split_name[0]
@@ -2791,8 +2898,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # We don't need an NSRT to navigate to the agent.
             if target_obj_type_name == "agent":
                 continue
-
-            # Navigate to from nothing reachable.
+            # Navigate To.
             parameters = [target_obj]
             option_vars = [target_obj]
             preconditions: Set[LiftedAtom] = set()
@@ -2804,8 +2910,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 preconditions, add_effects, delete_effects,
                 reachable_predicates, option, option_vars,
                 lambda s, g, r, o: navigate_to_param_sampler(
+                    s,
+                    g,
                     r,
-                    [env.object_to_ig_object(o_i) for o_i in o],
+                    [
+                        env.object_to_ig_object(o_i)
+                        if isinstance(o_i, Object) else o_i for o_i in o
+                    ],
                 ))
             nsrts.add(nsrt)
 
@@ -2814,7 +2925,6 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj_type_name = option_arg_type_names[0]
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
-
             # Grasp an object from ontop some surface.
             for surf_obj_type in sorted(env.types):
                 surf_obj = Variable("?surf", surf_obj_type)
@@ -2836,7 +2946,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    lambda s, g, r, o: grasp_obj_param_sampler(r),
+                    grasp_obj_param_sampler,
                 )
                 nsrts.add(nsrt)
 
@@ -2849,7 +2959,6 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # agent because this is never necessary.
             if surf_obj.type.name == "agent":
                 continue
-
             # We need to place the object we're holding!
             for held_obj_types in sorted(env.types):
                 held_obj = Variable("?held", held_obj_types)
@@ -2873,7 +2982,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     option,
                     option_vars,
                     lambda s, g, r, o: place_ontop_obj_pos_sampler(
-                        [env.object_to_ig_object(o_i) for o_i in o],
+                        s,
+                        g,
+                        obj=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
                         rng=r,
                     ),
                 )

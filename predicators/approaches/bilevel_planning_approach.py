@@ -41,6 +41,7 @@ class BilevelPlanningApproach(BaseApproach):
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
         self._last_plan: List[_Option] = []
+        self._last_traj: List[State] = []
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -48,10 +49,11 @@ class BilevelPlanningApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        plan, metrics = self._run_sesame_plan(task, nsrts, preds, timeout,
-                                              seed)
+        plan, metrics, traj = self._run_sesame_plan(task, nsrts, preds,
+                                                    timeout, seed)
         self._save_metrics(metrics, nsrts, preds)
         self._last_plan = plan
+        self._last_traj = traj
         option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:
@@ -62,15 +64,16 @@ class BilevelPlanningApproach(BaseApproach):
 
         return _policy
 
-    def _run_sesame_plan(self, task: Task, nsrts: Set[NSRT],
-                         preds: Set[Predicate], timeout: float, seed: int,
-                         **kwargs: Any) -> Tuple[List[_Option], Metrics]:
+    def _run_sesame_plan(
+            self, task: Task, nsrts: Set[NSRT], preds: Set[Predicate],
+            timeout: float, seed: int,
+            **kwargs: Any) -> Tuple[List[_Option], Metrics, List[State]]:
         """Subclasses may override.
 
         For example, PG4 inserts an abstract policy into kwargs.
         """
         try:
-            plan, metrics = sesame_plan(
+            plan, metrics, traj = sesame_plan(
                 task,
                 self._option_model,
                 nsrts,
@@ -89,7 +92,7 @@ class BilevelPlanningApproach(BaseApproach):
         except PlanningTimeout as e:
             raise ApproachTimeout(e.args[0], e.info)
 
-        return plan, metrics
+        return plan, metrics, traj
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
@@ -141,3 +144,10 @@ class BilevelPlanningApproach(BaseApproach):
         """
         assert self.get_name() == "oracle" or CFG.env == "behavior"
         return self._last_plan
+
+    def get_last_traj(self) -> List[State]:  # pragma: no cover
+        """Note that this doesn't fit into the standard API for an Approach,
+        since solve() returns a policy, which abstracts away the details of
+        whether that policy is actually a plan under the hood."""
+        assert self.get_name() == "oracle" or CFG.env == "behavior"
+        return self._last_traj
