@@ -2792,9 +2792,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     op_name_count_place = itertools.count()
 
     # NavigateTo sampler definition.
-    def navigate_to_param_sampler(
-            state: State, goal: Set[GroundAtom], rng: Generator,
-            objects: Sequence["URDFObject"]) -> Array:
+    def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: Generator,
+                                  objects: Sequence["URDFObject"]) -> Array:
         """Sampler for navigateTo option."""
         del goal
         # Get the current env for collision checking.
@@ -2818,9 +2818,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         # tries to move there.
         logging.info("Sampling params for navigation...")
         num_samples_tried = 0
-        while (check_nav_end_pose(env.igibson_behavior_env,
-                                    obj_to_sample_near, sampler_output)
-                is None):
+        while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                                  sampler_output) is None):
             distance = closeness_limit * rng.random()
             yaw = rng.random() * (2 * np.pi) - np.pi
             x = distance * np.cos(yaw)
@@ -2828,19 +2827,18 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             sampler_output = np.array([x, y])
             if num_samples_tried % 50 == 0:
                 logging.info(
-                    f"Number of navigation samples: {num_samples_tried}"
-                )
+                    f"Number of navigation samples: {num_samples_tried}")
             num_samples_tried += 1
 
             assert check_nav_end_pose(env.igibson_behavior_env,
-                                        obj_to_sample_near,
-                                        sampler_output) is not None
+                                      obj_to_sample_near,
+                                      sampler_output) is not None
             return sampler_output
 
     # Grasp sampler definition.
-    def grasp_obj_param_sampler(
-            state: State, goal: Set[GroundAtom], rng: Generator,
-            objects: Sequence["URDFObject"]) -> Array:
+    def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
+                                rng: Generator,
+                                objects: Sequence["URDFObject"]) -> Array:
         """Sampler for grasp option."""
         del state, goal, objects
         x_offset = (rng.random() * 0.4) - 0.2
@@ -2877,8 +2875,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             **params,
         )
 
-        if sampling_results[0] is None or sampling_results[0][
-                0] is None:
+        if sampling_results[0] is None or sampling_results[0][0] is None:
             # If sampling fails, returns a random set of params
             return np.array([
                 rng.uniform(-0.5, 0.5),
@@ -2886,8 +2883,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 rng.uniform(0.3, 1.0)
             ])
 
-        rnd_params = np.subtract(sampling_results[0][0],
-                                    objB.get_position())
+        rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
         return rnd_params
 
     for option in env.options:
