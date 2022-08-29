@@ -484,7 +484,7 @@ def run_low_level_search(
         try:
             option.initiable(state)
         except:
-            skip = True # pragma: no cover
+            skip = True  # pragma: no cover
         if (not skip) and option.initiable(state):
             try:
                 next_state, num_actions = \
