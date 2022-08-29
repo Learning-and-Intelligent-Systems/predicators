@@ -481,10 +481,7 @@ def run_low_level_search(
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         skip = False
-        try:
-            option.initiable(state)
-        except TypeError:
-            skip = True
+        option.initiable(state)
         if (not skip) and option.initiable(state):
             try:
                 next_state, num_actions = \
@@ -608,7 +605,7 @@ def _run_plan_with_option_model(
                                       _actions=[],
                                       _is_demo=False,
                                       _train_task_idx=task_idx), False
-        if CFG.plan_only_eval:
+        if CFG.plan_only_eval:  # pragma: no cover
             assert isinstance(option_model, _BehaviorOptionModel)
             next_state = option_model.load_state(last_traj[idx + 1])
         else:

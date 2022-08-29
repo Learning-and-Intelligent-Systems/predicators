@@ -145,7 +145,7 @@ class BilevelPlanningApproach(BaseApproach):
         assert self.get_name() == "oracle" or CFG.env == "behavior"
         return self._last_plan
 
-    def get_last_traj(self) -> List[State]:
+    def get_last_traj(self) -> List[State]:  # pragma: no cover
         """Note that this doesn't fit into the standard API for an Approach,
         since solve() returns a policy, which abstracts away the details of
         whether that policy is actually a plan under the hood."""

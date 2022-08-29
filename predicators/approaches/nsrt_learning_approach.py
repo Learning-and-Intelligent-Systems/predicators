@@ -95,7 +95,8 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
                     if CFG.env == "behavior":
-                        ground_atom_seq = new_ground_atom_dataset_atoms[i]
+                        ground_atom_seq = new_ground_atom_dataset_atoms[
+                            i]  # pragma: no cover
                     else:
                         ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(

@@ -31,7 +31,7 @@ try:
     from igibson.objects.articulated_object import \
         URDFObject  # pylint: disable=unused-import
     from igibson.utils import sampling_utils
-except (ImportError, ModuleNotFoundError) as e:
+except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
     pass
 
 
