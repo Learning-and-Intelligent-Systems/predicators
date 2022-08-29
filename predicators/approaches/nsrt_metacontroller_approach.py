@@ -19,6 +19,7 @@ from predicators.structs import Action, DummyOption, GroundAtom, State, Task, \
 
 class NSRTMetacontrollerApproach(NSRTLearningApproach):
     """NSRTMetacontrollerApproach definition."""
+
     @abc.abstractmethod
     def _predict(self, state: State, atoms: Set[GroundAtom],
                  goal: Set[GroundAtom], memory: Dict) -> _GroundNSRT:

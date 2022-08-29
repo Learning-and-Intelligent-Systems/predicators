@@ -21,6 +21,7 @@ REPLACEMENT_CHARS = ['^', '$', '#', '!', '*']
 
 class LLMSyntaxRenamingApproach(LLMBaseRenamingApproach):
     """LLMSyntaxRenamingApproach definition."""
+
     @classmethod
     def get_name(cls) -> str:
         return "llm_syntax_renaming"

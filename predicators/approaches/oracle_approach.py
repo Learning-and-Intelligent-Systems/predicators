@@ -19,6 +19,7 @@ from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
 
 class OracleApproach(BilevelPlanningApproach):
     """A bilevel planning approach that uses hand-specified NSRTs."""
+
     def __init__(self,
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],

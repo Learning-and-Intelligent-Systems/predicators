@@ -49,6 +49,7 @@ app = App(token=PREDICATORS_SLACK_BOT_TOKEN,
 class Response:
     """A response subclass defines a method for generating a message and a
     method for optionally generating the name of a file to upload."""
+
     def __init__(self, query: str, inquirer: str) -> None:
         self._query = query
         self._inquirer = inquirer
@@ -93,6 +94,7 @@ class Response:
 
 class DefaultResponse(Response):
     """A default response, for when the query wasn't understood."""
+
     def get_message_chunks(self) -> List[str]:
         ret = (f"Sorry <@{self._inquirer}>, I'm pretty dumb. I couldn't "
                f"understand your query ({self._query}). Right now, here's "
@@ -112,6 +114,7 @@ class DefaultResponse(Response):
 
 class TomEmojiResponse(Response):
     """A Tom emoji response!"""
+
     def get_message_chunks(self) -> List[str]:
         return [":tom:"]
 
@@ -121,6 +124,7 @@ class TomEmojiResponse(Response):
 
 class GithubSearchResponse(Response):
     """A response that looks for the queried search string on Github."""
+
     def __init__(self, query: str, inquirer: str, search_string: str) -> None:
         super().__init__(query, inquirer)
         self._search_string = search_string
@@ -162,6 +166,7 @@ class GithubSearchResponse(Response):
 
 class SupercloudResponse(Response):
     """An abstract response for supercloud that handles SSH and SCP stuff."""
+
     def __init__(self, query: str, inquirer: str, user: str) -> None:
         super().__init__(query, inquirer)
         self._user = user
@@ -258,6 +263,7 @@ class SupercloudResponse(Response):
 class SupercloudLaunchResponse(SupercloudResponse):
     """A response that wipes saved data on supercloud and launches
     experiments."""
+
     def _get_commands(self) -> List[str]:
         return [("git stash && git checkout master && git pull && "
                  "rm -f results/* logs/* saved_approaches/* "
@@ -281,6 +287,7 @@ class SupercloudLaunchResponse(SupercloudResponse):
 class SupercloudProgressResponse(SupercloudResponse):
     """A response that gets the number of jobs running on supercloud, and the
     number of results generated."""
+
     def _get_commands(self) -> List[str]:
         return ["squeue | wc -l", "ls results/ | wc -l"]
 
@@ -312,6 +319,7 @@ class SupercloudProgressResponse(SupercloudResponse):
 
 class SupercloudAnalysisResponse(SupercloudResponse):
     """A response that runs analysis on supercloud."""
+
     def __init__(self, query: str, inquirer: str, user: str) -> None:
         super().__init__(query, inquirer, user)
         self._generated_csv = False

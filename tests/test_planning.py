@@ -185,6 +185,7 @@ def test_sesame_plan_failures():
 
     class _MockOptionModel(_OptionModelBase):
         """A mock option model that always predicts a noop."""
+
         def __init__(self, simulator):
             self._simulator = simulator
 
@@ -331,6 +332,7 @@ def test_planning_determinism():
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
 
     class _MockEnv:
+
         @staticmethod
         def simulate(state, action):
             """A mock simulate method."""

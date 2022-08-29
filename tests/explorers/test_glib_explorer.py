@@ -67,6 +67,7 @@ def test_glib_explorer_failure_cases():
     task_idx = 0
 
     class _DummyExplorer(BaseExplorer):
+
         @classmethod
         def get_name(cls):
             return "dummy"

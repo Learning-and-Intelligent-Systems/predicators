@@ -74,6 +74,7 @@ def _create_grammar(dataset: Dataset,
 
 class _ProgrammaticClassifier(abc.ABC):
     """A classifier implemented as an arbitrary program."""
+
     @abc.abstractmethod
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         """All programmatic classifiers are functions of state and objects.
@@ -97,6 +98,7 @@ class _ProgrammaticClassifier(abc.ABC):
 
 class _NullaryClassifier(_ProgrammaticClassifier):
     """A classifier on zero objects."""
+
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         assert len(o) == 0
         return self._classify_state(s)
@@ -108,6 +110,7 @@ class _NullaryClassifier(_ProgrammaticClassifier):
 
 class _UnaryClassifier(_ProgrammaticClassifier):
     """A classifier on one object."""
+
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         assert len(o) == 1
         return self._classify_object(s, o[0])
@@ -249,6 +252,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredicateGrammar(abc.ABC):
     """A grammar for generating predicate candidates."""
+
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         """Generate candidate predicates from the grammar.
 
@@ -386,6 +390,7 @@ def _halving_constant_generator(
 @dataclass(frozen=True, eq=False, repr=False)
 class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c"."""
+
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
@@ -608,6 +613,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 class GrammarSearchInventionApproach(NSRTLearningApproach):
     """An approach that invents predicates by searching over candidate sets,
     with the candidates proposed from a grammar."""
+
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

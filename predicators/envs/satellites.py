@@ -595,6 +595,7 @@ class SatellitesEnv(BaseEnv):
 
 class SatellitesSimpleEnv(SatellitesEnv):
     """A simple version of the SatellitesEnv that only ever has 1 object."""
+
     @classmethod
     def get_name(cls) -> str:
         return "satellites_simple"

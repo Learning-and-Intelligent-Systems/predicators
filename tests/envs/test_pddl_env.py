@@ -88,6 +88,7 @@ def test_pddlenv(domain_str, problem_strs):
     problem_str1, problem_str2 = problem_strs
 
     class _DummyPDDLEnv(_PDDLEnv):
+
         @classmethod
         def get_name(cls):
             return "dummy"
@@ -245,6 +246,7 @@ def test_fixed_tasks_pddlenv(domain_str, problem_strs):
         f.write(problem_str2)
 
     class _DummyFixedTasksPDDLEnv(_FixedTasksPDDLEnv):
+
         @classmethod
         def get_name(cls):
             return "dummy_fixed_tasks"

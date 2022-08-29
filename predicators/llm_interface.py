@@ -18,6 +18,7 @@ _CACHE_SEP = "\n####$$$###$$$####$$$$###$$$####$$$###$$$###\n"
 
 class LargeLanguageModel(abc.ABC):
     """A pretrained large language model."""
+
     @abc.abstractmethod
     def get_id(self) -> str:
         """Get a string identifier for this LLM.
@@ -97,6 +98,7 @@ class OpenAILLM(LargeLanguageModel):
     Assumes that an environment variable OPENAI_API_KEY is set to a
     private API key for beta.openai.com.
     """
+
     def __init__(self, model_name: str) -> None:
         """See https://beta.openai.com/docs/models/gpt-3 for the list of
         available model names."""

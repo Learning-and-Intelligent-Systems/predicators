@@ -36,6 +36,7 @@ from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
 
 class _PDDLEnvState(State):
     """No continuous object features, and ground atoms in simulator_state."""
+
     def get_ground_atoms(self) -> Set[GroundAtom]:
         """Expose the ground atoms in the simulator_state."""
         return cast(Set[GroundAtom], self.simulator_state)
@@ -80,6 +81,7 @@ class _PDDLEnv(BaseEnv):
     The parameterized options are 1:1 with the STRIPS operators. They have the
     same object parameters and no continuous parameters.
     """
+
     def __init__(self) -> None:
         super().__init__()
         # Parse the domain str.
@@ -207,6 +209,7 @@ class _PDDLEnv(BaseEnv):
 
 class _FixedTasksPDDLEnv(_PDDLEnv):
     """An environment where tasks are induced by static PDDL problem files."""
+
     @property
     @abc.abstractmethod
     def _pddl_problem_asset_dir(self) -> str:
@@ -253,6 +256,7 @@ class _FixedTasksPDDLEnv(_PDDLEnv):
 
 class _BlocksPDDLEnv(_PDDLEnv):
     """The IPC 4-operator blocks world domain."""
+
     @property
     def _domain_str(self) -> str:
         path = utils.get_env_asset_path("pddl/blocks/domain.pddl")
@@ -263,6 +267,7 @@ class _BlocksPDDLEnv(_PDDLEnv):
 
 class FixedTasksBlocksPDDLEnv(_BlocksPDDLEnv, _FixedTasksPDDLEnv):
     """The IPC 4-operator blocks world domain with a fixed set of tasks."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_blocks_fixed_tasks"
@@ -282,6 +287,7 @@ class FixedTasksBlocksPDDLEnv(_BlocksPDDLEnv, _FixedTasksPDDLEnv):
 
 class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
     """The IPC 4-operator blocks world domain with procedural generation."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_blocks_procedural_tasks"
@@ -311,6 +317,7 @@ class ProceduralTasksBlocksPDDLEnv(_BlocksPDDLEnv):
 
 class _DeliveryPDDLEnv(_PDDLEnv):
     """A custom newspaper delivery domain from the PG3 paper."""
+
     @property
     def _domain_str(self) -> str:
         path = utils.get_env_asset_path("pddl/delivery/domain.pddl")
@@ -321,6 +328,7 @@ class _DeliveryPDDLEnv(_PDDLEnv):
 
 class ProceduralTasksDeliveryPDDLEnv(_DeliveryPDDLEnv):
     """The delivery PDDL domain with procedural generation."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_delivery_procedural_tasks"
@@ -352,6 +360,7 @@ class ProceduralTasksDeliveryPDDLEnv(_DeliveryPDDLEnv):
 
 class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
     """Delivery with fewer objects."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_easy_delivery_procedural_tasks"
@@ -383,6 +392,7 @@ class ProceduralTasksEasyDeliveryPDDLEnv(ProceduralTasksDeliveryPDDLEnv):
 
 class _SpannerPDDLEnv(_PDDLEnv):
     """The spanner domain from the PG3 paper."""
+
     @property
     def _domain_str(self) -> str:
         path = utils.get_env_asset_path("pddl/spannerlearning/domain.pddl")
@@ -393,6 +403,7 @@ class _SpannerPDDLEnv(_PDDLEnv):
 
 class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
     """The spanner domain from the PG3 paper with procedural generation."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_spanner_procedural_tasks"
@@ -424,6 +435,7 @@ class ProceduralTasksSpannerPDDLEnv(_SpannerPDDLEnv):
 
 class _ForestPDDLEnv(_PDDLEnv):
     """The forest domain from the PG3 paper."""
+
     @property
     def _domain_str(self) -> str:
         path = utils.get_env_asset_path("pddl/forest/domain.pddl")
@@ -434,6 +446,7 @@ class _ForestPDDLEnv(_PDDLEnv):
 
 class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
     """The forest domain from the PG3 paper with procedural generation."""
+
     @classmethod
     def get_name(cls) -> str:
         return "pddl_forest_procedural_tasks"
@@ -639,6 +652,7 @@ def _pddl_problem_str_to_task(pddl_problem_str: str, pddl_domain_str: str,
 
 def _create_predicate_classifier(
         pred: Predicate) -> Callable[[State, Sequence[Object]], bool]:
+
     def _classifier(s: State, objs: Sequence[Object]) -> bool:
         assert isinstance(s, _PDDLEnvState)
         return GroundAtom(pred, objs) in s.get_ground_atoms()

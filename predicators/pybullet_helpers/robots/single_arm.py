@@ -22,6 +22,7 @@ from predicators.structs import Array
 
 class SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
+
     def __init__(
             self,
             ee_home_pose: Pose3D,

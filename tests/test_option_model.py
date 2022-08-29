@@ -42,6 +42,7 @@ def test_default_option_model():
         return s[obj][0] > 50 and not s.allclose(m["start_state"])
 
     class _MockEnv:
+
         @staticmethod
         def simulate(state, action):
             """A mock simulate method."""
@@ -135,6 +136,7 @@ def test_default_option_model():
                                              never_terminate)
 
     class _NoopMockEnv:
+
         @staticmethod
         def simulate(state, action):
             """A mock simulate method."""

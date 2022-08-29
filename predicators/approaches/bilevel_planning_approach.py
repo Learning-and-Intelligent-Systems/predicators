@@ -21,6 +21,7 @@ from predicators.structs import NSRT, Action, Metrics, ParameterizedOption, \
 
 class BilevelPlanningApproach(BaseApproach):
     """Bilevel planning approach."""
+
     def __init__(self,
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
