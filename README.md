@@ -47,3 +47,12 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * The second one is the static typing check, which uses Mypy to verify type annotations. If it doesn't work due to import errors, try `mypy -p predicators --config-file predicators/mypy.ini` from one directory up.
 * The third one is the linter check, which runs Pylint with the custom config file `.predicators_pylintrc` in the root of this repository. Feel free to edit this file as necessary.
 * The fourth one is the autoformatting check, which uses the custom config files `.style.yapf` and `.isort.cfg` in the root of this repository.
+
+### Pulling in changes from the original predicators codebase
+Often, features implemented in [the original codebase](https://github.com/Learning-and-Intelligent-Systems/predicators) are useful to add into this current codebase. To do this locally, do the following:
+1. If you haven't already, add the original codebase as a remote URL: `git remote add predicators_og https://github.com/Learning-and-Intelligent-Systems/predicators`.
+1. Fetch all the latest commits/changes to the original codebase: `git fetch --all`.
+1. Create a new branch: `git checkout -b <branch-name>`.
+1. Cherry-pick the commit from the original repo into the new branch: `git cherry-pick <hash-of-commit-from-original-repo>`
+    1. When you push this new branch with the cherry-picked commits, make sure you're pushing to this repo and not the original one!
+1. To keep PR's and reviews clean, always make a separate PR with changes that exclusively come from the original codebase, and write `[OG Predicators PR]` in the title.
