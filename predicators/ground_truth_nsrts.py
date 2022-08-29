@@ -2833,7 +2833,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             assert check_nav_end_pose(env.igibson_behavior_env,
                                       obj_to_sample_near,
                                       sampler_output) is not None
-            return sampler_output
+        return sampler_output
 
     # Grasp sampler definition.
     def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
