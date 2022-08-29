@@ -394,7 +394,6 @@ def test_option_memory_incorrect():
 
     Ensures that it fails in the way we'd expect.
     """
-
     def _make_option():
         value = 0.0
 
@@ -427,9 +426,7 @@ def test_option_memory_correct():
 
     Uses the memory dict.
     """
-
     def _make_option():
-
         def initiable(s, m, o, p):
             del s, o, p  # unused
             m["value"] = 0.0  # initialize value

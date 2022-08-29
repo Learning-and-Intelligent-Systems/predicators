@@ -17,7 +17,6 @@ from predicators.structs import Action, State, Task
 
 class _DummyFailureApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
-
     @classmethod
     def get_name(cls) -> str:
         return "dummy_failure"
@@ -27,7 +26,6 @@ class _DummyFailureApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-
         def _policy(s: State) -> Action:
             raise ApproachFailure("Option plan exhausted.")
 
@@ -37,7 +35,6 @@ class _DummyFailureApproach(BaseApproach):
 class _DummySolveTimeoutApproach(BaseApproach):
     """Dummy approach that raises ApproachTimeout during planning for
     testing."""
-
     @classmethod
     def get_name(cls) -> str:
         return "dummy_solve_timeout"
@@ -53,7 +50,6 @@ class _DummySolveTimeoutApproach(BaseApproach):
 class _DummyExecutionTimeoutApproach(BaseApproach):
     """Dummy approach that raises ApproachTimeout during execution for
     testing."""
-
     @classmethod
     def get_name(cls) -> str:
         return "dummy_execution_timeout"
@@ -63,7 +59,6 @@ class _DummyExecutionTimeoutApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-
         def _policy(s: State) -> Action:
             raise ApproachTimeout("Policy timed out.")
 
@@ -72,7 +67,6 @@ class _DummyExecutionTimeoutApproach(BaseApproach):
 
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
-
     @classmethod
     def get_name(cls) -> str:
         return "dummy"

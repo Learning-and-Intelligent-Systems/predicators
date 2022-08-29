@@ -21,7 +21,6 @@ from predicators.structs import Action, Array, Object, ParameterizedOption, \
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
     """RepeatedNextToPainting domain."""
-
     def __init__(self) -> None:
         super().__init__()
         # Additional Predicates

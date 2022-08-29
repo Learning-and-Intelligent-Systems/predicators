@@ -73,8 +73,7 @@ def _create_score_function(
         return _compute_num_nodes
     if score_name == "expected_nodes":
         return _compute_expected_nodes
-    raise NotImplementedError("Unrecognized score function:"
-                              f" {score_name}.")
+    raise NotImplementedError("Unrecognized score function:" f" {score_name}.")
 
 
 def _create_aggregation_function(

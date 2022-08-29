@@ -23,7 +23,6 @@ from predicators.structs import Box, Dataset, InteractionResult, \
 
 class OnlinePG3Approach(PG3Approach, OnlineNSRTLearningApproach):
     """OnlinePG3Approach implementation."""
-
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:

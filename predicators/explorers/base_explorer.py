@@ -17,7 +17,6 @@ class BaseExplorer(abc.ABC):
     The explorer is created at the beginning of every interaction cycle
     with the latest predicates and options.
     """
-
     def __init__(self, predicates: Set[Predicate],
                  options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
