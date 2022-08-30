@@ -1,6 +1,8 @@
 """Franka Emika Panda robot."""
+from typing import Optional
 
 from predicators import utils
+from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
 
@@ -48,3 +50,13 @@ class PandaPyBulletRobot(SingleArmPyBulletRobot):
     @property
     def closed_fingers(self) -> float:
         return 0.03
+
+    @classmethod
+    def ikfast_info(cls) -> Optional[IKFastInfo]:
+        return IKFastInfo(
+            module_dir="panda_arm",
+            module_name="ikfast_panda_arm",
+            base_link="panda_link0",
+            ee_link="panda_link8",
+            free_joints=["panda_joint7"],
+        )
