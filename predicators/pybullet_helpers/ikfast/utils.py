@@ -204,8 +204,8 @@ def free_joints_generator(robot: SingleArmPyBulletRobot,
         # No need to sample if all limits are the same
         yield lower_limits
     else:
-        # Note: Caelan used convex combination to sample, but this
-        # is sufficient for uniform sampling is sufficient or us.
+        # Note: Caelan used convex combination to sample, but uniform
+        # sampling is sufficient for our use case.
         while True:
             yield np.random.uniform(lower_limits, upper_limits)
 
@@ -260,21 +260,14 @@ def ikfast_inverse_kinematics(
         # Check candidates are valid
         for conf in ik_candidates:
             # FIXME: implement this, joint limits and distance checking
+            # # difference_fn = get_difference_fn(robot, ik_joints, physics_client_id)
+            #     for conf in ik_candidates:
+            #         difference = difference_fn(current_conf, conf)
+            #         if not violates_joint_limits(
+            #                 robot, ik_joints, conf, og_robot.physics_client_id) and (
+            #                     get_length(difference, norm=norm) <= max_distance):
+            #             yield conf
             yield conf
-
-    return
-
-    # # difference_fn = get_difference_fn(robot, ik_joints, physics_client_id)
-
-    # for free_positions in generator:
-
-    #
-    #     for conf in ik_candidates:
-    #         difference = difference_fn(current_conf, conf)
-    #         if not violates_joint_limits(
-    #                 robot, ik_joints, conf, og_robot.physics_client_id) and (
-    #                     get_length(difference, norm=norm) <= max_distance):
-    #             yield conf
 
 
 def ikfast_closest_inverse_kinematics(
@@ -304,7 +297,10 @@ def ikfast_closest_inverse_kinematics(
         norm=CFG.ikfast_norm,
     )
 
-    return None
+    sols = []
+    for x in z:
+        sols.append(x)
+    return sols
 
     ik_joints = get_ikfast_joints(robot)
 
