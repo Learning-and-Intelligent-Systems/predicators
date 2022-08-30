@@ -99,19 +99,26 @@ class GlobalSettings:
     tools_num_contraptions_test = [3]
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
+    pybullet_use_gui = True  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
-    pybullet_robot = "fetch"
+    pybullet_robot = "panda"
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+
+    # IKFast parameters
+    ikfast_max_time = 0.05
+    ikfast_max_candidates = 100
+    ikfast_max_attempts = np.inf
+    ikfast_max_distance = np.inf
+    ikfast_norm = np.inf  # norm ord for np.linalg.norm
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3

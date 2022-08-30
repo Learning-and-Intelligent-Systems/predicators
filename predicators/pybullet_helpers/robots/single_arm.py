@@ -15,9 +15,9 @@ from predicators.pybullet_helpers.ikfast.utils import \
 from predicators.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.pybullet_helpers.joint import JointInfo, JointPositions, \
-    get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
-    get_joints, get_kinematic_chain
-from predicators.pybullet_helpers.link import get_link_state
+    get_joint_infos, get_joint_lower_limits, get_joint_positions, \
+    get_joint_upper_limits, get_joints, get_kinematic_chain
+from predicators.pybullet_helpers.link import BASE_LINK, get_link_state
 from predicators.settings import CFG
 from predicators.structs import Array
 
@@ -101,6 +101,14 @@ class SingleArmPyBulletRobot(abc.ABC):
         return self.link_from_name(self.tool_link_name)
 
     @cached_property
+    def base_link_name(self) -> str:
+        """Name of the base link for the robot."""
+        base_info = p.getBodyInfo(self.robot_id,
+                                  physicsClientId=self.physics_client_id)
+        base_name = base_info[0].decode(encoding="UTF-8")
+        return base_name
+
+    @cached_property
     def arm_joints(self) -> List[int]:
         """The PyBullet joint IDs of the joints of the robot arm, including the
         fingers, as determined by the kinematic chain.
@@ -137,6 +145,9 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     def link_from_name(self, link_name: str) -> int:
         """Get the link index for a given link name."""
+        if link_name == self.base_link_name:
+            return BASE_LINK
+
         # In PyBullet, each joint has an associated link.
         for joint_info in self.joint_infos:
             if joint_info.linkName == link_name:
@@ -269,14 +280,8 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     def get_joints(self) -> JointPositions:
         """Get the joint positions from the current PyBullet state."""
-        joint_positions = [
-            joint_state[0]  # extract joint position only
-            for joint_state in p.getJointStates(
-                self.robot_id,
-                self.arm_joints,
-                physicsClientId=self.physics_client_id)
-        ]
-        return joint_positions
+        return get_joint_positions(self.robot_id, self.arm_joints,
+                                   self.physics_client_id)
 
     def set_joints(self, joint_positions: JointPositions) -> None:
         """Directly set the joint positions.
