@@ -15,6 +15,7 @@ from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.envs.base_env import BaseEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.settings import CFG
 from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
     Type
 
@@ -48,7 +49,13 @@ class OracleApproach(BilevelPlanningApproach):
         return self._nsrts
 
     def recompute_nsrts(self, env: BaseEnv) -> None:
-        self._initial_predicates, _ = utils.parse_config_excluded_predicates(env)
-        self._initial_options = env.options
+        """Function to recompute NSRTs given environment change."""
+        if CFG.env == "behavior":  # pragma: no cover
+            # If the env is BEHAVIOR the types and therefore
+            # initial_predicates and initial_options could
+            # have changed.
+            self._initial_predicates, _ = \
+                utils.parse_config_excluded_predicates(env)
+            self._initial_options = env.options
         self._nsrts = get_gt_nsrts(self._initial_predicates,
                                    self._initial_options)

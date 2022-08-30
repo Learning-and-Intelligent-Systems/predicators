@@ -48,6 +48,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.approaches.oracle_approach import OracleApproach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.planning import _run_plan_with_option_model
@@ -260,6 +261,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solve_start = time.time()
         try:
             if CFG.approach == "oracle":
+                assert isinstance(approach, OracleApproach)
                 approach.recompute_nsrts(env)
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
