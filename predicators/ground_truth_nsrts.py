@@ -7,11 +7,10 @@ from typing import List, Sequence, Set, Union, cast
 import numpy as np
 from numpy.random._generator import Generator
 
+from predicators.behavior_utils.behavior_utils import check_nav_end_pose, \
+    load_checkpoint_state
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
-from predicators.envs.behavior_options import \
-    _ON_TOP_RAY_CASTING_SAMPLING_PARAMS, check_nav_end_pose, \
-    load_checkpoint_state
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
@@ -2792,10 +2791,17 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     op_name_count_place = itertools.count()
 
     # NavigateTo sampler definition.
+    MAX_NAVIGATION_SAMPLES = 50
+
     def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
                                   rng: Generator,
                                   objects: Sequence["URDFObject"]) -> Array:
-        """Sampler for navigateTo option."""
+        """Sampler for navigateTo option.
+
+        Loads the entire iGibson env to perform collision checking and
+        generates a finite number of samples such that the returned
+        sample is not in collision with any object in the environment.
+        """
         del goal
         # Get the current env for collision checking.
         env = get_or_create_env("behavior")
@@ -2812,10 +2818,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
         sampler_output = np.array([x, y])
-        # The below while loop avoids sampling values that are inside
-        # the bounding box of the object and therefore will
-        # certainly be in collision with the object if the robot
-        # tries to move there.
+        # The below while loop avoids sampling values that would put the
+        # robot in collision with some object in the environment. It may
+        # not always succeed at this and will exit after a certain number
+        # of tries.
         logging.info("Sampling params for navigation...")
         num_samples_tried = 0
         while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
@@ -2825,13 +2831,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             x = distance * np.cos(yaw)
             y = distance * np.sin(yaw)
             sampler_output = np.array([x, y])
-            if num_samples_tried % 50 == 0:
-                logging.info(
-                    f"Number of navigation samples: {num_samples_tried}")
+            # NOTE: In many situations, it is impossible to find a good sample
+            # no matter how many times we try. Thus, we break this loop after
+            # a certain number of tries so the planner will backtrack.
+            if num_samples_tried > MAX_NAVIGATION_SAMPLES:
+                break
             num_samples_tried += 1
 
-        assert check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
-                                  sampler_output) is not None
         return sampler_output
 
     # Grasp sampler definition.
@@ -2859,7 +2865,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         objA = obj[0]
         objB = obj[-1]
 
-        params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
+        params = {
+            "max_angle_with_z_axis": 0.17,
+            "bimodal_stdev_fraction": 1e-6,
+            "bimodal_mean_fraction": 1.0,
+            "max_sampling_attempts": 50,
+            "aabb_offset": 0.01,
+        }
         aabb = get_aabb(objA.get_body_id())
         aabb_extent = get_aabb_extent(aabb)
 
