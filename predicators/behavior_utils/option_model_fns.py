@@ -1,6 +1,7 @@
 """Functions that consume a plan for a BEHAVIOR robot and return an option
 model for that plan."""
 
+import logging
 from typing import Callable, List
 
 import numpy as np
@@ -13,6 +14,7 @@ try:
         BehaviorEnv  # pylint: disable=unused-import
     from igibson.objects.articulated_object import \
         URDFObject  # pylint: disable=unused-import
+    from igibson import object_states
 except (ImportError, ModuleNotFoundError) as e:
     pass
 
@@ -138,3 +140,24 @@ def create_place_option_model(
             env.step(np.zeros(env.action_space.shape))
 
     return placeOntopObjectOptionModel
+
+
+def create_open_option_model(
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        obj_to_open: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
+    """Instantiates and returns an open option model given a dummy plan."""
+
+    def openObjectOptionModel(_init_state: State,
+                                    env: "BehaviorEnv") -> None:
+        if np.linalg.norm(np.array(obj_to_open.get_position()) - np.array(env.robots[0].get_position())) < 2:
+            if hasattr(obj_to_open, "states") and object_states.Open in obj_to_open.states:
+                obj_to_open.states[object_states.Open].set_value(True)
+            else:
+                logging.debug("PRIMITIVE open failed, cannot be opened")
+        else:
+            logging.debug("PRIMITIVE open failed, too far")
+        obj_to_open.force_wakeup()
+        # Step the simulator to update visuals.
+        env.step(np.zeros(env.action_space.shape))        
+
+    return openObjectOptionModel

@@ -29,6 +29,23 @@ except (ImportError, ModuleNotFoundError) as e:
     pass
 
 
+def make_dummy_plan(
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    continuous_params: Array,
+    rng: Optional[Generator] = None
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
+    """Function to return a defualt 'dummy' plan.
+    
+    This is useful when implementing option models/controllers
+    where a plan is not actually necessary (e.g. magic open and
+    close actions). Note though that doing this is technically
+    cheating...
+    """
+    return ([[0.0, 0.0, 0.0]], [[0.0, 0.0, 0.0, 0.0]])
+
+
+
 def make_navigation_plan(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
