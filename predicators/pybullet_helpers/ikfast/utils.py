@@ -12,12 +12,14 @@ from __future__ import annotations
 import logging
 import random
 import time
+from functools import lru_cache
 from itertools import chain, islice
 from numbers import Number
-from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Sequence, \
-    Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Optional, \
+    Sequence, Tuple, Union
 
 import numpy as np
+from numpy import ndarray
 
 from predicators.pybullet_helpers.geometry import Pose, matrix_from_quat, \
     multiply_poses
@@ -79,28 +81,6 @@ def circular_difference(theta2, theta1, **kwargs) -> float:
 def get_aabb_extent(aabb):
     lower, upper = aabb
     return np.array(upper) - np.array(lower)
-
-
-def convex_combination(x, y, w=0.5):
-    return (1 - w) * np.array(x) + w * np.array(y)
-
-
-def interval_generator(lower, upper):
-    assert len(lower) == len(upper)
-    assert np.less_equal(lower, upper).all()
-    if np.equal(lower, upper).all():
-        return iter([lower])
-    return (convex_combination(lower, upper, w=weights)
-            for weights in unit_generator(d=len(lower)))
-
-
-def unit_generator(d):
-    return uniform_generator(d)
-
-
-def uniform_generator(d):
-    while True:
-        yield np.random.uniform(size=d)
 
 
 # TODO: type hints above
@@ -192,14 +172,51 @@ def get_ikfast_joints(
     return ik_joints, free_joints
 
 
-def faker(
-        robot: SingleArmPyBulletRobot,
-        world_from_target: Pose,
-        max_time: float,
-        max_distance: float,
-        max_attempts: int,
-        norm: int,
-        fixed_joints: Sequence[int] = (),
+def free_joints_generator(robot: SingleArmPyBulletRobot,
+                          free_joints: List[int],
+                          max_distance: float,
+                          fixed_joints: Sequence[int] = ()):
+    current_positions = get_joint_positions(robot.robot_id, free_joints,
+                                            robot.physics_client_id)
+    # Maximum distance between each free joint from current position
+    free_deltas = np.array([
+        0.0 if joint in fixed_joints else max_distance for joint in free_joints
+    ])
+
+    # Determine lower and upper limits
+    lower_limits = np.maximum(
+        get_joint_lower_limits(robot.robot_id, free_joints,
+                               robot.physics_client_id),
+        current_positions - free_deltas,
+    )
+    upper_limits = np.minimum(
+        get_joint_upper_limits(robot.robot_id, free_joints,
+                               robot.physics_client_id),
+        current_positions + free_deltas,
+    )
+    assert np.less_equal(lower_limits, upper_limits).all()
+
+    # First return the current free joint positions as it may
+    # already satisfy the constraints
+    yield current_positions
+
+    if np.equal(lower_limits, upper_limits).all():
+        # No need to sample if all limits are the same
+        yield lower_limits
+    else:
+        # Note: Caelan used convex combination to sample, but this
+        # is sufficient for uniform sampling is sufficient or us.
+        while True:
+            yield np.random.uniform(lower_limits, upper_limits)
+
+
+def ikfast_inverse_kinematics(
+    robot: SingleArmPyBulletRobot,
+    world_from_target: Pose,
+    max_time: float,
+    max_distance: float,
+    max_attempts: int,
+    norm: int,
 ):
     """Run IKFast to compute joint positions for given target pose specified in
     the world frame.
@@ -208,7 +225,6 @@ def faker(
     if it hasn't been compiled already when this function is called for
     the first time.
     """
-    print("abc")
     # Get the IKFast module for this robot
     ikfast = import_ikfast(robot.ikfast_info())
 
@@ -217,56 +233,41 @@ def faker(
 
     # Get the desired pose of the end-effector in the base frame
     base_from_ee = get_base_from_ee(robot, tool_link, world_from_target)
+    position = list(base_from_ee.position)
+    rot_matrix = matrix_from_quat(base_from_ee.orientation).tolist()
 
-    print('memer')
-    return 'meme'
-    # raise NotImplementedError
-    #
-    # tool_link = robot.tool_link_id
-    #
-    # base_from_ee = get_base_from_ee(og_robot, tool_link, world_from_target)
-    # difference_fn = get_difference_fn(robot, ik_joints, physics_client_id)
-    #
-    # current_conf = og_robot.get_joints(ik_joints)
-    # current_positions = og_robot.get_joints(free_joints)
-    #
-    # # TODO: handle circular joints
-    # # TODO: use norm=INF to limit the search for free values
-    # free_deltas = np.array([
-    #     0.0 if joint in fixed_joints else max_distance for joint in free_joints
-    # ])
-    # lower_limits = np.maximum(
-    #     get_joint_lower_limits(robot, free_joints, physics_client_id),
-    #     current_positions - free_deltas,
-    # )
-    # upper_limits = np.minimum(
-    #     get_joint_upper_limits(robot, free_joints, physics_client_id),
-    #     current_positions + free_deltas,
-    # )
-    # generator = chain(
-    #     [current_positions],  # TODO: sample from a truncated Gaussian nearby
-    #     interval_generator(lower_limits, upper_limits),
-    # )
-    # if max_attempts < np.inf:
-    #     generator = islice(generator, max_attempts)
-    #
-    # start_time = time.perf_counter()
-    #
+    # Sampler for free joints
+    generator = free_joints_generator(robot, free_joints, max_distance)
+    if max_attempts < np.inf:
+        generator = islice(generator, max_attempts)
+
+    start_time = time.perf_counter()
+    for free_positions in generator:
+        elapsed_time = time.perf_counter() - start_time
+        if elapsed_time >= max_time:
+            logging.warning("Max time reached. No IKFast solution found.")
+            break
+
+        # Call IKFast to compute candidates for sampled free joint positions
+        ik_candidates: Optional[List[List[float]]] = ikfast.get_ik(
+            rot_matrix, position, list(free_positions))
+        if ik_candidates is None:
+            continue
+
+        # Shuffle the candidates to avoid any biases
+        random.shuffle(ik_candidates)
+
+        # Check candidates are valid
+        for conf in ik_candidates:
+            # FIXME: implement this, joint limits and distance checking
+            yield conf
+
+    return
+
+    # # difference_fn = get_difference_fn(robot, ik_joints, physics_client_id)
+
     # for free_positions in generator:
-    #     # Exceeded time to generate an IK solution
-    #     elapsed_time = time.perf_counter() - start_time
-    #     if elapsed_time >= max_time:
-    #         break
-    #
-    #     # Get IK solutions
-    #     rot_matrix = matrix_from_quat(base_from_ee.quat_xyzw).tolist()
-    #
-    #     ik_candidates = ikfast.get_ik(rot_matrix, list(base_from_ee.position),
-    #                                   list(free_positions))
-    #     if ik_candidates is None:
-    #         continue
-    #
-    #     random.shuffle(ik_candidates)
+
     #
     #     for conf in ik_candidates:
     #         difference = difference_fn(current_conf, conf)
@@ -294,7 +295,7 @@ def ikfast_closest_inverse_kinematics(
     """
     start_time = time.perf_counter()
 
-    z = faker(
+    z = ikfast_inverse_kinematics(
         robot,
         world_from_target,
         max_time=CFG.ikfast_max_time,
@@ -303,7 +304,7 @@ def ikfast_closest_inverse_kinematics(
         norm=CFG.ikfast_norm,
     )
 
-    raise NotImplementedError
+    return None
 
     ik_joints = get_ikfast_joints(robot)
 
