@@ -24,7 +24,7 @@ from torch.distributions.categorical import Categorical
 
 from predicators.structs import Array, MaxTrainIters, Object, State
 
-torch.use_deterministic_algorithms(mode=True)  # type: ignore
+torch.use_deterministic_algorithms(mode=False)  # type: ignore
 
 ################################ Base Classes #################################
 

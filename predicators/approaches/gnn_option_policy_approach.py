@@ -35,9 +35,9 @@ class GNNOptionPolicyApproach(GNNApproach):
         self._option_model = create_option_model(CFG.option_model_name)
         self._max_option_objects = 0
         self._max_option_params = 0
-        self._bce_loss = torch.nn.BCEWithLogitsLoss()
-        self._crossent_loss = torch.nn.CrossEntropyLoss()
-        self._mse_loss = torch.nn.MSELoss()
+        self._bce_loss = torch.nn.BCEWithLogitsLoss().cuda()
+        self._crossent_loss = torch.nn.CrossEntropyLoss().cuda()
+        self._mse_loss = torch.nn.MSELoss().cuda()
 
     def _generate_data_from_dataset(
         self, dataset: Dataset
@@ -106,7 +106,7 @@ class GNNOptionPolicyApproach(GNNApproach):
     def _criterion(self, output: torch.Tensor,
                    target: torch.Tensor) -> torch.Tensor:
         if self._max_option_objects == 0:
-            return torch.tensor(0.0)
+            return torch.tensor(0.0).cuda()
         return self._bce_loss(output, target)
 
     def _global_criterion(self, output: torch.Tensor,
@@ -122,7 +122,7 @@ class GNNOptionPolicyApproach(GNNApproach):
         if self._max_option_params > 0:
             params_loss = self._mse_loss(params_output, params_target)
         else:
-            params_loss = torch.tensor(0.0)
+            params_loss = torch.tensor(0.0).cuda()
         return onehot_loss + params_loss
 
     def _add_output_specific_fields_to_save_info(self, info: Dict) -> None:

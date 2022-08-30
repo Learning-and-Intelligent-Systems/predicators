@@ -46,6 +46,7 @@ def _aggregation_func(graph: Dict) -> Tuple[torch.Tensor, Array]:
 def _prepare_receiver_matrix(graph: Dict) -> torch.Tensor:
     num_nodes = graph['nodes'].size()[0]
     columns = torch.arange(0, num_nodes).long()
+    columns = columns.cuda()
     rec_m = graph['receivers'].view(-1)[:, None] == columns
     return rec_m.float()
 
@@ -57,6 +58,10 @@ def _aggregate_globals(graph: Dict, global_node_idxs: Array,
 
     node_idxs = torch.LongTensor(global_node_idxs)[:, None]
     edge_idxs = torch.LongTensor(global_edge_idxs)[:, None]
+
+    columns = columns.cuda()
+    node_idxs = node_idxs.cuda()
+    edge_idxs = edge_idxs.cuda()
 
     nodes_agg = torch.mm(graph['nodes'].t(),
                          (node_idxs == columns).float()).t()
@@ -144,6 +149,12 @@ class EncodeProcessDecode(GraphModel):
 
     def forward(self, graph: Dict) -> List[Dict]:
         """Torch forward model."""
+        graph['nodes'] = graph['nodes'].cuda()
+        graph['edges'] = graph['edges'].cuda()
+        graph['globals'] = graph['globals'].cuda()
+        graph['receivers'] = graph['receivers'].cuda()
+        graph['senders'] = graph['senders'].cuda()
+
         if hasattr(self, 'node_encoder'):
             graph['nodes'] = self.node_encoder(graph['nodes'])
         if hasattr(self, 'edge_encoder'):

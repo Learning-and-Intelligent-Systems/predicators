@@ -24,6 +24,8 @@ def train_model(model: Any, dataloaders: Dict,
     """Optimize the model and save checkpoints."""
     since = time.time()
 
+    model = model.cuda()
+
     # Note: best_seen_model_weights is measured on validation (not train) loss.
     best_seen_model_weights: OrderedDict[
         str, torch.Tensor] = collections.OrderedDict({})
@@ -53,8 +55,11 @@ def train_model(model: Any, dataloaders: Dict,
             # Iterate over data.
             for data in dataloaders[phase]:
                 inputs = data['graph_input']
+                for key in inputs.keys():
+                    inputs[key] = inputs[key].cuda()
                 targets = data['graph_target']
                 for key in targets.keys():
+                    targets[key] = targets[key].cuda()
                     if targets[key] is not None:
                         targets[key] = targets[key].detach()
 
@@ -63,7 +68,7 @@ def train_model(model: Any, dataloaders: Dict,
                 outputs = model(inputs.copy())
                 output = outputs[-1]
 
-                loss = torch.tensor(0.0)
+                loss = torch.tensor(0.0).cuda()
                 if criterion is not None:
                     loss += criterion(output['nodes'], targets['nodes'])
 
@@ -181,8 +186,13 @@ def get_single_model_prediction(model: Any, single_input: Dict) -> Dict:
     model.train(False)
     model.eval()
     inputs = _create_super_graph([single_input])
+    for key in inputs.keys():
+        inputs[key] = inputs[key].cuda()
     outputs = model(inputs.copy())
-    graphs = split_graphs(_convert_to_data(outputs[-1]))
+    output = outputs[-1]
+    for key in output.keys():
+        output[key] = output[key].cpu()
+    graphs = split_graphs(_convert_to_data(output))
     assert len(graphs) == 1
     graph = graphs[0]
     graph['nodes'] = graph['nodes'].numpy()

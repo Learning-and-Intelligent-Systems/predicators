@@ -8,7 +8,7 @@ from predicators import utils
 from predicators.settings import CFG
 
 START_SEED = 456
-NUM_SEEDS = 10
+NUM_SEEDS = 5
 
 
 def _run() -> None:
@@ -37,8 +37,8 @@ def submit_supercloud_job(job_name: str, log_dir: str, logfile_prefix: str,
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
         f.write(mystr)
-    cmd = ("sbatch --time=99:00:00 --partition=xeon-p8 "
-           f"--nodes=1 --exclusive --job-name={job_name} "
+    cmd = ("sbatch --time=99:00:00 --partition=hipri "
+           f"--gres=gpu:1 --cpus-per-task 16 --job-name={job_name} "
            f"--array={start_seed}-{start_seed+num_seeds-1} "
            f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")

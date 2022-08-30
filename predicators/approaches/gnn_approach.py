@@ -333,7 +333,7 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             if atom.predicate.arity != 0:
                 continue
             goal_globals[self._nullary_predicates.index(atom.predicate)] = 1
-        graph["globals"] = np.r_[atoms_globals, goal_globals]
+        graph["globals"] = np.r_[1.0, atoms_globals, goal_globals]
 
         # Add nodes (one per object) and node features.
         graph["n_node"] = np.array(num_objects)
