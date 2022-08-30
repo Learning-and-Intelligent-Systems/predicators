@@ -177,6 +177,7 @@ def _generate_demonstrations(
                 timeout = CFG.offline_data_planning_timeout
                 if timeout == -1:
                     timeout = CFG.timeout
+                oracle_approach.recompute_nsrts(env)
                 oracle_approach.solve(task, timeout=timeout)
                 # Since we're running the oracle approach, we know that
                 # the policy is actually a plan under the hood, and we
