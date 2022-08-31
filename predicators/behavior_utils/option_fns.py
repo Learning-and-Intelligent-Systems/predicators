@@ -22,6 +22,20 @@ except (ImportError, ModuleNotFoundError) as e:
     pass
 
 
+def create_dummy_policy(
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
+    """Instantiates and returns a dummy option policy."""
+    del plan
+
+    def dummyOptionPolicy(_state: State,
+                          env: "BehaviorEnv") -> Tuple[Array, bool]:
+        del env
+        raise NotImplementedError
+
+    return dummyOptionPolicy
+
+
 def create_navigate_policy(
     plan: List[List[float]], original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
@@ -99,9 +113,9 @@ def create_navigate_policy(
 def create_grasp_policy(
     plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT plan,
-    which is a list of 6-element lists containing a series of (x, y, z, roll,
-    pitch, yaw) waypoints for the hand to pass through."""
+    """Instantiates and returns a grasp option policy given an RRT plan, which
+    is a list of 6-element lists containing a series of (x, y, z, roll, pitch,
+    yaw) waypoints for the hand to pass through."""
     # Set up two booleans to be used as 'memory', as well as
     # a 'reversed' plan to be used for our option that's
     # defined below. Note that the reversed plan makes a
@@ -273,9 +287,9 @@ def create_grasp_policy(
 def create_place_policy(
     plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT plan,
-    which is a list of 6-element lists containing a series of (x, y, z, roll,
-    pitch, yaw) waypoints for the hand to pass through."""
+    """Instantiates and returns a place option policy given an RRT plan, which
+    is a list of 6-element lists containing a series of (x, y, z, roll, pitch,
+    yaw) waypoints for the hand to pass through."""
 
     # Note that the reversed plan code below makes a
     # copy of the list instead of just assigning by reference,

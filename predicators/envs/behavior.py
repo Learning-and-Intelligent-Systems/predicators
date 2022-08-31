@@ -37,13 +37,13 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.behavior_utils.behavior_utils import load_checkpoint_state
-from predicators.behavior_utils.motion_planner_fns import make_grasp_plan, \
-    make_navigation_plan, make_placeontop_plan
-from predicators.behavior_utils.option_fns import create_grasp_policy, \
-    create_navigate_policy, create_place_policy
+from predicators.behavior_utils.motion_planner_fns import make_dummy_plan, \
+    make_grasp_plan, make_navigation_plan, make_placeontop_plan
+from predicators.behavior_utils.option_fns import create_dummy_policy, \
+    create_grasp_policy, create_navigate_policy, create_place_policy
 from predicators.behavior_utils.option_model_fns import \
     create_grasp_option_model, create_navigate_option_model, \
-    create_place_option_model
+    create_open_option_model, create_place_option_model
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
@@ -89,21 +89,22 @@ class BehaviorEnv(BaseEnv):
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
         ], Optional[Tuple[List[List[float]], List[List[float]]]]]] = [
-            make_navigation_plan, make_grasp_plan, make_placeontop_plan
+            make_navigation_plan, make_grasp_plan, make_placeontop_plan,
+            make_dummy_plan
         ]
         option_policy_fns: List[
             Callable[[List[List[float]], List[List[float]]],
                      Callable[[State, "behavior_env.BehaviorEnv"],
                               Tuple[Array, bool]]]] = [
                                   create_navigate_policy, create_grasp_policy,
-                                  create_place_policy
+                                  create_place_policy, create_dummy_policy
                               ]
-        option_model_fns: List[
-            Callable[[List[List[float]], List[List[float]], "URDFObject"],
-                     Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
-                         create_navigate_option_model,
-                         create_grasp_option_model, create_place_option_model
-                     ]
+        option_model_fns: List[Callable[
+            [List[List[float]], List[List[float]], "URDFObject"],
+            Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
+                create_navigate_option_model, create_grasp_option_model,
+                create_place_option_model, create_open_option_model
+            ]
 
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
@@ -114,6 +115,8 @@ class BehaviorEnv(BaseEnv):
              option_model_fns[1], 3, 1, (-np.pi, np.pi)),
             ("PlaceOnTop", planner_fns[2], option_policy_fns[2],
              option_model_fns[2], 3, 1, (-1.0, 1.0)),
+            ("Open", planner_fns[3], option_policy_fns[3], option_model_fns[3],
+             3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
         for (name, planner_fn, policy_fn, option_model_fn, param_dim, num_args,
@@ -259,7 +262,7 @@ class BehaviorEnv(BaseEnv):
                 # "burnt",
                 # "frozen",
                 # "soaked",
-                # "open",
+                "open",
                 # "dusty",
                 # "stained",
                 # "sliced",
