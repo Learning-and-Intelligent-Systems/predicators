@@ -233,8 +233,22 @@ class BehaviorEnv(BaseEnv):
             self.igibson_behavior_env.task.ground_goal_state_options) == 1
         for head_expr in self.igibson_behavior_env.task.\
             ground_goal_state_options[0]:
-            bddl_name = head_expr.terms[0]  # untyped
-            ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
+            # BDDL expresses negative goals (such as 'not open').
+            # Since our implementation of SeSamE assumes positive preconditions
+            # and goals, we must parse these into positive expressions.
+            if head_expr.terms[0] == 'not':
+                # Currently, the only goals that include 'not' are those that
+                # include 'not open' statements, so turn these into 'closed'.
+                assert head_expr.terms[1] == 'open'
+                bddl_name = 'closed'
+                obj_start_idx = 2
+            else:
+                bddl_name = head_expr.terms[0]  # untyped
+                obj_start_idx = 1
+            ig_objs = [
+                self._name_to_ig_object(t)
+                for t in head_expr.terms[obj_start_idx:]
+            ]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
             pred_name = self._create_type_combo_name(bddl_name,
                                                      [o.type for o in objects])
