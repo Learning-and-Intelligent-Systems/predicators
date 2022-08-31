@@ -143,6 +143,10 @@ class SingleArmPyBulletRobot(abc.ABC):
         """Get the joint index for a joint name."""
         return self.joint_names.index(joint_name)
 
+    def joint_info_from_name(self, joint_name: str) -> JointInfo:
+        """Get the joint info for a joint name."""
+        return self.joint_infos[self.joint_from_name(joint_name)]
+
     def link_from_name(self, link_name: str) -> int:
         """Get the link index for a given link name."""
         if link_name == self.base_link_name:

@@ -24,7 +24,7 @@ from numpy import ndarray
 from predicators.pybullet_helpers.geometry import Pose, matrix_from_quat, \
     multiply_poses
 from predicators.pybullet_helpers.ikfast.load import import_ikfast
-from predicators.pybullet_helpers.joint import JointPositions, \
+from predicators.pybullet_helpers.joint import JointInfo, JointPositions, \
     get_joint_infos, get_joint_lower_limits, get_joint_positions, \
     get_joint_upper_limits
 from predicators.pybullet_helpers.link import get_link_pose, \
@@ -35,55 +35,36 @@ if TYPE_CHECKING:
     from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 
 
-def get_length(vec: Union[np.ndarray, List[Number]], norm=2) -> float:
-    return np.linalg.norm(vec, ord=norm)
+def get_length(vec: Union[np.ndarray, Sequence[Number]], norm=2) -> float:
+    length = np.linalg.norm(vec, ord=norm)
+    return length
 
 
 def get_difference_fn(
-    body: int, joints: List[int], physics_client_id: int
+    joint_infos: List[JointInfo]
 ) -> Callable[[JointPositions, JointPositions], Tuple[float]]:
-    circular_joints = [
-        joint_info.is_circular()
-        for joint_info in get_joint_infos(body, joints, physics_client_id)
-    ]
+    """Determine the difference.
+
+    Note: we do not support circular joints.
+    """
+    if any(joint_info.is_circular for joint_info in joint_infos):
+        raise ValueError("Circular joints are not supported yet")
 
     def fn(q2: JointPositions, q1: JointPositions) -> Tuple[float]:
-        return tuple(
-            circular_difference(value2, value1) if circular else (value2 -
-                                                                  value1)
-            for circular, value2, value1 in zip(circular_joints, q2, q1))
+        diff = tuple((value2 - value1) for value2, value1 in zip(q2, q1))
+        return diff
 
     return fn
 
 
-def circular_interval(lower=-np.pi):
-    return (lower, lower + 2 * np.pi)
-
-
-def wrap_interval(value, interval=(0.0, 1.0)):
-    lower, upper = interval
-    if (lower == -np.pi) and (+np.pi == upper):
-        return value
-    assert -np.pi < lower <= upper < +np.pi
-    return (value - lower) % (upper - lower) + lower
-
-
-def circular_difference(theta2, theta1, **kwargs) -> float:
-    interval = circular_interval(**kwargs)
-    # extent = get_interval_extent(interval) # TODO: combine with motion_planners
-    extent = get_aabb_extent(interval)
-    diff_interval = (-extent / 2, +extent / 2)
-    difference = wrap_interval(theta2 - theta1, interval=diff_interval)
-    # difference = interval_difference(theta2, theta1, interval=interval)
-    return difference
-
-
-def get_aabb_extent(aabb):
-    lower, upper = aabb
-    return np.array(upper) - np.array(lower)
-
-
-# TODO: type hints above
+def violates_joint_limits(joint_infos: List[JointInfo],
+                          values: List[float]) -> bool:
+    """Check if the given values violate the joint limits."""
+    if len(joint_infos) != len(values):
+        raise ValueError("Joint Infos and values must be the same length")
+    return any(
+        joint_info.violates_limit(value)
+        for joint_info, value in zip(joint_infos, values))
 
 
 def get_ordered_ancestors(robot: int, link: int,
@@ -128,7 +109,8 @@ def get_base_from_ee(
 
 
 def get_ikfast_joints(
-        robot: SingleArmPyBulletRobot) -> Tuple[List[int], List[int]]:
+        robot: SingleArmPyBulletRobot
+) -> Tuple[List[JointInfo], List[JointInfo]]:
     """Determines the joints that are used by IKFast for the given robot.
 
     Assumptions:
@@ -160,12 +142,13 @@ def get_ikfast_joints(
     assert link_to_parent[ee_ancestors[0]] == base_link
 
     # Prune out the fixed joints
+    # TODO: this could be joint infos to save computation later on
     ik_joints = [
-        joint.jointIndex for joint in robot.joint_infos
-        if joint.jointIndex in ee_ancestors and not joint.is_fixed
+        joint_info for joint_info in robot.joint_infos
+        if joint_info.jointIndex in ee_ancestors and not joint_info.is_fixed
     ]
     free_joints = [
-        robot.joint_from_name(joint) for joint in ikfast_info.free_joints
+        robot.joint_info_from_name(joint) for joint in ikfast_info.free_joints
     ]
     assert len(ik_joints) == 6 + len(free_joints)
 
@@ -173,9 +156,10 @@ def get_ikfast_joints(
 
 
 def free_joints_generator(robot: SingleArmPyBulletRobot,
-                          free_joints: List[int],
+                          free_joint_infos: List[JointInfo],
                           max_distance: float,
                           fixed_joints: Sequence[int] = ()):
+    free_joints = [joint_info.jointIndex for joint_info in free_joint_infos]
     current_positions = get_joint_positions(robot.robot_id, free_joints,
                                             robot.physics_client_id)
     # Maximum distance between each free joint from current position
@@ -228,7 +212,9 @@ def ikfast_inverse_kinematics(
     # Get the IKFast module for this robot
     ikfast = import_ikfast(robot.ikfast_info())
 
-    ik_joints, free_joints = get_ikfast_joints(robot)
+    ik_joint_infos, free_joint_infos = get_ikfast_joints(robot)
+    ik_joints = [joint_info.jointIndex for joint_info in ik_joint_infos]
+
     tool_link = robot.tool_link_id
 
     # Get the desired pose of the end-effector in the base frame
@@ -237,9 +223,13 @@ def ikfast_inverse_kinematics(
     rot_matrix = matrix_from_quat(base_from_ee.orientation).tolist()
 
     # Sampler for free joints
-    generator = free_joints_generator(robot, free_joints, max_distance)
+    generator = free_joints_generator(robot, free_joint_infos, max_distance)
     if max_attempts < np.inf:
         generator = islice(generator, max_attempts)
+
+    difference_fn = get_difference_fn(ik_joint_infos)
+    current_conf = get_joint_positions(robot.robot_id, ik_joints,
+                                       robot.physics_client_id)
 
     start_time = time.perf_counter()
     for free_positions in generator:
@@ -259,15 +249,10 @@ def ikfast_inverse_kinematics(
 
         # Check candidates are valid
         for conf in ik_candidates:
-            # FIXME: implement this, joint limits and distance checking
-            # # difference_fn = get_difference_fn(robot, ik_joints, physics_client_id)
-            #     for conf in ik_candidates:
-            #         difference = difference_fn(current_conf, conf)
-            #         if not violates_joint_limits(
-            #                 robot, ik_joints, conf, og_robot.physics_client_id) and (
-            #                     get_length(difference, norm=norm) <= max_distance):
-            #             yield conf
-            yield conf
+            difference = difference_fn(current_conf, conf)
+            if not violates_joint_limits(ik_joint_infos, conf) and (get_length(
+                    difference, norm=norm) <= max_distance):
+                yield conf
 
 
 def ikfast_closest_inverse_kinematics(
@@ -287,8 +272,12 @@ def ikfast_closest_inverse_kinematics(
     If no solutions are found, an empty list is returned.
     """
     start_time = time.perf_counter()
+    ik_joint_infos, free_joint_infos = get_ikfast_joints(robot)
+    ik_joints = [joint_info.jointIndex for joint_info in ik_joint_infos]
+    current_conf = get_joint_positions(robot.robot_id, ik_joints,
+                                       robot.physics_client_id)
 
-    z = ikfast_inverse_kinematics(
+    generator = ikfast_inverse_kinematics(
         robot,
         world_from_target,
         max_time=CFG.ikfast_max_time,
@@ -297,40 +286,25 @@ def ikfast_closest_inverse_kinematics(
         norm=CFG.ikfast_norm,
     )
 
-    sols = []
-    for x in z:
-        sols.append(x)
-    return sols
-
-    ik_joints = get_ikfast_joints(robot)
-
-    current_conf = get_joint_positions(robot.robot_id, ik_joints,
-                                       robot.physics_client_id)
-
     # Only use up to the max candidates specified
     if CFG.ikfast_max_candidates < np.inf:
         generator = islice(generator, CFG.ikfast_max_candidates)
+
+    # Sort solutions by distance to current joint positions
     candidate_solutions = list(generator)
 
-    # Sort the solutions by distance to the current joint positions
-
     # TODO: relative to joint limits
-    difference_fn = get_difference_fn(
-        robot.robot_id, ik_joints, robot.physics_client_id)  # get_distance_fn
-    solutions = sorted(
-        candidate_solutions,
-        key=lambda q: get_length(difference_fn(q, current_conf),
-                                 norm=CFG.ikfast_norm),
-    )
-    verbose = True
-    if verbose:
-        min_distance = min([np.inf] + [
-            get_length(difference_fn(q, current_conf), norm=CFG.ikfast_norm)
-            for q in solutions
-        ])
-        elapsed_time = time.perf_counter() - start_time
-        logging.debug(
-            "Identified {} IK solutions with minimum distance of {:.3f} in {:.3f} seconds"
-            .format(len(solutions), min_distance, elapsed_time))
+    difference_fn = get_difference_fn(ik_joint_infos)  # get_distance_fn
+    solutions_and_score = sorted(
+        [(q, get_length(difference_fn(current_conf, q), norm=CFG.ikfast_norm))
+         for q in candidate_solutions],
+        key=lambda q: q[1])
+    scores = [tup[1] for tup in solutions_and_score]
+    solutions = [tup[0] for tup in solutions_and_score]
 
+    min_distance = solutions_and_score[0][1] if solutions else np.inf
+    elapsed_time = time.perf_counter() - start_time
+    logging.debug(
+        f"Identified {len(solutions)} IK solutions with minimum distance "
+        f"of {min_distance:.3f} in {elapsed_time:.3f} seconds")
     return solutions

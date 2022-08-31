@@ -55,6 +55,12 @@ class JointInfo(NamedTuple):
         """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
 
+    def violates_limit(self, value: float) -> bool:
+        """Whether the given value violates the joint's limits."""
+        if self.is_circular:
+            return False
+        return self.jointLowerLimit > value or value > self.jointUpperLimit
+
 
 class JointState(NamedTuple):
     """Joint Information to match the output of the PyBullet getJointState API.
