@@ -14,6 +14,7 @@ try:
     import bddl
     import igibson
     import pybullet as pyb
+    from igibson import object_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateBinaryPredicate, ObjectStateUnaryPredicate
     from igibson.envs import behavior_env
@@ -281,12 +282,12 @@ class BehaviorEnv(BaseEnv):
                 predicates.add(pred)
 
         # Second, add in custom predicates.
-        custom_predicate_specs = [
-            ("reachable-nothing", self._reachable_nothing_classifier, 0),
-            ("handempty", self._handempty_classifier, 0),
-            ("holding", self._holding_classifier, 1),
-            ("reachable", self._reachable_classifier, 1),
-        ]
+        custom_predicate_specs = [("reachable-nothing",
+                                   self._reachable_nothing_classifier, 0),
+                                  ("handempty", self._handempty_classifier, 0),
+                                  ("holding", self._holding_classifier, 1),
+                                  ("reachable", self._reachable_classifier, 1),
+                                  ("closed", self._closed_classifier, 1)]
 
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
@@ -560,6 +561,20 @@ class BehaviorEnv(BaseEnv):
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
+
+    def _closed_classifier(self, state: State, objs: Sequence[Object]) -> bool:
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
+            load_checkpoint_state(state, self)
+        assert len(objs) == 1
+        ig_obj = self.object_to_ig_object(objs[0])
+        obj_openable = hasattr(
+            ig_obj, "states") and object_states.Open in ig_obj.states
+        if obj_openable:
+            return not ig_obj.states[object_states.Open].get_value()
+        # NOTE: If an object is not openable, we default to setting
+        # it to not be closed.
+        return False
 
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
