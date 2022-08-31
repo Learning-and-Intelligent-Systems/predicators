@@ -359,7 +359,7 @@ def make_grasp_plan(
     return plan, original_orientation
 
 
-def make_placeontop_plan(
+def make_place_plan(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     place_rel_pos: Array,
