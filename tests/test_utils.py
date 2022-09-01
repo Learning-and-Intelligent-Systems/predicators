@@ -2969,6 +2969,11 @@ def test_get_env_asset_path():
         utils.get_env_asset_path("not_a_real_asset")
 
 
+def test_get_third_party_path():
+    """Tests for get_third_party_path()."""
+    assert os.path.exists(utils.get_third_party_path())
+
+
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()

@@ -106,7 +106,9 @@ class GlobalSettings:
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3
-    pybullet_robot = "panda"
+    # Note: which robot should we stick to?
+    pybullet_robot = "fetch"
+    # pybullet_robot = "panda"
     pybullet_birrt_num_attempts = 10
     pybullet_birrt_num_iters = 100
     pybullet_birrt_smooth_amt = 50
