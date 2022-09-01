@@ -149,6 +149,7 @@ def create_open_option_model(
     del plan
 
     def openObjectOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
+        logging.info(f"PRIMITIVE: Attempting to open {obj_to_open.name}")
         if np.linalg.norm(
                 np.array(obj_to_open.get_position()) -
                 np.array(env.robots[0].get_position())) < 2:
@@ -173,6 +174,7 @@ def create_close_option_model(
     del plan
 
     def closeObjectOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
+        logging.info(f"PRIMITIVE: Attempting to close {obj_to_close.name}")
         if np.linalg.norm(
                 np.array(obj_to_close.get_position()) -
                 np.array(env.robots[0].get_position())) < 2:

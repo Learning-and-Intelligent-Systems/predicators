@@ -122,7 +122,7 @@ PLACE_SURFACE_OBJECT_TYPES = {
     'dial', 'folding_chair', 'casserole', 'deck', 'chair', 'hamper', 'bed',
     'plate', 'work_surface', 'board', 'jar', 'pallet', 'console_table',
     'pool_table', 'electric_refrigerator', 'clamshell', 'stand', 'cabinet',
-    'room_floor'
+    'trash_can', 'room_floor'
 }
 OPENABLE_OBJECT_TYPES = {
     'sack', 'storage_space', 'trap', 'turnbuckle', 'lock', 'trailer_truck',

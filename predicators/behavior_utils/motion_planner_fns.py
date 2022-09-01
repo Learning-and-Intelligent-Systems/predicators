@@ -384,11 +384,11 @@ def make_place_plan(
     try:
         obj_in_hand = env.scene.get_objects()[
             env.robots[0].parts["right_hand"].object_in_hand]
-        logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
-                     f"{obj.name} with params {place_rel_pos}")
+        logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop"
+                     f"/inside {obj.name} with params {place_rel_pos}")
     except ValueError:
         logging.info("Cannot place; either no object in hand or holding "
-                     "the object to be placed on top of!")
+                     "the object to be placed on-top/inside of!")
         return None
 
     # if the object in the agent's hand is None or not equal to the object

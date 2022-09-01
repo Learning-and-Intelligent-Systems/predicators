@@ -3093,9 +3093,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 continue
             parameters = [open_obj]
             option_vars = [open_obj]
+            openable_predicate = _get_lifted_atom("openable", [open_obj])
             closed_predicate = _get_lifted_atom("closed", [open_obj])
             preconditions = {
-                _get_lifted_atom("reachable", [open_obj]), closed_predicate
+                _get_lifted_atom("reachable", [open_obj]), closed_predicate,
+                openable_predicate
             }
             add_effects = {_get_lifted_atom("open", [open_obj])}
             delete_effects = {closed_predicate}
@@ -3126,7 +3128,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             option_vars = [close_obj]
             preconditions = {
                 _get_lifted_atom("reachable", [close_obj]),
-                _get_lifted_atom("open", [close_obj])
+                _get_lifted_atom("open", [close_obj]),
+                _get_lifted_atom("openable", [close_obj])
             }
             add_effects = {_get_lifted_atom("closed", [close_obj])}
             delete_effects = {_get_lifted_atom("open", [close_obj])}
@@ -3157,7 +3160,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # have to make a NSRT with this type.
             if surf_obj_type.name not in PLACE_SURFACE_OBJECT_TYPES:
                 continue
-            # We need to place the object we're holding!
+            # We need to place the object we're holding. Note that we create
+            # two different place-inside NSRTs: one for when the object we are
+            # placing into is `openable`, and one for other cases.
             for held_obj_types in sorted(env.types):
                 # If the held object is not in these object types, we do not
                 # have to make a NSRT with this type.
@@ -3171,14 +3176,23 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 surf_reachable = _get_lifted_atom("reachable", [surf_obj])
                 held_reachable = _get_lifted_atom("reachable", [held_obj])
                 inside = _get_lifted_atom("inside", [held_obj, surf_obj])
+                openable_surf = _get_lifted_atom("openable", [surf_obj])
+                not_openable_surf = _get_lifted_atom("not-openable",
+                                                     [surf_obj])
                 open_surf = _get_lifted_atom("open", [surf_obj])
-                preconditions = {held_holding, surf_reachable, open_surf}
+                preconditions_openable = {
+                    held_holding, surf_reachable, openable_surf, open_surf
+                }
+                preconditions_not_openable = {
+                    held_holding, surf_reachable, not_openable_surf
+                }
                 add_effects = {inside, handempty, held_reachable}
                 delete_effects = {held_holding}
-                nsrt = NSRT(
+                # NSRT for placing into an openable surface.
+                openable_nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_place_inside)}",
                     parameters,
-                    preconditions,
+                    preconditions_openable,
                     add_effects,
                     delete_effects,
                     set(),
@@ -3194,38 +3208,28 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                         rng=r,
                     ),
                 )
-                nsrts.add(nsrt)
-
-        elif base_option_name == "Open":
-            assert len(option_arg_type_names) == 1
-            open_obj_type_name = option_arg_type_names[0]
-            open_obj_type = type_name_to_type[open_obj_type_name]
-            open_obj = Variable("?obj", open_obj_type)
-            # We don't need an NSRT to open the agent.
-            if open_obj_type_name == "agent":
-                continue
-            # Open.
-            parameters = [open_obj]
-            option_vars = [open_obj]
-            closed_predicate = _get_lifted_atom("closed", [open_obj])
-            preconditions = {
-                _get_lifted_atom("reachable", [open_obj]), closed_predicate
-            }
-            add_effects = {_get_lifted_atom("open", [open_obj])}
-            delete_effects = {closed_predicate}
-            nsrt = NSRT(
-                f"{option.name}-{next(op_name_count_open)}", parameters,
-                preconditions, add_effects, delete_effects, set(), option,
-                option_vars, lambda s, g, r, o: dummy_param_sampler(
-                    s,
-                    g,
-                    r,
-                    [
-                        env.object_to_ig_object(o_i)
-                        if isinstance(o_i, Object) else o_i for o_i in o
-                    ],
-                ))
-            nsrts.add(nsrt)
+                nsrts.add(openable_nsrt)
+                # NSRT for placing into a not-openable surface.
+                not_openable_nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_place_inside)}",
+                    parameters,
+                    preconditions_not_openable,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, g, r, o: place_inside_obj_pos_sampler(
+                        s,
+                        g,
+                        objects=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
+                        rng=r,
+                    ),
+                )
+                nsrts.add(not_openable_nsrt)
 
         else:
             raise ValueError(
