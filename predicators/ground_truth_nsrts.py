@@ -7,7 +7,7 @@ from typing import List, Sequence, Set, Union, cast
 import numpy as np
 from numpy.random._generator import Generator
 
-from predicators.behavior_utils.behavior_utils import \
+from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
     PICK_PLACE_OBJECT_TYPES, PLACE_SURFACE_OBJECT_TYPES, check_nav_end_pose, \
     load_checkpoint_state
 from predicators.envs import get_or_create_env
@@ -3083,11 +3083,14 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             assert len(option_arg_type_names) == 1
             open_obj_type_name = option_arg_type_names[0]
             open_obj_type = type_name_to_type[open_obj_type_name]
+            # We don't need an NSRT to open objects that are not
+            # openable.
+            if open_obj_type.name not in OPENABLE_OBJECT_TYPES:
+                continue
             open_obj = Variable("?obj", open_obj_type)
             # We don't need an NSRT to open the agent.
             if open_obj_type_name == "agent":
                 continue
-            # Open.
             parameters = [open_obj]
             option_vars = [open_obj]
             closed_predicate = _get_lifted_atom("closed", [open_obj])
@@ -3115,10 +3118,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             close_obj_type_name = option_arg_type_names[0]
             close_obj_type = type_name_to_type[close_obj_type_name]
             close_obj = Variable("?obj", close_obj_type)
-            # We don't need an NSRT to close the agent.
-            if close_obj_type_name == "agent":
+            # We don't need an NSRT to close objects that are not
+            # openable.
+            if close_obj_type.name not in OPENABLE_OBJECT_TYPES:
                 continue
-            # Open.
             parameters = [close_obj]
             option_vars = [close_obj]
             preconditions = {

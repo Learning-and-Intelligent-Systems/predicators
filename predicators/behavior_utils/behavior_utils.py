@@ -124,6 +124,40 @@ PLACE_SURFACE_OBJECT_TYPES = {
     'pool_table', 'electric_refrigerator', 'clamshell', 'stand', 'cabinet',
     'room_floor'
 }
+OPENABLE_OBJECT_TYPES = {
+    'sack', 'storage_space', 'trap', 'turnbuckle', 'lock', 'trailer_truck',
+    'duplicator', 'slide_fastener', 'car', 'jug', 'percolator', 'window',
+    'coupling', 'package', 'collar', 'deep-freeze', 'walnut', 'pack', 'truck',
+    'nozzle', 'shoebox', 'journal', 'toolbox', 'grill', 'work', 'box', 'tin',
+    'wine_bottle', 'canned_food', 'choke', 'file', 'door', 'bag', 'facsimile',
+    'washer', 'envelope', 'basket', 'dredging_bucket', 'crock', 'spout',
+    'carabiner', 'album', 'screen', 'diary', 'drain', 'watchband', 'armoire',
+    'accessory', 'tent', 'dishwasher', 'dryer', 'vent', 'writing_board',
+    'personal_computer', 'scrapbook', 'bale', 'bin', 'coil', 'egg', 'reactor',
+    'belt', 'recreational_vehicle', 'canister', 'tie', 'notebook', 'backpack',
+    'stopcock', 'brassiere', 'pencil_box', 'tank', 'marinade', 'material',
+    'hinge', 'folder', 'wastepaper_basket', 'bucket', 'folding_chair',
+    'digital_computer', 'jaw', 'drawstring_bag', 'hamper', 'caddy',
+    'refrigerator', 'briefcase', 'shaker', 'hindrance', 'stapler', 'drawer',
+    'jar', 'binder', 'planner', 'gear', 'cupboard', 'gourd', 'windowpane',
+    'champagne', 'cooler', 'barrel', 'can', 'clamshell',
+    'electric_refrigerator', 'van', 'bird_feeder', 'kit', 'plate_glass',
+    'printer', 'mascara', 'velcro', 'pill', 'range_hood', 'packet', 'pen',
+    'knot', 'stove', 'marker', 'wallet', 'wardrobe', 'faucet', 'polish',
+    'cotter', 'bulldog_clip', 'connection', 'bundle', 'white_goods',
+    'office_furniture', 'vase', 'carryall', 'lipstick', 'sparkling_wine',
+    'kettle', 'highlighter', 'clamp', 'book', 'microwave', 'nutcracker',
+    'banana', 'pane', 'hole', 'coffeepot', 'bow', 'carton', 'sharpie',
+    'toilet', 'canopy', 'autoclave', 'pouch', 'drawstring', 'ventilation',
+    'lid', 'caster', 'buckle', 'mail', 'portable_computer', 'clog', 'capsule',
+    'clipboard', 'umbrella', 'packaging', 'laptop', 'drumstick', 'thing',
+    'mousetrap', 'shoulder_bag', 'latch', 'movable_barrier', 'hardback',
+    'chest_of_drawers', 'cage', 'novel', 'roaster', 'duffel_bag', 'diaper',
+    'ashcan', 'junction', 'mechanical_system', 'crusher', 'frame', 'shelter',
+    'chest', 'magazine', 'wicker', 'paperback_book', 'scanner', 'computer',
+    'dose', 'clasp', 'eyeliner', 'clothespin', 'hood', 'trademark', 'pincer',
+    'crate', 'cabinet', 'joint'
+}
 
 
 def get_aabb_volume(lo: Array, hi: Array) -> float:
