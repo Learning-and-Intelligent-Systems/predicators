@@ -42,7 +42,8 @@ def get_difference_fn(
         raise ValueError("Circular joints are not supported yet")
 
     def fn(q2: JointPositions, q1: JointPositions) -> JointPositions:
-        assert len(q2) == len(q1), "q2 and q1 must be the same length"
+        if not len(q2) == len(q1) == len(joint_infos):
+            raise ValueError("q2, q1, and joint infos must be the same length")
         diff = list((value2 - value1) for value2, value1 in zip(q2, q1))
         return diff
 

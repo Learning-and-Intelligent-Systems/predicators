@@ -13,7 +13,7 @@ from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.utils import get_third_party_path
 
 
-def _install_ikfast_module(ikfast_dir: str) -> None:
+def install_ikfast_module(ikfast_dir: str) -> None:
     """One-time install an IKFast module for a specific robot.
 
     Assumes there is a subdirectory in envs/assets/ikfast with a
@@ -36,7 +36,7 @@ def _install_ikfast_module(ikfast_dir: str) -> None:
             "Check messages above.")
 
 
-def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
+def install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     """If IKFast has been previously installed, there should be a file with
     extension .so, starting with name module_name, in the ikfast_dir.
 
@@ -52,10 +52,11 @@ def _install_ikfast_if_required(ikfast_info: IKFastInfo) -> str:
     if not so_filepaths:
         logging.warning(
             f"IKFast module {ikfast_info.module_name} not found; installing.")
-        _install_ikfast_module(ikfast_dir)
+        install_ikfast_module(ikfast_dir)
         so_filepaths = glob.glob(glob_pattern)
 
-    if len(so_filepaths) != 1:
+    if len(so_filepaths) != 1:  # pragma: no cover
+        # Shouldn't ever happen.
         raise ValueError(
             f"Found {len(so_filepaths)} .so files in {ikfast_dir}.")
 
@@ -75,13 +76,14 @@ def import_ikfast(ikfast_info: IKFastInfo) -> ModuleType:
         return ikfast
 
     # Otherwise, load IKFast module and build if it isn't already built.
-    module_filepath = _install_ikfast_if_required(ikfast_info)
+    module_filepath = install_ikfast_if_required(ikfast_info)
 
     # Import the module.
     # See https://docs.python.org/3/library/importlib.html.
     spec = importlib.util.spec_from_file_location(ikfast_info.module_name,
                                                   module_filepath)
-    if spec is None or spec.loader is None:
+    if spec is None or spec.loader is None:  # pragma: no cover
+        # Shouldn't ever happen unless there's corruption or tampering.
         raise ImportError("IKFast module could not be found.")
 
     ikfast = importlib.util.module_from_spec(spec)

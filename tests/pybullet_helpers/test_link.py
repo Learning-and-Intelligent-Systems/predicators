@@ -3,18 +3,23 @@ from unittest.mock import call, patch
 
 import pytest
 
+import predicators.pybullet_helpers.link
 from predicators.pybullet_helpers.geometry import Pose, multiply_poses
 from predicators.pybullet_helpers.link import LinkState, get_relative_link_pose
+
+_MODULE_PATH = predicators.pybullet_helpers.link.__name__
 
 
 def test_link_state():
     """Tests for LinkState()."""
-    link_state = LinkState(linkWorldPosition=(0.0, 1.0, 0.0),
-                           linkWorldOrientation=(0.0, 1.0, 0.0, 1.0),
-                           localInertialFramePosition=(0.0, 0.0, 0.0),
-                           localInertialFrameOrientation=(0.0, 0.0, 0.0, 1.0),
-                           worldLinkFramePosition=(0.0, 0.0, 0.0),
-                           worldLinkFrameOrientation=(0.0, 0.0, 0.0, 1.0))
+    link_state = LinkState(
+        linkWorldPosition=(0.0, 1.0, 0.0),
+        linkWorldOrientation=(0.0, 1.0, 0.0, 1.0),
+        localInertialFramePosition=(0.0, 0.0, 0.0),
+        localInertialFrameOrientation=(0.0, 0.0, 0.0, 1.0),
+        worldLinkFramePosition=(0.0, 0.0, 0.0),
+        worldLinkFrameOrientation=(0.0, 0.0, 0.0, 1.0),
+    )
     com_pose = link_state.com_pose
     assert com_pose.position == (0.0, 1.0, 0.0)
     assert com_pose.orientation == (0.0, 1.0, 0.0, 1.0)
@@ -33,8 +38,7 @@ def test_get_relative_link_pose(body, link1, link2, physics_client_id):
                             orientation=(0.0, 1.0, 0.0, 1.0))
     expected_pose = multiply_poses(world_from_link2.invert(), world_from_link1)
 
-    with patch("predicators.pybullet_helpers.link.get_link_pose"
-               ) as mock_get_link_pose:
+    with patch(f"{_MODULE_PATH}.get_link_pose") as mock_get_link_pose:
         mock_get_link_pose.side_effect = [world_from_link1, world_from_link2]
         pose = get_relative_link_pose(body, link1, link2, physics_client_id)
         assert pose == expected_pose

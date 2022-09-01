@@ -97,6 +97,8 @@ def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
     Note that this doesn't happen in reality, but we need to check we
     validate correctly).
     """
+    # Note: the ikfast_closest_inverse_kinematics import happens
+    # in the single_arm.py module, not the panda.py module.
     with patch("predicators.pybullet_helpers.robots.single_arm."
                "ikfast_closest_inverse_kinematics") as ikfast_mock:
         # Patch return value of IKFast to be an incorrect solution
