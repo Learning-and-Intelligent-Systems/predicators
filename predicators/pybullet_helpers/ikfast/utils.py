@@ -68,17 +68,31 @@ def violates_joint_limits(joint_infos: List[JointInfo],
         for joint_info, value in zip(joint_infos, values))
 
 
-def get_ordered_ancestors(robot: int, link: int,
-                          physics_client_id: int) -> List[int]:
-    """Get the ancestors of the given link in order.
+def get_ordered_ancestors(robot: SingleArmPyBulletRobot,
+                          link: int) -> List[int]:
+    """Get the ancestors of the given link in order from ancestor to the given
+    link itself.
 
     The returned link ordering excludes the base link but includes the
     given link.
     """
-    ancestors = get_link_ancestors(robot, link, physics_client_id)
-    # Take from 1-index onwards as the base link is at start of ancestors
-    ordered_ancestors = ancestors[1:] + [link]
-    return ordered_ancestors
+    # Mapping of link ID to parent link ID for each link in the robot
+    link_to_parent_link: Dict[int, int] = {
+        info.jointIndex: info.parentIndex
+        for info in robot.joint_infos
+    }
+    base_link = robot.link_from_name(robot.ikfast_info().base_link)
+
+    # Get ancestors of given link
+    current_link = link
+    ancestors_reversed = [current_link]
+    while link_to_parent_link[current_link] != base_link:
+        current_link = link_to_parent_link[current_link]
+        ancestors_reversed.append(current_link)
+
+    # Return ordering with ancestor -> ... -> grandparent -> parent -> link
+    ancestors = list(reversed(ancestors_reversed))
+    return ancestors
 
 
 def get_base_from_ee(
@@ -122,28 +136,12 @@ def get_ikfast_joints(
     and the second element is the list of free joints to sample over.
     """
     ikfast_info = robot.ikfast_info()
-
-    base_link = robot.link_from_name(ikfast_info.base_link)
     ee_link = robot.link_from_name(ikfast_info.ee_link)
 
-    # Map link ID to parent link ID
-    link_to_parent: Dict[int, int] = {
-        info.jointIndex: info.parentIndex
-        for info in robot.joint_infos
-    }
     # Get the ancestors of the end effector link (excluding base link)
-    ee_ancestors = [ee_link]
-    link = ee_ancestors[-1]
-    while link_to_parent[link] != base_link:
-        ee_ancestors.append(link_to_parent[link])
-        link = ee_ancestors[-1]
-    ee_ancestors = list(reversed(ee_ancestors))
-
-    # Check parent of first link is the base link
-    assert link_to_parent[ee_ancestors[0]] == base_link
+    ee_ancestors = get_ordered_ancestors(robot, ee_link)
 
     # Prune out the fixed joints
-    # TODO: this could be joint infos to save computation later on
     ik_joints = [
         joint_info for joint_info in robot.joint_infos
         if joint_info.jointIndex in ee_ancestors and not joint_info.is_fixed
