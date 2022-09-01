@@ -322,7 +322,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         elif CFG.pybullet_robot == "fetch":
             # gripper parallel to y-axis
             normal = np.array([0., 1., 0.], dtype=np.float32)
-        else:
+        else:  # pragma: no cover
+            # Shouldn't happen unless we introduce a new robot.
             raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
 
         return {
