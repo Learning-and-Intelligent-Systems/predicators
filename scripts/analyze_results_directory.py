@@ -116,8 +116,15 @@ def create_raw_dataframe(
             run_data_defaultdict.update(config)
         else:
             run_data_defaultdict = outdata
-        (env, approach, seed, excluded_predicates, included_options,
-         experiment_id, online_learning_cycle) = filepath[8:-4].split("__")
+        if len(filepath[8:-4].split("__")) > 7:  # pragma: no cover
+            # Environment is a BEHAVIOR environment with task and scene name.
+            (env, approach, seed, excluded_predicates, included_options,
+             experiment_id, online_learning_cycle, task_name,
+             scene_name) = filepath[8:-4].split("__")
+            del task_name, scene_name
+        else:
+            (env, approach, seed, excluded_predicates, included_options,
+             experiment_id, online_learning_cycle) = filepath[8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
         run_data = dict(
