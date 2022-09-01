@@ -316,9 +316,18 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        if CFG.pybullet_robot == "panda":
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
+        elif CFG.pybullet_robot == "fetch":
+            # gripper parallel to y-axis
+            normal = np.array([0., 1., 0.], dtype=np.float32)
+        else:
+            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
+
         return {
-            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
+            self._pybullet_robot.left_finger_id: normal,
+            self._pybullet_robot.right_finger_id: -1 * normal,
         }
 
     def _create_blocks_move_to_above_block_option(

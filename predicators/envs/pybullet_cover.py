@@ -34,7 +34,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         "fetch": quaternion_from_euler(np.pi / 2, np.pi / 2, -np.pi),
         "panda": quaternion_from_euler(np.pi, 0, np.pi / 2)
     }
-    _move_to_pose_tol: ClassVar[float] = 1e-7
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
     _obj_len_hgt: ClassVar[float] = 0.045
@@ -305,6 +305,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # Both fetch and panda have grippers parallel to x-axis
         return {
             self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
             self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
