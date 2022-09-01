@@ -2363,8 +2363,8 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
 def get_third_party_path() -> str:
     """Return the absolute path to the third party directory."""
     module_path = Path(__file__)
-    predicators_root = module_path.parent.parent
-    third_party_dir_path = os.path.join(predicators_root, "third_party")
+    predicators_dir = module_path.parent
+    third_party_dir_path = os.path.join(predicators_dir, "third_party")
     return third_party_dir_path
 
 
