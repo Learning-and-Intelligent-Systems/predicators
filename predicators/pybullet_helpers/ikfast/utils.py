@@ -51,6 +51,7 @@ def get_difference_fn(
         raise ValueError("Circular joints are not supported yet")
 
     def fn(q2: JointPositions, q1: JointPositions) -> Tuple[float]:
+        assert len(q2) == len(q1), "q2 and q1 must be the same length"
         diff = tuple((value2 - value1) for value2, value1 in zip(q2, q1))
         return diff
 
