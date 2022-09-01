@@ -339,9 +339,9 @@ def _skeleton_generator(
             visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        for act in node.skeleton:
-            logging.info(f"{act.name} {act.objects}")
-        logging.info("")
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
