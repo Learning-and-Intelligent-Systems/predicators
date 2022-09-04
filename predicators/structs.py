@@ -610,7 +610,7 @@ class STRIPSOperator:
                 pred_eff_variables_str = " ".join(f"?x{i}"
                                                   for i in range(pred.arity))
                 effects_str += f"(forall ({pred_types_str})" +\
-                    f"(not ({pred.name} {pred_eff_variables_str})))"
+                    f" (not ({pred.name} {pred_eff_variables_str})))"
                 effects_str += "\n        "
         return f"""(:action {self.name}
     :parameters ({params_str})

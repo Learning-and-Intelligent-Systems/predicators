@@ -510,7 +510,7 @@ def test_operators_and_nsrts(state):
     :precondition (and (NotOn ?cup ?plate))
     :effect (and (On ?cup ?plate)
         (not (NotOn ?cup ?plate))
-        (forall (?x0 - cup_type ?x1 - plate_type)(not (On ?x0 ?x1)))
+        (forall (?x0 - cup_type ?x1 - plate_type) (not (On ?x0 ?x1)))
         )
   )"""
     assert strips_operator.get_complexity() == 4.0  # 2^2
