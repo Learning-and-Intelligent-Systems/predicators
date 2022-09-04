@@ -12,6 +12,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.cover import CoverEnv
 from predicators.envs.painting import PaintingEnv
+from predicators.envs.repeated_nextto import RepeatedNextToSingleOptionEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
@@ -616,12 +617,14 @@ def test_sesame_plan_fast_downward():
     """
     for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
         utils.reset_config({
-            "env": "painting",
+            "env": "repeated_nextto_single_option",
             "num_test_tasks": 1,
             "painting_lid_open_prob": 1.0,
             "sesame_task_planner": sesame_task_planner,
         })
-        env = PaintingEnv()
+        # Test on the repeated_nextto_single_option env, which requires ignore
+        # effects.
+        env = RepeatedNextToSingleOptionEnv()
         nsrts = get_gt_nsrts(env.predicates, env.options)
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
