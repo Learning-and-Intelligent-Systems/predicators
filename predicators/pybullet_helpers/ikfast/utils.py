@@ -189,8 +189,9 @@ def free_joints_generator(
     # already satisfy the constraints
     yield current_positions
 
-    if np.equal(lower_limits, upper_limits).all():
+    if np.equal(lower_limits, upper_limits).all():  # pragma: no cover
         # No need to sample if all limits are the same
+        # This doesn't happen for the Panda.
         yield lower_limits
     else:
         # Note: Caelan used convex combination to sample, but uniform
@@ -234,7 +235,7 @@ def ikfast_inverse_kinematics(
 
     # Sampler for free joints
     generator = free_joints_generator(robot, free_joint_infos, max_distance)
-    if max_attempts < np.inf:
+    if max_attempts < np.inf:  # pragma: no cover
         generator = islice(generator, max_attempts)
 
     difference_fn = get_difference_fn(ik_joint_infos)
@@ -298,7 +299,7 @@ def ikfast_closest_inverse_kinematics(
     )
 
     # Only use up to the max candidates specified
-    if CFG.ikfast_max_candidates < np.inf:
+    if CFG.ikfast_max_candidates < np.inf:  # pragma: no cover
         generator = islice(generator, CFG.ikfast_max_candidates)
 
     # Sort solutions by distance to current joint positions
