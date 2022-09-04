@@ -61,38 +61,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
         assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
     else:
         assert "Unrecognized sesame_grounder" in str(e)
-    # Test on the repeated_nextto_single_option env, which requires ignore
-    # effects.
-    utils.reset_config({
-        "env": "repeated_nextto_single_option",
-        "sesame_check_expected_atoms": sesame_check_expected_atoms,
-        "sesame_grounder": sesame_grounder,
-        "num_test_tasks": 1,
-        "sesame_task_planner": "astar",
-    })
-    env = RepeatedNextToSingleOptionEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = env.get_test_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name)
-    with expectation as e:
-        plan, metrics = sesame_plan(
-            task,
-            option_model,
-            nsrts,
-            env.predicates,
-            env.types,
-            1,  # timeout
-            123,  # seed
-            CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,
-            max_horizon=CFG.horizon,
-        )
-    if e is None:
-        assert len(plan) == 2
-        assert all(isinstance(act, _Option) for act in plan)
-        assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
-    else:
-        assert "Unrecognized sesame_grounder" in str(e)
+
 
 def test_task_plan():
     """Tests for task_plan()."""
@@ -627,12 +596,14 @@ def test_sesame_plan_fast_downward():
     """
     for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
         utils.reset_config({
-            "env": "painting",
+            "env": "repeated_nextto_single_option",
             "num_test_tasks": 1,
             "painting_lid_open_prob": 1.0,
             "sesame_task_planner": sesame_task_planner,
         })
-        env = PaintingEnv()
+        # Test on the repeated_nextto_single_option env, which requires ignore
+        # effects.
+        env = RepeatedNextToSingleOptionEnv()
         nsrts = get_gt_nsrts(env.predicates, env.options)
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
