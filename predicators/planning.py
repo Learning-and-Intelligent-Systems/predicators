@@ -737,12 +737,8 @@ def _sesame_plan_with_fast_downward(
         "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} "
-               f"--sas-file {sas_file} {dom_file} {prob_file}"
-               ' --search "astar(cg())"')
-    print(cmd_str)
-    import ipdb
-    ipdb.set_trace()
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
+               f"--sas-file {sas_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
     cleanup_cmd_str = f"{exec_str} --cleanup"
     subprocess.getoutput(cleanup_cmd_str)
