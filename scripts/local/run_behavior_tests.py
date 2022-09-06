@@ -55,7 +55,8 @@ def _run_behavior_pickplaceopen_tests() -> None:
                             f"--timeout {TIMEOUT} "
                             "--behavior_option_model_eval True "
                             "--plan_only_eval True "
-                            f"--results_dir {logfolder}")
+                            f"--results_dir {logfolder} "
+                            "--sesame_task_planner fdopt")
 
     # Run the commands in order.
     num_cmds = len(cmds)

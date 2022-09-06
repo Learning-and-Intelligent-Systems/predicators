@@ -285,6 +285,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         solved = False
         caught_exception = False
         if CFG.make_test_videos or CFG.make_failure_videos:
+            import ipdb; ipdb.set_trace()
             monitor = utils.VideoMonitor(env.render)
         else:
             monitor = None
@@ -360,7 +361,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if make_video:
             assert monitor is not None
             video = monitor.get_video()
-            utils.save_video(video_file, video)
+            try:
+                utils.save_video(video_file, video)
+            except:
+                import ipdb; ipdb.set_trace()
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
