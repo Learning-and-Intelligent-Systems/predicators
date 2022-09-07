@@ -170,9 +170,12 @@ class BehaviorEnv(BaseEnv):
             _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
                  handle_assisted_grasping(assisted_grasp_action))
         elif a[16] == -1.0:
-            released_obj = self.igibson_behavior_env.scene.get_objects()[
-                self.igibson_behavior_env.robots[0].parts["right_hand"].
-                object_in_hand]
+            obj_in_hand_idx = self.igibson_behavior_env.robots[0].parts[
+                "right_hand"].object_in_hand
+            released_obj = [
+                obj for obj in self.igibson_behavior_env.scene.get_objects()
+                if obj.get_body_id() == obj_in_hand_idx
+            ][0]
             # force release object to avoid dealing with stateful assisted
             # grasping release mechanism
             self.igibson_behavior_env.robots[0].parts[

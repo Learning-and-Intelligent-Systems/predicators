@@ -382,8 +382,11 @@ def make_place_plan(
         rng = np.random.default_rng(23)
 
     try:
-        obj_in_hand = env.scene.get_objects()[
-            env.robots[0].parts["right_hand"].object_in_hand]
+        obj_in_hand_idx = env.robots[0].parts["right_hand"].object_in_hand
+        obj_in_hand = [
+            obj for obj in env.scene.get_objects()
+            if obj.get_body_id() == obj_in_hand_idx
+        ][0]
         logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop"
                      f"/inside {obj.name} with params {place_rel_pos}")
     except ValueError:
@@ -417,8 +420,11 @@ def make_place_plan(
     env.robots[0].parts["left_hand"].set_position(
         env.robots[0].parts["left_hand"].get_position())
 
-    obj_in_hand = env.scene.get_objects()[
-        env.robots[0].parts["right_hand"].object_in_hand]
+    obj_in_hand_idx = env.robots[0].parts["right_hand"].object_in_hand
+    obj_in_hand = [
+        obj for obj in env.scene.get_objects()
+        if obj.get_body_id() == obj_in_hand_idx
+    ][0]
     x, y, z = np.add(place_rel_pos, obj.get_position())
     hand_x, hand_y, hand_z = env.robots[0].parts["right_hand"].get_position()
 

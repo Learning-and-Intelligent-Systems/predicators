@@ -212,7 +212,7 @@ def create_place_inside_option_model(
         if obj_in_hand is not None and obj_in_hand != obj_to_place_into and \
             isinstance(obj_to_place_into, URDFObject):
             logging.info(
-                f"PRIMITIVE:attempt to place {obj_in_hand.name} inside "
+                f"PRIMITIVE: attempt to place {obj_in_hand.name} inside "
                 f"{obj_to_place_into.name}")
             if np.linalg.norm(
                     np.array(obj_to_place_into.get_position()) -
