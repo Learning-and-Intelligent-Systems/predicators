@@ -17,7 +17,7 @@ OPEN_PICK_PLACE_TASKS = [
     'sorting_books', 'clearing_the_table_after_dinner', 'opening_packages',
     'picking_up_take-out_food', 'collect_misplaced_items',
     'locking_every_door', 'putting_dishes_away_after_cleaning',
-    'picking_up_trash', 'cleaning_a_car', 'packing_food_for_work'
+    'picking_up_trash', 'packing_food_for_work'
 ]
 
 

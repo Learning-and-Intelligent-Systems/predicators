@@ -254,6 +254,9 @@ class BehaviorEnv(BaseEnv):
             else:
                 bddl_name = head_expr.terms[0]  # untyped
                 obj_start_idx = 1
+            # For onfloor we will just use ontop of floor.
+            if bddl_name == 'onfloor':
+                bddl_name = 'ontop'
             ig_objs = [
                 self._name_to_ig_object(t)
                 for t in head_expr.terms[obj_start_idx:]

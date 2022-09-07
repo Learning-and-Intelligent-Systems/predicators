@@ -104,7 +104,8 @@ PICK_PLACE_OBJECT_TYPES = {
     'stout', 'dishtowel', 'paperback_book', 'casserole', 'earring',
     'peppermint', 'cruciferous_vegetable', 'soup_ladle', 'jean', 'teddy',
     'chestnut', 'sauce', 'piece_of_cloth', 'whitefish', 'siren', 'balloon',
-    'celery', 'hot_pepper', 'raisin'
+    'celery', 'hot_pepper', 'raisin', 'sugar_jar', 'toy', 'sticky_note',
+    't-shirt'
 }
 PLACE_SURFACE_OBJECT_TYPES = {
     'sack', 'towel', 'tabletop', 'face', 'brim', 'cheddar', 'chaise_longue',
@@ -122,7 +123,8 @@ PLACE_SURFACE_OBJECT_TYPES = {
     'dial', 'folding_chair', 'casserole', 'deck', 'chair', 'hamper', 'bed',
     'plate', 'work_surface', 'board', 'jar', 'pallet', 'console_table',
     'pool_table', 'electric_refrigerator', 'clamshell', 'stand', 'cabinet',
-    'trash_can', 'room_floor'
+    'room_floor', 'trash_can', 'bottom_cabinet_no_top', 'fridge',
+    'bottom_cabinet'
 }
 OPENABLE_OBJECT_TYPES = {
     'sack', 'storage_space', 'trap', 'turnbuckle', 'lock', 'trailer_truck',
@@ -156,7 +158,8 @@ OPENABLE_OBJECT_TYPES = {
     'ashcan', 'junction', 'mechanical_system', 'crusher', 'frame', 'shelter',
     'chest', 'magazine', 'wicker', 'paperback_book', 'scanner', 'computer',
     'dose', 'clasp', 'eyeliner', 'clothespin', 'hood', 'trademark', 'pincer',
-    'crate', 'cabinet', 'joint'
+    'crate', 'cabinet', 'joint', 'bottom_cabinet_no_top', 'fridge',
+    'bottom_cabinet', 'trash_can'
 }
 
 

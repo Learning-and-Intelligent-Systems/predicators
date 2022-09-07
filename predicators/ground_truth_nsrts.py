@@ -2959,6 +2959,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         split_name = option.name.split("-")
         base_option_name = split_name[0]
         option_arg_type_names = split_name[1:]
+        # Edge case t-shirt gets parsed wrong with split("").
+        if option_arg_type_names[0] == "t" and option_arg_type_names[
+                1] == "shirt":
+            option_arg_type_names = ["t-shirt"] + option_arg_type_names[2:]
 
         if base_option_name == "NavigateTo":
             assert len(option_arg_type_names) == 1
@@ -3012,15 +3016,32 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 targ_reachable = _get_lifted_atom("reachable", [target_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
-                preconditions = {handempty, targ_reachable, ontop}
+                inside = _get_lifted_atom("inside", [target_obj, surf_obj])
+                preconditions_ontop = {handempty, targ_reachable, ontop}
+                preconditions_inside = {handempty, targ_reachable, inside}
                 add_effects = {targ_holding}
-                delete_effects = {handempty, ontop, targ_reachable}
+                delete_effects_ontop = {handempty, ontop, targ_reachable}
+                delete_effects_inside = {handempty, inside, targ_reachable}
+                # NSRT for grasping an object from ontop an object.
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count_pick)}",
                     parameters,
-                    preconditions,
+                    preconditions_ontop,
                     add_effects,
-                    delete_effects,
+                    delete_effects_ontop,
+                    set(),
+                    option,
+                    option_vars,
+                    grasp_obj_param_sampler,
+                )
+                nsrts.add(nsrt)
+                # NSRT for grasping an object from inside an object.
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_pick)}",
+                    parameters,
+                    preconditions_inside,
+                    add_effects,
+                    delete_effects_inside,
                     set(),
                     option,
                     option_vars,
