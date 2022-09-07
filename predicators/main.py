@@ -69,9 +69,14 @@ def main() -> None:
     utils.update_config(args)
     str_args = " ".join(sys.argv)
     # Log to stderr.
+    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    if CFG.log_file:
+        handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
-                        handlers=[logging.StreamHandler()])
+                        handlers=handlers)
+    if CFG.log_file:
+        logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
@@ -422,4 +427,9 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    # Write out the exception to the log file.
+    try:
+        main()
+    except Exception as _err:  # pylint: disable=broad-except
+        logging.exception("main.py crashed")
+        raise _err

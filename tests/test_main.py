@@ -3,6 +3,7 @@
 import os
 import shutil
 import sys
+import tempfile
 from typing import Callable
 
 import pytest
@@ -110,12 +111,14 @@ def test_main():
         video_dir, "--results_dir", results_dir
     ]
     main()
-    # Test making videos of failures.
+    # Test making videos of failures and local logging.
+    temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
         results_dir, "--sesame_max_skeletons_optimized", "1",
-        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos",
+        "--log_file", temp_log_file
     ]
     main()
     shutil.rmtree(video_dir)
