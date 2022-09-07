@@ -9,7 +9,7 @@ import pandas as pd
 from scripts.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 
-pd.options.mode.chained_assignment = None  # default='warn'
+pd.set_option('chained_assignment', None)
 # plt.rcParams["font.family"] = "CMU Serif"
 
 ############################ Change below here ################################
