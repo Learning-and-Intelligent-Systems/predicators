@@ -13,7 +13,8 @@ setup(name="predicators",
       include_package_data=True,
       extras_require={
           "develop": [
-              "pytest-cov>=2.12.1", "pytest-pylint>=0.18.0", "yapf==0.32.0",
+              "pytest-cov>=2.12.1", "pylint==2.14.5",
+              "pytest-pylint>=0.18.0", "yapf==0.32.0",
               "docformatter", "isort",
               "mypy@git+https://github.com/python/mypy.git@9bd651758e8ea2494" +
               "837814092af70f8d9e6f7a1"
