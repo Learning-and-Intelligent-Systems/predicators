@@ -8,7 +8,8 @@ import numpy as np
 from numpy.random._generator import Generator
 
 from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
-    PICK_PLACE_OBJECT_TYPES, PLACE_SURFACE_OBJECT_TYPES, check_nav_end_pose, \
+    PICK_PLACE_OBJECT_TYPES, PLACE_INTO_SURFACE_OBJECT_TYPES, \
+    PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_nav_end_pose, \
     load_checkpoint_state
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
@@ -2969,8 +2970,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj_type_name = option_arg_type_names[0]
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
-            # We don't need an NSRT to navigate to the agent.
-            if target_obj_type_name == "agent":
+            # We don't need an NSRT to navigate to the agent or the room floor.
+            if target_obj_type_name in ["agent", "room_floor"]:
                 continue
             # Navigate To.
             parameters = [target_obj]
@@ -3007,7 +3008,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             for surf_obj_type in sorted(env.types):
                 # If the surface object is not in these object types, we do not
                 # have to make a NSRT with this type.
-                if surf_obj_type.name not in PLACE_SURFACE_OBJECT_TYPES:
+                if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES\
+                    | PLACE_INTO_SURFACE_OBJECT_TYPES:
                     continue
                 surf_obj = Variable("?surf", surf_obj_type)
                 parameters = [target_obj, surf_obj]
@@ -3060,7 +3062,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 continue
             # If the surface object is not in these object types, we do not
             # have to make a NSRT with this type.
-            if surf_obj_type.name not in PLACE_SURFACE_OBJECT_TYPES:
+            if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES:
                 continue
             # We need to place the object we're holding!
             for held_obj_types in sorted(env.types):
@@ -3173,13 +3175,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             surf_obj_type_name = option_arg_type_names[0]
             surf_obj_type = type_name_to_type[surf_obj_type_name]
             surf_obj = Variable("?surf", surf_obj_type)
-            # We don't need an NSRT to place objects on top of the
-            # agent because this is never necessary.
-            if surf_obj.type.name == "agent":
+            # We don't need an NSRT to place objects inside the
+            # agent or room floor because this is not possible.
+            if surf_obj_type.name in ["agent", "room_floor"]:
                 continue
             # If the surface object is not in these object types, we do not
             # have to make a NSRT with this type.
-            if surf_obj_type.name not in PLACE_SURFACE_OBJECT_TYPES:
+            if surf_obj_type.name not in PLACE_INTO_SURFACE_OBJECT_TYPES:
                 continue
             # We need to place the object we're holding. Note that we create
             # two different place-inside NSRTs: one for when the object we are
@@ -3187,7 +3189,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             for held_obj_types in sorted(env.types):
                 # If the held object is not in these object types, we do not
                 # have to make a NSRT with this type.
-                if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES:
+                if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES or \
+                    held_obj_types.name == surf_obj_type.name:
                     continue
                 held_obj = Variable("?held", held_obj_types)
                 parameters = [held_obj, surf_obj]

@@ -107,24 +107,28 @@ PICK_PLACE_OBJECT_TYPES = {
     'celery', 'hot_pepper', 'raisin', 'sugar_jar', 'toy', 'sticky_note',
     't-shirt'
 }
-PLACE_SURFACE_OBJECT_TYPES = {
-    'sack', 'towel', 'tabletop', 'face', 'brim', 'cheddar', 'chaise_longue',
-    'stove', 'gaming_table', 'rocking_chair', 'teapot', 'bathtub',
-    'swivel_chair', 'car', 'vase', 'dartboard', 'hand_towel', 'edge', 'sheet',
-    'countertop', 'sink', 'carton', 'deep-freeze', 'shelf', 'floorboard',
-    'bookshelf', 'flatbed', 'worktable', 'pedestal_table', 'highchair', 'side',
-    'sofa', 'armor_plate', 'horizontal_surface', 'floor', 'mantel', 'stocking',
-    'table', 'gouda', 'clipboard', 'dish', 'breakfast_table', 'christmas_tree',
-    'dressing_table', 'basket', 'mozzarella', 'dredging_bucket', 'crock',
-    'cheese', 'truck_bed', 'screen', 'parmesan', 'gorgonzola', 'pegboard',
-    'dishwasher', 'bath_towel', 'platform', 'writing_board', 'straight_chair',
-    'coffee_table', 'desk', 'bin', 'armchair', 'brie', 'front', 'bleu',
-    'ashcan', 'backpack', 'helmet', 'paper_towel', 'bucket', 'dishtowel',
-    'dial', 'folding_chair', 'casserole', 'deck', 'chair', 'hamper', 'bed',
-    'plate', 'work_surface', 'board', 'jar', 'pallet', 'console_table',
-    'pool_table', 'electric_refrigerator', 'clamshell', 'stand', 'cabinet',
-    'room_floor', 'trash_can', 'bottom_cabinet_no_top', 'fridge',
-    'bottom_cabinet'
+PLACE_ONTOP_SURFACE_OBJECT_TYPES = {
+    'towel', 'tabletop', 'face', 'brim', 'cheddar', 'chaise_longue', 'stove',
+    'gaming_table', 'rocking_chair', 'swivel_chair', 'car', 'dartboard',
+    'hand_towel', 'edge', 'sheet', 'countertop', 'carton', 'deep-freeze',
+    'shelf', 'floorboard', 'bookshelf', 'flatbed', 'worktable',
+    'pedestal_table', 'highchair', 'side', 'sofa', 'armor_plate',
+    'horizontal_surface', 'floor', 'mantel', 'table', 'gouda', 'clipboard',
+    'breakfast_table', 'christmas_tree', 'dressing_table', 'basket',
+    'mozzarella', 'cheese', 'truck_bed', 'screen', 'parmesan', 'gorgonzola',
+    'pegboard', 'bath_towel', 'platform', 'writing_board', 'straight_chair',
+    'coffee_table', 'desk', 'armchair', 'brie', 'front', 'bleu', 'helmet',
+    'paper_towel', 'dishtowel', 'dial', 'folding_chair', 'deck', 'chair',
+    'hamper', 'bed', 'plate', 'work_surface', 'board', 'pallet',
+    'console_table', 'pool_table', 'electric_refrigerator', 'stand',
+    'room_floor'
+}
+PLACE_INTO_SURFACE_OBJECT_TYPES = {
+    'shelf', 'sack', 'basket', 'dredging_bucket', 'cabinet', 'crock', 'bucket',
+    'casserole', 'bookshelf', 'teapot', 'dishwasher', 'deep-freeze', 'hamper',
+    'bathtub', 'car', 'vase', 'jar', 'bin', 'mantel', 'stocking', 'ashcan',
+    'electric_refrigerator', 'clamshell', 'backpack', 'sink', 'carton', 'dish',
+    'trash_can', 'bottom_cabinet_no_top', 'fridge', 'bottom_cabinet'
 }
 OPENABLE_OBJECT_TYPES = {
     'sack', 'storage_space', 'trap', 'turnbuckle', 'lock', 'trailer_truck',
