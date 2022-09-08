@@ -169,6 +169,11 @@ def test_fetch_pybullet_robot(physics_client_id):
     robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
                                base_pose)
     assert robot.get_name() == "fetch"
+    assert robot.arm_joint_names == [
+        'shoulder_pan_joint', 'shoulder_lift_joint', 'upperarm_roll_joint',
+        'elbow_flex_joint', 'forearm_roll_joint', 'wrist_flex_joint',
+        'wrist_roll_joint', 'l_gripper_finger_joint', 'r_gripper_finger_joint'
+    ]
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
