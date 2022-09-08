@@ -103,12 +103,15 @@ def test_main():
     ]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
-    results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
+    parent_dir = os.path.dirname(__file__)
+    video_dir = os.path.join(parent_dir, "_fake_videos")
+    results_dir = os.path.join(parent_dir, "_fake_results")
+    eval_traj_dir = os.path.join(parent_dir, "_fake_trajs")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
         "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
-        video_dir, "--results_dir", results_dir
+        video_dir, "--results_dir", results_dir, "--eval_trajectories_dir",
+        eval_traj_dir
     ]
     main()
     # Test making videos of failures and local logging.
@@ -116,13 +119,14 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
-        results_dir, "--sesame_max_skeletons_optimized", "1",
-        "--painting_lid_open_prob", "0.0", "--make_failure_videos",
-        "--log_file", temp_log_file
+        results_dir, "--eval_trajectories_dir", eval_traj_dir,
+        "--sesame_max_skeletons_optimized", "1", "--painting_lid_open_prob",
+        "0.0", "--make_failure_videos", "--log_file", temp_log_file
     ]
     main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
+    shutil.rmtree(eval_traj_dir)
     # Run NSRT learning, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
