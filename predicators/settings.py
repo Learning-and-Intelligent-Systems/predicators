@@ -268,6 +268,7 @@ class GlobalSettings:
     # evaluation parameters
     log_dir = "logs"
     results_dir = "results"
+    eval_trajectories_dir = "eval_trajectories"
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
