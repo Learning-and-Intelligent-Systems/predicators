@@ -9,9 +9,9 @@ from typing import Callable, cast
 
 import numpy as np
 
-from predicators.src.approaches import BaseApproach
-from predicators.src.envs.pddl_env import _PDDLEnvState
-from predicators.src.structs import Action, GroundAtom, State, Task
+from predicators.approaches import BaseApproach
+from predicators.envs.pddl_env import _PDDLEnvState
+from predicators.structs import Action, GroundAtom, State, Task
 
 
 class DeliverySpecificApproach(BaseApproach):
