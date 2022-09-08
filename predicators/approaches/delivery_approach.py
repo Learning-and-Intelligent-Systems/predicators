@@ -28,6 +28,7 @@ class DeliverySpecificApproach(BaseApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
         def _policy(state: State) -> Action:
+            # Extract the predicators and options from the state.
             options = {o.name: o for o in self._initial_options}
             predicates = {p.name: p for p in self._initial_predicates}
             types = {t.name: t for t in self._types}
@@ -37,23 +38,22 @@ class DeliverySpecificApproach(BaseApproach):
             papers = state.get_objects(types["paper"])
             at = predicates["at"]
             wants_paper = predicates["wantspaper"]
-            move = options["move"]
-            # TODO: Fix the code here!
-            selected_option = move
-            move_to_loc = None
-            move_from_loc = None
+            is_home_base = predicates["ishomebase"]
+            unpacked = predicates["unpacked"]
+            carrying = predicates["carrying"]
             for loc in locations:
                 if GroundAtom(at, [loc]) in ground_atoms:
-                    move_from_loc = loc
-                elif GroundAtom(wants_paper, [loc]) in ground_atoms:
-                    move_to_loc = loc
-            assert move_to_loc is not None
-            assert move_from_loc is not None
-            object_args = [move_from_loc, move_to_loc]
-            # Below this line should not need changing.
-            params = np.zeros(0, dtype=np.float32)
-            ground_option = selected_option.ground(object_args, params)
-            assert ground_option.initiable(state)
-            return ground_option.policy(state)
+                    if GroundAtom(is_home_base, [loc]) in ground_atoms:
+                        for paper in papers:
+                            if GroundAtom(unpacked, [paper]) in ground_atoms:
+                                pack = options["pick-up"]
+                                selected_option = pack
+                                object_args = [paper, loc]
+                                params = np.zeros(0, dtype=np.float32)
+                                ground_option = selected_option.ground(
+                                    object_args, params)
+                                assert ground_option.initiable(state)
+                                return ground_option.policy(state)
+            raise NotImplementedError("Finish me!")
 
         return _policy
