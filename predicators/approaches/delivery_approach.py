@@ -1,7 +1,7 @@
 """An approach that implements a delivery-specific policy.
 
 Example command line:
-    python src/main.py --approach delivery_policy --seed 0 \
+    python predicators/main.py --approach delivery_policy --seed 0 \
         --env pddl_easy_delivery_procedural_tasks
 """
 
