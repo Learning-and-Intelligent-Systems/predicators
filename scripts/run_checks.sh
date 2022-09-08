@@ -1,7 +1,11 @@
 #!/bin/bash
 
 echo "Running autoformatting."
-yapf -i -r --style .style.yapf . && docformatter -i -r . && isort .
+yapf -i -r --style .style.yapf --exclude '**/third_party' predicators
+yapf -i -r --style .style.yapf scripts
+yapf -i -r --style .style.yapf tests
+docformatter -i -r . --exclude venv predicators/third_party
+isort .
 echo "Autoformatting complete."
 
 echo "Running type checking."
@@ -23,7 +27,7 @@ else
 fi
 
 echo "Running unit tests."
-pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=10
+pytest -s tests/ --cov-config=.coveragerc --cov=predicators/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=10
 if [ $? -eq 0 ]; then
     echo "Unit tests passed."
 else

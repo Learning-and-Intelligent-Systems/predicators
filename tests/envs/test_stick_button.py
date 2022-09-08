@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.stick_button import StickButtonEnv
-from predicators.src.structs import Action, GroundAtom, Task
+from predicators import utils
+from predicators.envs.stick_button import StickButtonEnv
+from predicators.structs import Action, GroundAtom, Task
 
 
 def test_stick_button():
@@ -68,13 +68,14 @@ def test_stick_button():
 
     ## Test simulate ##
 
-    # Test that an EnvironmentFailure is raised if the robot tries to leave
-    # the reachable zone.
+    # Test for noops if the robot tries to leave the reachable zone.
     up_action = Action(np.array([0.0, -1.0, 0.0, 0.0], dtype=np.float32))
-    with pytest.raises(utils.EnvironmentFailure):
-        s = state
-        for _ in range(20):
-            s = env.simulate(s, up_action)
+    s = state
+    states = [s]
+    for _ in range(20):
+        s = env.simulate(s, up_action)
+        states.append(s)
+    assert states[-1].allclose(states[-2])
 
     # Test for going to press the reachable button.
     num_steps_to_left = int(np.ceil((robot_x - reachable_x) / env.max_speed))
@@ -256,11 +257,8 @@ def test_stick_button():
     state.set(holder, "y", y)
     # Press to pick up the stick.
     action = Action(np.array([0., 0., 0., 1.], dtype=np.float32))
-    try:
-        env.simulate(state, action)
-    except utils.EnvironmentFailure as e:
-        assert "Collided with holder" in str(e)
-        assert e.info["offending_objects"] == {holder}
+    next_state = env.simulate(state, action)
+    assert state.allclose(next_state)  # should noop
 
     # Test interface for collecting human demonstrations.
     event_to_action = env.get_event_to_action_fn()

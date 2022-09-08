@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches import BaseApproach, create_approach
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.structs import Action, ParameterizedOption, Predicate, \
+from predicators import utils
+from predicators.approaches import BaseApproach, create_approach
+from predicators.envs.cover import CoverEnv
+from predicators.structs import Action, ParameterizedOption, Predicate, \
     State, Task, Type
 
 

@@ -10,17 +10,18 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.envs.cover import CoverEnv, CoverMultistepOptions
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
+from predicators import utils
+from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.envs.pddl_env import ProceduralTasksSpannerPDDLEnv
+from predicators.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.settings import CFG
+from predicators.structs import NSRT, Action, DefaultState, DummyOption, \
     GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
     State, STRIPSOperator, Type, Variable
-from predicators.src.utils import GoalCountHeuristic, \
-    _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+from predicators.utils import GoalCountHeuristic, _PyperplanHeuristicWrapper, \
+    _TaskPlanningHeuristic
 
 
 @pytest.mark.parametrize("max_groundings,exp_num_true,exp_num_false",
@@ -154,36 +155,6 @@ def test_num_options_in_action_sequence():
                                                     option3], 3)):
         actions = [Action(np.array([0]), options[i]) for i in range(3)]
         assert utils.num_options_in_action_sequence(actions) == expected_num
-
-
-def test_aabb_volume():
-    """Tests for get_aabb_volume()."""
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    # Test zero volume calculation
-    assert utils.get_aabb_volume(lo, lo) == 0.0
-    # Test ordinary calculation
-    assert utils.get_aabb_volume(lo, hi) == 1.0
-    with pytest.raises(AssertionError):
-        # Test assertion error when lower bound is
-        # greater than upper bound
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        assert utils.get_aabb_volume(lo1, hi1)
-
-
-def test_aabb_closest_point():
-    """Tests for get_closest_point_on_aabb()."""
-    # Test ordinary usage
-    xyz = [1.5, 3.0, -2.5]
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
-    with pytest.raises(AssertionError):
-        # Test error where lower bound is greater than upper bound.
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        utils.get_closest_point_on_aabb(xyz, lo1, hi1)
 
 
 def test_entropy():
@@ -588,6 +559,14 @@ def test_run_policy():
     def _policy(_):
         raise ValueError("mock error")
 
+    class _CountingMonitor(utils.Monitor):
+
+        def __init__(self):
+            self.num_observations = 0
+
+        def observe(self, state, action):
+            self.num_observations += 1
+
     with pytest.raises(ValueError) as e:
         utils.run_policy(_policy,
                          env,
@@ -596,14 +575,17 @@ def test_run_policy():
                          task.goal_holds,
                          max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj4, _ = utils.run_policy(_policy,
                                 env,
                                 "test",
                                 0,
                                 task.goal_holds,
                                 max_num_steps=5,
-                                exceptions_to_break_on={ValueError})
+                                exceptions_to_break_on={ValueError},
+                                monitor=monitor)
     assert len(traj4.states) == 1
+    assert monitor.num_observations == 1
 
     class _MockEnv:
 
@@ -621,6 +603,7 @@ def test_run_policy():
 
     mock_env = _MockEnv()
     policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj5, _ = utils.run_policy(
         policy,
         mock_env,
@@ -628,9 +611,11 @@ def test_run_policy():
         0,
         lambda s: False,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj5.states) == 1
     assert len(traj5.actions) == 0
+    assert monitor.num_observations == 1
 
     # Test policy call time.
     def _policy(_):
@@ -646,13 +631,6 @@ def test_run_policy():
     assert metrics["policy_call_time"] >= 3 * 0.1
 
     # Test with monitor in case where an uncaught exception is raised.
-    class _CountingMonitor(utils.Monitor):
-
-        def __init__(self):
-            self.num_observations = 0
-
-        def observe(self, state, action):
-            self.num_observations += 1
 
     def _policy(_):
         raise ValueError("mock error")
@@ -766,27 +744,33 @@ def test_run_policy_with_simulator():
                                         _terminal,
                                         max_num_steps=5)
     assert "mock error" in str(e)
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(_policy,
                                            _simulator,
                                            state,
                                            _terminal,
                                            max_num_steps=5,
-                                           exceptions_to_break_on={ValueError})
+                                           exceptions_to_break_on={ValueError},
+                                           monitor=monitor)
     assert len(traj.states) == 1
+    assert monitor.num_observations == 1
 
     def _simulator(state, action):
         raise utils.EnvironmentFailure("mock failure")
 
     _policy = lambda _: Action(np.zeros(1, dtype=np.float32))
+    monitor = _CountingMonitor()
     traj = utils.run_policy_with_simulator(
         _policy,
         _simulator,
         state,
         _terminal,
         max_num_steps=5,
-        exceptions_to_break_on={utils.EnvironmentFailure})
+        exceptions_to_break_on={utils.EnvironmentFailure},
+        monitor=monitor)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
+    assert monitor.num_observations == 1
 
 
 def test_option_plan_to_policy():
@@ -889,8 +873,12 @@ def test_strip_predicate():
     assert pred.types == pred_stripped.types
     assert pred.holds(state, (cup, plate1))
     assert pred.holds(state, (cup, plate2))
-    assert not pred_stripped.holds(state, (cup, plate1))
-    assert not pred_stripped.holds(state, (cup, plate2))
+    with pytest.raises(Exception) as e:
+        pred_stripped.holds(state, (cup, plate1))
+    assert "Stripped classifier should never be called" in str(e)
+    with pytest.raises(Exception) as e:
+        pred_stripped.holds(state, (cup, plate2))
+    assert "Stripped classifier should never be called" in str(e)
 
 
 def test_strip_task():
@@ -905,14 +893,18 @@ def test_strip_task():
     state = task.init.copy()
     state.set(block0, "pose", state.get(target0, "pose"))
     assert original_goal_atom.holds(state)
+    # Include both Covers and Holding (don't strip them).
     stripped_task1 = utils.strip_task(task, {Covers, Holding})
     assert len(stripped_task1.goal) == 1
     new_goal_atom1 = next(iter(stripped_task1.goal))
     assert new_goal_atom1.holds(state)
+    # Include Holding, but strip Covers.
     stripped_task2 = utils.strip_task(task, {Holding})
     assert len(stripped_task2.goal) == 1
     new_goal_atom2 = next(iter(stripped_task2.goal))
-    assert not new_goal_atom2.holds(state)
+    with pytest.raises(Exception) as e:
+        new_goal_atom2.holds(state)
+    assert "Stripped classifier should never be called" in str(e)
 
 
 def test_sample_subsets():
@@ -985,23 +977,6 @@ def test_abstract():
     }
     # Wrapping a predicate should destroy its classifier.
     assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
-
-
-def test_powerset():
-    """Tests for powerset()."""
-    lst = [3, 1, 2]
-    pwr = list(utils.powerset(lst, exclude_empty=False))
-    assert len(pwr) == len(set(pwr)) == 8
-    assert tuple(lst) in pwr
-    assert tuple() in pwr
-    pwr = list(utils.powerset(lst, exclude_empty=True))
-    assert len(pwr) == len(set(pwr)) == 7
-    assert tuple(lst) in pwr
-    assert tuple() not in pwr
-    for s in utils.powerset(lst, exclude_empty=False):
-        assert set(s).issubset(set(lst))
-    assert not list(utils.powerset([], exclude_empty=True))
-    assert list(utils.powerset([], exclude_empty=False)) == [tuple()]
 
 
 def test_create_new_variables():
@@ -1233,54 +1208,97 @@ def test_get_random_object_combination():
     assert objs is None  # no object of type plate
 
 
-def test_get_all_groundings():
-    """Tests for get_all_groundings()."""
+def test_get_entity_combinations():
+    """Tests for get_object_combinations() and get_variable_combinations()."""
     cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat2"])
     cup0 = cup_type("cup0")
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
-    cup_var = cup_type("?cup")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
     plate0 = plate_type("plate0")
     plate1 = plate_type("plate1")
-    plate2 = plate_type("plate2")
-    plate3 = plate_type("plate3")
+    plate_var0 = plate_type("?plate0")
     plate_var1 = plate_type("?plate1")
-    plate_var2 = plate_type("?plate2")
-    plate_var3 = plate_type("?plate3")
-    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
-    pred2 = Predicate("Pred2", [cup_type, plate_type, plate_type],
-                      lambda s, o: True)
-    lifted_atoms = frozenset({
-        pred1([cup_var, plate_var1]),
-        pred2([cup_var, plate_var1, plate_var2])
-    })
-    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
-    start_time = time.time()
-    for _ in range(10000):
-        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
-    assert time.time() - start_time < 1, "Should be fast due to caching"
-    # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 4 options for plate_var2, bringing the total to 48.
-    assert len(all_groundings) == 48
-    for grounding, sub in all_groundings:
-        assert len(grounding) == len(lifted_atoms)
-        assert len(sub) == 3  # three variables
-    lifted_atoms = frozenset({
-        pred1([cup_var, plate_var1]),
-        pred2([cup_var, plate_var2, plate_var3])
-    })
-    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
-    start_time = time.time()
-    for _ in range(10000):
-        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
-    assert time.time() - start_time < 1, "Should be fast due to caching"
-    # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 4*4 options, bringing the total to 12*16.
-    assert len(all_groundings) == 12 * 16
-    for grounding, sub in all_groundings:
-        assert len(grounding) == len(lifted_atoms)
-        assert len(sub) == 4  # four variables
+
+    objects = {cup0, cup1, cup2, plate0, plate1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, plate0], [cup0, plate1],
+         [cup1, plate0], [cup1, plate1],
+         [cup2, plate0], [cup2, plate1]]
+
+    objects = {cup0, cup2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_object_combinations(objects, types)) == \
+        [[cup0, cup0], [cup0, cup2],
+         [cup2, cup0], [cup2, cup2]]
+
+    variables = {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1}
+    types = [cup_type, plate_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, plate_var0], [cup_var0, plate_var1],
+         [cup_var1, plate_var0], [cup_var1, plate_var1],
+         [cup_var2, plate_var0], [cup_var2, plate_var1]]
+
+    variables = {cup_var0, cup_var2}
+    types = [cup_type, cup_type]
+    assert list(utils.get_variable_combinations(variables, types)) == \
+        [[cup_var0, cup_var0], [cup_var0, cup_var2],
+         [cup_var2, cup_var0], [cup_var2, cup_var2]]
+
+
+def test_get_all_atoms_for_predicate():
+    """Tests for get_all_ground_atoms_for_predicate() and
+    get_all_lifted_atoms_for_predicate()."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var0 = cup_type("?cup0")
+    cup_var1 = cup_type("?cup1")
+    cup_var2 = cup_type("?cup2")
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate_var0 = plate_type("?plate0")
+    plate_var1 = plate_type("?plate1")
+
+    cup_on_plate = Predicate("CupOnPlate", [cup_type, plate_type],
+                             lambda s, o: True)
+    cup_on_cup = Predicate("CupOnCup", [cup_type, cup_type], lambda s, o: True)
+
+    objects = frozenset({cup0, cup1, cup2, plate0, plate1})
+    pred = cup_on_plate
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_plate([cup0, plate0]), cup_on_plate([cup0, plate1]),
+         cup_on_plate([cup1, plate0]), cup_on_plate([cup1, plate1]),
+         cup_on_plate([cup2, plate0]), cup_on_plate([cup2, plate1])}
+
+    objects = frozenset({cup0, cup2})
+    pred = cup_on_cup
+    assert utils.get_all_ground_atoms_for_predicate(pred, objects) == \
+        {cup_on_cup([cup0, cup0]), cup_on_cup([cup0, cup2]),
+         cup_on_cup([cup2, cup0]), cup_on_cup([cup2, cup2])}
+
+    variables = frozenset(
+        {cup_var0, cup_var1, cup_var2, plate_var0, plate_var1})
+    pred = cup_on_plate
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_plate([cup_var0, plate_var0]),
+         cup_on_plate([cup_var0, plate_var1]),
+         cup_on_plate([cup_var1, plate_var0]),
+         cup_on_plate([cup_var1, plate_var1]),
+         cup_on_plate([cup_var2, plate_var0]),
+         cup_on_plate([cup_var2, plate_var1])}
+
+    variables = frozenset({cup_var0, cup_var2})
+    pred = cup_on_cup
+    assert utils.get_all_lifted_atoms_for_predicate(pred, variables) == \
+        {cup_on_cup([cup_var0, cup_var0]), cup_on_cup([cup_var0, cup_var2]),
+         cup_on_cup([cup_var2, cup_var0]), cup_on_cup([cup_var2, cup_var2])}
 
 
 def test_find_substitution():
@@ -1706,8 +1724,8 @@ def test_prune_ground_atom_dataset():
     assert pruned_dataset4[0][1][0] == set()
 
 
-def test_ground_atom_methods():
-    """Tests for all_ground_predicates(), all_possible_ground_atoms()."""
+def test_all_possible_ground_atoms():
+    """Tests for all_possible_ground_atoms()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: False)
@@ -1716,7 +1734,6 @@ def test_ground_atom_methods():
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
-    objects = {cup1, cup2, plate1, plate2}
     state = State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     on_ground = {
         GroundAtom(on, [cup1, plate1]),
@@ -1731,14 +1748,15 @@ def test_ground_atom_methods():
         GroundAtom(not_on, [cup2, plate2])
     }
     ground_atoms = sorted(on_ground | not_on_ground)
-    assert utils.all_ground_predicates(on, objects) == on_ground
-    assert utils.all_ground_predicates(not_on, objects) == not_on_ground
     assert utils.all_possible_ground_atoms(state, {on, not_on}) == ground_atoms
     assert not utils.abstract(state, {on, not_on})
 
 
 def test_create_ground_atom_dataset():
     """Tests for create_ground_atom_dataset()."""
+    utils.reset_config({
+        "env": "test_env",
+    })
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type],
@@ -1749,19 +1767,19 @@ def test_create_ground_atom_dataset():
     plate2 = plate_type("plate2")
     states = [
         State({
-            cup1: [0.5],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([0.5]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         }),
         State({
-            cup1: [1.1],
-            cup2: [0.1],
-            plate1: [1.0],
-            plate2: [1.2]
+            cup1: np.array([1.1]),
+            cup2: np.array([0.1]),
+            plate1: np.array([1.0]),
+            plate2: np.array([1.2])
         })
     ]
-    actions = [DummyOption]
+    actions = [Action(np.array([0.0]), DummyOption)]
     dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
@@ -1799,7 +1817,7 @@ def test_get_reachable_atoms():
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1808,7 +1826,7 @@ def test_get_reachable_atoms():
                  preconditions2,
                  add_effects2,
                  delete_effects2,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1852,7 +1870,7 @@ def test_nsrt_application():
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1861,7 +1879,7 @@ def test_nsrt_application():
                  preconditions2,
                  add_effects2,
                  delete_effects2,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1907,14 +1925,14 @@ def test_nsrt_application():
         utils.get_applicable_operators(ground_nsrts, {pred3([cup2, plate1])}))
     assert not list(
         utils.get_applicable_operators(ground_nsrts, {pred3([cup2, plate2])}))
-    # Tests with side predicates.
-    side_predicates = {pred2}
+    # Tests with ignore effects.
+    ignore_effects = {pred2}
     nsrt3 = NSRT("Pick",
                  parameters,
                  preconditions1,
                  add_effects1,
                  delete_effects1,
-                 side_predicates=side_predicates,
+                 ignore_effects=ignore_effects,
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -1935,7 +1953,7 @@ def test_nsrt_application():
                  preconditions1,
                  add_effects,
                  delete_effects,
-                 side_predicates=set(),
+                 ignore_effects=set(),
                  option=None,
                  option_vars=[],
                  _sampler=None)
@@ -2041,14 +2059,14 @@ def test_operator_application():
     assert not list(
         utils.get_successors_from_ground_ops({pred3([cup2, plate2])},
                                              ground_ops))
-    # Tests with side predicates.
-    side_predicates = {pred2}
+    # Tests with ignore effects.
+    ignore_effects = {pred2}
     op3 = STRIPSOperator("Pick",
                          parameters,
                          preconditions1,
                          add_effects1,
                          delete_effects1,
-                         side_predicates=side_predicates)
+                         ignore_effects=ignore_effects)
     ground_ops = sorted(utils.all_ground_operators(op3, objects))
     applicable = list(
         utils.get_applicable_operators(ground_ops, {pred1([cup1, plate1])}))
@@ -2201,6 +2219,96 @@ def test_create_pddl():
     (IsTarget target1)
   )
   (:goal (and (Covers block0 target0)))
+)
+"""
+
+    # Test spanner domain, which has hierarchical types.
+    utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
+    # All predicates and options
+    env = ProceduralTasksSpannerPDDLEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+                                          "spanner")
+    assert domain_str == """(define (domain spanner)
+  (:requirements :typing)
+  (:types 
+    man nut spanner - locatable
+    locatable location - object)
+
+  (:predicates
+    (at ?x0 - locatable ?x1 - location)
+    (carrying ?x0 - man ?x1 - spanner)
+    (link ?x0 - location ?x1 - location)
+    (loose ?x0 - nut)
+    (tightened ?x0 - nut)
+    (useable ?x0 - spanner)
+  )
+
+  (:action pickup_spanner
+    :parameters (?l - location ?s - spanner ?m - man)
+    :precondition (and (at ?m ?l)
+        (at ?s ?l))
+    :effect (and (carrying ?m ?s)
+        (not (at ?s ?l)))
+  )
+
+  (:action tighten_nut
+    :parameters (?l - location ?s - spanner ?m - man ?n - nut)
+    :precondition (and (at ?m ?l)
+        (at ?n ?l)
+        (carrying ?m ?s)
+        (loose ?n)
+        (useable ?s))
+    :effect (and (tightened ?n)
+        (not (loose ?n))
+        (not (useable ?s)))
+  )
+
+  (:action walk
+    :parameters (?start - location ?end - location ?m - man)
+    :precondition (and (at ?m ?start)
+        (link ?start ?end))
+    :effect (and (at ?m ?end)
+        (not (at ?m ?start)))
+  )
+)"""
+
+    train_task = env.get_train_tasks()[0]
+    state = train_task.init
+    objects = list(state)
+    init_atoms = utils.abstract(state, env.predicates)
+    goal = train_task.goal
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                            "spanner", "spanner-0")
+    assert problem_str == """(define (problem spanner-0) (:domain spanner)
+  (:objects
+    bob - man
+    gate - location
+    location0 - location
+    location1 - location
+    location2 - location
+    nut0 - nut
+    shed - location
+    spanner0 - spanner
+    spanner1 - spanner
+    spanner2 - spanner
+  )
+  (:init
+    (at bob shed)
+    (at nut0 gate)
+    (at spanner0 location0)
+    (at spanner1 location2)
+    (at spanner2 location0)
+    (link location0 location1)
+    (link location1 location2)
+    (link location2 gate)
+    (link shed location0)
+    (loose nut0)
+    (useable spanner0)
+    (useable spanner1)
+    (useable spanner2)
+  )
+  (:goal (and (tightened nut0)))
 )
 """
 
@@ -2508,6 +2616,61 @@ def test_run_gbfs():
                    timeout=0.01)
 
 
+def test_run_astar():
+    """Tests for run_astar()."""
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    def _grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        arrival_costs = np.array([
+            [1, 1, 100, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 100, 1, 1, 1],
+            [1, 1, 1, 100, 1],
+            [1, 1, 100, 1, 1],
+        ],
+                                 dtype=float)
+
+        act_to_delta = {
+            "up": (-1, 0),
+            "down": (1, 0),
+            "left": (0, -1),
+            "right": (0, 1),
+        }
+
+        r, c = state
+
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            # Valid action
+            yield (act, (new_r, new_c), arrival_costs[new_r, new_c])
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == (4, 4)
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    initial_state = (0, 0)
+    state_sequence, action_sequence = utils.run_astar(initial_state,
+                                                      _grid_check_goal_fn,
+                                                      _grid_successor_fn,
+                                                      _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
+
 def test_run_hill_climbing():
     """Tests for run_hill_climbing()."""
     S = Tuple[int, int]  # grid (row, col)
@@ -2617,6 +2780,130 @@ def test_run_hill_climbing():
             8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
         ]
 
+    # Test early_termination_heuristic_thresh with very high value.
+    initial_state = (0, 0)
+    state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
+        initial_state,
+        _grid_check_goal_fn,
+        _grid_successor_fn,
+        _grid_heuristic_fn,
+        early_termination_heuristic_thresh=10000000)
+    assert state_sequence == [(0, 0)]
+    assert not action_sequence
+
+
+def test_run_policy_guided_astar():
+    """Tests for run_policy_guided_astar()."""
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    arrival_costs = np.array([
+        [1, 1, 100, 1, 1],
+        [1, 100, 1, 1, 1],
+        [1, 100, 1, 1, 1],
+        [1, 1, 1, 100, 1],
+        [1, 1, 100, 1, 1],
+    ],
+                             dtype=float)
+
+    act_to_delta = {
+        "up": (-1, 0),
+        "down": (1, 0),
+        "left": (0, -1),
+        "right": (0, 1),
+    }
+
+    def _get_valid_actions(state: S) -> Iterator[Tuple[A, float]]:
+        r, c = state
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            yield (act, arrival_costs[new_r, new_c])
+
+    def _get_next_state(state: S, action: A) -> S:
+        r, c = state
+        dr, dc = act_to_delta[action]
+        return (r + dr, c + dc)
+
+    goal = (4, 4)
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == goal
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - goal[0]) + abs(state[1] - goal[1]))
+
+    def _policy(state: S) -> A:
+        # Move right until we can't anymore.
+        _, c = state
+        if c >= arrival_costs.shape[1] - 1:
+            return None
+        return "right"
+
+    initial_state = (0, 0)
+    num_rollout_steps = 10
+
+    # The policy should bias toward the path that moves all the way right, then
+    # planning should move all the way down to reach the goal.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        _policy,
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 4),
+                              (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'right', 'right', 'right', 'right', 'down', 'down', 'down', 'down'
+    ]
+
+    # With a trivial policy, should find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: None,
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
+    # With a policy that outputs invalid actions, should ignore the policy
+    # and find the optimal path.
+    state_sequence, action_sequence = utils.run_policy_guided_astar(
+        initial_state,
+        _grid_check_goal_fn,
+        _get_valid_actions,
+        _get_next_state,
+        _grid_heuristic_fn,
+        policy=lambda s: "garbage",
+        num_rollout_steps=num_rollout_steps,
+        rollout_step_cost=0)
+
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (3, 2),
+                              (2, 2), (2, 3), (2, 4), (3, 4), (4, 4)]
+    assert action_sequence == [
+        'down', 'down', 'down', 'right', 'right', 'up', 'right', 'right',
+        'down', 'down'
+    ]
+
 
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests for ops_and_specs_to_dummy_nsrts()."""
@@ -2659,11 +2946,18 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
     assert utils.string_to_python_object("None") is None
+    assert utils.string_to_python_object("true") is True
+    assert utils.string_to_python_object("false") is False
+    assert utils.string_to_python_object("none") is None
     assert utils.string_to_python_object("[3.2]") == [3.2]
     assert utils.string_to_python_object("[3.2,4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
     assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
+    assert utils.string_to_python_object("lambda x: x + 3")(12) == 15
+    with pytest.raises(TypeError):  # invalid number of arguments
+        utils.string_to_python_object("lambda: x + 3")(12)
+    assert utils.string_to_python_object("lambda: 13")() == 13
 
 
 def test_get_env_asset_path():
@@ -2804,17 +3098,6 @@ def test_null_sampler():
     assert utils.null_sampler(None, None, None, None).shape == (0, )
 
 
-def test_behavior_state():
-    """Tests for BehaviorState."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
-    other_state = state.copy()
-    assert state.allclose(other_state)
-
-
 def test_nostdout(capfd):
     """Tests for nostdout()."""
 
@@ -2829,3 +3112,13 @@ def test_nostdout(capfd):
             _hello_world()
         out, _ = capfd.readouterr()
         assert out == ""
+
+
+def test_generate_random_string():
+    """Tests for generate_random_str()."""
+    rng = np.random.default_rng(123)
+    assert utils.generate_random_string(0, ["a"], rng) == ""
+    assert utils.generate_random_string(5, ["a"], rng) == "aaaaa"
+    assert len(utils.generate_random_string(5, ["a", "b"], rng)) == 5
+    with pytest.raises(AssertionError):
+        utils.generate_random_string(5, ["a", "bb"], rng)

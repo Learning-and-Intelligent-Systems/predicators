@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.structs import NSRT, Action, DefaultState, \
+from predicators import utils
+from predicators.structs import NSRT, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
     LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
     ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \
@@ -482,7 +482,7 @@ def test_operators_and_nsrts(state):
     preconditions = {not_on([cup_var, plate_var])}
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
-    side_predicates = {on}
+    ignore_effects = {on}
     params_space = Box(-10, 10, (2, ))
     parameterized_option = ParameterizedOption("Pick", [], params_space,
                                                lambda s, m, o, p: 2 * p,
@@ -496,41 +496,49 @@ def test_operators_and_nsrts(state):
     # STRIPSOperator
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects,
-                                     side_predicates)
+                                     ignore_effects)
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
+    assert strips_operator.pddl_str() == \
+        """(:action Pick
+    :parameters (?cup - cup_type ?plate - plate_type)
+    :precondition (and (NotOn ?cup ?plate))
+    :effect (and (On ?cup ?plate)
+        (not (NotOn ?cup ?plate))
+        (forall (?x0 - cup_type ?x1 - plate_type) (not (On ?x0 ?x1)))
+        )
+  )"""
     assert strips_operator.get_complexity() == 4.0  # 2^2
     assert isinstance(hash(strips_operator), int)
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects,
-                                      side_predicates)
+                                      ignore_effects)
     assert strips_operator == strips_operator2
     strips_operator3 = STRIPSOperator("PickDuplicate", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, side_predicates)
+                                      delete_effects, ignore_effects)
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(
+        strips_operator.effect_to_ignore_effect(next(
             iter(add_effects)), [], "dummy")  # invalid last argument
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(
+        strips_operator.effect_to_ignore_effect(next(
             iter(add_effects)), [], "delete")  # not a delete effect!
     with pytest.raises(AssertionError):
-        strips_operator.effect_to_side_predicate(next(iter(delete_effects)),
-                                                 [],
-                                                 "add")  # not an add effect!
+        strips_operator.effect_to_ignore_effect(next(iter(delete_effects)), [],
+                                                "add")  # not an add effect!
     strips_operator_zero_params = strips_operator.copy_with(parameters=[])
     assert strips_operator_zero_params.get_complexity() == 1.0  # 2^0
     strips_operator_three_params = strips_operator.copy_with(
         parameters=[1, 2, 3])
     assert strips_operator_three_params.get_complexity() == 8.0  # 2^3
-    sidelined_add = strips_operator.effect_to_side_predicate(
+    sidelined_add = strips_operator.effect_to_ignore_effect(
         next(iter(add_effects)), [], "add")
     assert str(sidelined_add) == repr(sidelined_add) == \
         """STRIPS-Pick:
@@ -538,8 +546,8 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: []
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
-    sidelined_delete = strips_operator.effect_to_side_predicate(
+    Ignore Effects: [On]"""
+    sidelined_delete = strips_operator.effect_to_ignore_effect(
         next(iter(delete_effects)), [], "delete")
     assert str(sidelined_delete) == repr(sidelined_delete) == \
         """STRIPS-Pick:
@@ -547,7 +555,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: []
-    Side Predicates: [NotOn, On]"""
+    Ignore Effects: [NotOn, On]"""
     # Test copy_with().
     strips_operator4 = strips_operator.copy_with(preconditions=set())
     assert str(strips_operator4) == repr(strips_operator4) == \
@@ -556,14 +564,14 @@ def test_operators_and_nsrts(state):
     Preconditions: []
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
@@ -575,7 +583,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     ground_op2 = strips_operator2.ground((cup, plate))
     ground_op3 = strips_operator3.ground((cup, plate))
     assert ground_op == ground_op2
@@ -584,23 +592,23 @@ def test_operators_and_nsrts(state):
     assert hash(ground_op) == hash(ground_op2)
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects, delete_effects,
-                side_predicates, parameterized_option, [], sampler)
+                ignore_effects, parameterized_option, [], sampler)
     assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Pick()"""
     assert str(nsrt.op) == repr(nsrt.op) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]"""
+    Ignore Effects: [On]"""
     assert isinstance(hash(nsrt), int)
     nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
-                 delete_effects, side_predicates, parameterized_option, [],
+                 delete_effects, ignore_effects, parameterized_option, [],
                  sampler)
     assert nsrt == nsrt2
     nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
@@ -615,7 +623,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     assert isinstance(hash(ground_nsrt), int)
@@ -623,7 +631,7 @@ def test_operators_and_nsrts(state):
     assert ground_nsrt == ground_nsrt2
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
-                 delete_effects, side_predicates, parameterized_option, [],
+                 delete_effects, ignore_effects, parameterized_option, [],
                  sampler)
     assert nsrt2 > nsrt4
     assert nsrt4 < nsrt2
@@ -650,7 +658,7 @@ def test_operators_and_nsrts(state):
     Preconditions: []
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     ground_nsrt_copy3 = ground_nsrt.copy_with(add_effects=set())
@@ -659,7 +667,7 @@ def test_operators_and_nsrts(state):
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: []
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
 
@@ -830,10 +838,10 @@ def test_pnad():
     preconditions = {on([cup_var, plate_var])}
     add_effects = {not_on([cup_var, plate_var])}
     delete_effects = {on([cup_var, plate_var])}
-    side_predicates = {on}
+    ignore_effects = {on}
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects,
-                                     side_predicates)
+                                     ignore_effects)
     pnad = PartialNSRTAndDatastore(strips_operator, datastore,
                                    (parameterized_option, []))
     assert len(pnad.datastore) == 1
@@ -849,7 +857,7 @@ def test_pnad():
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Move()"""
     with pytest.raises(AssertionError):  # no sampler
         pnad.make_nsrt()
@@ -860,7 +868,7 @@ def test_pnad():
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: [On]
+    Ignore Effects: [On]
     Option Spec: Move()"""
 
 
@@ -909,7 +917,7 @@ def test_lifted_decision_lists():
                      preconditions={on_table([cup_var])},
                      add_effects={holding([cup_var])},
                      delete_effects={on_table([cup_var])},
-                     side_predicates=set(),
+                     ignore_effects=set(),
                      option=pick_option,
                      option_vars=[],
                      _sampler=utils.null_sampler)
@@ -919,7 +927,7 @@ def test_lifted_decision_lists():
                       preconditions={holding([cup_var])},
                       add_effects={on([cup_var, plate_var])},
                       delete_effects={not_on([cup_var, plate_var])},
-                      side_predicates=set(),
+                      ignore_effects=set(),
                       option=place_option,
                       option_vars=[plate_var],
                       _sampler=utils.null_sampler)
@@ -928,26 +936,30 @@ def test_lifted_decision_lists():
     pick_rule = LDLRule(
         "MyPickRule",
         parameters=[cup_var, plate_var, robot_var],
-        state_preconditions={on_table([cup_var]),
-                             hand_empty([robot_var])},
+        pos_state_preconditions={on_table([cup_var]),
+                                 hand_empty([robot_var])},
+        neg_state_preconditions={holding([cup_var])},
         goal_preconditions={on([cup_var, plate_var])},
         nsrt=pick_nsrt)
 
     assert str(pick_rule) == repr(pick_rule) == """LDLRule-MyPickRule:
     Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
-    State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Neg State Pre: [Holding(?cup:cup_type)]
     Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
     NSRT: Pick(?cup:cup_type)"""
 
     place_rule = LDLRule("MyPlaceRule",
                          parameters=[cup_var, plate_var],
-                         state_preconditions={holding([cup_var])},
+                         pos_state_preconditions={holding([cup_var])},
+                         neg_state_preconditions=set(),
                          goal_preconditions={on([cup_var, plate_var])},
                          nsrt=place_nsrt)
 
     assert str(place_rule) == repr(place_rule) == """LDLRule-MyPlaceRule:
     Parameters: [?cup:cup_type, ?plate:plate_type]
-    State Pre: [Holding(?cup:cup_type)]
+    Pos State Pre: [Holding(?cup:cup_type)]
+    Neg State Pre: []
     Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
     NSRT: Place(?cup:cup_type, ?plate:plate_type)"""
 
@@ -956,8 +968,9 @@ def test_lifted_decision_lists():
     pick_rule2 = LDLRule(
         "MyPickRule",
         parameters=[cup_var, plate_var, robot_var],
-        state_preconditions={on_table([cup_var]),
-                             hand_empty([robot_var])},
+        pos_state_preconditions={on_table([cup_var]),
+                                 hand_empty([robot_var])},
+        neg_state_preconditions={holding([cup_var])},
         goal_preconditions={on([cup_var, plate_var])},
         nsrt=pick_nsrt)
 
@@ -973,17 +986,20 @@ def test_lifted_decision_lists():
     with pytest.raises(AssertionError):
         _ = LDLRule("MissingStatePreconditionsRule",
                     parameters=[cup_var, plate_var, robot_var],
-                    state_preconditions=set(),
+                    pos_state_preconditions=set(),
+                    neg_state_preconditions=set(),
                     goal_preconditions={on([cup_var, plate_var])},
                     nsrt=pick_nsrt)
     with pytest.raises(AssertionError):
-        _ = LDLRule(
-            "MissingParametersRule",
-            parameters=[plate_var, robot_var],
-            state_preconditions={on_table([cup_var]),
-                                 hand_empty([robot_var])},
-            goal_preconditions={on([cup_var, plate_var])},
-            nsrt=pick_nsrt)
+        _ = LDLRule("MissingParametersRule",
+                    parameters=[plate_var, robot_var],
+                    pos_state_preconditions={
+                        on_table([cup_var]),
+                        hand_empty([robot_var])
+                    },
+                    neg_state_preconditions=set(),
+                    goal_preconditions={on([cup_var, plate_var])},
+                    nsrt=pick_nsrt)
 
     # _GroundLDLRule
     cup1 = cup_type("cup1")
@@ -994,7 +1010,8 @@ def test_lifted_decision_lists():
     assert str(ground_pick_rule) == repr(
         ground_pick_rule) == """GroundLDLRule-MyPickRule:
     Parameters: [cup1:cup_type, plate1:plate_type, robot:robot_type]
-    State Pre: [HandEmpty(robot:robot_type), OnTable(cup1:cup_type)]
+    Pos State Pre: [HandEmpty(robot:robot_type), OnTable(cup1:cup_type)]
+    Neg State Pre: [Holding(cup1:cup_type)]
     Goal Pre: [On(cup1:cup_type, plate1:plate_type)]
     NSRT: Pick(cup1:cup_type)"""
 
@@ -1012,20 +1029,50 @@ def test_lifted_decision_lists():
 
     # LiftedDecisionList
     rules = [place_rule, pick_rule]
-    ldl = LiftedDecisionList("MyPolicy", rules)
-    assert ldl.name == "MyPolicy"
+    ldl = LiftedDecisionList(rules)
     assert ldl.rules == rules
+
+    assert str(ldl) == """LiftedDecisionList[
+LDLRule-MyPlaceRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Pos State Pre: [Holding(?cup:cup_type)]
+    Neg State Pre: []
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Place(?cup:cup_type, ?plate:plate_type)
+LDLRule-MyPickRule:
+    Parameters: [?cup:cup_type, ?plate:plate_type, ?robot:robot_type]
+    Pos State Pre: [HandEmpty(?robot:robot_type), OnTable(?cup:cup_type)]
+    Neg State Pre: [Holding(?cup:cup_type)]
+    Goal Pre: [On(?cup:cup_type, ?plate:plate_type)]
+    NSRT: Pick(?cup:cup_type)
+]"""
 
     atoms = {on_table([cup1]), hand_empty([robot])}
     goal = {on([cup1, plate1])}
+    objects = {cup1, plate1, robot}
 
     expected_nsrt = pick_nsrt.ground([cup1])
-    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+    assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
 
     atoms = {holding([cup1])}
 
     expected_nsrt = place_nsrt.ground([cup1, plate1])
-    assert utils.query_ldl(ldl, atoms, goal) == expected_nsrt
+    assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
 
     atoms = set()
-    assert utils.query_ldl(ldl, atoms, goal) is None
+    assert utils.query_ldl(ldl, atoms, objects, goal) is None
+
+    ldl2 = LiftedDecisionList(rules)
+    assert ldl == ldl2
+
+    ldl3 = LiftedDecisionList(rules[::-1])
+    assert ldl != ldl3
+
+    ldl4 = LiftedDecisionList([place_rule])
+    assert ldl != ldl4
+
+    ldl5 = LiftedDecisionList(rules[:])
+    assert ldl == ldl5
+
+    # Make sure lifted decision lists are hashable.
+    assert len({ldl, ldl2}) == 1

@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches.grammar_search_invention_approach import \
+from predicators import utils
+from predicators.approaches.grammar_search_invention_approach import \
     _UnaryFreeForallClassifier
-from predicators.src.datasets import create_dataset
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.predicate_search_score_functions import \
+from predicators.datasets import create_dataset
+from predicators.envs.blocks import BlocksEnv
+from predicators.envs.cover import CoverEnv
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.predicate_search_score_functions import \
     _BranchingFactorScoreFunction, _ExactHeuristicCountBasedScoreFunction, \
     _ExactHeuristicEnergyBasedScoreFunction, _ExpectedNodesScoreFunction, \
     _HeuristicBasedScoreFunction, _OperatorLearningBasedScoreFunction, \
@@ -23,8 +23,8 @@ from predicators.src.predicate_search_score_functions import \
     _RelaxationHeuristicEnergyBasedScoreFunction, \
     _RelaxationHeuristicMatchBasedScoreFunction, _TaskPlanningScoreFunction, \
     create_score_function
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
+from predicators.settings import CFG
+from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     OptionSpec, Predicate, STRIPSOperator, _GroundSTRIPSOperator
 
 
@@ -316,8 +316,6 @@ def test_exact_energy_score_function():
         "env": "blocks",
         "offline_data_method": "demo+replay",
         "num_train_tasks": 2,
-        "blocks_num_blocks_train": [3],
-        "blocks_num_blocks_test": [4],
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}

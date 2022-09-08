@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from predicators.src import utils
-from predicators.src.envs.blocks import BlocksEnv
+from predicators import utils
+from predicators.envs.blocks import BlocksEnv
 
 
 def test_blocks():
@@ -50,7 +50,7 @@ def test_blocks():
 
 
 def test_blocks_failure_cases():
-    """Tests for the cases where simulate() is a no-op."""
+    """Tests for the cases where simulate() is a noop."""
     utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
     Pick = [o for o in env.options if o.name == "Pick"][0]

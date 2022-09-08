@@ -6,11 +6,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from predicators.scripts.analyze_results_directory import combine_selectors, \
+from scripts.analyze_results_directory import combine_selectors, \
     create_dataframes, get_df_for_entry, pd_create_equal_selector
 
 plt.style.use('ggplot')
-pd.options.mode.chained_assignment = None  # default='warn'
+pd.set_option('chained_assignment', None)
 # plt.rcParams["font.family"] = "CMU Serif"
 
 ############################ Change below here ################################

@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.pybullet_cover import PyBulletCoverEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import Object, State
+from predicators import utils
+from predicators.envs.pybullet_cover import PyBulletCoverEnv
+from predicators.settings import CFG
+from predicators.structs import Object, State
 
 _GUI_ON = False  # toggle for debugging
 
@@ -42,9 +42,9 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
 
     def set_state(self, state):
         """Forcibly reset the state."""
-        joints_state = list(self._pybullet_robot.initial_joints_state)
+        joint_positions = list(self._pybullet_robot.initial_joint_positions)
         state_with_sim = utils.PyBulletState(state.data,
-                                             simulator_state=joints_state)
+                                             simulator_state=joint_positions)
         self._current_state = state_with_sim
         self._current_task = None
         self._reset_state(state_with_sim)

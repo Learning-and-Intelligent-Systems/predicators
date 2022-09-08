@@ -5,11 +5,11 @@ import time
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.ml_models import DegenerateMLPDistributionRegressor, \
-    ImplicitMLPRegressor, KNeighborsClassifier, KNeighborsRegressor, \
-    MLPBinaryClassifier, MLPBinaryClassifierEnsemble, MLPRegressor, \
-    NeuralGaussianRegressor
+from predicators import utils
+from predicators.ml_models import BinaryClassifierEnsemble, \
+    DegenerateMLPDistributionRegressor, ImplicitMLPRegressor, \
+    KNeighborsClassifier, KNeighborsRegressor, MLPBinaryClassifier, \
+    MLPRegressor, NeuralGaussianRegressor
 
 
 def test_basic_mlp_regressor():
@@ -216,8 +216,8 @@ def test_mlp_classifier():
     assert prediction
 
 
-def test_mlp_classifier_ensemble():
-    """Tests for MLPBinaryClassifierEnsemble."""
+def test_binary_classifier_ensemble():
+    """Tests for BinaryClassifierEnsemble."""
     utils.reset_config()
     input_size = 3
     num_class_samples = 5
@@ -228,14 +228,18 @@ def test_mlp_classifier_ensemble():
     y = np.concatenate(
         [np.zeros((num_class_samples)),
          np.ones((num_class_samples))])
-    model = MLPBinaryClassifierEnsemble(seed=123,
-                                        balance_data=True,
-                                        max_train_iters=100,
-                                        learning_rate=1e-3,
-                                        n_iter_no_change=1000000,
-                                        hid_sizes=[32, 32],
-                                        ensemble_size=3)
+    model = BinaryClassifierEnsemble(seed=123,
+                                     ensemble_size=3,
+                                     member_cls=MLPBinaryClassifier,
+                                     balance_data=True,
+                                     max_train_iters=100,
+                                     learning_rate=1e-3,
+                                     n_iter_no_change=1000000,
+                                     hid_sizes=[32, 32])
     model.fit(X, y)
+    with pytest.raises(Exception) as e:
+        model.predict_proba(np.zeros(input_size))
+    assert "Can't call predict_proba()" in str(e)
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
     probas = model.predict_member_probas(np.zeros(input_size))
@@ -246,6 +250,39 @@ def test_mlp_classifier_ensemble():
     assert prediction
     probas = model.predict_member_probas(np.ones(input_size))
     assert all(p > 0.5 for p in probas)
+    assert len(probas) == 3
+    # Test the KNN classifier with n_neighbors = num_class_samples.
+    # Since there are num_class_samples data points of each class,
+    # the probas should be all 0's or all 1's.
+    model = BinaryClassifierEnsemble(seed=123,
+                                     ensemble_size=3,
+                                     member_cls=KNeighborsClassifier,
+                                     n_neighbors=num_class_samples)
+    model.fit(X, y)
+    prediction = model.classify(np.zeros(input_size))
+    assert not prediction
+    probas = model.predict_member_probas(np.zeros(input_size))
+    assert all(p == 0.0 for p in probas)
+    assert len(probas) == 3
+    prediction = model.classify(np.ones(input_size))
+    assert prediction
+    probas = model.predict_member_probas(np.ones(input_size))
+    assert all(p == 1.0 for p in probas)
+    assert len(probas) == 3
+    # Test the KNN classifier with n_neighbors = 2 * num_class_samples.
+    # Since there are num_class_samples data points of each class,
+    # the probas should be all 0.5's.
+    model = BinaryClassifierEnsemble(seed=123,
+                                     ensemble_size=3,
+                                     member_cls=KNeighborsClassifier,
+                                     n_neighbors=(2 * num_class_samples))
+    model.fit(X, y)
+    probas = model.predict_member_probas(np.zeros(input_size))
+    assert all(p == 0.5 for p in probas)
+    assert len(probas) == 3
+    probas = model.predict_member_probas(np.ones(input_size))
+    assert all(p == 0.5 for p in probas)
+    assert len(probas) == 3
 
 
 def test_k_neighbors_regressor():
@@ -281,3 +318,4 @@ def test_k_neighbors_classifier():
     expected_y = Y[0]
     assert isinstance(predicted_y, bool)
     assert predicted_y == expected_y
+    assert model.predict_proba(x) == expected_y

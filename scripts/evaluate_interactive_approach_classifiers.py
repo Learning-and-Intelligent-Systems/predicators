@@ -7,15 +7,15 @@ from typing import Callable, List, Optional, Set, Tuple
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from predicators.scripts.analyze_results_directory import get_df_for_entry
-from predicators.src import utils
-from predicators.src.approaches import create_approach
-from predicators.src.approaches.interactive_learning_approach import \
+from predicators import utils
+from predicators.approaches import create_approach
+from predicators.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.envs import BaseEnv, create_new_env
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import Object, Predicate, State, Task
+from predicators.envs import BaseEnv, create_new_env
+from predicators.envs.cover import CoverEnv
+from predicators.settings import CFG
+from predicators.structs import Object, Predicate, State, Task
+from scripts.analyze_results_directory import get_df_for_entry
 
 
 def evaluate_approach(evaluate_fn: Callable[
@@ -185,7 +185,8 @@ def _plot(all_data: List) -> None:
     os.makedirs(outdir, exist_ok=True)
     column_names = [c for (c, _) in COLUMN_NAMES_AND_KEYS]
     df_all = pd.DataFrame(all_data)
-    df_all.columns = column_names
+    df_all.rename(columns=dict(zip(df_all.columns, column_names)),
+                  inplace=True)
     print(df_all)
     for plot_title, d in PLOT_GROUPS.items():
         _, ax = plt.subplots()

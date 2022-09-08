@@ -1,0 +1,28 @@
+# Offline PG3 Configuration File 
+---
+APPROACHES:
+  pg3:
+    NAME: "pg3"
+    FLAGS: {}
+  pg3-given-ops:
+    NAME: "pg3"
+    FLAGS: 
+      strips_learner: oracle 
+  plan-only:
+    NAME: "oracle"
+    FLAGS: {}
+ENVS:
+  delivery:
+    NAME: "pddl_easy_delivery_procedural_tasks"
+    FLAGS: {}
+  spanner:
+    NAME: "pddl_spanner_procedural_tasks"
+    FLAGS: {}
+  forest:
+    NAME: "pddl_forest_procedural_tasks"
+    FLAGS: {}
+ARGS: []
+FLAGS:
+  num_train_tasks: 50
+START_SEED: 456
+NUM_SEEDS: 10

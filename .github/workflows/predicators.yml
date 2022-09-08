@@ -15,12 +15,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: '**/setup.py'
     - run: |
-        pip install -r requirements.txt
+        pip install -e .
         pip install pytest-cov
     - name: Pytest
       run: |
-        pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
+        pytest -s tests/ --cov-config=.coveragerc --cov=predicators/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
       env:
         PYTHONHASHSEED: 0
   static-type-checking:
@@ -35,9 +36,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: '**/setup.py'
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install -e .
         pip install -U git+https://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31
       # Note: if mypy issue #5485 gets resolved, we can install from head again.
     - name: Mypy
@@ -55,9 +57,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: '**/setup.py'
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install -e .
         pip install pytest-pylint
     - name: Pylint
       run: |
@@ -76,9 +79,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: '**/setup.py'
     - name: Run YAPF to test if python code is correctly formatted
       uses: AlexanderMelde/yapf-action@master
       with:
-        args: --verbose --style .style.yapf
+        args: --verbose --style .style.yapf --exclude '**/third_party'
     - name: Run isort to organize imports
       uses: isort/isort-action@master

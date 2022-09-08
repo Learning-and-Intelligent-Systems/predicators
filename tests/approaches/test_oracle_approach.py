@@ -5,32 +5,32 @@ from typing import Any, Dict, List, Set
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
+from predicators import utils
+from predicators.approaches.oracle_approach import OracleApproach
+from predicators.envs.blocks import BlocksEnv
+from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
-from predicators.src.envs.coffee import CoffeeEnv
-from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
+from predicators.envs.coffee import CoffeeEnv
+from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
-from predicators.src.envs.doors import DoorsEnv
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
+from predicators.envs.doors import DoorsEnv
+from predicators.envs.painting import PaintingEnv
+from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
-from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv, \
+from predicators.envs.playroom import PlayroomEnv
+from predicators.envs.repeated_nextto import RepeatedNextToEnv, \
     RepeatedNextToSingleOptionEnv
-from predicators.src.envs.repeated_nextto_painting import \
-    RepeatedNextToPaintingEnv
-from predicators.src.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
-from predicators.src.envs.screws import ScrewsEnv
-from predicators.src.envs.stick_button import StickButtonEnv
-from predicators.src.envs.tools import ToolsEnv
-from predicators.src.envs.touch_point import TouchPointEnv
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, Variable
+from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
+from predicators.envs.screws import ScrewsEnv
+from predicators.envs.stick_button import StickButtonEnv
+from predicators.envs.tools import ToolsEnv
+from predicators.envs.touch_point import TouchPointEnv
+from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.option_model import _OracleOptionModel
+from predicators.settings import CFG
+from predicators.structs import Action, Variable
 
 ENV_NAME_AND_CLS = [
     ("cover", CoverEnv), ("cover_typed_options", CoverEnvTypedOptions),
@@ -105,6 +105,11 @@ EXTRA_ARGS_ORACLE_APPROACH["cluttered_table_place"] = [
         "cluttered_table_num_cans_test": 3
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["painting"] = [
+    {
+        "painting_initial_holding_prob": 1.0,
+    },
+]
 EXTRA_ARGS_ORACLE_APPROACH["repeated_nextto_painting"] = [
     {
         "rnt_painting_num_objs_train": [1, 2],
@@ -151,6 +156,7 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
         "pddl_delivery_procedural_test_max_want_locs": 1,
         "pddl_delivery_procedural_test_min_extra_newspapers": 0,
         "pddl_delivery_procedural_test_max_extra_newspapers": 1,
+        "sesame_use_visited_state_set": True,
     },
 ]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
@@ -167,6 +173,7 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "pddl_easy_delivery_procedural_test_max_want_locs": 1,
         "pddl_easy_delivery_procedural_test_min_extra_newspapers": 0,
         "pddl_easy_delivery_procedural_test_max_extra_newspapers": 1,
+        "sesame_use_visited_state_set": True,
     },
 ]
 
@@ -207,6 +214,8 @@ def test_oracle_approach(env_name, env_cls):
         for task in env.get_test_tasks():
             policy = approach.solve(task, timeout=500)
             assert _policy_solves_task(policy, task, env.simulate)
+    # Tests if OracleApproach can load _OracleOptionModel
+    assert isinstance(approach.get_option_model(), _OracleOptionModel)
 
 
 def test_get_gt_nsrts():

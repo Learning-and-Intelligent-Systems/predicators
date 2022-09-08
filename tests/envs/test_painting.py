@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.painting import PaintingEnv
+from predicators.structs import Action
 
 
 def test_painting():
@@ -87,8 +87,7 @@ def test_painting_goals():
 
 
 def test_painting_failure_cases():
-    """Tests for the cases where simulate() is a no-op or
-    EnvironmentFailure."""
+    """Tests for the cases where simulate() is a noop or EnvironmentFailure."""
     utils.reset_config({
         "env": "painting",
         "approach": "nsrt_learning",

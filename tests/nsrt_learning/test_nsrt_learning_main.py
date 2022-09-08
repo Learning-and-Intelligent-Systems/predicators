@@ -3,11 +3,10 @@
 import numpy as np
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.nsrt_learning_main import \
-    learn_nsrts_from_data
-from predicators.src.structs import Action, LowLevelTrajectory, Predicate, \
-    State, Type
+from predicators import utils
+from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
+from predicators.structs import Action, LowLevelTrajectory, Predicate, State, \
+    Type
 
 
 def test_nsrt_learning_specific_nsrts():
@@ -41,10 +40,12 @@ def test_nsrt_learning_specific_nsrts():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -53,7 +54,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     # Test the learned samplers
     for _ in range(10):
@@ -83,10 +84,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -95,7 +98,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     # The following two tests check edge cases of unification with respect to
     # the split between add and delete effects. Specifically, it's important
@@ -130,10 +133,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
@@ -143,7 +148,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x1:cup_type, ?x2:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type, ?x2:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()""",
         "Op1":
         """NSRT-Op1:
@@ -151,7 +156,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x2:cup_type, ?x3:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x2:cup_type, ?x3:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     }
     pred0 = Predicate("Pred0", [cup_type, cup_type],
@@ -176,10 +181,12 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
@@ -189,7 +196,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: []
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()""",
         "Op1":
         """NSRT-Op1:
@@ -197,7 +204,7 @@ def test_nsrt_learning_specific_nsrts():
     Preconditions: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Add Effects: []
     Delete Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Dummy()"""
     }
     for nsrt in nsrts:
@@ -207,10 +214,12 @@ def test_nsrt_learning_specific_nsrts():
         "min_data_for_nsrt": 3,
         "min_perc_data_for_nsrt": 0,
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 0
     # Test minimum percent of examples parameter
@@ -218,10 +227,12 @@ def test_nsrt_learning_specific_nsrts():
         "min_data_for_nsrt": 0,
         "min_perc_data_for_nsrt": 90,
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="random")
     assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
@@ -232,10 +243,12 @@ def test_nsrt_learning_specific_nsrts():
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
     })
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
     nsrts, _, _ = learn_nsrts_from_data(dataset, [],
                                         preds,
                                         options,
                                         action_space,
+                                        ground_atom_dataset,
                                         sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:

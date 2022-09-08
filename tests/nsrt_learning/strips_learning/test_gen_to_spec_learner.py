@@ -4,25 +4,28 @@ import itertools
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning.gen_to_spec_learner import \
+from predicators import utils
+from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
+from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, GroundAtom, LowLevelTrajectory, \
+from predicators.settings import CFG
+from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
     Type
-from predicators.tests.conftest import longrun
+
+longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def spawn_new_pnad(self, necessary_add_effects, pnad, segment):
+    def spawn_new_pnad(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
-        return self._spawn_new_pnad(pnad, segment)
+        return self._spawn_new_pnad(segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -100,13 +103,13 @@ def test_backchaining_strips_learner():
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Cry()""", """STRIPS-Eat0:
     Parameters: []
     Preconditions: []
     Add Effects: []
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Eat()"""
     ]
     for pnad, exp_str in zip(sorted(pnads, key=lambda pnad: pnad.op.name),
@@ -137,7 +140,7 @@ def test_backchaining_strips_learner():
     Preconditions: []
     Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Cry()"""
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
@@ -254,7 +257,7 @@ def test_backchaining_strips_learner_order_dependence():
         """RobotAt(?x2:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x1:light_type), """ +
         """NotLightOn(?x1:light_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type, ?x2:light_type]
     Preconditions: [LightColorBlue(?x2:light_type), NotLightOn(?x2:light_type)]
@@ -262,13 +265,13 @@ def test_backchaining_strips_learner_order_dependence():
         """RobotAt(?x1:robot_type, ?x0:fridge_type)]
     Delete Effects: [LightColorBlue(?x2:light_type), """ +
         """NotLightOn(?x2:light_type)]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: MoveAndMessWithLights()""", """STRIPS-MoveAndMessWithLights:
     Parameters: [?x0:fridge_type, ?x1:robot_type]
     Preconditions: []
     Add Effects: [RobotAt(?x1:robot_type, ?x0:fridge_type)]
     Delete Effects: []
-    Side Predicates: [LightColorBlue, LightColorRed]
+    Ignore Effects: [LightColorBlue, LightColorRed]
     Option Spec: MoveAndMessWithLights()"""
     }
     # Edit the names of all the returned PNADs to match the correct ones for
@@ -282,6 +285,317 @@ def test_backchaining_strips_learner_order_dependence():
         # Check that the two sets of PNADs are both correct.
         assert str(natural_order_pnads[i]) in correct_pnads
         assert str(reverse_order_pnads[i]) in correct_pnads
+
+    # Weird Case: This case shows that our algorithm is not data order
+    # invariant!
+    utils.reset_config({
+        "approach": "nsrt_learning",
+        "strips_learner": "backchaining",
+        # Following are necessary to solve this case.
+        "data_orderings_to_search": 10,
+        "enable_harmless_op_pruning": True
+    })
+    # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
+    # holding: True or False whether an object is in hand
+    agent_type = Type("agent_type", ["loc", "holding"])
+    agent = agent_type("agent")
+    # Hardback features are loc: -1, 0, 1, 2, 3 [in_hand, start, shelf1,
+    # shelf2, far away]
+    hardback_type = Type(
+        "hardback_type",
+        ["loc"])  # loc: -1, 0, 1, 2 [in_hand, start, shelf1, shelf2]
+    hardback1 = hardback_type("hardback1")
+    hardback2 = hardback_type("hardback2")
+    book1 = hardback_type("book1")
+    # Shelf features are loc: 2 (only a shelf at location two)
+    shelf_type = Type("shelf_type", ["loc"])
+    shelf = shelf_type("shelf")
+    # Predicates
+    NextTo = Predicate(
+        "NextTo", [hardback_type], lambda s, o: s[o[0]][0] == s[agent][0] or
+        (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
+    NextToShelf = Predicate("NextToShelf", [shelf_type],
+                            lambda s, o: s[agent][0] == 2)
+    HandEmpty = Predicate("HandEmpty", [], lambda s, o: not s[agent][1])
+    Holding = Predicate("Holding", [hardback_type],
+                        lambda s, o: s[o[0]][0] == -1)
+    OnTop = Predicate("OnTop", [hardback_type, shelf_type],
+                      lambda s, o: s[o[0]][0] == s[o[1]][0])
+    preds = {NextTo, NextToShelf, HandEmpty, Holding, OnTop}
+
+    # Agent not holding anything at location 0, hardbacks at loaction 1,
+    # and shelf at location 2
+    state1 = State({
+        agent: [0, False],
+        book1: [3],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent moves to location 1
+    state2 = State({
+        agent: [1, False],
+        book1: [3],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent grabs hardback1
+    state3 = State({
+        agent: [1, True],
+        book1: [3],
+        hardback1: [-1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent moves to location 2
+    state4 = State({
+        agent: [2, True],
+        book1: [3],
+        hardback1: [-1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent places hardback1
+    state5 = State({
+        agent: [2, False],
+        book1: [3],
+        hardback1: [2],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent moves to location 1
+    state6 = State({
+        agent: [1, False],
+        book1: [3],
+        hardback1: [2],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent grabs hardback2
+    state7 = State({
+        agent: [1, True],
+        book1: [3],
+        hardback1: [2],
+        hardback2: [-1],
+        shelf: [2]
+    })
+    # Agent moves to location 2
+    state8 = State({
+        agent: [2, True],
+        book1: [3],
+        hardback1: [2],
+        hardback2: [-1],
+        shelf: [2]
+    })
+    # Agent places hardback2
+    state9 = State({
+        agent: [2, False],
+        book1: [3],
+        hardback1: [2],
+        hardback2: [2],
+        shelf: [2]
+    })
+
+    # States for second trajectory
+    # Agent moves to location 3
+    state10 = State({
+        agent: [3, False],
+        book1: [3],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent grabs book1 at location 3
+    state11 = State({
+        agent: [3, True],
+        book1: [-1],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent moves to location 2
+    state12 = State({
+        agent: [2, True],
+        book1: [-1],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+    # Agent places hardback1
+    state13 = State({
+        agent: [2, False],
+        book1: [2],
+        hardback1: [1],
+        hardback2: [1],
+        shelf: [2]
+    })
+
+    moveto_param_option = utils.ParameterizedOption(
+        "MoveTo", [hardback_type],
+        policy=lambda s, m, o, p: Action(p),
+        params_space=Box(0.1, 1, (1, )),
+        initiable=lambda _1, _2, _3, _4: True,
+        terminal=lambda _1, _2, _3, _4: True)
+    moveto_option = moveto_param_option.ground([hardback1], np.array([0.5]))
+    assert moveto_option.initiable(state1)
+    moveto_hard2 = moveto_option.policy(state1)
+    moveto_hard2.set_option(moveto_option)
+    pick_param_option = utils.ParameterizedOption(
+        "Pick", [hardback_type],
+        policy=lambda s, m, o, p: Action(p),
+        params_space=Box(0.1, 1, (1, )),
+        initiable=lambda _1, _2, _3, _4: True,
+        terminal=lambda _1, _2, _3, _4: True)
+    pick_option = pick_param_option.ground([hardback1], np.array([0.5]))
+    assert pick_option.initiable(state2)
+    pick_hard2 = pick_option.policy(state2)
+    pick_hard2.set_option(pick_option)
+    movetoshelf_param_option = utils.ParameterizedOption(
+        "MoveToShelf", [shelf_type],
+        policy=lambda s, m, o, p: Action(p),
+        params_space=Box(0.1, 1, (1, )),
+        initiable=lambda _1, _2, _3, _4: True,
+        terminal=lambda _1, _2, _3, _4: True)
+    movetoshelf_option = movetoshelf_param_option.ground([shelf],
+                                                         np.array([0.5]))
+    assert movetoshelf_option.initiable(state3)
+    movetoshelf1 = movetoshelf_option.policy(state3)
+    movetoshelf1.set_option(movetoshelf_option)
+    place_param_option = utils.ParameterizedOption(
+        "Place", [hardback_type, shelf_type],
+        policy=lambda s, m, o, p: Action(p),
+        params_space=Box(0.1, 1, (1, )),
+        initiable=lambda _1, _2, _3, _4: True,
+        terminal=lambda _1, _2, _3, _4: True)
+    place_option = place_param_option.ground([hardback1, shelf],
+                                             np.array([0.5]))
+    assert place_option.initiable(state4)
+    place_hard2 = place_option.policy(state4)
+    place_hard2.set_option(place_option)
+    moveto_option_2 = moveto_param_option.ground([hardback2], np.array([0.5]))
+    assert moveto_option_2.initiable(state5)
+    moveto_hard1 = moveto_option_2.policy(state5)
+    moveto_hard1.set_option(moveto_option_2)
+    pick_option_2 = pick_param_option.ground([hardback2], np.array([0.5]))
+    assert pick_option_2.initiable(state6)
+    pick_hard1 = pick_option_2.policy(state6)
+    pick_hard1.set_option(pick_option_2)
+    movetoshelf_option_2 = movetoshelf_param_option.ground([shelf],
+                                                           np.array([0.5]))
+    assert movetoshelf_option_2.initiable(state7)
+    movetoshelf2 = movetoshelf_option_2.policy(state7)
+    movetoshelf2.set_option(movetoshelf_option_2)
+    place_option_2 = place_param_option.ground([hardback2, shelf],
+                                               np.array([0.5]))
+    assert place_option_2.initiable(state8)
+    place_hard1 = place_option_2.policy(state8)
+    place_hard1.set_option(place_option_2)
+
+    moveto_option_3 = moveto_param_option.ground([book1], np.array([0.5]))
+    assert moveto_option_3.initiable(state1)
+    moveto_book1 = moveto_option_3.policy(state1)
+    moveto_book1.set_option(moveto_option_3)
+    pick_option_3 = pick_param_option.ground([book1], np.array([0.5]))
+    assert pick_option_3.initiable(state2)
+    pick_book1 = pick_option_3.policy(state2)
+    pick_book1.set_option(pick_option_3)
+    movetoshelf_option_3 = movetoshelf_param_option.ground([shelf],
+                                                           np.array([0.5]))
+    assert movetoshelf_option_3.initiable(state10)
+    movetoshelf2 = movetoshelf_option_3.policy(state10)
+    movetoshelf2.set_option(movetoshelf_option_3)
+    place_option_3 = place_param_option.ground([book1, shelf], np.array([0.5]))
+    assert place_option_3.initiable(state11)
+    place_book1 = place_option_3.policy(state11)
+    place_book1.set_option(place_option_3)
+
+    # Two Tasks: (1) place both close books on top shelf and (2) place
+    # book1 on top of shelf
+    goal1 = set([
+        GroundAtom(OnTop, [hardback1, shelf]),
+        GroundAtom(OnTop, [hardback2, shelf])
+    ])
+    goal2 = set([GroundAtom(OnTop, [book1, shelf])])
+    task1 = Task(init=state1, goal=goal1)
+    task2 = Task(init=state1, goal=goal2)
+    traj1 = LowLevelTrajectory([
+        state1, state2, state3, state4, state5, state6, state7, state8, state9
+    ], [
+        moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
+        pick_hard1, movetoshelf2, place_hard1
+    ], True, 0)
+    traj2 = LowLevelTrajectory(
+        [state1, state10, state11, state12, state13],
+        [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 1)
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], preds)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    # Now, run the learner on the demo.
+    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
+                                             preds,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    natural_order_pnads = learner.learn()
+    action_space = Box(0, 1, (1, ))
+    dataset = [traj1, traj2]
+    train_tasks = [task1, task2]
+    options = {
+        moveto_param_option, pick_param_option, movetoshelf_param_option,
+        place_param_option
+    }
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+    natural_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
+
+    traj1 = LowLevelTrajectory([
+        state1, state2, state3, state4, state5, state6, state7, state8, state9
+    ], [
+        moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
+        pick_hard1, movetoshelf2, place_hard1
+    ], True, 1)
+    traj2 = LowLevelTrajectory(
+        [state1, state10, state11, state12, state13],
+        [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 0)
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1], preds)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    # Now, create and run the learner with the 3 demos in the reverse order.
+    learner = _MockBackchainingSTRIPSLearner([traj2, traj1], [task2, task1],
+                                             preds,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Be sure to reset the segment add effects before doing this.
+    learner.reset_all_segment_add_effs()
+    reverse_order_pnads = learner.learn()
+    action_space = Box(0, 1, (1, ))
+    dataset = [traj2, traj1]
+    train_tasks = [task2, task1]
+    options = {
+        moveto_param_option, pick_param_option, movetoshelf_param_option,
+        place_param_option
+    }
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+    reverse_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
+
+    # First, check that the two sets of PNADs have the same number of PNADs.
+    # Uh oh, they don't
+    assert len(natural_order_pnads) != len(reverse_order_pnads)
+    # Second, check that the two sets of NSRTs have the same number of NSRTs.
+    # They do! Because our NSRTs were learned with dataset reordering and
+    # harmless operator pruning, as opposed to our PNADs which were learned
+    # with our _MockBackchainingSTRIPSLearner that does not have these
+    # additions.
+    assert len(natural_order_nsrts) == len(reverse_order_nsrts)
 
 
 def test_spawn_new_pnad():
@@ -324,7 +638,7 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: [Asleep, Happy]"""
+    Ignore Effects: [Asleep, Happy]"""
     # Make the preconditions be satisfiable in the segment's init_atoms.
     # Now, we are back to normal usage.
     _, ground_op = learner.find_unification(
@@ -337,9 +651,8 @@ def test_spawn_new_pnad():
     Preconditions: []
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
-    Side Predicates: [Asleep, Happy]"""
-    pnad.op = pnad.op.copy_with(add_effects=set(), side_predicates=[Happy])
-    new_pnad = learner.spawn_new_pnad({Asleep([bob])}, pnad,
+    Ignore Effects: [Asleep, Happy]"""
+    new_pnad = learner.spawn_new_pnad({Asleep([bob])},
                                       Segment(traj, {Happy([bob])},
                                               {Asleep([bob])}, Move))
 
@@ -480,26 +793,26 @@ def test_keep_effect_data_partitioning():
         """MachineOn(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: TurnOn()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()"""
     ])
 
@@ -687,39 +1000,39 @@ def test_combinatorial_keep_effect_data_partitioning():
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Add Effects: [MachineRun(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Run()""", """STRIPS-TurnOn:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: TurnOn()""", """STRIPS-Fix:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Fix()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn]
+    Ignore Effects: [MachineOn]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type), """ +
@@ -727,7 +1040,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type), MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
 
@@ -756,7 +1069,7 @@ def test_combinatorial_keep_effect_data_partitioning():
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineOn(?x0:machine_type)]
     Delete Effects: []
-    Side Predicates: [MachineOn, MachineWorking]
+    Ignore Effects: [MachineOn, MachineWorking]
     Option Spec: Configure()"""
     ])
 
@@ -847,13 +1160,13 @@ def test_keep_effect_adding_new_variables():
     Preconditions: [PotatoIntact(?x1:potato_type)]
     Add Effects: [ButtonPressed(?x0:button_type), PotatoIntact(?x1:potato_type)]
     Delete Effects: []
-    Side Predicates: [PotatoIntact]
+    Ignore Effects: [PotatoIntact]
     Option Spec: Press(?x0:button_type)""", """STRIPS-Pick:
     Parameters: [?x0:potato_type]
     Preconditions: [PotatoIntact(?x0:potato_type)]
     Add Effects: [PotatoHeld(?x0:potato_type)]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Pick(?x0:potato_type)"""
     ])
 
@@ -950,19 +1263,19 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B()]
     Delete Effects: []
-    Side Predicates: [C]
+    Ignore Effects: [C]
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
     Add Effects: [D(), E()]
     Delete Effects: [B()]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
     Add Effects: [C(), D()]
     Delete Effects: [B()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Place()"""
         ]
     else:
@@ -972,22 +1285,127 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B(), C()]
     Delete Effects: []
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), C()]
     Add Effects: [D()]
     Delete Effects: [B()]
-    Side Predicates: [E]
+    Ignore Effects: [E]
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), E()]
     Add Effects: [D(), E()]
     Delete Effects: [B()]
-    Side Predicates: []
+    Ignore Effects: []
     Option Spec: Place()"""
         ]
 
+    for pnad in learned_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
+        assert str(pnad) in correct_pnads
+
+
+def test_backchaining_segment_not_in_datastore():
+    """Test the BackchainingSTRIPSLearner on a case where it can cover a
+    particular segment using an operator that doesn't have that segment in its
+    datastore.
+
+    This will lead to the intermediate harmlessness check failing if not
+    handled correctly.
+    """
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
+    # Set up the types, objects, and, predicates.
+    dummy_type = Type("dummy_type",
+                      ["feat1", "feat2", "feat3", "feat4", "feat5"])
+    dummy = dummy_type("dummy")
+    A = Predicate("A", [], lambda s, o: s[dummy][0] > 0.5)
+    B = Predicate("B", [], lambda s, o: s[dummy][1] > 0.5)
+    C = Predicate("C", [], lambda s, o: s[dummy][2] > 0.5)
+    D = Predicate("D", [], lambda s, o: s[dummy][3] > 0.5)
+    E = Predicate("E", [], lambda s, o: s[dummy][4] > 0.5)
+    predicates = {A, B, C, D, E}
+    # Create the necessary options and actions.
+    Pick = utils.SingletonParameterizedOption("Pick",
+                                              lambda s, m, o, p: None,
+                                              types=[]).ground([], [])
+    act = Action([], Pick)
+    # Set up the first trajectory.
+    goal0 = {GroundAtom(B, [])}
+    s00 = State({dummy: [1.0, 1.0, 0.0, 1.0, 0.0]})
+    s01 = State({dummy: [0.0, 0.0, 1.0, 0.0, 1.0]})
+    s02 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
+    traj0 = LowLevelTrajectory([s00, s01, s02], [act, act], True, 0)
+    task0 = Task(s00, goal0)
+    # Set up the second trajectory.
+    goal1 = {GroundAtom(B, [])}
+    s10 = State({dummy: [1.0, 0.0, 0.0, 1.0, 0.0]})
+    s11 = State({dummy: [1.0, 1.0, 0.0, 0.0, 1.0]})
+    traj1 = LowLevelTrajectory([s10, s11], [act], True, 1)
+    task1 = Task(s10, goal1)
+    # Set up the third trajectory.
+    goal2 = {GroundAtom(A, []), GroundAtom(C, [])}
+    s20 = State({dummy: [0.0, 1.0, 0.0, 1.0, 1.0]})
+    s21 = State({dummy: [1.0, 1.0, 1.0, 1.0, 1.0]})
+    traj2 = LowLevelTrajectory([s20, s21], [act], True, 2)
+    task2 = Task(s20, goal2)
+    # Set up the fourth trajectory.
+    goal3 = {GroundAtom(A, []), GroundAtom(D, [])}
+    s30 = State({dummy: [0.0, 1.0, 1.0, 1.0, 1.0]})
+    s31 = State({dummy: [1.0, 0.0, 1.0, 1.0, 0.0]})
+    s32 = State({dummy: [1.0, 1.0, 0.0, 1.0, 1.0]})
+    traj3 = LowLevelTrajectory([s30, s31, s32], [act, act], True, 3)
+    task3 = Task(s30, goal3)
+    # Ground and segment these trajectories.
+    trajs = [traj0, traj1, traj2, traj3]
+    ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
+    # Now, run the learner on the demos.
+    learner = _MockBackchainingSTRIPSLearner(trajs,
+                                             [task0, task1, task2, task3],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    # Running this automatically checks that harmlessness passes.
+    learned_pnads = learner.learn()
+    correct_pnads = [
+        """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [C(), E()]
+    Add Effects: [B()]
+    Delete Effects: []
+    Ignore Effects: [A, D]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [B(), D(), E()]
+    Add Effects: [A(), C()]
+    Delete Effects: [B(), E()]
+    Ignore Effects: [B, E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), C(), D()]
+    Add Effects: [A(), B(), D()]
+    Delete Effects: [C()]
+    Ignore Effects: [E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), D()]
+    Add Effects: [A(), B()]
+    Delete Effects: [D()]
+    Ignore Effects: [E]
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), B(), D()]
+    Add Effects: [C(), E()]
+    Delete Effects: [A(), B(), D()]
+    Ignore Effects: []
+    Option Spec: Pick()"""
+    ]
     for pnad in learned_pnads:
         # Rename the output PNADs to standardize naming
         # and make comparison easier.

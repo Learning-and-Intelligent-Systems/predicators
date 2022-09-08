@@ -3,16 +3,17 @@
 import os
 import shutil
 import sys
+import tempfile
 from typing import Callable
 
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+from predicators import utils
+from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import _run_testing, main
-from predicators.src.structs import Action, State, Task
+from predicators.envs.cover import CoverEnv
+from predicators.main import _run_testing, main
+from predicators.structs import Action, State, Task
 
 
 class _DummyFailureApproach(BaseApproach):
@@ -110,12 +111,14 @@ def test_main():
         video_dir, "--results_dir", results_dir
     ]
     main()
-    # Test making videos of failures.
+    # Test making videos of failures and local logging.
+    temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
         results_dir, "--sesame_max_skeletons_optimized", "1",
-        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos",
+        "--log_file", temp_log_file
     ]
     main()
     shutil.rmtree(video_dir)
@@ -168,7 +171,7 @@ def test_main():
         "--online_learning_max_transitions", "0", "--excluded_predicates",
         "Covers", "--interactive_num_ensemble_members", "1",
         "--num_train_tasks", "3", "--num_test_tasks", "3",
-        "--predicate_mlp_classifier_max_itr", "100"
+        "--predicate_mlp_classifier_max_itr", "lambda n: n * 50"
     ]
     main()
 

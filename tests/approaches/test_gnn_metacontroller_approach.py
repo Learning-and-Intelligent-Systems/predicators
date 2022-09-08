@@ -4,16 +4,16 @@ import numpy as np
 import pytest
 from gym.spaces import Box
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, create_approach
-from predicators.src.approaches.gnn_metacontroller_approach import \
+from predicators import utils
+from predicators.approaches import ApproachFailure, create_approach
+from predicators.approaches.gnn_metacontroller_approach import \
     GNNMetacontrollerApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.gnn.gnn_utils import get_single_model_prediction
-from predicators.src.option_model import _OptionModelBase
-from predicators.src.settings import CFG
-from predicators.src.structs import Action, Dataset, LowLevelTrajectory, \
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.gnn.gnn_utils import get_single_model_prediction
+from predicators.option_model import _OptionModelBase
+from predicators.settings import CFG
+from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
@@ -65,8 +65,6 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
     dataset = create_dataset(env, train_tasks, env.options)
     assert approach.is_learning_based
     task = env.get_test_tasks()[0]
-    with pytest.raises(AssertionError):  # haven't learned yet!
-        approach.solve(task, timeout=CFG.timeout)
     approach.learn_from_offline_dataset(dataset)
     policy = approach.solve(task, timeout=CFG.timeout)
     # Try executing the policy.
@@ -77,11 +75,11 @@ def test_gnn_metacontroller_approach_with_envs(env_name, num_epochs):
         policy = approach.solve(task, timeout=CFG.timeout)
         with pytest.raises(ApproachFailure) as e:
             policy(task.init)
-        assert "GNN metacontroller could not sample an option" in str(e)
+        assert "Metacontroller could not sample an option" in str(e)
     else:
         with pytest.raises(ApproachFailure) as e:
             policy(task.init)  # should NOT be able to sample an option
-        assert "GNN metacontroller could not sample an option" in str(e)
+        assert "Metacontroller could not sample an option" in str(e)
     # Test loading.
     approach2 = create_approach("gnn_metacontroller", env.predicates,
                                 env.options, env.types, env.action_space,
@@ -154,7 +152,7 @@ def test_gnn_metacontroller_approach_special_cases(min_data_for_nsrt):
     policy = approach.solve(test_task, timeout=CFG.timeout)
     with pytest.raises(ApproachFailure) as e:
         policy(test_task.init)
-    assert "GNN metacontroller could not sample an option" in str(e)
+    assert "Metacontroller could not sample an option" in str(e)
     # Cover the case where the approach can't select an object.
     in_graph, _ = approach.graphify_single_input(test_task.init, set(), set())
     hacked_object_to_node = {bowl: 0}

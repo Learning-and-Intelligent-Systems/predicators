@@ -1,12 +1,15 @@
 """Test cases for the NSRT learning approach."""
 
+import os
+
+import dill as pkl
 import pytest
 
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, create_approach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env
-from predicators.src.settings import CFG
+from predicators import utils
+from predicators.approaches import ApproachFailure, create_approach
+from predicators.datasets import create_dataset
+from predicators.envs import create_new_env
+from predicators.settings import CFG
 
 
 def _test_approach(env_name,
@@ -21,6 +24,7 @@ def _test_approach(env_name,
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    solve_exceptions=None,
+                   load_atoms=False,
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -44,6 +48,7 @@ def _test_approach(env_name,
         "sampler_learner": sampler_learner,
         "segmenter": segmenter,
         "cover_initial_holding_prob": 0.0,
+        "load_atoms": load_atoms,
         **additional_settings,
     })
     env = create_new_env(env_name)
@@ -84,6 +89,7 @@ def _test_approach(env_name,
                                                    task.goal_holds,
                                                    max_num_steps=CFG.horizon)
             assert task.goal_holds(traj.states[-1])
+
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -111,6 +117,9 @@ def _test_approach(env_name,
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False)
     approach = _test_approach(env_name="blocks",
                               approach_name="nsrt_learning",
                               try_solving=False,
@@ -141,6 +150,51 @@ def test_nsrt_learning_approach():
                            try_solving=False,
                            sampler_learner="random",
                            strips_learner=strips_learner)
+
+
+def test_saving_and_loading_atoms():
+    """Test learning with saving and loading groudn atoms functionality."""
+    # First, call the approach with load_atoms=False so that the
+    # atoms get saved.
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              load_atoms=False)
+    # Next, try to manually load these saved atoms.
+    dataset_fname, _ = utils.create_dataset_filename_str(
+        saving_ground_atoms=True, online_learning_cycle=None)
+    assert os.path.exists(dataset_fname)
+    with open(dataset_fname, "rb") as f:
+        ground_atom_dataset_atoms = pkl.load(f)
+    # Check that each of the loaded atoms is linked to one of the
+    # environment predicates.
+    env = create_new_env("blocks")
+    for atoms_seq in ground_atom_dataset_atoms:
+        assert all(atom.predicate in env.predicates for atom_set in atoms_seq
+                   for atom in atom_set)
+    # Next, call NSRT learning with load_atoms=True to test whether loading
+    # works.
+    approach = _test_approach(env_name="blocks",
+                              approach_name="nsrt_learning",
+                              try_solving=False,
+                              load_atoms=True,
+                              additional_settings={
+                                  "compute_sidelining_objective_value": True,
+                              })
+    # Test assertions to check that learning occurs smoothly after loading.
+    assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
+    assert "sidelining_obj_complexity" in approach.metrics
+    assert approach.metrics["sidelining_obj_num_plans_up_to_n"] == 1.0
+    assert approach.metrics["sidelining_obj_complexity"] == 34.0
+    # Remove the file and test that error is thrown when loading
+    # non-existent file.
+    os.remove(dataset_fname)
+    with pytest.raises(ValueError) as e:
+        approach = _test_approach(env_name="blocks",
+                                  approach_name="nsrt_learning",
+                                  try_solving=False,
+                                  load_atoms=True)
+    assert "Cannot load ground atoms" in str(e)
 
 
 def test_unknown_strips_learner():
@@ -228,15 +282,14 @@ def test_oracle_samplers():
                    segmenter="atom_changes",
                    check_solution=True,
                    num_train_tasks=3)
-    with pytest.raises(Exception) as e:
-        # In painting, we learn operators that are different from the
-        # oracle ones, so oracle sampler learning is not possible.
-        _test_approach(env_name="painting",
-                       approach_name="nsrt_learning",
-                       sampler_learner="oracle",
-                       check_solution=True,
-                       num_train_tasks=3)
-    assert "no match for ground truth NSRT" in str(e)
+    # In painting, we learn operators that are different from the oracle ones.
+    # The expected behavior is that the learned operators will have random
+    # samplers, so we don't expected planning to necessarily work.
+    _test_approach(env_name="painting",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   try_solving=False,
+                   num_train_tasks=3)
 
 
 def test_degenerate_mlp_sampler_learning():
@@ -313,18 +366,13 @@ def test_oracle_strips_and_segmenter_learning():
         "stick_button_num_buttons_test": [1],
         "segmenter": "oracle",
     }
-    # The expected behavior is that segmentation and STRIPS learning will go
-    # through, but then because there is such a limited number of demos, we
-    # will not see data for all operators, which will lead to a crash
-    # during option learning. This test still covers an important case, which
-    # is recomputing datastores in STRIPS learning when options are unknown.
-    with pytest.raises(Exception) as e:
-        _test_approach(env_name="stick_button",
-                       approach_name="nsrt_learning",
-                       strips_learner="oracle",
-                       option_learner="direct_bc",
-                       offline_data_method="demo",
-                       num_train_tasks=1,
-                       try_solving=False,
-                       additional_settings=additional_settings)
-    assert "No data found for learning an option." in str(e)
+    # This test still covers recomputing datastores in STRIPS learning when
+    # options are unknown.
+    _test_approach(env_name="stick_button",
+                   approach_name="nsrt_learning",
+                   strips_learner="oracle",
+                   option_learner="direct_bc",
+                   offline_data_method="demo",
+                   num_train_tasks=1,
+                   try_solving=False,
+                   additional_settings=additional_settings)

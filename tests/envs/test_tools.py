@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.tools import ToolsEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.tools import ToolsEnv
+from predicators.structs import Action
 
 
 class DummyToolsEnv(ToolsEnv):
@@ -69,7 +69,7 @@ def test_tools_fasten_option():
 
 
 def test_tools_failure_cases():
-    """Tests for the cases where simulate() is a no-op."""
+    """Tests for the cases where simulate() is a noop."""
     utils.reset_config({"env": "tools", "tools_num_items_train": [25]})
     env = DummyToolsEnv()
     HandEmpty = [o for o in env.predicates if o.name == "HandEmpty"][0]

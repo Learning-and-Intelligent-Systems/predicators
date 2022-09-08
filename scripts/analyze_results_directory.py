@@ -8,7 +8,7 @@ import dill as pkl
 import numpy as np
 import pandas as pd
 
-from predicators.src.settings import CFG
+from predicators.settings import CFG
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--sidelining", action="store_true")
@@ -59,18 +59,18 @@ if args.sidelining:
 
 
 def pd_create_equal_selector(
-        key: str, value: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
+        key: str, value: str) -> Callable[[pd.DataFrame], pd.Series]:
     """Create a mask for a dataframe by checking key == value."""
     return lambda df: df[key] == value
 
 
 def combine_selectors(
-    selectors: Sequence[Callable[[pd.DataFrame], pd.DataFrame]]
-) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    selectors: Sequence[Callable[[pd.DataFrame], pd.Series]]
+) -> Callable[[pd.DataFrame], pd.Series]:
     """And together multiple selectors."""
     assert len(selectors) > 0
 
-    def _selector(df: pd.DataFrame) -> pd.DataFrame:
+    def _selector(df: pd.DataFrame) -> pd.Series:
         mask = selectors[0](df)
         for i in range(1, len(selectors)):
             mask = mask & selectors[i](df)
@@ -81,7 +81,7 @@ def combine_selectors(
 
 def get_df_for_entry(
         x_key: str, df: pd.DataFrame,
-        selector: Callable[[pd.DataFrame], pd.DataFrame]) -> pd.DataFrame:
+        selector: Callable[[pd.DataFrame], pd.Series]) -> pd.DataFrame:
     """Create a dataframe with a subset selected by selector and with rows
     sorted by x_key."""
     df = df[selector(df)]
@@ -140,7 +140,7 @@ def create_raw_dataframe(
     # Group & aggregate data.
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
-    df.columns = column_names
+    df.rename(columns=dict(zip(df.columns, column_names)), inplace=True)
     print(f"Git commit hashes seen in {CFG.results_dir}/:")
     for commit_hash in git_commit_hashes:
         print(commit_hash)
@@ -157,10 +157,10 @@ def create_dataframes(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes."""
     df = create_raw_dataframe(column_names_and_keys, derived_keys)
-    grouped = df.groupby(groups)
+    grouped = df.groupby(list(groups))
     means = grouped.mean()
     stds = grouped.std(ddof=0)
-    sizes = grouped.size()
+    sizes = grouped.size().to_frame()
     return means, stds, sizes
 
 
@@ -169,8 +169,8 @@ def _main() -> None:
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
-            mean = means.loc[row, col]
-            std = stds.loc[row, col]
+            mean = means.loc[row][col]
+            std = stds.loc[row][col]
             means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
     means["NUM_SEEDS"] = sizes
     pd.set_option("expand_frame_repr", False)

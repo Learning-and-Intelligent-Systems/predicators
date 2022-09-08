@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from predicators.src import utils
-from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.structs import Action
+from predicators import utils
+from predicators.envs.playroom import PlayroomEnv
+from predicators.structs import Action
 
 
 def test_playroom():
@@ -35,7 +35,7 @@ def test_playroom():
 
 
 def test_playroom_failure_cases():
-    """Tests for the cases where simulate() is a no-op."""
+    """Tests for the cases where simulate() is a noop."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     On = [o for o in env.predicates if o.name == "On"][0]
