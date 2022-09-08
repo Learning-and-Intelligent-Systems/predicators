@@ -103,7 +103,7 @@ def test_main():
     ]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    parent_dir = os.path.dirname(__file__),
+    parent_dir = os.path.dirname(__file__)
     video_dir = os.path.join(parent_dir, "_fake_videos")
     results_dir = os.path.join(parent_dir, "_fake_results")
     eval_traj_dir = os.path.join(parent_dir, "_fake_trajs")
