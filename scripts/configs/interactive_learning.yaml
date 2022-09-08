@@ -52,14 +52,11 @@ ENVS:
 ARGS: {}
 FLAGS:  # common args
   excluded_predicates: "Covers,Holding"
-  interactive_score_threshold: 0.05
-  num_online_learning_cycles: 1000  # way too many cycles
-  online_learning_max_transitions: 10000  # want this to be stop signal
-  interactive_num_requests_per_cycle: 10
+  num_online_learning_cycles: 100  # way too many cycles
+  online_learning_max_transitions: 1000  # want this to be stop signal
   max_num_steps_interaction_request: 3
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
-  predicate_mlp_classifier_max_itr: 100000
 START_SEED: 456
 NUM_SEEDS: 10
