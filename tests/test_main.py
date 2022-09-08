@@ -3,6 +3,7 @@
 import os
 import shutil
 import sys
+import tempfile
 from typing import Callable
 
 import pytest
@@ -110,12 +111,14 @@ def test_main():
         video_dir, "--results_dir", results_dir
     ]
     main()
-    # Test making videos of failures.
+    # Test making videos of failures and local logging.
+    temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
         results_dir, "--sesame_max_skeletons_optimized", "1",
-        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos",
+        "--log_file", temp_log_file
     ]
     main()
     shutil.rmtree(video_dir)
@@ -221,23 +224,3 @@ def test_env_failure():
     task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
-
-    # Test plan_only_eval succeeds, even though simulation fails.
-    utils.reset_config({
-        "env": "cover",
-        "approach": "random_actions",
-        "timeout": 10,
-        "make_test_videos": False,
-        "cover_initial_holding_prob": 0.0,
-        "num_test_tasks": 1,
-        "plan_only_eval": True
-    })
-    env = _DummyCoverEnv()
-    train_tasks = env.get_train_tasks()
-    approach = create_approach("oracle", env.predicates, env.options,
-                               env.types, env.action_space, train_tasks)
-    assert not approach.is_learning_based
-    task = train_tasks[0]
-    approach.solve(task, timeout=500)
-    metrics = _run_testing(env, approach)
-    assert metrics["num_solved"] == 1

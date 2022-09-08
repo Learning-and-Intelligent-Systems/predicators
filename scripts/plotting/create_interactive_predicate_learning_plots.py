@@ -12,7 +12,7 @@ from scipy import interpolate
 from scripts.analyze_results_directory import create_raw_dataframe, \
     get_df_for_entry
 
-pd.options.mode.chained_assignment = None  # default='warn'
+pd.set_option('chained_assignment', None)
 
 ############################ Change below here ################################
 

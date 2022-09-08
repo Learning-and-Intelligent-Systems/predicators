@@ -12,6 +12,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
+from predicators.envs.pddl_env import ProceduralTasksSpannerPDDLEnv
 from predicators.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -154,36 +155,6 @@ def test_num_options_in_action_sequence():
                                                     option3], 3)):
         actions = [Action(np.array([0]), options[i]) for i in range(3)]
         assert utils.num_options_in_action_sequence(actions) == expected_num
-
-
-def test_aabb_volume():
-    """Tests for get_aabb_volume()."""
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    # Test zero volume calculation
-    assert utils.get_aabb_volume(lo, lo) == 0.0
-    # Test ordinary calculation
-    assert utils.get_aabb_volume(lo, hi) == 1.0
-    with pytest.raises(AssertionError):
-        # Test assertion error when lower bound is
-        # greater than upper bound
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        assert utils.get_aabb_volume(lo1, hi1)
-
-
-def test_aabb_closest_point():
-    """Tests for get_closest_point_on_aabb()."""
-    # Test ordinary usage
-    xyz = [1.5, 3.0, -2.5]
-    lo = np.array([1.0, 1.5, -1.0])
-    hi = np.array([2.0, 2.5, 0.0])
-    assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
-    with pytest.raises(AssertionError):
-        # Test error where lower bound is greater than upper bound.
-        lo1 = np.array([10.0, 12.5, 10.0])
-        hi1 = np.array([-10.0, -12.5, -10.0])
-        utils.get_closest_point_on_aabb(xyz, lo1, hi1)
 
 
 def test_entropy():
@@ -2251,6 +2222,96 @@ def test_create_pddl():
 )
 """
 
+    # Test spanner domain, which has hierarchical types.
+    utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
+    # All predicates and options
+    env = ProceduralTasksSpannerPDDLEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+                                          "spanner")
+    assert domain_str == """(define (domain spanner)
+  (:requirements :typing)
+  (:types 
+    man nut spanner - locatable
+    locatable location - object)
+
+  (:predicates
+    (at ?x0 - locatable ?x1 - location)
+    (carrying ?x0 - man ?x1 - spanner)
+    (link ?x0 - location ?x1 - location)
+    (loose ?x0 - nut)
+    (tightened ?x0 - nut)
+    (useable ?x0 - spanner)
+  )
+
+  (:action pickup_spanner
+    :parameters (?l - location ?s - spanner ?m - man)
+    :precondition (and (at ?m ?l)
+        (at ?s ?l))
+    :effect (and (carrying ?m ?s)
+        (not (at ?s ?l)))
+  )
+
+  (:action tighten_nut
+    :parameters (?l - location ?s - spanner ?m - man ?n - nut)
+    :precondition (and (at ?m ?l)
+        (at ?n ?l)
+        (carrying ?m ?s)
+        (loose ?n)
+        (useable ?s))
+    :effect (and (tightened ?n)
+        (not (loose ?n))
+        (not (useable ?s)))
+  )
+
+  (:action walk
+    :parameters (?start - location ?end - location ?m - man)
+    :precondition (and (at ?m ?start)
+        (link ?start ?end))
+    :effect (and (at ?m ?end)
+        (not (at ?m ?start)))
+  )
+)"""
+
+    train_task = env.get_train_tasks()[0]
+    state = train_task.init
+    objects = list(state)
+    init_atoms = utils.abstract(state, env.predicates)
+    goal = train_task.goal
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                            "spanner", "spanner-0")
+    assert problem_str == """(define (problem spanner-0) (:domain spanner)
+  (:objects
+    bob - man
+    gate - location
+    location0 - location
+    location1 - location
+    location2 - location
+    nut0 - nut
+    shed - location
+    spanner0 - spanner
+    spanner1 - spanner
+    spanner2 - spanner
+  )
+  (:init
+    (at bob shed)
+    (at nut0 gate)
+    (at spanner0 location0)
+    (at spanner1 location2)
+    (at spanner2 location0)
+    (link location0 location1)
+    (link location1 location2)
+    (link location2 gate)
+    (link shed location0)
+    (loose nut0)
+    (useable spanner0)
+    (useable spanner1)
+    (useable spanner2)
+  )
+  (:goal (and (tightened nut0)))
+)
+"""
+
 
 def test_VideoMonitor():
     """Tests for VideoMonitor()."""
@@ -3035,17 +3096,6 @@ def test_parse_config_included_options():
 def test_null_sampler():
     """Tests for null_sampler()."""
     assert utils.null_sampler(None, None, None, None).shape == (0, )
-
-
-def test_behavior_state():
-    """Tests for BehaviorState."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = utils.BehaviorState({cup: [0.5], plate: [1.0, 1.2]})
-    other_state = state.copy()
-    assert state.allclose(other_state)
 
 
 def test_nostdout(capfd):

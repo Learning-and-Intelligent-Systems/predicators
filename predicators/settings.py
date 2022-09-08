@@ -4,7 +4,6 @@ Anything that varies between runs should be a command-line arg
 (args.py).
 """
 
-import os
 from collections import defaultdict
 from types import SimpleNamespace
 from typing import Any, Dict, Set
@@ -44,13 +43,6 @@ class GlobalSettings:
     # in unit tests, make sure to pass in a value for `render_state_dpi` into
     # your call to utils.reset_config().
     render_state_dpi = 150
-    # If this is True, then we will not execute our final plan in simulation
-    # and we will say a task is solved successfully if we were able to find
-    # a plan. Note, we might solve the task even if the plan we found would
-    # not necessarily work in simulation (this is especially true of option
-    # models that don't model the simulator well). This can only be True if
-    # the approach is a subclass of BilevelPlanningApproach.
-    plan_only_eval = False
 
     # cover env parameters
     cover_num_blocks = 2
@@ -105,21 +97,6 @@ class GlobalSettings:
     tools_num_items_test = [2, 3]
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
-
-    # BEHAVIOR env parameters
-    behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples",
-        "configs",
-        "wbm3_modifiable_full_obs.yaml",
-    )
-    behavior_mode = "headless"  # headless, pbgui, iggui
-    behavior_action_timestep = 1.0 / 10.0
-    behavior_physics_timestep = 1.0 / 120.0
-    behavior_task_name = "re-shelving_library_books"
-    behavior_scene_name = "Pomaria_1_int"
-    behavior_randomize_init_state = True
-    behavior_option_model_eval = False
-    behavior_option_model_rrt = False
 
     # general pybullet parameters
     pybullet_use_gui = False  # must be True to make videos
@@ -315,10 +292,12 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     min_perc_data_for_nsrt = 0
+    data_orderings_to_search = 1  # NSRT learning data ordering parameters
     # STRIPS learning algorithm. See get_name() functions in the directory
     # nsrt_learning/strips_learning/ for valid settings.
     strips_learner = "cluster_and_intersect"
     disable_harmlessness_check = False  # some methods may want this to be True
+    enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
@@ -426,7 +405,6 @@ class GlobalSettings:
                 {
                     # For certain environments, actions are lower level, so
                     # tasks take more actions to complete.
-                    "behavior": 5000,
                     "pybullet_cover": 1000,
                     "pybullet_blocks": 1000,
                     "doors": 1000,
@@ -471,8 +449,6 @@ class GlobalSettings:
             option_model_name=defaultdict(
                 lambda: "oracle",
                 {
-                    # For the BEHAVIOR environment, use a special option model.
-                    "behavior": "oracle_behavior",
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_cover": "oracle_cover",
                     "pybullet_blocks": "oracle_blocks",
@@ -484,7 +460,6 @@ class GlobalSettings:
                 lambda: 8,
                 {
                     # For these environments, allow more skeletons.
-                    "behavior": 1000,
                     "coffee": 1000,
                     "tools": 1000,
                     "stick_button": 1000,
@@ -507,14 +482,6 @@ class GlobalSettings:
                 {
                     # For the tools environment, keep it much lower.
                     "tools": 1,
-                })[args.get("env", "")],
-
-            # Used to save NSRTs as strings in pickle file.
-            dump_nsrts_as_strings=defaultdict(
-                lambda: False,
-                {
-                    # We cannot pickle BEHAVIOR NSRTs
-                    "behavior": True,
                 })[args.get("env", "")],
         )
 

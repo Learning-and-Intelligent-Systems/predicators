@@ -46,11 +46,8 @@ import dill as pkl
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
-from predicators.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
-from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -68,9 +65,14 @@ def main() -> None:
     utils.update_config(args)
     str_args = " ".join(sys.argv)
     # Log to stderr.
+    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    if CFG.log_file:
+        handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
-                        handlers=[logging.StreamHandler()])
+                        handlers=handlers)
+    if CFG.log_file:
+        logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
@@ -286,46 +288,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            # There are two special cases that we handle first. In the if,
-            # we consider the case where plan_only_eval is True, in which
-            # case we only check whether this BilevelPlanningApproach found
-            # a plan. In the elif, we consider the case where
-            # behavior_option_model_eval is True, in which case for BEHAVIOR
-            # we evaluate on option models instead of the low-level simulator.
-            # Finally, the else handles the default case, where we use
-            # utils.run_policy to roll out the policy in the environment.
-            if CFG.plan_only_eval:
-                assert isinstance(approach, BilevelPlanningApproach)
-                if approach.get_last_plan() != [] or task.goal_holds(
-                        task.init):
-                    solved = True
-                execution_metrics = {"policy_call_time": 0.0}
-            elif CFG.behavior_option_model_eval:  # pragma: no cover
-                # To evaluate BEHAVIOR on our option model, we are going
-                # to run our approach's plan on our option model.
-                # Note that if approach is not a BilevelPlanningApproach
-                # we cannot use this method to evaluate and would need to
-                # run the policy on the option model, not the plan
-                assert CFG.env == "behavior" and isinstance(
-                    approach, BilevelPlanningApproach)
-                last_plan = approach.get_last_plan()
-                option_model_start_time = time.time()
-                traj, solved = _run_plan_with_option_model(
-                    task, test_task_idx, approach.get_option_model(),
-                    last_plan)
-                execution_metrics = {
-                    "policy_call_time": option_model_start_time - time.time()
-                }
-            else:
-                traj, execution_metrics = utils.run_policy(
-                    policy,
-                    env,
-                    "test",
-                    test_task_idx,
-                    task.goal_holds,
-                    max_num_steps=CFG.horizon,
-                    monitor=monitor)
-                solved = task.goal_holds(traj.states[-1])
+            traj, execution_metrics = utils.run_policy(
+                policy,
+                env,
+                "test",
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
+            solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
         except utils.EnvironmentFailure as e:
@@ -412,4 +383,9 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    # Write out the exception to the log file.
+    try:
+        main()
+    except Exception as _err:  # pylint: disable=broad-except
+        logging.exception("main.py crashed")
+        raise _err

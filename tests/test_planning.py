@@ -12,11 +12,12 @@ from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.cover import CoverEnv
 from predicators.envs.painting import PaintingEnv
+from predicators.envs.repeated_nextto import RepeatedNextToSingleOptionEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
-    _run_plan_with_option_model, sesame_plan, task_plan, task_plan_grounding
+    sesame_plan, task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
     State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
@@ -54,25 +55,6 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
             CFG.sesame_max_skeletons_optimized,
             max_horizon=CFG.horizon,
         )
-        # Test our run_plan_with_option_model function
-        # Case 1: plan is empty
-        traj, success = _run_plan_with_option_model(task, 0, option_model, [])
-        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
-        # Case 2: plan does not achieve goal
-        traj, success = _run_plan_with_option_model(task, 0, option_model,
-                                                    [plan[0]])
-        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
-        # Case 3: plan does achieve goal
-        traj, success = _run_plan_with_option_model(task, 0, option_model,
-                                                    plan)
-        assert success and len(traj.states) > 1 and len(
-            traj.states) == len(traj.actions) + 1
-        # Case 4: plan has option that is non initiable
-        non_initiable_option = plan[0]
-        non_initiable_option.initiable = lambda s: False
-        traj, success = _run_plan_with_option_model(task, 0, option_model,
-                                                    [non_initiable_option])
-        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
     if e is None:
         assert len(plan) == 3
         assert all(isinstance(act, _Option) for act in plan)
@@ -614,12 +596,14 @@ def test_sesame_plan_fast_downward():
     """
     for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
         utils.reset_config({
-            "env": "painting",
+            "env": "repeated_nextto_single_option",
             "num_test_tasks": 1,
             "painting_lid_open_prob": 1.0,
             "sesame_task_planner": sesame_task_planner,
         })
-        env = PaintingEnv()
+        # Test on the repeated_nextto_single_option env, which requires ignore
+        # effects.
+        env = RepeatedNextToSingleOptionEnv()
         nsrts = get_gt_nsrts(env.predicates, env.options)
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
