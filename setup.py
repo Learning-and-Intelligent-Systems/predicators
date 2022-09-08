@@ -28,8 +28,7 @@ setup(
         "pyyaml",
         "pylint==2.14.5",
         "types-PyYAML",
-        # TODO: remove suffix after https://github.com/Learning-and-Intelligent-Systems/lisdf/pull/22 is merged
-        "lisdf@git+https://github.com/Learning-and-Intelligent-Systems/lisdf.git@6f944b74418d5d9290c749eaf17d241c2eb4b3e7"
+        "lisdf@git+https://github.com/Learning-and-Intelligent-Systems/lisdf.git"  # pylint: disable=line-too-long
     ],
     include_package_data=True,
     extras_require={

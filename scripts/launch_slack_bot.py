@@ -134,7 +134,8 @@ class GithubSearchResponse(Response):
             f'https://api.github.com/search/code?q="{self._search_string}"'
             f'+in:file+extension:py+repo:{REPO_NAME}')
         headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-        response = requests.request("GET", query, headers=headers).json()
+        response = requests.request("GET", query, headers=headers,
+                                    timeout=10).json()
         chunks = [f'Github matches for string "{self._search_string}":']
         num_matches = len(response["items"])
         if num_matches > GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES:
@@ -146,7 +147,10 @@ class GithubSearchResponse(Response):
         # have to search through the files ourselves to find matches.
         for item in response["items"]:
             query = item["url"]
-            response = requests.request("GET", query, headers=headers).json()
+            response = requests.request("GET",
+                                        query,
+                                        headers=headers,
+                                        timeout=10).json()
             output = urlopen(response["download_url"]).read()
             lines = output.decode("utf-8").split("\n")
             html_url = response["html_url"]

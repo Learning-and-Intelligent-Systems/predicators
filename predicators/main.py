@@ -39,6 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
@@ -65,15 +66,22 @@ def main() -> None:
     utils.update_config(args)
     str_args = " ".join(sys.argv)
     # Log to stderr.
+    handlers: List[logging.Handler] = [logging.StreamHandler()]
+    if CFG.log_file:
+        handlers.append(logging.FileHandler(CFG.log_file, mode='w'))
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
-                        handlers=[logging.StreamHandler()])
+                        handlers=handlers)
+    if CFG.log_file:
+        logging.info(f"Logging to {CFG.log_file}")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
     logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
     # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
+    # Create the eval trajectories directory.
+    os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True)
     # The action space and options need to be seeded externally, because
@@ -233,8 +241,8 @@ def _generate_interaction_results(
         if CFG.make_interaction_videos:
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
-        video_prefix = utils.get_config_path_str()
-        outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+        save_prefix = utils.get_config_path_str()
+        outfile = f"{save_prefix}__cycle{cycle_num}.mp4"
         utils.save_video(outfile, video)
     return results, query_cost
 
@@ -250,7 +258,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_timeouts = 0
     total_num_execution_failures = 0
 
-    video_prefix = utils.get_config_path_str()
+    save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
@@ -268,7 +276,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
                     CFG.horizon)
-                outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
+                outfile = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
         solve_time = time.time() - solve_start
@@ -294,6 +302,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
+            # Save the successful trajectory, e.g., for playback on a robot.
+            traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
+            traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
+            # Include the original task too so we know the goal.
+            traj_data = {"task": task, "trajectory": traj}
+            with open(traj_file_path, "wb") as f:
+                pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -310,12 +325,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             num_solved += 1
             total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
-            video_file = f"{video_prefix}__task{test_task_idx+1}.mp4"
+            video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
             make_video = CFG.make_failure_videos
-            video_file = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
+            video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                      f"{log_message}")
         if make_video:
@@ -378,4 +393,9 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    # Write out the exception to the log file.
+    try:
+        main()
+    except Exception as _err:  # pylint: disable=broad-except
+        logging.exception("main.py crashed")
+        raise _err
