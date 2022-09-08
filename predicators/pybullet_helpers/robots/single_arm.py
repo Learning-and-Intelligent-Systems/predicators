@@ -124,6 +124,14 @@ class SingleArmPyBulletRobot(abc.ABC):
         return joint_ids
 
     @cached_property
+    def arm_joint_names(self) -> List[str]:
+        """The names of the arm joints."""
+        return [
+            info.jointName for info in get_joint_infos(
+                self.robot_id, self.arm_joints, self.physics_client_id)
+        ]
+
+    @cached_property
     def joint_infos(self) -> List[JointInfo]:
         """Get the joint info for each joint of the robot.
 

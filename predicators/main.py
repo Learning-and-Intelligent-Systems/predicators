@@ -306,7 +306,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
             traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
             # Include the original task too so we know the goal.
-            traj_data = {"task": task, "trajectory": traj}
+            traj_data = {
+                "task": task,
+                "trajectory": traj,
+                "pybullet_robot": CFG.pybullet_robot
+            }
             with open(traj_file_path, "wb") as f:
                 pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
