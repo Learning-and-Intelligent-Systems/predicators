@@ -344,11 +344,11 @@ class GlobalSettings:
     interactive_num_ensemble_members = 10
     interactive_query_policy = "threshold"
     interactive_score_function = "entropy"
-    interactive_score_threshold = 0.1
+    interactive_score_threshold = 0.05
     interactive_random_query_prob = 0.5  # for query policy random
     interactive_num_requests_per_cycle = 10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
-    predicate_mlp_classifier_max_itr = 1000
+    predicate_mlp_classifier_max_itr = 100000
     predicate_knn_classifier_n_neighbors = 1
 
     # online NSRT learning parameters
