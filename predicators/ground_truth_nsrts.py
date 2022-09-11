@@ -9,8 +9,8 @@ from numpy.random._generator import Generator
 
 from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
     PICK_PLACE_OBJECT_TYPES, PLACE_INTO_SURFACE_OBJECT_TYPES, \
-    PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_nav_end_pose, \
-    load_checkpoint_state
+    PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_hand_end_pose, \
+    check_nav_end_pose, load_checkpoint_state
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.envs.doors import DoorsEnv
@@ -2865,11 +2865,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         return np.array([x_offset, y_offset, z_offset])
 
     # Place OnTop sampler definition.
+    MAX_PLACEONTOP_SAMPLES = 25
+
     def place_ontop_obj_pos_sampler(
             state: State, goal: Set[GroundAtom], rng: Generator,
             objects: Union["URDFObject", "RoomFloor"]) -> Array:
         """Sampler for placeOnTop option."""
-        del state, goal
+        del goal
         assert rng is not None
         # objA is the object the robot is currently holding, and
         # objB is the surface that it must place onto.
@@ -2900,7 +2902,44 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         )
 
         if sampling_results[0] is None or sampling_results[0][0] is None:
-            # If sampling fails, returns a random set of params
+            # If sampling fails, fall back onto custom-defined object-specific
+            # samplers
+            if "shelf" in objB.name:
+                # Get the current env for collision checking.
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                load_checkpoint_state(state, env)
+                objB_sampling_bounds = objB.bounding_box / 2
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0],
+                                objB_sampling_bounds[0]),
+                    rng.uniform(-objB_sampling_bounds[1],
+                                objB_sampling_bounds[1]),
+                    rng.uniform(-objB_sampling_bounds[2] + 0.3,
+                                objB_sampling_bounds[1]) + 0.3
+                ])
+                logging.info("Sampling params for placeOnTop shelf...")
+                num_samples_tried = 0
+                while not check_hand_end_pose(env.igibson_behavior_env, objB,
+                                              sample_params):
+                    sample_params = np.array([
+                        rng.uniform(-objB_sampling_bounds[0],
+                                    objB_sampling_bounds[0]),
+                        rng.uniform(-objB_sampling_bounds[1],
+                                    objB_sampling_bounds[1]),
+                        rng.uniform(-objB_sampling_bounds[2] + 0.3,
+                                    objB_sampling_bounds[1]) + 0.3
+                    ])
+                    # NOTE: In many situations, it is impossible to find a
+                    # good sample no matter how many times we try. Thus, we
+                    # break this loop after a certain number of tries so the
+                    # planner will backtrack.
+                    if num_samples_tried > MAX_PLACEONTOP_SAMPLES:
+                        break
+                    num_samples_tried += 1
+                return sample_params
+            # If there's no object specific sampler, just return a
+            # random sample.
             return np.array([
                 rng.uniform(-0.5, 0.5),
                 rng.uniform(-0.5, 0.5),

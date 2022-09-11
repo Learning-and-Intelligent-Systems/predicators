@@ -414,6 +414,32 @@ def check_nav_end_pose(
     return valid_position
 
 
+def check_hand_end_pose(env: "BehaviorEnv", obj: Union["URDFObject",
+                                                       "RoomFloor"],
+                        pos_offset: Array) -> bool:
+    """Check that the robot's hand can reach pos_offset from the obj without
+    being in collision with anything.
+
+    If this is true, return True, else return False.
+    """
+    ret_bool = False
+    state = p.saveState()
+    obj_pos = obj.get_position()
+    hand_pos = (
+        pos_offset[0] + obj_pos[0],
+        pos_offset[1] + obj_pos[1],
+        pos_offset[2] + obj_pos[2],
+    )
+    env.robots[0].parts["right_hand"].set_position(hand_pos)
+    if not detect_robot_collision(env.robots[0]):
+        ret_bool = True
+
+    p.restoreState(state)
+    p.removeState(state)
+
+    return ret_bool
+
+
 def load_checkpoint_state(s: State,
                           env: "BehaviorEnv",
                           reset: bool = False) -> None:
