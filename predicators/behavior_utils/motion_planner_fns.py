@@ -398,12 +398,12 @@ def make_place_plan(
     # passed in as an argument to this option, fail and return None
     if not (obj_in_hand is not None and obj_in_hand != obj):
         logging.info("Cannot place; either no object in hand or holding "
-                     "the object to be placed on top of!")
+                     "the object to be placed on top/inside of!")
         return None
 
     # if the object is not a urdf object, fail and return None
     if not isinstance(obj, URDFObject):
-        logging.info(f"PRIMITIVE: place {obj_in_hand.name} ontop "
+        logging.info(f"PRIMITIVE: place {obj_in_hand.name} ontop/inside "
                      f"{obj.name} fail, too far")
         return None
 
@@ -475,13 +475,13 @@ def make_place_plan(
 
     # If RRT planning fails, fail and return None
     if plan is None:
-        logging.info(f"PRIMITIVE: placeOnTop {obj.name} fail, failed "
+        logging.info(f"PRIMITIVE: placeOnTop/inside {obj.name} fail, failed "
                      f"to find plan to continuous params {place_rel_pos}")
         return None
 
     original_orientation = list(
         p.getEulerFromQuaternion(
             env.robots[0].parts["right_hand"].get_orientation()))
-    logging.info(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with "
-                 f"continuous params {place_rel_pos}.")
+    logging.info(f"PRIMITIVE: placeOnTop/inside {obj.name} success! Plan "
+                 f"found with continuous params {place_rel_pos}.")
     return plan, original_orientation

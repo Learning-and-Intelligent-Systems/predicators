@@ -37,7 +37,8 @@ except (ImportError, ModuleNotFoundError) as e:
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.behavior_utils.behavior_utils import load_checkpoint_state
+from predicators.behavior_utils.behavior_utils import \
+    ALL_RELEVANT_OBJECT_TYPES, load_checkpoint_state
 from predicators.behavior_utils.motion_planner_fns import make_dummy_plan, \
     make_grasp_plan, make_navigation_plan, make_place_plan
 from predicators.behavior_utils.option_fns import create_dummy_policy, \
@@ -226,6 +227,11 @@ class BehaviorEnv(BaseEnv):
                         f"{CFG.seed}__{self.task_num}__" +
                         f"{self.task_instance_id}",
                         exist_ok=True)
+            # NOTE: We load_checkpoint_state here because there appears to
+            # be a subtle difference between calling the predicate classifiers
+            # on a particular state, and calling them after loading checkpoint
+            # on that particular state. Doing this resolves that discrepancy.
+            load_checkpoint_state(self.current_ig_state_to_state(), self)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -332,9 +338,16 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        for ig_obj in self._get_task_relevant_objects():
-            # Create type
-            type_name = ig_obj.category
+        # NOTE: The commented out for-loop line and the type_name line
+        # below are what we used to do before defining
+        # ALL_RELEVANT_OBJECT_TYPES. They are useful to comment back in
+        # when we want to debug a task by looking at the NSRTs (since
+        # putting these back in and commenting out the current for loop
+        # line will create only task-relevant typed NSRTs and not all
+        # NSRTs for all relevant object types).
+        # for ig_obj in self._get_task_relevant_objects():
+        for type_name in ALL_RELEVANT_OBJECT_TYPES:
+            # type_name = ig_obj.category
             if type_name in self._type_name_to_type:
                 continue
             # In the future, we may need other object attributes,
@@ -347,6 +360,7 @@ class BehaviorEnv(BaseEnv):
                 ],
             )
             self._type_name_to_type[type_name] = obj_type
+
         return set(self._type_name_to_type.values())
 
     @property
@@ -430,7 +444,17 @@ class BehaviorEnv(BaseEnv):
     # lead to wrong mappings when we load a different scene
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
         type_name = ig_obj.category
+        # NOTE: Since we don't necessarily have the full set of
+        # types we might need to solve a new domain, it is often
+        # useful to uncomment the below try-except block to
+        # print out types that need to be added to ALL_RELEVANT_OBJECT_TYPES.
+        # try:
         obj_type = self._type_name_to_type[type_name]
+        # except KeyError:
+        #     for ig_obj in self._get_task_relevant_objects():
+        #         if ig_obj.category not in ALL_RELEVANT_OBJECT_TYPES:
+        #             print(ig_obj.category)
+        #     import ipdb; ipdb.set_trace()
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
@@ -680,11 +704,12 @@ def make_behavior_option(
         assert len(igo) == 1
 
         # Load the checkpoint associated with state.simulator_state
-        # to make sure that we run RRT from the intended state.
+        # to make sure that we run low-level planning from the intended
+        # state.
         load_checkpoint_state(state, env)
 
         if memory.get("planner_result") is not None:
-            # In this case, an rrt_plan has already been found for this
+            # In this case, a low-level plan has already been found for this
             # option (most likely, this will occur when executing a
             # series of options after having planned).
             return True

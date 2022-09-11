@@ -2823,8 +2823,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         # The navigation nsrts are designed such that the target
         # obj is always last in the params list.
         obj_to_sample_near = objects[-1]
-        closeness_limit = 0.75
-        nearness_limit = 0.5
+        closeness_limit = 2.00
+        nearness_limit = 0.15
         distance = nearness_limit + (
             (closeness_limit - nearness_limit) * rng.random())
         yaw = rng.random() * (2 * np.pi) - np.pi
