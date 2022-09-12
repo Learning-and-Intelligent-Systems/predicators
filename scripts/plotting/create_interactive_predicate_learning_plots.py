@@ -82,7 +82,7 @@ PLOT_GROUPS = {
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
         ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
-        ("Random Actions", "blueviolet",
+        ("Random Actions", "brown",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
          ),
         ("No Actions", "gold",
