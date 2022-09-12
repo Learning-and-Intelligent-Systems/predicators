@@ -10,10 +10,6 @@ import pandas as pd
 
 from predicators.settings import CFG
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--sidelining", action="store_true")
-args = parser.parse_args()
-
 GROUPS = [
     # "ENV",
     # "APPROACH",
@@ -48,14 +44,6 @@ COLUMN_NAMES_AND_KEYS = [
     # ("NUM_ONLINE_TRANSITIONS", "num_online_transitions"),
     # ("QUERY_COST", "query_cost"),
 ]
-
-if args.sidelining:
-    COLUMN_NAMES_AND_KEYS.remove(("AVG_NUM_PREDS", "avg_num_preds"))
-    COLUMN_NAMES_AND_KEYS.append(
-        ("SO_NUM_PLANS_UP_TO_N",
-         "offline_learning_sidelining_obj_num_plans_up_to_n"))
-    COLUMN_NAMES_AND_KEYS.append(
-        ("SO_COMPLEXITY", "offline_learning_sidelining_obj_complexity"))
 
 
 def pd_create_equal_selector(
@@ -181,4 +169,16 @@ def _main() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sidelining", action="store_true")
+    args = parser.parse_args()
+
+    if args.sidelining:
+        COLUMN_NAMES_AND_KEYS.remove(("AVG_NUM_PREDS", "avg_num_preds"))
+        COLUMN_NAMES_AND_KEYS.append(
+            ("SO_NUM_PLANS_UP_TO_N",
+             "offline_learning_sidelining_obj_num_plans_up_to_n"))
+        COLUMN_NAMES_AND_KEYS.append(
+            ("SO_COMPLEXITY", "offline_learning_sidelining_obj_complexity"))
+
     _main()
