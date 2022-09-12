@@ -3002,7 +3002,21 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                                 objB_sampling_bounds[2] + 0.5)
                 ])
                 return sample_params
-
+            if objB.category == "trash_can":
+                objB_sampling_bounds = objB.bounding_box / 2
+                # Since the trash can's hole is generally in the center,
+                # we want a very small sampling range around the
+                # object's position in the x and y directions (hence
+                # we divide the x and y bounds futher by 4).
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0] / 4,
+                                objB_sampling_bounds[0] / 4),
+                    rng.uniform(-objB_sampling_bounds[1] / 4,
+                                objB_sampling_bounds[1] / 4),
+                    rng.uniform(objB_sampling_bounds[2] + 0.05,
+                                objB_sampling_bounds[2] + 0.15)
+                ])
+                return sample_params
             # If there's no object specific sampler, just return a
             # random sample.
             return np.array([
