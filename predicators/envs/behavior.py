@@ -308,6 +308,11 @@ class BehaviorEnv(BaseEnv):
             # go to collect data and do NSRT learning.
             arity = self._bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
+                # It is unnecessary to track whether the agent is ontop,
+                # inside or open things. Thus, we simply skip spawning
+                # these predicates.
+                if 'agent' in [t.name for t in type_combo]:
+                    continue
                 pred_name = self._create_type_combo_name(bddl_name, type_combo)
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
