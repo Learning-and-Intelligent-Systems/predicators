@@ -2904,7 +2904,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         if sampling_results[0] is None or sampling_results[0][0] is None:
             # If sampling fails, fall back onto custom-defined object-specific
             # samplers
-            if "shelf" in objB.name:
+            if objB.category == "shelf":
                 # Get the current env for collision checking.
                 env = get_or_create_env("behavior")
                 assert isinstance(env, BehaviorEnv)
@@ -2985,7 +2985,26 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         )
 
         if sampling_results[0] is None or sampling_results[0][0] is None:
-            # If sampling fails, returns a random set of params
+            # If sampling fails, fall back onto custom-defined object-specific
+            # samplers
+            if objB.category == "bucket":
+                objB_sampling_bounds = objB.bounding_box / 2
+                # Since the bucket's hole is generally in the center,
+                # we want a very small sampling range around the
+                # object's position in the x and y directions (hence
+                # we divide the x and y bounds futher by 2).
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0] / 2,
+                                objB_sampling_bounds[0] / 2),
+                    rng.uniform(-objB_sampling_bounds[1] / 2,
+                                objB_sampling_bounds[1] / 2),
+                    rng.uniform(objB_sampling_bounds[2] + 0.15,
+                                objB_sampling_bounds[2] + 0.5)
+                ])
+                return sample_params
+
+            # If there's no object specific sampler, just return a
+            # random sample.
             return np.array([
                 rng.uniform(-0.5, 0.5),
                 rng.uniform(-0.5, 0.5),
