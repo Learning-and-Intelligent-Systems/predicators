@@ -605,7 +605,11 @@ def _run_plan_with_option_model(
                                       _train_task_idx=task_idx), False
         if CFG.plan_only_eval:  # pragma: no cover
             assert isinstance(option_model, _BehaviorOptionModel)
-            next_state = option_model.load_state(last_traj[idx + 1])
+            # We need to load state into option model so predicate classifiers
+            # work when we run task.goal_holds(traj[-1]), otherwise
+            # classifiers will be ran on non-updated prior state.
+            option_model.load_state(last_traj[idx + 1])
+            next_state = last_traj[idx + 1]
         else:
             next_state, _ = option_model.get_next_state_and_num_actions(
                 state, option)

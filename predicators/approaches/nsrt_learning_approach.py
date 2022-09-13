@@ -15,6 +15,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.behavior_utils import behavior_utils
+from predicators.envs import get_or_create_env
+from predicators.envs.behavior import BehaviorEnv
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
@@ -105,8 +108,15 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
         else:
             # Apply predicates to data, producing a dataset of abstract states.
-            ground_atom_dataset = utils.create_ground_atom_dataset(
-                trajectories, self._get_current_predicates())
+            if CFG.env == "behavior":  # pragma: no cover
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                ground_atom_dataset = \
+                    behavior_utils.create_ground_atom_dataset_behavior(
+                        trajectories, self._get_current_predicates(), env)
+            else:
+                ground_atom_dataset = utils.create_ground_atom_dataset(
+                    trajectories, self._get_current_predicates())
             # Save ground atoms dataset to file. Note that a
             # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
             # list of sets of GroundAtoms, so we only save the list of

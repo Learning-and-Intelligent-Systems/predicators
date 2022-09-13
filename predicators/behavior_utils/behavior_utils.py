@@ -6,7 +6,9 @@ import numpy as np
 import pybullet as p
 
 from predicators.settings import CFG
-from predicators.structs import Array, State
+from predicators.structs import Array, GroundAtomTrajectory, \
+    LowLevelTrajectory, Predicate, Set, State
+from predicators.utils import abstract
 
 try:
     from igibson.envs.behavior_env import \
@@ -494,3 +496,19 @@ def load_checkpoint_state(s: State,
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))
+
+
+def create_ground_atom_dataset_behavior(
+        trajectories: Sequence[LowLevelTrajectory], predicates: Set[Predicate],
+        env: "BehaviorEnv") -> List[GroundAtomTrajectory]:  # pragma: no cover
+    """Apply all predicates to all trajectories in the dataset."""
+    ground_atom_dataset = []
+    for traj in trajectories:
+        atoms = []
+        for s in traj.states:
+            # If th environment is BEHAVIOR we need to load the state before
+            # we call the predicate classifiers.
+            load_checkpoint_state(s, env)
+            atoms.append(abstract(s, predicates))
+        ground_atom_dataset.append((traj, atoms))
+    return ground_atom_dataset
