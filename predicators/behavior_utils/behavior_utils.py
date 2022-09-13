@@ -5,10 +5,10 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pybullet as p
 
-from predicators.utils import abstract
 from predicators.settings import CFG
-from predicators.structs import Array, State, Set
-from predicators.structs import GroundAtomTrajectory, LowLevelTrajectory, Predicate
+from predicators.structs import Array, GroundAtomTrajectory, \
+    LowLevelTrajectory, Predicate, Set, State
+from predicators.utils import abstract
 
 try:
     from igibson.envs.behavior_env import \
@@ -497,9 +497,10 @@ def load_checkpoint_state(s: State,
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))
 
+
 def create_ground_atom_dataset_behavior(
-        trajectories: Sequence[LowLevelTrajectory],
-        predicates: Set[Predicate], env: "BehaviorEnv") -> List[GroundAtomTrajectory]:
+        trajectories: Sequence[LowLevelTrajectory], predicates: Set[Predicate],
+        env: "BehaviorEnv") -> List[GroundAtomTrajectory]:  # pragma: no cover
     """Apply all predicates to all trajectories in the dataset."""
     ground_atom_dataset = []
     for traj in trajectories:

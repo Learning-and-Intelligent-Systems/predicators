@@ -12,10 +12,10 @@ from typing import Dict, List, Optional, Set
 import dill as pkl
 from gym.spaces import Box
 
-from predicators.behavior_utils import behavior_utils
 from predicators import utils
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.behavior_utils import behavior_utils
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
@@ -108,11 +108,12 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
         else:
             # Apply predicates to data, producing a dataset of abstract states.
-            if CFG.env == "behavior":
+            if CFG.env == "behavior":  # pragma: no cover
                 env = get_or_create_env("behavior")
                 assert isinstance(env, BehaviorEnv)
-                ground_atom_dataset = behavior_utils.create_ground_atom_dataset_behavior(
-                    trajectories, self._get_current_predicates(), env)
+                ground_atom_dataset = \
+                    behavior_utils.create_ground_atom_dataset_behavior(
+                        trajectories, self._get_current_predicates(), env)
             else:
                 ground_atom_dataset = utils.create_ground_atom_dataset(
                     trajectories, self._get_current_predicates())
