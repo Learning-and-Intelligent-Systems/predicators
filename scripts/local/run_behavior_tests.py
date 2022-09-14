@@ -49,7 +49,7 @@ def _run_behavior_pickplaceopen_tests() -> None:
                             "--num_train_tasks 1 "
                             f"--num_test_tasks {NUM_TEST} "
                             f"--behavior_scene_name {scene} "
-                            f"--behavior_task_name {task} "
+                            f"--behavior_task_list \"[{task}]\" "
                             f"--seed {SEED} "
                             f"--offline_data_planning_timeout {TIMEOUT} "
                             f"--timeout {TIMEOUT} "

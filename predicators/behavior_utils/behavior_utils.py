@@ -477,6 +477,7 @@ def load_checkpoint_state(s: State,
         # we reset the env.
         frame_count = env.igibson_behavior_env.simulator.frame_count
         env.set_igibson_behavior_env(
+            task_num=env.task_num,
             task_instance_id=new_task_num_task_instance_id[1],
             seed=env.task_num_task_instance_id_to_igibson_seed[
                 new_task_num_task_instance_id])
@@ -485,10 +486,12 @@ def load_checkpoint_state(s: State,
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
         env.igibson_behavior_env.reset()
+    behavior_task_name = CFG.behavior_task_list[0] if len(
+        CFG.behavior_task_list) == 1 else "all"
     load_checkpoint(
         env.igibson_behavior_env.simulator,
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+        f"{behavior_task_name}__{CFG.num_train_tasks}__" +
         f"{CFG.seed}__{env.task_num}__{env.task_instance_id}",
         int(s.simulator_state.split("-")[2]))
     np.random.seed(env.task_num_task_instance_id_to_igibson_seed[

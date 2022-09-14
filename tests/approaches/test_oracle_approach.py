@@ -182,7 +182,7 @@ EXTRA_ARGS_ORACLE_APPROACH["behavior_tasks"] = [
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "behavior_scene_name": "Pomaria_1_int",
-        "behavior_task_name": "sorting_books",
+        "behavior_task_list": "\"[sorting_books]\"",
         "offline_data_planning_timeout": 30000.0,
     },
 ]

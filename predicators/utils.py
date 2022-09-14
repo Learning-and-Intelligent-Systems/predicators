@@ -1867,8 +1867,10 @@ def create_dataset_filename_str(
         suffix_str += "__ground_atoms"
     suffix_str += ".data"
     if CFG.env == "behavior":  # pragma: no cover
+        behavior_task_name = CFG.behavior_task_list[0] if len(
+            CFG.behavior_task_list) == 1 else "all"
         dataset_fname_template = (
-            f"{CFG.env}__{CFG.behavior_scene_name}__{CFG.behavior_task_name}" +
+            f"{CFG.env}__{CFG.behavior_scene_name}__{behavior_task_name}" +
             f"__{CFG.offline_data_method}__{CFG.demonstrator}__"
             f"{regex}__{CFG.included_options}__{CFG.seed}" + suffix_str)
     else:

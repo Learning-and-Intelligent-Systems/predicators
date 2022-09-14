@@ -3,6 +3,7 @@
 
 import functools
 import itertools
+import json
 import os
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
@@ -59,18 +60,47 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("BEHAVIOR is not installed.")
+        # Loads dictionary mapping tasks to vaild scenes in BEHAVIOR.
+        if len(CFG.behavior_task_list) != 1:
+            path_to_file = \
+                "predicators/behavior_utils/task_to_preselected_scenes.json"
+            with open(path_to_file, 'rb') as f:
+                self.task_to_preselected_scenes: Dict[str,
+                                                      List[str]] = json.load(f)
         # behavior_randomize_init_state will always be False in this
         # config_file because we are not using their scene samplers.
-        # We are loading pre-computed scenes.
-        self._config_file = modify_config_file(
-            os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_name, False)
+        # We are loading pre-computed scenes. Below we load either the
+        # pre-computed scene given by behavior_scene_name or randomly
+        # select a valid pre-computed scene.
+        if len(CFG.behavior_task_list) != 1:
+            assert CFG.behavior_scene_name == "all"
+            rng = np.random.default_rng(0)
+            self._config_file = modify_config_file(
+                os.path.join(igibson.root_path, CFG.behavior_config_file),
+                CFG.behavior_task_list[0],
+                self.get_random_scene_for_task(CFG.behavior_task_list[0],
+                                               rng), False)
+        else:
+            self._config_file = modify_config_file(
+                os.path.join(igibson.root_path, CFG.behavior_config_file),
+                CFG.behavior_task_list[0], CFG.behavior_scene_name, False)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.task_num = 0  # unique id to differentiate tasks
         self.task_instance_id = 0  # id used for scene
-        self.set_igibson_behavior_env(task_instance_id=self.task_instance_id,
+        if len(CFG.behavior_task_list) != 1:
+            self.task_list_indices = [
+                int(self._rng.integers(0, len(CFG.behavior_task_list)))
+                for _ in range(CFG.num_train_tasks + CFG.num_test_tasks)
+            ]
+            self.scene_list = [
+                self.get_random_scene_for_task(CFG.behavior_task_list[i],
+                                               self._rng)
+                for i in self.task_list_indices
+            ]
+        self.set_igibson_behavior_env(task_num=self.task_num,
+                                      task_instance_id=self.task_instance_id,
                                       seed=self._seed)
         self._type_name_to_type: Dict[str, Type] = {}
         # a map between task nums and the snapshot id for saving/loading
@@ -146,6 +176,24 @@ class BehaviorEnv(BaseEnv):
                 )
                 self._options.add(option)
 
+    def set_config_by_task_num(self, task_num: int) -> None:
+        """A method that changes BEHAVIORs config_file.
+
+        Necessary when loading in an environment with different task or scene,
+        which is used when running our BEHAVIOR all environments option.
+        Note: This requires a behavior_task_list of tasks.
+        """
+        task_index = self.task_list_indices[task_num]
+        self._config_file = modify_config_file(
+            os.path.join(igibson.root_path, CFG.behavior_config_file),
+            CFG.behavior_task_list[task_index], self.scene_list[task_num],
+            False)
+
+    def get_random_scene_for_task(self, behavior_task_name: str,
+                                  rng: Generator) -> str:
+        """A method that gets a valid random scene for a BEHAVIOR Task."""
+        return rng.choice(self.task_to_preselected_scenes[behavior_task_name])
+
     @classmethod
     def get_name(cls) -> str:
         return "behavior"
@@ -216,14 +264,20 @@ class BehaviorEnv(BaseEnv):
                     self.task_instance_id = rng.integers(10, 20)
                 else:
                     self.task_instance_id = rng.integers(0, 10)
+                if len(CFG.behavior_task_list) != 1:
+                    self.set_config_by_task_num(self.task_num)
                 self.set_igibson_behavior_env(
-                    task_instance_id=self.task_instance_id, seed=curr_env_seed)
+                    task_num=self.task_num,
+                    task_instance_id=self.task_instance_id,
+                    seed=curr_env_seed)
                 self.set_options()
             self.igibson_behavior_env.reset()
             self.task_num_task_instance_id_to_igibson_seed[(
                 self.task_num, self.task_instance_id)] = curr_env_seed
+            behavior_task_name = CFG.behavior_task_list[0] if len(
+                CFG.behavior_task_list) == 1 else "all"
             os.makedirs(f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                        f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                        f"{behavior_task_name}__{CFG.num_train_tasks}__" +
                         f"{CFG.seed}__{self.task_num}__" +
                         f"{self.task_instance_id}",
                         exist_ok=True)
@@ -409,7 +463,7 @@ class BehaviorEnv(BaseEnv):
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
         return list(self.igibson_behavior_env.task.object_scope.values())
 
-    def set_igibson_behavior_env(self, task_instance_id: int,
+    def set_igibson_behavior_env(self, task_num: int, task_instance_id: int,
                                  seed: int) -> None:
         """Sets/resets the igibson_behavior_env."""
         np.random.seed(seed)
@@ -419,6 +473,8 @@ class BehaviorEnv(BaseEnv):
         # iGibson env may fail and we need to keep trying until
         # ig_objs_bddl_scope doesn't contain any None's
         while True:
+            if len(CFG.behavior_task_list) != 1:
+                self.set_config_by_task_num(task_num)
             self.igibson_behavior_env = behavior_env.BehaviorEnv(
                 config_file=self._config_file,
                 mode=CFG.behavior_mode,
@@ -504,10 +560,12 @@ class BehaviorEnv(BaseEnv):
         # save_state was set to False!
         simulator_state = None
         if save_state:
+            behavior_task_name = CFG.behavior_task_list[0] if len(
+                CFG.behavior_task_list) == 1 else "all"
             simulator_state = save_checkpoint(
                 self.igibson_behavior_env.simulator,
                 f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
-                f"{CFG.behavior_task_name}__{CFG.num_train_tasks}__" +
+                f"{behavior_task_name}__{CFG.num_train_tasks}__" +
                 f"{CFG.seed}__{self.task_num}__" + f"{self.task_instance_id}/")
         return utils.BehaviorState(
             state_data,
