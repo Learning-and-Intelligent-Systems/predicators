@@ -153,7 +153,9 @@ def test_learned_sampler_with_goal():
                                      max_train_iters=10,
                                      learning_rate=1e-3,
                                      n_iter_no_change=1000000,
-                                     hid_sizes=[32, 32])
+                                     hid_sizes=[32, 32],
+                                     n_reinitialize_tries=1,
+                                     weight_init="default")
 
     input_size = 11
     output_size = 2

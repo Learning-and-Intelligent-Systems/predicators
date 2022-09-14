@@ -414,7 +414,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 max_train_iters=self._max_train_iters,
                 dataset_size=X.shape[0],
                 n_iter_no_change=self._n_iter_no_change)
-            if best_loss < 1:  # TODO
+            if best_loss < 1:
                 break  # success!
         else:
             raise RuntimeError(f"Failed to converge within "

@@ -161,7 +161,9 @@ def test_mlp_classifier():
                                 max_train_iters=100,
                                 learning_rate=1e-3,
                                 n_iter_no_change=1000000,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
@@ -176,7 +178,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-2,
                                 n_iter_no_change=1,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     model.fit(X, y)
     assert time.time() - start_time < 3, "Didn't early stop"
     # Test with no positive examples.
@@ -191,7 +195,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     start_time = time.time()
     model.fit(X, y)
     assert time.time() - start_time < 1, "Fitting was not instantaneous"
@@ -206,7 +212,9 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     start_time = time.time()
     model.fit(X, y)
     assert time.time() - start_time < 1, "Fitting was not instantaneous"
