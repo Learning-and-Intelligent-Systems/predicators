@@ -243,7 +243,9 @@ def test_binary_classifier_ensemble():
                                      max_train_iters=100,
                                      learning_rate=1e-3,
                                      n_iter_no_change=1000000,
-                                     hid_sizes=[32, 32])
+                                     hid_sizes=[32, 32],
+                                     n_reinitialize_tries=1,
+                                     weight_init="default")
     model.fit(X, y)
     with pytest.raises(Exception) as e:
         model.predict_proba(np.zeros(input_size))
