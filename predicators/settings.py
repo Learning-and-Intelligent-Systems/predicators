@@ -335,6 +335,7 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_mlp_classifier_n_reinitialize_tries = 1
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
     sampler_learning_regressor_model = "neural_gaussian"
@@ -349,6 +350,8 @@ class GlobalSettings:
     interactive_num_requests_per_cycle = 10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 100000
+    predicate_mlp_classifier_n_reinitialize_tries = 1
+    predicate_mlp_classifier_init = "default"  # or "normal"
     predicate_knn_classifier_n_neighbors = 1
 
     # online NSRT learning parameters

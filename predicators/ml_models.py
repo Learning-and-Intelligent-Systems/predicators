@@ -336,13 +336,16 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def __init__(self, seed: int, balance_data: bool,
                  max_train_iters: MaxTrainIters, learning_rate: float,
-                 n_iter_no_change: int) -> None:
+                 n_iter_no_change: int, n_reinitialize_tries: int,
+                 weight_init: str) -> None:
         torch.manual_seed(seed)
         _NormalizingBinaryClassifier.__init__(self, seed, balance_data)
         nn.Module.__init__(self)  # type: ignore
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
         self._n_iter_no_change = n_iter_no_change
+        self._n_reinitialize_tries = n_reinitialize_tries
+        self._weight_init = weight_init
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -370,26 +373,52 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
         return optim.Adam(self.parameters(), lr=self._learning_rate)
+    
+    def _reset_weights(self) -> None:
+        """(Re-)initialize the network weights."""
+        self.apply(lambda m: self._weight_reset(m, self._weight_init))
+
+    @staticmethod
+    def _weight_reset(m: torch.nn.Module, weight_init: str) -> None:
+        if isinstance(m, nn.Linear):
+            if weight_init == "default":
+                m.reset_parameters()
+            elif weight_init == "normal":
+                torch.nn.init.normal_(m.weight, std=1.0)
+            else:
+                raise NotImplementedError(
+                    f"{weight_init} weight initialization"
+                    " unknown")
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
         # Create the loss function.
         loss_fn = self._create_loss_fn()
-        # Create the optimizer.
-        optimizer = self._create_optimizer()
         # Convert data to tensors.
         tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
         tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
-        _train_pytorch_model(self,
-                             loss_fn,
-                             optimizer,
-                             batch_generator,
-                             max_train_iters=self._max_train_iters,
-                             dataset_size=X.shape[0],
-                             n_iter_no_change=self._n_iter_no_change)
+        for _ in range(self._n_reinitialize_tries):
+            # (Re-)initialize weights.
+            self._reset_weights()
+            # Create the optimizer.
+            optimizer = self._create_optimizer()
+            # Run training.
+            best_loss = _train_pytorch_model(
+                self,
+                loss_fn,
+                optimizer,
+                batch_generator,
+                max_train_iters=self._max_train_iters,
+                dataset_size=X.shape[0],
+                n_iter_no_change=self._n_iter_no_change)
+            if best_loss < 1:  # TODO
+                break  # success!
+        else:
+            raise RuntimeError(f"Failed to converge within "
+                               f"{self._n_reinitialize_tries} tries")
 
     def _forward_single_input_np(self, x: Array) -> float:
         """Helper for _classify() and predict_proba()."""
@@ -816,9 +845,10 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
 
     def __init__(self, seed: int, balance_data: bool,
                  max_train_iters: MaxTrainIters, learning_rate: float,
-                 n_iter_no_change: int, hid_sizes: List[int]) -> None:
+                 n_iter_no_change: int, hid_sizes: List[int],
+                 n_reinitialize_tries: int, weight_init: str) -> None:
         super().__init__(seed, balance_data, max_train_iters, learning_rate,
-                         n_iter_no_change)
+                         n_iter_no_change, n_reinitialize_tries, weight_init)
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
@@ -829,6 +859,7 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
             self._linears.append(
                 nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
         self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
+        self._reset_weights()
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCELoss()
@@ -939,7 +970,7 @@ def _train_pytorch_model(model: nn.Module,
                          print_every: int = 1000,
                          clip_gradients: bool = False,
                          clip_value: float = 5,
-                         n_iter_no_change: int = 10000000) -> None:
+                         n_iter_no_change: int = 10000000) -> float:
     """Note that this currently does not use minibatches.
 
     In the future, with very large datasets, we would want to switch to
@@ -982,3 +1013,4 @@ def _train_pytorch_model(model: nn.Module,
     os.remove(model_name)
     model.eval()
     logging.info(f"Loaded best model with loss: {best_loss:.5f}")
+    return best_loss
