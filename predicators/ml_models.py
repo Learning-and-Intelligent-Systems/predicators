@@ -373,7 +373,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
         return optim.Adam(self.parameters(), lr=self._learning_rate)
-    
+
     def _reset_weights(self) -> None:
         """(Re-)initialize the network weights."""
         self.apply(lambda m: self._weight_reset(m, self._weight_init))
