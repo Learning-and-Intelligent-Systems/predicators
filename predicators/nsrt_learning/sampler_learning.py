@@ -163,7 +163,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         max_train_iters=CFG.sampler_mlp_classifier_max_itr,
         learning_rate=CFG.learning_rate,
         n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-        hid_sizes=CFG.mlp_classifier_hid_sizes)
+        hid_sizes=CFG.mlp_classifier_hid_sizes,
+        n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+        weight_init="default")
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
