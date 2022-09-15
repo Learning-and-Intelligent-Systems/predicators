@@ -61,32 +61,32 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Main Approaches in CoverEnv Excluding Covers,Holding": [
-        ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("Main (MLP)", "orange",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
-    ],
-    "Query Baselines in CoverEnv Excluding Covers,Holding": [
-        ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
-        ("Ask All", "green",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
-        ("Ask None", "red",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
-        ("Ask Randomly", "purple",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
-    ],
-    "Action Baselines in CoverEnv Excluding Covers,Holding": [
+    # "Main Approaches in CoverEnv Excluding Covers,Holding": [
+    #     # ("Main (Ensemble)", "blue",
+    #     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+    #     # ("Main (MLP)", "orange",
+    #     #  lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
+    # ],
+    # "Query Baselines in CoverEnv Excluding Covers,Holding": [
+    #     ("Main (Entropy)", "blue",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+    #     ("Ask All", "green",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
+    #     ("Ask None", "red",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
+    #     ("Ask Randomly", "purple",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
+    # ],
+    "Action Baselines in CoverEnv Excluding Covers,Holding using Normal(0, 1) Weight Init": [
         ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main-normal")),
         ("GLIB", "turquoise",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
-        ("Random Actions", "brown",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
-         ),
-        ("No Actions", "gold",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-glib-normal")),
+    #     ("Random Actions", "brown",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
+    #      ),
+    #     ("No Actions", "gold",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
     ],
 }
 
