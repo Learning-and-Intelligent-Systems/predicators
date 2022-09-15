@@ -44,6 +44,12 @@ APPROACHES:
   #   NAME: "interactive_learning"
   #   FLAGS:
   #     explorer: "glib"
+  glib-normal:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "glib"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
   # random-actions:
   #   NAME: "interactive_learning"
   #   FLAGS:
