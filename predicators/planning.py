@@ -484,7 +484,7 @@ def _skeleton_generator(
                 "Planning reached max_skeletons_optimized!")
         if alternator%2 == 0:
             _, _, node = hq.heappop(queue)
-        else:
+        elif len(policy_queue) != 0:
             _, _, node = hq.heappop(policy_queue)
         if use_visited_state_set:
             frozen_atoms = frozenset(node.atoms)
@@ -537,7 +537,7 @@ def _skeleton_generator(
                     atoms=policy_child_atoms,
                     skeleton=child_skeleton,
                     atoms_sequence=current_node.atoms_sequence +
-                    [child_atoms],
+                    [policy_child_atoms],
                     parent=current_node,
                     cumulative_cost=child_cost)
                 metrics["num_nodes_created"] += 1
@@ -581,6 +581,7 @@ def _skeleton_generator(
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
                     break
+            alternator += 1
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
