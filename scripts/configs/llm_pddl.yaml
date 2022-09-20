@@ -115,5 +115,6 @@ FLAGS:
   llm_model_name: "text-davinci-002"
   sesame_use_visited_state_set: True  # because envs are PDDL-only
   llm_use_cache_only: True  # because we already ran experiments once
+USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 5
