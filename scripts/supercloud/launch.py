@@ -56,10 +56,10 @@ def _launch_experiments(config_file: str) -> None:
         cmd_flags = config_to_cmd_flags(cfg)
         log_dir = "logs"
         log_prefix = config_to_logfile(cfg, suffix="")
-        import ipdb; ipdb.set_trace()
         # Launch a job for this experiment.
         submit_supercloud_job(cfg.experiment_id, log_dir, log_prefix,
-                              cmd_flags, cfg.start_seed, cfg.num_seeds)
+                              cmd_flags, cfg.start_seed, cfg.num_seeds,
+                              cfg.flags['use_gpu'])
 
 
 if __name__ == "__main__":

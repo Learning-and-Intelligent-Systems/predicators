@@ -23,9 +23,13 @@ def _run() -> None:
                                  args_and_flags_str, START_SEED, NUM_SEEDS)
 
 
-def submit_supercloud_job(job_name: str, log_dir: str, logfile_prefix: str,
-                          args_and_flags_str: str, start_seed: int,
-                          num_seeds: int, use_gpu: bool = False) -> None:
+def submit_supercloud_job(job_name: str,
+                          log_dir: str,
+                          logfile_prefix: str,
+                          args_and_flags_str: str,
+                          start_seed: int,
+                          num_seeds: int,
+                          use_gpu: bool = False) -> None:
     """Launch the supercloud job."""
     os.makedirs(log_dir, exist_ok=True)
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
