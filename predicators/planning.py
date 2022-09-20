@@ -14,7 +14,7 @@ import sys
 import tempfile
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import islice
 from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
     Tuple
@@ -41,7 +41,7 @@ class _Node:
     atoms_sequence: List[Set[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
     cumulative_cost: float
-
+    source_skeleton: List[src] = field(default_factory = [])
 
 def sesame_plan(
         task: Task,
@@ -279,156 +279,7 @@ def task_plan(
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
         yield skeleton, atoms_sequence, metrics.copy()
 
-# """Approach 1: Policy Look ahead"""
-# def _skeleton_generator(
-#     task: Task,
-#     ground_nsrts: List[_GroundNSRT],
-#     init_atoms: Set[GroundAtom],
-#     heuristic: _TaskPlanningHeuristic,
-#     seed: int,
-#     timeout: float,
-#     metrics: Metrics,
-#     max_skeletons_optimized: int,
-#     abstract_policy: Optional[AbstractPolicy] = None,
-#     sesame_max_policy_guided_rollout: int = 0,
-#     use_visited_state_set: bool = False
-# ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
-#     """A* search over skeletons (sequences of ground NSRTs).
-#     Iterates over pairs of (skeleton, atoms sequence).
-#
-#     Note that we can't use utils.run_astar() here because we want to
-#     yield multiple skeletons, whereas that utility method returns only
-#     a single solution. Furthermore, it's easier to track and update our
-#     metrics dictionary if we re-implement the search here. If
-#     use_visited_state_set is False (which is the default), then we may revisit
-#     the same abstract states multiple times, unlike in typical A*. See
-#     Issue #1117 for a discussion on why this is False by default.
-#     """
-#
-#     start_time = time.time()
-#     current_objects = set(task.init)
-#     queue: List[Tuple[float, float, _Node]] = []
-#     root_node = _Node(atoms=init_atoms,
-#                       skeleton=[],
-#                       atoms_sequence=[init_atoms],
-#                       parent=None,
-#                       cumulative_cost=0)
-#     metrics["num_nodes_created"] += 1
-#     rng_prio = np.random.default_rng(seed)
-#     hq.heappush(queue,
-#                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
-#     # Initialize with empty skeleton for root.
-#     # We want to keep track of the visited skeletons so that we avoid
-#     # repeatedly outputting the same faulty skeletons.
-#     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
-#     visited_skeletons.add(tuple(root_node.skeleton))
-#     if use_visited_state_set:
-#         # This set will maintain (frozen) atom sets that have been fully
-#         # expanded already, and ensure that we never expand redundantly.
-#         visited_atom_sets = set()
-#     # Start search.
-#     while queue and (time.time() - start_time < timeout):
-#         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
-#             raise _MaxSkeletonsFailure(
-#                 "Planning reached max_skeletons_optimized!")
-#         _, _, node = hq.heappop(queue)
-#         if use_visited_state_set:
-#             frozen_atoms = frozenset(node.atoms)
-#             visited_atom_sets.add(frozen_atoms)
-#         # If an abstract policy is provided, look ahead with policy for each
-#         # node that is popped from queue
-#         if abstract_policy is not None and len(queue)!=0:
-#             current_node = node
-#             for _ in range(sesame_max_policy_guided_rollout):
-#                 if task.goal.issubset(current_node.atoms):
-#                     yield current_node.skeleton, current_node.atoms_sequence
-#                     break
-#                 ground_nsrt = abstract_policy(current_node.atoms,
-#                                               current_objects, task.goal)
-#                 if ground_nsrt is None:
-#                     break
-#                 # Make sure ground_nsrt is applicable.
-#                 if not ground_nsrt.preconditions.issubset(
-#                         current_node.atoms):
-#                     break
-#                 child_atoms = utils.apply_operator(ground_nsrt,
-#                                                    set(current_node.atoms))
-#                 child_skeleton = current_node.skeleton + [ground_nsrt]
-#                 child_skeleton_tup = tuple(child_skeleton)
-#                 if child_skeleton_tup in visited_skeletons:
-#                     continue
-#                 visited_skeletons.add(child_skeleton_tup)
-#                 # Note: the cost of taking a policy-generated action is 1,
-#                 # but the policy-generated skeleton is immediately yielded
-#                 # once it reaches a goal. This allows the planner to always
-#                 # trust the policy first, but it also allows us to yield a
-#                 # policy-generated plan without waiting to exhaustively
-#                 # rule out the possibility that some other primitive plans
-#                 # are actually lower cost.
-#                 child_cost = 1 + current_node.cumulative_cost
-#                 child_node = _Node(
-#                     atoms=child_atoms,
-#                     skeleton=child_skeleton,
-#                     atoms_sequence=current_node.atoms_sequence +
-#                     [child_atoms],
-#                     parent=current_node,
-#                     cumulative_cost=child_cost)
-#                 metrics["num_nodes_created"] += 1
-#                 # priority is g [cost] plus h [heuristic]
-#                 priority = (child_node.cumulative_cost +
-#                             heuristic(child_node.atoms))
-#                 hq.heappush(queue,
-#                             (priority, rng_prio.uniform(), child_node))
-#                 current_node = child_node
-#                 if time.time() - start_time >= timeout:
-#                     break
-#         # Good debug point #1: print out the skeleton here to see what
-#         # the high-level search is doing. You can accomplish this via:
-#         # for act in node.skeleton:
-#         #     logging.info(f"{act.name} {act.objects}")
-#         # logging.info("")
-#         if task.goal.issubset(node.atoms):
-#             # If this skeleton satisfies the goal, yield it.
-#             metrics["num_skeletons_optimized"] += 1
-#             yield node.skeleton, node.atoms_sequence
-#         else:
-#             # Generate successors.
-#             metrics["num_nodes_expanded"] += 1
-#
-#             # Generate primitive successors.
-#             for nsrt in utils.get_applicable_operators(ground_nsrts,
-#                                                        node.atoms):
-#                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
-#                 if use_visited_state_set:
-#                     frozen_atoms = frozenset(child_atoms)
-#                     if frozen_atoms in visited_atom_sets:
-#                         continue
-#                 child_skeleton = node.skeleton + [nsrt]
-#                 child_skeleton_tup = tuple(child_skeleton)
-#                 if child_skeleton_tup in visited_skeletons:
-#                     continue
-#                 visited_skeletons.add(child_skeleton_tup)
-#                 # Action costs are unitary.
-#                 child_cost = node.cumulative_cost + 1.0
-#                 child_node = _Node(atoms=child_atoms,
-#                                    skeleton=child_skeleton,
-#                                    atoms_sequence=node.atoms_sequence +
-#                                    [child_atoms],
-#                                    parent=node,
-#                                    cumulative_cost=child_cost)
-#                 metrics["num_nodes_created"] += 1
-#                 # priority is g [cost] plus h [heuristic]
-#                 priority = (child_node.cumulative_cost +
-#                             heuristic(child_node.atoms))
-#                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
-#                 if time.time() - start_time >= timeout:
-#                     break
-#     if not queue:
-#         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
-#     assert time.time() - start_time >= timeout
-#     raise _SkeletonSearchTimeout
-
-"""Approach 2: Alternate between policy and primitive successors"""
+"""Approach 1: Policy Look ahead"""
 def _skeleton_generator(
     task: Task,
     ground_nsrts: List[_GroundNSRT],
@@ -456,14 +307,13 @@ def _skeleton_generator(
 
     start_time = time.time()
     current_objects = set(task.init)
-    alternator = 0
     queue: List[Tuple[float, float, _Node]] = []
-    policy_queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
                       skeleton=[],
                       atoms_sequence=[init_atoms],
                       parent=None,
-                      cumulative_cost=0)
+                      cumulative_cost=0,
+                       source_skeleton = [])
     metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
@@ -482,32 +332,19 @@ def _skeleton_generator(
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
-        if alternator%2 == 0:
-            _, _, node = hq.heappop(queue)
-        elif len(policy_queue) != 0:
-            _, _, node = hq.heappop(policy_queue)
+        _, _, node = hq.heappop(queue)
         if use_visited_state_set:
             frozen_atoms = frozenset(node.atoms)
             visited_atom_sets.add(frozen_atoms)
-        # Good debug point #1: print out the skeleton here to see what
-        # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
-        if task.goal.issubset(node.atoms):
-            # If this skeleton satisfies the goal, yield it.
-            metrics["num_skeletons_optimized"] += 1
-            yield node.skeleton, node.atoms_sequence
-        else:
-            # Generate successors.
-            metrics["num_nodes_expanded"] += 1
-            policy_child_atoms = None
-            # If an abstract policy is provided, generate policy successor for each
-            # node that is popped from queue
-            if abstract_policy is not None:
-                current_node = node
-
+        # If an abstract policy is provided, look ahead with policy for each
+        # node that is popped from queue
+        if abstract_policy is not None and len(queue)!=0:
+            current_node = node
+            for _ in range(sesame_max_policy_guided_rollout):
                 if task.goal.issubset(current_node.atoms):
+                    # for act in current_node.source_skeleton:
+                    #     logging.info(f"{act}")
+                    # logging.info("")
                     yield current_node.skeleton, current_node.atoms_sequence
                     break
                 ground_nsrt = abstract_policy(current_node.atoms,
@@ -518,7 +355,7 @@ def _skeleton_generator(
                 if not ground_nsrt.preconditions.issubset(
                         current_node.atoms):
                     break
-                policy_child_atoms = utils.apply_operator(ground_nsrt,
+                child_atoms = utils.apply_operator(ground_nsrt,
                                                    set(current_node.atoms))
                 child_skeleton = current_node.skeleton + [ground_nsrt]
                 child_skeleton_tup = tuple(child_skeleton)
@@ -534,29 +371,40 @@ def _skeleton_generator(
                 # are actually lower cost.
                 child_cost = 1 + current_node.cumulative_cost
                 child_node = _Node(
-                    atoms=policy_child_atoms,
+                    atoms=child_atoms,
                     skeleton=child_skeleton,
                     atoms_sequence=current_node.atoms_sequence +
-                    [policy_child_atoms],
+                    [child_atoms],
                     parent=current_node,
-                    cumulative_cost=child_cost)
+                    cumulative_cost=child_cost,
+                    source_skeleton = current_node.source_skeleton+["Policy"])
                 metrics["num_nodes_created"] += 1
                 # priority is g [cost] plus h [heuristic]
                 priority = (child_node.cumulative_cost +
                             heuristic(child_node.atoms))
-                hq.heappush(queue,
-                            (priority, rng_prio.uniform(), child_node))
-                hq.heappush(policy_queue,
-                            (priority, rng_prio.uniform(), child_node))
+                current_node = child_node
                 if time.time() - start_time >= timeout:
                     break
+        # Good debug point #1: print out the skeleton here to see what
+        # the high-level search is doing. You can accomplish this via:
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
+        if task.goal.issubset(node.atoms):
+            # If this skeleton satisfies the goal, yield it.
+            metrics["num_skeletons_optimized"] += 1
+            # for act in node.source_skeleton:
+            #     logging.info(f"{act}")
+            # logging.info("")
+            yield node.skeleton, node.atoms_sequence
+        else:
+            # Generate successors.
+            metrics["num_nodes_expanded"] += 1
+
             # Generate primitive successors.
             for nsrt in utils.get_applicable_operators(ground_nsrts,
                                                        node.atoms):
-                primitive_child_atoms = utils.apply_operator(nsrt,
-                                        set(node.atoms))
-                if primitive_child_atoms == policy_child_atoms:
-                    break
+                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 if use_visited_state_set:
                     frozen_atoms = frozenset(child_atoms)
                     if frozen_atoms in visited_atom_sets:
@@ -568,12 +416,13 @@ def _skeleton_generator(
                 visited_skeletons.add(child_skeleton_tup)
                 # Action costs are unitary.
                 child_cost = node.cumulative_cost + 1.0
-                child_node = _Node(atoms=primitive_child_atoms,
+                child_node = _Node(atoms=child_atoms,
                                    skeleton=child_skeleton,
                                    atoms_sequence=node.atoms_sequence +
-                                   [primitive_child_atoms],
+                                   [child_atoms],
                                    parent=node,
-                                   cumulative_cost=child_cost)
+                                   cumulative_cost=child_cost,
+                                   source_skeleton = node.source_skeleton + ["Primitive"])
                 metrics["num_nodes_created"] += 1
                 # priority is g [cost] plus h [heuristic]
                 priority = (child_node.cumulative_cost +
@@ -581,11 +430,170 @@ def _skeleton_generator(
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
                 if time.time() - start_time >= timeout:
                     break
-            alternator += 1
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
     raise _SkeletonSearchTimeout
+
+# """Approach 2: Alternate between policy and primitive successors"""
+# def _skeleton_generator(
+#     task: Task,
+#     ground_nsrts: List[_GroundNSRT],
+#     init_atoms: Set[GroundAtom],
+#     heuristic: _TaskPlanningHeuristic,
+#     seed: int,
+#     timeout: float,
+#     metrics: Metrics,
+#     max_skeletons_optimized: int,
+#     abstract_policy: Optional[AbstractPolicy] = None,
+#     sesame_max_policy_guided_rollout: int = 0,
+#     use_visited_state_set: bool = False
+# ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
+#     """A* search over skeletons (sequences of ground NSRTs).
+#     Iterates over pairs of (skeleton, atoms sequence).
+#
+#     Note that we can't use utils.run_astar() here because we want to
+#     yield multiple skeletons, whereas that utility method returns only
+#     a single solution. Furthermore, it's easier to track and update our
+#     metrics dictionary if we re-implement the search here. If
+#     use_visited_state_set is False (which is the default), then we may revisit
+#     the same abstract states multiple times, unlike in typical A*. See
+#     Issue #1117 for a discussion on why this is False by default.
+#     """
+#
+#     start_time = time.time()
+#     current_objects = set(task.init)
+#     alternator = 0
+#     queue: List[Tuple[float, float, _Node]] = []
+#     policy_queue: List[Tuple[float, float, _Node]] = []
+#     root_node = _Node(atoms=init_atoms,
+#                       skeleton=[],
+#                       atoms_sequence=[init_atoms],
+#                       parent=None,
+#                       cumulative_cost=0, source_skeleton=[])
+#     metrics["num_nodes_created"] += 1
+#     rng_prio = np.random.default_rng(seed)
+#     hq.heappush(queue,
+#                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
+#     # Initialize with empty skeleton for root.
+#     # We want to keep track of the visited skeletons so that we avoid
+#     # repeatedly outputting the same faulty skeletons.
+#     visited_skeletons: Set[Tuple[_GroundNSRT, ...]] = set()
+#     visited_skeletons.add(tuple(root_node.skeleton))
+#     if use_visited_state_set:
+#         # This set will maintain (frozen) atom sets that have been fully
+#         # expanded already, and ensure that we never expand redundantly.
+#         visited_atom_sets = set()
+#     # Start search.
+#     while queue and (time.time() - start_time < timeout):
+#         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
+#             raise _MaxSkeletonsFailure(
+#                 "Planning reached max_skeletons_optimized!")
+#         if alternator%2 == 0:
+#             _, _, node = hq.heappop(queue)
+#         elif len(policy_queue) != 0:
+#             _, _, node = hq.heappop(policy_queue)
+#         if use_visited_state_set:
+#             frozen_atoms = frozenset(node.atoms)
+#             visited_atom_sets.add(frozen_atoms)
+#         # Good debug point #1: print out the skeleton here to see what
+#         # the high-level search is doing. You can accomplish this via:
+#         # for act in node.skeleton:
+#         #     logging.info(f"{act.name} {act.objects}")
+#         # logging.info("")
+#         if task.goal.issubset(node.atoms):
+#             # If this skeleton satisfies the goal, yield it.
+#             metrics["num_skeletons_optimized"] += 1
+#             for act in node.source_skeleton:
+#                 logging.info(f"{act}")
+#             logging.info("")
+#             yield node.skeleton, node.atoms_sequence
+#         else:
+#             # Generate successors.
+#             metrics["num_nodes_expanded"] += 1
+#             policy_child_atoms = None
+#             # If an abstract policy is provided, generate policy successor for each
+#             # node that is popped from queue
+#             if abstract_policy is not None:
+#                 current_node = node
+#                 ground_nsrt = abstract_policy(current_node.atoms,
+#                                               current_objects, task.goal)
+#                 if ground_nsrt is None:
+#                     break
+#                 # Make sure ground_nsrt is applicable.
+#                 if not ground_nsrt.preconditions.issubset(
+#                         current_node.atoms):
+#                     break
+#                 policy_child_atoms = utils.apply_operator(ground_nsrt,
+#                                                    set(current_node.atoms))
+#                 child_skeleton = current_node.skeleton + [ground_nsrt]
+#                 child_skeleton_tup = tuple(child_skeleton)
+#                 if child_skeleton_tup in visited_skeletons:
+#                     continue
+#                 visited_skeletons.add(child_skeleton_tup)
+#                 # Note: the cost of taking a policy-generated action is 1,
+#                 # but the policy-generated skeleton is immediately yielded
+#                 # once it reaches a goal. This allows the planner to always
+#                 # trust the policy first, but it also allows us to yield a
+#                 # policy-generated plan without waiting to exhaustively
+#                 # rule out the possibility that some other primitive plans
+#                 # are actually lower cost.
+#                 child_cost = 1 + current_node.cumulative_cost
+#                 child_node = _Node(
+#                     atoms=policy_child_atoms,
+#                     skeleton=child_skeleton,
+#                     atoms_sequence=current_node.atoms_sequence +
+#                     [policy_child_atoms],
+#                     parent=current_node,
+#                     cumulative_cost=child_cost,
+#                     source_skeleton = current_node.source_skeleton + ["Policy"])
+#                 metrics["num_nodes_created"] += 1
+#                 # priority is g [cost] plus h [heuristic]
+#                 priority = (child_node.cumulative_cost +
+#                             heuristic(child_node.atoms))
+#                 hq.heappush(queue,
+#                             (priority, rng_prio.uniform(), child_node))
+#                 hq.heappush(policy_queue,
+#                             (priority, rng_prio.uniform(), child_node))
+#                 if time.time() - start_time >= timeout:
+#                     break
+#             # Generate primitive successors.
+#             for nsrt in utils.get_applicable_operators(ground_nsrts,
+#                                                        node.atoms):
+#                 primitive_child_atoms = utils.apply_operator(nsrt,
+#                                         set(node.atoms))
+#                 if primitive_child_atoms == policy_child_atoms:
+#                     break
+#                 if use_visited_state_set:
+#                     frozen_atoms = frozenset(child_atoms)
+#                     if frozen_atoms in visited_atom_sets:
+#                         continue
+#                 child_skeleton = node.skeleton + [nsrt]
+#                 child_skeleton_tup = tuple(child_skeleton)
+#                 if child_skeleton_tup in visited_skeletons:
+#                     continue
+#                 visited_skeletons.add(child_skeleton_tup)
+#                 # Action costs are unitary.
+#                 child_cost = node.cumulative_cost + 1.0
+#                 child_node = _Node(atoms=primitive_child_atoms,
+#                                    skeleton=child_skeleton,
+#                                    atoms_sequence=node.atoms_sequence +
+#                                    [primitive_child_atoms],
+#                                    parent=node,
+#                                    cumulative_cost=child_cost,
+#                                    source_skeleton = node.source_skeleton + ["Primitive"])
+#                 metrics["num_nodes_created"] += 1
+#                 # priority is g [cost] plus h [heuristic]
+#                 priority = (child_node.cumulative_cost +
+#                             heuristic(child_node.atoms))
+#                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
+#                 if time.time() - start_time >= timeout:
+#                     break
+#             alternator += 1
+#     if not queue:
+#         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
+#     assert time.time() - start_time >= timeout
+#     raise _SkeletonSearchTimeout
 
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          skeleton: List[_GroundNSRT],
