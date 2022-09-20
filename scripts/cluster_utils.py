@@ -85,7 +85,10 @@ def generate_run_configs(config_filename: str,
         num_seeds = config["NUM_SEEDS"]
         args = config["ARGS"]
         flags = config["FLAGS"]
-        use_gpu = config["USE_GPU"]
+        if "USE_GPU" in config.keys():
+            use_gpu = config["USE_GPU"]
+        else:
+            use_gpu = False
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
             approach = approach_config["NAME"]
