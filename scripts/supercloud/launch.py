@@ -59,7 +59,7 @@ def _launch_experiments(config_file: str) -> None:
         # Launch a job for this experiment.
         submit_supercloud_job(cfg.experiment_id, log_dir, log_prefix,
                               cmd_flags, cfg.start_seed, cfg.num_seeds,
-                              cfg.flags['use_gpu'])
+                              cfg.use_gpu)
 
 
 if __name__ == "__main__":

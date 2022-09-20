@@ -20,6 +20,7 @@ class RunConfig:
     env: str
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
+    use_gpu: bool  # e.g. --use_gpu True
 
     def __post_init__(self) -> None:
         # For simplicity, disallow overrides of the SAVE_DIRS.
