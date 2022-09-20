@@ -58,6 +58,5 @@ FLAGS:  # common args
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
-USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 10

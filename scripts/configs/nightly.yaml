@@ -34,7 +34,6 @@ ENVS:
     FLAGS: {}
 ARGS: []
 FLAGS: {}
-USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 10
 ...
@@ -60,7 +59,6 @@ ENVS:
       min_perc_data_for_nsrt: 1  # requires filtering (default is 0)
 ARGS: []
 FLAGS: {}
-USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 10
 ...
@@ -93,7 +91,6 @@ ARGS: []
 FLAGS:
   num_train_tasks: 1000  # more train tasks (default is 50)
   timeout: 300  # more time (default is 10)
-USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 10
 ...

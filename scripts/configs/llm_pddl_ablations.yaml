@@ -35,6 +35,5 @@ FLAGS:
   timeout: 100
   llm_model_name: "text-davinci-002"
   llm_use_cache_only: False  # change to true to rerun
-USE_GPU: False
 START_SEED: 456
 NUM_SEEDS: 5
