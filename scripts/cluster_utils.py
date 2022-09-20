@@ -99,14 +99,15 @@ def generate_run_configs(config_filename: str,
                 run_flags.update(env_config["FLAGS"])
                 # Loop or batch over seeds.
                 if batch_seeds:
-                    yield BatchSeedRunConfig(experiment_id,
-                                             approach, env, args,
-                                             run_flags.copy(), use_gpu, start_seed,
-                                             num_seeds)
+                    yield BatchSeedRunConfig(experiment_id, approach, env,
+                                             args, run_flags.copy(), use_gpu,
+                                             start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id, approach, env,
-                                                  args, run_flags.copy(), use_gpu, seed)
+                        yield SingleSeedRunConfig(experiment_id,
+                                                  approach, env, args,
+                                                  run_flags.copy(), use_gpu,
+                                                  seed)
 
 
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
