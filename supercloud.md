@@ -17,20 +17,20 @@ Run the following commands to install this repository.
 # Set `PYTHONHASHSEED` to 0 by default (see our README.md for explanation).
 echo "export PYTHONHASHSEED=0" >> ~/.bashrc
 # Clone the repository.
-git clone git@github.com:Learning-and-Intelligent-Systems/predicators.git
+git clone https://github.com/Learning-and-Intelligent-Systems/predicators_behavior.git
 # Set up conda with Python 3.9.
 module unload anaconda
 module load anaconda/2021b
-conda create --name predicators python=3.9
+conda create --name predicators_behavior python=3.9
 conda init bash  # will need to restart shell after this
-conda activate predicators
+conda activate predicators_behavior
 # Install the predicators dependencies.
-cd predicators
+cd predicators_behavior
 mkdir /state/partition1/user/$USER
 export TMPDIR=/state/partition1/user/$USER
 pip install -r requirements.txt
 # Add a shortcut for activating the conda env and switching to this repository.
-echo -e "predicate() {\n    cd ~/predicators\n    conda activate predicators\n}" >> ~/.bashrc
+echo -e "predicate_behavior() {\n    cd ~/predicators_behavior\n    conda activate predicators_behavior\n}" >> ~/.bashrc
 # Add a shortcut for displaying running jobs.
 echo "alias sl='squeue --format=\"%.18i %.9P %.42j %.8u %.8T %.10M %.6D %R\"'" >> ~/.bashrc
 source ~/.bashrc
@@ -40,7 +40,7 @@ To test if it worked:
 # Start an interactive session.
 LLsub -i
 # Activate conda and switch to the repository.
-predicate
+predicate_behavior
 # Run a short experiment.
 python predicators/main.py --env cover --approach oracle --seed 0
 # Exit the interactive session.
@@ -50,7 +50,7 @@ Note that supercloud sometimes hangs, so the experiment may take a few minutes t
 
 ## Running Experiments
 
-To get started, activate the conda environment and switch to the repository. If you followed the instructions above, you can do both with `predicate`.
+To get started, activate the conda environment and switch to the repository. If you followed the instructions above, you can do both with `predicate_behavior`.
 
 Before running any experiments, it is good practice to make sure that you have a clean workspace:
 * Make sure that you have already backed up any old results that you want to keep.
