@@ -59,6 +59,25 @@ predicate_behavior  # cd to the predicators_behavior repo and activate the relev
 python predicators/main.py --env behavior --approach oracle --option_model_name oracle_behavior --num_train_tasks 0 --num_test_tasks 1 --behavior_scene_name Pomaria_2_int --behavior_task_list "[opening_packages]" --seed 1000 --offline_data_planning_timeout 500.0 --timeout 500.0 --behavior_option_model_eval True --plan_only_eval True
 ```
 
+### (Optional) Installing Fast-Downward
+A number of more complex and long-horizon BEHAVIOR tasks require use of the Fast-Downward planning system to solve. To install this on Supercloud:
+```
+cd ~ # NOTE: Can alternatively cd anywhere else to place the downward repo.
+git clone https://github.com/ronuchit/downward.git
+cd downward && ./build.py
+export FD_EXEC_PATH="~/downward" # NOTE: If you installed downward elsewhere, provide this path.
+```
+It is a good idea to add this last command (exporting of the FD_EXEC_PATH variable) to your `~/.bashrc` (ideally as part of the `predicate_behavior` command if you followed our Supercloud installation instructions). This ensures that this command is always executed prior to running planning.
+
+To test installtion, do:
+```
+LLsub -i -g volta:1  # request a compute node with GPU in interactive mode.
+predicate_behavior  # cd to the predicators_behavior repo and activate the relevant conda environment.
+# Run a sample command. You should see the agent output 1/1 tasks solved!
+python predicators/main.py --env behavior --approach oracle --option_model_name oracle_behavior --num_train_tasks 0 --num_test_tasks 1 --behavior_scene_name Pomaria_2_int --behavior_task_list "[opening_packages]" --seed 1000 --offline_data_planning_timeout 500.0 --timeout 500.0 --behavior_option_model_eval True --plan_only_eval True --sesame_task_planner fdopt
+```
+
+
 ## Running Experiments
 * Currently, only the `oracle` approach is implemented to integrate with BEHAVIOR.
 * Note that you'll probably want to provide the command line argument `--timeout 1000` to prevent early stopping.
