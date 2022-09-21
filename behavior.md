@@ -22,8 +22,10 @@ This repository is integrated with the [BEHAVIOR benchmark of tasks](https://beh
     ```
     wget https://www.dropbox.com/s/p8ljo8yeanrjfgc/assets_ig_dataset.zip?dl=0
     mv assets_ig_dataset.zip\?dl\=0 ./assets_ig_dataset.zip
-    unzip assets_ig_dataset.zip -d ./iGibson/igibson/data/
+    unzip assets_ig_dataset.zip -d .
+    mv assets_ig_dataset/* ./iGibson/igibson/data/
     rm -rf assets_ig_dataset.zip
+    rm -rf assets_ig_dataset
     ```
 1. Make sure there is no version of `pybullet` currently installed in your virtual environment (if there is, it will create problems for the next step). You can do this with `pip uninstall pybullet`.
 1. Within a virtual environment (preferably, the one you created to install this overall repository), install the downloaded repositories:
