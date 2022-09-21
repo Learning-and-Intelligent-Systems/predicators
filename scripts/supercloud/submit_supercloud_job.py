@@ -47,9 +47,9 @@ def submit_supercloud_job(job_name: str,
     else:
         cmd += "--partition=xeon-p8"
     cmd += ("--nodes=1 --exclusive "
-           f"--job-name={job_name} "
-           f"--array={start_seed}-{start_seed+num_seeds-1} "
-           f"-o {logfile_pattern} {temp_run_file}")
+            f"--job-name={job_name} "
+            f"--array={start_seed}-{start_seed+num_seeds-1} "
+            f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:
