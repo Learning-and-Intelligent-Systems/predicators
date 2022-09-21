@@ -47,7 +47,7 @@ python predicators/main.py --env behavior --approach oracle --option_model_name 
 ## Installing on MIT Supercloud
 First, follow steps in our [Supercloud guide](supercloud.md) to get an account and setup this repository on Supercloud.
 
-Next, simply follow the steps linked in the [above section](#installation) (though ignore the first two steps)! Note that for various driver-related reasons, this code only works on GPU-machines with supercloud (so always remember to request a GPU when submitting jobs involving this codebase).
+Next, simply follow the steps linked in the [above section](#installation) (though ignore the first step; supercloud already has the iGibson pre-reqs installed)! Note that for various driver-related reasons, this code only works on GPU-machines with supercloud (so always remember to request a GPU when submitting jobs involving this codebase).
 
 To test installation, do:
 ```
