@@ -20,6 +20,7 @@ class RunConfig:
     env: str
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
+    use_gpu: bool  # e.g. --use_gpu True
 
     def __post_init__(self) -> None:
         # For simplicity, disallow overrides of the SAVE_DIRS.
@@ -84,6 +85,10 @@ def generate_run_configs(config_filename: str,
         num_seeds = config["NUM_SEEDS"]
         args = config["ARGS"]
         flags = config["FLAGS"]
+        if "USE_GPU" in config.keys():
+            use_gpu = config["USE_GPU"]
+        else:
+            use_gpu = False
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
             approach = approach_config["NAME"]
@@ -97,14 +102,15 @@ def generate_run_configs(config_filename: str,
                 run_flags.update(env_config["FLAGS"])
                 # Loop or batch over seeds.
                 if batch_seeds:
-                    yield BatchSeedRunConfig(experiment_id,
-                                             approach, env, args,
-                                             run_flags.copy(), start_seed,
-                                             num_seeds)
+                    yield BatchSeedRunConfig(experiment_id, approach, env,
+                                             args, run_flags.copy(), use_gpu,
+                                             start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id, approach, env,
-                                                  args, run_flags.copy(), seed)
+                        yield SingleSeedRunConfig(experiment_id,
+                                                  approach, env, args,
+                                                  run_flags.copy(), use_gpu,
+                                                  seed)
 
 
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
