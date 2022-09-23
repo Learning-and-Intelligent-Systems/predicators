@@ -41,7 +41,7 @@ def _main() -> None:
 def _launch_from_local(branch: str, user: str) -> None:
     str_args = " ".join(sys.argv)
     # Enter the repo.
-    server_cmds = ["predicate"]
+    server_cmds = ["predicate_behavior"]
     # Prepare the repo.
     server_cmds.extend(get_cmds_to_prep_repo(branch))
     # Run this file again, but with the on_supercloud flag.
