@@ -60,7 +60,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
             info["task_list_indices"] = env.task_list_indices
             info["scene_list"] = env.scene_list
         info[
-            "task_num_task_instance_id_to_igibson_seed"] = env.task_num_task_instance_id_to_igibson_seed
+            "task_num_task_instance_id_to_igibson_seed"] = \
+                env.task_num_task_instance_id_to_igibson_seed
         with open(dataset_fname.replace(".data", ".info"), "wb") as f:
             pkl.dump(info, f)
 
