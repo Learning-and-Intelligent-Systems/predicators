@@ -44,12 +44,12 @@ APPROACHES:
   #   NAME: "interactive_learning"
   #   FLAGS:
   #     explorer: "glib"
-  glib-normal:
-    NAME: "interactive_learning"
-    FLAGS:
-      explorer: "glib"
-      predicate_mlp_classifier_n_reinitialize_tries: 5
-      predicate_mlp_classifier_init: "normal"
+  # glib-normal:
+  #   NAME: "interactive_learning"
+  #   FLAGS:
+  #     explorer: "glib"
+  #     predicate_mlp_classifier_n_reinitialize_tries: 5
+  #     predicate_mlp_classifier_init: "normal"
   # random-actions:
   #   NAME: "interactive_learning"
   #   FLAGS:
@@ -71,5 +71,5 @@ FLAGS:  # common args
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
-START_SEED: 123
-NUM_SEEDS: 10
+START_SEED: 131
+NUM_SEEDS: 1
