@@ -32,7 +32,7 @@ def _main() -> None:
     for save_dir in SAVE_DIRS:
         local_save_dir = os.path.join(args.dir, save_dir)
         os.makedirs(local_save_dir, exist_ok=True)
-        cmd = "scp -r -o StrictHostKeyChecking=no " + \
+        cmd = "rsync -avzhe ssh " + \
               f"{host}:{args.supercloud_dir}/{save_dir}/* {local_save_dir}"
         retcode = os.system(cmd)
         if retcode != 0:
