@@ -403,10 +403,8 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         # Run training.
         for _ in range(self._n_reinitialize_tries):
             # (Re-)initialize weights.
-            print("(Re-)initializing weights...")
             self._reset_weights()
             # Create the optimizer.
-            print("Creating optimizer...")
             optimizer = self._create_optimizer()
             # Run training.
             best_loss = _train_pytorch_model(
@@ -991,24 +989,18 @@ def _train_pytorch_model(model: nn.Module,
     assert isinstance(max_iters, int)
     for tensor_X, tensor_Y in batch_generator:
         Y_hat = model(tensor_X)
-        print("Calculating loss...")
         loss = loss_fn(Y_hat, tensor_Y)
         if loss.item() < best_loss:
-            print("Saving a best model...")
             best_loss = loss.item()
             best_itr = itr
             # Save this best model.
             torch.save(model.state_dict(), model_name)
         if itr % print_every == 0:
             logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
-        print("Zeroing gradients...")
         optimizer.zero_grad()
-        print("Doing backprop...")
         loss.backward()  # type: ignore
         if clip_gradients:
-            print("Clipping gradients...")
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
-        print("Stepping optimizer...")
         optimizer.step()
         if itr - best_itr > n_iter_no_change:
             logging.info(f"Loss did not improve after {n_iter_no_change} "
