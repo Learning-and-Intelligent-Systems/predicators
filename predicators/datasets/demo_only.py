@@ -51,6 +51,22 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
 
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
+        # Pickle information about dataset created.
+        if CFG.env == "behavior":  # pragma: no cover
+            assert isinstance(env, BehaviorEnv)
+            info = {}
+            info["behavior_task_list"] = CFG.behavior_task_list
+            info["behavior_scene_name"] = CFG.behavior_scene_name
+            info["seed"] = CFG.seed
+            if len(CFG.behavior_task_list) != 1:
+                info["task_list_indices"] = env.task_list_indices
+                info["scene_list"] = env.scene_list
+            info[
+                "task_num_task_instance_id_to_igibson_seed"] = \
+                    env.task_num_task_instance_id_to_igibson_seed
+            with open(dataset_fname.replace(".data", ".info"), "wb") as f:
+                pkl.dump(info, f)
+
     # NOTE: This is necessary because we replace BEHAVIOR
     # options with dummy options in order to pickle them, so
     # when we load them, we need to make sure they have the
