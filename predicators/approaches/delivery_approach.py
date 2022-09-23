@@ -44,6 +44,7 @@ class DeliverySpecificApproach(BaseApproach):
             for loc in locations:
                 if GroundAtom(at, [loc]) in ground_atoms:
                     if GroundAtom(is_home_base, [loc]) in ground_atoms:
+                        # At home base, pack all papers
                         for paper in papers:
                             if GroundAtom(unpacked, [paper]) in ground_atoms:
                                 pack = options["pick-up"]
@@ -54,6 +55,44 @@ class DeliverySpecificApproach(BaseApproach):
                                     object_args, params)
                                 assert ground_option.initiable(state)
                                 return ground_option.policy(state)
-            raise NotImplementedError("Finish me!")
+                    # Wheter at home base or not...
+                    for paper in papers:
+                        if GroundAtom(carrying, [paper]) in ground_atoms:
+                            if GroundAtom(wants_paper, [loc]) in ground_atoms:
+                                # If location wants paper, deliver
+                                unpack = options["deliver"]
+                                selected_option = unpack
+                                object_args = [paper, loc]
+                                params = np.zeros(0, dtype=np.float32)
+                                ground_option = selected_option.ground(
+                                    object_args, params)
+                                assert ground_option.initiable(state)
+                                return ground_option.policy(state)
+                            for loc2 in locations:
+                                if GroundAtom(wants_paper,
+                                              [loc2]) in ground_atoms:
+                                    # Move to location that does want paper
+                                    move = options["move"]
+                                    selected_option = move
+                                    object_args = [loc, loc2]
+                                    params = np.zeros(0, dtype=np.float32)
+                                    ground_option = selected_option.ground(
+                                        object_args, params)
+                                    assert ground_option.initiable(state)
+                                    return ground_option.policy(state)
+                            raise ValueError("Calling policy on goal state")
+                    for loc2 in locations:
+                        if GroundAtom(is_home_base, [loc2]) in ground_atoms:
+                            # If not carrying paper, go to home base to load up
+                            home = options["move"]
+                            selected_option = home
+                            object_args = [loc, loc2]
+                            params = np.zeros(0, dtype=np.float32)
+                            ground_option = selected_option.ground(
+                                object_args, params)
+                            assert ground_option.initiable(state)
+                            return ground_option.policy(state)
+                    raise ValueError("Could not find home base")
+            raise ValueError("Could not find current location")
 
         return _policy
