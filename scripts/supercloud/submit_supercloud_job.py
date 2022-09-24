@@ -23,9 +23,13 @@ def _run() -> None:
                                  args_and_flags_str, START_SEED, NUM_SEEDS)
 
 
-def submit_supercloud_job(job_name: str, log_dir: str, logfile_prefix: str,
-                          args_and_flags_str: str, start_seed: int,
-                          num_seeds: int) -> None:
+def submit_supercloud_job(job_name: str,
+                          log_dir: str,
+                          logfile_prefix: str,
+                          args_and_flags_str: str,
+                          start_seed: int,
+                          num_seeds: int,
+                          use_gpu: bool = False) -> None:
     """Launch the supercloud job."""
     os.makedirs(log_dir, exist_ok=True)
     logfile_pattern = os.path.join(log_dir, f"{logfile_prefix}__%j.log")
@@ -37,10 +41,15 @@ def submit_supercloud_job(job_name: str, log_dir: str, logfile_prefix: str,
     assert not os.path.exists(temp_run_file)
     with open(temp_run_file, "w", encoding="utf-8") as f:
         f.write(mystr)
-    cmd = ("sbatch --time=99:00:00 --partition=xeon-p8 "
-           f"--nodes=1 --exclusive --job-name={job_name} "
-           f"--array={start_seed}-{start_seed+num_seeds-1} "
-           f"-o {logfile_pattern} {temp_run_file}")
+    cmd = "sbatch --time=99:00:00 "
+    if use_gpu:
+        cmd += "--partition=xeon-g6-volta --gres=gpu:volta:1 "
+    else:
+        cmd += "--partition=xeon-p8"
+    cmd += ("--nodes=1 --exclusive "
+            f"--job-name={job_name} "
+            f"--array={start_seed}-{start_seed+num_seeds-1} "
+            f"-o {logfile_pattern} {temp_run_file}")
     print(f"Running command: {cmd}")
     output = subprocess.getoutput(cmd)
     if "command not found" in output:
