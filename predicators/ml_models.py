@@ -25,7 +25,7 @@ from torch.distributions.categorical import Categorical
 from predicators.structs import Array, MaxTrainIters, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
-torch.set_num_threads(1)
+torch.set_num_threads(1)  # fixes libglomp error on supercloud
 
 ################################ Base Classes #################################
 
@@ -379,17 +379,18 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """(Re-)initialize the network weights."""
         self.apply(lambda m: self._weight_reset(m, self._weight_init))
 
-    @staticmethod
-    def _weight_reset(m: torch.nn.Module, weight_init: str) -> None:
+    def _weight_reset(self, m: torch.nn.Module, weight_init: str) -> None:
         if isinstance(m, nn.Linear):
             if weight_init == "default":
                 m.reset_parameters()
             elif weight_init == "normal":
-                torch.nn.init.normal_(m.weight, std=1.0)
+                torch.nn.init.normal_(m.weight)
             else:
                 raise NotImplementedError(
-                    f"{weight_init} weight initialization"
-                    " unknown")
+                    f"{weight_init} weight initialization unknown")
+        else:
+            # To make sure all the weights are being reset
+            assert m is self or isinstance(m, nn.ModuleList)
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
@@ -415,6 +416,7 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
                 max_train_iters=self._max_train_iters,
                 dataset_size=X.shape[0],
                 n_iter_no_change=self._n_iter_no_change)
+            # Weights may not have converged during training.
             if best_loss < 1:
                 break  # success!
         else:
@@ -975,7 +977,7 @@ def _train_pytorch_model(model: nn.Module,
     """Note that this currently does not use minibatches.
 
     In the future, with very large datasets, we would want to switch to
-    minibatches.
+    minibatches. Returns the best loss seen during training.
     """
     model.train()
     itr = 0
