@@ -4,10 +4,12 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from predicators import utils
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.ikfast.utils import get_base_from_ee, \
     get_ikfast_joints, get_joint_difference_fn, get_ordered_ancestors, \
-    ikfast_inverse_kinematics, violates_joint_limits
+    ikfast_closest_inverse_kinematics, ikfast_inverse_kinematics, \
+    violates_joint_limits
 
 
 @pytest.fixture(scope="module", name="robot_with_no_ikfast_info")
@@ -106,3 +108,15 @@ def test_ikfast_inverse_kinematics_raises_error(robot_with_no_ikfast_info):
             rng=rng,
         )
         list(generator)
+
+
+def test_ikfast_closest_inverse_kinematics_raises_error():
+    """Test ikfast_closest_inverse_kinematics raises error if max time,
+    candidates or attempts is infinite."""
+    utils.reset_config({
+        "ikfast_max_time": np.inf,
+        "ikfast_max_candidates": np.inf,
+        "ikfast_max_attempts": np.inf
+    })
+    with pytest.raises(ValueError):
+        ikfast_closest_inverse_kinematics(Mock(), Pose.identity())

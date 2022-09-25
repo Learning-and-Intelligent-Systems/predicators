@@ -294,6 +294,13 @@ def ikfast_closest_inverse_kinematics(
     A list of joint states that satisfy the given arguments.
     If no solutions are found, an empty list is returned.
     """
+    # Check settings that we won't go into infinite loop
+    if not (CFG.ikfast_max_time < np.inf or CFG.ikfast_max_attempts < np.inf
+            or CFG.ikfast_max_candidates < np.inf):
+        raise ValueError(
+            "At least one of CFG.ikfast_max_time, CFG.ikfast_max_attempts, "
+            "CFG.ikfast_max_candidates must be finite.")
+
     start_time = time.perf_counter()
     ik_joint_infos, _ = get_ikfast_joints(robot)
     ik_joints = [joint_info.jointIndex for joint_info in ik_joint_infos]
@@ -312,21 +319,21 @@ def ikfast_closest_inverse_kinematics(
     if CFG.ikfast_max_candidates < np.inf:  # pragma: no cover
         generator = islice(generator, CFG.ikfast_max_candidates)
 
+    joint_difference_fn = get_joint_difference_fn(ik_joint_infos)
+
+    def difference_from_current(joint_positions: JointPositions) -> float:
+        """Difference of given joint positions from current joint positions."""
+        return np.linalg.norm(  # type: ignore
+            joint_difference_fn(current_joint_positions, joint_positions),
+            ord=CFG.ikfast_norm)
+
     # Sort solutions by distance to current joint positions
     candidate_solutions = list(generator)
-    joint_difference_fn = get_joint_difference_fn(ik_joint_infos)
-    solutions = sorted(
-        candidate_solutions,
-        key=lambda joint_positions: np.linalg.norm(  # type: ignore
-            joint_difference_fn(current_joint_positions, joint_positions),
-            ord=CFG.ikfast_norm))
+    solutions = sorted(candidate_solutions, key=difference_from_current)
     elapsed_time = time.perf_counter() - start_time
 
     if solutions:
-        min_diff_from_current = joint_difference_fn(current_joint_positions,
-                                                    solutions[0])
-        min_distance = np.linalg.norm(min_diff_from_current,
-                                      ord=CFG.ikfast_norm)
+        min_distance = difference_from_current(solutions[0])
         logging.debug(
             f"Identified {len(solutions)} IK solutions with minimum distance "
             f"of {min_distance:.3f} in {elapsed_time:.3f} seconds")
