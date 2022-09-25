@@ -19,11 +19,13 @@ import pybullet as p
 from lisdf.planner_output.command import JointSpacePath
 from lisdf.planner_output.plan import LISDFPlan
 
+from predicators import utils
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 
 
 def _main() -> None:
+    utils.reset_config()
     parser = argparse.ArgumentParser()
     parser.add_argument("--input",
                         type=str,
