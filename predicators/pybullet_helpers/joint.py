@@ -55,6 +55,24 @@ class JointInfo(NamedTuple):
         """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
 
+    def violates_limit(self, value: float) -> bool:
+        """Whether the given value violates the joint's limits."""
+        if self.is_circular:
+            return False
+        return self.jointLowerLimit > value or value > self.jointUpperLimit
+
+
+class JointState(NamedTuple):
+    """Joint Information to match the output of the PyBullet getJointState API.
+
+    We use a NamedTuple as it supports retrieving by integer indexing
+    and most closely follows the PyBullet API.
+    """
+    jointPosition: float
+    jointVelocity: float
+    jointReactionForces: Sequence[float]
+    appliedJointMotorTorque: float
+
 
 def get_num_joints(body: int, physics_client_id: int) -> int:
     """Get the number of joints for a body."""
@@ -133,3 +151,22 @@ def get_kinematic_chain(body: int, end_effector: int,
             kinematic_chain.append(end_effector)
         end_effector = joint_info[-1]
     return kinematic_chain
+
+
+def get_joint_states(body: int, joints: List[int],
+                     physics_client_id: int) -> List[JointState]:
+    """Get the joint states for the given joints for a body."""
+    joint_states = [
+        JointState(*raw_joint_state) for raw_joint_state in p.getJointStates(
+            body, joints, physicsClientId=physics_client_id)
+    ]
+    return joint_states
+
+
+def get_joint_positions(body: int, joints: List[int],
+                        physics_client_id: int) -> List[float]:
+    """Get the joint positions for the given joints for a body."""
+    return [
+        joint_state.jointPosition
+        for joint_state in get_joint_states(body, joints, physics_client_id)
+    ]
