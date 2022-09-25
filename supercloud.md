@@ -28,7 +28,7 @@ conda activate predicators
 cd predicators
 mkdir /state/partition1/user/$USER
 export TMPDIR=/state/partition1/user/$USER
-pip install -r requirements.txt
+pip install -e .
 # Add a shortcut for activating the conda env and switching to this repository.
 echo -e "predicate() {\n    cd ~/predicators\n    conda activate predicators\n}" >> ~/.bashrc
 # Add a shortcut for displaying running jobs.

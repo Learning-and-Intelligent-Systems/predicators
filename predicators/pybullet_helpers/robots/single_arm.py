@@ -10,12 +10,14 @@ from gym.spaces import Box
 
 from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from predicators.pybullet_helpers.ikfast import IKFastInfo
+from predicators.pybullet_helpers.ikfast.utils import \
+    ikfast_closest_inverse_kinematics
 from predicators.pybullet_helpers.inverse_kinematics import \
     pybullet_inverse_kinematics
 from predicators.pybullet_helpers.joint import JointInfo, JointPositions, \
-    get_joint_infos, get_joint_lower_limits, get_joint_upper_limits, \
-    get_joints, get_kinematic_chain
-from predicators.pybullet_helpers.link import get_link_state
+    get_joint_infos, get_joint_lower_limits, get_joint_positions, \
+    get_joint_upper_limits, get_joints, get_kinematic_chain
+from predicators.pybullet_helpers.link import BASE_LINK, get_link_state
 from predicators.settings import CFG
 from predicators.structs import Array
 
@@ -94,6 +96,19 @@ class SingleArmPyBulletRobot(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @cached_property
+    def tool_link_id(self) -> int:
+        """The PyBullet link ID for the tool link."""
+        return self.link_from_name(self.tool_link_name)
+
+    @cached_property
+    def base_link_name(self) -> str:
+        """Name of the base link for the robot."""
+        base_info = p.getBodyInfo(self.robot_id,
+                                  physicsClientId=self.physics_client_id)
+        base_name = base_info[0].decode(encoding="UTF-8")
+        return base_name
+
+    @cached_property
     def arm_joints(self) -> List[int]:
         """The PyBullet joint IDs of the joints of the robot arm, including the
         fingers, as determined by the kinematic chain.
@@ -107,6 +122,14 @@ class SingleArmPyBulletRobot(abc.ABC):
         joint_ids = sorted(joint_ids)
         joint_ids.extend([self.left_finger_id, self.right_finger_id])
         return joint_ids
+
+    @cached_property
+    def arm_joint_names(self) -> List[str]:
+        """The names of the arm joints."""
+        return [
+            info.jointName for info in get_joint_infos(
+                self.robot_id, self.arm_joints, self.physics_client_id)
+        ]
 
     @cached_property
     def joint_infos(self) -> List[JointInfo]:
@@ -127,6 +150,21 @@ class SingleArmPyBulletRobot(abc.ABC):
     def joint_from_name(self, joint_name: str) -> int:
         """Get the joint index for a joint name."""
         return self.joint_names.index(joint_name)
+
+    def joint_info_from_name(self, joint_name: str) -> JointInfo:
+        """Get the joint info for a joint name."""
+        return self.joint_infos[self.joint_from_name(joint_name)]
+
+    def link_from_name(self, link_name: str) -> int:
+        """Get the link index for a given link name."""
+        if link_name == self.base_link_name:
+            return BASE_LINK
+
+        # In PyBullet, each joint has an associated link.
+        for joint_info in self.joint_infos:
+            if joint_info.linkName == link_name:
+                return joint_info.jointIndex
+        raise ValueError(f"Could not find link {link_name}")
 
     @property
     @abc.abstractmethod
@@ -254,14 +292,8 @@ class SingleArmPyBulletRobot(abc.ABC):
 
     def get_joints(self) -> JointPositions:
         """Get the joint positions from the current PyBullet state."""
-        joint_positions = [
-            joint_state[0]  # extract joint position only
-            for joint_state in p.getJointStates(
-                self.robot_id,
-                self.arm_joints,
-                physicsClientId=self.physics_client_id)
-        ]
-        return joint_positions
+        return get_joint_positions(self.robot_id, self.arm_joints,
+                                   self.physics_client_id)
 
     def set_joints(self, joint_positions: JointPositions) -> None:
         """Directly set the joint positions.
@@ -319,6 +351,32 @@ class SingleArmPyBulletRobot(abc.ABC):
         position = ee_link_state.worldLinkFramePosition
         return position
 
+    def _validate_joints_state(self, joint_positions: JointPositions,
+                               target_pose: Pose3D) -> None:
+        """Validate that the given joint positions matches the target pose.
+
+        This method should NOT be used during simulation mode as it
+        resets the joint states.
+        """
+        # Store current joint positions so we can reset
+        initial_joint_states = self.get_joints()
+
+        # Set joint states, forward kinematics to determine EE position
+        self.set_joints(joint_positions)
+        ee_pos = self.get_state()[:3]
+        target_pos = target_pose
+        pos_is_close = np.allclose(ee_pos,
+                                   target_pos,
+                                   atol=CFG.pybullet_ik_tol)
+
+        # Reset joint positions before returning/raising error
+        self.set_joints(initial_joint_states)
+
+        if not pos_is_close:
+            raise ValueError(
+                f"Joint states do not match target pose {target_pos} "
+                f"from {ee_pos}")
+
     @classmethod
     def ikfast_info(cls) -> Optional[IKFastInfo]:
         """IKFastInfo for this robot.
@@ -326,6 +384,32 @@ class SingleArmPyBulletRobot(abc.ABC):
         If this is specified, then IK will use IKFast.
         """
         return None
+
+    def _ikfast_inverse_kinematics(
+            self, end_effector_pose: Pose3D) -> JointPositions:
+        """IK using IKFast.
+
+        Returns the joint positions.
+        """
+        ik_solutions = ikfast_closest_inverse_kinematics(
+            self,
+            world_from_target=Pose(end_effector_pose, self._ee_orientation),
+        )
+        if not ik_solutions:
+            raise ValueError(
+                f"No IK solution found for target pose {end_effector_pose} "
+                "using IKFast")
+
+        # Use first solution as it is closest to current joint state
+        joint_positions = ik_solutions[0]
+
+        # Add fingers to state
+        final_joint_state = list(joint_positions)
+        first_finger_idx, second_finger_idx = sorted(
+            [self.left_finger_joint_idx, self.right_finger_joint_idx])
+        final_joint_state.insert(first_finger_idx, self.open_fingers)
+        final_joint_state.insert(second_finger_idx, self.open_fingers)
+        return final_joint_state
 
     def inverse_kinematics(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointPositions:
@@ -341,9 +425,12 @@ class SingleArmPyBulletRobot(abc.ABC):
         WARNING: if validate is True, physics may be overridden, and so it
         should not be used within simulation.
         """
-        if self.ikfast_info():  # pragma: no cover
-            raise NotImplementedError(
-                "IKFast not supported yet. Coming soon...")
+        if self.ikfast_info():
+            joint_positions = self._ikfast_inverse_kinematics(
+                end_effector_pose)
+            if validate:
+                self._validate_joints_state(joint_positions, end_effector_pose)
+            return joint_positions
 
         return pybullet_inverse_kinematics(
             self.robot_id,

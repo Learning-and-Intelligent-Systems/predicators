@@ -74,14 +74,16 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._current_state.copy()
 
 
-@pytest.fixture(scope="module", name="env")
-def _create_exposed_pybullet_blocks_env():
+@pytest.fixture(scope="module", name="env", params=("fetch", "panda"))
+def _create_exposed_pybullet_blocks_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
         "env": "pybullet_blocks",
         "pybullet_use_gui": _GUI_ON,
         # We run this test using the RESET control mode.
         "pybullet_control_mode": "reset",
+        # Which robot we're using
+        "pybullet_robot": request.param,
     })
     return _ExposedPyBulletBlocksEnv()
 
