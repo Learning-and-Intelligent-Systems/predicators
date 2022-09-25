@@ -32,8 +32,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Quaternion] = quaternion_from_euler(
-        0.0, np.pi / 2, -np.pi)
+    _ee_orn: ClassVar[Dict[str, Quaternion]] = {
+        # Fetch gripper down since it's thin we don't need to rotate 90 degrees.
+        "fetch": quaternion_from_euler(0.0, np.pi / 2, -np.pi),
+        # Panda gripper down and rotated 90 degrees as it's big and can cause
+        # collisions.
+        "panda": quaternion_from_euler(np.pi, 0, np.pi / 2)
+    }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
     def __init__(self) -> None:
@@ -217,9 +222,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        ee_orn = self._ee_orn[CFG.pybullet_robot]
         return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                self._ee_orn,
-                                                physics_client_id)
+                                                ee_orn, physics_client_id)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
@@ -311,9 +316,19 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        if CFG.pybullet_robot == "panda":
+            # gripper rotated 90deg so parallel to x-axis
+            normal = np.array([1., 0., 0.], dtype=np.float32)
+        elif CFG.pybullet_robot == "fetch":
+            # gripper parallel to y-axis
+            normal = np.array([0., 1., 0.], dtype=np.float32)
+        else:  # pragma: no cover
+            # Shouldn't happen unless we introduce a new robot.
+            raise ValueError(f"Unknown robot {CFG.pybullet_robot}")
+
         return {
-            self._pybullet_robot.left_finger_id: np.array([0., 1., 0.]),
-            self._pybullet_robot.right_finger_id: np.array([0., -1., 0.]),
+            self._pybullet_robot.left_finger_id: normal,
+            self._pybullet_robot.right_finger_id: -1 * normal,
         }
 
     def _create_blocks_move_to_above_block_option(
