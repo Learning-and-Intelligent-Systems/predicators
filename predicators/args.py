@@ -33,6 +33,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--skip_until_cycle", default=-1, type=int)
     parser.add_argument("--experiment_id", default="", type=str)
     parser.add_argument("--load_experiment_id", default="", type=str)
+    parser.add_argument("--log_file", default="", type=str)
     parser.add_argument('--debug',
                         action="store_const",
                         dest="loglevel",

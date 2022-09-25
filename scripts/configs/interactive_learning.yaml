@@ -1,0 +1,62 @@
+# Interactive learning experiments.
+---
+APPROACHES:
+  main:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "greedy_lookahead"
+  # MLP baseline
+  main-mlp:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "greedy_lookahead"
+      interactive_num_ensemble_members: 1
+  # query baselines
+  ask-all:  # section kid
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "greedy_lookahead"
+      interactive_query_policy: "nonstrict_best_seen"
+      interactive_score_function: "trivial"
+  ask-none:  # silent kid
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "greedy_lookahead"
+      interactive_query_policy: "threshold"
+      interactive_score_function: "trivial"
+      interactive_score_threshold: 1.0
+  ask-random:  # random kid
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "greedy_lookahead"
+      interactive_query_policy: "random"
+      interactive_score_function: "trivial"
+      interactive_random_query_prob: 0.03  # queries about the same amount as main
+  # action baselines
+  glib:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "glib"
+  random-actions:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "random_options"
+  no-actions:
+    NAME: "interactive_learning"
+    FLAGS:
+      explorer: "no_explore"
+ENVS:
+  cover:
+    NAME: "cover"
+    FLAGS: {}
+ARGS: {}
+FLAGS:  # common args
+  excluded_predicates: "Covers,Holding"
+  num_online_learning_cycles: 100  # way too many cycles
+  online_learning_max_transitions: 1000  # want this to be stop signal
+  max_num_steps_interaction_request: 3
+  min_data_for_nsrt: 10
+  sampler_disable_classifier: True
+  mlp_classifier_balance_data: False
+START_SEED: 456
+NUM_SEEDS: 10

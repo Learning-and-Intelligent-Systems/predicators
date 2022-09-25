@@ -13,6 +13,7 @@ dist
 pylint_recursive.py
 .coverage
 results
+eval_trajectories
 videos
 logs
 saved_approaches

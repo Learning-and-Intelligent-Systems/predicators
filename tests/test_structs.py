@@ -504,6 +504,15 @@ def test_operators_and_nsrts(state):
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Ignore Effects: [On]"""
+    assert strips_operator.pddl_str() == \
+        """(:action Pick
+    :parameters (?cup - cup_type ?plate - plate_type)
+    :precondition (and (NotOn ?cup ?plate))
+    :effect (and (On ?cup ?plate)
+        (not (NotOn ?cup ?plate))
+        (forall (?x0 - cup_type ?x1 - plate_type) (not (On ?x0 ?x1)))
+        )
+  )"""
     assert strips_operator.get_complexity() == 4.0  # 2^2
     assert isinstance(hash(strips_operator), int)
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
