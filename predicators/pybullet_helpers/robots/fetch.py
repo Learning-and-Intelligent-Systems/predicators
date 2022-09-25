@@ -14,7 +14,8 @@ class FetchPyBulletRobot(SingleArmPyBulletRobot):
 
     @classmethod
     def urdf_path(cls) -> str:
-        return utils.get_env_asset_path("urdf/robots/fetch.urdf")
+        return utils.get_env_asset_path(
+            "urdf/fetch_description/robots/fetch.urdf")
 
     @property
     def end_effector_name(self) -> str:

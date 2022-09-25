@@ -32,9 +32,10 @@ def _setup_pybullet_test_scene():
 
     p.resetSimulation(physicsClientId=physics_client_id)
 
-    fetch_id = p.loadURDF(utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-                          useFixedBase=True,
-                          physicsClientId=physics_client_id)
+    fetch_id = p.loadURDF(
+        utils.get_env_asset_path("urdf/fetch_description/robots/fetch.urdf"),
+        useFixedBase=True,
+        physicsClientId=physics_client_id)
     scene["fetch_id"] = fetch_id
 
     base_pose = [0.75, 0.7441, 0.0]
@@ -167,6 +168,12 @@ def test_fetch_pybullet_robot(physics_client_id):
     base_pose = Pose((0.75, 0.7441, 0.0))
     robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
                                base_pose)
+    assert robot.get_name() == "fetch"
+    assert robot.arm_joint_names == [
+        'shoulder_pan_joint', 'shoulder_lift_joint', 'upperarm_roll_joint',
+        'elbow_flex_joint', 'forearm_roll_joint', 'wrist_flex_joint',
+        'wrist_roll_joint', 'l_gripper_finger_joint', 'r_gripper_finger_joint'
+    ]
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -213,6 +220,11 @@ def test_fetch_pybullet_robot(physics_client_id):
     # Test forward kinematics.
     fk_result = robot.forward_kinematics(action_arr)
     assert np.allclose(fk_result, ee_target, atol=1e-2)
+
+    # Check link_from_name
+    assert robot.link_from_name("gripper_link")
+    with pytest.raises(ValueError):
+        robot.link_from_name("non_existent_link")
 
 
 def test_create_single_arm_pybullet_robot(physics_client_id):

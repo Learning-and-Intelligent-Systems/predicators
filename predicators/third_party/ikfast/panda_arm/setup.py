@@ -1,10 +1,9 @@
 """Note: this subdirectory is modified from the pybullet-planning repository
 by Caelan Garrett (https://github.com/caelan/pybullet-planning/)."""
 
-import os
 import sys
 
-from predicators.envs.assets.ikfast.compile import compile_ikfast
+from compile import compile_ikfast
 
 
 def main():
