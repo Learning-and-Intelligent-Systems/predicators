@@ -64,7 +64,7 @@ def get_link_pose(body: int, link: int, physics_client_id: int) -> Pose:
 
 def get_relative_link_pose(body: int, link1: int, link2: int,
                            physics_client_id: int) -> Pose:
-    """Get the pose of one link relative to another link on the same body."""
+    """Get the pose of link1 relative to link2 on the same body."""
     world_from_link1 = get_link_pose(body, link1, physics_client_id)
     world_from_link2 = get_link_pose(body, link2, physics_client_id)
     link2_from_link1 = multiply_poses(world_from_link2.invert(),

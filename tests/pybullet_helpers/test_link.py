@@ -36,13 +36,16 @@ def test_get_relative_link_pose(body, link1, link2, physics_client_id):
                             orientation=(0.0, 0.0, 0.0, 1.0))
     world_from_link2 = Pose(position=(1.0, 1.0, 1.0),
                             orientation=(0.0, 1.0, 0.0, 1.0))
-    expected_pose = multiply_poses(world_from_link2.invert(), world_from_link1)
+    link2_from_link1 = multiply_poses(world_from_link2.invert(),
+                                      world_from_link1)
 
     with patch(f"{_MODULE_PATH}.get_link_pose") as mock_get_link_pose:
         mock_get_link_pose.side_effect = [world_from_link1, world_from_link2]
-        pose = get_relative_link_pose(body, link1, link2, physics_client_id)
-        assert pose == expected_pose
+        relative_link_pose = get_relative_link_pose(body, link1, link2,
+                                                    physics_client_id)
+        assert relative_link_pose == link2_from_link1
 
+        assert mock_get_link_pose.call_count == 2
         mock_get_link_pose.assert_has_calls([
             call(body, link1, physics_client_id),
             call(body, link2, physics_client_id)

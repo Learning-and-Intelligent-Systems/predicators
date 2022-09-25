@@ -33,7 +33,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
 
     # Robot parameters.
     _ee_orn: ClassVar[Dict[str, Quaternion]] = {
-        # Fetch gripper down, since its thin we don't need to rotate 90 degrees.
+        # Fetch gripper down since it's thin we don't need to rotate 90 degrees.
         "fetch": quaternion_from_euler(0.0, np.pi / 2, -np.pi),
         # Panda gripper down and rotated 90 degrees as it's big and can cause
         # collisions.

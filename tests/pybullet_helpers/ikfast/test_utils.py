@@ -6,7 +6,7 @@ import pytest
 
 from predicators.pybullet_helpers.geometry import Pose
 from predicators.pybullet_helpers.ikfast.utils import get_base_from_ee, \
-    get_difference_fn, get_ikfast_joints, get_ordered_ancestors, \
+    get_ikfast_joints, get_joint_difference_fn, get_ordered_ancestors, \
     ikfast_inverse_kinematics, violates_joint_limits
 
 
@@ -17,18 +17,18 @@ def _robot_with_no_ikfast_info_fixture():
     return robot
 
 
-def test_get_difference_fn_raises_error_with_circular_joints():
-    """Test get_difference_fn raises an error if there are any circular
+def test_get_joint_difference_fn_raises_error_with_circular_joints():
+    """Test get_joint_difference_fn raises an error if there are any circular
     joints."""
     non_circular_joint = Mock(is_circular=False)
     circular_joint = Mock(is_circular=True)
     with pytest.raises(ValueError):
-        get_difference_fn([non_circular_joint, circular_joint])
+        get_joint_difference_fn([non_circular_joint, circular_joint])
 
 
-def test_get_difference_fn():
-    """Test for get_difference_fn."""
-    difference_fn = get_difference_fn(7 * [Mock(is_circular=False)])
+def test_get_joint_difference_fn():
+    """Test for get_joint_difference_fn."""
+    difference_fn = get_joint_difference_fn(7 * [Mock(is_circular=False)])
     joint_vals1 = np.random.rand(7)
     joint_vals2 = np.random.rand(7)
     expected_difference = joint_vals1 - joint_vals2
@@ -82,7 +82,7 @@ def test_get_ordered_ancestors_raises_error(robot_with_no_ikfast_info):
 def test_get_base_from_ee_raises_error(robot_with_no_ikfast_info):
     """Test get_base_from_ee raises error if no IKFastInfo in robot."""
     with pytest.raises(ValueError):
-        get_base_from_ee(robot_with_no_ikfast_info, 1, Pose((0, 0, 0)))
+        get_base_from_ee(robot_with_no_ikfast_info, Pose((0, 0, 0)))
 
 
 def test_get_ikfast_joints_raises_error(robot_with_no_ikfast_info):
@@ -95,6 +95,7 @@ def test_ikfast_inverse_kinematics_raises_error(robot_with_no_ikfast_info):
     """Test ikfast_inverse_kinematics raises error if no IKFastInfo in
     robot."""
     with pytest.raises(ValueError):
+        rng = np.random.default_rng(123)
         generator = ikfast_inverse_kinematics(
             robot_with_no_ikfast_info,
             Pose((0, 0, 0)),
@@ -102,5 +103,6 @@ def test_ikfast_inverse_kinematics_raises_error(robot_with_no_ikfast_info):
             max_distance=999.9,
             max_attempts=100,
             norm=2,
+            rng=rng,
         )
         list(generator)

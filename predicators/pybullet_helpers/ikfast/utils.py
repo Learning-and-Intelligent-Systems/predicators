@@ -10,11 +10,10 @@ https://github.com/caelan/pybullet-planning/blob/master/pybullet_tools/ikfast/ik
 from __future__ import annotations
 
 import logging
-import random
 import time
 from itertools import islice
 from typing import TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, \
-    Sequence, Tuple, Union
+    Tuple, Union
 
 import numpy as np
 
@@ -31,10 +30,11 @@ if TYPE_CHECKING:
     from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
 
 
-def get_difference_fn(
+def get_joint_difference_fn(
     joint_infos: List[JointInfo]
 ) -> Callable[[JointPositions, JointPositions], JointPositions]:
-    """Determine the difference between two joint positions.
+    """Determine the difference between two joint positions. Returns a function
+    that takes two joint positions and returns the difference between them.
 
     Note: we do not support circular joints.
     """
@@ -51,13 +51,13 @@ def get_difference_fn(
 
 
 def violates_joint_limits(joint_infos: List[JointInfo],
-                          conf: JointPositions) -> bool:
-    """Check if the given configuration violate the joint limits."""
-    if len(joint_infos) != len(conf):
+                          joint_positions: JointPositions) -> bool:
+    """Check if the given joint positions violate the joint limits."""
+    if len(joint_infos) != len(joint_positions):
         raise ValueError("Joint Infos and values must be the same length")
     return any(
         joint_info.violates_limit(value)
-        for joint_info, value in zip(joint_infos, conf))
+        for joint_info, value in zip(joint_infos, joint_positions))
 
 
 def get_ordered_ancestors(robot: SingleArmPyBulletRobot,
@@ -78,9 +78,12 @@ def get_ordered_ancestors(robot: SingleArmPyBulletRobot,
         info.jointIndex: info.parentIndex
         for info in robot.joint_infos
     }
+    # Note: it is important to recognize we use the IKFastInfo base and
+    # end-effector link information as that was how IKFast was compiled.
     base_link = robot.link_from_name(ikfast_info.base_link)
 
-    # Get ancestors of given link
+    # Get ancestors of given link by traversing link 'tree nodes' until
+    # we get to the root node which is the base link.
     current_link = link
     ancestors_reversed = [current_link]
     while link_to_parent_link[current_link] != base_link:
@@ -94,7 +97,6 @@ def get_ordered_ancestors(robot: SingleArmPyBulletRobot,
 
 def get_base_from_ee(
     robot: SingleArmPyBulletRobot,
-    tool_link: int,
     world_from_target: Pose,
 ) -> Pose:
     """Transform the target tool link pose from the world frame into the pose
@@ -108,7 +110,8 @@ def get_base_from_ee(
     base_link = robot.link_from_name(ikfast_info.base_link)
 
     # Pose of end effector in the tool link frame
-    tool_from_ee = get_relative_link_pose(robot.robot_id, ee_link, tool_link,
+    tool_from_ee = get_relative_link_pose(robot.robot_id, ee_link,
+                                          robot.tool_link_id,
                                           robot.physics_client_id)
     # Pose of base link in the world frame
     world_from_base = get_link_pose(
@@ -151,6 +154,8 @@ def get_ikfast_joints(
     free_joints = [
         robot.joint_info_from_name(joint) for joint in ikfast_info.free_joints
     ]
+    # Note: IKFast supports 6 joints, the rest are free joints which we
+    # must sample over
     assert len(ik_joints) == 6 + len(free_joints)
 
     return ik_joints, free_joints
@@ -160,28 +165,32 @@ def free_joints_generator(
     robot: SingleArmPyBulletRobot,
     free_joint_infos: List[JointInfo],
     max_distance: float,
-    fixed_joints: Sequence[int] = ()
 ) -> Iterator[Union[JointPositions, np.ndarray]]:
-    """A generator that samples configurations for free joints in the given
-    robot that are within the joint limits."""
+    """A generator that samples joint positions for free joints in the given
+    robot that are within the joint limits.
+
+    The current joint positions of the robots will be used in conjunction with
+    max_distance to constrain the 'distance' of the sampled free joints from
+    their current positions.
+
+    This function yields the joint positions as a list of floats or a numpy
+    array (due to sampling). We avoid converting the numpy array to a list to
+    avoid unnecessary computation and memory.
+    """
     free_joints = [joint_info.jointIndex for joint_info in free_joint_infos]
     current_positions = get_joint_positions(robot.robot_id, free_joints,
                                             robot.physics_client_id)
-    # Maximum distance between each free joint from current position
-    free_deltas = np.array([
-        0.0 if joint in fixed_joints else max_distance for joint in free_joints
-    ])
 
     # Determine lower and upper limits
     lower_limits = np.maximum(
         get_joint_lower_limits(robot.robot_id, free_joints,
                                robot.physics_client_id),
-        current_positions - free_deltas,
+        np.array(current_positions) - max_distance,
     )
     upper_limits = np.minimum(
         get_joint_upper_limits(robot.robot_id, free_joints,
                                robot.physics_client_id),
-        current_positions + free_deltas,
+        np.array(current_positions) + max_distance,
     )
     assert np.less_equal(lower_limits, upper_limits).all()
 
@@ -207,6 +216,7 @@ def ikfast_inverse_kinematics(
     max_distance: float,
     max_attempts: int,
     norm: int,
+    rng: np.random.Generator,
 ) -> Iterator[JointPositions]:
     """Run IKFast to compute joint positions for given target pose specified in
     the world frame.
@@ -226,10 +236,8 @@ def ikfast_inverse_kinematics(
     ik_joint_infos, free_joint_infos = get_ikfast_joints(robot)
     ik_joints = [joint_info.jointIndex for joint_info in ik_joint_infos]
 
-    tool_link = robot.tool_link_id
-
     # Get the desired pose of the end-effector in the base frame
-    base_from_ee = get_base_from_ee(robot, tool_link, world_from_target)
+    base_from_ee = get_base_from_ee(robot, world_from_target)
     position = list(base_from_ee.position)
     rot_matrix = matrix_from_quat(base_from_ee.orientation).tolist()
 
@@ -238,9 +246,9 @@ def ikfast_inverse_kinematics(
     if max_attempts < np.inf:  # pragma: no cover
         generator = islice(generator, max_attempts)
 
-    difference_fn = get_difference_fn(ik_joint_infos)
-    current_conf = get_joint_positions(robot.robot_id, ik_joints,
-                                       robot.physics_client_id)
+    joint_difference_fn = get_joint_difference_fn(ik_joint_infos)
+    current_joint_positions = get_joint_positions(robot.robot_id, ik_joints,
+                                                  robot.physics_client_id)
 
     start_time = time.perf_counter()
     for free_positions in generator:
@@ -250,27 +258,30 @@ def ikfast_inverse_kinematics(
             break
 
         # Call IKFast to compute candidates for sampled free joint positions
-        ik_candidates: Optional[List[
-            List[float]]] = ikfast.get_ik(  # type: ignore
+        ik_candidates: Optional[
+            List[JointPositions]] = ikfast.get_ik(  # type: ignore
                 rot_matrix, position, list(free_positions))
         if ik_candidates is None:
             continue
 
-        # Shuffle the candidates to avoid any biases
-        random.shuffle(ik_candidates)
+        # Shuffle the candidates to avoid any biases. This may not be
+        # completely necessary, but keeping as Caelan did it and it's cheap.
+        rng.shuffle(ik_candidates)
 
-        # Check candidates are valid
-        for conf in ik_candidates:
-            difference = difference_fn(current_conf, conf)
-            if not violates_joint_limits(ik_joint_infos, conf) and (
+        # Check candidates are valid - i.e. within joint limits and difference
+        # less than desired max distance. We only yield valid joint positions.
+        for joint_positions in ik_candidates:
+            difference = joint_difference_fn(current_joint_positions,
+                                             joint_positions)
+            if not violates_joint_limits(ik_joint_infos, joint_positions) and (
                     np.linalg.norm(difference, ord=norm) <= max_distance):
-                yield conf
+                yield joint_positions
 
 
 def ikfast_closest_inverse_kinematics(
         robot: SingleArmPyBulletRobot,
         world_from_target: Pose) -> List[JointPositions]:
-    """Runs IKFast and returns the solutions sorted in order of closets
+    """Runs IKFast and returns the solutions sorted in order of closest
     distance to the robot's current joint positions.
 
     Parameters
@@ -286,17 +297,16 @@ def ikfast_closest_inverse_kinematics(
     start_time = time.perf_counter()
     ik_joint_infos, _ = get_ikfast_joints(robot)
     ik_joints = [joint_info.jointIndex for joint_info in ik_joint_infos]
-    current_conf = get_joint_positions(robot.robot_id, ik_joints,
-                                       robot.physics_client_id)
+    current_joint_positions = get_joint_positions(robot.robot_id, ik_joints,
+                                                  robot.physics_client_id)
 
-    generator = ikfast_inverse_kinematics(
-        robot,
-        world_from_target,
-        max_time=CFG.ikfast_max_time,
-        max_distance=CFG.ikfast_max_distance,
-        max_attempts=CFG.ikfast_max_attempts,
-        norm=CFG.ikfast_norm,
-    )
+    generator = ikfast_inverse_kinematics(robot,
+                                          world_from_target,
+                                          max_time=CFG.ikfast_max_time,
+                                          max_distance=CFG.ikfast_max_distance,
+                                          max_attempts=CFG.ikfast_max_attempts,
+                                          norm=CFG.ikfast_norm,
+                                          rng=np.random.default_rng(CFG.seed))
 
     # Only use up to the max candidates specified
     if CFG.ikfast_max_candidates < np.inf:  # pragma: no cover
@@ -304,17 +314,18 @@ def ikfast_closest_inverse_kinematics(
 
     # Sort solutions by distance to current joint positions
     candidate_solutions = list(generator)
-    difference_fn = get_difference_fn(ik_joint_infos)
+    joint_difference_fn = get_joint_difference_fn(ik_joint_infos)
     solutions = sorted(
         candidate_solutions,
-        key=lambda conf: np.linalg.norm(  # type: ignore
-            difference_fn(current_conf, conf),
+        key=lambda joint_positions: np.linalg.norm(  # type: ignore
+            joint_difference_fn(current_joint_positions, joint_positions),
             ord=CFG.ikfast_norm))
     elapsed_time = time.perf_counter() - start_time
 
     if solutions:
-        min_distance = np.linalg.norm(difference_fn(current_conf,
-                                                    solutions[0]),
+        min_diff_from_current = joint_difference_fn(current_joint_positions,
+                                                    solutions[0])
+        min_distance = np.linalg.norm(min_diff_from_current,
                                       ord=CFG.ikfast_norm)
         logging.debug(
             f"Identified {len(solutions)} IK solutions with minimum distance "
