@@ -5,23 +5,31 @@ APPROACHES:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "greedy_lookahead"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
   # MLP baseline
   main-mlp:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "greedy_lookahead"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
       interactive_num_ensemble_members: 1
   # query baselines
   ask-all:  # section kid
     NAME: "interactive_learning"
     FLAGS:
       explorer: "greedy_lookahead"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
       interactive_query_policy: "nonstrict_best_seen"
       interactive_score_function: "trivial"
   ask-none:  # silent kid
     NAME: "interactive_learning"
     FLAGS:
       explorer: "greedy_lookahead"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
       interactive_query_policy: "threshold"
       interactive_score_function: "trivial"
       interactive_score_threshold: 1.0
@@ -29,6 +37,8 @@ APPROACHES:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "greedy_lookahead"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
       interactive_query_policy: "random"
       interactive_score_function: "trivial"
       interactive_random_query_prob: 0.03  # queries about the same amount as main
@@ -37,14 +47,20 @@ APPROACHES:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "glib"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
   random-actions:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "random_options"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
   no-actions:
     NAME: "interactive_learning"
     FLAGS:
       explorer: "no_explore"
+      predicate_mlp_classifier_n_reinitialize_tries: 5
+      predicate_mlp_classifier_init: "normal"
 ENVS:
   cover:
     NAME: "cover"
@@ -58,5 +74,5 @@ FLAGS:  # common args
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
-START_SEED: 456
+START_SEED: 123
 NUM_SEEDS: 10
