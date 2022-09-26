@@ -128,7 +128,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
                          for pred in candidate_predicates)
         logging.info(f"Evaluating predicates: {candidate_predicates}, with "
                      f"total cost {total_cost}")
-        start_time = time.time()
+        start_time = time.perf_counter()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
             candidate_predicates | self._initial_predicates)
@@ -158,7 +158,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
         logging.info(f"\tTotal score: {total_score} computed in "
-                     f"{time.time()-start_time:.3f} seconds")
+                     f"{time.perf_counter()-start_time:.3f} seconds")
         return total_score
 
     def evaluate_with_operators(self,

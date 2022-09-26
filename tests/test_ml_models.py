@@ -172,7 +172,7 @@ def test_mlp_classifier():
     assert prediction
     assert model.predict_proba(np.ones(input_size)) > 0.5
     # Test for early stopping
-    start_time = time.time()
+    start_time = time.perf_counter()
     model = MLPBinaryClassifier(seed=123,
                                 balance_data=True,
                                 max_train_iters=100000,
@@ -182,7 +182,7 @@ def test_mlp_classifier():
                                 n_reinitialize_tries=1,
                                 weight_init="default")
     model.fit(X, y)
-    assert time.time() - start_time < 3, "Didn't early stop"
+    assert time.perf_counter() - start_time < 3, "Didn't early stop"
     # Test with no positive examples.
     num_class_samples = 1000
     X = np.concatenate([
@@ -198,9 +198,10 @@ def test_mlp_classifier():
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
                                 weight_init="default")
-    start_time = time.time()
+    start_time = time.perf_counter()
     model.fit(X, y)
-    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    assert time.perf_counter(
+    ) - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
     prediction = model.classify(np.ones(input_size))
@@ -215,9 +216,10 @@ def test_mlp_classifier():
                                 hid_sizes=[32, 32],
                                 n_reinitialize_tries=1,
                                 weight_init="default")
-    start_time = time.time()
+    start_time = time.perf_counter()
     model.fit(X, y)
-    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    assert time.perf_counter(
+    ) - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert prediction
     prediction = model.classify(np.ones(input_size))

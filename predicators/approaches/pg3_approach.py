@@ -64,10 +64,10 @@ class PG3Approach(NSRTLearningApproach):
         atoms = utils.abstract(task.init, self._initial_predicates)
         atoms_sequence.append(atoms)
         current_objects = set(task.init)
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         while not task.goal.issubset(atoms):
-            if (time.time() - start_time) >= timeout:
+            if (time.perf_counter() - start_time) >= timeout:
                 raise ApproachFailure("Timeout exceeded")
             ground_nsrt = self._predict_ground_nsrt(atoms, current_objects,
                                                     task.goal)
@@ -77,7 +77,7 @@ class PG3Approach(NSRTLearningApproach):
         try:
             option_list, succeeded = run_low_level_search(
                 task, self._option_model, skeleton, atoms_sequence, self._seed,
-                timeout - (time.time() - start_time), CFG.horizon)
+                timeout - (time.perf_counter() - start_time), CFG.horizon)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         if not succeeded:
