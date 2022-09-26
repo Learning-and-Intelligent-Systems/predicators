@@ -194,9 +194,6 @@ class SupercloudResponse(Response):
         # to launch each command in self._get_commands() sequentially, and
         # store all the stdout/stderr into output.txt.
         user = self._user
-        dir_name = SUPERCLOUD_USER_TO_DIR[user]
-        assert dir_name.endswith("predicators/")
-        dir_name_up = dir_name[:-12]
         # 1) Always start by clearing the current output.txt.
         commands = ["rm -f output.txt"]
         for command in self._get_commands():
