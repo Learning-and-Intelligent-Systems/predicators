@@ -45,7 +45,7 @@ def submit_supercloud_job(job_name: str,
     if use_gpu:
         cmd += "--partition=xeon-g6-volta --gres=gpu:volta:1 "
     else:
-        cmd += "--partition=xeon-p8"
+        cmd += "--partition=xeon-p8 "
     cmd += ("--nodes=1 --exclusive "
             f"--job-name={job_name} "
             f"--array={start_seed}-{start_seed+num_seeds-1} "
