@@ -882,9 +882,9 @@ def run_policy(
             monitor_observed = False
             exception_raised_in_step = False
             try:
-                start_time = time.time()
+                start_time = time.perf_counter()
                 act = policy(state)
-                metrics["policy_call_time"] += time.time() - start_time
+                metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
                 # internal state.
@@ -1306,9 +1306,9 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
-    start_time = time.time()
+    start_time = time.perf_counter()
 
-    while len(queue) > 0 and time.time() - start_time < timeout and \
+    while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
           num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
@@ -1320,7 +1320,7 @@ def _run_heuristic_search(
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
-            if time.time() - start_time >= timeout:
+            if time.perf_counter() - start_time >= timeout:
                 break
             child_path_cost = node.cumulative_cost + cost
             # If we already found a better path to this child, don't bother.
