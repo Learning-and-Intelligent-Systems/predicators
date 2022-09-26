@@ -240,7 +240,7 @@ class PyBulletEnv(BaseEnv):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                physicsClientId=self._physics_client_id)
 
-        rgb_array = np.array(px)
+        rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
