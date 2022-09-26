@@ -116,18 +116,21 @@ def generate_run_configs(config_filename: str,
                                                   seed)
 
 
-def get_cmds_to_prep_repo(branch: str) -> List[str]:
+def get_cmds_to_prep_repo(branch: str, transfer_local_data: bool) -> List[str]:
     """Get the commands that should be run while already in the repository but
     before launching the experiments."""
-    return [
+    ret_cmds = [
         "mkdir -p logs",
         "git stash",
         "git fetch --all",
         f"git checkout {branch}",
         "git pull",
-        # Remove old results.
-        "rm -f results/* logs/* saved_approaches/* saved_datasets/*",
     ]
+    if not transfer_local_data:
+        ret_cmds.append(
+            "rm -f results/* logs/* saved_approaches/* saved_datasets/*")
+
+    return ret_cmds
 
 
 def run_cmds_on_machine(
@@ -143,10 +146,18 @@ def run_cmds_on_machine(
         ssh_cmd += f" -i {ssh_key}"
     server_cmd_str = "\n".join(cmds + ["exit"])
     final_cmd = f"{ssh_cmd} << EOF\n{server_cmd_str}\nEOF"
-    response = subprocess.run(final_cmd,
+    run_command_with_subprocess(final_cmd, allowed_return_codes)
+
+
+def run_command_with_subprocess(
+    cmd: str, allowed_return_codes: Tuple[int, ...] = (0, )) -> None:
+    """Run a command string with subprocess.run and raise an error if the
+    return code is not as expected."""
+    print(cmd)
+    response = subprocess.run(cmd,
                               stdout=subprocess.DEVNULL,
                               stderr=subprocess.STDOUT,
                               shell=True,
                               check=False)
     if response.returncode not in allowed_return_codes:
-        raise RuntimeError(f"Command failed: {final_cmd}")
+        raise RuntimeError(f"Command failed: {cmd}")
