@@ -7,7 +7,7 @@ import time
 class Timer:
 
     def __init__(self):
-        self.start_time = time.time()
+        self.start_time = time.perf_counter()
         self.start_clock = self._clock()
 
     def _clock(self):
@@ -16,7 +16,7 @@ class Timer:
 
     def __str__(self):
         return "[%.3fs CPU, %.3fs wall-clock]" % (
-            self._clock() - self.start_clock, time.time() - self.start_time)
+            self._clock() - self.start_clock, time.perf_counter() - self.start_time)
 
 
 @contextlib.contextmanager
