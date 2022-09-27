@@ -24,7 +24,6 @@ LAUNCH_CMD = ("python scripts/supercloud/launch.py --config nightly.yaml "
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
 GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
-CONDA = "/state/partition1/llgrid/pkg/anaconda/anaconda3-2021b/bin/activate"
 
 SUPERCLOUD_USER_TO_DIR = {
     "ronuchit": "/home/gridsan/ronuchit/predicators/",
@@ -195,29 +194,16 @@ class SupercloudResponse(Response):
         # to launch each command in self._get_commands() sequentially, and
         # store all the stdout/stderr into output.txt.
         user = self._user
-        dir_name = SUPERCLOUD_USER_TO_DIR[user]
-        assert dir_name.endswith("predicators/")
-        dir_name_up = dir_name[:-12]
         # 1) Always start by clearing the current output.txt.
         commands = ["rm -f output.txt"]
         for command in self._get_commands():
             # 2) SSH into the user's login server.
             commands.append(
-                f"ssh {user}@{SUPERCLOUD_LOGIN_SERVER} "
+                f"ssh {user}@{SUPERCLOUD_LOGIN_SERVER} -t 'bash -ic \""
                 # 3) Change into the desired directory and source
-                # the user's conda environment.
-                f"'cd {dir_name} && source {CONDA} predicators "
-                # 4) This step is tricky! For some reason, when you
-                # SSH, the PYTHONPATH isn't preserved, so we update
-                # it here to be the directory one level up from the
-                # predicators repository, so that the imports in our
-                # repository work as expected (from predicators...).
-                f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up} "
-                # 5) Similarly, update the PYTHONHASHSEED.
-                "&& export PYTHONHASHSEED=0 "
-                # 6) Run the actual command, appending both stdout
-                # and stderr onto the end of output.txt.
-                f"&& {command}' >> output.txt 2>&1")
+                # the user's conda environment. Then, run the actual command,
+                # appending both stdout and stderr onto the end of output.txt.
+                f"predicate && {command}\"' >> output.txt 2>&1")
         cmd_str = " && ".join(commands)
         print(f"Running SSH command: {cmd_str}", flush=True)
         subprocess.getoutput(cmd_str)
