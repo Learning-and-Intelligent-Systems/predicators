@@ -488,12 +488,19 @@ def load_checkpoint_state(s: State,
         env.igibson_behavior_env.reset()
     behavior_task_name = CFG.behavior_task_list[0] if len(
         CFG.behavior_task_list) == 1 else "all"
-    load_checkpoint(
-        env.igibson_behavior_env.simulator,
+    checkpoint_file_str = (
         f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
         f"{behavior_task_name}__{CFG.num_train_tasks}__" +
-        f"{CFG.seed}__{env.task_num}__{env.task_instance_id}",
-        int(s.simulator_state.split("-")[2]))
+        f"{CFG.seed}__{env.task_num}__{env.task_instance_id}")
+    frame_num = int(s.simulator_state.split("-")[2])
+    try:
+        load_checkpoint(env.igibson_behavior_env.simulator,
+                        checkpoint_file_str, frame_num)
+    except p.error as _:
+        raise ValueError(
+            f"Could not load pybullet state for {checkpoint_file_str}, " +
+            f"frame {frame_num}")
+
     np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
         new_task_num_task_instance_id])
     # We step the environment to update the visuals of where the robot is!
