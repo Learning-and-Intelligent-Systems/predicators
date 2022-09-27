@@ -179,6 +179,10 @@ class GlobalSettings:
     pddl_forest_procedural_test_min_size = 10
     pddl_forest_procedural_test_max_size = 12
 
+    # pddl pancake env parameters
+    pddl_pancake_fixed_train_indices = [1]
+    pddl_pancake_fixed_test_indices = [2]
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]

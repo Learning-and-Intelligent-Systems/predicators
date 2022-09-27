@@ -464,6 +464,36 @@ class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
         return create_forest_pddl_generator(min_size, max_size)
 
 
+class _PancakePDDLEnv(_PDDLEnv):
+    """A custom domain for making a pancake."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/pancake/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class FixedTasksPancakePDDLEnv(_PancakePDDLEnv, _FixedTasksPDDLEnv):
+    """The pancake PDDL domain with a fixed set of tasks."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_pancake_fixed_tasks"
+
+    @property
+    def _pddl_problem_asset_dir(self) -> str:
+        return "pancake"
+
+    @property
+    def _train_problem_indices(self) -> List[int]:
+        return CFG.pddl_pancake_fixed_train_indices
+
+    @property
+    def _test_problem_indices(self) -> List[int]:
+        return CFG.pddl_pancake_fixed_test_indices
+
 ###############################################################################
 #                            Utility functions                                #
 ###############################################################################
