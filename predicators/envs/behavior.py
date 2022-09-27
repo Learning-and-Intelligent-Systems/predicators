@@ -333,6 +333,16 @@ class BehaviorEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         predicates = set()
         types_lst = sorted(self.types)  # for determinism
+
+        # Get the types of all objects in this particular problem.
+        curr_problem_type_names = set()
+        for ig_obj in self._get_task_relevant_objects():
+            curr_problem_type_names.add(ig_obj.category)
+        pruned_types_lst = []
+        for obj_type in types_lst:
+            if obj_type.name in curr_problem_type_names:
+                pruned_types_lst.append(obj_type)
+
         # First, extract predicates from iGibson
         for bddl_name in [
                 "inside",
@@ -361,7 +371,8 @@ class BehaviorEnv(BaseEnv):
             # per predicate, but this should happen automatically when we
             # go to collect data and do NSRT learning.
             arity = self._bddl_predicate_arity(bddl_predicate)
-            for type_combo in itertools.product(types_lst, repeat=arity):
+            for type_combo in itertools.product(pruned_types_lst,
+                                                repeat=arity):
                 # It is unnecessary to track whether the agent is ontop,
                 # inside or open things. Thus, we simply skip spawning
                 # these predicates.
@@ -384,7 +395,8 @@ class BehaviorEnv(BaseEnv):
         ]
 
         for name, classifier, arity in custom_predicate_specs:
-            for type_combo in itertools.product(types_lst, repeat=arity):
+            for type_combo in itertools.product(pruned_types_lst,
+                                                repeat=arity):
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
