@@ -21,3 +21,6 @@ saved_datasets
 scripts/results
 llm_cache
 machines.txt
+
+# Jetbrains IDEs
+.idea/
