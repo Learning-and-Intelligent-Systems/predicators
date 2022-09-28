@@ -2779,7 +2779,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     # all possible other types. These predicates will
     # be used as ignore effects for navigateTo operators.
     reachable_predicates = set()
-    for reachable_pred_type in env.types:
+    for reachable_pred_type in env.task_relevant_types:
         # We don't care about the "reachable(agent)" predicate
         # since it will always be False.
         if reachable_pred_type.name == "agent":
@@ -3077,7 +3077,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             if target_obj_type.name not in PICK_PLACE_OBJECT_TYPES:
                 continue
             # Grasp an object from ontop some surface.
-            for surf_obj_type in sorted(env.types):
+            for surf_obj_type in sorted(env.task_relevant_types):
                 # If the surface object is not in these object types, we do not
                 # have to make a NSRT with this type.
                 if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES\
@@ -3137,7 +3137,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES:
                 continue
             # We need to place the object we're holding!
-            for held_obj_types in sorted(env.types):
+            for held_obj_types in sorted(env.task_relevant_types):
                 # If the held object is not in these object types, we do not
                 # have to make a NSRT with this type.
                 if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES:
@@ -3258,7 +3258,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # We need to place the object we're holding. Note that we create
             # two different place-inside NSRTs: one for when the object we are
             # placing into is `openable`, and one for other cases.
-            for held_obj_types in sorted(env.types):
+            for held_obj_types in sorted(env.task_relevant_types):
                 # If the held object is not in these object types, we do not
                 # have to make a NSRT with this type.
                 if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES or \
