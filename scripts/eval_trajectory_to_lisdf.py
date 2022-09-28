@@ -12,12 +12,15 @@ Then run this script:
         --output /tmp/pybullet_blocks__oracle__0________task1.json
 """
 import argparse
+from typing import List, Tuple
 
 import dill as pkl
 import numpy as np
 import pybullet as p
-from lisdf.planner_output.command import JointSpacePath
+from lisdf.planner_output.command import ActuateGripper, GripperPosition, \
+    JointSpacePath
 from lisdf.planner_output.plan import LISDFPlan
+from numpy.typing import NDArray
 
 from predicators import utils
 from predicators.pybullet_helpers.robots import \
@@ -45,7 +48,7 @@ def _main() -> None:
         traj_data = pkl.load(f)
 
     ll_traj = traj_data["trajectory"]
-    joint_arr = np.array([a.arr for a in ll_traj.actions], dtype=float)
+    joint_arr = np.array([a.arr for a in ll_traj.actions], dtype=np.float32)
     robot_name = traj_data["pybullet_robot"]
     # Create an instance of the robot with default position values so that we
     # can extract the joint names.
@@ -56,16 +59,75 @@ def _main() -> None:
     joint_names = robot.arm_joint_names
     assert len(joint_names) == joint_arr.shape[1]
 
-    # For now, we just convert the trajectory into one big JointSpacePath. In
-    # the future, we may want to chunk it up.
-    duration = args.time_per_conf * len(joint_arr)
-    command = JointSpacePath.from_waypoints_np_array(
-        joint_arr,
-        joint_names,
-        duration=duration,
-        label=args.input,
-    )
-    lisdf_plan = LISDFPlan(commands=[command], lisdf_problem="no_problem")
+    # Convert the joint array into a list of (arm joint state, gripper state)
+    # where the gripper state is GripperPosition.open or GripperPosition.close
+    # and the arm joint state is the original joints with grippers removed.
+    gripper_idxs = [robot.left_finger_joint_idx, robot.right_finger_joint_idx]
+
+    def _joints_to_arm_gripper_vals(
+            joints: NDArray[np.float32]) -> Tuple[NDArray[np.float32], str]:
+        # Determine if gripper is currently closed or open.
+        # Use arbitrary gripper idx.
+        gripper_val = joints[gripper_idxs[0]]
+        dist_to_open = abs(gripper_val - robot.open_fingers)
+        dist_to_closed = abs(gripper_val - robot.closed_fingers)
+        if dist_to_closed < dist_to_open:
+            gripper_state = GripperPosition.close
+        else:
+            gripper_state = GripperPosition.open
+        # Extract the arm joint state.
+        arm_state = np.delete(joints, gripper_idxs)
+        return (arm_state, gripper_state)
+
+    arm_gripper_states = map(_joints_to_arm_gripper_vals, joint_arr)
+
+    # List of LISDF commands, alternating JointSpacePath and ActuateGripper.
+    commands = []
+
+    # Accumulate the arm-only actions until a change in the gripper state
+    # is observed, at which point we finalize the JointSpacePath command,
+    # add an ActuateGripper command, and then start a new JointSpacePath.
+    accum_arm_states = []
+
+    # Helper function for converting an accum_arm_states to a JointSpacePath.
+    def _create_path_command(
+            arm_states: List[NDArray[np.float32]]) -> JointSpacePath:
+        duration = args.time_per_conf * len(accum_arm_states)
+        accum_arm_states_np = np.array(accum_arm_states)
+        path_command = JointSpacePath.from_waypoints_np_array(
+            accum_arm_states_np,
+            joint_names,
+            duration=duration,
+            label=args.input,
+        )
+        return path_command
+
+    # Track changes in the gripper state.
+    _, prev_gripper_state = arm_gripper_states[0]
+
+    for arm_state, current_gripper_state in arm_gripper_states:
+        # Check if a change in the gripper state has occurred.
+        if current_gripper_state != prev_gripper_state:
+
+            # Finalize the JointSpacePath until this point.
+            path_command = _create_path_command(accum_arm_states)
+            commands.append(path_command)
+            accum_arm_states = [arm_state]
+
+            # Create the ActuateGripper command.
+            gripper_command = ActuateGripper(
+                configurations={"panda_gripper": current_gripper_state},
+                label="gripper_action")
+            commands.append(gripper_command)
+            prev_gripper_state = current_gripper_state
+
+    # Finish the last JointSpacePath.
+    if len(accum_arm_states) > 1:
+        path_command = _create_path_command(accum_arm_states)
+        commands.append(path_command)
+
+    # Write out the commands to JSON.
+    lisdf_plan = LISDFPlan(commands=commands, lisdf_problem="no_problem")
     lisdf_plan.write_json(args.output)
     print(f"Wrote out LISDFPlan to {args.output}")
 
