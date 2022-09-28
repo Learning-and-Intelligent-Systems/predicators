@@ -17,8 +17,8 @@ from typing import List, Tuple
 import dill as pkl
 import numpy as np
 import pybullet as p
-from lisdf.planner_output.command import ActuateGripper, GripperPosition, \
-    JointSpacePath
+from lisdf.planner_output.command import ActuateGripper, Command, \
+    GripperPosition, JointSpacePath
 from lisdf.planner_output.plan import LISDFPlan
 from numpy.typing import NDArray
 
@@ -63,9 +63,11 @@ def _main() -> None:
     # where the gripper state is GripperPosition.open or GripperPosition.close
     # and the arm joint state is the original joints with grippers removed.
     gripper_idxs = [robot.left_finger_joint_idx, robot.right_finger_joint_idx]
+    arm_joint_names = list(np.delete(joint_names, gripper_idxs))
 
     def _joints_to_arm_gripper_vals(
-            joints: NDArray[np.float32]) -> Tuple[NDArray[np.float32], str]:
+        joints: NDArray[np.float32]
+    ) -> Tuple[NDArray[np.float32], GripperPosition]:
         # Determine if gripper is currently closed or open.
         # Use arbitrary gripper idx.
         gripper_val = joints[gripper_idxs[0]]
@@ -79,24 +81,24 @@ def _main() -> None:
         arm_state = np.delete(joints, gripper_idxs)
         return (arm_state, gripper_state)
 
-    arm_gripper_states = map(_joints_to_arm_gripper_vals, joint_arr)
+    arm_gripper_states = list(map(_joints_to_arm_gripper_vals, joint_arr))
 
     # List of LISDF commands, alternating JointSpacePath and ActuateGripper.
-    commands = []
+    commands: List[Command] = []
 
     # Accumulate the arm-only actions until a change in the gripper state
     # is observed, at which point we finalize the JointSpacePath command,
     # add an ActuateGripper command, and then start a new JointSpacePath.
-    accum_arm_states = []
+    accum_arm_states: List[NDArray[np.float32]] = []
 
     # Helper function for converting an accum_arm_states to a JointSpacePath.
     def _create_path_command(
             arm_states: List[NDArray[np.float32]]) -> JointSpacePath:
-        duration = args.time_per_conf * len(accum_arm_states)
-        accum_arm_states_np = np.array(accum_arm_states)
+        duration = args.time_per_conf * len(arm_states)
+        arm_states_np = np.array(arm_states)
         path_command = JointSpacePath.from_waypoints_np_array(
-            accum_arm_states_np,
-            joint_names,
+            arm_states_np,
+            arm_joint_names,
             duration=duration,
             label=args.input,
         )
@@ -106,14 +108,13 @@ def _main() -> None:
     _, prev_gripper_state = arm_gripper_states[0]
 
     for arm_state, current_gripper_state in arm_gripper_states:
+        accum_arm_states.append(arm_state)
         # Check if a change in the gripper state has occurred.
         if current_gripper_state != prev_gripper_state:
-
             # Finalize the JointSpacePath until this point.
             path_command = _create_path_command(accum_arm_states)
             commands.append(path_command)
             accum_arm_states = [arm_state]
-
             # Create the ActuateGripper command.
             gripper_command = ActuateGripper(
                 configurations={"panda_gripper": current_gripper_state},
