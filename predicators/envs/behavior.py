@@ -79,11 +79,12 @@ class BehaviorEnv(BaseEnv):
                 os.path.join(igibson.root_path, CFG.behavior_config_file),
                 CFG.behavior_task_list[0],
                 self.get_random_scene_for_task(CFG.behavior_task_list[0],
-                                               rng), False)
+                                               rng), False, CFG.seed)
         else:
             self._config_file = modify_config_file(
                 os.path.join(igibson.root_path, CFG.behavior_config_file),
-                CFG.behavior_task_list[0], CFG.behavior_scene_name, False)
+                CFG.behavior_task_list[0], CFG.behavior_scene_name, False,
+                CFG.seed)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
