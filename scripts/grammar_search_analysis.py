@@ -177,7 +177,7 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks, env.options)
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
@@ -197,7 +197,7 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(str(v))
     print(f"Finished proxy analysis for {env_name} in "
-          f"{time.time()-start_time:.3f} seconds")
+          f"{time.perf_counter()-start_time:.3f} seconds")
 
 
 def _run_proxy_analysis_for_predicates(
@@ -221,9 +221,9 @@ def _run_proxy_analysis_for_predicates(
                                                initial_predicates,
                                                atom_dataset, candidates,
                                                train_tasks)
-        start_time = time.time()
+        start_time = time.perf_counter()
         score = score_function.evaluate(frozenset(predicates))
-        eval_time = time.time() - start_time
+        eval_time = time.perf_counter() - start_time
         results[score_function_name + " Score"] = score
         results[score_function_name + " Time"] = eval_time
     # Learn NSRTs and plan.

@@ -22,7 +22,7 @@ def train_model(model: Any, dataloaders: Dict,
                                            torch.Tensor], num_epochs: int,
                 do_validation: bool) -> OrderedDict[str, torch.Tensor]:
     """Optimize the model and save checkpoints."""
-    since = time.time()
+    since = time.perf_counter()
 
     # Note: best_seen_model_weights is measured on validation (not train) loss.
     best_seen_model_weights: OrderedDict[
@@ -92,7 +92,7 @@ def train_model(model: Any, dataloaders: Dict,
                     "Found new best model with validation loss "
                     f"{best_seen_running_validation_loss} at epoch {epoch}")
 
-    time_elapsed = time.time() - since
+    time_elapsed = time.perf_counter() - since
     num_min = time_elapsed // 60
     num_sec = time_elapsed % 60
 
