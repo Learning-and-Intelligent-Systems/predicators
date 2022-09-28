@@ -312,8 +312,7 @@ def _skeleton_generator(
                       skeleton=[],
                       atoms_sequence=[init_atoms],
                       parent=None,
-                      cumulative_cost=0,
-                       source_skeleton = [])
+                      cumulative_cost=0)
     metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
@@ -376,8 +375,7 @@ def _skeleton_generator(
                     atoms_sequence=current_node.atoms_sequence +
                     [child_atoms],
                     parent=current_node,
-                    cumulative_cost=child_cost,
-                    source_skeleton = current_node.source_skeleton+["Policy"])
+                    cumulative_cost=child_cost)
                 metrics["num_nodes_created"] += 1
                 # priority is g [cost] plus h [heuristic]
                 priority = (child_node.cumulative_cost +
@@ -421,8 +419,7 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node,
-                                   cumulative_cost=child_cost,
-                                   source_skeleton = node.source_skeleton + ["Primitive"])
+                                   cumulative_cost=child_cost)
                 metrics["num_nodes_created"] += 1
                 # priority is g [cost] plus h [heuristic]
                 priority = (child_node.cumulative_cost +
