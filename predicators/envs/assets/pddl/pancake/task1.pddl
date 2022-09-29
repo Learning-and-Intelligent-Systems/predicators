@@ -2,24 +2,24 @@
 	(:domain pancake)
 	(:objects
     	arm - robot
-    	pan - locatable
-    	oil - insertable
-    	spatula - insertable
-    	mix - insertable
-    	wet_mix - insertable
-    	pancake - insertable
-    	water - insertable
-    	bowl - container
-    	plate - container
-    	orange - insertable
-    	knife - insertable
-    	bread - insertable
-    	ketchup - insertable
+    	pan - pan
+    	oil - oil
+    	spatula - locatable
+    	mix - mix
+    	wet_mix - wet_mix
+    	pancake - pancake
+    	water - water
+    	bowl - bowl
+    	plate - plate
+    	orange - locatable
+    	knife - locatable
+    	bread - locatable
+    	ketchup - locatable
     	countertop - location
     	cupboard1 - location
     	cupboard2 - location
     	cupboard3 - location
-    	stove - location
+    	stove - stove
     	
 	)
 	
