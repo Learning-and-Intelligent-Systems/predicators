@@ -161,7 +161,9 @@ def test_mlp_classifier():
                                 max_train_iters=100,
                                 learning_rate=1e-3,
                                 n_iter_no_change=1000000,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
@@ -170,15 +172,17 @@ def test_mlp_classifier():
     assert prediction
     assert model.predict_proba(np.ones(input_size)) > 0.5
     # Test for early stopping
-    start_time = time.time()
+    start_time = time.perf_counter()
     model = MLPBinaryClassifier(seed=123,
                                 balance_data=True,
                                 max_train_iters=100000,
                                 learning_rate=1e-2,
                                 n_iter_no_change=1,
-                                hid_sizes=[32, 32])
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
     model.fit(X, y)
-    assert time.time() - start_time < 3, "Didn't early stop"
+    assert time.perf_counter() - start_time < 3, "Didn't early stop"
     # Test with no positive examples.
     num_class_samples = 1000
     X = np.concatenate([
@@ -191,10 +195,13 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
-                                hid_sizes=[32, 32])
-    start_time = time.time()
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
+    start_time = time.perf_counter()
     model.fit(X, y)
-    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    assert time.perf_counter(
+    ) - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
     prediction = model.classify(np.ones(input_size))
@@ -206,14 +213,56 @@ def test_mlp_classifier():
                                 max_train_iters=100000,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
-                                hid_sizes=[32, 32])
-    start_time = time.time()
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="default")
+    start_time = time.perf_counter()
     model.fit(X, y)
-    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    assert time.perf_counter(
+    ) - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert prediction
     prediction = model.classify(np.ones(input_size))
     assert prediction
+    # Test with non-default weight initialization.
+    X = np.concatenate([
+        np.zeros((num_class_samples, input_size)),
+        np.ones((num_class_samples, input_size))
+    ])
+    y = np.concatenate(
+        [np.zeros((num_class_samples)),
+         np.ones((num_class_samples))])
+    model = MLPBinaryClassifier(seed=123,
+                                balance_data=True,
+                                max_train_iters=100000,
+                                learning_rate=1e-3,
+                                n_iter_no_change=100000,
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="normal")
+    model.fit(X, y)
+    # Test with invalid weight initialization.
+    model = MLPBinaryClassifier(seed=123,
+                                balance_data=True,
+                                max_train_iters=100000,
+                                learning_rate=1e-3,
+                                n_iter_no_change=100000,
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=1,
+                                weight_init="foo")
+    with pytest.raises(NotImplementedError):
+        model.fit(X, y)
+    # Test for reinitialization failure.
+    model = MLPBinaryClassifier(seed=123,
+                                balance_data=True,
+                                max_train_iters=100000,
+                                learning_rate=1e-3,
+                                n_iter_no_change=100000,
+                                hid_sizes=[32, 32],
+                                n_reinitialize_tries=0,
+                                weight_init="default")
+    with pytest.raises(RuntimeError):
+        model.fit(X, y)
 
 
 def test_binary_classifier_ensemble():
@@ -235,7 +284,9 @@ def test_binary_classifier_ensemble():
                                      max_train_iters=100,
                                      learning_rate=1e-3,
                                      n_iter_no_change=1000000,
-                                     hid_sizes=[32, 32])
+                                     hid_sizes=[32, 32],
+                                     n_reinitialize_tries=1,
+                                     weight_init="default")
     model.fit(X, y)
     with pytest.raises(Exception) as e:
         model.predict_proba(np.zeros(input_size))

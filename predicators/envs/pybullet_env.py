@@ -240,7 +240,7 @@ class PyBulletEnv(BaseEnv):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                physicsClientId=self._physics_client_id)
 
-        rgb_array = np.array(px)
+        rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
@@ -327,7 +327,10 @@ class PyBulletEnv(BaseEnv):
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
                     assert -1.0 <= score <= 1.0
-                    if score < 0.9:
+
+                    # Take absolute as object/gripper could be rotated 180
+                    # degrees in the given axis.
+                    if np.abs(score) < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it

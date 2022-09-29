@@ -16,6 +16,7 @@ import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
     Sequence, Set, Tuple
@@ -881,9 +882,9 @@ def run_policy(
             monitor_observed = False
             exception_raised_in_step = False
             try:
-                start_time = time.time()
+                start_time = time.perf_counter()
                 act = policy(state)
-                metrics["policy_call_time"] += time.time() - start_time
+                metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
                 # internal state.
@@ -1305,9 +1306,9 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
-    start_time = time.time()
+    start_time = time.perf_counter()
 
-    while len(queue) > 0 and time.time() - start_time < timeout and \
+    while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
           num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
@@ -1319,7 +1320,7 @@ def _run_heuristic_search(
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
-            if time.time() - start_time >= timeout:
+            if time.perf_counter() - start_time >= timeout:
                 break
             child_path_cost = node.cumulative_cost + cost
             # If we already found a better path to this child, don't bother.
@@ -2357,6 +2358,14 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     if assert_exists:
         assert os.path.exists(path), f"Env asset not found: {asset_name}."
     return path
+
+
+def get_third_party_path() -> str:
+    """Return the absolute path to the third party directory."""
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent
+    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    return third_party_dir_path
 
 
 def update_config(args: Dict[str, Any]) -> None:

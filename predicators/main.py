@@ -60,7 +60,7 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 
 def main() -> None:
     """Main entry point for running approaches in environments."""
-    script_start = time.time()
+    script_start = time.perf_counter()
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -117,7 +117,7 @@ def main() -> None:
         offline_dataset = None
     # Run the full pipeline.
     _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
-    script_time = time.time() - script_start
+    script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
@@ -138,9 +138,9 @@ def _run_pipeline(env: BaseEnv,
             approach.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
-            learning_start = time.time()
+            learning_start = time.perf_counter()
             approach.learn_from_offline_dataset(offline_dataset)
-            learning_time = time.time() - learning_start
+            learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
             for k, v in approach.metrics.items()
@@ -180,10 +180,10 @@ def _run_pipeline(env: BaseEnv,
                 approach.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
             else:
-                learning_start = time.time()
+                learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 approach.learn_from_interaction_results(interaction_results)
-                learning_time += time.time() - learning_start
+                learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_offline_transitions"] = num_offline_transitions
@@ -262,7 +262,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics: Metrics = defaultdict(float)
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
-        solve_start = time.time()
+        solve_start = time.perf_counter()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -279,7 +279,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 outfile = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
-        solve_time = time.time() - solve_start
+        solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
         num_found_policy += 1
         make_video = False

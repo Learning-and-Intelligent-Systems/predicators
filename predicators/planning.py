@@ -120,13 +120,13 @@ def _sesame_plan_with_astar(
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    start_time = time.time()
+    start_time = time.perf_counter()
     if CFG.sesame_grounder == "naive":
         ground_nsrts = []
         for nsrt in sorted(nsrts):
             for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
                 ground_nsrts.append(ground_nsrt)
-                if time.time() - start_time > timeout:
+                if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout("Planning timed out in grounding!")
     elif CFG.sesame_grounder == "fd_translator":
         # WARNING: there is no easy way to check the timeout within this call,
@@ -135,7 +135,7 @@ def _sesame_plan_with_astar(
         ground_nsrts = list(
             utils.all_ground_nsrts_fd_translator(nsrts, objects, predicates,
                                                  types, init_atoms, task.goal))
-        if time.time() - start_time > timeout:
+        if time.perf_counter() - start_time > timeout:
             raise PlanningTimeout("Planning timed out in grounding!")
     else:
         raise ValueError(
@@ -169,13 +169,13 @@ def _sesame_plan_with_astar(
             new_seed = seed + int(metrics["num_failures_discovered"])
             gen = _skeleton_generator(
                 task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                timeout - (time.time() - start_time), metrics,
+                timeout - (time.perf_counter() - start_time), metrics,
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.time() - start_time), max_horizon)
+                    timeout - (time.perf_counter() - start_time), max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -187,7 +187,7 @@ def _sesame_plan_with_astar(
                     metrics["plan_length"] = len(plan)
                     return plan, metrics
                 partial_refinements.append((skeleton, plan))
-                if time.time() - start_time > timeout:
+                if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
                         "Planning timed out in refinement!",
                         info={"partial_refinements": partial_refinements})
@@ -305,7 +305,7 @@ def _skeleton_generator(
     Issue #1117 for a discussion on why this is False by default.
     """
 
-    start_time = time.time()
+    start_time = time.perf_counter()
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
@@ -327,7 +327,7 @@ def _skeleton_generator(
         # expanded already, and ensure that we never expand redundantly.
         visited_atom_sets = set()
     # Start search.
-    while queue and (time.time() - start_time < timeout):
+    while queue and (time.perf_counter() - start_time < timeout):
         if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
@@ -425,11 +425,11 @@ def _skeleton_generator(
                 priority = (child_node.cumulative_cost +
                             heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
-                if time.time() - start_time >= timeout:
+                if time.perf_counter() - start_time >= timeout:
                     break
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
-    assert time.time() - start_time >= timeout
+    assert time.perf_counter() - start_time >= timeout
     raise _SkeletonSearchTimeout
 
 # """Approach 2: Alternate between policy and primitive successors"""
@@ -606,7 +606,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     but all previous steps did. Note that there are multiple low-level
     plans in general; we return the first one found (arbitrarily).
     """
-    start_time = time.time()
+    start_time = time.perf_counter()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
         {"after_exhaust", "immediately", "never"}
@@ -630,7 +630,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         None for _ in skeleton
     ]
     while cur_idx < len(skeleton):
-        if time.time() - start_time > timeout:
+        if time.perf_counter() - start_time > timeout:
             return longest_failed_refinement, False
         assert num_tries[cur_idx] < max_tries[cur_idx]
         # Good debug point #2: if you have a skeleton that you think is
@@ -876,7 +876,7 @@ def _sesame_plan_with_fast_downward(
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    start_time = time.time()
+    start_time = time.perf_counter()
     # Create the domain and problem strings, then write them to tempfiles.
     dom_str = utils.create_pddl_domain(nsrts, predicates, types, "mydomain")
     prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
@@ -906,7 +906,7 @@ def _sesame_plan_with_fast_downward(
     output = subprocess.getoutput(cmd_str)
     cleanup_cmd_str = f"{exec_str} --cleanup"
     subprocess.getoutput(cleanup_cmd_str)
-    if time.time() - start_time > timeout:
+    if time.perf_counter() - start_time > timeout:
         raise PlanningTimeout("Planning timed out in call to FD!")
     # Parse and log metrics.
     metrics: Metrics = defaultdict(float)
@@ -941,7 +941,7 @@ def _sesame_plan_with_fast_downward(
     if len(skeleton) > max_horizon:
         raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
     # Run low-level search on this skeleton.
-    low_level_timeout = timeout - (time.time() - start_time)
+    low_level_timeout = timeout - (time.perf_counter() - start_time)
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
@@ -954,7 +954,7 @@ def _sesame_plan_with_fast_downward(
         # compute all the ground NSRTs ourselves when using Fast Downward.
         raise PlanningFailure("Got a DiscoveredFailure when using FD!")
     if not suc:
-        if time.time() - start_time > timeout:
+        if time.perf_counter() - start_time > timeout:
             raise PlanningTimeout("Planning timed out in refinement!")
         raise PlanningFailure("Skeleton produced by FD not refinable!")
     metrics["plan_length"] = len(plan)

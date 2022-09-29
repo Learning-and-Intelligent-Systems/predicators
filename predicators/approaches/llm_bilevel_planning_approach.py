@@ -54,7 +54,7 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
         """Query the LLM and use the outputs to initialize the queue in A*."""
         # To initialize the queue in A*, we will build up a partial policy
         # and then run policy-guided A*.
-        start_time = time.time()
+        start_time = time.perf_counter()
         objects = set(state)
         partial_policy_dict: Dict[FrozenSet[GroundAtom], _GroundNSRT] = {}
         # All option plans are merged into a single partial policy.
@@ -97,7 +97,7 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
             task,
             nsrts,
             preds,
-            CFG.timeout - (time.time() - start_time),
+            CFG.timeout - (time.perf_counter() - start_time),
             CFG.seed,
             abstract_policy=abstract_policy,
             max_policy_guided_rollout=max_policy_guided_rollout)
