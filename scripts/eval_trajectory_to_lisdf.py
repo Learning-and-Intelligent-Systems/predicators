@@ -12,6 +12,7 @@ Then run this script:
         --output /tmp/pybullet_blocks__oracle__0________task1.json
 """
 import argparse
+import itertools
 from typing import List, Tuple
 
 import dill as pkl
@@ -41,7 +42,7 @@ def _main() -> None:
     parser.add_argument("--time_per_conf",
                         type=float,
                         help="Time in seconds per joint command",
-                        default=0.1)
+                        default=0.5)
     args = parser.parse_args()
 
     with open(args.input, "rb") as f:
@@ -85,6 +86,8 @@ def _main() -> None:
 
     # List of LISDF commands, alternating JointSpacePath and ActuateGripper.
     commands: List[Command] = []
+    path_command_count = itertools.count()
+    gripper_command_count = itertools.count()
 
     # Accumulate the arm-only actions until a change in the gripper state
     # is observed, at which point we finalize the JointSpacePath command,
@@ -96,11 +99,12 @@ def _main() -> None:
             arm_states: List[NDArray[np.float32]]) -> JointSpacePath:
         duration = args.time_per_conf * len(arm_states)
         arm_states_np = np.array(arm_states)
+        label = f"path_command{next(path_command_count)}"
         path_command = JointSpacePath.from_waypoints_np_array(
             arm_states_np,
             arm_joint_names,
             duration=duration,
-            label=args.input,
+            label=label,
         )
         return path_command
 
@@ -118,7 +122,7 @@ def _main() -> None:
             # Create the ActuateGripper command.
             gripper_command = ActuateGripper(
                 configurations={"panda_gripper": current_gripper_state},
-                label="gripper_action")
+                label=f"gripper_command{next(gripper_command_count)}")
             commands.append(gripper_command)
             prev_gripper_state = current_gripper_state
 
@@ -128,7 +132,7 @@ def _main() -> None:
         commands.append(path_command)
 
     # Write out the commands to JSON.
-    lisdf_plan = LISDFPlan(commands=commands, lisdf_problem="no_problem")
+    lisdf_plan = LISDFPlan(commands=commands, lisdf_problem=args.output)
     lisdf_plan.write_json(args.output)
     print(f"Wrote out LISDFPlan to {args.output}")
 
