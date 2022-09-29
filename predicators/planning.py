@@ -41,7 +41,6 @@ class _Node:
     atoms_sequence: List[Set[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
     cumulative_cost: float
-    source_skeleton: List[src] = field(default_factory = [])
 
 def sesame_plan(
         task: Task,
