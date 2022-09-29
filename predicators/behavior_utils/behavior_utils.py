@@ -476,17 +476,17 @@ def load_checkpoint_state(s: State,
         # Frame count is overwritten by set_igibson_behavior_env and needs to
         # be preserved across resets. So we save it before and set it after
         # we reset the env.
-        frame_count = env.igibson_behavior_env.simulator.frame_count
+        frame_count = env.get_igibson_behavior_env().simulator.frame_count
         env.set_igibson_behavior_env(
             task_num=env.task_num,
             task_instance_id=new_task_num_task_instance_id[1],
             seed=env.task_num_task_instance_id_to_igibson_seed[
                 new_task_num_task_instance_id])
-        env.igibson_behavior_env.simulator.frame_count = frame_count
+        env.get_igibson_behavior_env().simulator.frame_count = frame_count
         env.set_options()
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
-        env.igibson_behavior_env.reset()
+        env.get_igibson_behavior_env().reset()
     behavior_task_name = CFG.behavior_task_list[0] if len(
         CFG.behavior_task_list) == 1 else "all"
     checkpoint_file_str = (
@@ -495,7 +495,7 @@ def load_checkpoint_state(s: State,
         f"{CFG.seed}__{env.task_num}__{env.task_instance_id}")
     frame_num = int(s.simulator_state.split("-")[2])
     try:
-        load_checkpoint(env.igibson_behavior_env.simulator,
+        load_checkpoint(env.get_igibson_behavior_env().simulator,
                         checkpoint_file_str, frame_num)
     except p.error as _:
         print(f"tmp_behavior_states_dir: {os.listdir(checkpoint_file_str)}")
@@ -506,8 +506,8 @@ def load_checkpoint_state(s: State,
     np.random.seed(env.task_num_task_instance_id_to_igibson_seed[
         new_task_num_task_instance_id])
     # We step the environment to update the visuals of where the robot is!
-    env.igibson_behavior_env.step(
-        np.zeros(env.igibson_behavior_env.action_space.shape))
+    env.get_igibson_behavior_env().step(
+        np.zeros(env.get_igibson_behavior_env().action_space.shape))
 
 
 def create_ground_atom_dataset_behavior(

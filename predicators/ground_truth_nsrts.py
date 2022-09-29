@@ -2837,8 +2837,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         # of tries.
         logging.info("Sampling params for navigation...")
         num_samples_tried = 0
-        while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
-                                  sampler_output) is None):
+        while (check_nav_end_pose(env.get_igibson_behavior_env(),
+                                  obj_to_sample_near, sampler_output) is None):
             distance = closeness_limit * rng.random()
             yaw = rng.random() * (2 * np.pi) - np.pi
             x = distance * np.cos(yaw)
@@ -2920,8 +2920,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 ])
                 logging.info("Sampling params for placeOnTop shelf...")
                 num_samples_tried = 0
-                while not check_hand_end_pose(env.igibson_behavior_env, objB,
-                                              sample_params):
+                while not check_hand_end_pose(env.get_igibson_behavior_env(),
+                                              objB, sample_params):
                     sample_params = np.array([
                         rng.uniform(-objB_sampling_bounds[0],
                                     objB_sampling_bounds[0]),
