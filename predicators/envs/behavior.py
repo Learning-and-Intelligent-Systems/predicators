@@ -169,11 +169,9 @@ class BehaviorEnv(BaseEnv):
                     types=list(types),
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim, )),
-                    env=self,
                     planner_fn=planner_fn,
                     policy_fn=policy_fn,
                     option_model_fn=option_model_fn,
-                    object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
                 )
                 self._options.add(option)
@@ -754,7 +752,7 @@ class BehaviorEnv(BaseEnv):
 
 
 def make_behavior_option(
-        name: str, types: Sequence[Type], params_space: Box, env: BehaviorEnv,
+        name: str, types: Sequence[Type], params_space: Box,
         planner_fn: Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
@@ -764,14 +762,19 @@ def make_behavior_option(
                                      Tuple[Array, bool]]],
         option_model_fn: Callable[
             [List[List[float]], List[List[float]], "URDFObject"],
-            Callable[[State, "behavior_env.BehaviorEnv"], None]],
-        object_to_ig_object: Callable[[Object], "ArticulatedObject"],
-        rng: Generator) -> ParameterizedOption:
+            Callable[[State, "behavior_env.BehaviorEnv"],
+                     None]], rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
     def policy(state: State, memory: Dict, _objects: Sequence[Object],
                _params: Array) -> Action:
+        # Neccessary to make picklable.
+        from predicators.envs import \
+            get_or_create_env  # pylint: disable=import-outside-toplevel
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
         assert memory.get("policy_controller") is not None
@@ -782,13 +785,19 @@ def make_behavior_option(
 
     def initiable(state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
-        igo = [object_to_ig_object(o) for o in objects]
-        assert len(igo) == 1
+        # Neccessary to make picklable.
+        from predicators.envs import \
+            get_or_create_env  # pylint: disable=import-outside-toplevel
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
 
         # Load the checkpoint associated with state.simulator_state
         # to make sure that we run low-level planning from the intended
         # state.
         load_checkpoint_state(state, env)
+
+        igo = [env.object_to_ig_object(o) for o in objects]
+        assert len(igo) == 1
 
         if memory.get("planner_result") is not None:
             # In this case, a low-level plan has already been found for this
