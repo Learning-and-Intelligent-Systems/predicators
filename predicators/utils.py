@@ -1977,7 +1977,8 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # application of the operator, because if the ignore effect
     # appears in the effects, we still know that the effects
     # will be true, so we don't want to remove them.
-    new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
+    # new_atoms = {a for a in atoms if a.predicate not in op.ignore_effects}
+    new_atoms = {a for a in atoms}
     for atom in op.delete_effects:
         new_atoms.discard(atom)
     for atom in op.add_effects:
