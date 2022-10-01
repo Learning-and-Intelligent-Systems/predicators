@@ -1986,6 +1986,19 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     return new_atoms
 
 
+def compute_necessary_atoms_seq(skeleton: List[_GroundNSRT], atoms_seq: List[Set[GroundAtom]], goal: Set[GroundAtom]) -> List[Set[GroundAtom]]:
+    """Given a skeleton and a corresponding atoms sequence, return a 'necessary'
+    atoms sequence that includes only the necessary image at each step."""
+    necessary_atoms_seq = [{a for a in goal}]
+    necessary_image = {a for a in goal}
+    for t in range(len(atoms_seq) - 2, -1, -1):
+        curr_nsrt = skeleton[t]    
+        necessary_image -= {a for a in curr_nsrt.add_effects}
+        necessary_image |= {a for a in curr_nsrt.preconditions}
+        necessary_atoms_seq = [{a for a in necessary_image}] + necessary_atoms_seq
+    return necessary_atoms_seq
+
+
 def get_successors_from_ground_ops(
         atoms: Set[GroundAtom],
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],

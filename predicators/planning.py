@@ -140,6 +140,7 @@ def _sesame_plan_with_astar(
     else:
         raise ValueError(
             f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
+    
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
@@ -173,8 +174,9 @@ def _sesame_plan_with_astar(
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
+                necessary_atoms_seq = utils.compute_necessary_atoms_seq(skeleton, atoms_sequence, task.goal)
                 plan, suc = run_low_level_search(
-                    task, option_model, skeleton, atoms_sequence, new_seed,
+                    task, option_model, skeleton, necessary_atoms_seq, new_seed,
                     timeout - (time.perf_counter() - start_time), max_horizon)
                 if suc:
                     # Success! It's a complete plan.
@@ -304,7 +306,6 @@ def _skeleton_generator(
     the same abstract states multiple times, unlike in typical A*. See
     Issue #1117 for a discussion on why this is False by default.
     """
-
     start_time = time.perf_counter()
     current_objects = set(task.init)
     queue: List[Tuple[float, float, _Node]] = []
@@ -518,6 +519,13 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if cur_idx == len(skeleton):
                             return plan, True  # success!
                     else:
+                        print("EXPECTED ATOMS CHECK FAILED!")
+                        print(f"Expected: {expected_atoms}")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                print(f"{a} didn't hold")
+                        print()
+                        import ipdb; ipdb.set_trace()
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
@@ -781,8 +789,9 @@ def _sesame_plan_with_fast_downward(
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
+        necessary_atoms_seq = utils.compute_necessary_atoms_seq(skeleton, atoms_sequence, task.goal)
         plan, suc = run_low_level_search(task, option_model, skeleton,
-                                         atoms_sequence, seed,
+                                         necessary_atoms_seq, seed,
                                          low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot

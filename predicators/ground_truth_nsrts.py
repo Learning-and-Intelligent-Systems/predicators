@@ -1828,22 +1828,32 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
 
     nsrts = set()
 
-    # Move
+    # Move from nothing
     robot = Variable("?robot", robot_type)
     targetdot = Variable("?targetdot", dot_type)
     parameters = [robot, targetdot]
     option_vars = [robot, targetdot]
     option = Move
-    preconditions: Set[LiftedAtom] = set()
+    preconditions: Set[LiftedAtom] = {LiftedAtom(NextToNothing, [robot])}
     add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
-    delete_effects: Set[LiftedAtom] = set()
+    delete_effects: Set[LiftedAtom] = {LiftedAtom(NextToNothing, [robot])}
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     ignore_effects = {NextTo, NextToNothing}
-    move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
+    move_from_nothing_nsrt = NSRT("MoveFromNothing", parameters, preconditions, add_effects,
                      delete_effects, ignore_effects, option, option_vars,
                      lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
-    nsrts.add(move_nsrt)
+    nsrts.add(move_from_nothing_nsrt)
+    # Move from something.
+    from_dot = Variable("?fromdot", dot_type)
+    parameters = [robot, from_dot, targetdot]
+    preconditions: Set[LiftedAtom] = {LiftedAtom(NextTo, [robot, from_dot])}
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects: Set[LiftedAtom] = {LiftedAtom(NextTo, [robot, from_dot])}
+    move_from_something_nsrt = NSRT("MoveFromSomething", parameters, preconditions, add_effects,
+                     delete_effects, ignore_effects, option, option_vars,
+                     lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
+    nsrts.add(move_from_something_nsrt)
 
     # Grasp
     robot = Variable("?robot", robot_type)
