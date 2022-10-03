@@ -1,5 +1,6 @@
 """Code for learning the samplers within NSRTs."""
 
+from bdb import set_trace
 import logging
 from dataclasses import dataclass
 from typing import Any, List, Sequence, Set, Tuple
@@ -234,9 +235,12 @@ def _create_sampler_data(
             goal = segment.get_goal()
         else:
             goal = None
-        assert all(
-            pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
-            for pre in preconditions)
+        # This assertion takes long to both save/load states and run classifers
+        # on every segment, especially in BEHAVIOR.
+        if CFG.env != "behavior":
+            assert all(
+                pre.predicate.holds(state, [var_to_obj[v] for v in pre.variables])
+                for pre in preconditions)
         positive_data.append((state, var_to_obj, option, goal))
 
     # Populate all negative data.
