@@ -24,7 +24,7 @@ from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Dataset, GroundAtom, LiftedAtom, \
     LowLevelTrajectory, NSRTSampler, ParameterizedOption, Predicate, Segment, \
-    Sequence, Task, Type, Variable
+    Task, Type, Variable
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -51,7 +51,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         return self._nsrts
 
     def _get_from_env_by_names_dict(self, env_name: str,
-                                    env_attr: str) -> List:
+                                    env_attr: str) -> Dict:  # pragma: no cover
         """Helper for getting dict to load types, predicates, and options by
         name."""
         env = get_or_create_env(env_name)
@@ -185,15 +185,17 @@ class NSRTLearningApproach(BilevelPlanningApproach):
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
-            self._nsrts = pkl.load(f)
-        if CFG.env == "behavior":
-            assert isinstance(self._nsrts, str)
-            with open(f"{save_path}_{online_learning_cycle}.SAMPLERs",
-                      "rb") as f:
-                sampler_name_to_sampler = pkl.load(f)
-            # Implement string_nsrts to _nsrts
-            self._nsrts = self.parse_nsrts_string(self._nsrts,
-                                                  sampler_name_to_sampler)
+            if CFG.dump_nsrts_as_strings:  # pragma: no cover
+                string_nsrts = pkl.load(f)
+                assert isinstance(string_nsrts, str)
+                with open(f"{save_path}_{online_learning_cycle}.SAMPLERs",
+                          "rb") as f:
+                    sampler_name_to_sampler = pkl.load(f)
+                # Implement string_nsrts to _nsrts
+                self._nsrts = self.parse_nsrts_string(string_nsrts,
+                                                      sampler_name_to_sampler)
+            else:
+                self._nsrts = pkl.load(f)
         if CFG.pretty_print_when_loading:
             preds, _ = utils.extract_preds_and_types(self._nsrts)
             name_map = {}
@@ -277,8 +279,14 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                      f"complexity {complexity}")
 
     def parse_nsrts_string(
-            self, nsrts_string: str,
-            sampler_name_to_sampler: Dict[str, NSRTSampler]) -> Set[NSRT]:
+        self, nsrts_string: str, sampler_name_to_sampler: Dict[str,
+                                                               NSRTSampler]
+    ) -> Set[NSRT]:  # pragma: no cover
+        """Parses BEHAVIOR NSRTs saved as strings by retrieving types,
+        predicates, and options from the env and creating a set of NSRTS.
+
+        This function returns a set of NSRTS.
+        """
         assert CFG.env == "behavior"
         nsrts = set()
         type_name_to_type = self._get_from_env_by_names_dict(CFG.env, "types")
@@ -289,30 +297,34 @@ class NSRTLearningApproach(BilevelPlanningApproach):
 
         for nsrt_string in nsrts_string.replace("{", "").replace(
                 "}", "").split("NSRT-")[1:]:
-            name, params, precond, add_effects, delete_effects, ignore_effects, option_spec = nsrt_string.split(
+            name, str_params, str_precond, str_add_effects, \
+                str_delete_effects, str_ignore_effects, \
+                option_spec = nsrt_string.split(
                 "\n    ")
             name = name.replace(":", "")
             params = [
-                param.split(":")
-                for param in re.findall(r"\[(.*?)\]", params)[0].split(", ")
+                param.split(":") for param in re.findall(
+                    r"\[(.*?)\]", str_params)[0].split(", ")
             ]
-            add_effects = re.findall(r"\[(.*?)\]", add_effects)[0].split(", ")
-            precond = re.findall(r"\[(.*?)\]", precond)[0].split(", ")
+            add_effects = re.findall(r"\[(.*?)\]",
+                                     str_add_effects)[0].split(", ")
+            precond = re.findall(r"\[(.*?)\]", str_precond)[0].split(", ")
             delete_effects = re.findall(r"\[(.*?)\]",
-                                        delete_effects)[0].split(", ")
+                                        str_delete_effects)[0].split(", ")
             ignore_effects = re.findall(r"\[(.*?)\]",
-                                        ignore_effects)[0].split(", ")
+                                        str_ignore_effects)[0].split(", ")
             option_spec = option_spec.replace(", ", "").split(": ")[1]
 
             # Parameters
-            nsrt_parameters = set([
+            nsrt_parameters = [
                 Variable(param[0], type_name_to_type[param[1]])
                 for param in params
-            ])
+            ]
 
             # Predicates (precond, add_effects, delete_effects)
-            def unparsed_preds_to_predicates(unparsed_preds):
-                predicates = set()
+            def unparsed_preds_to_predicates(
+                    unparsed_preds: List[str]) -> Set[LiftedAtom]:
+                predicates: Set[LiftedAtom] = set()
                 if unparsed_preds == [""]:
                     return predicates
                 for unparsed_pred in unparsed_preds:
@@ -340,10 +352,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             if ignore_effects == [""]:
                 nsrt_ignore_effects = set()
             else:
-                nsrt_ignore_effects = set([
+                nsrt_ignore_effects = {
                     pred_name_to_pred[ignore_effect]
                     for ignore_effect in ignore_effects
-                ])
+                }
             # Option Spec
             nsrt_option = option_name_to_option[option_spec.split("(")[0]]
             option_vars = [
