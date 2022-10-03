@@ -34,6 +34,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--experiment_id", default="", type=str)
     parser.add_argument("--load_experiment_id", default="", type=str)
     parser.add_argument("--log_file", default="", type=str)
+    parser.add_argument("--policy", default="", type=str)
     parser.add_argument('--debug',
                         action="store_const",
                         dest="loglevel",
