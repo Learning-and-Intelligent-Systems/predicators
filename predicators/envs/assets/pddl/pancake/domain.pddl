@@ -2,22 +2,30 @@
   
   (:requirements :typing) 
   
-  (:types         
-    location locatable - object
-        countertop cupboard stove - location
-		bot pan oil water mix spatula pancake bowl plate orange knife bread ketchup wet_mix - locatable
-    robot - bot
+  (:types  
+
+		bot location
+
   )
 
   (:predicates
-  
+        
+        (isStove ?stove - location)
+        (isArm ?arm - object)
+        (isBowl ?bowl - object)
+        (isPan ?pan - object)
+        (isOil ?oil - object)
+        (isWater ?water - object)
+        (isMix ?mix - object)
+        (isWet_Mix ?wet_mix - object)
+        (isPancake ?pancake - object)
         (at ?arm - bot ?loc - location)
-		(on ?obj - locatable ?loc - location)
-		(holding ?arm - bot ?obj - locatable)
+		(on ?obj - object ?loc - location)
+		(holding ?arm - bot ?obj - object)
     (arm-empty)
     (path ?location1 - location ?location2 - location)
-    (in ?item - locatable ?obj - locatable)
-    (exist ?item - locatable)
+    (in ?item - object ?obj - object)
+    (exist ?item - object)
     
   )
 
@@ -25,17 +33,19 @@
   (:action mixing
     :parameters
      (?arm - bot
-     ?mix - mix
-     ?wet_mix - wet_mix
-     ?water - water
-     ?bowl - bowl
+     ?mix - object
+     ?wet_mix - object
+     ?water - object
+     ?bowl - object
       ?loc - location)
     :precondition
     (and
-        (exist ?mix)
-        (exist ?water)
+        (exist ?arm)
+        (isMix ?mix)
+        (isWater ?water)
         (at ?arm ?loc)
         (on ?bowl ?loc)
+        (isBowl ?bowl)
         (in ?water ?bowl)
         (in ?mix ?bowl)
     )
@@ -43,8 +53,6 @@
     (and
         (exist ?wet_mix)
         (in ?wet_mix ?bowl)
-        (not(exist ?mix))
-        (not(exist ?water))
     
     )
   
@@ -52,28 +60,31 @@
 
   (:action cook
     :parameters
-     (?wet_mix - wet_mix
-     ?oil - oil
-     ?pan - pan
-     ?stove - stove
-     ?pancake - pancake
+     (?wet_mix - object
+     ?oil - object
+     ?pan - object
+     ?stove - location
+     ?pancake - object
      
      )
 
     :precondition
     (and
         (exist ?wet_mix)
-        (exist ?oil)
+        (isWet_Mix ?wet_mix)
+        (isOil ?oil)
         (on ?pan ?stove)
+        (isPan ?pan)
+        (isStove ?stove)
         (in ?wet_mix ?pan)
         (in ?oil ?pan)
     )
     :effect
     (and
         (exist ?pancake)
+        (isPancake ?pancake)
         (in ?pancake ?pan)
         (not(exist ?wet_mix))
-        (not(exist ?oil))
     
     )
   
@@ -82,21 +93,21 @@
   (:action pour
     :parameters
      (?arm - bot
-      ?obj - locatable
-      ?obj_2 - locatable
-      ?item - locatable
+      ?pan - object
+      ?bowl - object
+      ?item - object
       ?loc - location)
     :precondition
      (and
         (at ?arm ?loc)
-        (on ?obj ?loc)
-        (holding ?arm ?obj_2)
-        (in ?item ?obj_2)
+        (on ?pan ?loc)
+        (holding ?arm ?bowl)
+        (in ?item ?bowl)
      
      )
     :effect
      (and
-        (in ?item ?obj)
+        (in ?item ?pan)
      
      )
     
@@ -106,7 +117,7 @@
   (:action pick-up
     :parameters
      (?arm - bot
-      ?obj - locatable
+      ?obj - object
       ?loc - location)
     :precondition
      (and 
@@ -126,7 +137,7 @@
   (:action drop
     :parameters
      (?arm - bot
-      ?obj - locatable
+      ?obj - object
       ?loc - location)
     :precondition
      (and 
@@ -164,8 +175,8 @@
     :parameters
         (
         ?arm - bot
-        ?obj - locatable
-        ?item - locatable
+        ?obj - object
+        ?item - object
         ?loc - location
         )
   
@@ -192,8 +203,3 @@
 
     
 )  
-
-
-
-
-    

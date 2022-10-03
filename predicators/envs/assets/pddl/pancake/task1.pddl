@@ -1,25 +1,25 @@
 (define (problem pancake-v1)
 	(:domain pancake)
 	(:objects
-    	arm - robot
-    	pan - pan
-    	oil - oil
-    	spatula - locatable
-    	mix - mix
-    	wet_mix - wet_mix
-    	pancake - pancake
-    	water - water
-    	bowl - bowl
-    	plate - plate
-    	orange - locatable
-    	knife - locatable
-    	bread - locatable
-    	ketchup - locatable
+    	arm - bot
+    	pan - object
+    	oil - object
+    	spatula - object
+    	mix - object
+    	wet_mix - object
+    	pancake - object
+    	water - object
+    	bowl - object
+    	plate - object
+    	orange - object
+    	knife - object
+    	bread - object
+    	ketchup - object
     	countertop - location
     	cupboard1 - location
     	cupboard2 - location
     	cupboard3 - location
-    	stove - stove
+    	stove - location
     	
 	)
 	
@@ -35,7 +35,19 @@
 	(path stove countertop)
 	(exist oil)
 	(exist water)
-	(exist mix)
+
+	(exist arm)
+	(exist pan)
+	
+    (isStove stove)
+    
+    (isBowl bowl)
+    (isPan pan)
+    (isArm arm)
+    (isOil oil)
+    (isWater water)
+    (isMix mix)
+    (isWet_Mix wet_mix)
 	
 	(at arm countertop)
 	
@@ -59,7 +71,7 @@
 )
 
 (:goal 
-	(and(exist pancake))
+	(and(isPancake pancake))
 	
     )
 )
