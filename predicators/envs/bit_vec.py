@@ -19,14 +19,13 @@ class BitVectorEnv(BaseEnv):
 
     Actions flip the binary features.
 
-    There are two given options: one for flipping the leftmost true feature
-    and one for flipping the leftmost false feature.
+    There is one given option: it flips the leftmost true feature.
 
-    There are two possible goals: all features true, or all features false.
+    There is one possible goal: all features true.
 
     The given predicates specify the number of true or false features that are
     in the state, but abstract away the positions of those features. So there
-    are 2N predicates but 2^N possible low-level states.
+    are N predicates but 2^N possible low-level states.
     """
 
     def __init__(self) -> None:
