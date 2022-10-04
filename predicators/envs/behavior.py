@@ -427,8 +427,8 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def task_relevant_types(self) -> Set[Type]:
-        """Gets a subset of types that are relevant to this particular
-        BEHAVIOR problem."""
+        """Gets a subset of types that are relevant to this particular BEHAVIOR
+        problem."""
         # Get the types of all objects in this particular problem.
         curr_problem_type_names = set()
         for ig_obj in self._get_task_relevant_objects():

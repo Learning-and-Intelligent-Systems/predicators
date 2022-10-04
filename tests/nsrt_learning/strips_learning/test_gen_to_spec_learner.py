@@ -1262,9 +1262,9 @@ def test_multi_pass_backchaining(val):
             """STRIPS-Pick:
     Parameters: []
     Preconditions: [A()]
-    Add Effects: [B()]
+    Add Effects: [B(), C()]
     Delete Effects: []
-    Ignore Effects: [C]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
@@ -1274,9 +1274,9 @@ def test_multi_pass_backchaining(val):
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
-    Add Effects: [C(), D()]
+    Add Effects: [C(), D(), E()]
     Delete Effects: [B()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Place()"""
         ]
     else:
@@ -1290,9 +1290,9 @@ def test_multi_pass_backchaining(val):
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), C()]
-    Add Effects: [D()]
+    Add Effects: [D(), E()]
     Delete Effects: [B()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Place()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B(), E()]
@@ -1378,9 +1378,9 @@ def test_backchaining_segment_not_in_datastore():
         """STRIPS-Pick:
     Parameters: []
     Preconditions: [C(), E()]
-    Add Effects: [B()]
+    Add Effects: [A(), B(), D()]
     Delete Effects: []
-    Ignore Effects: [A, D]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [B(), D(), E()]
@@ -1390,15 +1390,15 @@ def test_backchaining_segment_not_in_datastore():
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), C(), D()]
-    Add Effects: [A(), B(), D()]
+    Add Effects: [A(), B(), D(), E()]
     Delete Effects: [C()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), D()]
-    Add Effects: [A(), B()]
+    Add Effects: [A(), B(), E()]
     Delete Effects: [D()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), B(), D()]
