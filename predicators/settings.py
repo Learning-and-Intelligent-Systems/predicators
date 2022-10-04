@@ -182,6 +182,10 @@ class GlobalSettings:
     # pddl pancake env parameters
     pddl_pancake_fixed_train_indices = [1]
     pddl_pancake_fixed_test_indices = [2]
+    pddl_pancake_procedural_train_min_pancakes = 1
+    pddl_pancake_procedural_train_max_pancakes = 2
+    pddl_pancake_procedural_test_min_pancakes = 1
+    pddl_pancake_procedural_test_max_pancakes = 4
 
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]

@@ -538,3 +538,60 @@ def _generate_forest_problem(height: int, width: int,
 )"""
 
     return problem_str
+
+
+################################## Pancake ####################################
+
+
+def create_pancake_pddl_generator(min_pancakes: int,
+                                  max_pancakes: int) -> PDDLProblemGenerator:
+    """Create a generator for pancake problems."""
+    return functools.partial(_generate_pancake_problems, min_pancakes,
+                             max_pancakes)
+
+
+def _generate_pancake_problems(min_pancakes: int, max_pancakes: int,
+                               num_problems: int,
+                               rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        # Randomly sample a number of pancakes.
+        num_pancakes = rng.integers(min_pancakes, max_pancakes + 1)
+        problem = _generate_pancake_problem(num_pancakes, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_pancake_problem(num_pancakes: int,
+                              rng: np.random.Generator) -> str:
+    # Create objects.
+    pancakes = {f"pancake-{i}" for i in range(num_pancakes)}
+    # TODO add others
+
+    # Create the initial state.
+    init_strs = set()
+    for pancake in pancakes:
+        init_strs.add(f"(isPancake {pancake})")
+    # TODO remove and add others
+
+    # Create the goal.
+    goal_strs = set()  # TODO
+    for pancake in pancakes:
+        goal_strs.add(f"(isPancake {pancake})")
+    # TODO add others
+
+    # Finalize PDDL problem str.
+    # TODO add other objects
+    objects_str = " ".join(sorted(pancakes))
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem pancake-procgen)
+    (:domain pancake)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+    )"""
+
+    return problem_str

@@ -23,7 +23,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator
+    create_forest_pddl_generator, create_pancake_pddl_generator, \
+    create_spanner_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -493,6 +494,27 @@ class FixedTasksPancakePDDLEnv(_PancakePDDLEnv, _FixedTasksPDDLEnv):
     @property
     def _test_problem_indices(self) -> List[int]:
         return CFG.pddl_pancake_fixed_test_indices
+
+
+class ProceduralTasksPancakePDDLEnv(_PancakePDDLEnv):
+    """The pancake PDDL domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_pancake_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_pancakes = CFG.pddl_pancake_procedural_train_min_pancakes
+        max_pancakes = CFG.pddl_pancake_procedural_train_max_pancakes
+        return create_pancake_pddl_generator(min_pancakes, max_pancakes)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_pancakes = CFG.pddl_pancake_procedural_test_min_pancakes
+        max_pancakes = CFG.pddl_pancake_procedural_test_max_pancakes
+        return create_pancake_pddl_generator(min_pancakes, max_pancakes)
+
 
 ###############################################################################
 #                            Utility functions                                #
