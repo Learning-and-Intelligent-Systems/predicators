@@ -211,6 +211,9 @@ class GlobalSettings:
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
 
+    # bit vec env parameters
+    bit_vec_env_num_slots = 3
+
     # parameters for random options approach
     random_options_max_tries = 100
 
