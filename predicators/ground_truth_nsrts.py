@@ -55,6 +55,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts()
     elif CFG.env in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts()
+    elif CFG.env == "bit_vec":
+        nsrts = _get_bit_vec_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2739,6 +2741,35 @@ def _get_pddl_env_gt_nsrts(name: str) -> Set[NSRT]:
             option_vars=strips_op.parameters,
             sampler=null_sampler,
         )
+        nsrts.add(nsrt)
+
+    return nsrts
+
+
+def _get_bit_vec_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for BitVecEnv."""
+    N = CFG.bit_vec_env_num_slots
+    n_to_gt_pred = {
+        n: _get_predicates_by_names(CFG.env, [f"GreaterThan{n}True"])[0]
+        for n in range(N)
+    }
+    ToggleTrue, = _get_options_by_names(CFG.env, ["ToggleTrue"])
+
+    nsrts = set()
+
+    # ToggleTrue
+    for n in range(N - 1):
+        # Toggle >n True to >n+1 True.
+        parameters = []
+        option_vars = []
+        option = ToggleTrue
+        preconditions = {LiftedAtom(n_to_gt_pred[n], [])}
+        add_effects = {LiftedAtom(n_to_gt_pred[n + 1], [])}
+        delete_effects: Set[LiftedAtom] = set()
+        ignore_effects: Set[Predicate] = set()
+        nsrt = NSRT(f"ToggleTrue-{n}", parameters, preconditions, add_effects,
+                    delete_effects, ignore_effects, option, option_vars,
+                    null_sampler)
         nsrts.add(nsrt)
 
     return nsrts

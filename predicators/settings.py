@@ -212,7 +212,7 @@ class GlobalSettings:
     satellites_num_obj_test = [4, 5]
 
     # bit vec env parameters
-    bit_vec_env_num_slots = 3
+    bit_vec_env_num_slots = 10
 
     # parameters for random options approach
     random_options_max_tries = 100

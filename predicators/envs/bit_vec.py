@@ -40,19 +40,11 @@ class BitVectorEnv(BaseEnv):
             n: self._create_greater_than_predicate(n)
             for n in range(self._N)
         }
-        self._n_to_lt_pred = {
-            n: self._create_less_than_predicate(n)
-            for n in range(1, self._N + 1)
-        }
         # Options
         self._ToggleTrue = utils.SingletonParameterizedOption(
             "ToggleTrue",
             policy=self._ToggleTrue_policy,
             initiable=self._ToggleTrue_initiable)
-        self._ToggleFalse = utils.SingletonParameterizedOption(
-            "ToggleFalse",
-            policy=self._ToggleFalse_policy,
-            initiable=self._ToggleFalse_initiable)
         # Static objects (always exist no matter the settings).
         self._world = Object("world", self._world_type)
 
@@ -80,13 +72,12 @@ class BitVectorEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        lt_preds = set(self._n_to_lt_pred.values())
         gt_preds = set(self._n_to_gt_pred.values())
-        return lt_preds | gt_preds
+        return gt_preds
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._n_to_gt_pred[self._N - 1], self._n_to_lt_pred[1]}
+        return {self._n_to_gt_pred[self._N - 1]}
 
     @property
     def types(self) -> Set[Type]:
@@ -94,7 +85,7 @@ class BitVectorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._ToggleFalse, self._ToggleTrue}
+        return {self._ToggleTrue}
 
     @property
     def action_space(self) -> Box:
@@ -153,23 +144,6 @@ class BitVectorEnv(BaseEnv):
         bit_vec = np.array(self._state_to_bit_vec(state))
         # Something is False.
         return not bit_vec.all()
-
-    def _ToggleFalse_policy(self, state: State, memory: Dict,
-                            objects: Sequence[Object],
-                            params: Array) -> Action:
-        del memory, params, objects  # unused
-        bit_vec = np.array(self._state_to_bit_vec(state))
-        left_most_true = np.argwhere(bit_vec)[0, 0]
-        val = left_most_true
-        return Action(np.array([val], dtype=np.float32))
-
-    def _ToggleFalse_initiable(self, state: State, memory: Dict,
-                               objects: Sequence[Object],
-                               params: Array) -> Action:
-        del memory, params, objects  # unused
-        bit_vec = np.array(self._state_to_bit_vec(state))
-        # Something is True.
-        return bit_vec.any()
 
     def _create_greater_than_predicate(self, n: int) -> Predicate:
 
