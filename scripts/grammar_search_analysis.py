@@ -14,15 +14,14 @@ from predicators.approaches import create_approach
 from predicators.approaches.grammar_search_invention_approach import \
     _ForallClassifier, _SingleAttributeCompareClassifier
 from predicators.datasets import create_dataset
-from predicators.envs import BaseEnv, create_new_env
-from predicators.envs.cover import CoverEnv
+from predicators.envs import BaseEnv, create_new_env, get_or_create_env
 from predicators.ground_truth_nsrts import _get_predicates_by_names
 from predicators.main import _run_testing
 from predicators.predicate_search_score_functions import create_score_function
 from predicators.structs import Dataset, Object, Predicate, State, Task
 
 DEFAULT_ENV_NAMES = [
-    "cover",
+    "cover_multistep_options",
     "blocks",
     "painting",
 ]
@@ -41,8 +40,9 @@ def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
                         outdir: str) -> None:
     # Seed needs to be set to instantiate environments.
     utils.reset_config({"seed": args["seed"]})
-    if "cover" in env_names:
-        env_name = "cover"
+    if "cover_multistep_options" in env_names:
+        env_name = "cover_multistep_options"
+        env = get_or_create_env(env_name)
         HandEmpty, Holding, Covers = _get_predicates_by_names(
             env_name, ["HandEmpty", "Holding", "Covers"])
         targ_type = Covers.types[1]
@@ -53,7 +53,7 @@ def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
             for block in state:
                 if block.type.name != "block":
                     continue
-                if CoverEnv._Covers_holds(state, [block, target]):  # pylint: disable=protected-access
+                if env._Covers_holds(state, [block, target]):  # pylint: disable=protected-access
                     return False
             return True
 
