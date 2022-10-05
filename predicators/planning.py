@@ -173,9 +173,12 @@ def _sesame_plan_with_astar(
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
+                necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+                    skeleton, atoms_sequence, task.goal)
                 plan, suc = run_low_level_search(
-                    task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.perf_counter() - start_time), max_horizon)
+                    task, option_model, skeleton, necessary_atoms_seq,
+                    new_seed, timeout - (time.perf_counter() - start_time),
+                    max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -781,8 +784,10 @@ def _sesame_plan_with_fast_downward(
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
+        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+            skeleton, atoms_sequence, task.goal)
         plan, suc = run_low_level_search(task, option_model, skeleton,
-                                         atoms_sequence, seed,
+                                         necessary_atoms_seq, seed,
                                          low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot

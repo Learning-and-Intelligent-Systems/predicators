@@ -162,6 +162,10 @@ class BaseSTRIPSLearner(abc.ABC):
         ground_nsrt_plan = task_plan_with_option_plan_constraint(
             objects, self._predicates, strips_ops, option_specs, init_atoms,
             traj_goal, option_plan, atoms_seq)
+
+        # if ground_nsrt_plan is None:
+        #     import ipdb; ipdb.set_trace()
+
         return ground_nsrt_plan is not None
 
     def _recompute_datastores_from_segments(

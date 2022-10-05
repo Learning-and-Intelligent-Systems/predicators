@@ -494,8 +494,12 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
             ground_op = pnad.op.ground(objs)
             next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
-            for atom in segment.final_atoms - next_atoms:
-                ignore_effects.add(atom.predicate)
+            # for atom in segment.final_atoms - next_atoms:
+            #     ignore_effects.add(atom.predicate)
+            # Note that we only induce ignore effects for atoms that are
+            # predicted to be in the next_atoms but are not actually there
+            # (since the converse doesn't change the soundness of our
+            # planning strategy).
             for atom in next_atoms - segment.final_atoms:
                 ignore_effects.add(atom.predicate)
         pnad.op = pnad.op.copy_with(ignore_effects=ignore_effects)
@@ -507,11 +511,14 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         PNAD."""
         # The keep effects that we want are the subset of possible keep
         # effects which are not already in the PNAD's add effects, and
-        # whose predicates were determined to be ignore effects.
+        # whose predicates were either (i) determined to be ignore effects,
+        # or (ii) in the delete effects.
         keep_effects = {
             eff
-            for eff in pnad.poss_keep_effects if eff not in pnad.op.add_effects
-            and eff.predicate in pnad.op.ignore_effects
+            for eff in pnad.poss_keep_effects
+            if eff not in pnad.op.add_effects and (
+                eff.predicate in pnad.op.ignore_effects
+                or eff in pnad.op.delete_effects)
         }
         new_pnads_with_keep_effects = set()
         # Given these keep effects, we need to create a combinatorial number of
