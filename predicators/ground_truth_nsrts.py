@@ -1859,7 +1859,7 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     # Note that NextTo isn't an ignore effect here because it's not
     # something we'd be unsure about for any object. For every object we
     # are NextTo but did not grasp, we will stay NextTo it.
-    ignore_effects = {NextToNothing, NextTo}
+    ignore_effects = {NextTo}
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
                       delete_effects, ignore_effects, option, option_vars,
                       null_sampler)
