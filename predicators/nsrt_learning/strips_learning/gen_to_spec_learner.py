@@ -494,8 +494,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
             ground_op = pnad.op.ground(objs)
             next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
-            # for atom in segment.final_atoms - next_atoms:
-            #     ignore_effects.add(atom.predicate)
             # Note that we only induce ignore effects for atoms that are
             # predicted to be in the next_atoms but are not actually there
             # (since the converse doesn't change the soundness of our
