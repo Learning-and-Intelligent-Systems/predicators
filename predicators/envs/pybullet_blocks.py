@@ -258,7 +258,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 block_id, [bx, by, bz],
                 self._default_orn,
                 physicsClientId=self._physics_client_id)
-            # Update the block color.
+            # Update the block color. RGB values are between 0 and 1.
             r = state.get(block_obj, "color_r")
             g = state.get(block_obj, "color_g")
             b = state.get(block_obj, "color_b")

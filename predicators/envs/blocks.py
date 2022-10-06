@@ -250,6 +250,7 @@ class BlocksEnv(BaseEnv):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
+            # RGB values are between 0 and 1.
             color_r = state.get(block, "color_r")
             color_g = state.get(block, "color_g")
             color_b = state.get(block, "color_b")
