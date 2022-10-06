@@ -312,7 +312,11 @@ _DEBUG_PREDICATE_PREFIXES = {
     ],
     "cover_multistep_options": [
         "NOT-((0:block).grasp<=[idx 0]",  # Holding
-        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+        # "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+        "((0:robot).grip<=[idx 0]",  # HandEmpty but with robot arg
+        "Forall[0:block].[NOT-Covers(0,1)]",  # Clear
+        "NOT-((0:robot).grip<=[idx 0]",  # NotHandEmpty
+        "Forall[1:target].[NOT-Covers(0,1)]",  # InFreeSpaceOrHolding
     ],
     "blocks": [
         "NOT-((0:robot).fingers<=[idx 0]",  # GripperOpen
