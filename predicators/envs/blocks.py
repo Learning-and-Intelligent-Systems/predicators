@@ -533,13 +533,16 @@ class BlocksEnv(BaseEnv):
             block_id: int = block_spec["block_id"]
             block = Object(f"block{block_id}", self._block_type)
             id_to_obj[block_id] = block
-            # TODO handle color
             x, y, z = block_spec["position"]
+            r, g, b = block_spec["color"]
             state_dict[block] = {
                 "pose_x": x,
                 "pose_y": y,
                 "pose_z": z,
                 "held": 0,
+                "color_r": r,
+                "color_b": b,
+                "color_g": g,
             }
         # Add the robot at a constant initial position.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
