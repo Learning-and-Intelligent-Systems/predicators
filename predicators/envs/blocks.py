@@ -50,8 +50,10 @@ class BlocksEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._block_type = Type("block",
-                                ["pose_x", "pose_y", "pose_z", "held"])
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "color_b"
+        ])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
@@ -242,20 +244,20 @@ class BlocksEnv(BaseEnv):
         yz_ax.set_xlim((self.y_lb - 2 * r, self.y_ub + 2 * r))
         yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
 
-        colors = [
-            "red", "blue", "green", "orange", "purple", "yellow", "brown",
-            "cyan"
-        ]
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
-        for i, block in enumerate(sorted(blocks)):
+        for block in sorted(blocks):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
-            c = colors[i % len(colors)]  # block color
+            # RGB values are between 0 and 1.
+            color_r = state.get(block, "color_r")
+            color_g = state.get(block, "color_g")
+            color_b = state.get(block, "color_b")
+            color = (color_r, color_g, color_b)
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
-                held = f"{block.name} ({c})"
+                held = f"{block.name}"
 
             # xz axis
             xz_rect = patches.Rectangle((x - r, z - r),
@@ -264,7 +266,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-y,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             xz_ax.add_patch(xz_rect)
 
             # yz axis
@@ -274,7 +276,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-x,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             yz_ax.add_patch(yz_rect)
 
         title = f"Held: {held}"
@@ -329,8 +331,9 @@ class BlocksEnv(BaseEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
-            # [pose_x, pose_y, pose_z, held]
-            data[block] = np.array([x, y, z, 0.0])
+            r, g, b = rng.uniform(size=3)
+            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+            data[block] = np.array([x, y, z, 0.0, r, g, b])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
