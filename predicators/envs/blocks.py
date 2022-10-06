@@ -520,7 +520,7 @@ class BlocksEnv(BaseEnv):
         return max(blocks_here, key=lambda x: x[1])[0]  # highest z
 
     def _load_task_from_json(self, json_file: Path) -> Task:
-        with open(json_file, "r") as f:
+        with open(json_file, "r", encoding="utf-8") as f:
             task_spec = json.load(f)
         # Create the initial state from the task spec.
         # One day, we can make the block size a feature of the blocks, but
