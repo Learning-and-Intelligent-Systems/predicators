@@ -99,8 +99,8 @@ class PG3Approach(NSRTLearningApproach):
         # The heuristic is what distinguishes PG3 from baseline approaches.
         heuristic = self._create_heuristic()
 
-        # Initialize the search with an empty LDL.
-        initial_state = LiftedDecisionList([])
+        # Initialize the search.
+        initial_state = self._get_policy_search_initial_ldl()
 
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
@@ -171,6 +171,12 @@ class PG3Approach(NSRTLearningApproach):
         }
         cls = heuristic_name_to_cls[CFG.pg3_heuristic]
         return cls(preds, nsrts, self._train_tasks)
+
+    @staticmethod
+    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+        # Initialize with an empty list by default, but subclasses may
+        # override.
+        return LiftedDecisionList([])
 
 
 ############################## Search Operators ###############################
