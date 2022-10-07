@@ -1,0 +1,23 @@
+# Learning operators, samplers, policies, and predicates.
+---
+APPROACHES:
+  learn_all:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      min_perc_data_for_nsrt: 1
+      segmenter: "contacts"
+      neural_gaus_regressor_max_itr: 50000
+      option_learner: direct_bc
+      sesame_max_samples_per_step: 100  # mainly to improve demo collection
+ENVS:
+  cover:
+    NAME: "cover_multistep_options"
+    FLAGS: {}
+ARGS: []
+FLAGS:
+  num_train_tasks: 1000
+  excluded_predicates: "all"
+  timeout: 300
+START_SEED: 456
+NUM_SEEDS: 10
+...
