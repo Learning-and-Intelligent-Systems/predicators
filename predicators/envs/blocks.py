@@ -527,12 +527,11 @@ class BlocksEnv(BaseEnv):
         # One day, we can make the block size a feature of the blocks, but
         # for now, we'll just make sure that the block size in the real env
         # matches what we expect in sim.
-        assert abs(task_spec["block_size"] - self.block_size) < 1e-6
+        assert np.isclose(task_spec["block_size"], self.block_size)
         state_dict: Dict[Object, Dict[str, float]] = {}
-        id_to_obj: Dict[int, Object] = {}  # used in the goal construction
-        for block_spec in task_spec["blocks"]:
-            block_id: int = block_spec["block_id"]
-            block = Object(f"block{block_id}", self._block_type)
+        id_to_obj: Dict[str, Object] = {}  # used in the goal construction
+        for block_id, block_spec in task_spec["blocks"].items():
+            block = Object(block_id, self._block_type)
             id_to_obj[block_id] = block
             x, y, z = block_spec["position"]
             r, g, b = block_spec["color"]

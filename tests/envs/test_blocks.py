@@ -121,26 +121,26 @@ def test_blocks_load_task_from_json():
     """Tests for loading blocks test tasks from a JSON file."""
     # Set up the JSON file.
     task_spec = {
-        "problem_name":
-        "blocks_test_problem1",
-        "blocks": [{
-            "block_id": 0,
-            "position": [1.36409716, 1.0389289, 0.2225],
-            "color": [1, 0, 0]
-        }, {
-            "block_id": 1,
-            "position": [1.36409716, 1.0389289, 0.2675],
-            "color": [0, 1, 0]
-        }, {
-            "block_id": 2,
-            "position": [1.35479861, 0.91064759, 0.2225],
-            "color": [0, 0, 1]
-        }],
-        "block_size":
-        0.045,
+        "problem_name": "blocks_test_problem1",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size": 0.045,
         "goal": {
-            "On": [[0, 1], [1, 2]],
-            "OnTable": [[2]]
+            "On": [["red_block", "green_block"], ["green_block",
+                                                  "blue_block"]],
+            "OnTable": [["blue_block"]]
         }
     }
 
@@ -166,9 +166,9 @@ def test_blocks_load_task_from_json():
     ) == """####################################### STATE ######################################
 type: block      pose_x    pose_y    pose_z    held    color_r    color_g    color_b
 -------------  --------  --------  --------  ------  ---------  ---------  ---------
-block0           1.3641  1.03893     0.2225       0          1          0          0
-block1           1.3641  1.03893     0.2675       0          0          1          0
-block2           1.3548  0.910648    0.2225       0          0          0          1
+blue_block       1.3548  0.910648    0.2225       0          0          0          1
+green_block      1.3641  1.03893     0.2675       0          0          1          0
+red_block        1.3641  1.03893     0.2225       0          1          0          0
 
 type: robot      pose_x    pose_y    pose_z    fingers
 -------------  --------  --------  --------  ---------
@@ -177,4 +177,4 @@ robby              1.35      0.75      0.75          1
 """
     assert str(
         sorted(task.goal)
-    ) == "[On(block0:block, block1:block), On(block1:block, block2:block), OnTable(block2:block)]"
+    ) == "[On(green_block:block, blue_block:block), On(red_block:block, green_block:block), OnTable(blue_block:block)]"
