@@ -666,8 +666,9 @@ def task_plan_with_option_plan_constraint(
                 continue
             if applicable_nsrt.option_objs != gt_objects:
                 continue
-            if atoms_seq is not None and not applicable_nsrt.preconditions\
-                .issubset(atoms_seq[idx_into_traj]):
+            if atoms_seq is not None and not \
+                applicable_nsrt.preconditions.issubset(
+                    atoms_seq[idx_into_traj]):
                 continue
             next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
             # The returned cost is uniform because we don't
