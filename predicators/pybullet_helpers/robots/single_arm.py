@@ -22,6 +22,10 @@ from predicators.settings import CFG
 from predicators.structs import Array
 
 
+class InverseKinematicsError(ValueError):
+    """Thrown when inverse kinematics fails to find a solution."""
+
+
 class SingleArmPyBulletRobot(abc.ABC):
     """A single-arm fixed-base PyBullet robot with a two-finger gripper."""
 
@@ -396,7 +400,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             world_from_target=Pose(end_effector_pose, self._ee_orientation),
         )
         if not ik_solutions:
-            raise ValueError(
+            raise InverseKinematicsError(
                 f"No IK solution found for target pose {end_effector_pose} "
                 "using IKFast")
 
@@ -429,7 +433,11 @@ class SingleArmPyBulletRobot(abc.ABC):
             joint_positions = self._ikfast_inverse_kinematics(
                 end_effector_pose)
             if validate:
-                self._validate_joints_state(joint_positions, end_effector_pose)
+                try:
+                    self._validate_joints_state(joint_positions,
+                                                end_effector_pose)
+                except ValueError as e:
+                    raise InverseKinematicsError(e)
             return joint_positions
 
         return pybullet_inverse_kinematics(
