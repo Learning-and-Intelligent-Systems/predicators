@@ -7,6 +7,8 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
+import json
+from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -187,6 +189,11 @@ class BlocksEnv(BaseEnv):
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
+        if CFG.blocks_test_task_json_dir is not None:
+            files = list(Path(CFG.blocks_test_task_json_dir).glob("*.json"))
+            assert len(files) >= CFG.num_test_tasks
+            return [self._load_task_from_json(f) for f in files]
+
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
@@ -512,3 +519,51 @@ class BlocksEnv(BaseEnv):
         if not blocks_here:
             return None
         return max(blocks_here, key=lambda x: x[1])[0]  # highest z
+
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        with open(json_file, "r", encoding="utf-8") as f:
+            task_spec = json.load(f)
+        # Create the initial state from the task spec.
+        # One day, we can make the block size a feature of the blocks, but
+        # for now, we'll just make sure that the block size in the real env
+        # matches what we expect in sim.
+        assert np.isclose(task_spec["block_size"], self.block_size)
+        state_dict: Dict[Object, Dict[str, float]] = {}
+        id_to_obj: Dict[str, Object] = {}  # used in the goal construction
+        for block_id, block_spec in task_spec["blocks"].items():
+            block = Object(block_id, self._block_type)
+            id_to_obj[block_id] = block
+            x, y, z = block_spec["position"]
+            r, g, b = block_spec["color"]
+            state_dict[block] = {
+                "pose_x": x,
+                "pose_y": y,
+                "pose_z": z,
+                "held": 0,
+                "color_r": r,
+                "color_b": b,
+                "color_g": g,
+            }
+        # Add the robot at a constant initial position.
+        rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
+        rf = 1.0  # fingers start out open
+        state_dict[self._robot] = {
+            "pose_x": rx,
+            "pose_y": ry,
+            "pose_z": rz,
+            "fingers": rf,
+        }
+        init_state = utils.create_state_from_dict(state_dict)
+        # Create the goal from the task spec.
+        goal_spec = task_spec["goal"]
+        assert set(goal_spec.keys()).issubset({"On", "OnTable"})
+        on_args = goal_spec.get("On", [])
+        on_table_args = goal_spec.get("OnTable", [])
+        pred_to_args = {self._On: on_args, self._OnTable: on_table_args}
+        goal: Set[GroundAtom] = set()
+        for pred, args in pred_to_args.items():
+            for id_args in args:
+                obj_args = [id_to_obj[a] for a in id_args]
+                goal_atom = GroundAtom(pred, obj_args)
+                goal.add(goal_atom)
+        return Task(init_state, goal)
