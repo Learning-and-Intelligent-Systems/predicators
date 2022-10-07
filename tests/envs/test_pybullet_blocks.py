@@ -138,7 +138,7 @@ def test_pybullet_blocks_picking(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     env.set_state(init_state)
     recovered_state = env.get_state()
@@ -164,7 +164,7 @@ def test_pybullet_blocks_picking_corners(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     corners = [
         (env.x_lb, env.y_lb),
@@ -202,8 +202,8 @@ def test_pybullet_blocks_stacking(env):
     # Create a state with two blocks.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block0: np.array([bx0, by0, bz0, 0.0]),
-        block1: np.array([bx0, by1, bz0, 0.0]),
+        block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0, 0.0, 1.0, 0.0]),
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
@@ -249,9 +249,11 @@ def test_pybullet_blocks_stacking_corners(env):
     for (bx, by) in corners:
         state = State({
             robot: np.array([rx, ry, rz, rf]),
-            block0: np.array([bx0, by0, bz0, 0.0]),
-            **{b: np.array([bx, by, bz, 0.0])
-               for b, bz in block_to_z.items()}
+            block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+            **{
+                b: np.array([bx, by, bz, 0.0, 0.0, 1.0, 0.0])
+                for b, bz in block_to_z.items()
+            }
         })
         env.set_state(state)
         assert env.get_state().allclose(state)
@@ -281,7 +283,7 @@ def test_pybullet_blocks_putontable(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
@@ -316,7 +318,7 @@ def test_pybullet_blocks_putontable_corners(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     corners = [
         (env.x_lb, env.y_lb),
@@ -372,9 +374,11 @@ def test_pybullet_blocks_close_pick_place(env):
     }
     state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by0, bz0, 0.0]),
-        **{b: np.array([bx, by, bz, 0.0])
-           for b, bz in block_to_z.items()}
+        block: np.array([bx, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        **{
+            b: np.array([bx, by, bz, 0.0, 0.0, 1.0, 0.0])
+            for b, bz in block_to_z.items()
+        }
     })
     env.set_state(state)
     assert env.get_state().allclose(state)
@@ -422,8 +426,8 @@ def test_pybullet_blocks_abstract_states(env):
     # Create a state with two blocks on the table.
     state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block0: np.array([bx0, by0, bz0, 0.0]),
-        block1: np.array([bx0, by1, bz0, 0.0]),
+        block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0, 0.0, 1.0, 0.0]),
     })
     env.set_state(state)
     assert env.get_state().allclose(state)

@@ -258,6 +258,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 block_id, [bx, by, bz],
                 self._default_orn,
                 physicsClientId=self._physics_client_id)
+            # Update the block color. RGB values are between 0 and 1.
+            r = state.get(block_obj, "color_r")
+            g = state.get(block_obj, "color_g")
+            b = state.get(block_obj, "color_b")
+            color = (r, g, b, 1.0)  # alpha = 1.0
+            p.changeVisualShape(block_id,
+                                linkIndex=-1,
+                                rgbaColor=color,
+                                physicsClientId=self._physics_client_id)
 
         # For any blocks not involved, put them out of view.
         h = self.block_size
@@ -301,8 +310,12 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             (bx, by, bz), _ = p.getBasePositionAndOrientation(
                 block_id, physicsClientId=self._physics_client_id)
             held = (block_id == self._held_obj_id)
+            visual_data = p.getVisualShapeData(
+                block_id, physicsClientId=self._physics_client_id)[0]
+            r, g, b, _ = visual_data[7]
             # pose_x, pose_y, pose_z, held
-            state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
+            state_dict[block] = np.array([bx, by, bz, held, r, g, b],
+                                         dtype=np.float32)
 
         state = utils.PyBulletState(state_dict,
                                     simulator_state=joint_positions)
