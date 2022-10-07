@@ -40,7 +40,12 @@ class PG3Approach(NSRTLearningApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        self._current_ldl = LiftedDecisionList([])
+        if CFG.policy:
+            with open(CFG.policy, "rb") as f:
+                print(CFG.policy)
+                self._current_ldl = pkl.load(f)
+        else:
+            self._current_ldl = LiftedDecisionList([])
 
     @classmethod
     def get_name(cls) -> str:
@@ -87,6 +92,10 @@ class PG3Approach(NSRTLearningApproach):
 
     def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
+        self._learn_ldl_from_initial_state(online_learning_cycle, self._current_ldl)
+
+    def _learn_ldl_from_initial_state(self, online_learning_cycle: Optional[int], initial_ldl: LiftedDecisionList) -> None:
+        """Learn a lifted decision list policy."""
         # Set up a search over LDL space.
         _S: TypeAlias = LiftedDecisionList
         # An "action" here is a search operator and an integer representing the
@@ -100,7 +109,7 @@ class PG3Approach(NSRTLearningApproach):
         heuristic = self._create_heuristic()
 
         # Initialize the search with an empty LDL.
-        initial_state = LiftedDecisionList([])
+        initial_state = initial_ldl
 
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
