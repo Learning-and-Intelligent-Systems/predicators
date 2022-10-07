@@ -1,0 +1,30 @@
+# Predicate invention with backchaining operator learning
+---
+APPROACHES:
+  invent_allexclude_backchaining:
+    NAME: "grammar_search_invention"
+    FLAGS:
+      strips_learner: "backchaining"
+      excluded_predicates: "all"
+ENVS:
+  cover:
+    NAME: "cover"
+    FLAGS: {}
+  pybullet_blocks:
+    NAME: "pybullet_blocks"
+    FLAGS: {}
+  painting:
+    NAME: "painting"
+    FLAGS: {}
+  tools:
+    NAME: "tools"
+    FLAGS:
+      num_train_tasks: 200  # requires more data (default is 50)
+  pybullet_cover:
+    NAME: "pybullet_cover"
+    FLAGS: {}
+ARGS: []
+FLAGS: {}
+START_SEED: 456
+NUM_SEEDS: 10
+...
