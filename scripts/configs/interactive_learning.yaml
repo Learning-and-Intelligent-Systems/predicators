@@ -62,8 +62,8 @@ APPROACHES:
       predicate_mlp_classifier_n_reinitialize_tries: 5
       predicate_mlp_classifier_init: "normal"
 ENVS:
-  cover:
-    NAME: "cover"
+  pybullet_cover:
+    NAME: "pybullet_cover"
     FLAGS: {}
 ARGS: {}
 FLAGS:  # common args
