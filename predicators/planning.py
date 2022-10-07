@@ -22,6 +22,8 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
 import numpy as np
 
 from predicators import utils
+from predicators.envs import get_or_create_env
+from predicators.envs.behavior import BehaviorEnv
 from predicators.option_model import _BehaviorOptionModel, _OptionModelBase
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, Action, DefaultState, \
@@ -70,6 +72,18 @@ def sesame_plan(
     only consider at most one skeleton, and DiscoveredFailures cannot be
     handled.
     """
+    if CFG.env == "behavior" and \
+        CFG.behavior_mode == 'iggui':  # pragma: no cover
+        logging.info(  # pylint: disable=logging-not-lazy
+            "VIDEO CREATION MODE: You have 30 seconds to position " +
+            "the iggui window to the location you want for recording.")
+        env = get_or_create_env('behavior')
+        assert isinstance(env, BehaviorEnv)
+        start_time = time.time()
+        while time.time() - start_time < 30.0:
+            env.igibson_behavior_env.step(np.zeros(env.action_space.shape))
+        logging.info("VIDEO CREATION MODE: Starting planning.")
+
     if CFG.sesame_task_planner == "astar":
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
