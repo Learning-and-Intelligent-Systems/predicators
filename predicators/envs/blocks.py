@@ -39,7 +39,7 @@ class BlocksEnv(BaseEnv):
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
-    pick_z: ClassVar[float] = 0.7
+    pick_z: ClassVar[float] = 0.72
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
