@@ -7,6 +7,8 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
+import json
+from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -50,8 +52,10 @@ class BlocksEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._block_type = Type("block",
-                                ["pose_x", "pose_y", "pose_z", "held"])
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "color_b"
+        ])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
@@ -185,6 +189,11 @@ class BlocksEnv(BaseEnv):
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
+        if CFG.blocks_test_task_json_dir is not None:
+            files = list(Path(CFG.blocks_test_task_json_dir).glob("*.json"))
+            assert len(files) >= CFG.num_test_tasks
+            return [self._load_task_from_json(f) for f in files]
+
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
@@ -242,20 +251,20 @@ class BlocksEnv(BaseEnv):
         yz_ax.set_xlim((self.y_lb - 2 * r, self.y_ub + 2 * r))
         yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
 
-        colors = [
-            "red", "blue", "green", "orange", "purple", "yellow", "brown",
-            "cyan"
-        ]
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
-        for i, block in enumerate(sorted(blocks)):
+        for block in sorted(blocks):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
-            c = colors[i % len(colors)]  # block color
+            # RGB values are between 0 and 1.
+            color_r = state.get(block, "color_r")
+            color_g = state.get(block, "color_g")
+            color_b = state.get(block, "color_b")
+            color = (color_r, color_g, color_b)
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
-                held = f"{block.name} ({c})"
+                held = f"{block.name}"
 
             # xz axis
             xz_rect = patches.Rectangle((x - r, z - r),
@@ -264,7 +273,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-y,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             xz_ax.add_patch(xz_rect)
 
             # yz axis
@@ -274,7 +283,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-x,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             yz_ax.add_patch(yz_rect)
 
         title = f"Held: {held}"
@@ -329,8 +338,9 @@ class BlocksEnv(BaseEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
-            # [pose_x, pose_y, pose_z, held]
-            data[block] = np.array([x, y, z, 0.0])
+            r, g, b = rng.uniform(size=3)
+            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+            data[block] = np.array([x, y, z, 0.0, r, g, b])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
@@ -509,3 +519,51 @@ class BlocksEnv(BaseEnv):
         if not blocks_here:
             return None
         return max(blocks_here, key=lambda x: x[1])[0]  # highest z
+
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        with open(json_file, "r", encoding="utf-8") as f:
+            task_spec = json.load(f)
+        # Create the initial state from the task spec.
+        # One day, we can make the block size a feature of the blocks, but
+        # for now, we'll just make sure that the block size in the real env
+        # matches what we expect in sim.
+        assert np.isclose(task_spec["block_size"], self.block_size)
+        state_dict: Dict[Object, Dict[str, float]] = {}
+        id_to_obj: Dict[str, Object] = {}  # used in the goal construction
+        for block_id, block_spec in task_spec["blocks"].items():
+            block = Object(block_id, self._block_type)
+            id_to_obj[block_id] = block
+            x, y, z = block_spec["position"]
+            r, g, b = block_spec["color"]
+            state_dict[block] = {
+                "pose_x": x,
+                "pose_y": y,
+                "pose_z": z,
+                "held": 0,
+                "color_r": r,
+                "color_b": b,
+                "color_g": g,
+            }
+        # Add the robot at a constant initial position.
+        rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
+        rf = 1.0  # fingers start out open
+        state_dict[self._robot] = {
+            "pose_x": rx,
+            "pose_y": ry,
+            "pose_z": rz,
+            "fingers": rf,
+        }
+        init_state = utils.create_state_from_dict(state_dict)
+        # Create the goal from the task spec.
+        goal_spec = task_spec["goal"]
+        assert set(goal_spec.keys()).issubset({"On", "OnTable"})
+        on_args = goal_spec.get("On", [])
+        on_table_args = goal_spec.get("OnTable", [])
+        pred_to_args = {self._On: on_args, self._OnTable: on_table_args}
+        goal: Set[GroundAtom] = set()
+        for pred, args in pred_to_args.items():
+            for id_args in args:
+                obj_args = [id_to_obj[a] for a in id_args]
+                goal_atom = GroundAtom(pred, obj_args)
+                goal.add(goal_atom)
+        return Task(init_state, goal)
