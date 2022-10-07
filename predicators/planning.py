@@ -656,9 +656,6 @@ def task_plan_with_option_plan_constraint(
 
         gt_param_option = option_plan[idx_into_traj][0]
         gt_objects = option_plan[idx_into_traj][1]
-        if atoms_seq is not None:
-            expected_next_atoms = atoms_seq[idx_into_traj + 1]
-
         for applicable_nsrt in utils.get_applicable_operators(
                 ground_nsrts, atoms):
             # NOTE: we check that the ParameterizedOptions are equal before
@@ -669,10 +666,10 @@ def task_plan_with_option_plan_constraint(
                 continue
             if applicable_nsrt.option_objs != gt_objects:
                 continue
-            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
-            if atoms_seq is not None and \
-                not next_atoms.issubset(expected_next_atoms):
+            if atoms_seq is not None and not applicable_nsrt.preconditions\
+                .issubset(atoms_seq[idx_into_traj]):
                 continue
+            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
             # The returned cost is uniform because we don't
             # actually care about finding the shortest path;
             # just one that matches!
