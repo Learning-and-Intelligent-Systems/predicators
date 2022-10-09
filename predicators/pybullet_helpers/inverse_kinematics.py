@@ -16,6 +16,10 @@ from predicators.pybullet_helpers.link import get_link_pose
 from predicators.settings import CFG
 
 
+class InverseKinematicsError(ValueError):
+    """Thrown when inverse kinematics fails to find a solution."""
+
+
 def pybullet_inverse_kinematics(
     robot: int,
     end_effector: int,
@@ -80,7 +84,7 @@ def pybullet_inverse_kinematics(
                        atol=convergence_tol):
             break
     else:
-        raise Exception("Inverse kinematics failed to converge.")
+        raise InverseKinematicsError("Inverse kinematics failed to converge.")
 
     # Reset the joint state (positions and velocities) to their initial values
     # to avoid modifying the PyBullet internal state.

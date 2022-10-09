@@ -2,11 +2,12 @@
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.settings import CFG
-from predicators.structs import Object, State
+from predicators.structs import Object, ParameterizedOption, State
 
 _GUI_ON = False  # toggle for debugging
 
@@ -303,6 +304,27 @@ def test_pybullet_blocks_putontable(env):
     # Specifically, it should be at the center of the workspace.
     assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
+    # Test that when we attempt to put the block outside the workspace, an
+    # OptionExecutionFailure is raised. This is for the panda only because
+    # the fetch uses pybullet IK, which is not even smart enough to realize its
+    # own ineptitude.
+    if CFG.pybullet_robot == "panda":
+        env.set_state(init_state)
+        option = env.Pick.ground([robot, block], [])
+        state = env.execute_option(option)
+        # Make a copy of the PutOnTable option with larger params space because
+        # the other option's param space doesn't allow out-of-bounds puts.
+        PutOnTable_unrestricted = ParameterizedOption(
+            "PutOnTable_unrestricted",
+            types=env.PutOnTable.types,
+            params_space=Box(-np.inf, np.inf, (2, ), dtype=np.float32),
+            policy=env.PutOnTable.policy,
+            initiable=env.PutOnTable.initiable,
+            terminal=env.PutOnTable.terminal)
+        option = PutOnTable_unrestricted.ground([robot], [25.0, 25.0])
+        with pytest.raises(utils.OptionExecutionFailure) as e:
+            state = env.execute_option(option)
+        assert "Inverse kinematics failed" in str(e)
 
 
 def test_pybullet_blocks_putontable_corners(env):

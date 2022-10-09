@@ -10,7 +10,7 @@ from predicators.pybullet_helpers.robots.single_arm import \
 # Note: these are static base poses which suffice for the current environments.
 _ROBOT_TO_BASE_POSE: Dict[str, Pose] = {
     "fetch": Pose(position=(0.75, 0.7441, 0.0)),
-    "panda": Pose(position=(0.8, 0.7441, 0.25)),
+    "panda": Pose(position=(0.8, 0.7441, 0.195)),
 }
 
 _ROBOT_TO_CLS: Dict[str, Type[SingleArmPyBulletRobot]] = {
