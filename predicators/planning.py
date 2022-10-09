@@ -173,9 +173,12 @@ def _sesame_plan_with_astar(
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
             for skeleton, atoms_sequence in gen:
+                necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+                    skeleton, atoms_sequence, task.goal)
                 plan, suc = run_low_level_search(
-                    task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.perf_counter() - start_time), max_horizon)
+                    task, option_model, skeleton, necessary_atoms_seq,
+                    new_seed, timeout - (time.perf_counter() - start_time),
+                    max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
@@ -653,9 +656,6 @@ def task_plan_with_option_plan_constraint(
 
         gt_param_option = option_plan[idx_into_traj][0]
         gt_objects = option_plan[idx_into_traj][1]
-        if atoms_seq is not None:
-            expected_next_atoms = atoms_seq[idx_into_traj + 1]
-
         for applicable_nsrt in utils.get_applicable_operators(
                 ground_nsrts, atoms):
             # NOTE: we check that the ParameterizedOptions are equal before
@@ -666,10 +666,11 @@ def task_plan_with_option_plan_constraint(
                 continue
             if applicable_nsrt.option_objs != gt_objects:
                 continue
-            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
-            if atoms_seq is not None and \
-                not next_atoms.issubset(expected_next_atoms):
+            if atoms_seq is not None and not \
+                applicable_nsrt.preconditions.issubset(
+                    atoms_seq[idx_into_traj]):
                 continue
+            next_atoms = utils.apply_operator(applicable_nsrt, set(atoms))
             # The returned cost is uniform because we don't
             # actually care about finding the shortest path;
             # just one that matches!
@@ -781,8 +782,10 @@ def _sesame_plan_with_fast_downward(
     metrics["num_skeletons_optimized"] = 1
     metrics["num_failures_discovered"] = 0
     try:
+        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+            skeleton, atoms_sequence, task.goal)
         plan, suc = run_low_level_search(task, option_model, skeleton,
-                                         atoms_sequence, seed,
+                                         necessary_atoms_seq, seed,
                                          low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot
