@@ -13,17 +13,13 @@ from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
 from predicators.pybullet_helpers.inverse_kinematics import \
-    pybullet_inverse_kinematics
+    InverseKinematicsError, pybullet_inverse_kinematics
 from predicators.pybullet_helpers.joint import JointInfo, JointPositions, \
     get_joint_infos, get_joint_lower_limits, get_joint_positions, \
     get_joint_upper_limits, get_joints, get_kinematic_chain
 from predicators.pybullet_helpers.link import BASE_LINK, get_link_state
 from predicators.settings import CFG
 from predicators.structs import Array
-
-
-class InverseKinematicsError(ValueError):
-    """Thrown when inverse kinematics fails to find a solution."""
 
 
 class SingleArmPyBulletRobot(abc.ABC):
