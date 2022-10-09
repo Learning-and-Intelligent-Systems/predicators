@@ -27,8 +27,7 @@ setup(name="predicators",
           "pyyaml",
           "pylint==2.14.5",
           "types-PyYAML",
-          "lisdf@git+https://github.com/" +
-          "Learning-and-Intelligent-Systems/lisdf.git",
+          "lisdf",
       ],
       include_package_data=True,
       extras_require={
