@@ -25,7 +25,7 @@ class CoverEnv(BaseEnv):
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     _workspace_x: ClassVar[float] = 1.35
-    _workspace_z: ClassVar[float] = 0.75
+    _workspace_z: ClassVar[float] = 0.65
 
     def __init__(self) -> None:
         super().__init__()

@@ -6,6 +6,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.pybullet_helpers.geometry import Pose3D
+from predicators.pybullet_helpers.inverse_kinematics import \
+    InverseKinematicsError
 from predicators.pybullet_helpers.robots.single_arm import \
     SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
@@ -50,8 +52,11 @@ def create_move_end_effector_to_pose_option(
         ee_action = np.add(current, ee_delta)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
-        joint_positions = robot.inverse_kinematics(
-            (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+        try:
+            joint_positions = robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+        except InverseKinematicsError:
+            raise utils.OptionExecutionFailure("Inverse kinematics failed.")
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
         # nudge the fingers toward being open or closed according to the

@@ -28,7 +28,7 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height: ClassVar[float] = 0.2
-    block_size: ClassVar[float] = 0.045
+    block_size: ClassVar[float] = 0.0505
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a
@@ -39,7 +39,7 @@ class BlocksEnv(BaseEnv):
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
-    pick_z: ClassVar[float] = 0.75
+    pick_z: ClassVar[float] = 0.7
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
