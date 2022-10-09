@@ -13,7 +13,7 @@ from predicators.pybullet_helpers.ikfast import IKFastInfo
 from predicators.pybullet_helpers.ikfast.utils import \
     ikfast_closest_inverse_kinematics
 from predicators.pybullet_helpers.inverse_kinematics import \
-    pybullet_inverse_kinematics
+    InverseKinematicsError, pybullet_inverse_kinematics
 from predicators.pybullet_helpers.joint import JointInfo, JointPositions, \
     get_joint_infos, get_joint_lower_limits, get_joint_positions, \
     get_joint_upper_limits, get_joints, get_kinematic_chain
@@ -396,7 +396,7 @@ class SingleArmPyBulletRobot(abc.ABC):
             world_from_target=Pose(end_effector_pose, self._ee_orientation),
         )
         if not ik_solutions:
-            raise ValueError(
+            raise InverseKinematicsError(
                 f"No IK solution found for target pose {end_effector_pose} "
                 "using IKFast")
 
@@ -429,7 +429,11 @@ class SingleArmPyBulletRobot(abc.ABC):
             joint_positions = self._ikfast_inverse_kinematics(
                 end_effector_pose)
             if validate:
-                self._validate_joints_state(joint_positions, end_effector_pose)
+                try:
+                    self._validate_joints_state(joint_positions,
+                                                end_effector_pose)
+                except ValueError as e:
+                    raise InverseKinematicsError(e)
             return joint_positions
 
         return pybullet_inverse_kinematics(
