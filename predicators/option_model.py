@@ -95,8 +95,9 @@ class _OracleOptionModel(_OptionModelBase):
             nonlocal last_state
             if option_copy.terminal(s):
                 return True
-            if last_state is not DefaultState and last_state.allclose(s):
-                raise utils.OptionExecutionFailure("Option got stuck.")
+            # TODO deal
+            # if last_state is not DefaultState and last_state.allclose(s):
+            #     raise utils.OptionExecutionFailure("Option got stuck.")
             last_state = s
             return False
 
