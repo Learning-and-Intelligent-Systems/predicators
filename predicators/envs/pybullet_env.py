@@ -164,7 +164,6 @@ class PyBulletEnv(BaseEnv):
         return self._pybullet_robot.action_space
 
     def simulate(self, state: State, action: Action) -> State:
-        assert CFG.pybullet_control_mode == "reset"
         self._current_state = state
         self._reset_state(state)
         return self.step(action)
