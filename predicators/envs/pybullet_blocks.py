@@ -252,8 +252,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")
-            # Assume not holding in the initial state
-            assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz],
                 self._default_orn,
@@ -267,6 +265,15 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 linkIndex=-1,
                                 rgbaColor=color,
                                 physicsClientId=self._physics_client_id)
+        
+        # Check if we're holding some block.
+        held_block = self._get_held_block(state)
+        if held_block is not None:
+            # TODO: look into persisting constraints.
+            # TODO: do we need to move the block?
+            self._held_obj_id = self._detect_held_object()
+            assert self._held_obj_id is not None
+            self._create_grasp_constraint()
 
         # For any blocks not involved, put them out of view.
         h = self.block_size
