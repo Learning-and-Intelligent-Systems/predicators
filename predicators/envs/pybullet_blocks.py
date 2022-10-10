@@ -17,7 +17,7 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, State
+from predicators.structs import Array, Object, ParameterizedOption, State, Task
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -324,6 +324,23 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
              f"self._current_state has objects {set(self._current_state)}.")
 
         return state
+
+    def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
+                   rng: np.random.Generator) -> List[Task]:
+        tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
+        # Convert each initial state into a PyBulletState.
+        pybullet_tasks = []
+        for task in tasks:
+            # Reset the robot.
+            init = task.init
+            self._pybullet_robot.reset_state(self._extract_robot_state(init))
+            # Extract the joints.
+            joint_positions = self._pybullet_robot.get_joints()
+            pybullet_init = utils.PyBulletState(
+                init.data.copy(), simulator_state=joint_positions)
+            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_tasks.append(pybullet_task)
+        return pybullet_tasks
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
