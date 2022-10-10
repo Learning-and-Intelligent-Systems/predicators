@@ -48,6 +48,8 @@ def _segment_with_contact_changes(
         keep_pred_names = {"Grasped", "Pressed"}
     elif CFG.env in ("cover", "cover_multistep_options"):
         keep_pred_names = {"Covers", "HandEmpty", "Holding"}
+    elif "blocks" in CFG.env:
+        keep_pred_names = {"On", "OnTable", "Holding"}
     elif CFG.env == "doors":
         keep_pred_names = {"TouchingDoor", "InRoom"}
     elif CFG.env == "touch_point":
