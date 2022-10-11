@@ -363,8 +363,8 @@ class BlocksEnv(BaseEnv):
             goal_atoms.add(GroundAtom(self._OnTable, [pile[0]]))
             if len(pile) == 1:
                 continue
-            # for block1, block2 in zip(pile[1:], pile[:-1]):
-            #     goal_atoms.add(GroundAtom(self._On, [block1, block2]))
+            for block1, block2 in zip(pile[1:], pile[:-1]):
+                goal_atoms.add(GroundAtom(self._On, [block1, block2]))
         return goal_atoms
 
     def _sample_initial_pile_xy(
