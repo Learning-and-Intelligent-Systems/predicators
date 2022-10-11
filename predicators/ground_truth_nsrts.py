@@ -2954,7 +2954,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             state: State, goal: Set[GroundAtom], rng: Generator,
             objects: Union["URDFObject", "RoomFloor"]) -> Array:
         """Sampler for placeOnTop option."""
-        del state, goal
+        del goal
         assert rng is not None
         # objA is the object the robot is currently holding, and
         # objB is the surface that it must place onto.
@@ -2988,6 +2988,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             # If sampling fails, fall back onto custom-defined object-specific
             # samplers
             if objB.category == "bucket":
+                # Get the current env for collision checking.
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                load_checkpoint_state(state, env)
                 objB_sampling_bounds = objB.bounding_box / 2
                 # Since the bucket's hole is generally in the center,
                 # we want a very small sampling range around the
