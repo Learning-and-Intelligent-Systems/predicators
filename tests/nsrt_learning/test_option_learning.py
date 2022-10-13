@@ -1,8 +1,10 @@
 """Tests for option learning."""
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
+import predicators.nsrt_learning.option_learning
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
@@ -11,14 +13,15 @@ from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.ml_models import MLPRegressor
-from predicators.nsrt_learning.option_learning import \
-    _LearnedNeuralParameterizedOption, create_option_learner, \
-    create_rl_option_learner
+from predicators.nsrt_learning.option_learning import _ActionSpaceConverter, \
+    _LearnedNeuralParameterizedOption, create_action_space_converter, \
+    create_option_learner, create_rl_option_learner
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
 from predicators.structs import STRIPSOperator
 
+_MODULE_PATH = predicators.nsrt_learning.option_learning.__name__
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
@@ -350,3 +353,57 @@ def test_implicit_bc_option_learning_touch_point():
         except (ApproachFailure, ApproachTimeout):
             continue
     assert num_test_successes == 10
+
+
+class _ReverseOrderActionSpaceConverter(_ActionSpaceConverter):
+    """Reverses the order of the actions."""
+
+    def env_to_reduced(self, env_action_arr):
+        return np.array(list(reversed(env_action_arr)), dtype=np.float32)
+
+    def reduced_to_env(self, reduced_action_arr):
+        return np.array(list(reversed(reduced_action_arr)), dtype=np.float32)
+
+
+def test_action_space_conversion():
+    """Tests for _ActionSpaceConverter() subclasses."""
+    utils.reset_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "option_learner": "oracle",
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "segmenter": "atom_changes",
+        "num_train_tasks": 2,
+        "num_test_tasks": 5,
+    })
+    with patch(f"{_MODULE_PATH}.create_action_space_converter") as mocker:
+        mocker.return_value = _ReverseOrderActionSpaceConverter()
+        env = create_new_env("blocks")
+        train_tasks = env.get_train_tasks()
+        approach = create_approach("nsrt_learning", env.predicates, env.options,
+                                env.types, env.action_space, train_tasks)
+        dataset = create_dataset(env, train_tasks, known_options=set())
+        approach.learn_from_offline_dataset(dataset)
+        num_test_successes = 0
+        for task in env.get_test_tasks():
+            policy = approach.solve(task, timeout=CFG.timeout)
+            traj = utils.run_policy_with_simulator(policy,
+                                                env.simulate,
+                                                task.init,
+                                                task.goal_holds,
+                                                max_num_steps=CFG.horizon)
+            if task.goal_holds(traj.states[-1]):
+                num_test_successes += 1
+        assert num_test_successes == 5
+
+
+def test_create_action_space_converter():
+    """Tests for create_action_space_converter():"""
+    # Cover case with unknown action space converter.
+    utils.reset_config({
+        "option_learning_action_space_converter":
+        "not a real converter",
+    })
+    with pytest.raises(NotImplementedError):
+        create_action_space_converter()

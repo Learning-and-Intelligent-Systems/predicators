@@ -187,6 +187,7 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
 
     def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
                             datastores: List[Datastore]) -> List[OptionSpec]:
+        # TODO: Handle action conversion.
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
@@ -231,6 +232,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
                             datastores: List[Datastore]) -> List[OptionSpec]:
+        # TODO: Handle action conversion.
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
