@@ -527,6 +527,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                  is_parameterized: bool = True) -> None:
         super().__init__()
         # Actions are clipped to stay within the action space.
+        # TODO fix this
         self._action_space = action_space
         # See class docstring.
         self._is_parameterized = is_parameterized
@@ -670,6 +671,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
 
     def update_segment_from_option_spec(self, segment: Segment,
                                         option_spec: OptionSpec) -> None:
+        # TODO fix this
         objects, params = self._segment_to_grounding[segment]
         param_opt, opt_vars = option_spec
         assert all(o.type == v.type for o, v in zip(objects, opt_vars))
