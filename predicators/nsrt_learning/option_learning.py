@@ -43,14 +43,77 @@ def create_rl_option_learner() -> _RLOptionLearnerBase:
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
+class _ActionSpaceConverter(abc.ABC):
+    """Maps environment actions to a reduced action space, and inverts."""
+
+    @abc.abstractmethod
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        raise NotImplementedError("Override me!")
+
+
+class _IdentityActionSpaceConverter(_ActionSpaceConverter):
+    """A trivial action space converter, useful for testing."""
+
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        return env_action_arr.copy()
+
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        return reduced_action_arr.copy()
+
+
+class _JointsTo4DConverter(_ActionSpaceConverter):
+    """Maps PyBullet robot joint actions to 4D, where the first three dims are
+    the x, y, z position of the robot end effector and the last dim is for the
+    fingers.
+
+    This assumes that the gripper's rotation is fixed.
+
+    Uses forward and inverse kinematics.
+
+    Creates a copy of the robot with its own PyBullet environment to use
+    forward and inverse kinematics utilities.
+    """
+
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        import ipdb
+        ipdb.set_trace()
+
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        import ipdb
+        ipdb.set_trace()
+
+
 class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
 
-    @abc.abstractmethod
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
+        """Calls _learn_option_specs() and handles action space conversions."""
+        # TODO generalize
+        action_space_converter = _IdentityActionSpaceConverter()
+        # Convert the actions in the datastore.
+        converted_datastores = [
+            self._convert_datastore_actions(d, action_space_converter)
+            for d in datastores
+        ]
+        # Learn the options.
+        option_specs = self._learn_option_specs(strips_ops,
+                                                converted_datastores)
+        # Wrap the option policies so that the actions are un-converted.
+        return [
+            self._convert_option_spec_actions(o, action_space_converter)
+            for o in option_specs
+        ]
+
+    @abc.abstractmethod
+    def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                            datastores: List[Datastore]) -> List[OptionSpec]:
         """Given datastores and STRIPS operators that were fit on them, learn
         option specs, which are tuples of (ParameterizedOption,
         Sequence[Variable]).
@@ -75,6 +138,20 @@ class _OptionLearnerBase(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
+    @staticmethod
+    def _convert_datastore_actions(
+            datastore: Datastore,
+            converter: _ActionSpaceConverter) -> Datastore:
+        import ipdb
+        ipdb.set_trace()
+
+    @staticmethod
+    def _convert_option_spec_actions(
+            option_spec: OptionSpec,
+            converter: _ActionSpaceConverter) -> OptionSpec:
+        import ipdb
+        ipdb.set_trace()
+
 
 class KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
@@ -88,8 +165,8 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
     specs for the STRIPSOperator objects.
     """
 
-    def learn_option_specs(self, strips_ops: List[STRIPSOperator],
-                           datastores: List[Datastore]) -> List[OptionSpec]:
+    def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                            datastores: List[Datastore]) -> List[OptionSpec]:
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
@@ -132,8 +209,8 @@ class _OracleOptionLearner(_OptionLearnerBase):
     Useful for testing.
     """
 
-    def learn_option_specs(self, strips_ops: List[STRIPSOperator],
-                           datastores: List[Datastore]) -> List[OptionSpec]:
+    def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                            datastores: List[Datastore]) -> List[OptionSpec]:
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
@@ -433,8 +510,8 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     def _create_regressor(self) -> Regressor:
         raise NotImplementedError("Override me!")
 
-    def learn_option_specs(self, strips_ops: List[STRIPSOperator],
-                           datastores: List[Datastore]) -> List[OptionSpec]:
+    def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                            datastores: List[Datastore]) -> List[OptionSpec]:
         option_specs: List[Tuple[ParameterizedOption, List[Variable]]] = []
 
         assert len(strips_ops) == len(datastores)
