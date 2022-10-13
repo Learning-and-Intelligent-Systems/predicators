@@ -14,9 +14,9 @@ from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Datastore, LowLevelTrajectory, \
-    Object, OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
-    Variable, VarToObjSub
+from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
+    ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
+    VarToObjSub
 from predicators.utils import OptionExecutionFailure
 
 
@@ -44,14 +44,16 @@ def create_rl_option_learner() -> _RLOptionLearnerBase:
 
 
 class _ActionSpaceConverter(abc.ABC):
-    """Maps environment actions to a reduced action space, and inverts."""
+    """Maps environment actions to a reduced action space and back."""
 
     @abc.abstractmethod
     def env_to_reduced(self, env_action_arr: Array) -> Array:
+        """Map an environment action to a reduced action."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        """Map a reduced action to an environment action."""
         raise NotImplementedError("Override me!")
 
 
@@ -65,26 +67,12 @@ class _IdentityActionSpaceConverter(_ActionSpaceConverter):
         return reduced_action_arr.copy()
 
 
-class _JointsTo4DConverter(_ActionSpaceConverter):
-    """Maps PyBullet robot joint actions to 4D, where the first three dims are
-    the x, y, z position of the robot end effector and the last dim is for the
-    fingers.
-
-    This assumes that the gripper's rotation is fixed.
-
-    Uses forward and inverse kinematics.
-
-    Creates a copy of the robot with its own PyBullet environment to use
-    forward and inverse kinematics utilities.
-    """
-
-    def env_to_reduced(self, env_action_arr: Array) -> Array:
-        import ipdb
-        ipdb.set_trace()
-
-    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
-        import ipdb
-        ipdb.set_trace()
+def create_action_space_converter() -> _ActionSpaceConverter:
+    """Create an action space converter based on CFG."""
+    name = CFG.option_learning_action_space_converter
+    if name == "identity":
+        return _IdentityActionSpaceConverter()
+    raise NotImplementedError(f"Unknown action space converter: {name}")
 
 
 class _OptionLearnerBase(abc.ABC):
@@ -95,8 +83,7 @@ class _OptionLearnerBase(abc.ABC):
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         """Calls _learn_option_specs() and handles action space conversions."""
-        # TODO generalize
-        action_space_converter = _IdentityActionSpaceConverter()
+        action_space_converter = create_action_space_converter()
         # Convert the actions in the datastore.
         converted_datastores = [
             self._convert_datastore_actions(d, action_space_converter)
@@ -150,11 +137,13 @@ class _OptionLearnerBase(abc.ABC):
             # Convert the actions.
             converted_actions = []
             for action in old_traj.actions:
-                option = action.get_option() if action.has_option() else None
                 # Conversion!
                 converted_arr = converter.env_to_reduced(action.arr)
-                converted_action = Action(converted_arr, option)
-                converted_actions.append(converted_action)
+                if action.has_option():
+                    converted_act = Action(converted_arr, action.get_option())
+                else:
+                    converted_act = Action(converted_arr)
+                converted_actions.append(converted_act)
             converted_segment.trajectory = old_traj.copy_with(
                 _actions=converted_actions)
             new_datastore.append((converted_segment, sub))
@@ -173,9 +162,9 @@ class _OptionLearnerBase(abc.ABC):
                             params: Array) -> Action:
             reduced_action = orig_policy(state, memory, objects, params)
             env_action_arr = converter.reduced_to_env(reduced_action.arr)
-            action_option = reduced_action.get_option(
-            ) if reduced_action.has_option() else None
-            return Action(env_action_arr, action_option)
+            if reduced_action.has_option():
+                return Action(env_action_arr, reduced_action.get_option())
+            return Action(env_action_arr)
 
         # Note: it's important for oracle option learning that the name of
         # the param option is unchanged here.
