@@ -237,9 +237,14 @@ class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
             return self._Move_policy(state, memory, objects, params[1:])
         return self._Grasp_policy(state, memory, objects, params[1:])
 
+
 class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
-    """A variation on RepeatedNextToEnv with ambiguous demonstrations that
-    can lead to the backchaining algorithm learning complex move operators."""
+    """A variation on RepeatedNextToEnv with ambiguous demonstrations that can
+    lead to the backchaining algorithm learning complex move operators."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto_ambiguous"
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         assert self.env_lb <= 4.0
