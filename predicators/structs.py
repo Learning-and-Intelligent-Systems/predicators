@@ -1043,6 +1043,18 @@ class LowLevelTrajectory:
             "This trajectory doesn't contain a train task idx!"
         return self._train_task_idx
 
+    def copy_with(self, **kwargs: Any) -> LowLevelTrajectory:
+        """Create a copy, optionally while replacing any of the arguments."""
+        default_kwargs = dict(_states=self.states,
+                              _actions=self.actions,
+                              _is_demo=self.is_demo,
+                              _train_task_idx=self._train_task_idx)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        return LowLevelTrajectory(**default_kwargs)  # type: ignore
+
 
 @dataclass(repr=False, eq=False)
 class Dataset:
@@ -1134,6 +1146,20 @@ class Segment:
         Do not cache; init and final atoms can change.
         """
         return self.init_atoms - self.final_atoms
+
+    def copy(self) -> Segment:
+        """Make a copy of the segment."""
+        traj_copy = self.trajectory.copy_with()
+        option = self.get_option() if self.has_option() else None
+        goal = self.get_goal() if self.has_goal() else None
+        if self.necessary_add_effects is None:
+            necessary_add_effects = None
+        else:
+            necessary_add_effects = set(self.necessary_add_effects)
+        segment_copy = Segment(traj_copy, set(self.init_atoms),
+                               set(self.final_atoms), option, goal,
+                               necessary_add_effects)
+        return segment_copy
 
     def has_option(self) -> bool:
         """Whether this segment has a non-default option attached."""

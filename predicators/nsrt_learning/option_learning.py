@@ -16,7 +16,7 @@ from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
-    VarToObjSub
+    VarToObjSub, LowLevelTrajectory
 from predicators.utils import OptionExecutionFailure
 
 
@@ -142,8 +142,22 @@ class _OptionLearnerBase(abc.ABC):
     def _convert_datastore_actions(
             datastore: Datastore,
             converter: _ActionSpaceConverter) -> Datastore:
-        import ipdb
-        ipdb.set_trace()
+        new_datastore: Datastore = []
+        for (segment, sub) in datastore:
+            # Make a copy to be safe.
+            converted_segment = segment.copy()
+            old_traj = segment.trajectory
+            # Convert the actions.
+            converted_actions = []
+            for action in old_traj.actions:
+                option = action.get_option() if action.has_option() else None
+                # Conversion!
+                converted_arr = converter.env_to_reduced(action.arr)
+                converted_action = Action(converted_arr, option)
+                converted_actions.append(converted_action)
+            converted_segment.trajectory = old_traj.copy_with(_actions=converted_actions)
+            new_datastore.append((converted_segment, sub))
+        return new_datastore
 
     @staticmethod
     def _convert_option_spec_actions(
