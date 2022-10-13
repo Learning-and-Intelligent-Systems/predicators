@@ -156,13 +156,13 @@ class RepeatedNextToEnv(BaseEnv):
             GroundAtom(self._Grasped, [self._robot, dots[1]]),
             GroundAtom(self._Grasped, [self._robot, dots[2]]),
         }
-        goals = [goal3, goal2, goal1]
+        goals = [goal1, goal2, goal3]
         for i in range(num):
             data: Dict[Object, Array] = {}
             for dot in dots:
-                dot_x = rng.uniform(5.0, 5.5)
+                dot_x = rng.uniform(self.env_lb, self.env_ub)
                 data[dot] = np.array([dot_x, 0.0])
-            robot_x = 0.0
+            robot_x = rng.uniform(self.env_lb, self.env_ub)
             data[self._robot] = np.array([robot_x])
             tasks.append(Task(State(data), goals[i % len(goals)]))
         return tasks
