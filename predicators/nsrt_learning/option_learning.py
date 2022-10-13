@@ -164,8 +164,24 @@ class _OptionLearnerBase(abc.ABC):
     def _convert_option_spec_actions(
             option_spec: OptionSpec,
             converter: _ActionSpaceConverter) -> OptionSpec:
-        import ipdb
-        ipdb.set_trace()
+
+        param_option, option_vars = option_spec
+        orig_policy = param_option.policy
+
+        def _wrapped_policy(state: State, memory: Dict,
+                            objects: Sequence[Object],
+                            params: Array) -> Action:
+            reduced_action = orig_policy(state, memory, objects, params)
+            env_action_arr = converter.reduced_to_env(reduced_action.arr)
+            action_option = reduced_action.get_option(
+            ) if reduced_action.has_option() else None
+            return Action(env_action_arr, action_option)
+
+        # Note: it's important for oracle option learning that the name of
+        # the param option is unchanged here.
+        new_param_option = param_option.copy_with(policy=_wrapped_policy)
+
+        return (new_param_option, option_vars)
 
 
 class KnownOptionsOptionLearner(_OptionLearnerBase):

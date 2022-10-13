@@ -483,6 +483,20 @@ class ParameterizedOption:
             params=params,
             memory=memory)
 
+    def copy_with(self, **kwargs: Any) -> ParameterizedOption:
+        """Create a copy, optionally while replacing any of the arguments."""
+        default_kwargs = dict(name=self.name,
+                              types=list(self.types),
+                              params_space=self.params_space,
+                              initiable=self.initiable,
+                              policy=self.policy,
+                              terminal=self.terminal)
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        return ParameterizedOption(**default_kwargs)  # type: ignore
+
 
 @dataclass(eq=False)
 class _Option:
@@ -1150,7 +1164,7 @@ class Segment:
     def copy(self) -> Segment:
         """Make a copy of the segment."""
         traj_copy = self.trajectory.copy_with()
-        option = self.get_option() if self.has_option() else None
+        option = self.get_option() if self.has_option() else DummyOption
         goal = self.get_goal() if self.has_goal() else None
         if self.necessary_add_effects is None:
             necessary_add_effects = None
