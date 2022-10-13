@@ -98,20 +98,24 @@ def _convert_datastore_actions(datastore: Datastore,
     return new_datastore
 
 
-def _convert_option_spec_actions(
-        option_spec: OptionSpec,
-        converter: _ActionSpaceConverter) -> OptionSpec:
+def _convert_option_spec_actions(option_spec: OptionSpec,
+                                 converter: _ActionSpaceConverter,
+                                 mode: str = "reduced_to_env") -> OptionSpec:
 
     param_option, option_vars = option_spec
     orig_policy = param_option.policy
 
     def _wrapped_policy(state: State, memory: Dict, objects: Sequence[Object],
                         params: Array) -> Action:
-        reduced_action = orig_policy(state, memory, objects, params)
-        env_action_arr = converter.reduced_to_env(reduced_action.arr)
-        if reduced_action.has_option():
-            return Action(env_action_arr, reduced_action.get_option())
-        return Action(env_action_arr)
+        orig_action = orig_policy(state, memory, objects, params)
+        if mode == "reduced_to_env":
+            converted_action_arr = converter.reduced_to_env(orig_action.arr)
+        else:
+            assert mode == "env_to_reduced"
+            converted_action_arr = converter.env_to_reduced(orig_action.arr)
+        if orig_action.has_option():
+            return Action(converted_action_arr, orig_action.get_option())
+        return Action(converted_action_arr)
 
     # Note: it's important for oracle option learning that the name of
     # the param option is unchanged here.
@@ -215,7 +219,8 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
             # Handle action space conversion.
             option_spec = (param_option, option_vars)
             option_spec = _convert_option_spec_actions(option_spec,
-                                                       self._action_converter)
+                                                       self._action_converter,
+                                                       mode="env_to_reduced")
             option_specs.append(option_spec)
         return option_specs
 
@@ -299,7 +304,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
         converted_option_specs: List[OptionSpec] = []
         for option_spec in option_specs:
             converted_option_spec = _convert_option_spec_actions(
-                option_spec, self._action_converter)
+                option_spec, self._action_converter, mode="env_to_reduced")
             converted_option_specs.append(converted_option_spec)
         return converted_option_specs
 
