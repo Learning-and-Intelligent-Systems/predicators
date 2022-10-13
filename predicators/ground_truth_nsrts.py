@@ -37,7 +37,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_tools_gt_nsrts()
     elif CFG.env == "playroom":
         nsrts = _get_playroom_gt_nsrts()
-    elif CFG.env == "repeated_nextto":
+    elif CFG.env in ("repeated_nextto", "repeated_nextto_ambiguous"):
         nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
     elif CFG.env == "repeated_nextto_single_option":
         nsrts = _get_repeated_nextto_single_option_gt_nsrts()
