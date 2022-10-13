@@ -20,7 +20,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
 from predicators.envs.playroom import PlayroomEnv
 from predicators.envs.repeated_nextto import RepeatedNextToEnv, \
-    RepeatedNextToSingleOptionEnv
+    RepeatedNextToSingleOptionEnv, RepeatedNextToAmbiguousEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
@@ -42,6 +42,7 @@ ENV_NAME_AND_CLS = [
     ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
+    ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
     ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
