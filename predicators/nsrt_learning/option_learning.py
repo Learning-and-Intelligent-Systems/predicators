@@ -14,9 +14,9 @@ from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.settings import CFG
-from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
-    ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
-    VarToObjSub, LowLevelTrajectory
+from predicators.structs import Action, Array, Datastore, LowLevelTrajectory, \
+    Object, OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
+    Variable, VarToObjSub
 from predicators.utils import OptionExecutionFailure
 
 
@@ -155,7 +155,8 @@ class _OptionLearnerBase(abc.ABC):
                 converted_arr = converter.env_to_reduced(action.arr)
                 converted_action = Action(converted_arr, option)
                 converted_actions.append(converted_action)
-            converted_segment.trajectory = old_traj.copy_with(_actions=converted_actions)
+            converted_segment.trajectory = old_traj.copy_with(
+                _actions=converted_actions)
             new_datastore.append((converted_segment, sub))
         return new_datastore
 
