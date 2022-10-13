@@ -355,14 +355,18 @@ def test_implicit_bc_option_learning_touch_point():
     assert num_test_successes == 10
 
 
-class _ReverseOrderActionSpaceConverter(_ActionSpaceConverter):
-    """Reverses the order of the actions."""
+class _ReverseOrderPadActionSpaceConverter(_ActionSpaceConverter):
+    """Reverses the order of the actions and adds/removes padding."""
 
     def env_to_reduced(self, env_action_arr):
-        return np.array(list(reversed(env_action_arr)), dtype=np.float32)
+        reversed_action = list(reversed(env_action_arr))
+        padded_action = reversed_action + [0.0, 0.0, 0.0]
+        return np.array(padded_action, dtype=np.float32)
 
     def reduced_to_env(self, reduced_action_arr):
-        return np.array(list(reversed(reduced_action_arr)), dtype=np.float32)
+        unpadded_action = reduced_action_arr[:-3]
+        unreversed_action = list(reversed(unpadded_action))
+        return np.array(unreversed_action, dtype=np.float32)
 
 
 def test_action_space_conversion():
@@ -378,7 +382,7 @@ def test_action_space_conversion():
         "num_test_tasks": 5,
     })
     with patch(f"{_MODULE_PATH}.create_action_space_converter") as mocker:
-        mocker.return_value = _ReverseOrderActionSpaceConverter()
+        mocker.return_value = _ReverseOrderPadActionSpaceConverter()
         env = create_new_env("blocks")
         train_tasks = env.get_train_tasks()
         approach = create_approach("nsrt_learning", env.predicates,
