@@ -19,8 +19,8 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
 from predicators.envs.playroom import PlayroomEnv
-from predicators.envs.repeated_nextto import RepeatedNextToEnv, \
-    RepeatedNextToSingleOptionEnv, RepeatedNextToAmbiguousEnv
+from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
+    RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
