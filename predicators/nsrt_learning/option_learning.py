@@ -75,18 +75,65 @@ def create_action_space_converter() -> _ActionSpaceConverter:
     raise NotImplementedError(f"Unknown action space converter: {name}")
 
 
+def _convert_datastore_actions(datastore: Datastore,
+                               converter: _ActionSpaceConverter) -> Datastore:
+    new_datastore: Datastore = []
+    for (segment, sub) in datastore:
+        # Make a copy to be safe.
+        converted_segment = segment.copy()
+        old_traj = segment.trajectory
+        # Convert the actions.
+        converted_actions = []
+        for action in old_traj.actions:
+            # Conversion!
+            converted_arr = converter.env_to_reduced(action.arr)
+            if action.has_option():
+                converted_act = Action(converted_arr, action.get_option())
+            else:
+                converted_act = Action(converted_arr)
+            converted_actions.append(converted_act)
+        converted_segment.trajectory = old_traj.copy_with(
+            _actions=converted_actions)
+        new_datastore.append((converted_segment, sub))
+    return new_datastore
+
+
+def _convert_option_spec_actions(
+        option_spec: OptionSpec,
+        converter: _ActionSpaceConverter) -> OptionSpec:
+
+    param_option, option_vars = option_spec
+    orig_policy = param_option.policy
+
+    def _wrapped_policy(state: State, memory: Dict, objects: Sequence[Object],
+                        params: Array) -> Action:
+        reduced_action = orig_policy(state, memory, objects, params)
+        env_action_arr = converter.reduced_to_env(reduced_action.arr)
+        if reduced_action.has_option():
+            return Action(env_action_arr, reduced_action.get_option())
+        return Action(env_action_arr)
+
+    # Note: it's important for oracle option learning that the name of
+    # the param option is unchanged here.
+    new_param_option = param_option.copy_with(policy=_wrapped_policy)
+
+    return (new_param_option, option_vars)
+
+
 class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
 
+    def __init__(self) -> None:
+        self._action_converter = create_action_space_converter()
+
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         """Calls _learn_option_specs() and handles action space conversions."""
-        action_space_converter = create_action_space_converter()
         # Convert the actions in the datastore.
         converted_datastores = [
-            self._convert_datastore_actions(d, action_space_converter)
+            _convert_datastore_actions(d, self._action_converter)
             for d in datastores
         ]
         # Learn the options.
@@ -94,7 +141,7 @@ class _OptionLearnerBase(abc.ABC):
                                                 converted_datastores)
         # Wrap the option policies so that the actions are un-converted.
         return [
-            self._convert_option_spec_actions(o, action_space_converter)
+            _convert_option_spec_actions(o, self._action_converter)
             for o in option_specs
         ]
 
@@ -125,53 +172,6 @@ class _OptionLearnerBase(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    @staticmethod
-    def _convert_datastore_actions(
-            datastore: Datastore,
-            converter: _ActionSpaceConverter) -> Datastore:
-        new_datastore: Datastore = []
-        for (segment, sub) in datastore:
-            # Make a copy to be safe.
-            converted_segment = segment.copy()
-            old_traj = segment.trajectory
-            # Convert the actions.
-            converted_actions = []
-            for action in old_traj.actions:
-                # Conversion!
-                converted_arr = converter.env_to_reduced(action.arr)
-                if action.has_option():
-                    converted_act = Action(converted_arr, action.get_option())
-                else:
-                    converted_act = Action(converted_arr)
-                converted_actions.append(converted_act)
-            converted_segment.trajectory = old_traj.copy_with(
-                _actions=converted_actions)
-            new_datastore.append((converted_segment, sub))
-        return new_datastore
-
-    @staticmethod
-    def _convert_option_spec_actions(
-            option_spec: OptionSpec,
-            converter: _ActionSpaceConverter) -> OptionSpec:
-
-        param_option, option_vars = option_spec
-        orig_policy = param_option.policy
-
-        def _wrapped_policy(state: State, memory: Dict,
-                            objects: Sequence[Object],
-                            params: Array) -> Action:
-            reduced_action = orig_policy(state, memory, objects, params)
-            env_action_arr = converter.reduced_to_env(reduced_action.arr)
-            if reduced_action.has_option():
-                return Action(env_action_arr, reduced_action.get_option())
-            return Action(env_action_arr)
-
-        # Note: it's important for oracle option learning that the name of
-        # the param option is unchanged here.
-        new_param_option = param_option.copy_with(policy=_wrapped_policy)
-
-        return (new_param_option, option_vars)
-
 
 class KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
@@ -187,7 +187,6 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
 
     def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
                             datastores: List[Datastore]) -> List[OptionSpec]:
-        # TODO: Handle action conversion.
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
@@ -213,7 +212,11 @@ class KnownOptionsOptionLearner(_OptionLearnerBase):
                     assert option_args == option_a.objects
             assert param_option is not None and option_vars is not None, \
                 "No data in this datastore?"
-            option_specs.append((param_option, option_vars))
+            # Handle action space conversion.
+            option_spec = (param_option, option_vars)
+            option_spec = _convert_option_spec_actions(option_spec,
+                                                       self._action_converter)
+            option_specs.append(option_spec)
         return option_specs
 
     def update_segment_from_option_spec(self, segment: Segment,
@@ -232,7 +235,6 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def _learn_option_specs(self, strips_ops: List[STRIPSOperator],
                             datastores: List[Datastore]) -> List[OptionSpec]:
-        # TODO: Handle action conversion.
         env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
@@ -293,7 +295,13 @@ class _OracleOptionLearner(_OptionLearnerBase):
                     ][0]
                     robot = gripper_open_atom.variables[0]
                     option_specs.append((PutOnTable, [robot]))
-        return option_specs
+        # Handle action space conversion.
+        converted_option_specs: List[OptionSpec] = []
+        for option_spec in option_specs:
+            converted_option_spec = _convert_option_spec_actions(
+                option_spec, self._action_converter)
+            converted_option_specs.append(converted_option_spec)
+        return converted_option_specs
 
     def update_segment_from_option_spec(self, segment: Segment,
                                         option_spec: OptionSpec) -> None:

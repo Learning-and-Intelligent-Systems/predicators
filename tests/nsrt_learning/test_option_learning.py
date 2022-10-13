@@ -381,18 +381,19 @@ def test_action_space_conversion():
         mocker.return_value = _ReverseOrderActionSpaceConverter()
         env = create_new_env("blocks")
         train_tasks = env.get_train_tasks()
-        approach = create_approach("nsrt_learning", env.predicates, env.options,
-                                env.types, env.action_space, train_tasks)
+        approach = create_approach("nsrt_learning", env.predicates,
+                                   env.options, env.types, env.action_space,
+                                   train_tasks)
         dataset = create_dataset(env, train_tasks, known_options=set())
         approach.learn_from_offline_dataset(dataset)
         num_test_successes = 0
         for task in env.get_test_tasks():
             policy = approach.solve(task, timeout=CFG.timeout)
             traj = utils.run_policy_with_simulator(policy,
-                                                env.simulate,
-                                                task.init,
-                                                task.goal_holds,
-                                                max_num_steps=CFG.horizon)
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon)
             if task.goal_holds(traj.states[-1]):
                 num_test_successes += 1
         assert num_test_successes == 5
