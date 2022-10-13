@@ -62,11 +62,16 @@ class BehaviorEnv(BaseEnv):
             raise ModuleNotFoundError("BEHAVIOR is not installed.")
         # Loads dictionary mapping tasks to vaild scenes in BEHAVIOR.
         if len(CFG.behavior_task_list) != 1:
-            path_to_file = \
+            path_to_scene_file = \
                 "predicators/behavior_utils/task_to_preselected_scenes.json"
-            with open(path_to_file, 'rb') as f:
+            with open(path_to_scene_file, 'rb') as f:
                 self.task_to_preselected_scenes: Dict[str,
                                                       List[str]] = json.load(f)
+        path_to_broken_inst_file = \
+            "predicators/behavior_utils/task_to_broken_inst_ids.json"
+        with open(path_to_broken_inst_file, 'rb') as f:
+            self.task_to_broken_instances: Dict[str, Dict[str, Dict[
+                str, List[int]]]] = json.load(f)
         # behavior_randomize_init_state will always be False in this
         # config_file because we are not using their scene samplers.
         # We are loading pre-computed scenes. Below we load either the
@@ -264,6 +269,26 @@ class BehaviorEnv(BaseEnv):
                     self.task_instance_id = rng.integers(10, 20)
                 else:
                     self.task_instance_id = rng.integers(0, 10)
+                # Check to see if task_instance_id is in broken_instances.
+                if len(CFG.behavior_task_list) != 1:
+                    task_name = CFG.behavior_task_list[self.task_list_indices[
+                        self.task_num]]
+                    scene_name = self.scene_list[self.task_num]
+                else:
+                    task_name = CFG.behavior_task_list[0]
+                    scene_name = CFG.behavior_scene_name
+                if task_name in self.task_to_broken_instances:
+                    if scene_name in self.task_to_broken_instances[task_name]:
+                        broken_instances = self.task_to_broken_instances[
+                            task_name][scene_name]
+                        if testing:
+                            while self.task_instance_id in broken_instances[
+                                    'test']:
+                                self.task_instance_id = rng.integers(10, 20)
+                        else:
+                            while self.task_instance_id in broken_instances[
+                                    'train']:
+                                self.task_instance_id = rng.integers(0, 10)
                 if len(CFG.behavior_task_list) != 1:
                     self.set_config_by_task_num(self.task_num)
                 self.set_igibson_behavior_env(
