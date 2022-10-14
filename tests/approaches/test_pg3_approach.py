@@ -14,7 +14,17 @@ from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.option_model import _OptionModelBase
 from predicators.structs import LDLRule, LiftedDecisionList
+
+
+class _MockOptionModel(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        return state.copy(), 0
 
 
 @pytest.mark.parametrize("approach_name,approach_cls", [("pg3", PG3Approach),
@@ -90,6 +100,12 @@ def test_pg3_approach(approach_name, approach_cls):
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
+    # Test case where low-level search fails in PG3.
+    if approach_name == "pg3":
+        approach._option_model = _MockOptionModel(env.simulate)  # pylint: disable=protected-access
+        with pytest.raises(ApproachFailure) as e:
+            approach.solve(task, timeout=500)
+        assert "Low-level search failed" in str(e)
     ldl = LiftedDecisionList([])
     approach._current_ldl = ldl  # pylint: disable=protected-access
     # PG3 alone fails.
@@ -97,6 +113,10 @@ def test_pg3_approach(approach_name, approach_cls):
         with pytest.raises(ApproachFailure) as e:
             approach.solve(task, timeout=500)
         assert "PG3 policy was not applicable!" in str(e)
+        # Test case where PG3 times out during planning.
+        with pytest.raises(ApproachFailure) as e:
+            approach.solve(task, timeout=-1)
+        assert "Timeout exceeded" in str(e)
     # PG4 falls back to sesame, so succeeds.
     else:
         assert approach_name == "pg4"
