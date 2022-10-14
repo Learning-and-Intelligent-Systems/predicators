@@ -125,7 +125,7 @@ def test_nsrt_learning_approach():
                               try_solving=False,
                               additional_settings={
                                   "compute_sidelining_objective_value": True,
-                              })
+                             })
     assert "sidelining_obj_num_plans_up_to_n" in approach.metrics
     assert "sidelining_obj_complexity" in approach.metrics
     assert approach.metrics["sidelining_obj_num_plans_up_to_n"] == 1.0
