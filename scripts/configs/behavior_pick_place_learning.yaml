@@ -18,17 +18,29 @@ APPROACHES:
       plan_only_eval: True
       sesame_task_planner: fdopt
 ENVS:
-  collecting-aluminum-cans-Ihlen_1_int:
+  putting-leftovers-away-Ihlen_1_int:
     NAME: "behavior"
     FLAGS:
       behavior_scene_name: Ihlen_1_int
-      behavior_task_list: "[collecting_aluminum_cans]"
+      behavior_task_list: "[putting_leftovers_away]"
       behavior_option_model_eval: True
   throwing-away-leftovers-Ihlen_1_int:
     NAME: "behavior"
     FLAGS:
       behavior_scene_name: Ihlen_1_int
       behavior_task_list: "[throwing_away_leftovers]"
+      behavior_option_model_eval: True
+  collecting-aluminum-cans-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[collecting_aluminum_cans]"
+      behavior_option_model_eval: True
+  storing-food-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[storing_food]"
       behavior_option_model_eval: True
   sorting-books-Pomaria_1_int:
     NAME: "behavior"
