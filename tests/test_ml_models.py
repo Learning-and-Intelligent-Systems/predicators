@@ -234,7 +234,7 @@ def test_mlp_classifier():
          np.ones((num_class_samples))])
     model = MLPBinaryClassifier(seed=123,
                                 balance_data=True,
-                                max_train_iters=100000,
+                                max_train_iters=100,
                                 learning_rate=1e-3,
                                 n_iter_no_change=100000,
                                 hid_sizes=[32, 32],
