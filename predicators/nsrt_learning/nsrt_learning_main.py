@@ -156,7 +156,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
         else:
             unknown_option_pnads.append(pnad)
     # Use a KnownOptionsOptionLearner on the known option pnads.
-    known_option_learner = KnownOptionsOptionLearner()
+    known_option_learner = KnownOptionsOptionLearner(action_space)
     unknown_option_learner = create_option_learner(action_space)
     # "Learn" the known options.
     _learn_pnad_options_with_learner(known_option_pnads, known_option_learner)

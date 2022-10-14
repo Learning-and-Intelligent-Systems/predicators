@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from gym.spaces import Box
 
 import predicators.nsrt_learning.option_learning
 from predicators import utils
@@ -358,13 +359,19 @@ def test_implicit_bc_option_learning_touch_point():
 class _ReverseOrderPadActionSpaceConverter(_ActionSpaceConverter):
     """Reverses the order of the actions and adds/removes padding."""
 
+    @property
+    def reduced_action_space(self) -> Box:
+        low = -1 * np.ones(6)
+        high = np.ones(6)
+        return Box(low, high)
+
     def env_to_reduced(self, env_action_arr):
         reversed_action = list(reversed(env_action_arr))
-        padded_action = reversed_action + [0.0, 0.0, 0.0]
+        padded_action = reversed_action + [0.0, 0.0]
         return np.array(padded_action, dtype=np.float32)
 
     def reduced_to_env(self, reduced_action_arr):
-        unpadded_action = reduced_action_arr[:-3]
+        unpadded_action = reduced_action_arr[:-2]
         unreversed_action = list(reversed(unpadded_action))
         return np.array(unreversed_action, dtype=np.float32)
 
@@ -374,10 +381,8 @@ def test_action_space_conversion():
     utils.reset_config({
         "env": "blocks",
         "approach": "nsrt_learning",
-        "option_learner": "oracle",
         "strips_learner": "oracle",
         "sampler_learner": "oracle",
-        "segmenter": "atom_changes",
         "num_train_tasks": 2,
         "num_test_tasks": 5,
     })
@@ -388,7 +393,7 @@ def test_action_space_conversion():
         approach = create_approach("nsrt_learning", env.predicates,
                                    env.options, env.types, env.action_space,
                                    train_tasks)
-        dataset = create_dataset(env, train_tasks, known_options=set())
+        dataset = create_dataset(env, train_tasks, env.options)
         approach.learn_from_offline_dataset(dataset)
         num_test_successes = 0
         for task in env.get_test_tasks():
@@ -411,4 +416,4 @@ def test_create_action_space_converter():
         "not a real converter",
     })
     with pytest.raises(NotImplementedError):
-        create_action_space_converter()
+        create_action_space_converter(Box(np.array([0.0]), np.array([1.0])))

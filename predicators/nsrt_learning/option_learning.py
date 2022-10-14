@@ -23,9 +23,11 @@ from predicators.utils import OptionExecutionFailure
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
     """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
-        return KnownOptionsOptionLearner()
+        return KnownOptionsOptionLearner(action_space)
     if CFG.option_learner == "oracle":
-        return _OracleOptionLearner()
+        assert CFG.option_learning_action_space_converter == "identity", \
+            "Oracle option learning assumes no action conversion."
+        return _OracleOptionLearner(action_space)
     if CFG.option_learner == "direct_bc":
         return _DirectBehaviorCloningOptionLearner(action_space)
     if CFG.option_learner == "implicit_bc":
@@ -46,6 +48,12 @@ def create_rl_option_learner() -> _RLOptionLearnerBase:
 class _ActionSpaceConverter(abc.ABC):
     """Maps environment actions to a reduced action space and back."""
 
+    @property
+    @abc.abstractmethod
+    def reduced_action_space(self) -> Box:
+        """The reduced action space."""
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def env_to_reduced(self, env_action_arr: Array) -> Array:
         """Map an environment action to a reduced action."""
@@ -60,6 +68,13 @@ class _ActionSpaceConverter(abc.ABC):
 class _IdentityActionSpaceConverter(_ActionSpaceConverter):
     """A trivial action space converter, useful for testing."""
 
+    def __init__(self, original_action_space: Box) -> None:
+        self._original_action_space = original_action_space
+
+    @property
+    def reduced_action_space(self) -> Box:
+        return self._original_action_space
+
     def env_to_reduced(self, env_action_arr: Array) -> Array:
         return env_action_arr.copy()
 
@@ -67,20 +82,20 @@ class _IdentityActionSpaceConverter(_ActionSpaceConverter):
         return reduced_action_arr.copy()
 
 
-def create_action_space_converter() -> _ActionSpaceConverter:
+def create_action_space_converter(action_space: Box) -> _ActionSpaceConverter:
     """Create an action space converter based on CFG."""
     name = CFG.option_learning_action_space_converter
     if name == "identity":
-        return _IdentityActionSpaceConverter()
+        return _IdentityActionSpaceConverter(action_space)
     raise NotImplementedError(f"Unknown action space converter: {name}")
 
 
 def _convert_datastore_actions(datastore: Datastore,
-                               converter: _ActionSpaceConverter) -> Datastore:
-    new_datastore: Datastore = []
-    for (segment, sub) in datastore:
+                               converter: _ActionSpaceConverter) -> None:
+    # Note: this modifies the segments in-place because the option learner
+    # maintains a map with segments as keys.
+    for (segment, _) in datastore:
         # Make a copy to be safe.
-        converted_segment = segment.copy()
         old_traj = segment.trajectory
         # Convert the actions.
         converted_actions = []
@@ -92,10 +107,7 @@ def _convert_datastore_actions(datastore: Datastore,
             else:
                 converted_act = Action(converted_arr)
             converted_actions.append(converted_act)
-        converted_segment.trajectory = old_traj.copy_with(
-            _actions=converted_actions)
-        new_datastore.append((converted_segment, sub))
-    return new_datastore
+        segment.trajectory = old_traj.copy_with(_actions=converted_actions)
 
 
 def _convert_option_spec_actions(option_spec: OptionSpec,
@@ -129,20 +141,17 @@ class _OptionLearnerBase(abc.ABC):
     learning option specs and an abstract method for annotating data segments
     with options."""
 
-    def __init__(self) -> None:
-        self._action_converter = create_action_space_converter()
+    def __init__(self, action_space: Box) -> None:
+        self._action_converter = create_action_space_converter(action_space)
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         """Calls _learn_option_specs() and handles action space conversions."""
         # Convert the actions in the datastore.
-        converted_datastores = [
-            _convert_datastore_actions(d, self._action_converter)
-            for d in datastores
-        ]
+        for datastore in datastores:
+            _convert_datastore_actions(datastore, self._action_converter)
         # Learn the options.
-        option_specs = self._learn_option_specs(strips_ops,
-                                                converted_datastores)
+        option_specs = self._learn_option_specs(strips_ops, datastores)
         # Wrap the option policies so that the actions are un-converted.
         return [
             _convert_option_spec_actions(o, self._action_converter)
@@ -530,10 +539,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
     def __init__(self,
                  action_space: Box,
                  is_parameterized: bool = True) -> None:
-        super().__init__()
-        # Actions are clipped to stay within the action space.
-        # TODO fix this
-        self._action_space = action_space
+        super().__init__(action_space)
         # See class docstring.
         self._is_parameterized = is_parameterized
         # While learning the policy, we record the map from each segment to
@@ -631,13 +637,14 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
 
             # Construct the ParameterizedOption for this operator.
             name = f"{op.name}LearnedOption"
+            # Actions are clipped to stay within the (reduced) action space.
             parameterized_option = _LearnedNeuralParameterizedOption(
                 name,
                 op,
                 regressor,
                 changing_var_to_feat,
                 changing_var_order,
-                self._action_space,
+                self._action_converter.reduced_action_space,
                 is_parameterized=self._is_parameterized)
             option_specs.append((parameterized_option, list(op.parameters)))
 
@@ -676,7 +683,6 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
 
     def update_segment_from_option_spec(self, segment: Segment,
                                         option_spec: OptionSpec) -> None:
-        # TODO fix this
         objects, params = self._segment_to_grounding[segment]
         param_opt, opt_vars = option_spec
         assert all(o.type == v.type for o, v in zip(objects, opt_vars))
