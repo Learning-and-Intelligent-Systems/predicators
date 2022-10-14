@@ -209,12 +209,9 @@ def test_learned_neural_parameterized_option():
     Y_arr_regressor = np.zeros((1, ) + env.action_space.shape,
                                dtype=np.float32)
     regressor.fit(X_arr_regressor, Y_arr_regressor)
-    param_option = _LearnedNeuralParameterizedOption("LearnedOption1",
-                                                     pick_operator, regressor,
-                                                     changing_var_to_feat,
-                                                     changing_var_order,
-                                                     env.action_space,
-                                                     action_converter)
+    param_option = _LearnedNeuralParameterizedOption(
+        "LearnedOption1", pick_operator, regressor, changing_var_to_feat,
+        changing_var_order, env.action_space, action_converter)
     assert param_option.name == "LearnedOption1"
     assert param_option.types == [p.type for p in pick_operator.parameters]
     assert param_option.params_space.shape == (param_dim, )
