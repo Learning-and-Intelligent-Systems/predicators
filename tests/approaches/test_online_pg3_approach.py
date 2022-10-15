@@ -20,7 +20,6 @@ def test_online_pg3_approach():
         "approach": "online_pg3",
         "timeout": 10,
         "sampler_mlp_classifier_max_itr": 10,
-        "predicate_mlp_classifier_max_itr": 10,
         "neural_gaus_regressor_max_itr": 10,
         "num_online_learning_cycles": 1,
         "online_nsrt_learning_requests_per_cycle": 1,
@@ -28,8 +27,8 @@ def test_online_pg3_approach():
         "num_test_tasks": 3,
         "explorer": "random_options",
         "pg3_heuristic": "demo_plan_comparison",  # faster for tests
-        "pg3_search_method": "hill_climbing",
-        "pg3_hc_enforced_depth": 0,
+        "pg3_search_method": "gbfs",
+        "pg3_gbfs_max_expansions": 1
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()

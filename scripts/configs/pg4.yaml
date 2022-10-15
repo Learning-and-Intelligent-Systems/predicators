@@ -34,6 +34,10 @@ ENVS:
     FLAGS:
       painting_initial_holding_prob: 0.0
       painting_goal_receptacles: "box"
+  painting-lid-no-holding-boxandshelf:
+    NAME: "painting"
+    FLAGS:
+      painting_initial_holding_prob: 0.0
   screws:
     NAME: "screws"
     FLAGS: {}

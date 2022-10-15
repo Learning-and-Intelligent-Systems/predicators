@@ -805,7 +805,7 @@ def test_keep_effect_data_partitioning():
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
@@ -1018,14 +1018,14 @@ def test_combinatorial_keep_effect_data_partitioning():
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
@@ -1255,7 +1255,6 @@ def test_multi_pass_backchaining(val):
                                              verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
-    assert len(learned_pnads) == 3
     if val == 0.0:
         correct_pnads = [
             """STRIPS-Pick:
@@ -1263,7 +1262,7 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B()]
     Delete Effects: []
-    Ignore Effects: [C]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
@@ -1275,7 +1274,7 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A(), B()]
     Add Effects: [C(), D()]
     Delete Effects: [B()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Place()"""
         ]
     else:
@@ -1283,19 +1282,13 @@ def test_multi_pass_backchaining(val):
             """STRIPS-Pick:
     Parameters: []
     Preconditions: [A()]
-    Add Effects: [B(), C()]
+    Add Effects: [B()]
     Delete Effects: []
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
-    Preconditions: [A(), B(), C()]
+    Preconditions: [A(), B()]
     Add Effects: [D()]
-    Delete Effects: [B()]
-    Ignore Effects: [E]
-    Option Spec: Place()""", """STRIPS-Place:
-    Parameters: []
-    Preconditions: [A(), B(), E()]
-    Add Effects: [D(), E()]
     Delete Effects: [B()]
     Ignore Effects: []
     Option Spec: Place()"""
@@ -1376,32 +1369,26 @@ def test_backchaining_segment_not_in_datastore():
     correct_pnads = [
         """STRIPS-Pick:
     Parameters: []
-    Preconditions: [C(), E()]
+    Preconditions: []
     Add Effects: [B()]
-    Delete Effects: []
-    Ignore Effects: [A, D]
+    Delete Effects: [D()]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [B(), D(), E()]
     Add Effects: [A(), C()]
     Delete Effects: [B(), E()]
-    Ignore Effects: [B, E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), C(), D()]
-    Add Effects: [A(), B(), D()]
+    Add Effects: [B(), D()]
     Delete Effects: [C()]
-    Ignore Effects: [E]
-    Option Spec: Pick()""", """STRIPS-Pick:
-    Parameters: []
-    Preconditions: [A(), D()]
-    Add Effects: [A(), B()]
-    Delete Effects: [D()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), B(), D()]
-    Add Effects: [C(), E()]
+    Add Effects: []
     Delete Effects: [A(), B(), D()]
     Ignore Effects: []
     Option Spec: Pick()"""

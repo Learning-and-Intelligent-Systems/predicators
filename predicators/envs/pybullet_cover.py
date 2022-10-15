@@ -193,6 +193,17 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 assert self._held_obj_id == block_id
                 self._create_grasp_constraint()
 
+        # For any blocks not involved, put them out of view.
+        h = self._obj_len_hgt
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(block_objs), len(self._block_ids)):
+            block_id = self._block_ids[i]
+            assert block_id not in self._block_id_to_block
+            p.resetBasePositionAndOrientation(
+                block_id, [oov_x, oov_y, i * h],
+                self._default_orn,
+                physicsClientId=self._physics_client_id)
+
         # Reset targets based on the state.
         target_objs = state.get_objects(self._target_type)
         self._target_id_to_target = {}

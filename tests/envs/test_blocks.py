@@ -136,7 +136,7 @@ def test_blocks_load_task_from_json():
                 "color": [0, 0, 1]
             }
         },
-        "block_size": 0.045,
+        "block_size": 0.0505,
         "goal": {
             "On": [["red_block", "green_block"], ["green_block",
                                                   "blue_block"]],
@@ -172,7 +172,7 @@ red_block        1.3641  1.03893     0.2225       0          1          0       
 
 type: robot      pose_x    pose_y    pose_z    fingers
 -------------  --------  --------  --------  ---------
-robby              1.35      0.75      0.75          1
+robby              1.35      0.75       0.7          1
 ####################################################################################
 """
     assert str(
