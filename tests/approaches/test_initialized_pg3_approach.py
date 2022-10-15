@@ -1,9 +1,8 @@
-"""Test cases for the PG3 approach."""
+"""Test cases for the Initialized PG3 approach."""
 
 import tempfile
 
 import dill as pkl
-import pytest
 
 from predicators import utils
 from predicators.approaches.initialized_pg3_approach import \
@@ -13,14 +12,12 @@ from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedDecisionList
 
 
-@pytest.mark.parametrize("approach_name,approach_cls",
-                         [("initialized_pg3", InitializedPG3Approach)])
-def test_initialized_pg3_approach(approach_name, approach_cls):
+def test_initialized_pg3_approach():
     """Tests for InitializedPG3Approach()."""
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({
         "env": env_name,
-        "approach": approach_name,
+        "approach": "initialized_pg3",
     })
 
     env = create_new_env(env_name)
@@ -28,9 +25,6 @@ def test_initialized_pg3_approach(approach_name, approach_cls):
     train_tasks = env.get_train_tasks()
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
-    approach = approach_cls(env.predicates, env.options, env.types,
-                            env.action_space, train_tasks)
-    approach._nsrts = nsrts  # pylint: disable=protected-access
 
     # Create dummy policy
     pick_up_nsrt = name_to_nsrt["pick-up"]
@@ -52,7 +46,7 @@ def test_initialized_pg3_approach(approach_name, approach_cls):
 
     utils.reset_config({
         "env": "blocks",
-        "approach": approach_name,
+        "approach": "initialized_pg3",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
         "strips_learner": "oracle",
@@ -61,8 +55,8 @@ def test_initialized_pg3_approach(approach_name, approach_cls):
         "pg3_hc_enforced_depth": 0,
         "pg3_init_policy": ldl_policy_file.name
     })
-    approach = approach_cls(env.predicates, env.options, env.types,
-                            env.action_space, train_tasks)
-    assert approach.get_name() == approach_name
+    approach = InitializedPG3Approach(env.predicates, env.options, env.types,
+                                      env.action_space, train_tasks)
+    assert approach.get_name() == "initialized_pg3"
 
     assert approach._get_policy_search_initial_ldl() == ldl  # pylint: disable=protected-access

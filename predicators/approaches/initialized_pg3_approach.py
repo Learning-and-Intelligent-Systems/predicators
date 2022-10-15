@@ -29,7 +29,7 @@ class InitializedPG3Approach(PG3Approach):
 
     @staticmethod
     def _get_policy_search_initial_ldl() -> LiftedDecisionList:
-        # Initialize with intialized policy from file.
+        # Initialize with initialized policy from file.
         assert CFG.pg3_init_policy
         with open(CFG.pg3_init_policy, "rb") as f:
             return pkl.load(f)
