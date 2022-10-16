@@ -118,7 +118,6 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         option_spec = (param_option, option_vars)
         lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
         new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
-        print("Proposing", new_effect_sets)
         yield new_effect_sets
 
     def _get_first_uncovered_transition(
@@ -245,8 +244,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
 
         # Convert into PNADs.
         final_pnads = self._effect_sets_to_pnads(best_effect_sets)
-        for pnad in final_pnads:
-            print(pnad)
         return final_pnads
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
@@ -309,8 +306,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         for p in pnads:
             pnad_map[p.option_spec[0]].append(p)
         pnads = self._get_uniquely_named_nec_pnads(pnad_map)
-        for p in pnads:
-            print(p)
         return pnads
 
     def _backchain(self, segmented_traj: List[Segment],
