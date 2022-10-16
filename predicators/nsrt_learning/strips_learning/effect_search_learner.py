@@ -151,7 +151,6 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 t = (len(seg_traj) - 1) - len(op_chain)
                 segment = seg_traj[t]
                 necessary_add_effects = necessary_image - atoms_seq[t]
-                assert necessary_add_effects.issubset(segment.add_effects)
                 option = segment.get_option()
                 return (option.parent, option.objects, necessary_add_effects)
         # Everything was covered.
@@ -201,9 +200,6 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
             _, chain = self._backchain(seg_traj, pnads, traj_goal)
             assert len(chain) <= len(seg_traj)
             uncovered_transitions += len(seg_traj) - len(chain)
-        print("Evaluating")
-        print(effect_sets)
-        print("Score:", uncovered_transitions)
         return uncovered_transitions
 
 
@@ -308,7 +304,10 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         pnad_map = {p.option_spec[0]: [] for p in pnads}
         for p in pnads:
             pnad_map[p.option_spec[0]].append(p)
-        return self._get_uniquely_named_nec_pnads(pnad_map)
+        pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+        for p in pnads:
+            print(p)
+        return pnads
 
     def _backchain(self, segmented_traj: List[Segment],
                    pnads: List[PartialNSRTAndDatastore],
