@@ -1,18 +1,22 @@
 """Learn operators by searching over sets of add effect sets."""
 
+from __future__ import annotations
+
 import abc
 import functools
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, List, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
-    OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, Predicate, \
-    Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
+    Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
+    Predicate, Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
 
 _PNADMap = Dict[ParameterizedOption, List[PartialNSRTAndDatastore]]
+# Necessary images and ground operators, in reverse order.
+_Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator]]
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,19 @@ class _EffectSets:
     def __repr__(self) -> str:
         return str(self)
 
+    def add(self, option_spec: OptionSpec,
+            add_effects: Set[LiftedAtom]) -> _EffectSets:
+        """Create a new _EffectSets with this new entry added to existing."""
+        param_option = option_spec[0]
+        assert param_option in self._param_option_to_groups
+        new_param_option_to_groups = {
+            p: [(s, set(a)) for s, a in group]
+            for p, group in self._param_option_to_groups.items()
+        }
+        new_param_option_to_groups[param_option].append(
+            (option_spec, add_effects))
+        return _EffectSets(new_param_option_to_groups)
+
 
 class _EffectSearchOperator(abc.ABC):
     """An operator that proposes successor sets of effect sets."""
@@ -63,7 +80,7 @@ class _EffectSearchOperator(abc.ABC):
         segmented_trajs: List[List[Segment]],
         effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
         backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
-                            List[_GroundSTRIPSOperator]],
+                            _Chain],
     ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -85,8 +102,58 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
         pnads = self._effect_sets_to_pnads(effect_sets)
-        import ipdb
-        ipdb.set_trace()
+        uncovered_transition = self._get_first_uncovered_transition(pnads)
+        if uncovered_transition is None:
+            return
+        param_option, option_objs, add_effs = uncovered_transition
+        # Create a new effect set.
+        all_objs = sorted(
+            set(option_objs) | {o
+                                for a in add_effs for o in a.objects})
+        all_types = [o.type for o in all_objs]
+        all_vars = utils.create_new_variables(all_types)
+        obj_to_var = dict(zip(all_objs, all_vars))
+        option_vars = [obj_to_var[o] for o in option_objs]
+        option_spec = (param_option, option_vars)
+        lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
+        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
+        yield new_effect_sets
+
+    def _get_first_uncovered_transition(
+        self, pnads: _PNADMap
+    ) -> Optional[Tuple[ParameterizedOption, List[Object], Set[GroundAtom]]]:
+        # Find the first uncovered segment. Do this in a kind of breadth-first
+        # backward search over trajectories. TODO: see whether this matters.
+        # Compute all the chains once up front.
+        backchaining_results = []
+        max_chain_len = 0
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            chain = self._backchain(seg_traj, pnads, traj_goal)
+            max_chain_len = max(max_chain_len, len(chain[1]))
+            backchaining_results.append(
+                (seg_traj, atoms_seq, traj_goal, chain))
+        # Now look for an uncovered segment.
+        for depth in range(max_chain_len + 1):
+            for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
+                image_chain, op_chain = chain
+                if len(op_chain) > depth:
+                    continue
+                # We found an uncovered transition.
+                # TODO make this less horrible.
+                necessary_image = image_chain[-1]
+                t = (len(seg_traj) - 1) - len(op_chain)
+                segment = seg_traj[t]
+                necessary_add_effects = necessary_image - atoms_seq[t]
+                assert necessary_add_effects.issubset(segment.add_effects)
+                option = segment.get_option()
+                return (option.parent, option.objects, necessary_add_effects)
+        # Everything was covered.
+        return None
 
 
 class _EffectSearchHeuristic(abc.ABC):
@@ -100,7 +167,7 @@ class _EffectSearchHeuristic(abc.ABC):
         segmented_trajs: List[List[Segment]],
         effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
         backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
-                            List[_GroundSTRIPSOperator]],
+                            _Chain],
     ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -116,20 +183,20 @@ class _EffectSearchHeuristic(abc.ABC):
 
 
 class _BackChainingHeuristic(_EffectSearchHeuristic):
-    """Counts the number of segments that are not yet covered by some operator
-    in the backchaining sense."""
+    """Counts the number of transitions that are not yet covered by some
+    operator in the backchaining sense."""
 
     def __call__(self, effect_sets: _EffectSets) -> float:
         pnads = self._effect_sets_to_pnads(effect_sets)
-        uncovered_segments = 0
+        uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if not ll_traj.is_demo:
                 continue
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-            chain = self._backchain(seg_traj, pnads, traj_goal)
-            uncovered_segments += len(seg_traj) - len(chain)
-        return uncovered_segments
+            _, chain = self._backchain(seg_traj, pnads, traj_goal)
+            uncovered_transitions += (len(seg_traj) - 1) - len(chain)
+        return uncovered_transitions
 
 
 class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
@@ -238,14 +305,16 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         return pnad_map
 
     def _backchain(self, segmented_traj: List[Segment], pnads: _PNADMap,
-                   traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
+                   traj_goal: Set[GroundAtom]) -> _Chain:
         """Returns ground operators in REVERSE order."""
-        chain: List[_GroundSTRIPSOperator] = []
+        image_chain: List[Set[GroundAtom]] = []
+        operator_chain: List[_GroundSTRIPSOperator] = []
         atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
         objects = set(segmented_traj[0].states[0])
         assert traj_goal.issubset(atoms_seq[-1])
         necessary_image = set(traj_goal)
         for t in range(len(atoms_seq) - 2, -1, -1):
+            image_chain.append(necessary_image)
             segment = segmented_traj[t]
             param_option = segment.get_option().parent
             best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
@@ -255,6 +324,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                 break
             # Otherwise, add to the chain.
             # TODO
+            operator_chain.append(...)
             import ipdb
             ipdb.set_trace()
-        return chain
+        return (image_chain, operator_chain)
