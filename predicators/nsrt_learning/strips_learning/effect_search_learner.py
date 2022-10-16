@@ -118,6 +118,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         option_spec = (param_option, option_vars)
         lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
         new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
+        print("Proposing", new_effect_sets)
         yield new_effect_sets
 
     def _get_first_uncovered_transition(
@@ -143,13 +144,14 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         for depth in range(max_chain_len + 1):
             for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
                 image_chain, op_chain = chain
-                if len(op_chain) > depth:
+                if len(op_chain) > depth or len(op_chain) == len(seg_traj):
                     continue
                 # We found an uncovered transition.
                 # TODO make this less horrible.
-                necessary_image = image_chain[-1]
                 t = (len(seg_traj) - 1) - len(op_chain)
+                assert t >= 0
                 segment = seg_traj[t]
+                necessary_image = image_chain[-1]
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 option = segment.get_option()
                 return (option.parent, option.objects, necessary_add_effects)
@@ -319,8 +321,8 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         objects = set(segmented_traj[0].states[0])
         assert traj_goal.issubset(atoms_seq[-1])
         necessary_image = set(traj_goal)
+        image_chain = [necessary_image]
         for t in range(len(atoms_seq) - 2, -1, -1):
-            image_chain.append(necessary_image)
             segment = segmented_traj[t]
             pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                 segment, objects, pnads)
