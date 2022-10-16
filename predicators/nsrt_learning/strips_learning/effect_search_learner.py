@@ -67,6 +67,19 @@ class _EffectSets:
             (option_spec, add_effects))
         return _EffectSets(new_param_option_to_groups)
 
+    def remove(self, option_spec: OptionSpec,
+               add_effects: Set[LiftedAtom]) -> _EffectSets:
+        """Create a new _EffectSets with this entry removed from existing."""
+        param_option = option_spec[0]
+        assert param_option in self._param_option_to_groups
+        new_param_option_to_groups = {
+            p: [(s, set(a)) for s, a in group]
+            for p, group in self._param_option_to_groups.items()
+        }
+        new_param_option_to_groups[param_option].remove(
+            (option_spec, add_effects))
+        return _EffectSets(new_param_option_to_groups)
+
 
 class _EffectSearchOperator(abc.ABC):
     """An operator that proposes successor sets of effect sets."""
@@ -158,6 +171,15 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         return None
 
 
+class _PruningEffectSearchOperator(_EffectSearchOperator):
+    """An operator that prunes effect sets."""
+
+    def get_successors(self,
+                       effect_sets: _EffectSets) -> Iterator[_EffectSets]:
+        for (spec, effects) in effect_sets:
+            yield effect_sets.remove(spec, effects)
+
+
 class _EffectSearchHeuristic(abc.ABC):
     """Given a set of effect sets, produce a score, with lower better."""
 
@@ -247,10 +269,15 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         return final_pnads
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
-        backchaining_op = _BackChainingEffectSearchOperator(
-            self._trajectories, self._train_tasks, self._predicates,
-            self._segmented_trajs, self._effect_sets_to_pnads, self._backchain)
-        return [backchaining_op]
+        op_classes = [
+            _BackChainingEffectSearchOperator, _PruningEffectSearchOperator
+        ]
+        ops = [
+            cls(self._trajectories, self._train_tasks, self._predicates,
+                self._segmented_trajs, self._effect_sets_to_pnads,
+                self._backchain) for cls in op_classes
+        ]
+        return ops
 
     def _create_heuristic(self) -> _EffectSearchHeuristic:
         backchaining_heur = _BackChainingHeuristic(
