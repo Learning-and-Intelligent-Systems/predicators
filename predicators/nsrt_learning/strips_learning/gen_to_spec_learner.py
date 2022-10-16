@@ -379,23 +379,6 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     new_keep_eff_sub_dict[var] = obj
             pnad.seg_to_keep_effects_sub[segment] = new_keep_eff_sub_dict
 
-    @staticmethod
-    def _get_uniquely_named_nec_pnads(
-        param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                     List[PartialNSRTAndDatastore]]
-    ) -> List[PartialNSRTAndDatastore]:
-        """Given the param_opt_to_nec_pnads dict, return a list of PNADs that
-        have unique names and can be used for planning."""
-        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
-        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
-            for i, pnad in enumerate(pnad_list):
-                new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                new_pnad = PartialNSRTAndDatastore(new_op,
-                                                   list(pnad.datastore),
-                                                   pnad.option_spec)
-                uniquely_named_nec_pnads.append(new_pnad)
-        return uniquely_named_nec_pnads
-
     @classmethod
     def get_name(cls) -> str:
         return "backchaining"

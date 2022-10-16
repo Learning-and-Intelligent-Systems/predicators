@@ -14,7 +14,6 @@ from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
     Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
     Predicate, Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
 
-_PNADMap = Dict[ParameterizedOption, List[PartialNSRTAndDatastore]]
 # Necessary images and ground operators, in reverse order.
 _Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator]]
 
@@ -78,9 +77,11 @@ class _EffectSearchOperator(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
-        effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
-        backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
-                            _Chain],
+        effect_sets_to_pnads: Callable[[_EffectSets],
+                                       List[PartialNSRTAndDatastore]],
+        backchain: Callable[
+            [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
+            _Chain],
     ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -120,7 +121,8 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         yield new_effect_sets
 
     def _get_first_uncovered_transition(
-        self, pnads: _PNADMap
+        self,
+        pnads: List[PartialNSRTAndDatastore],
     ) -> Optional[Tuple[ParameterizedOption, List[Object], Set[GroundAtom]]]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories. TODO: see whether this matters.
@@ -165,9 +167,11 @@ class _EffectSearchHeuristic(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
-        effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
-        backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
-                            _Chain],
+        effect_sets_to_pnads: Callable[[_EffectSets],
+                                       List[PartialNSRTAndDatastore]],
+        backchain: Callable[
+            [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
+            _Chain],
     ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
@@ -195,7 +199,11 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
                 continue
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             _, chain = self._backchain(seg_traj, pnads, traj_goal)
-            uncovered_transitions += (len(seg_traj) - 1) - len(chain)
+            assert len(chain) <= len(seg_traj)
+            uncovered_transitions += len(seg_traj) - len(chain)
+        print("Evaluating")
+        print(effect_sets)
+        print("Score:", uncovered_transitions)
         return uncovered_transitions
 
 
@@ -237,9 +245,11 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         # Extract the best effect set.
         best_effect_sets = path[-1]
 
-        # Convert into operators.
-        import ipdb
-        ipdb.set_trace()
+        # Convert into PNADs.
+        final_pnads = self._effect_sets_to_pnads(best_effect_sets)
+        for pnad in final_pnads:
+            print(pnad)
+        return final_pnads
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
         backchaining_op = _BackChainingEffectSearchOperator(
@@ -270,41 +280,38 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
     @functools.lru_cache(maxsize=None)
     def _effect_sets_to_pnads(
             self, effect_sets: _EffectSets) -> List[PartialNSRTAndDatastore]:
-        pnads = self._effect_sets_to_pnads(effect_sets)
+        # Start with the add effects and option specs.
+        pnads = []
+        for (option_spec, add_effects) in effect_sets:
+            parameterized_option, parameters = option_spec
+            # Add all ignore effects initially so that precondition learning
+            # works. TODO: better code way to do this?
+            ignore_effects = self._predicates.copy()
+            op = STRIPSOperator(parameterized_option.name, parameters, set(),
+                                add_effects, set(), ignore_effects)
+
+            pnad = PartialNSRTAndDatastore(op, [], option_spec)
+            pnads.append(pnad)
+        self._recompute_datastores_from_segments(pnads)
+        # Prune any PNADs with empty datastores.
+        pnads = [p for p in pnads if p.datastore]
         # Add preconditions.
         for pnad in pnads:
-            # If the PNAD is empty, that means we haven't yet computed good
-            # effects, so none of the data is matching this PNAD. Just skip
-            # in this case and wait for the search to find better effects.
-            if not pnad.datastore:
-                continue
             preconditions = self._induce_preconditions_via_intersection(pnad)
             pnad.op = pnad.op.copy_with(preconditions=preconditions)
         # Add delete and ignore effects.
         for pnad in pnads:
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
-
         # TODO: handle keep effects in the outer search or here?
+        # Fix naming.
+        pnad_map = {p.option_spec[0]: [] for p in pnads}
+        for p in pnads:
+            pnad_map[p.option_spec[0]].append(p)
+        return self._get_uniquely_named_nec_pnads(pnad_map)
 
-        return pnads
-
-    @functools.lru_cache(maxsize=None)
-    def _effect_sets_to_pnads(self, effect_sets: _EffectSets) -> _PNADMap:
-        pnads = []
-        for (option_spec, add_effects) in effect_sets:
-            parameterized_option, parameters = option_spec
-            op = STRIPSOperator(parameterized_option.name, parameters, set(),
-                                add_effects, set(), set())
-            pnad = PartialNSRTAndDatastore(op, [], option_spec)
-            pnads.append(pnad)
-        self._recompute_datastores_from_segments(pnads)
-        pnad_map: _PNADMap = {pnad.option_spec[0]: [] for pnad in pnads}
-        for pnad in pnads:
-            pnad_map[pnad.option_spec[0]].append(pnad)
-        return pnad_map
-
-    def _backchain(self, segmented_traj: List[Segment], pnads: _PNADMap,
+    def _backchain(self, segmented_traj: List[Segment],
+                   pnads: List[PartialNSRTAndDatastore],
                    traj_goal: Set[GroundAtom]) -> _Chain:
         """Returns ground operators in REVERSE order."""
         image_chain: List[Set[GroundAtom]] = []
@@ -316,15 +323,34 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         for t in range(len(atoms_seq) - 2, -1, -1):
             image_chain.append(necessary_image)
             segment = segmented_traj[t]
-            param_option = segment.get_option().parent
-            best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
-                segment, objects, pnads[param_option])
+            pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
+                segment, objects, pnads)
             # If no match found, terminate.
-            if best_pnad is None:
+            if pnad is None:
                 break
-            # Otherwise, add to the chain.
-            # TODO
-            operator_chain.append(...)
-            import ipdb
-            ipdb.set_trace()
+            assert var_to_obj is not None
+            obj_to_var = {v: k for k, v in var_to_obj.items()}
+            assert len(var_to_obj) == len(obj_to_var)
+            ground_op = pnad.op.ground(
+                tuple(var_to_obj[var] for var in pnad.op.parameters))
+            next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+            # If we're missing something in the necessary image, terminate.
+            if not necessary_image.issubset(next_atoms):
+                break
+            # Otherwise, extend the chain.
+            operator_chain.append(ground_op)
+            # TODO remove copied code.
+            # Update necessary_image for this timestep. It no longer
+            # needs to include the ground add effects of this PNAD, but
+            # must now include its ground preconditions.
+            necessary_image = necessary_image.copy()
+            necessary_image -= {
+                a.ground(var_to_obj)
+                for a in pnad.op.add_effects
+            }
+            necessary_image |= {
+                a.ground(var_to_obj)
+                for a in pnad.op.preconditions
+            }
+            image_chain.append(necessary_image)
         return (image_chain, operator_chain)

@@ -8,9 +8,9 @@ from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
 from predicators.settings import CFG
 from predicators.structs import DummyOption, GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, PartialNSRTAndDatastore, \
-    Predicate, Segment, State, STRIPSOperator, Task, Variable, \
-    _GroundSTRIPSOperator
+    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, \
+    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
+    Variable, _GroundSTRIPSOperator
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -367,3 +367,20 @@ class BaseSTRIPSLearner(abc.ABC):
             for atom in next_atoms - segment.final_atoms:
                 ignore_effects.add(atom.predicate)
         pnad.op = pnad.op.copy_with(ignore_effects=ignore_effects)
+
+    @staticmethod
+    def _get_uniquely_named_nec_pnads(
+        param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                     List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
+        """Given the param_opt_to_nec_pnads dict, return a list of PNADs that
+        have unique names and can be used for planning."""
+        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
+            for i, pnad in enumerate(pnad_list):
+                new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
+                new_pnad = PartialNSRTAndDatastore(new_op,
+                                                   list(pnad.datastore),
+                                                   pnad.option_spec)
+                uniquely_named_nec_pnads.append(new_pnad)
+        return uniquely_named_nec_pnads
