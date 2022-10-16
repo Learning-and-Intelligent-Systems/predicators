@@ -281,7 +281,9 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         # Start with the add effects and option specs.
         pnads = []
         for (option_spec, add_effects) in effect_sets:
-            parameterized_option, parameters = option_spec
+            parameterized_option, op_vars = option_spec
+            effect_vars = {v for a in add_effects for v in a.variables}
+            parameters = sorted(set(op_vars) | effect_vars)
             # Add all ignore effects initially so that precondition learning
             # works. TODO: better code way to do this?
             ignore_effects = self._predicates.copy()
