@@ -8,9 +8,11 @@ from typing import Callable, Dict, Iterator, List, Set, Tuple
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import LiftedAtom, LowLevelTrajectory, OptionSpec, \
-    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, \
-    STRIPSOperator
+from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
+    OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, Predicate, \
+    Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
+
+_PNADMap = Dict[ParameterizedOption, List[PartialNSRTAndDatastore]]
 
 
 @dataclass(frozen=True)
@@ -37,18 +39,38 @@ class _EffectSets:
             for (spec, atoms) in self._param_option_to_groups[o]:
                 yield (spec, atoms)
 
+    def __str__(self) -> str:
+        s = ""
+        for (spec, atoms) in self:
+            opt = spec[0].name
+            opt_args = ", ".join([str(a) for a in spec[1]])
+            s += f"\n{opt}({opt_args}): {atoms}"
+        s += "\n"
+        return s
+
+    def __repr__(self) -> str:
+        return str(self)
+
 
 class _EffectSearchOperator(abc.ABC):
     """An operator that proposes successor sets of effect sets."""
 
     def __init__(
-        self, trajectories: List[LowLevelTrajectory],
+        self,
+        trajectories: List[LowLevelTrajectory],
+        train_tasks: List[Task],
         predicates: Set[Predicate],
-        effect_sets_to_operators: Callable[[_EffectSets], Set[STRIPSOperator]]
+        segmented_trajs: List[List[Segment]],
+        effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
+        backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
+                            List[_GroundSTRIPSOperator]],
     ) -> None:
         self._trajectories = trajectories
+        self._train_tasks = train_tasks
         self._predicates = predicates
-        self._effect_sets_to_operators = effect_sets_to_operators
+        self._segmented_trajs = segmented_trajs
+        self._effect_sets_to_pnads = effect_sets_to_pnads
+        self._backchain = backchain
 
     @abc.abstractmethod
     def get_successors(self,
@@ -62,7 +84,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
 
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
-        operators = self._effect_sets_to_operators(effect_sets)
+        pnads = self._effect_sets_to_pnads(effect_sets)
         import ipdb
         ipdb.set_trace()
 
@@ -71,13 +93,21 @@ class _EffectSearchHeuristic(abc.ABC):
     """Given a set of effect sets, produce a score, with lower better."""
 
     def __init__(
-        self, trajectories: List[LowLevelTrajectory],
+        self,
+        trajectories: List[LowLevelTrajectory],
+        train_tasks: List[Task],
         predicates: Set[Predicate],
-        effect_sets_to_operators: Callable[[_EffectSets], Set[STRIPSOperator]]
+        segmented_trajs: List[List[Segment]],
+        effect_sets_to_pnads: Callable[[_EffectSets], _PNADMap],
+        backchain: Callable[[List[Segment], _PNADMap, Set[GroundAtom]],
+                            List[_GroundSTRIPSOperator]],
     ) -> None:
         self._trajectories = trajectories
+        self._train_tasks = train_tasks
         self._predicates = predicates
-        self._effect_sets_to_operators = effect_sets_to_operators
+        self._segmented_trajs = segmented_trajs
+        self._effect_sets_to_pnads = effect_sets_to_pnads
+        self._backchain = backchain
 
     @abc.abstractmethod
     def __call__(self, effect_sets: _EffectSets) -> float:
@@ -90,9 +120,16 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
     in the backchaining sense."""
 
     def __call__(self, effect_sets: _EffectSets) -> float:
-        operators = self._effect_sets_to_operators(effect_sets)
-        import ipdb
-        ipdb.set_trace()
+        pnads = self._effect_sets_to_pnads(effect_sets)
+        uncovered_segments = 0
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if not ll_traj.is_demo:
+                continue
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+            chain = self._backchain(seg_traj, pnads, traj_goal)
+            uncovered_segments += len(seg_traj) - len(chain)
+        return uncovered_segments
 
 
 class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
@@ -139,14 +176,14 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
         backchaining_op = _BackChainingEffectSearchOperator(
-            self._trajectories, self._predicates,
-            self._effect_sets_to_operators)
+            self._trajectories, self._train_tasks, self._predicates,
+            self._segmented_trajs, self._effect_sets_to_pnads, self._backchain)
         return [backchaining_op]
 
     def _create_heuristic(self) -> _EffectSearchHeuristic:
         backchaining_heur = _BackChainingHeuristic(
-            self._trajectories, self._predicates,
-            self._effect_sets_to_operators)
+            self._trajectories, self._train_tasks, self._predicates,
+            self._segmented_trajs, self._effect_sets_to_pnads, self._backchain)
         return backchaining_heur
 
     def _create_initial_effect_sets(self) -> _EffectSets:
@@ -164,8 +201,8 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         return _EffectSets(param_option_to_groups)
 
     @functools.lru_cache(maxsize=None)
-    def _effect_sets_to_operators(
-            self, effect_sets: _EffectSets) -> Set[STRIPSOperator]:
+    def _effect_sets_to_pnads(
+            self, effect_sets: _EffectSets) -> List[PartialNSRTAndDatastore]:
         pnads = self._effect_sets_to_pnads(effect_sets)
         # Add preconditions.
         for pnad in pnads:
@@ -183,12 +220,10 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
 
         # TODO: handle keep effects in the outer search or here?
 
-        # Extract operators.
-        return [pnad.op for op in pnads]
+        return pnads
 
     @functools.lru_cache(maxsize=None)
-    def _effect_sets_to_pnads(
-            self, effect_sets: _EffectSets) -> Set[PartialNSRTAndDatastore]:
+    def _effect_sets_to_pnads(self, effect_sets: _EffectSets) -> _PNADMap:
         pnads = []
         for (option_spec, add_effects) in effect_sets:
             parameterized_option, parameters = option_spec
@@ -197,4 +232,29 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             pnad = PartialNSRTAndDatastore(op, [], option_spec)
             pnads.append(pnad)
         self._recompute_datastores_from_segments(pnads)
-        return pnads
+        pnad_map: _PNADMap = {pnad.option_spec[0]: [] for pnad in pnads}
+        for pnad in pnads:
+            pnad_map[pnad.option_spec[0]].append(pnad)
+        return pnad_map
+
+    def _backchain(self, segmented_traj: List[Segment], pnads: _PNADMap,
+                   traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
+        """Returns ground operators in REVERSE order."""
+        chain: List[_GroundSTRIPSOperator] = []
+        atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
+        objects = set(segmented_traj[0].states[0])
+        assert traj_goal.issubset(atoms_seq[-1])
+        necessary_image = set(traj_goal)
+        for t in range(len(atoms_seq) - 2, -1, -1):
+            segment = segmented_traj[t]
+            param_option = segment.get_option().parent
+            best_pnad, best_sub = self._find_best_matching_pnad_and_sub(
+                segment, objects, pnads[param_option])
+            # If no match found, terminate.
+            if best_pnad is None:
+                break
+            # Otherwise, add to the chain.
+            # TODO
+            import ipdb
+            ipdb.set_trace()
+        return chain
