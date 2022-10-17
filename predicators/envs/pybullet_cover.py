@@ -143,8 +143,9 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
         ee_orn = self._ee_orn[CFG.pybullet_robot]
 
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                ee_orn, physics_client_id)
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                physics_client_id, ee_home,
+                                                ee_orn)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
