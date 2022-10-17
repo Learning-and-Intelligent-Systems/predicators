@@ -16,6 +16,7 @@ from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 from predicators.pybullet_helpers.robots.fetch import FetchPyBulletRobot
+from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.settings import CFG
 
 
@@ -230,19 +231,19 @@ def test_fetch_pybullet_robot(physics_client_id):
 def test_create_single_arm_pybullet_robot(physics_client_id):
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
-    ee_home_pose = (1.35, 0.75, 0.75)
-    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
 
     # Fetch
-    robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
-                                             ee_home_pose, ee_orn)
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     assert robot.tool_link_name == "gripper_link"
 
+    # Panda
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
+    assert isinstance(robot, PandaPyBulletRobot)
+
     # Unknown robot
     with pytest.raises(NotImplementedError) as e:
-        create_single_arm_pybullet_robot("not a real robot", physics_client_id,
-                                         ee_home_pose, ee_orn)
+        create_single_arm_pybullet_robot("not a real robot", physics_client_id)
     assert "Unrecognized robot name" in str(e)
 
 
