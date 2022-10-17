@@ -1,8 +1,11 @@
 """Tests for option learning."""
 
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
+import predicators.nsrt_learning.option_learning
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     create_approach
@@ -11,14 +14,15 @@ from predicators.datasets.demo_replay import create_demo_replay_data
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.ml_models import MLPRegressor
-from predicators.nsrt_learning.option_learning import \
-    _LearnedNeuralParameterizedOption, create_option_learner, \
-    create_rl_option_learner
+from predicators.nsrt_learning.option_learning import _ActionConverter, \
+    _LearnedNeuralParameterizedOption, create_action_converter, \
+    create_option_learner, create_rl_option_learner
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
 from predicators.structs import STRIPSOperator
 
+_MODULE_PATH = predicators.nsrt_learning.option_learning.__name__
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
@@ -176,6 +180,7 @@ def test_learned_neural_parameterized_option():
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
     })
+    action_converter = create_action_converter()
     env = create_new_env("cover_multistep_options")
     nsrts = get_gt_nsrts(env.predicates, env.options)
     assert len(nsrts) == 2
@@ -204,11 +209,9 @@ def test_learned_neural_parameterized_option():
     Y_arr_regressor = np.zeros((1, ) + env.action_space.shape,
                                dtype=np.float32)
     regressor.fit(X_arr_regressor, Y_arr_regressor)
-    param_option = _LearnedNeuralParameterizedOption("LearnedOption1",
-                                                     pick_operator, regressor,
-                                                     changing_var_to_feat,
-                                                     changing_var_order,
-                                                     env.action_space)
+    param_option = _LearnedNeuralParameterizedOption(
+        "LearnedOption1", pick_operator, regressor, changing_var_to_feat,
+        changing_var_order, env.action_space, action_converter)
     assert param_option.name == "LearnedOption1"
     assert param_option.types == [p.type for p in pick_operator.parameters]
     assert param_option.params_space.shape == (param_dim, )
@@ -350,3 +353,59 @@ def test_implicit_bc_option_learning_touch_point():
         except (ApproachFailure, ApproachTimeout):
             continue
     assert num_test_successes == 10
+
+
+class _ReverseOrderPadActionConverter(_ActionConverter):
+    """Reverses the order of the actions and adds/removes padding."""
+
+    def env_to_reduced(self, env_action_arr):
+        reversed_action = list(reversed(env_action_arr))
+        padded_action = reversed_action + [0.0, 0.0]
+        return np.array(padded_action, dtype=np.float32)
+
+    def reduced_to_env(self, reduced_action_arr):
+        unpadded_action = reduced_action_arr[:-2]
+        unreversed_action = list(reversed(unpadded_action))
+        return np.array(unreversed_action, dtype=np.float32)
+
+
+def test_action_conversion():
+    """Tests for _ActionConverter() subclasses."""
+    utils.reset_config({
+        "env": "touch_point",
+        "approach": "nsrt_learning",
+        "option_learner": "direct_bc",
+        "strips_learner": "oracle",
+        "sampler_learner": "oracle",
+        "mlp_regressor_max_itr": 10,
+        "segmenter": "atom_changes",
+        "num_train_tasks": 5,
+        "num_test_tasks": 1,
+    })
+    with patch(f"{_MODULE_PATH}.create_action_converter") as mocker:
+        mocker.return_value = _ReverseOrderPadActionConverter()
+        env = create_new_env("touch_point")
+        train_tasks = env.get_train_tasks()
+        approach = create_approach("nsrt_learning", env.predicates, set(),
+                                   env.types, env.action_space, train_tasks)
+        dataset = create_dataset(env, train_tasks, known_options=set())
+        approach.learn_from_offline_dataset(dataset)
+        task = env.get_test_tasks()[0]
+        robot, target = sorted(list(task.init))
+        param_option = next(iter(approach._get_current_nsrts())).option  # pylint: disable=protected-access
+        params = param_option.params_space.sample()
+        option = param_option.ground([robot, target], params)
+        assert option.initiable(task.init)
+        action = option.policy(task.init)
+        assert env.action_space.contains(action.arr)
+
+
+def test_create_action_converter():
+    """Tests for create_action_converter():"""
+    # Cover case with unknown action space converter.
+    utils.reset_config({
+        "option_learning_action_converter":
+        "not a real converter",
+    })
+    with pytest.raises(NotImplementedError):
+        create_action_converter()
