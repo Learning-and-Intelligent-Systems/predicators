@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import numpy as np
+import pybullet as p
 import pytest
 
 import predicators.nsrt_learning.option_learning
@@ -19,6 +20,8 @@ from predicators.nsrt_learning.option_learning import _ActionConverter, \
     create_option_learner, create_rl_option_learner
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import STRIPSOperator
 
@@ -409,3 +412,21 @@ def test_create_action_converter():
     })
     with pytest.raises(NotImplementedError):
         create_action_converter()
+
+
+def test_kinematic_action_conversion():
+    """Tests for _KinematicActionConverter() subclasses."""
+    utils.reset_config({
+        "pybullet_robot": "panda",
+        "option_learning_action_converter": "kinematic",
+    })
+    physics_client_id = p.connect(p.DIRECT)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
+    robot.go_home()
+    env_action_arr = np.array(robot.get_joints())
+    converter = create_action_converter()
+    reduced_action_arr = converter.env_to_reduced(env_action_arr)
+    assert reduced_action_arr.shape == (4, )
+    env_action_arr2 = converter.reduced_to_env(reduced_action_arr)
+    reduced_action_arr2 = converter.env_to_reduced(env_action_arr2)
+    assert np.allclose(reduced_action_arr, reduced_action_arr2)
