@@ -14,12 +14,13 @@ from gym.spaces import Box
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
     VarToObjSub
 from predicators.utils import OptionExecutionFailure
-from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
 
 
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
@@ -277,17 +278,37 @@ class _IdentityActionConverter(_ActionConverter):
 
 class _KinematicActionConverter(_ActionConverter):
     """Uses CFG.pybullet_robot to convert the 9D action space into 4D.
-    
+
     Assumes that the gripper does not rotate.
 
     Creates a new PyBullet connection for the robot.
     """
+
     def __init__(self) -> None:
         super().__init__()
         # Create a new PyBullet connection and robot.
         self._physics_client_id = p.connect(p.DIRECT)
         # Create the robot.
-        self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot, self._physics_client_id)
+        self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                       self._physics_client_id)
+
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        # Forward kinematics.
+        assert env_action_arr.shape == (9, )
+        x, y, z = self._robot.forward_kinematics(env_action_arr.tolist())
+        # Average the two fingers.
+        left_finger = env_action_arr[self._robot.left_finger_joint_idx]
+        right_finger = env_action_arr[self._robot.right_finger_joint_idx]
+        fingers = (left_finger + right_finger) / 2.
+        return np.array([x, y, z, fingers], dtype=np.float32)
+
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        # Inverse kinematics.
+        x, y, z, fingers = reduced_action_arr
+        joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+        joints[self._robot.left_finger_joint_idx] = fingers
+        joints[self._robot.right_finger_joint_idx] = fingers
+        return np.array(joints, dtype=np.float32)
 
 
 def create_action_converter() -> _ActionConverter:
