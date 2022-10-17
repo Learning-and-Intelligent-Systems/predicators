@@ -51,12 +51,9 @@ def _main() -> None:
     ll_traj = traj_data["trajectory"]
     joint_arr = np.array([a.arr for a in ll_traj.actions], dtype=np.float32)
     robot_name = traj_data["pybullet_robot"]
-    # Create an instance of the robot with default position values so that we
-    # can extract the joint names.
+    # Create an instance of the robot so that we can extract the joint names.
     physics_client_id = p.connect(p.DIRECT)
-    robot = create_single_arm_pybullet_robot(robot_name, (1.35, 0.6, 0.7),
-                                             (0.0, 0.0, 0.0, 1.0),
-                                             physics_client_id)
+    robot = create_single_arm_pybullet_robot(robot_name, physics_client_id)
     joint_names = robot.arm_joint_names
     assert len(joint_names) == joint_arr.shape[1]
 

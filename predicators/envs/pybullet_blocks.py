@@ -223,8 +223,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         ee_orn = self._ee_orn[CFG.pybullet_robot]
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                ee_orn, physics_client_id)
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                physics_client_id, ee_home,
+                                                ee_orn)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
