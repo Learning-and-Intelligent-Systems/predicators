@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
+import pybullet as p
 from gym.spaces import Box
 
 from predicators.envs import get_or_create_env
@@ -18,6 +19,7 @@ from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
     VarToObjSub
 from predicators.utils import OptionExecutionFailure
+from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
 
 
 def create_option_learner(action_space: Box) -> _OptionLearnerBase:
@@ -273,11 +275,28 @@ class _IdentityActionConverter(_ActionConverter):
         return reduced_action_arr.copy()
 
 
+class _KinematicActionConverter(_ActionConverter):
+    """Uses CFG.pybullet_robot to convert the 9D action space into 4D.
+    
+    Assumes that the gripper does not rotate.
+
+    Creates a new PyBullet connection for the robot.
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        # Create a new PyBullet connection and robot.
+        self._physics_client_id = p.connect(p.DIRECT)
+        # Create the robot.
+        self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot, self._physics_client_id)
+
+
 def create_action_converter() -> _ActionConverter:
     """Create an action space converter based on CFG."""
     name = CFG.option_learning_action_converter
     if name == "identity":
         return _IdentityActionConverter()
+    if name == "kinematic":
+        return _KinematicActionConverter()
     raise NotImplementedError(f"Unknown action space converter: {name}")
 
 
