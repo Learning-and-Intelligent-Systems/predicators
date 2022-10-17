@@ -20,15 +20,12 @@ _ROBOT_TO_CLS: Dict[str, Type[SingleArmPyBulletRobot]] = {
 
 
 def create_single_arm_pybullet_robot(
-        robot_name: str,
-        physics_client_id: int,
-        ee_home_pose: Optional[Pose3D] = None,
-        ee_orientation: Optional[Quaternion] = None) -> SingleArmPyBulletRobot:
+    robot_name: str,
+    physics_client_id: int,
+    ee_home_pose: Pose3D = (1.35, 0.6, 0.7),
+    ee_orientation: Quaternion = (0.0, 0.0, 0.0, 1.0)
+) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
-    if ee_home_pose is None:
-        ee_home_pose = (1.35, 0.6, 0.7)
-    if ee_orientation is None:
-        ee_orientation = (0.0, 0.0, 0.0, 1.0)
     if robot_name in _ROBOT_TO_CLS:
         assert robot_name in _ROBOT_TO_BASE_POSE, \
             f"Base pose not specified for robot {robot_name}."
