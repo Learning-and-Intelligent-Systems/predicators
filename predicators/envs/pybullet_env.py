@@ -387,6 +387,21 @@ class PyBulletEnv(BaseEnv):
         target = action.arr[-1]
         return target - finger_position
 
+    def _add_pybullet_state_to_tasks(self, tasks: List[Task]) -> List[Task]:
+        """Converts the task initial states into PyBulletStates."""
+        pybullet_tasks = []
+        for task in tasks:
+            # Reset the robot.
+            init = task.init
+            self._pybullet_robot.reset_state(self._extract_robot_state(init))
+            # Extract the joints.
+            joint_positions = self._pybullet_robot.get_joints()
+            pybullet_init = utils.PyBulletState(
+                init.data.copy(), simulator_state=joint_positions)
+            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_tasks.append(pybullet_task)
+        return pybullet_tasks
+
 
 def create_pybullet_block(color: Tuple[float, float, float, float],
                           half_extents: Tuple[float, float,
