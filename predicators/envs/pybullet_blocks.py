@@ -167,8 +167,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],

@@ -229,8 +229,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "use_gui must be True to use pybullet_draw_debug."
             p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
             for hand_lb, hand_rb in self._get_hand_regions(state):
                 # De-normalize hand bounds to actual coordinates.

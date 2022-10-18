@@ -77,7 +77,7 @@ def _create_exposed_pybullet_cover_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
         "env": "pybullet_cover",
-        "pybullet_use_gui": _GUI_ON,
+        "use_gui": _GUI_ON,
         "cover_initial_holding_prob": 0.0,
         # We run this test using the POSITION control mode.
         "pybullet_control_mode": "position",
