@@ -349,6 +349,9 @@ class GlobalSettings:
     sampler_learning_regressor_model = "neural_gaussian"
     sampler_learning_max_negative_data = 100000
 
+    # option learning parameters
+    option_learning_action_converter = "identity"
+
     # interactive learning parameters
     interactive_num_ensemble_members = 10
     interactive_query_policy = "threshold"

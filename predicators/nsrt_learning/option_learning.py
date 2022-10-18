@@ -8,11 +8,14 @@ import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
+import pybullet as p
 from gym.spaces import Box
 
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
@@ -249,6 +252,75 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 segment.set_option(option)
 
 
+class _ActionConverter(abc.ABC):
+    """Maps environment actions to a reduced action space and back."""
+
+    @abc.abstractmethod
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        """Map an environment action to a reduced action."""
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        """Map a reduced action to an environment action."""
+        raise NotImplementedError("Override me!")
+
+
+class _IdentityActionConverter(_ActionConverter):
+    """A trivial action space converter, useful for testing."""
+
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        return env_action_arr.copy()
+
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        return reduced_action_arr.copy()
+
+
+class _KinematicActionConverter(_ActionConverter):
+    """Uses CFG.pybullet_robot to convert the 9D action space into 4D.
+
+    Assumes that the gripper does not rotate.
+
+    Creates a new PyBullet connection for the robot.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Create a new PyBullet connection and robot.
+        self._physics_client_id = p.connect(p.DIRECT)
+        # Create the robot.
+        self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                       self._physics_client_id)
+
+    def env_to_reduced(self, env_action_arr: Array) -> Array:
+        # Forward kinematics.
+        assert env_action_arr.shape == (9, )
+        x, y, z = self._robot.forward_kinematics(env_action_arr.tolist())
+        # Average the two fingers.
+        left_finger = env_action_arr[self._robot.left_finger_joint_idx]
+        right_finger = env_action_arr[self._robot.right_finger_joint_idx]
+        fingers = (left_finger + right_finger) / 2.
+        return np.array([x, y, z, fingers], dtype=np.float32)
+
+    def reduced_to_env(self, reduced_action_arr: Array) -> Array:
+        # Inverse kinematics.
+        x, y, z, fingers = reduced_action_arr
+        joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+        joints[self._robot.left_finger_joint_idx] = fingers
+        joints[self._robot.right_finger_joint_idx] = fingers
+        return np.array(joints, dtype=np.float32)
+
+
+def create_action_converter() -> _ActionConverter:
+    """Create an action space converter based on CFG."""
+    name = CFG.option_learning_action_converter
+    if name == "identity":
+        return _IdentityActionConverter()
+    if name == "kinematic":
+        return _KinematicActionConverter()
+    raise NotImplementedError(f"Unknown action space converter: {name}")
+
+
 class _LearnedNeuralParameterizedOption(ParameterizedOption):
     """A parameterized option that "implements" an operator.
 
@@ -300,6 +372,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                  changing_var_to_feat: Dict[Variable, List[int]],
                  changing_var_order: List[Variable],
                  action_space: Box,
+                 action_converter: _ActionConverter,
                  is_parameterized: bool = True) -> None:
         assert set(changing_var_to_feat).issubset(set(operator.parameters))
         types = [v.type for v in operator.parameters]
@@ -317,6 +390,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         self._changing_var_to_feat = changing_var_to_feat
         self._changing_var_order = changing_var_order
         self._action_space = action_space
+        self._action_converter = action_converter
         self._is_parameterized = is_parameterized
         super().__init__(name,
                          types,
@@ -358,6 +432,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         action_arr = self._regressor.predict(x)
         if np.isnan(action_arr).any():
             raise OptionExecutionFailure("Option policy returned nan.")
+        # Convert the action back to the original space.
+        action_arr = self._action_converter.reduced_to_env(action_arr)
+        # Clip the action.
         action_arr = np.clip(action_arr, self._action_space.low,
                              self._action_space.high)
         return Action(np.array(action_arr, dtype=np.float32))
@@ -421,6 +498,8 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
         super().__init__()
         # Actions are clipped to stay within the action space.
         self._action_space = action_space
+        # Actions can be converted to a reduced space for learning.
+        self._action_converter = create_action_converter()
         # See class docstring.
         self._is_parameterized = is_parameterized
         # While learning the policy, we record the map from each segment to
@@ -506,7 +585,9 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                     # Add a bias term for regression.
                     x = np.hstack(([1.0], state_features, rel_goal_vec))
                     X_regressor.append(x)
-                    Y_regressor.append(action.arr)
+                    # Convert to the reduced action space.
+                    arr = self._action_converter.env_to_reduced(action.arr)
+                    Y_regressor.append(arr)
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
@@ -525,6 +606,7 @@ class _BehaviorCloningOptionLearner(_OptionLearnerBase):
                 changing_var_to_feat,
                 changing_var_order,
                 self._action_space,
+                self._action_converter,
                 is_parameterized=self._is_parameterized)
             option_specs.append((parameterized_option, list(op.parameters)))
 
