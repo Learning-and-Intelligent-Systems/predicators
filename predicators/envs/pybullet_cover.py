@@ -17,7 +17,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Type
+    State, Task, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -357,3 +357,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = super()._get_tasks(num, rng)
+        return self._add_pybullet_state_to_tasks(tasks)

@@ -102,6 +102,7 @@ def _get_predicates_by_names(env, names):
 def test_pybullet_blocks_reset(env):
     """Tests for PyBulletBlocksEnv.reset()."""
     for idx, task in enumerate(env.get_train_tasks()):
+        assert isinstance(task.init, utils.PyBulletState)
         state = env.reset("train", idx)
         assert state.allclose(task.init)
     for idx, task in enumerate(env.get_test_tasks()):
