@@ -507,13 +507,45 @@ class ProceduralTasksPancakePDDLEnv(_PancakePDDLEnv):
     def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
         min_pancakes = CFG.pddl_pancake_procedural_train_min_pancakes
         max_pancakes = CFG.pddl_pancake_procedural_train_max_pancakes
-        return create_pancake_pddl_generator(min_pancakes, max_pancakes)
+        min_locs = CFG.pddl_pancake_procedural_train_min_locs
+        max_locs = CFG.pddl_pancake_procedural_train_max_locs
+        min_oils = CFG.pddl_pancake_procedural_train_min_oils
+        max_oils = CFG.pddl_pancake_procedural_train_max_oils
+        max_waters = CFG.pddl_pancake_procedural_train_max_waters
+        min_waters = CFG.pddl_pancake_procedural_train_min_waters
+        max_mixes = CFG.pddl_pancake_procedural_train_max_mixes        
+        min_mixes = CFG.pddl_pancake_procedural_train_min_mixes
+        max_wet_mixes = CFG.pddl_pancake_procedural_train_max_wet_mixes        
+        min_wet_mixes = CFG.pddl_pancake_procedural_train_min_wet_mixes        
+        max_bowls = CFG.pddl_pancake_procedural_train_max_bowls        
+        min_bowls = CFG.pddl_pancake_procedural_train_min_bowls
+        max_pans = CFG.pddl_pancake_procedural_train_max_pans       
+        min_pans = CFG.pddl_pancake_procedural_train_min_pans             
+        return create_pancake_pddl_generator(min_pancakes, max_pancakes, min_locs, max_locs, min_oils, max_oils,
+                                             min_waters, max_waters, min_mixes, max_mixes, min_wet_mixes, max_wet_mixes, 
+                                             min_bowls, max_bowls, min_pans, max_pans)
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
         min_pancakes = CFG.pddl_pancake_procedural_test_min_pancakes
         max_pancakes = CFG.pddl_pancake_procedural_test_max_pancakes
-        return create_pancake_pddl_generator(min_pancakes, max_pancakes)
+        min_locs = CFG.pddl_pancake_procedural_test_min_locs
+        max_locs = CFG.pddl_pancake_procedural_test_max_locs
+        min_oils = CFG.pddl_pancake_procedural_test_min_oils
+        max_oils = CFG.pddl_pancake_procedural_test_max_oils
+        max_waters = CFG.pddl_pancake_procedural_test_max_waters
+        min_waters = CFG.pddl_pancake_procedural_test_min_waters
+        max_mixes = CFG.pddl_pancake_procedural_test_max_mixes        
+        min_mixes = CFG.pddl_pancake_procedural_test_min_mixes
+        max_wet_mixes = CFG.pddl_pancake_procedural_test_max_wet_mixes        
+        min_wet_mixes = CFG.pddl_pancake_procedural_test_min_wet_mixes        
+        max_bowls = CFG.pddl_pancake_procedural_test_max_bowls       
+        min_bowls = CFG.pddl_pancake_procedural_test_min_bowls  
+        max_pans = CFG.pddl_pancake_procedural_test_max_pans       
+        min_pans = CFG.pddl_pancake_procedural_test_min_pans          
+        return create_pancake_pddl_generator(min_pancakes, max_pancakes, min_locs, max_locs, min_oils, max_oils,
+                                             min_waters, max_waters, min_mixes, max_mixes, min_wet_mixes, max_wet_mixes, 
+                                             min_bowls, max_bowls, min_pans, max_pans)
 
 
 ###############################################################################

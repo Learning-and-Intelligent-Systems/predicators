@@ -186,6 +186,34 @@ class GlobalSettings:
     pddl_pancake_procedural_train_max_pancakes = 2
     pddl_pancake_procedural_test_min_pancakes = 1
     pddl_pancake_procedural_test_max_pancakes = 4
+    pddl_pancake_procedural_train_min_locs = 3          #added all the locs
+    pddl_pancake_procedural_train_max_locs = 5
+    pddl_pancake_procedural_test_min_locs = 3
+    pddl_pancake_procedural_test_max_locs = 7
+    pddl_pancake_procedural_train_min_waters = 1          #added all the water
+    pddl_pancake_procedural_train_max_waters = 2
+    pddl_pancake_procedural_test_min_waters = 1
+    pddl_pancake_procedural_test_max_waters = 4
+    pddl_pancake_procedural_train_min_mixes = 1          #added all the mix
+    pddl_pancake_procedural_train_max_mixes = 2
+    pddl_pancake_procedural_test_min_mixes = 1
+    pddl_pancake_procedural_test_max_mixes = 4
+    pddl_pancake_procedural_train_min_wet_mixes = 1          #added all the wet mix
+    pddl_pancake_procedural_train_max_wet_mixes = 2
+    pddl_pancake_procedural_test_min_wet_mixes = 1
+    pddl_pancake_procedural_test_max_wet_mixes = 4    
+    pddl_pancake_procedural_train_min_oils = 1          #added all the oil
+    pddl_pancake_procedural_train_max_oils = 2
+    pddl_pancake_procedural_test_min_oils = 1
+    pddl_pancake_procedural_test_max_oils = 4
+    pddl_pancake_procedural_train_min_bowls = 1          #added all the bowl
+    pddl_pancake_procedural_train_max_bowls = 2
+    pddl_pancake_procedural_test_min_bowls = 1
+    pddl_pancake_procedural_test_max_bowls = 4
+    pddl_pancake_procedural_train_min_pans = 1          #added all the pan
+    pddl_pancake_procedural_train_max_pans = 2
+    pddl_pancake_procedural_test_min_pans = 1
+    pddl_pancake_procedural_test_max_pans = 4
 
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]

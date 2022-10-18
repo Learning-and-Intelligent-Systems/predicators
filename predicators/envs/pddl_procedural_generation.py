@@ -544,34 +544,128 @@ def _generate_forest_problem(height: int, width: int,
 
 
 def create_pancake_pddl_generator(min_pancakes: int,
-                                  max_pancakes: int) -> PDDLProblemGenerator:
+                                  max_pancakes: int,
+                                  min_locs: int,
+                                  max_locs: int,
+                                  min_oils: int,
+                                  max_oils: int,
+                                  min_waters: int,
+                                  max_waters: int,
+                                  min_mixes: int,
+                                  max_mixes: int,
+                                  min_wet_mixes: int,
+                                  max_wet_mixes: int,
+                                  min_bowls: int,
+                                  max_bowls: int,
+                                  min_pans: int,
+                                  max_pans: int) -> PDDLProblemGenerator:
     """Create a generator for pancake problems."""
-    return functools.partial(_generate_pancake_problems, min_pancakes,
-                             max_pancakes)
+    return functools.partial(_generate_pancake_problems, min_pancakes, max_pancakes,
+                               min_locs, max_locs,
+                               min_oils, max_oils,
+                               min_waters, max_waters,
+                               min_mixes, max_mixes,
+                               min_wet_mixes, max_wet_mixes,
+                               min_bowls, max_bowls,
+                               min_pans, max_pans)
 
 
 def _generate_pancake_problems(min_pancakes: int, max_pancakes: int,
+                               min_locs: int,
+                               max_locs: int,
+                               min_oils: int,
+                               max_oils: int,
+                               min_waters: int,
+                               max_waters: int,
+                               min_mixes: int,
+                               max_mixes: int,
+                               min_wet_mixes: int,
+                               max_wet_mixes: int,
+                               min_bowls: int,
+                               max_bowls: int,
+                               min_pans: int,
+                               max_pans: int,                                                              
                                num_problems: int,
                                rng: np.random.Generator) -> List[str]:
     problems = []
     for _ in range(num_problems):
         # Randomly sample a number of pancakes.
         num_pancakes = rng.integers(min_pancakes, max_pancakes + 1)
-        problem = _generate_pancake_problem(num_pancakes, rng)
+        num_oils = rng.integers(min_oils, max_oils + 1)
+        num_waters = rng.integers(min_waters, max_waters + 1)
+        num_mixes = rng.integers(min_mixes, max_mixes + 1)
+        num_wet_mixes = rng.integers(min_wet_mixes, max_wet_mixes + 1)            
+        num_bowls = rng.integers(min_bowls, max_bowls + 1)    
+        num_pans = rng.integers(min_pans, max_pans + 1)
+        num_locs = rng.integers(min_locs, max_locs + 1)                    
+        problem = _generate_pancake_problem(num_pancakes, num_oils, 
+                                            num_waters, num_mixes,
+                                            num_wet_mixes, num_bowls,
+                                            num_pans, num_locs, rng)
         problems.append(problem)
     return problems
 
 
-def _generate_pancake_problem(num_pancakes: int,
+def _generate_pancake_problem(num_pancakes: int, num_oils: int, 
+                              num_waters: int, num_mixes: int,
+                              num_wet_mixes: int, num_bowls: int,
+                              num_pans: int, num_locs: int, 
                               rng: np.random.Generator) -> str:
     # Create objects.
-    pancakes = {f"pancake-{i}" for i in range(num_pancakes)}
+    bot = "arm"
+    pancakes = [f"pancake{i}" for i in range(num_pancakes)]
+    oils = [f"oil{i}" for i in range(num_oils)]
+    waters = [f"water{i}" for i in range(num_waters)]
+    mixes = [f"mix{i}" for i in range(num_mixes)]
+    wet_mixes = [f"wet_mix{i}" for i in range(num_wet_mixes)]
+    bowls = [f"bowl{i}" for i in range(num_bowls)]
+    pans = [f"pan{i}" for i in range(num_pans)]  
+    locs = [f"location{i}" for i in range(num_locs)]                    
+    # # pancakes = {f"pancake-{i}" for i in range(num_pancakes)}
+    # for i in range(num_oils):
+    #     oils = object_strs.add({f"oil-{i}"})
+    # # oils = {f"oil-{i}" for i in range(num_oils)}
+    # for i in range(num_waters):
+    #     waters = object_strs.add({f"water-{i}"})
+    # # waters = {f"water-{i}" for i in range(num_waters)}
+    # for i in range(num_mixes):
+    #     mixes = object_strs.add({f"mix-{i}"})
+    # # mixes = {f"mix-{i}" for i in range(num_mixes)}
+    # for i in range(num_wet_mixes):
+    #     wet_mixes = object_strs.add({f"wet_mix-{i}"})
+    # # wet_mixes = {f"wet_mix-{i}" for i in range(num_wet_mixes)}
+    # for i in range(num_bowls):
+    #     bowls = object_strs.add({f"bowl-{i}"})
+    # # bowls = {f"bowl-{i}" for i in range(num_bowls)}
+    # for i in range(num_pans):
+    #     pans = object_strs.add({f"pan-{i}"})
+    # # pans = {f"pan-{i}" for i in range(num_pans)}
     # TODO add others
 
     # Create the initial state.
     init_strs = set()
     for pancake in pancakes:
+        loc = rng.choice(locs)
         init_strs.add(f"(isPancake {pancake})")
+    for oil in oils:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isOil {oil})")
+    for water in waters:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isWater {water})")
+    for mix in mixes:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isMix {mix})")  
+    for wet_mix in wet_mixes:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isWet_Mix {wet_mix})") 
+    for bowl in bowls:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isBowl {bowl})")  
+    for pan in pans:
+        loc = rng.choice(locs)
+        init_strs.add(f"(isPan {pan})")  
+         
     # TODO remove and add others
 
     # Create the goal.
@@ -582,13 +676,31 @@ def _generate_pancake_problem(num_pancakes: int,
 
     # Finalize PDDL problem str.
     # TODO add other objects
-    objects_str = " ".join(sorted(pancakes))
+    bot_str = "\n        ".join([bot])
+    pancake_str = "\n        ".join(pancakes)
+    oil_str = "\n        ".join(oils) 
+    water_str = "\n        ".join(waters)
+    mixes_str = "\n        ".join(mixes)
+    wet_mixes_str = "\n        ".join(wet_mixes)
+    bowl_str = "\n        ".join(bowls)
+    pan_str = "\n        ".join(pans)   
     init_str = " ".join(sorted(init_strs))
     goal_str = " ".join(sorted(goal_strs))
+    locs_str = "\n        ".join(locs)  
+    
     problem_str = f"""(define (problem pancake-procgen)
     (:domain pancake)
     (:objects
-        {objects_str} - object
+        {bot_str} - bot
+        {pancake_str} - object
+        {oil_str} - object
+        {water_str} - object
+        {mixes_str} - object
+        {wet_mixes_str} - object
+        {bowl_str} - object
+        {pan_str} - object
+        {locs_str} - object
+
     )
     (:init {init_str})
     (:goal (and {goal_str}))
