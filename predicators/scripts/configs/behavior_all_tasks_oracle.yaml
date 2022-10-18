@@ -1,0 +1,618 @@
+# A configuration file for all 100 BEHAVIOR tasks.
+---
+APPROACHES:
+  my-oracle:
+    NAME: "oracle"
+    FLAGS:
+      offline_data_planning_timeout: 500.0
+      timeout: 500.0
+      plan_only_eval: True
+      sesame_task_planner: fdopt
+ENVS:
+  assembling_gift_baskets-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[assembling_gift_baskets]"
+      behavior_option_model_eval: True
+  bottling_fruit-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[bottling_fruit]"
+      behavior_option_model_eval: True
+  boxing_books_up_for_storage-Benevolence_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_1_int
+      behavior_task_list: "[boxing_books_up_for_storage]"
+      behavior_option_model_eval: True
+  bringing_in_wood-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[bringing_in_wood]"
+      behavior_option_model_eval: True
+  brushing_lint_off_clothing-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[brushing_lint_off_clothing]"
+      behavior_option_model_eval: True
+  chopping_vegetables-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[chopping_vegetables]"
+      behavior_option_model_eval: True
+  cleaning_a_car-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[cleaning_a_car]"
+      behavior_option_model_eval: True
+  cleaning_barbecue_grill-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[cleaning_barbecue_grill]"
+      behavior_option_model_eval: True
+  cleaning_bathrooms-Benevolence_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_0_int
+      behavior_task_list: "[cleaning_bathrooms]"
+      behavior_option_model_eval: True
+  cleaning_bathtub-Benevolence_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_0_int
+      behavior_task_list: "[cleaning_bathtub]"
+      behavior_option_model_eval: True
+  cleaning_bedroom-Wainscott_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_1_int
+      behavior_task_list: "[cleaning_bedroom]"
+      behavior_option_model_eval: True
+  cleaning_carpets-Wainscott_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_1_int
+      behavior_task_list: "[cleaning_carpets]"
+      behavior_option_model_eval: True
+  cleaning_closet-Beechwood_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_1_int
+      behavior_task_list: "[cleaning_closet]"
+      behavior_option_model_eval: True
+  cleaning_cupboards-Beechwood_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_1_int
+      behavior_task_list: "[cleaning_cupboards]"
+      behavior_option_model_eval: True
+  cleaning_floors-Merom_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_0_int
+      behavior_task_list: "[cleaning_floors]"
+      behavior_option_model_eval: True
+  cleaning_freezer-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_freezer]"
+      behavior_option_model_eval: True
+  cleaning_garage-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[cleaning_garage]"
+      behavior_option_model_eval: True
+  cleaning_high_chair-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_high_chair]"
+      behavior_option_model_eval: True
+  cleaning_kitchen_cupboard-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_kitchen_cupboard]"
+      behavior_option_model_eval: True
+  cleaning_microwave_oven-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_microwave_oven]"
+      behavior_option_model_eval: True
+  cleaning_out_drawers-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[cleaning_out_drawers]"
+      behavior_option_model_eval: True
+  cleaning_oven-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_oven]"
+      behavior_option_model_eval: True
+  cleaning_shoes-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[cleaning_shoes]"
+      behavior_option_model_eval: True
+  cleaning_sneakers-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[cleaning_sneakers]"
+      behavior_option_model_eval: True
+  cleaning_stove-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_stove]"
+      behavior_option_model_eval: True
+  cleaning_table_after_clearing-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_table_after_clearing]"
+      behavior_option_model_eval: True
+  cleaning_the_hot_tub-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[cleaning_the_hot_tub]"
+      behavior_option_model_eval: True
+  cleaning_the_pool-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[cleaning_the_pool]"
+      behavior_option_model_eval: True
+  cleaning_toilet-Merom_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_0_int
+      behavior_task_list: "[cleaning_toilet]"
+      behavior_option_model_eval: True
+  cleaning_up_after_a_meal-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_up_after_a_meal]"
+      behavior_option_model_eval: True
+  cleaning_up_refrigerator-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_up_refrigerator]"
+      behavior_option_model_eval: True
+  cleaning_up_the_kitchen_only-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_up_the_kitchen_only]"
+      behavior_option_model_eval: True
+  cleaning_windows-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[cleaning_windows]"
+      behavior_option_model_eval: True
+  clearing_the_table_after_dinner-Benevolence_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_1_int
+      behavior_task_list: "[clearing_the_table_after_dinner]"
+      behavior_option_model_eval: True
+  collect_misplaced_items-Merom_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_1_int
+      behavior_task_list: "[collect_misplaced_items]"
+      behavior_option_model_eval: True
+  collecting_aluminum_cans-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[collecting_aluminum_cans]"
+      behavior_option_model_eval: True
+  defrosting_freezer-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[defrosting_freezer]"
+      behavior_option_model_eval: True
+  filling_a_Christmas_stocking-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[filling_a_Christmas_stocking]"
+      behavior_option_model_eval: True
+  filling_an_Easter_basket-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[filling_an_Easter_basket]"
+      behavior_option_model_eval: True
+  installing_a_fax_machine-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_fax_machine]"
+      behavior_option_model_eval: True
+  installing_a_modem-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_modem]"
+      behavior_option_model_eval: True
+  installing_a_printer-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_printer]"
+      behavior_option_model_eval: True
+  installing_a_scanner-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[installing_a_scanner]"
+      behavior_option_model_eval: True
+  installing_alarms-Merom_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_1_int
+      behavior_task_list: "[installing_alarms]"
+      behavior_option_model_eval: True
+  laying_tile_floors-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[laying_tile_floors]"
+      behavior_option_model_eval: True
+  laying_wood_floors-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[laying_wood_floors]"
+      behavior_option_model_eval: True
+  loading_the_dishwasher-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[loading_the_dishwasher]"
+      behavior_option_model_eval: True
+  locking_every_door-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[locking_every_door]"
+      behavior_option_model_eval: True
+  locking_every_window-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[locking_every_window]"
+      behavior_option_model_eval: True
+  making_tea-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[making_tea]"
+      behavior_option_model_eval: True
+  mopping_floors-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[mopping_floors]"
+      behavior_option_model_eval: True
+  moving_boxes_to_storage-Merom_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_0_int
+      behavior_task_list: "[moving_boxes_to_storage]"
+      behavior_option_model_eval: True
+  opening_packages-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_packages]"
+      behavior_option_model_eval: True
+  opening_presents-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_presents]"
+      behavior_option_model_eval: True
+  organizing_boxes_in_garage-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[organizing_boxes_in_garage]"
+      behavior_option_model_eval: True
+  organizing_file_cabinet-Pomaria_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_0_int
+      behavior_task_list: "[organizing_file_cabinet]"
+      behavior_option_model_eval: True
+  organizing_school_stuff-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[organizing_school_stuff]"
+      behavior_option_model_eval: True
+  packing_adult_s_bags-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[packing_adult_s_bags]"
+      behavior_option_model_eval: True
+  packing_bags_or_suitcase-Merom_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_1_int
+      behavior_task_list: "[packing_bags_or_suitcase]"
+      behavior_option_model_eval: True
+  packing_boxes_for_household_move_or_trip-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[packing_boxes_for_household_move_or_trip]"
+      behavior_option_model_eval: True
+  packing_car_for_trip-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[packing_car_for_trip]"
+      behavior_option_model_eval: True
+  packing_child_s_bag-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[packing_child_s_bag]"
+      behavior_option_model_eval: True
+  packing_food_for_work-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[packing_food_for_work]"
+      behavior_option_model_eval: True
+  packing_lunches-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[packing_lunches]"
+      behavior_option_model_eval: True
+  packing_picnics-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[packing_picnics]"
+      behavior_option_model_eval: True
+  picking_up_take-out_food-Benevolence_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_1_int
+      behavior_task_list: "[picking_up_take-out_food]"
+      behavior_option_model_eval: True
+  picking_up_trash-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[picking_up_trash]"
+      behavior_option_model_eval: True
+  polishing_furniture-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[polishing_furniture]"
+      behavior_option_model_eval: True
+  polishing_shoes-Merom_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_0_int
+      behavior_task_list: "[polishing_shoes]"
+      behavior_option_model_eval: True
+  polishing_silver-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[polishing_silver]"
+      behavior_option_model_eval: True
+  preparing_a_shower_for_child-Wainscott_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_1_int
+      behavior_task_list: "[preparing_a_shower_for_child]"
+      behavior_option_model_eval: True
+  preparing_salad-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[preparing_salad]"
+      behavior_option_model_eval: True
+  preserving_food-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[preserving_food]"
+      behavior_option_model_eval: True
+  putting_away_Christmas_decorations-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[putting_away_Christmas_decorations]"
+      behavior_option_model_eval: True
+  putting_away_Halloween_decorations-Rs_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Rs_int
+      behavior_task_list: "[putting_away_Halloween_decorations]"
+      behavior_option_model_eval: True
+  putting_away_toys-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[putting_away_toys]"
+      behavior_option_model_eval: True
+  putting_dishes_away_after_cleaning-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[putting_dishes_away_after_cleaning]"
+      behavior_option_model_eval: True
+  putting_leftovers_away-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[putting_leftovers_away]"
+      behavior_option_model_eval: True
+  putting_up_Christmas_decorations_inside-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[putting_up_Christmas_decorations_inside]"
+      behavior_option_model_eval: True
+  re-shelving_library_books-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[re-shelving_library_books]"
+      behavior_option_model_eval: True
+  rearranging_furniture-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_2_int
+      behavior_task_list: "[rearranging_furniture]"
+      behavior_option_model_eval: True
+  serving_a_meal-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[serving_a_meal]"
+      behavior_option_model_eval: True
+  serving_hors_d_oeuvres-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[serving_hors_d_oeuvres]"
+      behavior_option_model_eval: True
+  setting_mousetraps-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[setting_mousetraps]"
+      behavior_option_model_eval: True
+  setting_up_candles-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[setting_up_candles]"
+      behavior_option_model_eval: True
+  sorting_books-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[sorting_books]"
+      behavior_option_model_eval: True
+  sorting_groceries-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[sorting_groceries]"
+      behavior_option_model_eval: True
+  sorting_mail-Merom_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_0_int
+      behavior_task_list: "[sorting_mail]"
+      behavior_option_model_eval: True
+  storing_food-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[storing_food]"
+      behavior_option_model_eval: True
+  storing_the_groceries-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[storing_the_groceries]"
+      behavior_option_model_eval: True
+  thawing_frozen_food-Wainscott_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Wainscott_0_int
+      behavior_task_list: "[thawing_frozen_food]"
+      behavior_option_model_eval: True
+  throwing_away_leftovers-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[throwing_away_leftovers]"
+      behavior_option_model_eval: True
+  unpacking_suitcase-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[unpacking_suitcase]"
+      behavior_option_model_eval: True
+  vacuuming_floors-Benevolence_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Benevolence_2_int
+      behavior_task_list: "[vacuuming_floors]"
+      behavior_option_model_eval: True
+  washing_cars_or_other_vehicles-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[washing_cars_or_other_vehicles]"
+      behavior_option_model_eval: True
+  washing_dishes-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[washing_dishes]"
+      behavior_option_model_eval: True
+  washing_floor-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[washing_floor]"
+      behavior_option_model_eval: True
+  washing_pots_and_pans-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[washing_pots_and_pans]"
+      behavior_option_model_eval: True
+  watering_houseplants-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[watering_houseplants]"
+      behavior_option_model_eval: True
+  waxing_cars_or_other_vehicles-Ihlen_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_0_int
+      behavior_task_list: "[waxing_cars_or_other_vehicles]"
+      behavior_option_model_eval: True
+ARGS: {}
+FLAGS:  # general flags
+  num_train_tasks: 0
+  num_test_tasks: 1
+START_SEED: 0
+NUM_SEEDS: 1
+USE_GPU: True

@@ -83,6 +83,6 @@ jobs:
     - name: Run YAPF to test if python code is correctly formatted
       uses: AlexanderMelde/yapf-action@master
       with:
-        args: --verbose --style .style.yapf
+        args: --verbose --style .style.yapf --exclude '**/third_party'
     - name: Run isort to organize imports
       uses: isort/isort-action@master

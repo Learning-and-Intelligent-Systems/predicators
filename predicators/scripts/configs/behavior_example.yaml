@@ -1,0 +1,33 @@
+# An example configuration file.
+---
+APPROACHES:
+  my-oracle:  # used in constructing the experiment ID
+    NAME: "oracle"
+    FLAGS:
+      offline_data_planning_timeout: 500.0
+      timeout: 500.0
+      plan_only_eval: True
+      sesame_task_planner: fdopt
+  backchaining:
+    NAME: "nsrt_learning"
+    FLAGS:
+      offline_data_planning_timeout: 500.0
+      timeout: 500.0
+      sampler_learner: neural
+      strips_learner: backchaining
+      plan_only_eval: True
+      sesame_task_planner: fdopt
+ENVS:
+  opening-packages-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_packages]"
+      behavior_option_model_eval: True
+ARGS: {}
+FLAGS:  # general flags
+  num_train_tasks: 10
+  num_test_tasks: 10
+START_SEED: 456
+NUM_SEEDS: 3
+USE_GPU: True
