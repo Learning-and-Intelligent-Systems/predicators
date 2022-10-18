@@ -209,8 +209,9 @@ class RepeatedNextToEnv(BaseEnv):
 class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
     """A variation on RepeatedNextToEnv with a single parameterized option."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Options
         del self._Move
         del self._Grasp
