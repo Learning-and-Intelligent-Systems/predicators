@@ -164,7 +164,11 @@ class PyBulletEnv(BaseEnv):
         return self._pybullet_robot.action_space
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("A PyBullet environment cannot simulate.")
+        # Optimization: if we're already in the right state, no need to reset.
+        if not state.allclose(self._current_state):
+            self._current_state = state
+            self._reset_state(state)
+        return self.step(action)
 
     def render_state_plt(
             self,
