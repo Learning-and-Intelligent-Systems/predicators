@@ -63,13 +63,13 @@ Y_KEY_AND_LABEL = [
 PLOT_GROUPS = {
     "Main Approaches in CoverEnv Excluding Covers,Holding": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "pybullet_cover-main")),
         ("Main (MLP)", "orange",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
     ],
     "Query Baselines in CoverEnv Excluding Covers,Holding": [
         ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "pybullet_cover-main")),
         ("Ask All", "green",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
         ("Ask None", "red",
@@ -79,7 +79,7 @@ PLOT_GROUPS = {
     ],
     "Action Baselines in CoverEnv Excluding Covers,Holding": [
         ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "pybullet_cover-main")),
         ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
         ("Random Actions", "brown",
