@@ -100,7 +100,6 @@ class GlobalSettings:
     tools_num_contraptions_test = [3]
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900

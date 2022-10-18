@@ -46,8 +46,9 @@ class StickButtonEnv(BaseEnv):
     stick_init_ub: ClassVar[float] = 1.6  # start low in the reachable zone
     pick_grasp_tol: ClassVar[float] = 1e-3
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         # The (x, y) is the center of the robot. Theta is only relevant when
         # the robot is holding the stick.

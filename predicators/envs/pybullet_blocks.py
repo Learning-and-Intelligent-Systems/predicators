@@ -41,8 +41,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override options, keeping the types and parameter spaces the same.
         open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
@@ -167,8 +167,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
