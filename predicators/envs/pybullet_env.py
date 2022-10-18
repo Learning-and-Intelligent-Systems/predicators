@@ -54,8 +54,8 @@ class PyBulletEnv(BaseEnv):
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None

@@ -50,8 +50,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override PickPlace option
         types = self._PickPlace.types

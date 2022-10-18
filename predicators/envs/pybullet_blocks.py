@@ -41,8 +41,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override options, keeping the types and parameter spaces the same.
         open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
