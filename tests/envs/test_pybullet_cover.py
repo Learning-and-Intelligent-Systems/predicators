@@ -84,7 +84,7 @@ def _create_exposed_pybullet_cover_env(request):
         # Which robot we're using
         "pybullet_robot": request.param,
     })
-    return _ExposedPyBulletCoverEnv()
+    return _ExposedPyBulletCoverEnv(use_gui=_GUI_ON)
 
 
 def test_pybullet_cover_reset(env):

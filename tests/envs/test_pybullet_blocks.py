@@ -86,7 +86,7 @@ def _create_exposed_pybullet_blocks_env(request):
         # Which robot we're using
         "pybullet_robot": request.param,
     })
-    return _ExposedPyBulletBlocksEnv()
+    return _ExposedPyBulletBlocksEnv(use_gui=_GUI_ON)
 
 
 def _get_predicates_by_names(env, names):
