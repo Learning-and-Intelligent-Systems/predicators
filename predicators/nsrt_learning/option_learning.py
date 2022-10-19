@@ -14,9 +14,10 @@ from gym.spaces import Box
 from predicators.envs import get_or_create_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
+from predicators.pybullet_helpers.inverse_kinematics import \
+    InverseKinematicsError
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
-from predicators.pybullet_helpers.inverse_kinematics import InverseKinematicsError
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
