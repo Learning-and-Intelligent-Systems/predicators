@@ -20,11 +20,15 @@ from predicators.structs import DefaultState, State, _Option
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        env = create_new_env(CFG.env, use_gui=CFG.option_model_use_gui)
+        env = create_new_env(CFG.env,
+                             do_cache=False,
+                             use_gui=CFG.option_model_use_gui)
         return _OracleOptionModel(env)
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
-        env = create_new_env(env_name, use_gui=CFG.option_model_use_gui)
+        env = create_new_env(env_name,
+                             do_cache=False,
+                             use_gui=CFG.option_model_use_gui)
         return _OracleOptionModel(env)
     raise NotImplementedError(f"Unknown option model: {name}")
 
