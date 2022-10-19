@@ -6,6 +6,7 @@ or options.
 
 import logging
 import os
+import re
 import time
 from typing import Dict, List, Optional, Set
 
@@ -15,11 +16,15 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.behavior_utils import behavior_utils
+from predicators.envs import get_or_create_env
+from predicators.envs.behavior import BehaviorEnv
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+from predicators.structs import NSRT, Dataset, GroundAtom, LiftedAtom, \
+    LowLevelTrajectory, NSRTSampler, ParameterizedOption, Predicate, Segment, \
+    Task, Type, Variable
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -45,6 +50,16 @@ class NSRTLearningApproach(BilevelPlanningApproach):
     def _get_current_nsrts(self) -> Set[NSRT]:
         return self._nsrts
 
+    def _get_from_env_by_names_dict(self, env_name: str,
+                                    env_attr: str) -> Dict:  # pragma: no cover
+        """Helper for getting dict to load types, predicates, and options by
+        name."""
+        env = get_or_create_env(env_name)
+        name_to_env_obj = {}
+        for o in getattr(env, env_attr):
+            name_to_env_obj[o.name] = o
+        return name_to_env_obj
+
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
@@ -68,20 +83,52 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 assert len(trajectories) == len(ground_atom_dataset_atoms)
                 logging.info("\n\nLOADED GROUND ATOM DATASET")
 
+                if CFG.env == "behavior":  # pragma: no cover
+                    pred_name_to_pred = {
+                        pred.name: pred
+                        for pred in self._get_current_predicates()
+                    }
+                    new_ground_atom_dataset_atoms = []
+                    # Since we save ground atoms for behavior with dummy
+                    # classifiers, we need to restore the correct classifers.
+                    for ground_atom_seq in ground_atom_dataset_atoms:
+                        new_ground_atom_seq = []
+                        for ground_atom_set in ground_atom_seq:
+                            new_ground_atom_set = {
+                                GroundAtom(
+                                    pred_name_to_pred[atom.predicate.name],
+                                    atom.entities)
+                                for atom in ground_atom_set
+                            }
+                            new_ground_atom_seq.append(new_ground_atom_set)
+                        new_ground_atom_dataset_atoms.append(
+                            new_ground_atom_seq)
+
                 # The saved ground atom dataset consists only of sequences
                 # of sets of GroundAtoms, we need to recombine this with
                 # the LowLevelTrajectories to create a GroundAtomTrajectory.
                 ground_atom_dataset = []
                 for i, traj in enumerate(trajectories):
-                    ground_atom_seq = ground_atom_dataset_atoms[i]
+                    if CFG.env == "behavior":
+                        ground_atom_seq = new_ground_atom_dataset_atoms[
+                            i]  # pragma: no cover
+                    else:
+                        ground_atom_seq = ground_atom_dataset_atoms[i]
                     ground_atom_dataset.append(
                         (traj, [set(atoms) for atoms in ground_atom_seq]))
             else:
                 raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
         else:
             # Apply predicates to data, producing a dataset of abstract states.
-            ground_atom_dataset = utils.create_ground_atom_dataset(
-                trajectories, self._get_current_predicates())
+            if CFG.env == "behavior":  # pragma: no cover
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                ground_atom_dataset = \
+                    behavior_utils.create_ground_atom_dataset_behavior(
+                        trajectories, self._get_current_predicates(), env)
+            else:
+                ground_atom_dataset = utils.create_ground_atom_dataset(
+                    trajectories, self._get_current_predicates())
             # Save ground atoms dataset to file. Note that a
             # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
             # list of sets of GroundAtoms, so we only save the list of
@@ -90,7 +137,21 @@ class NSRTLearningApproach(BilevelPlanningApproach):
             for gt_traj in ground_atom_dataset:
                 trajectory = []
                 for ground_atom_set in gt_traj[1]:
-                    trajectory.append(ground_atom_set)
+                    if CFG.env == "behavior":  # pragma: no cover
+                        # In the case of behavior, we cannot directly pickle
+                        # the ground atoms dataset because the classifiers are
+                        # linked to the simulator, which cannot be pickled.
+                        # Thus, we must strip away the classifiers and replace
+                        # them with dummies.
+                        trajectory.append({
+                            GroundAtom(
+                                Predicate(atom.predicate.name,
+                                          atom.predicate.types,
+                                          lambda s, o: False), atom.entities)
+                            for atom in ground_atom_set
+                        })
+                    else:
+                        trajectory.append(ground_atom_set)
                 ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
@@ -104,15 +165,37 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
+        # Need to save samplers if we are dumping to string
+        if CFG.dump_nsrts_as_strings:
+            with open(f"{save_path}_{online_learning_cycle}.SAMPLERs",
+                      "wb") as f:
+                sampler_name_to_sampler = {}
+                for nsrt in self._nsrts:
+                    sampler_name_to_sampler[nsrt.name] = nsrt.sampler
+                pkl.dump(sampler_name_to_sampler, f)
+
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
+            if CFG.dump_nsrts_as_strings:
+                pkl.dump(str(self._nsrts), f)
+            else:
+                pkl.dump(self._nsrts, f)
         if CFG.compute_sidelining_objective_value:
             self._compute_sidelining_objective_value(trajectories)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
-            self._nsrts = pkl.load(f)
+            if CFG.dump_nsrts_as_strings:  # pragma: no cover
+                string_nsrts = pkl.load(f)
+                assert isinstance(string_nsrts, str)
+                with open(f"{save_path}_{online_learning_cycle}.SAMPLERs",
+                          "rb") as f:
+                    sampler_name_to_sampler = pkl.load(f)
+                # Implement string_nsrts to _nsrts
+                self._nsrts = self.parse_nsrts_string(string_nsrts,
+                                                      sampler_name_to_sampler)
+            else:
+                self._nsrts = pkl.load(f)
         if CFG.pretty_print_when_loading:
             preds, _ = utils.extract_preds_and_types(self._nsrts)
             name_map = {}
@@ -194,3 +277,100 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         logging.info(f"\tFinished in {time_taken:.3f} seconds")
         logging.info(f"\tGot num_plans_up_to_n {num_plans_up_to_n} and "
                      f"complexity {complexity}")
+
+    def parse_nsrts_string(
+        self, nsrts_string: str, sampler_name_to_sampler: Dict[str,
+                                                               NSRTSampler]
+    ) -> Set[NSRT]:  # pragma: no cover
+        """Parses BEHAVIOR NSRTs saved as strings by retrieving types,
+        predicates, and options from the env and creating a set of NSRTS.
+
+        This function returns a set of NSRTS.
+        """
+        assert CFG.env == "behavior"
+        nsrts = set()
+        type_name_to_type = self._get_from_env_by_names_dict(CFG.env, "types")
+        pred_name_to_pred = self._get_from_env_by_names_dict(
+            CFG.env, "predicates")
+        option_name_to_option = self._get_from_env_by_names_dict(
+            CFG.env, "options")
+
+        for nsrt_string in nsrts_string.replace("{", "").replace(
+                "}", "").split("NSRT-")[1:]:
+            name, str_params, str_precond, str_add_effects, \
+                str_delete_effects, str_ignore_effects, \
+                option_spec = nsrt_string.split(
+                "\n    ")
+            name = name.replace(":", "")
+            params = [
+                param.split(":") for param in re.findall(
+                    r"\[(.*?)\]", str_params)[0].split(", ")
+            ]
+            add_effects = re.findall(r"\[(.*?)\]",
+                                     str_add_effects)[0].split(", ")
+            precond = re.findall(r"\[(.*?)\]", str_precond)[0].split(", ")
+            delete_effects = re.findall(r"\[(.*?)\]",
+                                        str_delete_effects)[0].split(", ")
+            ignore_effects = re.findall(r"\[(.*?)\]",
+                                        str_ignore_effects)[0].split(", ")
+            option_spec = option_spec.replace(", ", "").split(": ")[1]
+
+            # Parameters
+            nsrt_parameters = [
+                Variable(param[0], type_name_to_type[param[1]])
+                for param in params
+            ]
+
+            # Predicates (precond, add_effects, delete_effects)
+            def unparsed_preds_to_predicates(
+                    unparsed_preds: List[str]) -> Set[LiftedAtom]:
+                predicates: Set[LiftedAtom] = set()
+                if unparsed_preds == [""]:
+                    return predicates
+                for unparsed_pred in unparsed_preds:
+                    pred_name = unparsed_pred.split("(")[0]
+                    pred_vars = [
+                        pred_var.split(":") for pred_var in re.findall(
+                            r"\((.*?)\)", unparsed_pred)[0].split(", ")
+                    ]
+                    if pred_vars[0] == [""]:
+                        args = []
+                    else:
+                        args = [
+                            Variable(pred_var[0],
+                                     type_name_to_type[pred_var[1]])
+                            for pred_var in pred_vars
+                        ]
+                    predicates.add(
+                        LiftedAtom(pred_name_to_pred[pred_name], args))
+                return predicates
+
+            nsrt_precond = unparsed_preds_to_predicates(precond)
+            nsrt_add_effects = unparsed_preds_to_predicates(add_effects)
+            nsrt_delete_effects = unparsed_preds_to_predicates(delete_effects)
+            # Ignore Effects
+            if ignore_effects == [""]:
+                nsrt_ignore_effects = set()
+            else:
+                nsrt_ignore_effects = {
+                    pred_name_to_pred[ignore_effect]
+                    for ignore_effect in ignore_effects
+                }
+            # Option Spec
+            nsrt_option = option_name_to_option[option_spec.split("(")[0]]
+            option_vars = [
+                option_var.split(":") for option_var in re.findall(
+                    r"\((.*?)\)", option_spec)[0].split(", ")
+            ]
+            nsrt_option_vars = [
+                Variable(option_var[0], type_name_to_type[option_var[1]])
+                for option_var in option_vars
+            ]
+            # Sampler
+            nsrt_sampler = sampler_name_to_sampler[name]
+
+            nsrts.add(
+                NSRT(name, nsrt_parameters, nsrt_precond, nsrt_add_effects,
+                     nsrt_delete_effects, nsrt_ignore_effects, nsrt_option,
+                     nsrt_option_vars, nsrt_sampler))
+        return nsrts

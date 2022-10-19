@@ -17,7 +17,7 @@ from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
 from predicators.planning import PlanningFailure, PlanningTimeout, \
-    sesame_plan, task_plan, task_plan_grounding
+    _run_plan_with_option_model, sesame_plan, task_plan, task_plan_grounding
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, ParameterizedOption, Predicate, \
     State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
@@ -43,7 +43,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
-        plan, metrics = sesame_plan(
+        plan, metrics, last_traj = sesame_plan(
             task,
             option_model,
             nsrts,
@@ -55,6 +55,27 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
             CFG.sesame_max_skeletons_optimized,
             max_horizon=CFG.horizon,
         )
+        # Test our run_plan_with_option_model function
+        # Case 1: plan is empty
+        traj, success = _run_plan_with_option_model(task, 0, option_model, [],
+                                                    last_traj)
+        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
+        # Case 2: plan does not achieve goal
+        traj, success = _run_plan_with_option_model(task, 0, option_model,
+                                                    [plan[0]], last_traj)
+        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
+        # Case 3: plan does achieve goal
+        traj, success = _run_plan_with_option_model(task, 0, option_model,
+                                                    plan, last_traj)
+        assert success and len(traj.states) > 1 and len(
+            traj.states) == len(traj.actions) + 1
+        # Case 4: plan has option that is non initiable
+        non_initiable_option = plan[0]
+        non_initiable_option.initiable = lambda s: False
+        traj, success = _run_plan_with_option_model(task, 0, option_model,
+                                                    [non_initiable_option],
+                                                    last_traj)
+        assert not success and len(traj.states) == 1 and len(traj.actions) == 0
     if e is None:
         assert len(plan) == 3
         assert all(isinstance(act, _Option) for act in plan)
@@ -457,7 +478,7 @@ def test_policy_guided_sesame():
     option_model = create_option_model(CFG.option_model_name)
     # With a trivial policy, we would expect the number of nodes to be the
     # same as it would be if we planned with no policy.
-    unguided_plan, unguided_metrics = sesame_plan(
+    unguided_plan, unguided_metrics, _ = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -470,7 +491,7 @@ def test_policy_guided_sesame():
         max_horizon=CFG.horizon,
     )
     trivial_policy = lambda a, o, g: None
-    guided_plan, guided_metrics = sesame_plan(
+    guided_plan, guided_metrics, _ = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -517,7 +538,7 @@ def test_policy_guided_sesame():
         block = unrealized_blocks[0]
         return pick_nsrt.ground([block])
 
-    _, metrics = sesame_plan(
+    _, metrics, _ = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -547,7 +568,7 @@ def test_policy_guided_sesame():
                 return ground_nsrt
         raise Exception("Should not happen.")  # pragma: no cover
 
-    _, invalid_policy_metrics = sesame_plan(
+    _, invalid_policy_metrics, _ = sesame_plan(
         task,
         option_model,
         nsrts,
@@ -608,7 +629,7 @@ def test_sesame_plan_fast_downward():
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
         try:
-            plan, metrics = sesame_plan(
+            plan, metrics, _ = sesame_plan(
                 task,
                 option_model,
                 nsrts,

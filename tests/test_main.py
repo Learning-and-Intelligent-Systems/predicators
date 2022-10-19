@@ -165,6 +165,15 @@ def test_main():
         "--segmenter", "atom_changes", "--mlp_regressor_max_itr", "1"
     ]
     main()
+    # Try the above test but with harmlessness check enabled.
+    sys.argv = [
+        "dummy", "--env", "blocks", "--approach", "nsrt_learning", "--seed",
+        "123", "--sampler_learner", "random", "--num_train_tasks", "1",
+        "--num_test_tasks", "1", "--option_learner", "direct_bc",
+        "--segmenter", "atom_changes", "--mlp_regressor_max_itr", "1",
+        "--disable_harmlessness_check", "False"
+    ]
+    main()
     # Try running interactive approach with no online learning, to make sure
     # it doesn't crash. This is also an important test of the full pipeline
     # in the case where a goal predicate is excluded. No online learning occurs
@@ -176,6 +185,17 @@ def test_main():
         "Covers", "--interactive_num_ensemble_members", "1",
         "--num_train_tasks", "3", "--num_test_tasks", "3",
         "--predicate_mlp_classifier_max_itr", "lambda n: n * 50"
+    ]
+    main()
+    # Try the above test but with harmlessness check enabled.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "interactive_learning",
+        "--seed", "123", "--num_online_learning_cycles", "1",
+        "--online_learning_max_transitions", "0", "--excluded_predicates",
+        "Covers", "--interactive_num_ensemble_members", "1",
+        "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--predicate_mlp_classifier_max_itr", "lambda n: n * 50",
+        "--disable_harmlessness_check", "False"
     ]
     main()
 
@@ -228,3 +248,23 @@ def test_env_failure():
     task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
+
+    # Test plan_only_eval succeeds, even though simulation fails.
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "timeout": 10,
+        "make_test_videos": False,
+        "cover_initial_holding_prob": 0.0,
+        "num_test_tasks": 1,
+        "plan_only_eval": True
+    })
+    env = _DummyCoverEnv()
+    train_tasks = env.get_train_tasks()
+    approach = create_approach("oracle", env.predicates, env.options,
+                               env.types, env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    task = train_tasks[0]
+    approach.solve(task, timeout=500)
+    metrics = _run_testing(env, approach)
+    assert metrics["num_solved"] == 1

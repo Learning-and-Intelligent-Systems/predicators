@@ -22,7 +22,7 @@ def _main() -> None:
     parser.add_argument("--branch", type=str, default=DEFAULT_BRANCH)
     args = parser.parse_args()
     # Prepare the repo.
-    for cmd in get_cmds_to_prep_repo(args.branch):
+    for cmd in get_cmds_to_prep_repo(args.branch, False):
         subprocess.run(cmd, shell=True, check=False)
     # Create the run commands.
     cmds = []

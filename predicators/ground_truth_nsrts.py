@@ -1,10 +1,18 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-from typing import List, Sequence, Set
+import itertools
+import logging
+from typing import List, Sequence, Set, Union, cast
 
 import numpy as np
+from numpy.random._generator import Generator
 
+from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
+    PICK_PLACE_OBJECT_TYPES, PLACE_INTO_SURFACE_OBJECT_TYPES, \
+    PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_hand_end_pose, \
+    check_nav_end_pose, load_checkpoint_state
 from predicators.envs import get_or_create_env
+from predicators.envs.behavior import BehaviorEnv
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
@@ -16,6 +24,16 @@ from predicators.settings import CFG
 from predicators.structs import NSRT, Array, GroundAtom, LiftedAtom, Object, \
     ParameterizedOption, Predicate, State, Type, Variable
 from predicators.utils import null_sampler
+
+try:  # pragma: no cover
+    from igibson.external.pybullet_tools.utils import get_aabb, get_aabb_extent
+    from igibson.object_states.on_floor import \
+        RoomFloor  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import \
+        URDFObject  # pylint: disable=unused-import
+    from igibson.utils import sampling_utils
+except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
+    pass
 
 
 def get_gt_nsrts(predicates: Set[Predicate],
@@ -31,6 +49,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
     elif CFG.env in ("blocks", "pybullet_blocks"):
         nsrts = _get_blocks_gt_nsrts()
+    elif CFG.env == "behavior":
+        nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
     elif CFG.env in ("painting", "repeated_nextto_painting"):
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "tools":
@@ -2721,6 +2741,599 @@ def _get_satellites_gt_nsrts() -> Set[NSRT]:
                                     ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(take_geiger_reading_nsrt)
+
+    return nsrts
+
+
+def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
+    """Create ground truth nsrts for BehaviorEnv."""
+    # Without this cast, mypy complains:
+    #   "BaseEnv" has no attribute "object_to_ig_object"
+    # and using isinstance(env, BehaviorEnv) instead does not work.
+    env_base = get_or_create_env("behavior")
+    env = cast(BehaviorEnv, env_base)
+
+    # NOTE: These two methods below are necessary to help instantiate
+    # all combinations of types for predicates (e.g. reachable(robot, book),
+    # reachable(robot, fridge), etc). If we had support for hierarchical types
+    # such that all types could inherit from 'object' we would not need
+    # to perform this combinatorial enumeration.
+
+    type_name_to_type = {t.name: t for t in env.types}
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+
+    def _get_lifted_atom(base_pred_name: str,
+                         objects: Sequence[Variable]) -> LiftedAtom:
+        pred = _get_predicate(base_pred_name, [o.type for o in objects])
+        return LiftedAtom(pred, objects)
+
+    def _get_predicate(base_pred_name: str,
+                       types: Sequence[Type]) -> Predicate:
+        if len(types) == 0:
+            return pred_name_to_pred[base_pred_name]
+        type_names = "-".join(t.name for t in types)
+        pred_name = f"{base_pred_name}-{type_names}"
+        return pred_name_to_pred[pred_name]
+
+    # We start by creating reachable predicates for the agent and
+    # all possible other types. These predicates will
+    # be used as ignore effects for navigateTo operators.
+    reachable_predicates = set()
+    for reachable_pred_type in env.task_relevant_types:
+        # We don't care about the "reachable(agent)" predicate
+        # since it will always be False.
+        if reachable_pred_type.name == "agent":
+            continue
+        reachable_predicates.add(
+            _get_predicate("reachable", [reachable_pred_type]))
+
+    nsrts = set()
+    op_name_count_nav = itertools.count()
+    op_name_count_pick = itertools.count()
+    op_name_count_place = itertools.count()
+    op_name_count_open = itertools.count()
+    op_name_count_close = itertools.count()
+    op_name_count_place_inside = itertools.count()
+
+    # Dummy sampler definition. Useful for open and close.
+    def dummy_param_sampler(state: State, goal: Set[GroundAtom],
+                            rng: Generator,
+                            objects: Sequence["URDFObject"]) -> Array:
+        """Dummy sampler."""
+        del state, goal, rng, objects
+        return np.array([0.0, 0.0, 0.0])
+
+    # NavigateTo sampler definition.
+    MAX_NAVIGATION_SAMPLES = 50
+
+    def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
+                                  rng: Generator,
+                                  objects: Sequence["URDFObject"]) -> Array:
+        """Sampler for navigateTo option.
+
+        Loads the entire iGibson env to perform collision checking and
+        generates a finite number of samples such that the returned
+        sample is not in collision with any object in the environment.
+        """
+        del goal
+        # Get the current env for collision checking.
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+        load_checkpoint_state(state, env)
+        # The navigation nsrts are designed such that the target
+        # obj is always last in the params list.
+        obj_to_sample_near = objects[-1]
+        closeness_limit = 2.00
+        nearness_limit = 0.15
+        distance = nearness_limit + (
+            (closeness_limit - nearness_limit) * rng.random())
+        yaw = rng.random() * (2 * np.pi) - np.pi
+        x = distance * np.cos(yaw)
+        y = distance * np.sin(yaw)
+        sampler_output = np.array([x, y])
+        # The below while loop avoids sampling values that would put the
+        # robot in collision with some object in the environment. It may
+        # not always succeed at this and will exit after a certain number
+        # of tries.
+        logging.info("Sampling params for navigation...")
+        num_samples_tried = 0
+        while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
+                                  sampler_output) is None):
+            distance = closeness_limit * rng.random()
+            yaw = rng.random() * (2 * np.pi) - np.pi
+            x = distance * np.cos(yaw)
+            y = distance * np.sin(yaw)
+            sampler_output = np.array([x, y])
+            # NOTE: In many situations, it is impossible to find a good sample
+            # no matter how many times we try. Thus, we break this loop after
+            # a certain number of tries so the planner will backtrack.
+            if num_samples_tried > MAX_NAVIGATION_SAMPLES:
+                break
+            num_samples_tried += 1
+
+        return sampler_output
+
+    # Grasp sampler definition.
+    def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],
+                                rng: Generator,
+                                objects: Sequence["URDFObject"]) -> Array:
+        """Sampler for grasp option."""
+        del state, goal, objects
+        x_offset = (rng.random() * 0.4) - 0.2
+        y_offset = (rng.random() * 0.4) - 0.2
+        z_offset = rng.random() * 0.2
+        return np.array([x_offset, y_offset, z_offset])
+
+    # Place OnTop sampler definition.
+    MAX_PLACEONTOP_SAMPLES = 25
+
+    def place_ontop_obj_pos_sampler(
+            state: State, goal: Set[GroundAtom], rng: Generator,
+            objects: Union["URDFObject", "RoomFloor"]) -> Array:
+        """Sampler for placeOnTop option."""
+        del goal
+        assert rng is not None
+        # objA is the object the robot is currently holding, and
+        # objB is the surface that it must place onto.
+        # The BEHAVIOR NSRT's are designed such that objA is the 0th
+        # argument, and objB is the last.
+        objA = objects[0]
+        objB = objects[-1]
+
+        params = {
+            "max_angle_with_z_axis": 0.17,
+            "bimodal_stdev_fraction": 1e-6,
+            "bimodal_mean_fraction": 1.0,
+            "max_sampling_attempts": 50,
+            "aabb_offset": 0.01,
+        }
+        aabb = get_aabb(objA.get_body_id())
+        aabb_extent = get_aabb_extent(aabb)
+
+        random_seed_int = rng.integers(10000000)
+        sampling_results = sampling_utils.sample_cuboid_on_object(
+            objB,
+            num_samples=1,
+            cuboid_dimensions=aabb_extent,
+            axis_probabilities=[0, 0, 1],
+            refuse_downwards=True,
+            random_seed_number=random_seed_int,
+            **params,
+        )
+
+        if sampling_results[0] is None or sampling_results[0][0] is None:
+            # If sampling fails, fall back onto custom-defined object-specific
+            # samplers
+            if objB.category == "shelf":
+                # Get the current env for collision checking.
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                load_checkpoint_state(state, env)
+                objB_sampling_bounds = objB.bounding_box / 2
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0],
+                                objB_sampling_bounds[0]),
+                    rng.uniform(-objB_sampling_bounds[1],
+                                objB_sampling_bounds[1]),
+                    rng.uniform(-objB_sampling_bounds[2] + 0.3,
+                                objB_sampling_bounds[1]) + 0.3
+                ])
+                logging.info("Sampling params for placeOnTop shelf...")
+                num_samples_tried = 0
+                while not check_hand_end_pose(env.igibson_behavior_env, objB,
+                                              sample_params):
+                    sample_params = np.array([
+                        rng.uniform(-objB_sampling_bounds[0],
+                                    objB_sampling_bounds[0]),
+                        rng.uniform(-objB_sampling_bounds[1],
+                                    objB_sampling_bounds[1]),
+                        rng.uniform(-objB_sampling_bounds[2] + 0.3,
+                                    objB_sampling_bounds[1]) + 0.3
+                    ])
+                    # NOTE: In many situations, it is impossible to find a
+                    # good sample no matter how many times we try. Thus, we
+                    # break this loop after a certain number of tries so the
+                    # planner will backtrack.
+                    if num_samples_tried > MAX_PLACEONTOP_SAMPLES:
+                        break
+                    num_samples_tried += 1
+                return sample_params
+            # If there's no object specific sampler, just return a
+            # random sample.
+            return np.array([
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(0.3, 1.0)
+            ])
+
+        rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
+        return rnd_params
+
+    # Place Inside sampler definition.
+    def place_inside_obj_pos_sampler(
+            state: State, goal: Set[GroundAtom], rng: Generator,
+            objects: Union["URDFObject", "RoomFloor"]) -> Array:
+        """Sampler for placeOnTop option."""
+        del goal
+        assert rng is not None
+        # objA is the object the robot is currently holding, and
+        # objB is the surface that it must place onto.
+        # The BEHAVIOR NSRT's are designed such that objA is the 0th
+        # argument, and objB is the last.
+        objA = objects[0]
+        objB = objects[-1]
+
+        params = {
+            "max_angle_with_z_axis": 0.17,
+            "bimodal_stdev_fraction": 0.4,
+            "bimodal_mean_fraction": 0.5,
+            "max_sampling_attempts": 100,
+            "aabb_offset": -0.01,
+        }
+        aabb = get_aabb(objA.get_body_id())
+        aabb_extent = get_aabb_extent(aabb)
+
+        random_seed_int = rng.integers(10000000)
+        sampling_results = sampling_utils.sample_cuboid_on_object(
+            objB,
+            num_samples=1,
+            cuboid_dimensions=aabb_extent,
+            axis_probabilities=[0, 0, 1],
+            refuse_downwards=True,
+            random_seed_number=random_seed_int,
+            **params,
+        )
+
+        if sampling_results[0] is None or sampling_results[0][0] is None:
+            # If sampling fails, fall back onto custom-defined object-specific
+            # samplers
+            if objB.category == "bucket":
+                # Get the current env for collision checking.
+                env = get_or_create_env("behavior")
+                assert isinstance(env, BehaviorEnv)
+                load_checkpoint_state(state, env)
+                objB_sampling_bounds = objB.bounding_box / 2
+                # Since the bucket's hole is generally in the center,
+                # we want a very small sampling range around the
+                # object's position in the x and y directions (hence
+                # we divide the x and y bounds futher by 2).
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0] / 2,
+                                objB_sampling_bounds[0] / 2),
+                    rng.uniform(-objB_sampling_bounds[1] / 2,
+                                objB_sampling_bounds[1] / 2),
+                    rng.uniform(objB_sampling_bounds[2] + 0.15,
+                                objB_sampling_bounds[2] + 0.5)
+                ])
+                return sample_params
+            if objB.category == "trash_can":
+                objB_sampling_bounds = objB.bounding_box / 2
+                # Since the trash can's hole is generally in the center,
+                # we want a very small sampling range around the
+                # object's position in the x and y directions (hence
+                # we divide the x and y bounds futher by 4).
+                sample_params = np.array([
+                    rng.uniform(-objB_sampling_bounds[0] / 4,
+                                objB_sampling_bounds[0] / 4),
+                    rng.uniform(-objB_sampling_bounds[1] / 4,
+                                objB_sampling_bounds[1] / 4),
+                    rng.uniform(objB_sampling_bounds[2] + 0.05,
+                                objB_sampling_bounds[2] + 0.15)
+                ])
+                return sample_params
+            # If there's no object specific sampler, just return a
+            # random sample.
+            return np.array([
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(-0.5, 0.5),
+                rng.uniform(0.3, 1.0)
+            ])
+
+        rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
+        return rnd_params
+
+    for option in env.options:
+        split_name = option.name.split("-")
+        base_option_name = split_name[0]
+        option_arg_type_names = split_name[1:]
+        # Edge case t-shirt gets parsed wrong with split("").
+        if option_arg_type_names[0] == "t" and option_arg_type_names[
+                1] == "shirt":
+            option_arg_type_names = ["t-shirt"] + option_arg_type_names[2:]
+
+        if base_option_name == "NavigateTo":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+            # We don't need an NSRT to navigate to the agent or the room floor.
+            if target_obj_type_name in ["agent", "room_floor"]:
+                continue
+            # Navigate To.
+            parameters = [target_obj]
+            option_vars = [target_obj]
+            preconditions: Set[LiftedAtom] = set()
+            add_effects = {_get_lifted_atom("reachable", [target_obj])}
+            reachable_nothing = _get_lifted_atom("reachable-nothing", [])
+            delete_effects = {reachable_nothing}
+            nsrt = NSRT(
+                f"{option.name}-{next(op_name_count_nav)}", parameters,
+                preconditions, add_effects, delete_effects,
+                reachable_predicates, option, option_vars,
+                lambda s, g, r, o: navigate_to_param_sampler(
+                    s,
+                    g,
+                    r,
+                    [
+                        env.object_to_ig_object(o_i)
+                        if isinstance(o_i, Object) else o_i for o_i in o
+                    ],
+                ))
+            nsrts.add(nsrt)
+
+        elif base_option_name == "Grasp":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+            # If the target object is not in these object types, we do not
+            # have to make a NSRT with this type.
+            if target_obj_type.name not in PICK_PLACE_OBJECT_TYPES:
+                continue
+            # Grasp an object from ontop some surface.
+            for surf_obj_type in sorted(env.task_relevant_types):
+                # If the surface object is not in these object types, we do not
+                # have to make a NSRT with this type.
+                if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES\
+                    | PLACE_INTO_SURFACE_OBJECT_TYPES:
+                    continue
+                surf_obj = Variable("?surf", surf_obj_type)
+                parameters = [target_obj, surf_obj]
+                option_vars = [target_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                targ_reachable = _get_lifted_atom("reachable", [target_obj])
+                targ_holding = _get_lifted_atom("holding", [target_obj])
+                ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
+                inside = _get_lifted_atom("inside", [target_obj, surf_obj])
+                preconditions_ontop = {handempty, targ_reachable, ontop}
+                preconditions_inside = {handempty, targ_reachable, inside}
+                add_effects = {targ_holding}
+                delete_effects_ontop = {handempty, ontop, targ_reachable}
+                delete_effects_inside = {handempty, inside, targ_reachable}
+                # NSRT for grasping an object from ontop an object.
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_pick)}",
+                    parameters,
+                    preconditions_ontop,
+                    add_effects,
+                    delete_effects_ontop,
+                    set(),
+                    option,
+                    option_vars,
+                    grasp_obj_param_sampler,
+                )
+                nsrts.add(nsrt)
+                # NSRT for grasping an object from inside an object.
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_pick)}",
+                    parameters,
+                    preconditions_inside,
+                    add_effects,
+                    delete_effects_inside,
+                    set(),
+                    option,
+                    option_vars,
+                    grasp_obj_param_sampler,
+                )
+                nsrts.add(nsrt)
+
+        elif base_option_name == "PlaceOnTop":
+            assert len(option_arg_type_names) == 1
+            surf_obj_type_name = option_arg_type_names[0]
+            surf_obj_type = type_name_to_type[surf_obj_type_name]
+            surf_obj = Variable("?surf", surf_obj_type)
+            # We don't need an NSRT to place objects on top of the
+            # agent because this is never necessary.
+            if surf_obj.type.name == "agent":
+                continue
+            # If the surface object is not in these object types, we do not
+            # have to make a NSRT with this type.
+            if surf_obj_type.name not in PLACE_ONTOP_SURFACE_OBJECT_TYPES:
+                continue
+            # We need to place the object we're holding!
+            for held_obj_types in sorted(env.task_relevant_types):
+                # If the held object is not in these object types, we do not
+                # have to make a NSRT with this type.
+                if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES:
+                    continue
+                held_obj = Variable("?held", held_obj_types)
+                parameters = [held_obj, surf_obj]
+                option_vars = [surf_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                held_holding = _get_lifted_atom("holding", [held_obj])
+                surf_reachable = _get_lifted_atom("reachable", [surf_obj])
+                held_reachable = _get_lifted_atom("reachable", [held_obj])
+                ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
+                preconditions = {held_holding, surf_reachable}
+                add_effects = {ontop, handempty, held_reachable}
+                delete_effects = {held_holding}
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_place)}",
+                    parameters,
+                    preconditions,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, g, r, o: place_ontop_obj_pos_sampler(
+                        s,
+                        g,
+                        objects=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
+                        rng=r,
+                    ),
+                )
+                nsrts.add(nsrt)
+
+        elif base_option_name == "Open":
+            assert len(option_arg_type_names) == 1
+            open_obj_type_name = option_arg_type_names[0]
+            open_obj_type = type_name_to_type[open_obj_type_name]
+            # We don't need an NSRT to open objects that are not
+            # openable.
+            if open_obj_type.name not in OPENABLE_OBJECT_TYPES:
+                continue
+            open_obj = Variable("?obj", open_obj_type)
+            # We don't need an NSRT to open the agent.
+            if open_obj_type_name == "agent":
+                continue
+            parameters = [open_obj]
+            option_vars = [open_obj]
+            openable_predicate = _get_lifted_atom("openable", [open_obj])
+            closed_predicate = _get_lifted_atom("closed", [open_obj])
+            preconditions = {
+                _get_lifted_atom("reachable", [open_obj]), closed_predicate,
+                openable_predicate
+            }
+            add_effects = {_get_lifted_atom("open", [open_obj])}
+            delete_effects = {closed_predicate}
+            nsrt = NSRT(
+                f"{option.name}-{next(op_name_count_open)}", parameters,
+                preconditions, add_effects, delete_effects, set(), option,
+                option_vars, lambda s, g, r, o: dummy_param_sampler(
+                    s,
+                    g,
+                    r,
+                    [
+                        env.object_to_ig_object(o_i)
+                        if isinstance(o_i, Object) else o_i for o_i in o
+                    ],
+                ))
+            nsrts.add(nsrt)
+
+        elif base_option_name == "Close":
+            assert len(option_arg_type_names) == 1
+            close_obj_type_name = option_arg_type_names[0]
+            close_obj_type = type_name_to_type[close_obj_type_name]
+            close_obj = Variable("?obj", close_obj_type)
+            # We don't need an NSRT to close objects that are not
+            # openable.
+            if close_obj_type.name not in OPENABLE_OBJECT_TYPES:
+                continue
+            parameters = [close_obj]
+            option_vars = [close_obj]
+            preconditions = {
+                _get_lifted_atom("reachable", [close_obj]),
+                _get_lifted_atom("open", [close_obj]),
+                _get_lifted_atom("openable", [close_obj])
+            }
+            add_effects = {_get_lifted_atom("closed", [close_obj])}
+            delete_effects = {_get_lifted_atom("open", [close_obj])}
+            nsrt = NSRT(
+                f"{option.name}-{next(op_name_count_close)}", parameters,
+                preconditions, add_effects, delete_effects, set(), option,
+                option_vars, lambda s, g, r, o: dummy_param_sampler(
+                    s,
+                    g,
+                    r,
+                    [
+                        env.object_to_ig_object(o_i)
+                        if isinstance(o_i, Object) else o_i for o_i in o
+                    ],
+                ))
+            nsrts.add(nsrt)
+
+        elif base_option_name == "PlaceInside":
+            assert len(option_arg_type_names) == 1
+            surf_obj_type_name = option_arg_type_names[0]
+            surf_obj_type = type_name_to_type[surf_obj_type_name]
+            surf_obj = Variable("?surf", surf_obj_type)
+            # We don't need an NSRT to place objects inside the
+            # agent or room floor because this is not possible.
+            if surf_obj_type.name in ["agent", "room_floor"]:
+                continue
+            # If the surface object is not in these object types, we do not
+            # have to make a NSRT with this type.
+            if surf_obj_type.name not in PLACE_INTO_SURFACE_OBJECT_TYPES:
+                continue
+            # We need to place the object we're holding. Note that we create
+            # two different place-inside NSRTs: one for when the object we are
+            # placing into is `openable`, and one for other cases.
+            for held_obj_types in sorted(env.task_relevant_types):
+                # If the held object is not in these object types, we do not
+                # have to make a NSRT with this type.
+                if held_obj_types.name not in PICK_PLACE_OBJECT_TYPES or \
+                    held_obj_types.name == surf_obj_type.name:
+                    continue
+                held_obj = Variable("?held", held_obj_types)
+                parameters = [held_obj, surf_obj]
+                option_vars = [surf_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                held_holding = _get_lifted_atom("holding", [held_obj])
+                surf_reachable = _get_lifted_atom("reachable", [surf_obj])
+                held_reachable = _get_lifted_atom("reachable", [held_obj])
+                inside = _get_lifted_atom("inside", [held_obj, surf_obj])
+                openable_surf = _get_lifted_atom("openable", [surf_obj])
+                not_openable_surf = _get_lifted_atom("not-openable",
+                                                     [surf_obj])
+                open_surf = _get_lifted_atom("open", [surf_obj])
+                preconditions_openable = {
+                    held_holding, surf_reachable, openable_surf, open_surf
+                }
+                preconditions_not_openable = {
+                    held_holding, surf_reachable, not_openable_surf
+                }
+                add_effects = {inside, handempty, held_reachable}
+                delete_effects = {held_holding}
+                # NSRT for placing into an openable surface.
+                openable_nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_place_inside)}",
+                    parameters,
+                    preconditions_openable,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, g, r, o: place_inside_obj_pos_sampler(
+                        s,
+                        g,
+                        objects=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
+                        rng=r,
+                    ),
+                )
+                nsrts.add(openable_nsrt)
+                # NSRT for placing into a not-openable surface.
+                not_openable_nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_place_inside)}",
+                    parameters,
+                    preconditions_not_openable,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, g, r, o: place_inside_obj_pos_sampler(
+                        s,
+                        g,
+                        objects=[
+                            env.object_to_ig_object(o_i)
+                            if isinstance(o_i, Object) else o_i for o_i in o
+                        ],
+                        rng=r,
+                    ),
+                )
+                nsrts.add(not_openable_nsrt)
+
+        else:
+            raise ValueError(
+                f"Unexpected base option name: {base_option_name}")
 
     return nsrts
 

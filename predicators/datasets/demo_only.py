@@ -14,6 +14,8 @@ from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs import BaseEnv
+from predicators.envs.behavior import BehaviorEnv
+from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Action, Dataset, LowLevelTrajectory, \
     ParameterizedOption, State, Task
@@ -39,8 +41,46 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
         logging.info(f"\n\nCREATED {len(trajectories)} DEMONSTRATIONS")
         dataset = Dataset(trajectories)
 
+        # NOTE: This is necessary because BEHAVIOR options save
+        # the BEHAVIOR environment object in their memory, and this
+        # can't be pickled.
+        if CFG.env == "behavior":  # pragma: no cover
+            for traj in dataset.trajectories:
+                for act in traj.actions:
+                    act.get_option().memory = {}
+
         with open(dataset_fname, "wb") as f:
             pkl.dump(dataset, f)
+        # Pickle information about dataset created.
+        if CFG.env == "behavior":  # pragma: no cover
+            assert isinstance(env, BehaviorEnv)
+            info = {}
+            info["behavior_task_list"] = CFG.behavior_task_list
+            info["behavior_scene_name"] = CFG.behavior_scene_name
+            info["seed"] = CFG.seed
+            if len(CFG.behavior_task_list) != 1:
+                info["task_list_indices"] = env.task_list_indices
+                info["scene_list"] = env.scene_list
+            info[
+                "task_num_task_instance_id_to_igibson_seed"] = \
+                    env.task_num_task_instance_id_to_igibson_seed
+            with open(dataset_fname.replace(".data", ".info"), "wb") as f:
+                pkl.dump(info, f)
+
+    # NOTE: This is necessary because we replace BEHAVIOR
+    # options with dummy options in order to pickle them, so
+    # when we load them, we need to make sure they have the
+    # correct options from the environment.
+    if CFG.env == "behavior":  # pragma: no cover
+        assert isinstance(env, BehaviorEnv)
+        option_name_to_option = env.option_name_to_option
+        for traj in dataset.trajectories:
+            for act in traj.actions:
+                dummy_opt = act.get_option()
+                gt_param_opt = option_name_to_option[dummy_opt.name]
+                gt_opt = gt_param_opt.ground(dummy_opt.objects,
+                                             dummy_opt.params)
+                act.set_option(gt_opt)
     return dataset
 
 
@@ -169,23 +209,37 @@ def _generate_demonstrations(
                                            idx, num_tasks, task,
                                            event_to_action)
                 termination_function = task.goal_holds
-
-            if CFG.make_demo_videos:
-                monitor = utils.VideoMonitor(env.render)
+            if CFG.env == "behavior":  # pragma: no cover
+                # For BEHAVIOR we are generating the trajectory by running
+                # our plan on our option models. Since option models
+                # return only states, we will add dummy actions to the
+                # states to create our low-level trajectories.
+                last_traj = oracle_approach.get_last_traj()
+                traj, success = _run_plan_with_option_model(
+                    task, idx, oracle_approach.get_option_model(), last_plan,
+                    last_traj)
+                # Is successful if we found a low-level plan that achieves
+                # our goal using option models.
+                if not success:
+                    raise ApproachFailure(
+                        "Falied execution of low-level plan on option model")
             else:
-                monitor = None
-            traj, _ = utils.run_policy(
-                policy,
-                env,
-                "train",
-                idx,
-                termination_function=termination_function,
-                max_num_steps=CFG.horizon,
-                exceptions_to_break_on={
-                    utils.OptionExecutionFailure,
-                    utils.HumanDemonstrationFailure,
-                },
-                monitor=monitor)
+                if CFG.make_demo_videos:
+                    monitor = utils.VideoMonitor(env.render)
+                else:
+                    monitor = None
+                traj, _ = utils.run_policy(
+                    policy,
+                    env,
+                    "train",
+                    idx,
+                    termination_function=termination_function,
+                    max_num_steps=CFG.horizon,
+                    exceptions_to_break_on={
+                        utils.OptionExecutionFailure,
+                        utils.HumanDemonstrationFailure,
+                    },
+                    monitor=monitor)
         except (ApproachTimeout, ApproachFailure,
                 utils.EnvironmentFailure) as e:
             logging.warning("WARNING: Approach failed to solve with error: "

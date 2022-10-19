@@ -45,7 +45,7 @@ def learn_nsrts_from_data(
     smallest_pnads = None
     smallest_pnad_complexity = float('inf')
     rng = np.random.default_rng(CFG.seed)
-    for _ in range(CFG.data_orderings_to_search):
+    for order_i in range(CFG.data_orderings_to_search):
         # Step 0: Shuffle dataset to learn from.
         if CFG.data_orderings_to_search > 1:
             random_data_indices = sorted(
@@ -55,6 +55,8 @@ def learn_nsrts_from_data(
             ground_atom_dataset = [
                 ground_atom_dataset[i] for i in random_data_indices
             ]
+            logging.info(f"Learning NSRTs on Ordering {order_i}/"
+                         f"{CFG.data_orderings_to_search}")
         # STEP 1: Segment each trajectory in the dataset based on changes in
         #         either predicates or options. If we are doing option learning,
         #         then the data will not contain options, so this segmenting

@@ -56,7 +56,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
     # Enter the repo.
     server_cmds = ["cd ~/predicators"]
     # Prepare the repo.
-    server_cmds.extend(get_cmds_to_prep_repo(branch))
+    server_cmds.extend(get_cmds_to_prep_repo(branch, False))
     # Run the main command.
     server_cmds.append(f"{cmd} &> {logfile} &")
     run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)

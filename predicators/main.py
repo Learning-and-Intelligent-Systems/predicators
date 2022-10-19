@@ -47,8 +47,11 @@ import dill as pkl
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
+from predicators.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
+from predicators.planning import _run_plan_with_option_model
 from predicators.settings import CFG
 from predicators.structs import Dataset, InteractionRequest, \
     InteractionResult, Metrics, Task
@@ -291,28 +294,61 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             monitor = None
         try:
             # Now, measure success by running the policy in the environment.
-            traj, execution_metrics = utils.run_policy(
-                policy,
-                env,
-                "test",
-                test_task_idx,
-                task.goal_holds,
-                max_num_steps=CFG.horizon,
-                monitor=monitor)
-            solved = task.goal_holds(traj.states[-1])
+            # There are two special cases that we handle first. In the if,
+            # we consider the case where plan_only_eval is True, in which
+            # case we only check whether this BilevelPlanningApproach found
+            # a plan. In the elif, we consider the case where
+            # behavior_option_model_eval is True, in which case for BEHAVIOR
+            # we evaluate on option models instead of the low-level simulator.
+            # Finally, the else handles the default case, where we use
+            # utils.run_policy to roll out the policy in the environment.
+            if CFG.plan_only_eval:
+                assert isinstance(approach, BilevelPlanningApproach)
+                if approach.get_last_plan() != [] or task.goal_holds(
+                        task.init):
+                    solved = True
+                execution_metrics = {"policy_call_time": 0.0}
+            elif CFG.behavior_option_model_eval:  # pragma: no cover
+                # To evaluate BEHAVIOR on our option model, we are going
+                # to run our approach's plan on our option model.
+                # Note that if approach is not a BilevelPlanningApproach
+                # we cannot use this method to evaluate and would need to
+                # run the policy on the option model, not the plan
+                assert CFG.env == "behavior" and isinstance(
+                    approach, BilevelPlanningApproach)
+                last_plan = approach.get_last_plan()
+                last_traj = approach.get_last_traj()
+                option_model_start_time = time.time()
+                traj, solved = _run_plan_with_option_model(
+                    task, test_task_idx, approach.get_option_model(),
+                    last_plan, last_traj)
+                execution_metrics = {
+                    "policy_call_time": option_model_start_time - time.time()
+                }
+            else:
+                traj, execution_metrics = utils.run_policy(
+                    policy,
+                    env,
+                    "test",
+                    test_task_idx,
+                    task.goal_holds,
+                    max_num_steps=CFG.horizon,
+                    monitor=monitor)
+                solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
-            # Save the successful trajectory, e.g., for playback on a robot.
-            traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
-            traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
-            # Include the original task too so we know the goal.
-            traj_data = {
-                "task": task,
-                "trajectory": traj,
-                "pybullet_robot": CFG.pybullet_robot
-            }
-            with open(traj_file_path, "wb") as f:
-                pkl.dump(traj_data, f)
+            if not CFG.plan_only_eval:  # in this case, traj is not defined.
+                # Save the successful trajectory, e.g., for playback on a robot.
+                traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
+                traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
+                # Include the original task too so we know the goal.
+                traj_data = {
+                    "task": task,
+                    "trajectory": traj,
+                    "pybullet_robot": CFG.pybullet_robot
+                }
+                with open(traj_file_path, "wb") as f:
+                    pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -376,8 +412,15 @@ def _save_test_results(results: Metrics,
     avg_suc_time = results["avg_suc_time"]
     logging.info(f"Tasks solved: {num_solved} / {num_total}")
     logging.info(f"Average time for successes: {avg_suc_time:.5f} seconds")
-    outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
-               f"{online_learning_cycle}.pkl")
+    if CFG.env == "behavior":  # pragma: no cover
+        behavior_task_name = CFG.behavior_task_list[0] if len(
+            CFG.behavior_task_list) == 1 else "all"
+        outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
+                   f"{online_learning_cycle}__{behavior_task_name}__"
+                   f"{CFG.behavior_scene_name}.pkl")
+    else:
+        outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
+                   f"{online_learning_cycle}.pkl")
     # Save CFG alongside results.
     outdata = {
         "config": CFG,
