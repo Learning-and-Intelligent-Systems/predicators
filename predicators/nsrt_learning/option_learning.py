@@ -16,6 +16,7 @@ from predicators.envs.blocks import BlocksEnv
 from predicators.ml_models import ImplicitMLPRegressor, MLPRegressor, Regressor
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.inverse_kinematics import InverseKinematicsError
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Datastore, Object, OptionSpec, \
     ParameterizedOption, Segment, State, STRIPSOperator, Variable, \
@@ -287,6 +288,7 @@ class _KinematicActionConverter(_ActionConverter):
     def __init__(self) -> None:
         super().__init__()
         # Create a new PyBullet connection and robot.
+        # TODO: fix load approach with this.
         self._physics_client_id = p.connect(p.DIRECT)
         # Create the robot.
         self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
@@ -305,7 +307,10 @@ class _KinematicActionConverter(_ActionConverter):
     def reduced_to_env(self, reduced_action_arr: Array) -> Array:
         # Inverse kinematics.
         x, y, z, fingers = reduced_action_arr
-        joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+        try:
+            joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+        except InverseKinematicsError:
+            raise OptionExecutionFailure("IK failure in action conversion.")
         joints[self._robot.left_finger_joint_idx] = fingers
         joints[self._robot.right_finger_joint_idx] = fingers
         return np.array(joints, dtype=np.float32)
