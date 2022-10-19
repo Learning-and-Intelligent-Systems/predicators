@@ -314,6 +314,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             ps = self._pred_to_ensemble[
                 atom.predicate.name].predict_member_probas(x)
             entropy_sum += utils.entropy(float(np.mean(ps)))
+        print(f"Score of {atom_set} is {entropy_sum}")
         return entropy_sum
 
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
