@@ -351,6 +351,9 @@ class GlobalSettings:
     # option learning parameters
     option_learning_action_converter = "identity"
 
+    # option model parameters
+    option_model_use_gui = False
+
     # interactive learning parameters
     interactive_num_ensemble_members = 10
     interactive_query_policy = "threshold"
