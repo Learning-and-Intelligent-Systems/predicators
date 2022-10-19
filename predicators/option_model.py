@@ -93,17 +93,19 @@ class _OracleOptionModel(_OptionModelBase):
         # if it does. This is a helpful optimization for planning with
         # fine-grained options over long horizons.
         # Note: mypy complains if this is None instead of DefaultState.
-        last_state = DefaultState
+        if CFG.option_model_terminate_on_repeat:
+            last_state = DefaultState
 
-        def _terminal(s: State) -> bool:
-            nonlocal last_state
-            if option_copy.terminal(s):
-                return True
-            # TODO deal
-            # if last_state is not DefaultState and last_state.allclose(s):
-            #     raise utils.OptionExecutionFailure("Option got stuck.")
-            last_state = s
-            return False
+            def _terminal(s: State) -> bool:
+                nonlocal last_state
+                if option_copy.terminal(s):
+                    return True
+                # if last_state is not DefaultState and last_state.allclose(s):
+                #     raise utils.OptionExecutionFailure("Option got stuck.")
+                last_state = s
+                return False
+        else:
+            _terminal = option_copy.terminal
 
         try:
             traj = utils.run_policy_with_simulator(
