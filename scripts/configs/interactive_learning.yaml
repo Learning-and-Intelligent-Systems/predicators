@@ -7,7 +7,7 @@ APPROACHES:
       explorer: "greedy_lookahead"
       predicate_mlp_classifier_n_reinitialize_tries: 5
       predicate_mlp_classifier_init: "normal"
-      interactive_score_threshold: 0.4
+      interactive_score_threshold: 0.8
   # # MLP baseline
   # main-mlp:
   #   NAME: "interactive_learning"
