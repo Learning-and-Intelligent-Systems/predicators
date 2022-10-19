@@ -105,7 +105,8 @@ class _OracleOptionModel(_OptionModelBase):
                 last_state = s
                 return False
         else:
-            _terminal = option_copy.terminal
+            # mypy complains without the lambda, pylint complains with it!
+            _terminal = lambda s: option_copy.terminal(s)  # pylint: disable=unnecessary-lambda
 
         try:
             traj = utils.run_policy_with_simulator(
