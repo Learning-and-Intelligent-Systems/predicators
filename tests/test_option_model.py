@@ -4,7 +4,8 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.option_model import _OracleOptionModel, create_option_model
+from predicators.option_model import _BehaviorOptionModel, \
+    _OracleOptionModel, create_option_model
 from predicators.structs import Action, ParameterizedOption, State, Type
 
 
@@ -181,3 +182,5 @@ def test_create_option_model():
     })
     model = create_option_model("oracle_blocks")
     assert isinstance(model, _OracleOptionModel)
+    model = create_option_model("oracle_behavior")
+    assert isinstance(model, _BehaviorOptionModel)

@@ -22,10 +22,12 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Sequence, Set, \
 import numpy as np
 
 from predicators import utils
-from predicators.option_model import _OptionModelBase
+from predicators.envs import get_or_create_env
+from predicators.envs.behavior import BehaviorEnv
+from predicators.option_model import _BehaviorOptionModel, _OptionModelBase
 from predicators.settings import CFG
-from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
-    DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
+from predicators.structs import NSRT, AbstractPolicy, Action, DefaultState, \
+    DummyOption, GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
     ParameterizedOption, Predicate, State, STRIPSOperator, Task, Type, \
     _GroundNSRT, _Option
 from predicators.utils import EnvironmentFailure, _TaskPlanningHeuristic
@@ -44,21 +46,22 @@ class _Node:
 
 
 def sesame_plan(
-        task: Task,
-        option_model: _OptionModelBase,
-        nsrts: Set[NSRT],
-        predicates: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: str,
-        max_skeletons_optimized: int,
-        max_horizon: int,
-        abstract_policy: Optional[AbstractPolicy] = None,
-        max_policy_guided_rollout: int = 0,
-        check_dr_reachable: bool = True,
-        allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+    task: Task,
+    option_model: _OptionModelBase,
+    nsrts: Set[NSRT],
+    predicates: Set[Predicate],
+    types: Set[Type],
+    timeout: float,
+    seed: int,
+    task_planning_heuristic: str,
+    max_skeletons_optimized: int,
+    max_horizon: int,
+    abstract_policy: Optional[AbstractPolicy] = None,
+    max_policy_guided_rollout: int = 0,
+    check_dr_reachable: bool = True,
+    allow_noops: bool = False,
+    use_visited_state_set: bool = False
+) -> Tuple[List[_Option], Metrics, List[State]]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -69,6 +72,18 @@ def sesame_plan(
     only consider at most one skeleton, and DiscoveredFailures cannot be
     handled.
     """
+    if CFG.env == "behavior" and \
+        CFG.behavior_mode == 'iggui':  # pragma: no cover
+        logging.info(  # pylint: disable=logging-not-lazy
+            "VIDEO CREATION MODE: You have 30 seconds to position " +
+            "the iggui window to the location you want for recording.")
+        env = get_or_create_env('behavior')
+        assert isinstance(env, BehaviorEnv)
+        start_time = time.time()
+        while time.time() - start_time < 30.0:
+            env.igibson_behavior_env.step(np.zeros(env.action_space.shape))
+        logging.info("VIDEO CREATION MODE: Starting planning.")
+
     if CFG.sesame_task_planner == "astar":
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
@@ -102,21 +117,22 @@ def sesame_plan(
 
 
 def _sesame_plan_with_astar(
-        task: Task,
-        option_model: _OptionModelBase,
-        nsrts: Set[NSRT],
-        predicates: Set[Predicate],
-        types: Set[Type],
-        timeout: float,
-        seed: int,
-        task_planning_heuristic: str,
-        max_skeletons_optimized: int,
-        max_horizon: int,
-        abstract_policy: Optional[AbstractPolicy] = None,
-        max_policy_guided_rollout: int = 0,
-        check_dr_reachable: bool = True,
-        allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+    task: Task,
+    option_model: _OptionModelBase,
+    nsrts: Set[NSRT],
+    predicates: Set[Predicate],
+    types: Set[Type],
+    timeout: float,
+    seed: int,
+    task_planning_heuristic: str,
+    max_skeletons_optimized: int,
+    max_horizon: int,
+    abstract_policy: Optional[AbstractPolicy] = None,
+    max_policy_guided_rollout: int = 0,
+    check_dr_reachable: bool = True,
+    allow_noops: bool = False,
+    use_visited_state_set: bool = False
+) -> Tuple[List[_Option], Metrics, List[State]]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -175,7 +191,7 @@ def _sesame_plan_with_astar(
             for skeleton, atoms_sequence in gen:
                 necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                     skeleton, atoms_sequence, task.goal)
-                plan, suc = run_low_level_search(
+                plan, suc, traj = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
                     max_horizon)
@@ -188,7 +204,7 @@ def _sesame_plan_with_astar(
                         f"skeletons, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
-                    return plan, metrics
+                    return plan, metrics, traj
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout(
@@ -340,9 +356,9 @@ def _skeleton_generator(
             visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     logging.info(f"{act.name} {act.objects}")
-        # logging.info("")
+        for act in node.skeleton:
+            logging.info(f"{act.name} {act.objects}")
+        logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -356,7 +372,6 @@ def _skeleton_generator(
                 current_node = node
                 for _ in range(sesame_max_policy_guided_rollout):
                     if task.goal.issubset(current_node.atoms):
-                        yield current_node.skeleton, current_node.atoms_sequence
                         break
                     ground_nsrt = abstract_policy(current_node.atoms,
                                                   current_objects, task.goal)
@@ -373,14 +388,12 @@ def _skeleton_generator(
                     if child_skeleton_tup in visited_skeletons:
                         continue
                     visited_skeletons.add(child_skeleton_tup)
-                    # Note: the cost of taking a policy-generated action is 1,
-                    # but the policy-generated skeleton is immediately yielded
-                    # once it reaches a goal. This allows the planner to always
-                    # trust the policy first, but it also allows us to yield a
-                    # policy-generated plan without waiting to exhaustively
-                    # rule out the possibility that some other primitive plans
-                    # are actually lower cost.
-                    child_cost = 1 + current_node.cumulative_cost
+                    # Note: the cost of taking a policy-generated action is 0.
+                    # This encourages the planner to trust the policy, and
+                    # also allows us to yield a policy-generated plan without
+                    # waiting to exhaustively rule out the possibility that
+                    # some other primitive plans are actually lower cost.
+                    child_cost = current_node.cumulative_cost
                     child_node = _Node(
                         atoms=child_atoms,
                         skeleton=child_skeleton,
@@ -431,11 +444,11 @@ def _skeleton_generator(
     raise _SkeletonSearchTimeout
 
 
-def run_low_level_search(task: Task, option_model: _OptionModelBase,
-                         skeleton: List[_GroundNSRT],
-                         atoms_sequence: List[Set[GroundAtom]], seed: int,
-                         timeout: float,
-                         max_horizon: int) -> Tuple[List[_Option], bool]:
+def run_low_level_search(
+        task: Task, option_model: _OptionModelBase,
+        skeleton: List[_GroundNSRT], atoms_sequence: List[Set[GroundAtom]],
+        seed: int, timeout: float,
+        max_horizon: int) -> Tuple[List[_Option], bool, List[State]]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -470,7 +483,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     ]
     while cur_idx < len(skeleton):
         if time.perf_counter() - start_time > timeout:
-            return longest_failed_refinement, False
+            return longest_failed_refinement, False, traj
         assert num_tries[cur_idx] < max_tries[cur_idx]
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
@@ -518,18 +531,25 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     # utils.abstract(traj[cur_idx], predicates).
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
+                        logging.info("Success: Expected Atoms Check Passed!")
                         if cur_idx == len(skeleton):
-                            return plan, True  # success!
+                            return plan, True, traj  # success!
                     else:
+                        logging.info("Failure: Expected Atoms Check Failed.")
+                        for a in expected_atoms:
+                            if not a.holds(traj[cur_idx]):
+                                logging.info(a)
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
                     # explicitly check the goal on the final timestep.
                     can_continue_on = True
+                    logging.info("Success: Goal Atoms Check Passed!")
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            return plan, True  # success!
+                            return plan, True, traj  # success!
                         can_continue_on = False
+                        logging.info("Failure: Goal Atoms Check Failed.")
         else:
             # The option is not initiable.
             can_continue_on = False
@@ -571,10 +591,67 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                                     "longest_failed_refinement":
                                     longest_failed_refinement
                                 })
-                    return longest_failed_refinement, False
+                    return longest_failed_refinement, False, traj
     # Should only get here if the skeleton was empty.
     assert not skeleton
-    return [], True
+    return [], True, traj
+
+
+def _run_plan_with_option_model(
+        task: Task, task_idx: int, option_model: _OptionModelBase,
+        plan: List[_Option],
+        last_traj: List[State]) -> Tuple[LowLevelTrajectory, bool]:
+    """Runs a plan on an option model to generate a low-level trajectory.
+
+    Returns a LowLevelTrajectory and a boolean. If the boolean is True,
+    the option sequence successfully executed to achieve the goal and
+    generated a LowLevelTrajectory. Otherwise, it returns an empty list
+    and False. Since option models return only states, we will add dummy
+    actions to the states to create our low level trajectories.
+    """
+    traj: List[State] = [task.init] + [DefaultState for _ in plan]
+    actions: List[Action] = [Action(np.array([0.0])) for _ in plan]
+    for idx in range(len(plan)):
+        state = traj[idx]
+        option = plan[idx]
+        if not option.initiable(state):
+            # The option is not initiable.
+            return LowLevelTrajectory(_states=[task.init],
+                                      _actions=[],
+                                      _is_demo=False,
+                                      _train_task_idx=task_idx), False
+        if CFG.plan_only_eval:  # pragma: no cover
+            assert isinstance(option_model, _BehaviorOptionModel)
+            # We need to load state into option model so predicate classifiers
+            # work when we run task.goal_holds(traj[-1]), otherwise
+            # classifiers will be ran on non-updated prior state.
+            option_model.load_state(last_traj[idx + 1])
+            next_state = last_traj[idx + 1]
+        else:
+            next_state, _ = option_model.get_next_state_and_num_actions(
+                state, option)
+        traj[idx + 1] = next_state
+        # Need to make a new option without policy, initiable, and
+        # terminal in order to make it a picklable trajectory for
+        # BEHAVIOR environment trajectories.
+        action_option = ParameterizedOption(
+            option.name, option.parent.types, option.parent.params_space,
+            lambda s, m, o, p: Action(np.array([0.0])),
+            lambda s, m, o, p: True,
+            lambda s, m, o, p: True).ground(option.objects, option.params)
+        action_option.memory = option.memory
+        actions[idx].set_option(action_option)
+    # Since we're not checking the expected_atoms, we need to
+    # explicitly check if the goal is achieved.
+    if task.goal_holds(traj[-1]):
+        return LowLevelTrajectory(_states=traj,
+                                  _actions=actions,
+                                  _is_demo=True,
+                                  _train_task_idx=task_idx), True  # success!
+    return LowLevelTrajectory(_states=[task.init],
+                              _actions=[],
+                              _is_demo=False,
+                              _train_task_idx=task_idx), False
 
 
 def _update_nsrts_with_failure(
@@ -695,10 +772,10 @@ def task_plan_with_option_plan_constraint(
 
 
 def _sesame_plan_with_fast_downward(
-        task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
-        predicates: Set[Predicate], types: Set[Type], timeout: float,
-        seed: int, max_horizon: int,
-        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+    task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
+    predicates: Set[Predicate], types: Set[Type], timeout: float, seed: int,
+    max_horizon: int, optimal: bool
+) -> Tuple[List[_Option], Metrics, List[State]]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -707,9 +784,6 @@ def _sesame_plan_with_fast_downward(
     1) git clone https://github.com/ronuchit/downward.git
     2) cd downward && ./build.py
     3) export FD_EXEC_PATH="<your path here>/downward"
-
-    On MacOS, to use gtimeout:
-    4) brew install coreutils
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -747,10 +821,25 @@ def _sesame_plan_with_fast_downward(
         raise PlanningTimeout("Planning timed out in call to FD!")
     # Parse and log metrics.
     metrics: Metrics = defaultdict(float)
-    num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
-    num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-    assert len(num_nodes_expanded) == 1
-    assert len(num_nodes_created) == 1
+    num_nodes_expanded = re.findall(r"Evaluated (\d+) state", output)
+    num_nodes_created = re.findall(r"Generated (\d+) state", output)
+    try:
+        assert len(num_nodes_expanded) == 1
+        assert len(num_nodes_created) == 1
+    # In case the following exception is raised, the below info
+    # is extremely helpful for debugging.
+    except AssertionError:
+        logging.info(f"Output: {output}")
+        logging.info(f"Num Nodes Expanded: {num_nodes_expanded}")
+        logging.info(f"Init Atoms: {init_atoms}")
+        logging.info(f"Goal: {task.goal}")
+        logging.info(f"Objects: {objects}")
+        env = get_or_create_env("behavior")
+        assert isinstance(env, BehaviorEnv)
+        logging.info(f"Task Relevant Types: {env.task_relevant_types}")
+        logging.info(f"Env Predicates: {env.predicates}")
+        logging.info(f"Domain String: {dom_str}")
+        logging.info(f"Problem String: {prob_str}")
     metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
     metrics["num_nodes_created"] = float(num_nodes_created[0])
     # Extract the skeleton from the output and compute the atoms_sequence.
@@ -784,9 +873,9 @@ def _sesame_plan_with_fast_downward(
     try:
         necessary_atoms_seq = utils.compute_necessary_atoms_seq(
             skeleton, atoms_sequence, task.goal)
-        plan, suc = run_low_level_search(task, option_model, skeleton,
-                                         necessary_atoms_seq, seed,
-                                         low_level_timeout, max_horizon)
+        plan, suc, traj = run_low_level_search(task, option_model, skeleton,
+                                               necessary_atoms_seq, seed,
+                                               low_level_timeout, max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot
         # modify the NSRTs as we do in SeSamE with A*, because we don't ever
@@ -797,7 +886,7 @@ def _sesame_plan_with_fast_downward(
             raise PlanningTimeout("Planning timed out in refinement!")
         raise PlanningFailure("Skeleton produced by FD not refinable!")
     metrics["plan_length"] = len(plan)
-    return plan, metrics
+    return plan, metrics, traj
 
 
 class PlanningFailure(utils.ExceptionWithInfo):

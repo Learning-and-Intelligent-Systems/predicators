@@ -93,7 +93,7 @@ class LLMBilevelPlanningApproach(LLMOpenLoopApproach):
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
         task = Task(state, goal)
-        options, metrics = self._run_sesame_plan(
+        options, metrics, _ = self._run_sesame_plan(
             task,
             nsrts,
             preds,
