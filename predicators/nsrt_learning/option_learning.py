@@ -288,12 +288,19 @@ class _KinematicActionConverter(_ActionConverter):
 
     def __init__(self) -> None:
         super().__init__()
+        self._init()
+
+    def _init(self) -> None:
         # Create a new PyBullet connection and robot.
-        # TODO: fix load approach with this.
         self._physics_client_id = p.connect(p.DIRECT)
         # Create the robot.
         self._robot = create_single_arm_pybullet_robot(CFG.pybullet_robot,
                                                        self._physics_client_id)
+
+    def __setstate__(self, state: Dict) -> None:
+        # Recreate the object to avoid issues with the PyBullet client.
+        del state  # unused
+        self._init()
 
     def env_to_reduced(self, env_action_arr: Array) -> Array:
         # Forward kinematics.
