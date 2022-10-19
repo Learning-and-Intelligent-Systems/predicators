@@ -1,5 +1,7 @@
 [run]
 omit =
+    predicators/envs/behavior.py
+    predicators/behavior_utils/**
     predicators/third_party/**
 
 [report]
