@@ -353,6 +353,7 @@ class GlobalSettings:
 
     # option model parameters
     option_model_terminate_on_repeat = True
+    option_model_use_gui = False
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
