@@ -124,6 +124,13 @@ def test_pybullet_blocks_reset(env):
     with pytest.raises(NotImplementedError) as e:
         env.render_state_plt(state, task, action)
     assert "This env does not use Matplotlib" in str(e)
+    # Test reset_state in the case where a block is already held.
+    assert env.get_state().get(block, "held") < 0.5
+    option = env.Pick.ground([env.robot, block], [])
+    state = env.execute_option(option)
+    env.set_state(state)
+    recovered_state = env.get_state()
+    assert recovered_state.get(block, "held") > 0.5
 
 
 def test_pybullet_blocks_picking(env):

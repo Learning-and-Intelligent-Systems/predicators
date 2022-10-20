@@ -270,7 +270,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Check if we're holding some block.
         held_block = self._get_held_block(state)
         if held_block is not None:
-            # TODO cover this line
             self._force_grasp_object(held_block)
 
         # For any blocks not involved, put them out of view.
