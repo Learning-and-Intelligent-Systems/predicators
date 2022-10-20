@@ -1,7 +1,9 @@
 """Tests for option learning."""
 
+import tempfile
 from unittest.mock import patch
 
+import dill as pkl
 import numpy as np
 import pybullet as p
 import pytest
@@ -430,3 +432,16 @@ def test_kinematic_action_conversion():
     env_action_arr2 = converter.reduced_to_env(reduced_action_arr)
     reduced_action_arr2 = converter.env_to_reduced(env_action_arr2)
     assert np.allclose(reduced_action_arr, reduced_action_arr2)
+    # Test case where IK fails.
+    with pytest.raises(utils.OptionExecutionFailure) as e:
+        converter.reduced_to_env([100, 100, 100, 0])
+    assert "IK failure in action conversion" in str(e)
+    # Test pickling and loading when the physics client disconnects.
+    p.disconnect(physics_client_id)
+    pkl_file = tempfile.NamedTemporaryFile(delete=False).name
+    with open(pkl_file, "wb") as f:
+        pkl.dump(converter, f)
+    with open(pkl_file, "rb") as f:
+        loaded_converter = pkl.load(f)
+    reduced_action_arr3 = loaded_converter.env_to_reduced(env_action_arr2)
+    assert np.allclose(reduced_action_arr, reduced_action_arr3)
