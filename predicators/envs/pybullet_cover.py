@@ -90,6 +90,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         self._block_id_to_block: Dict[int, Object] = {}
         self._target_id_to_target: Dict[int, Object] = {}
 
+    def simulate(self, state: State, action: Action) -> State:
+        # To implement this, need to handle resetting to states where the
+        # block is held, and need to take into account the offset between
+        # the hand and the held block, which reset_state() doesn't yet.
+        raise NotImplementedError("Simulate not implemented for PyBulletCover")
+
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle cover-specific initialization."""
         super()._initialize_pybullet()

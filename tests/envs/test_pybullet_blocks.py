@@ -116,10 +116,8 @@ def test_pybullet_blocks_reset(env):
     with pytest.raises(ValueError) as e:
         env.set_state(state)
     assert "Could not reconstruct state." in str(e)
-    # Simulate and render state should be not implemented.
+    # Render state should not work.
     action = env.action_space.sample()
-    with pytest.raises(NotImplementedError):
-        env.simulate(state, action)
     task = env.get_train_tasks()[0]
     with pytest.raises(NotImplementedError):
         env.render_state(state, task, action)
