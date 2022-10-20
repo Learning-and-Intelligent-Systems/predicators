@@ -12,7 +12,7 @@ from typing import Tuple
 import numpy as np
 
 from predicators import utils
-from predicators.envs import BaseEnv, get_or_create_env
+from predicators.envs import BaseEnv, create_new_env
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
 
@@ -20,11 +20,11 @@ from predicators.structs import DefaultState, State, _Option
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        env = get_or_create_env(CFG.env)
+        env = create_new_env(CFG.env)
         return _OracleOptionModel(env)
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
-        env = get_or_create_env(env_name)
+        env = create_new_env(env_name)
         return _OracleOptionModel(env)
     raise NotImplementedError(f"Unknown option model: {name}")
 
