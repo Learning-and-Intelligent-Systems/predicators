@@ -7,7 +7,6 @@ import pytest
 
 from predicators import utils
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs import create_new_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
