@@ -54,8 +54,8 @@ class PyBulletEnv(BaseEnv):
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
@@ -69,7 +69,7 @@ class PyBulletEnv(BaseEnv):
         """One-time initialization of PyBullet assets."""
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        if CFG.pybullet_use_gui:  # pragma: no cover
+        if self.using_gui:  # pragma: no cover
             self._physics_client_id = p.connect(p.GUI)
             # Disable the preview windows for faster rendering.
             p.configureDebugVisualizer(p.COV_ENABLE_GUI,
@@ -208,7 +208,7 @@ class PyBulletEnv(BaseEnv):
         # and cannot be used in headless mode.
         del caption  # unused
 
-        if not CFG.pybullet_use_gui:
+        if not self.using_gui:
             raise Exception(
                 "Rendering only works with GUI on. See "
                 "https://github.com/bulletphysics/bullet3/issues/1157")
