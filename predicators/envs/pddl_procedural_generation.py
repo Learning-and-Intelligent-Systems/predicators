@@ -643,28 +643,42 @@ def _generate_pancake_problem(num_pancakes: int, num_oils: int,
     # TODO add others
 
     # Create the initial state.
-    init_strs = set()
+    # init_strs = set()
+    loc = rng.choice(locs)
+    init_strs = {f"(at {bot} {loc})"}
+    init_strs.add(f"(isArm {bot})")
     for pancake in pancakes:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {pancake} {loc})")
         init_strs.add(f"(isPancake {pancake})")
     for oil in oils:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {oil} {loc})")
         init_strs.add(f"(isOil {oil})")
     for water in waters:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {water} {loc})")
         init_strs.add(f"(isWater {water})")
     for mix in mixes:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {mix} {loc})")
         init_strs.add(f"(isMix {mix})")  
     for wet_mix in wet_mixes:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {wet_mix} {loc})")
         init_strs.add(f"(isWet_Mix {wet_mix})") 
     for bowl in bowls:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {bowl} {loc})")
         init_strs.add(f"(isBowl {bowl})")  
     for pan in pans:
         loc = rng.choice(locs)
+        init_strs.add(f"(on {pan} {loc})")
         init_strs.add(f"(isPan {pan})")  
+        
+    # init_strs.add(f"(isArm {bot})")
+    # loc = rng.choice(locs)
+    # init_strs.add(f"(at {bot} {loc})")
          
     # TODO remove and add others
 
@@ -699,7 +713,7 @@ def _generate_pancake_problem(num_pancakes: int, num_oils: int,
         {wet_mixes_str} - object
         {bowl_str} - object
         {pan_str} - object
-        {locs_str} - object
+        {locs_str} - location
 
     )
     (:init {init_str})
