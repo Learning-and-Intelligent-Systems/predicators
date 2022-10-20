@@ -19,6 +19,7 @@ from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
 from predicators.envs.playroom import PlayroomEnv
+from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
     RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
@@ -52,7 +53,8 @@ ENV_NAME_AND_CLS = [
     ("pddl_easy_delivery_procedural_tasks",
      ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
     ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv)
+    ("coffee", CoffeeEnv),
+    ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -177,6 +179,16 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "sesame_use_visited_state_set": True,
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["pybullet_blocks"] = [
+    {
+        "option_model_name": "oracle",
+        "option_model_terminate_on_repeat": False,
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [3],
+    },
+]
 
 
 def _policy_solves_task(policy, task, simulator):
@@ -204,7 +216,7 @@ def test_oracle_approach(env_name, env_cls):
         if "num_test_tasks" not in args:
             args["num_test_tasks"] = 2
         utils.reset_config(args)
-        env = env_cls()
+        env = env_cls(use_gui=False)
         train_tasks = env.get_train_tasks()
         approach = OracleApproach(env.predicates, env.options, env.types,
                                   env.action_space, train_tasks)
@@ -234,7 +246,7 @@ def test_nsrt_parameters(env_name, env_cls):
         "num_train_tasks": 2,
         "num_test_tasks": 2
     })
-    env = env_cls()
+    env = env_cls(use_gui=False)
     nsrts = get_gt_nsrts(env.predicates, env.options)
     for nsrt in nsrts:
         effects_vars: Set[Variable] = set()
@@ -481,3 +493,23 @@ def test_playroom_get_gt_nsrts():
         state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
+
+
+def test_temporary_pybullet_blocks():
+    # TODO delete
+    args = {
+        "env": "pybullet_blocks",
+        "option_model_name": "oracle",
+        "option_model_terminate_on_repeat": False,
+        "num_train_tasks": 1,
+        "blocks_num_blocks_train": [3],
+    }
+    utils.reset_config(args)
+    env = PyBulletBlocksEnv(use_gui=True)
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                                env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    for task in train_tasks:
+        policy = approach.solve(task, timeout=500)
+        assert _policy_solves_task(policy, task, env.simulate)
