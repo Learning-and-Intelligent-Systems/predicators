@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Set
 import numpy as np
 import pytest
 
+from predicators.envs import create_new_env
 from predicators import utils
 from predicators.approaches.oracle_approach import OracleApproach
 from predicators.envs.blocks import BlocksEnv
@@ -499,17 +500,21 @@ def test_temporary_pybullet_blocks():
     # TODO delete
     args = {
         "env": "pybullet_blocks",
-        "option_model_name": "oracle",
+        "option_model_name": "oracle_blocks",
         "option_model_terminate_on_repeat": False,
+        "pybullet_robot": "panda",
         "num_train_tasks": 1,
         "blocks_num_blocks_train": [3],
     }
     utils.reset_config(args)
-    env = PyBulletBlocksEnv(use_gui=True)
+
+    # TODO: what is the difference between these two?
+    env = create_new_env("pybullet_blocks", use_gui=True, do_cache=True)
+    # env = PyBulletBlocksEnv(use_gui=True)
+
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                                 env.action_space, train_tasks)
-    assert not approach.is_learning_based
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert _policy_solves_task(policy, task, env.simulate)

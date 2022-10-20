@@ -4,7 +4,7 @@ from typing import List, Sequence, Set
 
 import numpy as np
 
-from predicators.envs import get_or_create_env
+from predicators.envs import get_or_create_env, create_new_env
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
@@ -71,7 +71,12 @@ def get_gt_nsrts(predicates: Set[Predicate],
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
     """Helper for loading types, predicates, and options by name."""
-    env = get_or_create_env(env_name)
+
+    # WHAT IS THE DIFFERENCE BETWEEN THESE?
+    # Suspect that someone is missing a physicsClientID...
+    # env = get_or_create_env(env_name)
+    env = create_new_env(env_name, use_gui=False)
+
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
         name_to_env_obj[o.name] = o
