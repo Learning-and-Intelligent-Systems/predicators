@@ -83,7 +83,7 @@ def test_panda_pybullet_robot_joints(panda):
         panda.joint_info_from_name("non_existent_joint")
 
 
-def test_panda_pybullet_robot.set_joints_with_ik_no_solutions(panda):
+def test_panda_pybullet_robot_inverse_kinematics_no_solutions(panda):
     """Test when IKFast returns no solutions."""
     # Impossible target pose with no solutions
     with pytest.raises(ValueError):
@@ -91,7 +91,7 @@ def test_panda_pybullet_robot.set_joints_with_ik_no_solutions(panda):
                                  validate=True)
 
 
-def test_panda_pybullet_robot.set_joints_with_ik_incorrect_solution(panda):
+def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
     """Test when IKFast returns an incorrect solution.
 
     Note that this doesn't happen in reality, but we need to check we
