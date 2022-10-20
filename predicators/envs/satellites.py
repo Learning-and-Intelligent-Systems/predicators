@@ -43,8 +43,9 @@ class SatellitesEnv(BaseEnv):
     id_tol: ClassVar[float] = 1e-3
     location_tol: ClassVar[float] = 1e-3
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         ## `instrument` can be camera (0.0 - 0.33), infrared (0.33 - 0.66), or
         ## Geiger (0.66 - 1.0). `calibration_obj_id` is the ID of the object
