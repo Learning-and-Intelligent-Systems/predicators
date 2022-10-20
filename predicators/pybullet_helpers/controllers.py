@@ -53,7 +53,7 @@ def create_move_end_effector_to_pose_option(
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
         try:
-            joint_positions = robot.inverse_kinematics(
+            joint_positions = robot.set_joints_with_ik(
                 (ee_action[0], ee_action[1], ee_action[2]), validate=False)
         except InverseKinematicsError:
             raise utils.OptionExecutionFailure("Inverse kinematics failed.")
