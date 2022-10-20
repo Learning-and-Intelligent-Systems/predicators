@@ -82,8 +82,9 @@ class _PDDLEnv(BaseEnv):
     same object parameters and no continuous parameters.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
             _parse_pddl_domain(self._domain_str)
