@@ -409,6 +409,21 @@ class SingleArmPyBulletRobot(abc.ABC):
             [self.left_finger_joint_idx, self.right_finger_joint_idx])
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
+
+        # Set the robot joints to this final joint state, under the assumptions
+        # that (1) the real robot will move to final_joint_state next and (2)
+        # IK will next be queried with a target state that is nearby the
+        # final_joint_state. This line of code was added to patch a difficult
+        # bug that arose when two versions of the environment were created: one
+        # that exposes the options used by the agent, and one that represents
+        # the "real" environment. In the former environment, IK was getting
+        # called, but the robot's state was not getting updated to match the
+        # state of the "real" environment, leading to subsequent IK failures.
+        # Ideally, none of this would be necessary, but the reality is that
+        # IK is very sensitive to initialization, so it is a stateful method
+        # masquerading as a stateless function.
+        self.set_joints(final_joint_state)
+
         return final_joint_state
 
     def inverse_kinematics(self, end_effector_pose: Pose3D,
