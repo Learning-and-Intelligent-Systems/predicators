@@ -647,10 +647,10 @@ def _generate_pancake_problem(num_pancakes: int, num_oils: int,
     loc = rng.choice(locs)
     init_strs = {f"(at {bot} {loc})"}
     init_strs.add(f"(isArm {bot})")
-    for pancake in pancakes:
-        loc = rng.choice(locs)
-        init_strs.add(f"(on {pancake} {loc})")
-        init_strs.add(f"(isPancake {pancake})")
+    # for pancake in pancakes:
+    #     loc = rng.choice(locs)
+    #     init_strs.add(f"(on {pancake} {loc})")
+    #     init_strs.add(f"(isPancake {pancake})")
     for oil in oils:
         loc = rng.choice(locs)
         init_strs.add(f"(on {oil} {loc})")
