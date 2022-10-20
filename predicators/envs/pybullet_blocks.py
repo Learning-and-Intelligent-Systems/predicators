@@ -253,8 +253,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")
-            # Assume not holding in the initial state
-            assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz],
                 self._default_orn,
@@ -268,6 +266,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 linkIndex=-1,
                                 rgbaColor=color,
                                 physicsClientId=self._physics_client_id)
+
+        # Check if we're holding some block.
+        held_block = self._get_held_block(state)
+        if held_block is not None:
+            self._force_grasp_object(held_block)
 
         # For any blocks not involved, put them out of view.
         h = self.block_size
@@ -349,6 +352,25 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._pybullet_robot.left_finger_id: normal,
             self._pybullet_robot.right_finger_id: -1 * normal,
         }
+
+    def _force_grasp_object(self, block: Object) -> None:
+        block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}
+        block_id = block_to_block_id[block]
+        # Check if the object is already held.
+        held_obj_id = self._detect_held_object()
+        if held_obj_id is None:
+            # Position the held object inside the gripper.
+            rx, ry, rz, _ = self._pybullet_robot.get_state()
+            p.resetBasePositionAndOrientation(
+                block_id, [rx, ry, rz],
+                self._default_orn,
+                physicsClientId=self._physics_client_id)
+            assert self._detect_held_object() == block_id
+        elif held_obj_id != block_id:
+            raise ValueError("Cannot force grasp with another object held.")
+        # Create the grasp constraint.
+        self._held_obj_id = block_id
+        self._create_grasp_constraint()
 
     def _create_blocks_move_to_above_block_option(
             self, name: str, z_func: Callable[[float], float],
