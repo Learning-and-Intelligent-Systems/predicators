@@ -311,6 +311,11 @@ class BehaviorEnv(BaseEnv):
             # on a particular state, and calling them after loading checkpoint
             # on that particular state. Doing this resolves that discrepancy.
             load_checkpoint_state(self.current_ig_state_to_state(), self)
+            # Initial state objects might not have settled yet, so we step the
+            # simulator a few times to let the objects settle.
+            for _ in range(15):
+                self.igibson_behavior_env.step(
+                    np.zeros(self.igibson_behavior_env.action_space.shape))
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)

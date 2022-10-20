@@ -138,7 +138,7 @@ PLACE_ONTOP_SURFACE_OBJECT_TYPES = {
     'paper_towel', 'dishtowel', 'dial', 'folding_chair', 'deck', 'chair',
     'hamper', 'bed', 'plate', 'work_surface', 'board', 'pallet',
     'console_table', 'pool_table', 'electric_refrigerator', 'stand',
-    'room_floor'
+    'room_floor', 'notebook', 'hardback'
 }
 PLACE_INTO_SURFACE_OBJECT_TYPES = {
     'shelf', 'sack', 'basket', 'dredging_bucket', 'cabinet', 'crock', 'bucket',
@@ -381,11 +381,14 @@ def get_delta_low_level_hand_action(
 
 
 def check_nav_end_pose(
-        env: "BehaviorEnv", obj: Union["URDFObject", "RoomFloor"],
-        pos_offset: Array) -> Optional[Tuple[List[int], List[int]]]:
+        env: "BehaviorEnv",
+        obj: Union["URDFObject", "RoomFloor"],
+        pos_offset: Array,
+        ignore_blocked: bool = False) -> Optional[Tuple[List[int], List[int]]]:
     """Check that the robot can reach pos_offset from the obj without (1) being
     in collision with anything, or (2) being blocked from obj by some other
-    solid object.
+    solid object. If ignore_blocked is True than we only check if (1) and do
+    not care if (2) the object is blocked.
 
     If this is true, return the ((x,y,z),(roll, pitch, yaw)), else
     return None
@@ -410,7 +413,8 @@ def check_nav_end_pose(
         env.robots[0].parts["body"].get_body_id(),
         obj.get_body_id(),
     ))
-    if not detect_robot_collision(env.robots[0]) and not blocked:
+    if not detect_robot_collision(env.robots[0]) and (not blocked
+                                                      or ignore_blocked):
         valid_position = (pos, orn)
 
     p.restoreState(state)
