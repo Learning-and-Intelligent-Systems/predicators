@@ -115,7 +115,7 @@ def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
                                      validate=True)
 
 
-def test_panda_pybullet_robot.set_joints_with_ik(panda):
+def test_panda_pybullet_robot_inverse_kinematics(panda):
     """Test IKFast normal functionality on PandaPyBulletRobot."""
     joint_positions = panda.set_joints_with_ik(end_effector_pose=(0.25, 0.25,
                                                                   0.25),
