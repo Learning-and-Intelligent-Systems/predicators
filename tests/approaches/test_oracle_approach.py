@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Set
 import numpy as np
 import pytest
 
-from predicators.envs import create_new_env
 from predicators import utils
 from predicators.approaches.oracle_approach import OracleApproach
+from predicators.envs import create_new_env
 from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
@@ -54,8 +54,7 @@ ENV_NAME_AND_CLS = [
     ("pddl_easy_delivery_procedural_tasks",
      ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
     ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv),
-    ("pybullet_blocks", PyBulletBlocksEnv)
+    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -182,6 +181,7 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
 ]
 EXTRA_ARGS_ORACLE_APPROACH["pybullet_blocks"] = [
     {
+        "pybullet_robot": "panda",
         "option_model_name": "oracle",
         "option_model_terminate_on_repeat": False,
         "num_train_tasks": 1,
@@ -494,27 +494,3 @@ def test_playroom_get_gt_nsrts():
         state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
-
-
-def test_temporary_pybullet_blocks():
-    # TODO delete
-    args = {
-        "env": "pybullet_blocks",
-        "option_model_name": "oracle_blocks",
-        "option_model_terminate_on_repeat": False,
-        "pybullet_robot": "panda",
-        "num_train_tasks": 1,
-        "blocks_num_blocks_train": [3],
-    }
-    utils.reset_config(args)
-
-    # TODO: what is the difference between these two?
-    env = create_new_env("pybullet_blocks", use_gui=True, do_cache=True)
-    # env = PyBulletBlocksEnv(use_gui=True)
-
-    train_tasks = env.get_train_tasks()
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                                env.action_space, train_tasks)
-    for task in train_tasks:
-        policy = approach.solve(task, timeout=500)
-        assert _policy_solves_task(policy, task, env.simulate)

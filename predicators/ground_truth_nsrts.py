@@ -4,7 +4,7 @@ from typing import List, Sequence, Set
 
 import numpy as np
 
-from predicators.envs import get_or_create_env, create_new_env
+from predicators.envs import create_new_env, get_or_create_env
 from predicators.envs.doors import DoorsEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import _PDDLEnv
