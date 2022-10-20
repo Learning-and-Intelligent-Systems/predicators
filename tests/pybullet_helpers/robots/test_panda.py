@@ -83,15 +83,15 @@ def test_panda_pybullet_robot_joints(panda):
         panda.joint_info_from_name("non_existent_joint")
 
 
-def test_panda_pybullet_robot_inverse_kinematics_no_solutions(panda):
+def test_panda_pybullet_robot.set_joints_with_ik_no_solutions(panda):
     """Test when IKFast returns no solutions."""
     # Impossible target pose with no solutions
     with pytest.raises(ValueError):
-        panda.inverse_kinematics(end_effector_pose=(999.0, 99.0, 999.0),
+        panda.set_joints_with_ik(end_effector_pose=(999.0, 99.0, 999.0),
                                  validate=True)
 
 
-def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
+def test_panda_pybullet_robot.set_joints_with_ik_incorrect_solution(panda):
     """Test when IKFast returns an incorrect solution.
 
     Note that this doesn't happen in reality, but we need to check we
@@ -105,19 +105,19 @@ def test_panda_pybullet_robot_inverse_kinematics_incorrect_solution(panda):
         ikfast_mock.return_value = [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]]
 
         # If validate=False, error shouldn't be raised
-        panda.inverse_kinematics(end_effector_pose=(0.25, 0.25, 0.25),
+        panda.set_joints_with_ik(end_effector_pose=(0.25, 0.25, 0.25),
                                  validate=False)
 
         # If validate=True, error should be raised as solution doesn't match
         # desired end effector pose
         with pytest.raises(ValueError):
-            panda.inverse_kinematics(end_effector_pose=(0.25, 0.25, 0.25),
+            panda.set_joints_with_ik(end_effector_pose=(0.25, 0.25, 0.25),
                                      validate=True)
 
 
-def test_panda_pybullet_robot_inverse_kinematics(panda):
+def test_panda_pybullet_robot.set_joints_with_ik(panda):
     """Test IKFast normal functionality on PandaPyBulletRobot."""
-    joint_positions = panda.inverse_kinematics(end_effector_pose=(0.25, 0.25,
+    joint_positions = panda.set_joints_with_ik(end_effector_pose=(0.25, 0.25,
                                                                   0.25),
                                                validate=True)
     assert np.allclose(panda.forward_kinematics(joint_positions),

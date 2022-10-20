@@ -233,7 +233,7 @@ class SingleArmPyBulletRobot(abc.ABC):
     @cached_property
     def initial_joint_positions(self) -> JointPositions:
         """The joint values for the robot in its home pose."""
-        joint_positions = self.inverse_kinematics(self._ee_home_pose,
+        joint_positions = self.set_joints_with_ik(self._ee_home_pose,
                                                   validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
@@ -260,8 +260,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        joint_values = self.inverse_kinematics((rx, ry, rz), validate=True)
-        self.set_joints(joint_values)
+        self.set_joints_with_ik((rx, ry, rz), validate=True)
 
         # Handle setting the robot finger joints.
         for finger_id in [self.left_finger_id, self.right_finger_id]:
@@ -410,26 +409,22 @@ class SingleArmPyBulletRobot(abc.ABC):
         final_joint_state.insert(first_finger_idx, self.open_fingers)
         final_joint_state.insert(second_finger_idx, self.open_fingers)
 
-        # Set the robot joints to this final joint state, under the assumptions
-        # that (1) the real robot will move to final_joint_state next and (2)
-        # IK will next be queried with a target state that is nearby the
-        # final_joint_state. This line of code was added to patch a difficult
-        # bug that arose when two versions of the environment were created: one
-        # that exposes the options used by the agent, and one that represents
-        # the "real" environment. In the former environment, IK was getting
-        # called, but the robot's state was not getting updated to match the
-        # state of the "real" environment, leading to subsequent IK failures.
-        # Ideally, none of this would be necessary, but the reality is that
-        # IK is very sensitive to initialization, so it is a stateful method
-        # masquerading as a stateless function.
-        self.set_joints(final_joint_state)
-
         return final_joint_state
 
-    def inverse_kinematics(self, end_effector_pose: Pose3D,
+    def set_joints_with_ik(self, end_effector_pose: Pose3D,
                            validate: bool) -> JointPositions:
-        """Compute joint positions from a target end effector position. Uses
-        IKFast if the robot has IKFast info specified.
+        """Compute joint positions from a target end effector position, based
+        on the robot's current joint positions. Uses IKFast if the robot has
+        IKFast info specified.
+
+        The robot's joint state is updated to the IK result. For convenience,
+        the new joint positions are also returned.
+
+        We always set the joints after running IK because IK is meant to be run
+        sequentially from nearby states, since it is very sensitive to
+        initialization. We deliberately do not have a "stateless"
+        inverse_kinematics() method because there is currently no way to run
+        IK without depending on the robot's current state.
 
         The target orientation is always self._ee_orientation.
 
@@ -449,14 +444,18 @@ class SingleArmPyBulletRobot(abc.ABC):
                                                 end_effector_pose)
                 except ValueError as e:
                     raise InverseKinematicsError(e)
-            return joint_positions
 
-        return pybullet_inverse_kinematics(
-            self.robot_id,
-            self.end_effector_id,
-            end_effector_pose,
-            self._ee_orientation,
-            self.arm_joints,
-            physics_client_id=self.physics_client_id,
-            validate=validate,
-        )
+        else:
+            joint_positions = pybullet_inverse_kinematics(
+                self.robot_id,
+                self.end_effector_id,
+                end_effector_pose,
+                self._ee_orientation,
+                self.arm_joints,
+                physics_client_id=self.physics_client_id,
+                validate=validate,
+            )
+
+        self.set_joints(joint_positions)
+
+        return joint_positions

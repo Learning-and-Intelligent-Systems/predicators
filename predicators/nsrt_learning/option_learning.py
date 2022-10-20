@@ -305,7 +305,7 @@ class _KinematicActionConverter(_ActionConverter):
     def reduced_to_env(self, reduced_action_arr: Array) -> Array:
         # Inverse kinematics.
         x, y, z, fingers = reduced_action_arr
-        joints = self._robot.inverse_kinematics((x, y, z), validate=True)
+        joints = self._robot.set_joints_with_ik((x, y, z), validate=True)
         joints[self._robot.left_finger_joint_idx] = fingers
         joints[self._robot.right_finger_joint_idx] = fingers
         return np.array(joints, dtype=np.float32)
