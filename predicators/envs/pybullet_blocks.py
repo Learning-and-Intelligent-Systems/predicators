@@ -356,18 +356,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _force_grasp_object(self, block: Object) -> None:
         block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}
         block_id = block_to_block_id[block]
-        # Check if the object is already held.
+        # The block should already be held. Otherwise, the position of the
+        # block was wrong in the state.
         held_obj_id = self._detect_held_object()
-        if held_obj_id is None:
-            # Position the held object inside the gripper.
-            rx, ry, rz, _ = self._pybullet_robot.get_state()
-            p.resetBasePositionAndOrientation(
-                block_id, [rx, ry, rz],
-                self._default_orn,
-                physicsClientId=self._physics_client_id)
-            assert self._detect_held_object() == block_id
-        elif held_obj_id != block_id:
-            raise ValueError("Cannot force grasp with another object held.")
+        assert block_id == held_obj_id
         # Create the grasp constraint.
         self._held_obj_id = block_id
         self._create_grasp_constraint()
