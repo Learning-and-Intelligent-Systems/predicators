@@ -1,5 +1,6 @@
 """Procedurally generates PDDL problem strings."""
 
+from email.generator import Generator
 import functools
 from typing import Collection, Iterator, List, Optional, Set, Tuple
 
@@ -532,6 +533,89 @@ def _generate_forest_problem(height: int, width: int,
     (:domain forest)
     (:objects
         {locs_str} - loc
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
+
+
+################################### Gripper ####################################
+
+
+def create_gripper_pddl_generator(min_size: int,
+                                  max_size: int) -> PDDLProblemGenerator:
+    """Create a generator for gripper problems."""
+    return functools.partial(_generate_gripper_problems, min_size, max_size)
+
+
+def _generate_gripper_problems(min_num_rooms: int, max_num_rooms: int, 
+                               min_num_balls: int, max_num_balls: int, 
+                               num_problems: int, prefix: str, 
+                               rng: np.random.Generator) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+        num_balls = rng.integers(min_num_balls, max_num_balls + 1)
+        problem = _generate_gripper_problem(num_rooms, num_balls, prefix, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
+                              rng: np.random.Generator) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    room_objects = set()
+    for r in range(num_rooms):
+        obj = f"room{r}"
+        room_objects.add(obj)
+        init_strs.add(f"({prefix}room {obj})")
+
+    ball_objects = set()
+    for b in range(num_balls):
+        obj = f"ball{b}"
+        ball_objects.add(obj)
+        init_strs.add(f"({prefix}ball {obj})")
+
+    gripper_objects = set()
+    num_grippers = 2
+    for g in range(num_grippers):
+        obj = f"gripper{g}"
+        gripper_objects.add(obj)
+        init_strs.add(f"({prefix}gripper {obj})")
+
+    #Add free and at ground literals
+    for g in gripper_objects:
+        init_strs.add(f"({prefix}free {g})")
+    
+    for b in ball_objects:
+        ball_room = rng.integers(0, num_rooms, size = 1)[0]
+        init_strs.add(f"({prefix}at {b} {ball_room})")
+
+    #Always start robby at room0
+    init_strs.add("({prefix}at-robby room0)")
+
+    # Create goal str.
+    num_goal_balls = rng.integers(0, num_balls, size = 1)[0]
+    goal_balls = [ball_objects[i] for i in rng.choice(sorted(list(ball_objects)), size = num_goal_balls, replace = False)]
+    for goal_ball in goal_balls:
+        goal_ball_loc = rng.integers(0, num_rooms, size = 1)[0]
+        goal_strs.add(f"(at {goal_ball} {goal_ball_loc})")
+
+    # Finalize PDDL problem str.
+    all_objects = room_objects | ball_objects | gripper_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem gripper-procgen)
+    (:domain gripper)
+    (:objects
+        {objects_str} - object
     )
     (:init {init_str})
     (:goal (and {goal_str}))

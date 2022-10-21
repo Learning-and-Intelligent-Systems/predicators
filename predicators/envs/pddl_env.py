@@ -23,7 +23,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator
+    create_forest_pddl_generator, create_spanner_pddl_generator, \
+    create_gripper_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -463,6 +464,40 @@ class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
         max_size = CFG.pddl_forest_procedural_test_max_size
         return create_forest_pddl_generator(min_size, max_size)
 
+class _GripperPDDLEnv(_PDDLEnv):
+    """The IPC gripper domain."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/gripper/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksGripperPDDLEnv(_GripperPDDLEnv):
+    """The IPC gripper domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_gripper_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals)
+    
 
 ###############################################################################
 #                            Utility functions                                #
