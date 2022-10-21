@@ -17,7 +17,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Type
+    State, Task, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -50,8 +50,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override PickPlace option
         types = self._PickPlace.types
@@ -229,8 +229,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "use_gui must be True to use pybullet_draw_debug."
             p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
             for hand_lb, hand_rb in self._get_hand_regions(state):
                 # De-normalize hand bounds to actual coordinates.
@@ -357,3 +357,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = super()._get_tasks(num, rng)
+        return self._add_pybullet_state_to_tasks(tasks)

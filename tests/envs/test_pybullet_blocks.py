@@ -80,13 +80,13 @@ def _create_exposed_pybullet_blocks_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
         "env": "pybullet_blocks",
-        "pybullet_use_gui": _GUI_ON,
+        "use_gui": _GUI_ON,
         # We run this test using the RESET control mode.
         "pybullet_control_mode": "reset",
         # Which robot we're using
         "pybullet_robot": request.param,
     })
-    return _ExposedPyBulletBlocksEnv()
+    return _ExposedPyBulletBlocksEnv(use_gui=_GUI_ON)
 
 
 def _get_predicates_by_names(env, names):
@@ -102,6 +102,7 @@ def _get_predicates_by_names(env, names):
 def test_pybullet_blocks_reset(env):
     """Tests for PyBulletBlocksEnv.reset()."""
     for idx, task in enumerate(env.get_train_tasks()):
+        assert isinstance(task.init, utils.PyBulletState)
         state = env.reset("train", idx)
         assert state.allclose(task.init)
     for idx, task in enumerate(env.get_test_tasks()):

@@ -27,8 +27,9 @@ class CoverEnv(BaseEnv):
     _workspace_x: ClassVar[float] = 1.35
     _workspace_z: ClassVar[float] = 0.65
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._block_type = Type(
             "block", ["is_block", "is_target", "width", "pose", "grasp"])
@@ -369,8 +370,9 @@ class CoverEnvTypedOptions(CoverEnv):
     This means we need two options (one for block, one for target).
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         del self._PickPlace
         self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
             "Pick",
@@ -405,8 +407,9 @@ class CoverEnvTypedOptions(CoverEnv):
 class CoverEnvHierarchicalTypes(CoverEnv):
     """Toy cover domain with hierarchical types, just for testing."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Change blocks to be of a derived type
         self._parent_block_type = self._block_type
         self._block_type = Type(
@@ -444,8 +447,9 @@ class CoverEnvRegrasp(CoverEnv):
     _allow_free_space_placing: ClassVar[bool] = True
     _initial_pick_offsets: ClassVar[List[float]] = [-0.95, 0.0, 0.95]
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Add a Clear predicate to prevent attempts at placing on already
         # covered targets.
         self._Clear = Predicate("Clear", [self._target_type],
@@ -508,8 +512,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     grip_ub: ClassVar[float] = 1.0
     snap_tol: ClassVar[float] = 1e-2
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Need to now include y and gripper info in state.
         # Removing "pose" because that's ambiguous.
         # Also adding height to blocks.

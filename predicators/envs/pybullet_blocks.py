@@ -17,7 +17,7 @@ from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
 from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Array, Object, ParameterizedOption, State
+from predicators.structs import Array, Object, ParameterizedOption, State, Task
 
 
 class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
@@ -41,8 +41,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override options, keeping the types and parameter spaces the same.
         open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
@@ -167,8 +167,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
@@ -325,6 +325,11 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
              f"self._current_state has objects {set(self._current_state)}.")
 
         return state
+
+    def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
+                   rng: np.random.Generator) -> List[Task]:
+        tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
+        return self._add_pybullet_state_to_tasks(tasks)
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
