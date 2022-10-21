@@ -214,6 +214,9 @@ class GlobalSettings:
     # parameters for random options approach
     random_options_max_tries = 100
 
+    # option model parameters
+    option_model_use_gui = False
+
     # parameters for abstract GNN approach
     gnn_num_message_passing = 3
     gnn_layer_size = 16
