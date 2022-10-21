@@ -64,7 +64,6 @@ APPROACHES:
 ENVS:
   cover:
     NAME: "cover"
-    FLAGS: {}
 ARGS: {}
 FLAGS:  # common args
   excluded_predicates: "Covers,Holding"
