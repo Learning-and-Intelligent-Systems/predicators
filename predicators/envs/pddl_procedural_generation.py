@@ -593,11 +593,11 @@ def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
         init_strs.add(f"({prefix}free {g})")
     
     for b in ball_objects:
-        ball_room = rng.integers(0, num_rooms, size = 1)[0]
+        ball_room = "room" + str(rng.integers(0, num_rooms, size = 1)[0])
         init_strs.add(f"({prefix}at {b} {ball_room})")
 
     #Always start robby at room0
-    init_strs.add("({prefix}at-robby room0)")
+    init_strs.add(f"({prefix}at-robby room0)")
 
     # Create goal str.
     num_goal_balls = rng.integers(0, num_balls, size = 1)[0]
@@ -619,5 +619,5 @@ def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
     (:init {init_str})
     (:goal (and {goal_str}))
 )"""
-
+    print(problem_str)
     return problem_str
