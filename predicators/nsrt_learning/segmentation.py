@@ -52,6 +52,8 @@ def _segment_with_contact_changes(
         keep_pred_names = {"TouchingDoor", "InRoom"}
     elif CFG.env == "touch_point":
         keep_pred_names = {"Touched"}
+    elif CFG.env in ("blocks", "pybullet_blocks"):
+        keep_pred_names = {"On", "OnTable", "Holding"}
     elif CFG.env == "coffee":
         keep_pred_names = {"Holding", "HandEmpty", "MachineOn", "CupFilled"}
     else:
