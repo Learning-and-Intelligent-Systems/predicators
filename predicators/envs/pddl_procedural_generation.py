@@ -544,15 +544,14 @@ def _generate_forest_problem(height: int, width: int,
 ################################### Gripper ####################################
 
 
-def create_gripper_pddl_generator(min_size: int,
-                                  max_size: int) -> PDDLProblemGenerator:
+def create_gripper_pddl_generator(min_num_rooms: int, max_num_rooms: int, min_num_balls: int, max_num_balls, prefix: str) -> PDDLProblemGenerator:
     """Create a generator for gripper problems."""
-    return functools.partial(_generate_gripper_problems, min_size, max_size)
+    return functools.partial(_generate_gripper_problems, min_num_rooms, max_num_rooms, min_num_balls, max_num_balls, prefix)
 
 
 def _generate_gripper_problems(min_num_rooms: int, max_num_rooms: int, 
                                min_num_balls: int, max_num_balls: int, 
-                               num_problems: int, prefix: str, 
+                               prefix: str, num_problems: int,
                                rng: np.random.Generator) -> List[str]:
     problems = []
     for _ in range(num_problems):
