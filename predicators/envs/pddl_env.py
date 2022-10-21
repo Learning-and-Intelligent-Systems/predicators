@@ -503,7 +503,7 @@ class _PrefixedGripperPDDLEnv(_PDDLEnv):
 
     @property
     def _domain_str(self) -> str:
-        path = utils.get_env_asset_path("pddl/gripper/domain.pddl")
+        path = utils.get_env_asset_path("pddl/gripper/prefixed_domain.pddl")
         with open(path, encoding="utf-8") as f:
             domain_str = f.read()
         return domain_str
@@ -526,10 +526,10 @@ class ProceduralTasksPrefixedGripperPDDLEnv(_GripperPDDLEnv):
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
-        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
-        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
-        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
-        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        min_num_rooms = CFG.pddl_gripper_procedural_test_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_test_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_test_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_test_max_num_balls
         return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals, "PRE")
 
 ###############################################################################
