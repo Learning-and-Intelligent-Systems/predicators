@@ -626,6 +626,11 @@ def _parse_pddl_domain(
             parent = pyperplan_type_to_type[pyper_type.parent]
         new_type = Type(pyper_type.name, [], parent)
         pyperplan_type_to_type[pyper_type] = new_type
+    # TODO clean up and test (@Tom)
+    if not pyperplan_type_to_type:
+        pyper_type = next(iter(pyperplan_types.values()))
+        new_type = Type(pyper_type.name, [], parent=None)
+        pyperplan_type_to_type[pyper_type] = new_type
     # Convert the predicates.
     predicate_name_to_predicate = {}
     for pyper_pred in pyperplan_predicates.values():
