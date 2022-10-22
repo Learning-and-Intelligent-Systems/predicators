@@ -89,17 +89,17 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
 
 PLOT_GROUPS = {
     title: [
-        ("Ours", "darkgreen", "o", partial(_select_data, env, "backchaining")),
+        # ("Ours", "darkgreen", "o", partial(_select_data, env, "backchaining")),
         ("Cluster and Intersect", "darkorange", "x",
          partial(_select_data, env, "cluster_and_intersect")),
-        ("LOFT", "blue", "^",
-         partial(_select_data, env, "cluster_and_search")),
-        ("GNN Shooting", "red", "*",
-         partial(_select_data, env, "gnn_shooting")),
-        ("GNN Model-Free", "brown", "p",
-         partial(_select_data, env, "gnn_modelfree")),
-        ("Prediction Error", "purple", "s",
-         partial(_select_data, env, "pred_error")),
+        # ("LOFT", "blue", "^",
+        #  partial(_select_data, env, "cluster_and_search")),
+        # ("GNN Shooting", "red", "*",
+        #  partial(_select_data, env, "gnn_shooting")),
+        # ("GNN Model-Free", "brown", "p",
+        #  partial(_select_data, env, "gnn_modelfree")),
+        # ("Prediction Error", "purple", "s",
+        #  partial(_select_data, env, "pred_error")),
         
         
     ]
