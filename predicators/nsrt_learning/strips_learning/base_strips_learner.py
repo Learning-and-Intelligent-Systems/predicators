@@ -373,8 +373,8 @@ class BaseSTRIPSLearner(abc.ABC):
         param_opt_to_nec_pnads: Dict[ParameterizedOption,
                                      List[PartialNSRTAndDatastore]]
     ) -> List[PartialNSRTAndDatastore]:
-        """Given the param_opt_to_nec_pnads dict, return a list of PNADs that
-        have unique names and can be used for planning."""
+        """Given a dictionary mapping parameterized options to PNADs, return
+        a list of PNADs that have unique names and can be used for planning."""
         uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
