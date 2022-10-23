@@ -28,8 +28,9 @@ class RepeatedNextToEnv(BaseEnv):
     grasped_thresh: ClassVar[float] = 0.5
     nextto_thresh: ClassVar[float] = 0.5
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._robot_type = Type("robot", ["x"])
         self._dot_type = Type("dot", ["x", "grasped"])
@@ -208,8 +209,9 @@ class RepeatedNextToEnv(BaseEnv):
 class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
     """A variation on RepeatedNextToEnv with a single parameterized option."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Options
         del self._Move
         del self._Grasp

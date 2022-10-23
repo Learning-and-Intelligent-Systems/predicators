@@ -46,7 +46,7 @@ def _segment_with_contact_changes(
 
     if CFG.env == "stick_button":
         keep_pred_names = {"Grasped", "Pressed"}
-    elif CFG.env in ("cover", "cover_multistep_options"):
+    elif CFG.env in ("cover", "cover_multistep_options", "pybullet_cover"):
         keep_pred_names = {"Covers", "HandEmpty", "Holding"}
     elif CFG.env == "doors":
         keep_pred_names = {"TouchingDoor", "InRoom"}

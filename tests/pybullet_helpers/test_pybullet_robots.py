@@ -16,6 +16,7 @@ from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 from predicators.pybullet_helpers.robots.fetch import FetchPyBulletRobot
+from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.settings import CFG
 
 
@@ -191,7 +192,7 @@ def test_fetch_pybullet_robot(physics_client_id):
 
     ee_delta = (-0.01, 0.0, 0.01)
     ee_target = np.add(ee_home_pose, ee_delta)
-    joint_target = robot.inverse_kinematics(ee_target, validate=False)
+    joint_target = robot.set_joints_with_ik(ee_target, validate=False)
     f_value = 0.03
     joint_target[robot.left_finger_joint_idx] = f_value
     joint_target[robot.right_finger_joint_idx] = f_value
@@ -230,19 +231,19 @@ def test_fetch_pybullet_robot(physics_client_id):
 def test_create_single_arm_pybullet_robot(physics_client_id):
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
-    ee_home_pose = (1.35, 0.75, 0.75)
-    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
 
     # Fetch
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             physics_client_id)
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     assert robot.tool_link_name == "gripper_link"
 
+    # Panda
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
+    assert isinstance(robot, PandaPyBulletRobot)
+
     # Unknown robot
     with pytest.raises(NotImplementedError) as e:
-        create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         ee_orn, physics_client_id)
+        create_single_arm_pybullet_robot("not a real robot", physics_client_id)
     assert "Unrecognized robot name" in str(e)
 
 
@@ -251,8 +252,8 @@ def test_run_motion_planning(physics_client_id):
     ee_home_pose = (1.35, 0.75, 0.75)
     ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     seed = 123
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             physics_client_id)
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
+                                             ee_home_pose, ee_orn)
     robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()
@@ -269,7 +270,7 @@ def test_run_motion_planning(physics_client_id):
     assert np.allclose(path[-1], joint_target)
     # Should succeed, no collisions.
     ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.05))
-    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    joint_target = robot.set_joints_with_ik(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
@@ -289,7 +290,7 @@ def test_run_motion_planning(physics_client_id):
                                       table_orientation,
                                       physicsClientId=physics_client_id)
     ee_target = np.add(ee_home_pose, (0.0, 0.0, -0.6))
-    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    joint_target = robot.set_joints_with_ik(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
@@ -320,7 +321,7 @@ def test_run_motion_planning(physics_client_id):
                                       block_orientation,
                                       physicsClientId=physics_client_id)
     ee_target = (1.35, 0.4, 0.6)
-    joint_target = robot.inverse_kinematics(ee_target, validate=True)
+    joint_target = robot.set_joints_with_ik(ee_target, validate=True)
     path = run_motion_planning(robot,
                                joint_initial,
                                joint_target,
