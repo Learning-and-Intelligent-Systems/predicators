@@ -177,7 +177,10 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
         for (spec, effects) in effect_sets:
-            yield effect_sets.remove(spec, effects)
+            if len(effects) <= 1:
+                yield effect_sets.remove(spec, effects)
+            else:
+                raise ValueError("Found effects set with >1 effects!")
 
 
 class _EffectSearchHeuristic(abc.ABC):
