@@ -20,8 +20,11 @@ _ROBOT_TO_CLS: Dict[str, Type[SingleArmPyBulletRobot]] = {
 
 
 def create_single_arm_pybullet_robot(
-        robot_name: str, ee_home_pose: Pose3D, ee_orientation: Quaternion,
-        physics_client_id: int) -> SingleArmPyBulletRobot:
+    robot_name: str,
+    physics_client_id: int,
+    ee_home_pose: Pose3D = (1.35, 0.6, 0.7),
+    ee_orientation: Quaternion = (0.0, 0.0, 0.0, 1.0)
+) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
     if robot_name in _ROBOT_TO_CLS:
         assert robot_name in _ROBOT_TO_BASE_POSE, \

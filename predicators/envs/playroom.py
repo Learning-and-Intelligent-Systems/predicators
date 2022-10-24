@@ -43,8 +43,9 @@ class PlayroomEnv(BlocksEnv):
     assert pick_tol < block_size
     pick_z: ClassVar[float] = 1.5
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._block_type = Type(
             "block", ["pose_x", "pose_y", "pose_z", "held", "clear"])

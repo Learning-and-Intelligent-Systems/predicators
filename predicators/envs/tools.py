@@ -43,8 +43,9 @@ class ToolsEnv(BaseEnv):
     num_hammers: ClassVar[int] = 2
     num_wrenches: ClassVar[int] = 1
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._robot_type = Type("robot", ["fingers"])
         self._screw_type = Type(
