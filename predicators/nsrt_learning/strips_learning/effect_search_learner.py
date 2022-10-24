@@ -81,6 +81,23 @@ class _EffectSets:
         new_param_option_to_groups[param_option].remove(
             (option_spec, add_effects))
         return _EffectSets(new_param_option_to_groups)
+        
+
+    def pop_specific_effects(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom], effects_to_remove: Set[LiftedAtom]) -> _EffectSets:
+        """Create a new _EffectSets with the particular add effect removed from existing set."""
+        assert effects_to_remove.issubset(add_effects)
+        assert len(add_effects) - len(effects_to_remove) > 0
+        param_option = option_spec[0]
+        assert param_option in self._param_option_to_groups
+        new_param_option_to_groups = {
+            p: [(s, set(a)) for s, a in group]
+            for p, group in self._param_option_to_groups.items()
+        }
+        # Remove the particular add effects and add in the difference between
+        new_param_option_to_groups[param_option].remove(
+            (option_spec, add_effects))
+        new_param_option_to_groups[param_option].append((option_spec, add_effects - effects_to_remove))
+        return _EffectSets(new_param_option_to_groups)
 
 
 class _EffectSearchOperator(abc.ABC):
@@ -183,7 +200,10 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
             if len(effects) <= 1:
                 yield effect_sets.remove(spec, effects)
             else:
-                raise ValueError("Found effects set with >1 effects!")
+                # Remove the first element from this effects set.
+                # TODO: experiment with different removal schemes!
+                elem_to_pop = next(iter(effects))
+                yield effect_sets.pop_specific_effects(spec, effects, set([elem_to_pop]))
 
 
 class _EffectSearchHeuristic(abc.ABC):
