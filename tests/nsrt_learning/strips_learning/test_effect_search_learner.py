@@ -568,7 +568,6 @@ def test_effect_search_strips_learner():
 #     # additions.
 #     assert len(natural_order_nsrts) == len(reverse_order_nsrts)
 
-
 # def test_spawn_new_pnad():
 #     """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
 
@@ -629,7 +628,6 @@ def test_effect_search_strips_learner():
 
 #     learner.recompute_datastores_from_segments([new_pnad])
 #     assert len(new_pnad.datastore) == 1
-
 
 # def test_keep_effect_data_partitioning():
 #     """Test that the BackchainingSTRIPSLearner is able to correctly induce
@@ -793,7 +791,6 @@ def test_effect_search_strips_learner():
 #         # and make comparison easier.
 #         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
 #         assert str(pnad) in correct_pnads
-
 
 # def test_combinatorial_keep_effect_data_partitioning():
 #     """Test that the BackchainingSTRIPSLearner is able to correctly induce
@@ -1051,7 +1048,6 @@ def test_effect_search_strips_learner():
 #         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
 #         assert str(pnad) in correct_pnads
 
-
 # def test_keep_effect_adding_new_variables():
 #     """Test that the BackchainingSTRIPSLearner is able to correctly induce
 #     operators when the keep effects must create new variables to ensure
@@ -1164,7 +1160,6 @@ def test_effect_search_strips_learner():
 #             assert seg is segmented_traj[1]
 #             assert sub == {potato_x0: potato3}
 
-
 # @pytest.mark.parametrize("val", [0.0, 1.0])
 # def test_multi_pass_backchaining(val):
 #     """Test that the BackchainingSTRIPSLearner does multiple passes of
@@ -1271,7 +1266,6 @@ def test_effect_search_strips_learner():
 #         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
 #         assert str(pnad) in correct_pnads
 
-
 # def test_backchaining_segment_not_in_datastore():
 #     """Test the BackchainingSTRIPSLearner on a case where it can cover a
 #     particular segment using an operator that doesn't have that segment in its
@@ -1369,7 +1363,6 @@ def test_effect_search_strips_learner():
 #         # and make comparison easier.
 #         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
 #         assert str(pnad) in correct_pnads
-
 
 # @longrun
 # @pytest.mark.parametrize("use_single_option,num_demos,seed_offset",

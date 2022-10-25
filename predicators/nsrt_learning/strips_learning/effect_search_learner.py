@@ -85,7 +85,8 @@ class _EffectSets:
     def pop_specific_effects(
             self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
             effects_to_remove: Set[LiftedAtom]) -> _EffectSets:
-        """Create a new _EffectSets with the particular add effect removed from existing set."""
+        """Create a new _EffectSets with the particular add effect removed from
+        existing set."""
         assert effects_to_remove.issubset(add_effects)
         assert len(add_effects) - len(effects_to_remove) > 0
         param_option = option_spec[0]
