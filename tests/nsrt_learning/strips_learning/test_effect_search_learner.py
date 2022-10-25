@@ -25,95 +25,95 @@ class _MockEffectSearchSTRIPSLearner(EffectSearchSTRIPSLearner):
     # TODO: Expose.
 
 
-def test_effect_search_strips_learner():
-    """Test the BackchainingSTRIPSLearner."""
-    utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
-    # Set up the structs.
-    human_type = Type("human_type", ["feat1", "feat2"])
-    Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
-    Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
-    opt_name_to_opt = {}
-    for opt_name in ["Cry", "Eat"]:
-        opt = utils.SingletonParameterizedOption(opt_name,
-                                                 lambda s, m, o, p: None)
-        opt_name_to_opt[opt_name] = opt
-    # Set up the data.
-    bob = human_type("bob")
-    state_awake_and_sad = State({bob: [0.0, 0.0]})
-    state_awake_and_happy = State({bob: [0.0, 1.0]})
-    state_asleep_and_sad = State({bob: [1.0, 0.0]})
-    assert not Asleep.holds(state_awake_and_sad, [bob])
-    assert Sad.holds(state_awake_and_sad, [bob])
-    assert not Asleep.holds(state_awake_and_happy, [bob])
-    assert not Sad.holds(state_awake_and_happy, [bob])
-    assert Asleep.holds(state_asleep_and_sad, [bob])
-    assert Sad.holds(state_asleep_and_sad, [bob])
-    Cry = opt_name_to_opt["Cry"].ground([], [])
-    Eat = opt_name_to_opt["Eat"].ground([], [])
-    goal1 = {Asleep([bob])}
-    act1 = Action([], Cry)
-    traj1 = LowLevelTrajectory([state_awake_and_sad, state_asleep_and_sad],
-                               [act1], True, 0)
-    task1 = Task(state_awake_and_sad, goal1)
-    segment1 = Segment(traj1, set(), goal1, Cry)
-    goal2 = set()
-    act2 = Action([], Eat)
-    traj2 = LowLevelTrajectory([state_awake_and_sad, state_awake_and_sad],
-                               [act2], True, 1)
-    task2 = Task(state_awake_and_sad, set())
-    segment2 = Segment(traj2, set(), goal2, Eat)
-    learner = _MockEffectSearchSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             {Asleep},
-                                             [[segment1], [segment2]],
-                                             verify_harmlessness=True)
-    pnads = learner.learn()
-    # Verify the results are as expected.
-    expected_strs = [
-        """STRIPS-Cry0:
-    Parameters: [?x0:human_type]
-    Preconditions: []
-    Add Effects: [Asleep(?x0:human_type)]
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Cry()""", """STRIPS-Eat0:
-    Parameters: []
-    Preconditions: []
-    Add Effects: []
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Eat()"""
-    ]
-    for pnad, exp_str in zip(sorted(pnads, key=lambda pnad: pnad.op.name),
-                             expected_strs):
-        assert str(pnad) == repr(pnad) == exp_str
+# def test_effect_search_strips_learner():
+#     """Test the BackchainingSTRIPSLearner."""
+#     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
+#     # Set up the structs.
+#     human_type = Type("human_type", ["feat1", "feat2"])
+#     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
+#     Sad = Predicate("Sad", [human_type], lambda s, o: s[o[0]][1] < 0.5)
+#     opt_name_to_opt = {}
+#     for opt_name in ["Cry", "Eat"]:
+#         opt = utils.SingletonParameterizedOption(opt_name,
+#                                                  lambda s, m, o, p: None)
+#         opt_name_to_opt[opt_name] = opt
+#     # Set up the data.
+#     bob = human_type("bob")
+#     state_awake_and_sad = State({bob: [0.0, 0.0]})
+#     state_awake_and_happy = State({bob: [0.0, 1.0]})
+#     state_asleep_and_sad = State({bob: [1.0, 0.0]})
+#     assert not Asleep.holds(state_awake_and_sad, [bob])
+#     assert Sad.holds(state_awake_and_sad, [bob])
+#     assert not Asleep.holds(state_awake_and_happy, [bob])
+#     assert not Sad.holds(state_awake_and_happy, [bob])
+#     assert Asleep.holds(state_asleep_and_sad, [bob])
+#     assert Sad.holds(state_asleep_and_sad, [bob])
+#     Cry = opt_name_to_opt["Cry"].ground([], [])
+#     Eat = opt_name_to_opt["Eat"].ground([], [])
+#     goal1 = {Asleep([bob])}
+#     act1 = Action([], Cry)
+#     traj1 = LowLevelTrajectory([state_awake_and_sad, state_asleep_and_sad],
+#                                [act1], True, 0)
+#     task1 = Task(state_awake_and_sad, goal1)
+#     segment1 = Segment(traj1, set(), goal1, Cry)
+#     goal2 = set()
+#     act2 = Action([], Eat)
+#     traj2 = LowLevelTrajectory([state_awake_and_sad, state_awake_and_sad],
+#                                [act2], True, 1)
+#     task2 = Task(state_awake_and_sad, set())
+#     segment2 = Segment(traj2, set(), goal2, Eat)
+#     learner = _MockEffectSearchSTRIPSLearner([traj1, traj2], [task1, task2],
+#                                              {Asleep},
+#                                              [[segment1], [segment2]],
+#                                              verify_harmlessness=True)
+#     pnads = learner.learn()
+#     # Verify the results are as expected.
+#     expected_strs = [
+#         """STRIPS-Cry0:
+#     Parameters: [?x0:human_type]
+#     Preconditions: []
+#     Add Effects: [Asleep(?x0:human_type)]
+#     Delete Effects: []
+#     Ignore Effects: []
+#     Option Spec: Cry()""", """STRIPS-Eat0:
+#     Parameters: []
+#     Preconditions: []
+#     Add Effects: []
+#     Delete Effects: []
+#     Ignore Effects: []
+#     Option Spec: Eat()"""
+#     ]
+#     for pnad, exp_str in zip(sorted(pnads, key=lambda pnad: pnad.op.name),
+#                              expected_strs):
+#         assert str(pnad) == repr(pnad) == exp_str
 
-    # Test sidelining where an existing operator needs to be spawned.
-    goal3 = {Asleep([bob])}
-    act3 = Action([], Cry)
-    traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
-                               [act3], True, 0)
-    goal4 = {Asleep([bob]), Sad([bob])}
-    traj4 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
-                               [act3], True, 1)
-    task3 = Task(state_awake_and_sad, goal3)
-    task4 = Task(state_awake_and_sad, goal4)
-    segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
-    segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
-    # Create and run the sidelining approach.
-    learner = _MockEffectSearchSTRIPSLearner([traj3, traj4], [task3, task4],
-                                             {Asleep, Sad},
-                                             [[segment3], [segment4]],
-                                             verify_harmlessness=True)
-    pnads = learner.learn()
-    assert len(pnads) == 1
-    expected_str = """STRIPS-Cry0:
-    Parameters: [?x0:human_type]
-    Preconditions: []
-    Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
-    Delete Effects: []
-    Ignore Effects: []
-    Option Spec: Cry()"""
-    assert str(pnads[0]) == repr(pnads[0]) == expected_str
+#     # Test sidelining where an existing operator needs to be spawned.
+#     goal3 = {Asleep([bob])}
+#     act3 = Action([], Cry)
+#     traj3 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
+#                                [act3], True, 0)
+#     goal4 = {Asleep([bob]), Sad([bob])}
+#     traj4 = LowLevelTrajectory([state_awake_and_happy, state_asleep_and_sad],
+#                                [act3], True, 1)
+#     task3 = Task(state_awake_and_sad, goal3)
+#     task4 = Task(state_awake_and_sad, goal4)
+#     segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
+#     segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
+#     # Create and run the sidelining approach.
+#     learner = _MockEffectSearchSTRIPSLearner([traj3, traj4], [task3, task4],
+#                                              {Asleep, Sad},
+#                                              [[segment3], [segment4]],
+#                                              verify_harmlessness=True)
+#     pnads = learner.learn()
+#     assert len(pnads) == 1
+#     expected_str = """STRIPS-Cry0:
+#     Parameters: [?x0:human_type]
+#     Preconditions: []
+#     Add Effects: [Asleep(?x0:human_type), Sad(?x0:human_type)]
+#     Delete Effects: []
+#     Ignore Effects: []
+#     Option Spec: Cry()"""
+#     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
 # def test_backchaining_strips_learner_order_dependence():
@@ -568,229 +568,168 @@ def test_effect_search_strips_learner():
 #     # additions.
 #     assert len(natural_order_nsrts) == len(reverse_order_nsrts)
 
-# def test_spawn_new_pnad():
-#     """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
+def test_keep_effect_data_partitioning():
+    """Test that the BackchainingSTRIPSLearner is able to correctly induce
+    operators with keep effects in a case where a naive procedure that does not
+    keep the original operators (without keep effects) would fail.
 
-#     Also, test the finding of a unification necessary for specializing,
-#     which involves calling the _find_best_matching_pnad_and_sub method
-#     of the BaseSTRIPSLearner.
-#     """
-#     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
-#     human_type = Type("human_type", ["feat"])
-#     Asleep = Predicate("Asleep", [human_type], lambda s, o: s[o[0]][0] > 0.5)
-#     Happy = Predicate("Happy", [human_type], lambda s, o: s[o[0]][0] > 0.5)
-#     opt = utils.SingletonParameterizedOption("Move", lambda s, m, o, p: None)
-#     human_var = human_type("?x0")
-#     params = [human_var]
-#     add_effects = {Asleep([human_var])}
-#     op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
-#                         set([Asleep, Happy]))
-#     pnad = PartialNSRTAndDatastore(op, [], (opt, []))
-#     bob = human_type("bob")
-#     state = State({bob: [0.0]})
-#     task = Task(state, set())
-#     Move = opt.ground([], [])
-#     traj = LowLevelTrajectory([state], [])
-#     segment = Segment(traj, {Happy([bob])},
-#                       {Asleep([bob]), Happy([bob])}, Move)
-#     # Create the sidelining approach.
-#     learner = _MockBackchainingSTRIPSLearner([traj], [task], {Asleep, Happy},
-#                                              [[segment]],
-#                                              verify_harmlessness=True)
-#     # Normal usage: the PNAD add effects can capture a subset of
-#     # the necessary_add_effects.
-#     _, ground_op = learner.find_unification(
-#         {Asleep([bob]), Happy([bob])}, pnad,
-#         Segment(traj, set(), {Asleep([bob]), Happy([bob])}, Move))
-#     assert ground_op is not None
-#     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
-#     Parameters: [bob:human_type]
-#     Preconditions: []
-#     Add Effects: [Asleep(bob:human_type)]
-#     Delete Effects: []
-#     Ignore Effects: [Asleep, Happy]"""
-#     # Make the preconditions be satisfiable in the segment's init_atoms.
-#     # Now, we are back to normal usage.
-#     _, ground_op = learner.find_unification(
-#         {Asleep([bob])}, pnad,
-#         Segment(traj, {Happy([bob])},
-#                 {Happy([bob]), Asleep([bob])}, Move))
-#     assert ground_op is not None
-#     assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-MoveOp:
-#     Parameters: [bob:human_type]
-#     Preconditions: []
-#     Add Effects: [Asleep(bob:human_type)]
-#     Delete Effects: []
-#     Ignore Effects: [Asleep, Happy]"""
-#     new_pnad = learner.spawn_new_pnad({Asleep([bob])},
-#                                       Segment(traj, {Happy([bob])},
-#                                               {Asleep([bob])}, Move))
+    There are two demonstrations: [Configure, TurnOn, Run] and [TurnOn,
+    Configure, Run]. TurnOn always just turns on a machine, while
+    Configure makes it configured but may turn on/off arbitrary other
+    machines. You are allowed to Configure when the machine is either
+    off or on (but MachineConfigurableWhileOff must be true in order to
+    Configure when it's off). Our algorithm will say that MachineOn is a
+    keep effect of Configure, but it's important to keep around the
+    original (non-KEEP) operator for Configure, otherwise we will be
+    harmful to the second demonstration, where the machine was off when
+    it was configured.
+    """
+    utils.reset_config({
+        "segmenter": "atom_changes",
+        "backchaining_check_intermediate_harmlessness": True
+    })
+    # Set up the types and predicates.
+    machine_type = Type(
+        "machine_type",
+        ["on", "configuration", "run", "configurable_while_off"])
+    MachineOn = Predicate("MachineOn", [machine_type],
+                          lambda s, o: s[o[0]][0] > 0.5)
+    MachineConfigurableWhileOff = Predicate("MachineConfigurableWhileOff",
+                                            [machine_type],
+                                            lambda s, o: s[o[0]][3] > 0.5)
+    MachineConfigured = Predicate("MachineConfigured", [machine_type],
+                                  lambda s, o: s[o[0]][1] > 0.5)
+    MachineRun = Predicate("MachineRun", [machine_type],
+                           lambda s, o: s[o[0]][2] > 0.5)
+    predicates = {
+        MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun
+    }
 
-#     learner.recompute_datastores_from_segments([new_pnad])
-#     assert len(new_pnad.datastore) == 1
+    m1 = machine_type("m1")
+    m2 = machine_type("m2")
+    m3 = machine_type("m3")
 
-# def test_keep_effect_data_partitioning():
-#     """Test that the BackchainingSTRIPSLearner is able to correctly induce
-#     operators with keep effects in a case where a naive procedure that does not
-#     keep the original operators (without keep effects) would fail.
+    # Create states to be used as part of trajectories.
+    all_off_not_configed = State({
+        m1: [0.0, 0.0, 0.0, 1.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_off_configed_m2_on = State({
+        m1: [0.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_on_configed_m2_on = State({
+        m1: [1.0, 1.0, 0.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m1_on_configed_run_m2_on = State({
+        m1: [1.0, 1.0, 1.0, 1.0],
+        m2: [1.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0]
+    })
+    m3_on = State({
+        m1: [0.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_m3_on = State({
+        m1: [1.0, 0.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [1.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_configed = State({
+        m1: [1.0, 1.0, 0.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
+    m1_on_configed_run = State({
+        m1: [1.0, 1.0, 1.0, 0.0],
+        m2: [0.0, 0.0, 0.0, 0.0],
+        m3: [0.0, 0.0, 0.0, 0.0],
+    })
 
-#     There are two demonstrations: [Configure, TurnOn, Run] and [TurnOn,
-#     Configure, Run]. TurnOn always just turns on a machine, while
-#     Configure makes it configured but may turn on/off arbitrary other
-#     machines. You are allowed to Configure when the machine is either
-#     off or on (but MachineConfigurableWhileOff must be true in order to
-#     Configure when it's off). Our algorithm will say that MachineOn is a
-#     keep effect of Configure, but it's important to keep around the
-#     original (non-KEEP) operator for Configure, otherwise we will be
-#     harmful to the second demonstration, where the machine was off when
-#     it was configured.
-#     """
-#     utils.reset_config({
-#         "segmenter": "atom_changes",
-#         "backchaining_check_intermediate_harmlessness": True
-#     })
-#     # Set up the types and predicates.
-#     machine_type = Type(
-#         "machine_type",
-#         ["on", "configuration", "run", "configurable_while_off"])
-#     MachineOn = Predicate("MachineOn", [machine_type],
-#                           lambda s, o: s[o[0]][0] > 0.5)
-#     MachineConfigurableWhileOff = Predicate("MachineConfigurableWhileOff",
-#                                             [machine_type],
-#                                             lambda s, o: s[o[0]][3] > 0.5)
-#     MachineConfigured = Predicate("MachineConfigured", [machine_type],
-#                                   lambda s, o: s[o[0]][1] > 0.5)
-#     MachineRun = Predicate("MachineRun", [machine_type],
-#                            lambda s, o: s[o[0]][2] > 0.5)
-#     predicates = {
-#         MachineOn, MachineConfigurableWhileOff, MachineConfigured, MachineRun
-#     }
+    # Create the necessary options and actions.
+    turn_on = utils.SingletonParameterizedOption("TurnOn",
+                                                 lambda s, m, o, p: None)
+    TurnOn = turn_on.ground([], [])
+    turn_on_act = Action([], TurnOn)
+    configure = utils.SingletonParameterizedOption("Configure",
+                                                   lambda s, m, o, p: None)
+    Configure = configure.ground([], [])
+    configure_act = Action([], Configure)
+    run = utils.SingletonParameterizedOption("Run", lambda s, m, o, p: None)
+    Run = run.ground([], [])
+    run_act = Action([], Run)
 
-#     m1 = machine_type("m1")
-#     m2 = machine_type("m2")
-#     m3 = machine_type("m3")
+    # Create the trajectories, goals, and tasks.
+    # The first trajectory is: [Configure, TurnOn, Run].
+    # The second trajectory is: [TurnOn, Configure, Run].
+    traj1 = LowLevelTrajectory([
+        all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on,
+        m1_on_configed_run_m2_on
+    ], [configure_act, turn_on_act, run_act], True, 0)
+    traj2 = LowLevelTrajectory(
+        [m3_on, m1_on_m3_on, m1_on_configed, m1_on_configed_run],
+        [turn_on_act, configure_act, run_act], True, 1)
+    goal = {
+        MachineRun([m1]),
+    }
+    task1 = Task(all_off_not_configed, goal)
+    task2 = Task(m3_on, goal)
 
-#     # Create states to be used as part of trajectories.
-#     all_off_not_configed = State({
-#         m1: [0.0, 0.0, 0.0, 1.0],
-#         m2: [0.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0]
-#     })
-#     m1_off_configed_m2_on = State({
-#         m1: [0.0, 1.0, 0.0, 1.0],
-#         m2: [1.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0]
-#     })
-#     m1_on_configed_m2_on = State({
-#         m1: [1.0, 1.0, 0.0, 1.0],
-#         m2: [1.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0]
-#     })
-#     m1_on_configed_run_m2_on = State({
-#         m1: [1.0, 1.0, 1.0, 1.0],
-#         m2: [1.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0]
-#     })
-#     m3_on = State({
-#         m1: [0.0, 0.0, 0.0, 0.0],
-#         m2: [0.0, 0.0, 0.0, 0.0],
-#         m3: [1.0, 0.0, 0.0, 0.0],
-#     })
-#     m1_on_m3_on = State({
-#         m1: [1.0, 0.0, 0.0, 0.0],
-#         m2: [0.0, 0.0, 0.0, 0.0],
-#         m3: [1.0, 0.0, 0.0, 0.0],
-#     })
-#     m1_on_configed = State({
-#         m1: [1.0, 1.0, 0.0, 0.0],
-#         m2: [0.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0],
-#     })
-#     m1_on_configed_run = State({
-#         m1: [1.0, 1.0, 1.0, 0.0],
-#         m2: [0.0, 0.0, 0.0, 0.0],
-#         m3: [0.0, 0.0, 0.0, 0.0],
-#     })
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
+                                                         predicates)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
-#     # Create the necessary options and actions.
-#     turn_on = utils.SingletonParameterizedOption("TurnOn",
-#                                                  lambda s, m, o, p: None)
-#     TurnOn = turn_on.ground([], [])
-#     turn_on_act = Action([], TurnOn)
-#     configure = utils.SingletonParameterizedOption("Configure",
-#                                                    lambda s, m, o, p: None)
-#     Configure = configure.ground([], [])
-#     configure_act = Action([], Configure)
-#     run = utils.SingletonParameterizedOption("Run", lambda s, m, o, p: None)
-#     Run = run.ground([], [])
-#     run_act = Action([], Run)
+    # Now, run the learner on the two demos.
+    learner = _MockEffectSearchSTRIPSLearner([traj1, traj2], [task1, task2],
+                                             predicates,
+                                             segmented_trajs,
+                                             verify_harmlessness=True)
+    output_pnads = learner.learn()
+    # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
+    # each of TurnOn and Run. One of the Configure operators should have
+    # a keep effect, while the other shouldn't.
+    assert len(output_pnads) == 4
+    correct_pnads = set([
+        """STRIPS-Run:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineConfigured(?x0:machine_type), """ + \
+        """MachineOn(?x0:machine_type)]
+    Add Effects: [MachineRun(?x0:machine_type)]
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Run()""", """STRIPS-TurnOn:
+    Parameters: [?x0:machine_type]
+    Preconditions: []
+    Add Effects: [MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: TurnOn()""", """STRIPS-Configure:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type)]
+    Delete Effects: []
+    Ignore Effects: []
+    Option Spec: Configure()""", """STRIPS-Configure:
+    Parameters: [?x0:machine_type]
+    Preconditions: [MachineOn(?x0:machine_type)]
+    Add Effects: [MachineConfigured(?x0:machine_type), """ + \
+        """MachineOn(?x0:machine_type)]
+    Delete Effects: []
+    Ignore Effects: [MachineOn]
+    Option Spec: Configure()"""
+    ])
 
-#     # Create the trajectories, goals, and tasks.
-#     # The first trajectory is: [Configure, TurnOn, Run].
-#     # The second trajectory is: [TurnOn, Configure, Run].
-#     traj1 = LowLevelTrajectory([
-#         all_off_not_configed, m1_off_configed_m2_on, m1_on_configed_m2_on,
-#         m1_on_configed_run_m2_on
-#     ], [configure_act, turn_on_act, run_act], True, 0)
-#     traj2 = LowLevelTrajectory(
-#         [m3_on, m1_on_m3_on, m1_on_configed, m1_on_configed_run],
-#         [turn_on_act, configure_act, run_act], True, 1)
-#     goal = {
-#         MachineRun([m1]),
-#     }
-#     task1 = Task(all_off_not_configed, goal)
-#     task2 = Task(m3_on, goal)
-
-#     ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
-#                                                          predicates)
-#     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
-
-#     # Now, run the learner on the two demos.
-#     learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-#                                              predicates,
-#                                              segmented_trajs,
-#                                              verify_harmlessness=True)
-#     output_pnads = learner.learn()
-#     # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
-#     # each of TurnOn and Run. One of the Configure operators should have
-#     # a keep effect, while the other shouldn't.
-#     assert len(output_pnads) == 4
-#     correct_pnads = set([
-#         """STRIPS-Run:
-#     Parameters: [?x0:machine_type]
-#     Preconditions: [MachineConfigured(?x0:machine_type), """ + \
-#         """MachineOn(?x0:machine_type)]
-#     Add Effects: [MachineRun(?x0:machine_type)]
-#     Delete Effects: []
-#     Ignore Effects: []
-#     Option Spec: Run()""", """STRIPS-TurnOn:
-#     Parameters: [?x0:machine_type]
-#     Preconditions: []
-#     Add Effects: [MachineOn(?x0:machine_type)]
-#     Delete Effects: []
-#     Ignore Effects: []
-#     Option Spec: TurnOn()""", """STRIPS-Configure:
-#     Parameters: [?x0:machine_type]
-#     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
-#     Add Effects: [MachineConfigured(?x0:machine_type)]
-#     Delete Effects: []
-#     Ignore Effects: []
-#     Option Spec: Configure()""", """STRIPS-Configure:
-#     Parameters: [?x0:machine_type]
-#     Preconditions: [MachineOn(?x0:machine_type)]
-#     Add Effects: [MachineConfigured(?x0:machine_type), """ + \
-#         """MachineOn(?x0:machine_type)]
-#     Delete Effects: []
-#     Ignore Effects: [MachineOn]
-#     Option Spec: Configure()"""
-#     ])
-
-#     # Verify that all the output PNADs are correct.
-#     for pnad in output_pnads:
-#         # Rename the output PNADs to standardize naming
-#         # and make comparison easier.
-#         pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
-#         assert str(pnad) in correct_pnads
+    # Verify that all the output PNADs are correct.
+    for pnad in output_pnads:
+        # Rename the output PNADs to standardize naming
+        # and make comparison easier.
+        pnad.op = pnad.op.copy_with(name=pnad.option_spec[0].name)
+        assert str(pnad) in correct_pnads
 
 # def test_combinatorial_keep_effect_data_partitioning():
 #     """Test that the BackchainingSTRIPSLearner is able to correctly induce

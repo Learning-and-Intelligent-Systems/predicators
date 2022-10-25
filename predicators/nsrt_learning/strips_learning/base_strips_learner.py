@@ -45,7 +45,10 @@ class BaseSTRIPSLearner(abc.ABC):
         learned_pnads = self._learn()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
             logging.info("\nRunning harmlessness check...")
-            assert self._check_harmlessness(learned_pnads)
+            try:
+                assert self._check_harmlessness(learned_pnads)
+            except AssertionError:
+                import ipdb; ipdb.set_trace()
         # Remove pnads by increasing min_data_perc until harmlessness breaks.
         if CFG.enable_harmless_op_pruning:
             assert self._verify_harmlessness

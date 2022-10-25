@@ -142,6 +142,11 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         if uncovered_transition is None:
             return
         param_option, option_objs, add_effs = uncovered_transition
+        option_spec, lifted_add_effs = self._create_new_effect_set(param_option, option_objs, add_effs)
+        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
+        yield new_effect_sets
+
+    def _create_new_effect_set(self, param_option, option_objs, add_effs):
         # Create a new effect set.
         all_objs = sorted(
             set(option_objs) | {o
@@ -152,8 +157,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         option_vars = [obj_to_var[o] for o in option_objs]
         option_spec = (param_option, option_vars)
         lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
-        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
-        yield new_effect_sets
+        return (option_spec, lifted_add_effs)
 
     def _get_first_uncovered_transition(
         self,
@@ -181,14 +185,30 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 image_chain, op_chain = chain
                 if len(op_chain) > depth or len(op_chain) == len(seg_traj):
                     continue
-                # We found an uncovered transition.
-                # TODO make this less horrible.
+                # We found an uncovered transition: we now need to return
+                # the information necessary to induce a new operator to cover
+                # it.
+                # The timestep of the uncovered transition is the number of segments
+                # - 1 - (numer of actions in our backchained plan)
                 t = (len(seg_traj) - 1) - len(op_chain)
                 assert t >= 0
                 segment = seg_traj[t]
                 necessary_image = image_chain[-1]
+                # Necessary add effects are everything true in the necessary image
+                # that was not true at timestep t in the atoms sequence (remember,
+                # this is the set of atoms right before the option was taken to
+                # achieve the necessary image).
+                # TODO: This doesn't actually detect keep effect issues! It could be that
+                # we already have an operator that has these necessary add effects,
+                # but there's a keep-effect problem with it.
+                # Steps:
+                # 1. Find the ground operator that backchaining used for this transition.
+                # 2. Use utils.apply operator to find if there's a discrepancy.
+                # 3. This discrepancy must be due to an ignore effect.
+                # 4. Add this as an add effect.
                 necessary_add_effects = necessary_image - atoms_seq[t]
                 option = segment.get_option()
+                import ipdb; ipdb.set_trace()
                 return (option.parent, option.objects, necessary_add_effects)
         # Everything was covered.
         return None
@@ -284,10 +304,12 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                     yield (op, i), child, 1.0  # cost always 1
 
         # Run hill-climbing search.
-        path, _, _ = utils.run_hill_climbing(initial_state=initial_state,
+        path, _, cost = utils.run_hill_climbing(initial_state=initial_state,
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic)
+
+        import ipdb; ipdb.set_trace()
 
         # Extract the best effect set.
         best_effect_sets = path[-1]
