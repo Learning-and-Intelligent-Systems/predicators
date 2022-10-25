@@ -12,7 +12,6 @@ APPROACHES:
 ENVS:
   cover:
     NAME: "cover_multistep_options"
-    FLAGS: {}
 ARGS: []
 FLAGS:
   num_train_tasks: 1000
