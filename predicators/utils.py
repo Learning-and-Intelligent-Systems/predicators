@@ -1460,6 +1460,9 @@ def run_hill_climbing(
                     if parallelize:
                         continue  # heuristic computation is parallelized later
                     child_heuristic = heuristic(child_node.state)
+                    print(f"Child Node: {child_node}")
+                    print(f"Heuristic Value: {child_heuristic}")
+                    # import ipdb; ipdb.set_trace()
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node

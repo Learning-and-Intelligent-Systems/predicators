@@ -6,7 +6,7 @@ import abc
 import functools
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
-    Tuple
+    Tuple, final
 
 from typing_extensions import TypeAlias
 
@@ -16,8 +16,10 @@ from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
     Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
     Predicate, Segment, STRIPSOperator, Task, _GroundSTRIPSOperator
 
-# Necessary images and ground operators, in reverse order.
-_Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator]]
+# Necessary images and ground operators, in reverse order. Also, if the chain
+# is not full-length, then the "best" operator that backchaining tried to use
+# but couldn't.
+_Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator], Optional[_GroundSTRIPSOperator]]
 
 
 @dataclass(frozen=True)
@@ -60,11 +62,12 @@ class _EffectSets:
             add_effects: Set[LiftedAtom]) -> _EffectSets:
         """Create a new _EffectSets with this new entry added to existing."""
         param_option = option_spec[0]
-        assert param_option in self._param_option_to_groups
         new_param_option_to_groups = {
             p: [(s, set(a)) for s, a in group]
             for p, group in self._param_option_to_groups.items()
         }
+        if param_option not in new_param_option_to_groups:
+            new_param_option_to_groups[param_option] = []
         new_param_option_to_groups[param_option].append(
             (option_spec, add_effects))
         return _EffectSets(new_param_option_to_groups)
@@ -182,7 +185,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         # Now look for an uncovered segment.
         for depth in range(max_chain_len + 1):
             for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
-                image_chain, op_chain = chain
+                image_chain, op_chain, last_used_op = chain
                 if len(op_chain) > depth or len(op_chain) == len(seg_traj):
                     continue
                 # We found an uncovered transition: we now need to return
@@ -195,20 +198,16 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 segment = seg_traj[t]
                 necessary_image = image_chain[-1]
                 # Necessary add effects are everything true in the necessary image
-                # that was not true at timestep t in the atoms sequence (remember,
-                # this is the set of atoms right before the option was taken to
-                # achieve the necessary image).
-                # TODO: This doesn't actually detect keep effect issues! It could be that
-                # we already have an operator that has these necessary add effects,
-                # but there's a keep-effect problem with it.
-                # Steps:
-                # 1. Find the ground operator that backchaining used for this transition.
-                # 2. Use utils.apply operator to find if there's a discrepancy.
-                # 3. This discrepancy must be due to an ignore effect.
-                # 4. Add this as an add effect.
-                necessary_add_effects = necessary_image - atoms_seq[t]
+                # that was not true after calling the operator from atoms_seq[t].
                 option = segment.get_option()
-                import ipdb; ipdb.set_trace()
+                if last_used_op is not None:
+                    # This means that we're adding/specializing a new operator.
+                    pred_next_atoms = utils.apply_operator(last_used_op, atoms_seq[t])
+                    necessary_add_effects = (necessary_image - pred_next_atoms) | last_used_op.add_effects
+                else:
+                    # This means this is the first time we're inducing an operator
+                    # for this option.
+                    necessary_add_effects = necessary_image - atoms_seq[t]
                 return (option.parent, option.objects, necessary_add_effects)
         # Everything was covered.
         return None
@@ -270,7 +269,7 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
             if not ll_traj.is_demo:
                 continue
             traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-            _, chain = self._backchain(seg_traj, pnads, traj_goal)
+            _, chain, _ = self._backchain(seg_traj, pnads, traj_goal)
             assert len(chain) <= len(seg_traj)
             uncovered_transitions += len(seg_traj) - len(chain)
         return uncovered_transitions
@@ -309,8 +308,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                                              get_successors=get_successors,
                                              heuristic=heuristic)
 
-        import ipdb; ipdb.set_trace()
-
         # Extract the best effect set.
         best_effect_sets = path[-1]
 
@@ -337,16 +334,16 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
 
     def _create_initial_effect_sets(self) -> _EffectSets:
         param_option_to_groups = {}
-        param_options = [
-            s.get_option().parent for segs in self._segmented_trajs
-            for s in segs
-        ]
-        for param_option in param_options:
-            option_vars = utils.create_new_variables(param_option.types)
-            option_spec = (param_option, option_vars)
-            add_effects: Set[LiftedAtom] = set()
-            group = (option_spec, add_effects)
-            param_option_to_groups[param_option] = [group]
+        # param_options = [
+        #     s.get_option().parent for segs in self._segmented_trajs
+        #     for s in segs
+        # ]
+        # for param_option in param_options:
+        #     option_vars = utils.create_new_variables(param_option.types)
+        #     option_spec = (param_option, option_vars)
+        #     add_effects: Set[LiftedAtom] = set()
+        #     group = (option_spec, add_effects)
+        #     param_option_to_groups[param_option] = [group]
         return _EffectSets(param_option_to_groups)
 
     @functools.lru_cache(maxsize=None)
@@ -367,6 +364,12 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             pnad = PartialNSRTAndDatastore(op, [], option_spec)
             pnads.append(pnad)
         self._recompute_datastores_from_segments(pnads)
+
+        # if "{MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)}" in str(effect_sets):
+        #     import ipdb; ipdb.set_trace()
+        if len(pnads) == 4:
+            import ipdb; ipdb.set_trace()
+
         # Prune any PNADs with empty datastores.
         pnads = [p for p in pnads if p.datastore]
         # Add preconditions.
@@ -377,7 +380,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         for pnad in pnads:
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
-        # TODO: handle keep effects in the outer search or here?
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
@@ -386,6 +388,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         for p in pnads:
             pnad_map[p.option_spec[0]].append(p)
         pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+
         return pnads
 
     def _backchain(self, segmented_traj: List[Segment],
@@ -394,6 +397,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         """Returns ground operators in REVERSE order."""
         image_chain: List[Set[GroundAtom]] = []
         operator_chain: List[_GroundSTRIPSOperator] = []
+        final_failed_op: Optional[_GroundSTRIPSOperator] = None
         atoms_seq = utils.segment_trajectory_to_atoms_sequence(segmented_traj)
         objects = set(segmented_traj[0].states[0])
         assert traj_goal.issubset(atoms_seq[-1])
@@ -414,6 +418,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
             # If we're missing something in the necessary image, terminate.
             if not necessary_image.issubset(next_atoms):
+                final_failed_op = ground_op
                 break
             # Otherwise, extend the chain.
             operator_chain.append(ground_op)
@@ -431,4 +436,4 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                 for a in pnad.op.preconditions
             }
             image_chain.append(necessary_image)
-        return (image_chain, operator_chain)
+        return (image_chain, operator_chain, final_failed_op)
