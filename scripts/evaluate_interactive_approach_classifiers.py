@@ -82,7 +82,7 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv,
         print(f"Classification: {atoms}")
         atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
         print(f"False positives: {atoms - atoms_gt}\n"
-            f"False negatives: {atoms_gt - atoms}")
+              f"False negatives: {atoms_gt - atoms}")
 
 
 def create_states_cover(
