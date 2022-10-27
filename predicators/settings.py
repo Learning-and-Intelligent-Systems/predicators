@@ -100,7 +100,6 @@ class GlobalSettings:
     tools_num_contraptions_test = [3]
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900
@@ -214,6 +213,10 @@ class GlobalSettings:
 
     # parameters for random options approach
     random_options_max_tries = 100
+
+    # option model parameters
+    option_model_terminate_on_repeat = True
+    option_model_use_gui = False
 
     # parameters for abstract GNN approach
     gnn_num_message_passing = 3

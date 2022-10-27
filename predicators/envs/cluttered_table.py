@@ -21,8 +21,9 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
 class ClutteredTableEnv(BaseEnv):
     """Toy cluttered table domain."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._can_type = Type(
             "can", ["pose_x", "pose_y", "radius", "is_grasped", "is_trashed"])
@@ -297,8 +298,9 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
     the colliding can and place it out of the way of the goal can.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         self._Place = utils.SingletonParameterizedOption(
             "Place",
             self._Place_policy,

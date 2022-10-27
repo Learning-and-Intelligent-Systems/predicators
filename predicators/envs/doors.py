@@ -33,8 +33,9 @@ class DoorsEnv(BaseEnv):
     move_sq_dist_tol: ClassVar[float] = 1e-5
     open_door_thresh: ClassVar[float] = 1e-2
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._robot_type = Type("robot", ["x", "y"])
         self._door_type = Type("door", [
