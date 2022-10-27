@@ -46,8 +46,7 @@ def _run_pipeline(
             None], data: List) -> None:
     approach.load(online_learning_cycle=None)
     evaluate_fn(env, approach, None, data)
-    # for i in range(CFG.num_online_learning_cycles):
-    for i in [10, 49]:
+    for i in range(CFG.num_online_learning_cycles):
         print(f"\n\nONLINE LEARNING CYCLE {i}\n")
         try:
             approach.load(online_learning_cycle=i)
@@ -122,11 +121,6 @@ def create_states_cover(
     next_state = state.copy()
     next_state.set(block0, "pose", 0.33)
     states.append(next_state)
-    # REMOVING THIS TEST STATE B/C IT'S FLAKY
-    # State 3: block covers target, right edges align
-    # next_state = state.copy()
-    # next_state.set(block0, "pose", 0.35)
-    # states.append(next_state)
     # block0 covers target0, centered
     next_state = state.copy()
     next_state.set(block0, "pose", target_poses[0])
