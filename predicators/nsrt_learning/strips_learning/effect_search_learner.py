@@ -41,7 +41,9 @@ class _EffectSets:
     def __hash__(self) -> int:
         return self._hash
 
-    def __iter__(self) -> Iterator[Tuple[OptionSpec, Set[LiftedAtom]]]:
+    def __iter__(
+            self
+    ) -> Iterator[Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom]]]:
         for o in sorted(self._param_option_to_groups):
             for (spec, add_atoms,
                  keep_atoms) in self._param_option_to_groups[o]:
@@ -133,8 +135,10 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                                           lifted_keep_effs)
         yield new_effect_sets
 
-    def _create_new_effect_set(self, param_option, option_objs, add_effs,
-                               keep_effs):
+    def _create_new_effect_set(
+        self, param_option: ParameterizedOption, option_objs: Sequence[Object],
+        add_effs: Set[GroundAtom], keep_effs: Set[GroundAtom]
+    ) -> Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom]]:
         # Create a new effect set.
         all_objs = sorted(
             set(option_objs) | {o
@@ -330,7 +334,9 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         return backchaining_heur
 
     def _create_initial_effect_sets(self) -> _EffectSets:
-        param_option_to_groups = {}
+        param_option_to_groups: Dict[ParameterizedOption,
+                                     List[Tuple[OptionSpec, Set[LiftedAtom],
+                                                Set[LiftedAtom]]]] = {}
         return _EffectSets(param_option_to_groups)
 
     @functools.lru_cache(maxsize=None)
