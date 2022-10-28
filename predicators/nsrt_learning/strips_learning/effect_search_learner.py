@@ -6,9 +6,7 @@ import abc
 import functools
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
-    Tuple, final
-
-from typing_extensions import TypeAlias
+    Tuple
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
@@ -19,22 +17,24 @@ from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
 # Necessary images and ground operators, in reverse order. Also, if the chain
 # is not full-length, then the "best" operator that backchaining tried to use
 # but couldn't.
-_Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator], Optional[_GroundSTRIPSOperator]]
+_Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator],
+               Optional[_GroundSTRIPSOperator]]
 
 
 @dataclass(frozen=True)
 class _EffectSets:
-    # Maps a parameterized option to a set of option specs (for that option)
-    # and add effects.
+    # Maps a parameterized option to a set of option specs (for that option),
+    # add effects, and keep effects.
     _param_option_to_groups: Dict[ParameterizedOption,
-                                  List[Tuple[OptionSpec, Set[LiftedAtom]]]]
+                                  List[Tuple[OptionSpec, Set[LiftedAtom],
+                                             Set[LiftedAtom]]]]
 
     @functools.cached_property
     def _hash(self) -> int:
         option_to_hashable_group = {
-            o: (tuple(v), frozenset(a))
+            o: (tuple(v), frozenset(aa), frozenset(ka))
             for o in self._param_option_to_groups
-            for ((_, v), a) in self._param_option_to_groups[o]
+            for ((_, v), aa, ka) in self._param_option_to_groups[o]
         }
         return hash(tuple(option_to_hashable_group))
 
@@ -43,67 +43,69 @@ class _EffectSets:
 
     def __iter__(self) -> Iterator[Tuple[OptionSpec, Set[LiftedAtom]]]:
         for o in sorted(self._param_option_to_groups):
-            for (spec, atoms) in self._param_option_to_groups[o]:
-                yield (spec, atoms)
+            for (spec, add_atoms,
+                 keep_atoms) in self._param_option_to_groups[o]:
+                yield (spec, add_atoms, keep_atoms)
 
     def __str__(self) -> str:
         s = ""
-        for (spec, atoms) in self:
+        for (spec, add_atoms, keep_atoms) in self:
             opt = spec[0].name
             opt_args = ", ".join([str(a) for a in spec[1]])
-            s += f"\n{opt}({opt_args}): {atoms}"
+            s += f"\n{opt}({opt_args}): {add_atoms}, {keep_atoms}"
         s += "\n"
         return s
 
     def __repr__(self) -> str:
         return str(self)
 
-    def add(self, option_spec: OptionSpec,
-            add_effects: Set[LiftedAtom]) -> _EffectSets:
+    def add(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
+            keep_effects: Set[LiftedAtom]) -> _EffectSets:
         """Create a new _EffectSets with this new entry added to existing."""
         param_option = option_spec[0]
         new_param_option_to_groups = {
-            p: [(s, set(a)) for s, a in group]
+            p: [(s, set(aa), set(ka)) for s, aa, ka in group]
             for p, group in self._param_option_to_groups.items()
         }
         if param_option not in new_param_option_to_groups:
             new_param_option_to_groups[param_option] = []
         new_param_option_to_groups[param_option].append(
-            (option_spec, add_effects))
+            (option_spec, add_effects, keep_effects))
         return _EffectSets(new_param_option_to_groups)
 
-    def remove(self, option_spec: OptionSpec,
-               add_effects: Set[LiftedAtom]) -> _EffectSets:
+    def remove(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
+               keep_effects: Set[LiftedAtom]) -> _EffectSets:
         """Create a new _EffectSets with this entry removed from existing."""
         param_option = option_spec[0]
         assert param_option in self._param_option_to_groups
         new_param_option_to_groups = {
-            p: [(s, set(a)) for s, a in group]
+            p: [(s, set(aa), set(ka)) for s, aa, ka in group]
             for p, group in self._param_option_to_groups.items()
         }
         new_param_option_to_groups[param_option].remove(
-            (option_spec, add_effects))
+            (option_spec, add_effects, keep_effects))
         return _EffectSets(new_param_option_to_groups)
 
-    def pop_specific_effects(
-            self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
-            effects_to_remove: Set[LiftedAtom]) -> _EffectSets:
-        """Create a new _EffectSets with the particular add effect removed from
-        existing set."""
-        assert effects_to_remove.issubset(add_effects)
-        assert len(add_effects) - len(effects_to_remove) > 0
-        param_option = option_spec[0]
-        assert param_option in self._param_option_to_groups
-        new_param_option_to_groups = {
-            p: [(s, set(a)) for s, a in group]
-            for p, group in self._param_option_to_groups.items()
-        }
-        # Remove the particular add effects and add in the difference between
-        new_param_option_to_groups[param_option].remove(
-            (option_spec, add_effects))
-        new_param_option_to_groups[param_option].append(
-            (option_spec, add_effects - effects_to_remove))
-        return _EffectSets(new_param_option_to_groups)
+    # def pop_specific_effects(
+    #         self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
+    #         keep_effects: Set[LiftedAtom],
+    #         effects_to_remove: Set[LiftedAtom]) -> _EffectSets:
+    #     """Create a new _EffectSets with the particular add effect removed from
+    #     existing set."""
+    #     assert effects_to_remove.issubset(add_effects | keep_effects)
+    #     assert len(add_effects | keep_effects) - len(effects_to_remove) > 0
+    #     param_option = option_spec[0]
+    #     assert param_option in self._param_option_to_groups
+    #     new_param_option_to_groups = {
+    #         p: [(s, set(aa), set(ka)) for s, aa, ka in group]
+    #         for p, group in self._param_option_to_groups.items()
+    #     }
+    #     # Remove the particular add effects and add in the difference between
+    #     new_param_option_to_groups[param_option].remove(
+    #         (option_spec, add_effects, keep_effects))
+    #     new_param_option_to_groups[param_option].append(
+    #         (option_spec, add_effects - effects_to_remove, keep_effects - effects_to_remove))
+    #     return _EffectSets(new_param_option_to_groups)
 
 
 class _EffectSearchOperator(abc.ABC):
@@ -144,12 +146,15 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         uncovered_transition = self._get_first_uncovered_transition(pnads)
         if uncovered_transition is None:
             return
-        param_option, option_objs, add_effs = uncovered_transition
-        option_spec, lifted_add_effs = self._create_new_effect_set(param_option, option_objs, add_effs)
-        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs)
+        param_option, option_objs, add_effs, keep_effs = uncovered_transition
+        option_spec, lifted_add_effs, lifted_keep_effs = self._create_new_effect_set(
+            param_option, option_objs, add_effs, keep_effs)
+        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs,
+                                          lifted_keep_effs)
         yield new_effect_sets
 
-    def _create_new_effect_set(self, param_option, option_objs, add_effs):
+    def _create_new_effect_set(self, param_option, option_objs, add_effs,
+                               keep_effs):
         # Create a new effect set.
         all_objs = sorted(
             set(option_objs) | {o
@@ -160,12 +165,13 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         option_vars = [obj_to_var[o] for o in option_objs]
         option_spec = (param_option, option_vars)
         lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
-        return (option_spec, lifted_add_effs)
+        lifted_keep_effs = {a.lift(obj_to_var) for a in keep_effs}
+        return (option_spec, lifted_add_effs, lifted_keep_effs)
 
     def _get_first_uncovered_transition(
         self,
         pnads: List[PartialNSRTAndDatastore],
-    ) -> Optional[Tuple[ParameterizedOption, Sequence[Object],
+    ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
                         Set[GroundAtom]]]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories. TODO: see whether this matters.
@@ -201,14 +207,26 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 # that was not true after calling the operator from atoms_seq[t].
                 option = segment.get_option()
                 if last_used_op is not None:
-                    # This means that we're adding/specializing a new operator.
-                    pred_next_atoms = utils.apply_operator(last_used_op, atoms_seq[t])
-                    necessary_add_effects = (necessary_image - pred_next_atoms) | last_used_op.add_effects
+                    # This means that we're adding a new operator by specializing an existing one.
+                    pred_next_atoms = utils.apply_operator(
+                        last_used_op, atoms_seq[t])
+                    missing_effects = (necessary_image - pred_next_atoms)
+                    # These are just the missing effects + existing add effects.
+                    necessary_add_effects = missing_effects | last_used_op.add_effects
+                    # These are the missing effects that were ignore effects of the last_used_op.
+                    necessary_keep_effects = {
+                        a
+                        for a in missing_effects if a in atoms_seq[t]
+                        and a.predicate in last_used_op.ignore_effects
+                    }
                 else:
                     # This means this is the first time we're inducing an operator
                     # for this option.
                     necessary_add_effects = necessary_image - atoms_seq[t]
-                return (option.parent, option.objects, necessary_add_effects)
+                    necessary_keep_effects = set()
+
+                return (option.parent, option.objects, necessary_add_effects,
+                        necessary_keep_effects)
         # Everything was covered.
         return None
 
@@ -218,15 +236,15 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
 
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
-        for (spec, effects) in effect_sets:
-            if len(effects) <= 1:
-                yield effect_sets.remove(spec, effects)
-            else:
-                # Remove the first element from this effects set.
-                # TODO: experiment with different removal schemes!
-                elem_to_pop = next(iter(effects))
-                yield effect_sets.pop_specific_effects(spec, effects,
-                                                       set([elem_to_pop]))
+        for (spec, add_effects, keep_effects) in effect_sets:
+            # if len(add_effects) <= 1:
+            yield effect_sets.remove(spec, add_effects, keep_effects)
+            # else:
+            #     # Remove the first element from this effects set.
+            #     # TODO: experiment with different removal schemes!
+            #     elem_to_pop = next(iter(add_effects))
+            #     yield effect_sets.pop_specific_effects(spec, add_effects, keep_effects,
+            #                                            set([elem_to_pop]))
 
 
 class _EffectSearchHeuristic(abc.ABC):
@@ -304,9 +322,11 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
 
         # Run hill-climbing search.
         path, _, cost = utils.run_hill_climbing(initial_state=initial_state,
-                                             check_goal=lambda _: False,
-                                             get_successors=get_successors,
-                                             heuristic=heuristic)
+                                                check_goal=lambda _: False,
+                                                get_successors=get_successors,
+                                                heuristic=heuristic)
+
+        assert cost[-1] == 0
 
         # Extract the best effect set.
         best_effect_sets = path[-1]
@@ -351,24 +371,29 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             self, effect_sets: _EffectSets) -> List[PartialNSRTAndDatastore]:
         # Start with the add effects and option specs.
         pnads = []
-        for (option_spec, add_effects) in effect_sets:
+        for (option_spec, add_effects, keep_effects) in effect_sets:
             parameterized_option, op_vars = option_spec
-            effect_vars = {v for a in add_effects for v in a.variables}
+            effect_vars = {v
+                           for a in add_effects for v in a.variables
+                           } | {v
+                                for a in keep_effects for v in a.variables}
             parameters = sorted(set(op_vars) | effect_vars)
             # Add all ignore effects initially so that precondition learning
-            # works. TODO: better code way to do this?
+            # works. Be sure that the keep effects are part of both the
+            # preconditions and add effects.
+            # TODO: better code way to do this?
             ignore_effects = self._predicates.copy()
-            op = STRIPSOperator(parameterized_option.name, parameters, set(),
-                                add_effects, set(), ignore_effects)
-
+            op = STRIPSOperator(parameterized_option.name, parameters,
+                                keep_effects, add_effects | keep_effects,
+                                set(), ignore_effects)
             pnad = PartialNSRTAndDatastore(op, [], option_spec)
             pnads.append(pnad)
         self._recompute_datastores_from_segments(pnads)
 
         # if "{MachineConfigured(?x0:machine_type), MachineOn(?x0:machine_type)}" in str(effect_sets):
         #     import ipdb; ipdb.set_trace()
-        if len(pnads) == 4:
-            import ipdb; ipdb.set_trace()
+        # if len(pnads) == 4:
+        #     import ipdb; ipdb.set_trace()
 
         # Prune any PNADs with empty datastores.
         pnads = [p for p in pnads if p.datastore]
@@ -388,7 +413,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         for p in pnads:
             pnad_map[p.option_spec[0]].append(p)
         pnads = self._get_uniquely_named_nec_pnads(pnad_map)
-
         return pnads
 
     def _backchain(self, segmented_traj: List[Segment],
