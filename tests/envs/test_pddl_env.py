@@ -9,8 +9,8 @@ import pytest
 from predicators import utils
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
-    ProceduralTasksForestPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
-    ProceduralTasksGripperPDDLEnv, ProceduralTasksPrefixedGripperPDDLEnv, \
+    ProceduralTasksForestPDDLEnv, ProceduralTasksGripperPDDLEnv, \
+    ProceduralTasksPrefixedGripperPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
     _FixedTasksPDDLEnv, _PDDLEnv
 from predicators.structs import Action
 
@@ -426,8 +426,10 @@ def test_procedural_tasks_forest_pddl_env():
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"at"})
 
+
 def test_procedural_tasks_gripper_pddl_env():
-    """Tests for ProceduralTasksGripperPDDLEnv and ProceduralTasksPrefixedGripperPDDLEnv class."""
+    """Tests for ProceduralTasksGripperPDDLEnv and
+    ProceduralTasksPrefixedGripperPDDLEnv class."""
     # Note that the procedural generation itself is tested in
     # test_pddl_procedural_generation.
     utils.reset_config({
@@ -439,8 +441,7 @@ def test_procedural_tasks_gripper_pddl_env():
     assert {t.name for t in env.types} == {"object"}
     assert {p.name
             for p in env.predicates} == {
-                "room", "ball", "gripper", "free", "at",
-                "at-robby", "carry"
+                "room", "ball", "gripper", "free", "at", "at-robby", "carry"
             }
     assert {p.name for p in env.goal_predicates} == {"at"}
     assert {o.name for o in env.options} == {"move", "pick", "drop"}
@@ -451,6 +452,7 @@ def test_procedural_tasks_gripper_pddl_env():
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"at"})
+
 
 def test_procedural_tasks_prefixed_gripper_pddl_env():
     """Tests for ProceduralTasksPrefixedGripperPDDLEnv class."""
@@ -466,8 +468,8 @@ def test_procedural_tasks_prefixed_gripper_pddl_env():
     assert {t.name for t in env.types} == {"object"}
     assert {p.name
             for p in env.predicates} == {
-                "preroom", "preball", "pregripper", "prefree", 
-                "preat", "preat-robby", "precarry"
+                "preroom", "preball", "pregripper", "prefree", "preat",
+                "preat-robby", "precarry"
             }
     assert {p.name for p in env.goal_predicates} == {"preat"}
     assert {o.name for o in env.options} == {"move", "pick", "drop"}

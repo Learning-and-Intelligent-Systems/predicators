@@ -4,8 +4,8 @@ import numpy as np
 
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator, \
-    create_gripper_pddl_generator
+    create_forest_pddl_generator, create_gripper_pddl_generator, \
+    create_spanner_pddl_generator
 
 
 def _split_pddl_problem_str(problem_str):
@@ -155,10 +155,15 @@ def test_create_forest_pddl_generator():
         # The goal should have exactly one at.
         assert goal_str.count("at ") == 1
 
+
 def test_create_gripper_pddl_generator():
     """Tests for create_gripper_pddl_generator()."""
     prefix = "pre"
-    gen = create_gripper_pddl_generator(min_num_rooms=5, max_num_rooms=5, min_num_balls=3, max_num_balls=3, prefix=prefix)
+    gen = create_gripper_pddl_generator(min_num_rooms=5,
+                                        max_num_rooms=5,
+                                        min_num_balls=3,
+                                        max_num_balls=3,
+                                        prefix=prefix)
     rng = np.random.default_rng(123)
     problem_strs = gen(2, rng)
     for problem_str in problem_strs:
