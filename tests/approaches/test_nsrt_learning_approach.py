@@ -11,6 +11,8 @@ from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.settings import CFG
 
+longrun = pytest.mark.skipif("not config.getoption('longrun')")
+
 
 def _test_approach(env_name,
                    approach_name,
@@ -115,6 +117,7 @@ def _test_approach(env_name,
     return approach
 
 
+@longrun
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
     approach = _test_approach(env_name="blocks",
