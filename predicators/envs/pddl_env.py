@@ -509,7 +509,7 @@ class _PrefixedGripperPDDLEnv(_PDDLEnv):
         return domain_str
 
 
-class ProceduralTasksPrefixedGripperPDDLEnv(_GripperPDDLEnv):
+class ProceduralTasksPrefixedGripperPDDLEnv(_PrefixedGripperPDDLEnv):
     """The IPC gripper domain with prefixes with procedural generation."""
 
     @classmethod
@@ -522,7 +522,7 @@ class ProceduralTasksPrefixedGripperPDDLEnv(_GripperPDDLEnv):
         max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
         min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
         max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
-        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals, "PRE")
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals, "pre")
 
     @property
     def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
@@ -530,7 +530,7 @@ class ProceduralTasksPrefixedGripperPDDLEnv(_GripperPDDLEnv):
         max_num_rooms = CFG.pddl_gripper_procedural_test_max_num_rooms
         min_num_balls = CFG.pddl_gripper_procedural_test_min_num_balls
         max_num_bals = CFG.pddl_gripper_procedural_test_max_num_balls
-        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals, "PRE")
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms, min_num_balls, max_num_bals, "pre")
 
 ###############################################################################
 #                            Utility functions                                #

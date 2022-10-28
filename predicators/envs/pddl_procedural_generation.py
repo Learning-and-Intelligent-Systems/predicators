@@ -612,7 +612,7 @@ def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
     init_str = " ".join(sorted(init_strs))
     goal_str = " ".join(sorted(goal_strs))
     problem_str = f"""(define (problem gripper-procgen)
-    (:domain gripper)
+    (:domain {prefix}gripper)
     (:objects
         {objects_str} - object
     )
