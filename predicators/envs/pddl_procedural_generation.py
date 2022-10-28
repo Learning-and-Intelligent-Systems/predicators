@@ -544,13 +544,17 @@ def _generate_forest_problem(height: int, width: int,
 ################################### Gripper ####################################
 
 
-def create_gripper_pddl_generator(min_num_rooms: int, max_num_rooms: int, min_num_balls: int, max_num_balls, prefix: str) -> PDDLProblemGenerator:
+def create_gripper_pddl_generator(min_num_rooms: int, max_num_rooms: int,
+                                  min_num_balls: int, max_num_balls,
+                                  prefix: str) -> PDDLProblemGenerator:
     """Create a generator for gripper problems."""
-    return functools.partial(_generate_gripper_problems, min_num_rooms, max_num_rooms, min_num_balls, max_num_balls, prefix)
+    return functools.partial(_generate_gripper_problems, min_num_rooms,
+                             max_num_rooms, min_num_balls, max_num_balls,
+                             prefix)
 
 
-def _generate_gripper_problems(min_num_rooms: int, max_num_rooms: int, 
-                               min_num_balls: int, max_num_balls: int, 
+def _generate_gripper_problems(min_num_rooms: int, max_num_rooms: int,
+                               min_num_balls: int, max_num_balls: int,
                                prefix: str, num_problems: int,
                                rng: np.random.Generator) -> List[str]:
     problems = []
@@ -591,20 +595,23 @@ def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
     #Add free and at ground literals
     for g in gripper_objects:
         init_strs.add(f"({prefix}free {g})")
-    
+
     for b in ball_objects:
-        ball_room = "room" + str(rng.integers(0, num_rooms, size = 1)[0])
+        ball_room = "room" + str(rng.integers(0, num_rooms, size=1)[0])
         init_strs.add(f"({prefix}at {b} {ball_room})")
 
     #Always start robby at room0
     init_strs.add(f"({prefix}at-robby room0)")
 
     # Create goal str.
-    num_goal_balls = rng.integers(0, num_balls, size = 1)[0]
-    goal_balls = [ball_objects[i] for i in rng.choice(sorted(list(ball_objects)), size = num_goal_balls, replace = False)]
+    num_goal_balls = rng.integers(1, num_balls+1, size=1)[0]
+    goal_balls = [
+        ball for ball in rng.choice(
+            sorted(list(ball_objects)), size=num_goal_balls, replace=False)
+    ]
     for goal_ball in goal_balls:
-        goal_ball_loc = rng.integers(0, num_rooms, size = 1)[0]
-        goal_strs.add(f"(at {goal_ball} {goal_ball_loc})")
+        goal_ball_loc = rng.integers(0, num_rooms, size=1)[0]
+        goal_strs.add(f"(at {goal_ball} room{goal_ball_loc})")
 
     # Finalize PDDL problem str.
     all_objects = room_objects | ball_objects | gripper_objects
