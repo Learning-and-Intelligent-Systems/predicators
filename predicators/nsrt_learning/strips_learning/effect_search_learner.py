@@ -58,9 +58,6 @@ class _EffectSets:
         s += "\n"
         return s
 
-    def __repr__(self) -> str:
-        return str(self)
-
     def add(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
             keep_effects: Set[LiftedAtom]) -> _EffectSets:
         """Create a new _EffectSets with this new entry added to existing."""
@@ -164,14 +161,14 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         max_chain_len = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
-            if not ll_traj.is_demo:
-                continue
-            atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
-            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-            chain = self._backchain(seg_traj, pnads, traj_goal)
-            max_chain_len = max(max_chain_len, len(chain[1]))
-            backchaining_results.append(
-                (seg_traj, atoms_seq, traj_goal, chain))
+            if ll_traj.is_demo:
+                atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+                    seg_traj)
+                traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                chain = self._backchain(seg_traj, pnads, traj_goal)
+                max_chain_len = max(max_chain_len, len(chain[1]))
+                backchaining_results.append(
+                    (seg_traj, atoms_seq, traj_goal, chain))
         # Now look for an uncovered segment.
         for depth in range(max_chain_len + 1):
             for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
@@ -266,12 +263,11 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
-            if not ll_traj.is_demo:
-                continue
-            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-            _, chain, _ = self._backchain(seg_traj, pnads, traj_goal)
-            assert len(chain) <= len(seg_traj)
-            uncovered_transitions += len(seg_traj) - len(chain)
+            if ll_traj.is_demo:
+                traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                _, chain, _ = self._backchain(seg_traj, pnads, traj_goal)
+                assert len(chain) <= len(seg_traj)
+                uncovered_transitions += len(seg_traj) - len(chain)
         return uncovered_transitions
 
 
