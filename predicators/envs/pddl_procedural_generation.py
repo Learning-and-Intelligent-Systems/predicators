@@ -624,5 +624,4 @@ def _generate_gripper_problem(num_rooms: int, num_balls: int, prefix: str,
     (:init {init_str})
     (:goal (and {goal_str}))
 )"""
-    print(problem_str)
     return problem_str
