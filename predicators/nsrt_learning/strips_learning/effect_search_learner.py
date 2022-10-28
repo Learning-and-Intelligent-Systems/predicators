@@ -126,8 +126,9 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         if uncovered_transition is None:
             return
         param_option, option_objs, add_effs, keep_effs = uncovered_transition
-        option_spec, lifted_add_effs, lifted_keep_effs = self._create_new_effect_set(
-            param_option, option_objs, add_effs, keep_effs)
+        option_spec, lifted_add_effs, lifted_keep_effs = \
+            self._create_new_effect_set(param_option, option_objs, add_effs,\
+                keep_effs)
         new_effect_sets = effect_sets.add(option_spec, lifted_add_effs,
                                           lifted_keep_effs)
         yield new_effect_sets
@@ -153,7 +154,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
                         Set[GroundAtom]]]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
-        # backward search over trajectories. TODO: see whether this matters.
+        # backward search over trajectories.
         # Compute all the chains once up front.
         backchaining_results = []
         max_chain_len = 0
@@ -176,31 +177,36 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 # We found an uncovered transition: we now need to return
                 # the information necessary to induce a new operator to cover
                 # it.
-                # The timestep of the uncovered transition is the number of segments
-                # - 1 - (numer of actions in our backchained plan)
+                # The timestep of the uncovered transition is the number of
+                # segments - 1 - (numer of actions in our backchained plan)
                 t = (len(seg_traj) - 1) - len(op_chain)
                 assert t >= 0
                 segment = seg_traj[t]
                 necessary_image = image_chain[-1]
-                # Necessary add effects are everything true in the necessary image
-                # that was not true after calling the operator from atoms_seq[t].
+                # Necessary add effects are everything true in the necessary
+                # image that was not true after calling the operator from
+                # atoms_seq[t].
                 option = segment.get_option()
                 if last_used_op is not None:
-                    # This means that we're adding a new operator by specializing an existing one.
+                    # This means that we're adding a new operator by
+                    # specializing an existing one.
                     pred_next_atoms = utils.apply_operator(
                         last_used_op, atoms_seq[t])
                     missing_effects = (necessary_image - pred_next_atoms)
-                    # These are just the missing effects + existing add effects.
-                    necessary_add_effects = missing_effects | last_used_op.add_effects
-                    # These are the missing effects that were ignore effects of the last_used_op.
+                    # These are just the missing effects + existing add
+                    # effects.
+                    necessary_add_effects = missing_effects | \
+                        last_used_op.add_effects
+                    # These are the missing effects that were ignore effects of
+                    # the last_used_op.
                     necessary_keep_effects = {
                         a
                         for a in missing_effects if a in atoms_seq[t]
                         and a.predicate in last_used_op.ignore_effects
                     }
                 else:
-                    # This means this is the first time we're inducing an operator
-                    # for this option.
+                    # This means this is the first time we're inducing an
+                    # operator for this option.
                     necessary_add_effects = necessary_image - atoms_seq[t]
                     necessary_keep_effects = set()
 
@@ -342,7 +348,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             # Add all ignore effects initially so that precondition learning
             # works. Be sure that the keep effects are part of both the
             # preconditions and add effects.
-            # TODO: better code way to do this?
             ignore_effects = self._predicates.copy()
             op = STRIPSOperator(parameterized_option.name, parameters,
                                 keep_effects, add_effects | keep_effects,
@@ -373,7 +378,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
     def _backchain(self, segmented_traj: List[Segment],
                    pnads: List[PartialNSRTAndDatastore],
                    traj_goal: Set[GroundAtom]) -> _Chain:
-        """Returns ground operators in REVERSE order."""
+        """Returns chain of ground operators in REVERSE order."""
         image_chain: List[Set[GroundAtom]] = []
         operator_chain: List[_GroundSTRIPSOperator] = []
         final_failed_op: Optional[_GroundSTRIPSOperator] = None
@@ -401,7 +406,6 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                 break
             # Otherwise, extend the chain.
             operator_chain.append(ground_op)
-            # TODO remove copied code.
             # Update necessary_image for this timestep. It no longer
             # needs to include the ground add effects of this PNAD, but
             # must now include its ground preconditions.

@@ -4,7 +4,6 @@ import itertools
 
 import numpy as np
 import pytest
-from gym.spaces import Box
 
 from predicators import utils
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -12,8 +11,7 @@ from predicators.nsrt_learning.strips_learning.effect_search_learner import \
     EffectSearchSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type
+    Predicate, Segment, State, Task, Type
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
