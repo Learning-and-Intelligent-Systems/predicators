@@ -117,7 +117,6 @@ def _test_approach(env_name,
     return approach
 
 
-@longrun
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
     approach = _test_approach(env_name="blocks",
@@ -137,6 +136,21 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    strips_learner="cluster_and_search",
                    try_solving=False)
+    for strips_learner in [
+            "cluster_and_intersect_sideline_prederror",
+            "cluster_and_intersect_sideline_harmlessness",
+            "backchaining",
+    ]:
+        _test_approach(env_name="blocks",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       strips_learner=strips_learner)
+
+
+@longrun
+def test_nsrt_learning_approach_longrun():
+    """Tests for NSRTLearningApproach class."""
     for strips_learner in [
             "cluster_and_intersect_sideline_prederror",
             "cluster_and_intersect_sideline_harmlessness",
