@@ -56,9 +56,8 @@ def test_effect_search_strips_learner():
     task2 = Task(state_awake_and_sad, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
     learner = EffectSearchSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             {Asleep},
-                                             [[segment1], [segment2]],
-                                             verify_harmlessness=True)
+                                        {Asleep}, [[segment1], [segment2]],
+                                        verify_harmlessness=True)
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -94,9 +93,9 @@ def test_effect_search_strips_learner():
     segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
     learner = EffectSearchSTRIPSLearner([traj3, traj4], [task3, task4],
-                                             {Asleep, Sad},
-                                             [[segment3], [segment4]],
-                                             verify_harmlessness=True)
+                                        {Asleep, Sad},
+                                        [[segment3], [segment4]],
+                                        verify_harmlessness=True)
     pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
@@ -366,9 +365,9 @@ def test_keep_effect_data_partitioning():
 
     # Now, run the learner on the two demos.
     learner = EffectSearchSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+                                        predicates,
+                                        segmented_trajs,
+                                        verify_harmlessness=True)
     output_pnads = learner.learn()
 
     # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
@@ -559,9 +558,9 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
 
     # Now, run the learner on the demos.
     learner = EffectSearchSTRIPSLearner(trajs,
-                                             tasks,
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+                                        tasks,
+                                        predicates,
+                                        segmented_trajs,
+                                        verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learner.learn()
