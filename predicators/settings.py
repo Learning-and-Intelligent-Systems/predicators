@@ -215,6 +215,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # option model parameters
+    option_model_terminate_on_repeat = True
     option_model_use_gui = False
 
     # parameters for abstract GNN approach

@@ -116,16 +116,23 @@ def test_pybullet_blocks_reset(env):
     with pytest.raises(ValueError) as e:
         env.set_state(state)
     assert "Could not reconstruct state." in str(e)
-    # Simulate and render state should be not implemented.
+    # Render state should not work.
     action = env.action_space.sample()
-    with pytest.raises(NotImplementedError):
-        env.simulate(state, action)
     task = env.get_train_tasks()[0]
     with pytest.raises(NotImplementedError):
         env.render_state(state, task, action)
     with pytest.raises(NotImplementedError) as e:
         env.render_state_plt(state, task, action)
     assert "This env does not use Matplotlib" in str(e)
+    # Test reset_state in the case where a block is held.
+    state = env.get_state()
+    assert state.get(block, "held") < 0.5
+    option = env.Pick.ground([env.robot, block], [])
+    held_state = env.execute_option(option)
+    env.set_state(state)
+    env.set_state(held_state)
+    recovered_state = env.get_state()
+    assert recovered_state.get(block, "held") > 0.5
 
 
 def test_pybullet_blocks_picking(env):
