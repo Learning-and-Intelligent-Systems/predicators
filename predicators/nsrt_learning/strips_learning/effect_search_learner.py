@@ -122,15 +122,15 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
         pnads = self._effect_sets_to_pnads(effect_sets)
         uncovered_transition = self._get_first_uncovered_transition(pnads)
-        if uncovered_transition is None:
-            return
-        param_option, option_objs, add_effs, keep_effs = uncovered_transition
-        option_spec, lifted_add_effs, lifted_keep_effs = \
-            self._create_new_effect_set(param_option, option_objs, add_effs,\
-                keep_effs)
-        new_effect_sets = effect_sets.add(option_spec, lifted_add_effs,
-                                          lifted_keep_effs)
-        yield new_effect_sets
+        if uncovered_transition is not None:
+            param_option, option_objs, add_effs, keep_effs = \
+                uncovered_transition
+            option_spec, lifted_add_effs, lifted_keep_effs = \
+                self._create_new_effect_set(param_option, option_objs, \
+                    add_effs, keep_effs)
+            new_effect_sets = effect_sets.add(option_spec, lifted_add_effs,
+                                              lifted_keep_effs)
+            yield new_effect_sets
 
     def _create_new_effect_set(
         self, param_option: ParameterizedOption, option_objs: Sequence[Object],
@@ -169,52 +169,51 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 max_chain_len = max(max_chain_len, len(chain[1]))
                 backchaining_results.append(
                     (seg_traj, atoms_seq, traj_goal, chain))
-        # Now look for an uncovered segment.
+        # Now look for an uncovered segment. If one cannot be found, this
+        # method will automatically return None.
         for depth in range(max_chain_len + 1):
             for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
                 image_chain, op_chain, last_used_op = chain
-                if len(op_chain) > depth or len(op_chain) == len(seg_traj):
-                    continue
-                # We found an uncovered transition: we now need to return
-                # the information necessary to induce a new operator to cover
-                # it.
-                # The timestep of the uncovered transition is the number of
-                # segments - 1 - (numer of actions in our backchained plan)
-                t = (len(seg_traj) - 1) - len(op_chain)
-                assert t >= 0
-                segment = seg_traj[t]
-                necessary_image = image_chain[-1]
-                # Necessary add effects are everything true in the necessary
-                # image that was not true after calling the operator from
-                # atoms_seq[t].
-                option = segment.get_option()
-                if last_used_op is not None:
-                    # This means that we're adding a new operator by
-                    # specializing an existing one.
-                    pred_next_atoms = utils.apply_operator(
-                        last_used_op, atoms_seq[t])
-                    missing_effects = (necessary_image - pred_next_atoms)
-                    # These are just the missing effects + existing add
-                    # effects.
-                    necessary_add_effects = missing_effects | \
-                        last_used_op.add_effects
-                    # These are the missing effects that were ignore effects of
-                    # the last_used_op.
-                    necessary_keep_effects = {
-                        a
-                        for a in missing_effects if a in atoms_seq[t]
-                        and a.predicate in last_used_op.ignore_effects
-                    }
-                else:
-                    # This means this is the first time we're inducing an
-                    # operator for this option.
-                    necessary_add_effects = necessary_image - atoms_seq[t]
-                    necessary_keep_effects = set()
+                if not (len(op_chain) > depth
+                        or len(op_chain) == len(seg_traj)):
+                    # We found an uncovered transition: we now need to return
+                    # the information necessary to induce a new operator to
+                    # cover it.
+                    # The timestep of the uncovered transition is the number of
+                    # segments - 1 - (numer of actions in our backchained plan)
+                    t = (len(seg_traj) - 1) - len(op_chain)
+                    assert t >= 0
+                    segment = seg_traj[t]
+                    necessary_image = image_chain[-1]
+                    # Necessary add effects are everything true in the 
+                    # necessary image that was not true after calling the
+                    # operator from atoms_seq[t].
+                    option = segment.get_option()
+                    if last_used_op is not None:
+                        # This means that we're adding a new operator by
+                        # specializing an existing one.
+                        pred_next_atoms = utils.apply_operator(
+                            last_used_op, atoms_seq[t])
+                        missing_effects = (necessary_image - pred_next_atoms)
+                        # These are just the missing effects + existing add
+                        # effects.
+                        necessary_add_effects = missing_effects | \
+                            last_used_op.add_effects
+                        # These are the missing effects that were ignore
+                        # effects of the last_used_op.
+                        necessary_keep_effects = {
+                            a
+                            for a in missing_effects if a in atoms_seq[t]
+                            and a.predicate in last_used_op.ignore_effects
+                        }
+                    else:
+                        # This means this is the first time we're inducing an
+                        # operator for this option.
+                        necessary_add_effects = necessary_image - atoms_seq[t]
+                        necessary_keep_effects = set()
 
-                return (option.parent, option.objects, necessary_add_effects,
-                        necessary_keep_effects)
-        # Everything was covered.
-        return None
+                    return (option.parent, option.objects,
+                            necessary_add_effects, necessary_keep_effects)
 
 
 class _PruningEffectSearchOperator(_EffectSearchOperator):

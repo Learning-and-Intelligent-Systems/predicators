@@ -617,7 +617,8 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         # First, check that the two sets of PNADs have the same number of PNADs.
         # Uh oh, they don't
         assert len(natural_order_pnads) != len(reverse_order_pnads)
-        # Second, check that the two sets of NSRTs have the same number of NSRTs.
+        # Second, check that the two sets of NSRTs have the same number of
+        # NSRTs.
         # They do! Because our NSRTs were learned with dataset reordering and
         # harmless operator pruning, as opposed to our PNADs which were learned
         # with our _MockBackchainingSTRIPSLearner that does not have these
