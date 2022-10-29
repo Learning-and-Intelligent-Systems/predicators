@@ -135,10 +135,9 @@ def test_backchaining_strips_learner(approach_cls):
     segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
     segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
-    learner = approach_cls([traj3, traj4], [task3, task4],
-                                             {Asleep, Sad},
-                                             [[segment3], [segment4]],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
+                           [[segment3], [segment4]],
+                           verify_harmlessness=True)
     pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
