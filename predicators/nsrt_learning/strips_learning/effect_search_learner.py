@@ -185,7 +185,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                     assert t >= 0
                     segment = seg_traj[t]
                     necessary_image = image_chain[-1]
-                    # Necessary add effects are everything true in the 
+                    # Necessary add effects are everything true in the
                     # necessary image that was not true after calling the
                     # operator from atoms_seq[t].
                     option = segment.get_option()
@@ -214,6 +214,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
 
                     return (option.parent, option.objects,
                             necessary_add_effects, necessary_keep_effects)
+        return None
 
 
 class _PruningEffectSearchOperator(_EffectSearchOperator):
@@ -298,15 +299,12 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                     yield (op, i), child, 1.0  # cost always 1
 
         # Run hill-climbing search.
-        path, _, cost = utils.run_hill_climbing(
+        path, _, _ = utils.run_hill_climbing(
             initial_state=initial_state,
             check_goal=lambda _: False,
             get_successors=get_successors,
-            heuristic=heuristic,
-            early_termination_heuristic_thresh=0)
+            heuristic=heuristic)
 
-        # This effectively asserts harmlessness.
-        assert cost[-1] == 0
         # Extract the best effect set.
         best_effect_sets = path[-1]
         # Convert into PNADs.
