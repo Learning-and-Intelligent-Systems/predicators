@@ -1,4 +1,5 @@
-"""Tests for general-to-specific STRIPS operator learning."""
+"""Tests for STRIPS operator learning approaches that use the backchaining
+operator."""
 
 import itertools
 
@@ -9,6 +10,8 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
+from predicators.nsrt_learning.strips_learning.effect_search_learner import \
+    EffectSearchSTRIPSLearner
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
 from predicators.settings import CFG
@@ -54,8 +57,12 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
         return self._reset_all_segment_add_effs()
 
 
-def test_backchaining_strips_learner():
-    """Test the BackchainingSTRIPSLearner."""
+@pytest.mark.parametrize(
+    "approach_cls",
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+def test_backchaining_strips_learner(approach_cls):
+    """Test the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearner on a
+    simple problem."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the structs.
     human_type = Type("human_type", ["feat1", "feat2"])
@@ -91,10 +98,9 @@ def test_backchaining_strips_learner():
                                [act2], True, 1)
     task2 = Task(state_awake_and_sad, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             {Asleep},
-                                             [[segment1], [segment2]],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2], {Asleep},
+                           [[segment1], [segment2]],
+                           verify_harmlessness=True)
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -129,7 +135,7 @@ def test_backchaining_strips_learner():
     segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
     segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
-    learner = _MockBackchainingSTRIPSLearner([traj3, traj4], [task3, task4],
+    learner = approach_cls([traj3, traj4], [task3, task4],
                                              {Asleep, Sad},
                                              [[segment3], [segment4]],
                                              verify_harmlessness=True)
@@ -145,9 +151,13 @@ def test_backchaining_strips_learner():
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
-def test_backchaining_strips_learner_order_dependence():
-    """Test that the BackchainingSTRIPSLearner is invariant to order of
-    traversal through trajectories."""
+@pytest.mark.parametrize("approach_name,approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effects_search", EffectSearchSTRIPSLearner)])
+def test_backchaining_strips_learner_order_dependence(approach_name,
+                                                      approach_cls):
+    """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearns are
+    invariant to order of traversal through trajectories."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the types and predicates.
     light_type = Type("light_type", ["brightness", "color"])
@@ -230,20 +240,21 @@ def test_backchaining_strips_learner_order_dependence():
         MoveAndMessWithLights)
 
     # Create and run the learner with the 3 demos in the natural order.
-    learner = _MockBackchainingSTRIPSLearner(
+    learner = approach_cls(
         [traj1, traj2, traj3], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment1], [segment2], [segment3]],
         verify_harmlessness=True)
     natural_order_pnads = learner.learn()
     # Now, create and run the learner with the 3 demos in the reverse order.
-    learner = _MockBackchainingSTRIPSLearner(
+    learner = approach_cls(
         [traj3, traj2, traj1], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment3], [segment2], [segment1]],
         verify_harmlessness=True)
-    # Be sure to reset the segment add effects before doing this.
-    learner.reset_all_segment_add_effs()
+    if approach_name == "backchaining":
+        # Be sure to reset the segment add effects before doing this.
+        learner.reset_all_segment_add_effs()
     reverse_order_pnads = learner.learn()
 
     # First, check that the two sets of PNADs have the same number of PNADs.
@@ -286,316 +297,333 @@ def test_backchaining_strips_learner_order_dependence():
         assert str(natural_order_pnads[i]) in correct_pnads
         assert str(reverse_order_pnads[i]) in correct_pnads
 
-    # Weird Case: This case shows that our algorithm is not data order
-    # invariant!
-    utils.reset_config({
-        "approach": "nsrt_learning",
-        "strips_learner": "backchaining",
-        # Following are necessary to solve this case.
-        "data_orderings_to_search": 10,
-        "enable_harmless_op_pruning": True
-    })
-    # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
-    # holding: True or False whether an object is in hand
-    agent_type = Type("agent_type", ["loc", "holding"])
-    agent = agent_type("agent")
-    # Hardback features are loc: -1, 0, 1, 2, 3 [in_hand, start, shelf1,
-    # shelf2, far away]
-    hardback_type = Type(
-        "hardback_type",
-        ["loc"])  # loc: -1, 0, 1, 2 [in_hand, start, shelf1, shelf2]
-    hardback1 = hardback_type("hardback1")
-    hardback2 = hardback_type("hardback2")
-    book1 = hardback_type("book1")
-    # Shelf features are loc: 2 (only a shelf at location two)
-    shelf_type = Type("shelf_type", ["loc"])
-    shelf = shelf_type("shelf")
-    # Predicates
-    NextTo = Predicate(
-        "NextTo", [hardback_type], lambda s, o: s[o[0]][0] == s[agent][0] or
-        (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
-    NextToShelf = Predicate("NextToShelf", [shelf_type],
-                            lambda s, o: s[agent][0] == 2)
-    HandEmpty = Predicate("HandEmpty", [], lambda s, o: not s[agent][1])
-    Holding = Predicate("Holding", [hardback_type],
-                        lambda s, o: s[o[0]][0] == -1)
-    OnTop = Predicate("OnTop", [hardback_type, shelf_type],
-                      lambda s, o: s[o[0]][0] == s[o[1]][0])
-    preds = {NextTo, NextToShelf, HandEmpty, Holding, OnTop}
+    if approach_name == "backchaining":
+        # Weird Case: This case shows that our algorithm is not data order
+        # invariant!
+        utils.reset_config({
+            "approach": "nsrt_learning",
+            "strips_learner": "backchaining",
+            # Following are necessary to solve this case.
+            "data_orderings_to_search": 10,
+            "enable_harmless_op_pruning": True
+        })
+        # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
+        # holding: True or False whether an object is in hand
+        agent_type = Type("agent_type", ["loc", "holding"])
+        agent = agent_type("agent")
+        # Hardback features are loc: -1, 0, 1, 2, 3 [in_hand, start, shelf1,
+        # shelf2, far away]
+        hardback_type = Type(
+            "hardback_type",
+            ["loc"])  # loc: -1, 0, 1, 2 [in_hand, start, shelf1, shelf2]
+        hardback1 = hardback_type("hardback1")
+        hardback2 = hardback_type("hardback2")
+        book1 = hardback_type("book1")
+        # Shelf features are loc: 2 (only a shelf at location two)
+        shelf_type = Type("shelf_type", ["loc"])
+        shelf = shelf_type("shelf")
+        # Predicates
+        NextTo = Predicate(
+            "NextTo", [hardback_type],
+            lambda s, o: s[o[0]][0] == s[agent][0] or
+            (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
+        NextToShelf = Predicate("NextToShelf", [shelf_type],
+                                lambda s, o: s[agent][0] == 2)
+        HandEmpty = Predicate("HandEmpty", [], lambda s, o: not s[agent][1])
+        Holding = Predicate("Holding", [hardback_type],
+                            lambda s, o: s[o[0]][0] == -1)
+        OnTop = Predicate("OnTop", [hardback_type, shelf_type],
+                          lambda s, o: s[o[0]][0] == s[o[1]][0])
+        preds = {NextTo, NextToShelf, HandEmpty, Holding, OnTop}
 
-    # Agent not holding anything at location 0, hardbacks at loaction 1,
-    # and shelf at location 2
-    state1 = State({
-        agent: [0, False],
-        book1: [3],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent moves to location 1
-    state2 = State({
-        agent: [1, False],
-        book1: [3],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent grabs hardback1
-    state3 = State({
-        agent: [1, True],
-        book1: [3],
-        hardback1: [-1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent moves to location 2
-    state4 = State({
-        agent: [2, True],
-        book1: [3],
-        hardback1: [-1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent places hardback1
-    state5 = State({
-        agent: [2, False],
-        book1: [3],
-        hardback1: [2],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent moves to location 1
-    state6 = State({
-        agent: [1, False],
-        book1: [3],
-        hardback1: [2],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent grabs hardback2
-    state7 = State({
-        agent: [1, True],
-        book1: [3],
-        hardback1: [2],
-        hardback2: [-1],
-        shelf: [2]
-    })
-    # Agent moves to location 2
-    state8 = State({
-        agent: [2, True],
-        book1: [3],
-        hardback1: [2],
-        hardback2: [-1],
-        shelf: [2]
-    })
-    # Agent places hardback2
-    state9 = State({
-        agent: [2, False],
-        book1: [3],
-        hardback1: [2],
-        hardback2: [2],
-        shelf: [2]
-    })
+        # Agent not holding anything at location 0, hardbacks at loaction 1,
+        # and shelf at location 2
+        state1 = State({
+            agent: [0, False],
+            book1: [3],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent moves to location 1
+        state2 = State({
+            agent: [1, False],
+            book1: [3],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent grabs hardback1
+        state3 = State({
+            agent: [1, True],
+            book1: [3],
+            hardback1: [-1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent moves to location 2
+        state4 = State({
+            agent: [2, True],
+            book1: [3],
+            hardback1: [-1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent places hardback1
+        state5 = State({
+            agent: [2, False],
+            book1: [3],
+            hardback1: [2],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent moves to location 1
+        state6 = State({
+            agent: [1, False],
+            book1: [3],
+            hardback1: [2],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent grabs hardback2
+        state7 = State({
+            agent: [1, True],
+            book1: [3],
+            hardback1: [2],
+            hardback2: [-1],
+            shelf: [2]
+        })
+        # Agent moves to location 2
+        state8 = State({
+            agent: [2, True],
+            book1: [3],
+            hardback1: [2],
+            hardback2: [-1],
+            shelf: [2]
+        })
+        # Agent places hardback2
+        state9 = State({
+            agent: [2, False],
+            book1: [3],
+            hardback1: [2],
+            hardback2: [2],
+            shelf: [2]
+        })
 
-    # States for second trajectory
-    # Agent moves to location 3
-    state10 = State({
-        agent: [3, False],
-        book1: [3],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent grabs book1 at location 3
-    state11 = State({
-        agent: [3, True],
-        book1: [-1],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent moves to location 2
-    state12 = State({
-        agent: [2, True],
-        book1: [-1],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
-    # Agent places hardback1
-    state13 = State({
-        agent: [2, False],
-        book1: [2],
-        hardback1: [1],
-        hardback2: [1],
-        shelf: [2]
-    })
+        # States for second trajectory
+        # Agent moves to location 3
+        state10 = State({
+            agent: [3, False],
+            book1: [3],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent grabs book1 at location 3
+        state11 = State({
+            agent: [3, True],
+            book1: [-1],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent moves to location 2
+        state12 = State({
+            agent: [2, True],
+            book1: [-1],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
+        # Agent places hardback1
+        state13 = State({
+            agent: [2, False],
+            book1: [2],
+            hardback1: [1],
+            hardback2: [1],
+            shelf: [2]
+        })
 
-    moveto_param_option = utils.ParameterizedOption(
-        "MoveTo", [hardback_type],
-        policy=lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 1, (1, )),
-        initiable=lambda _1, _2, _3, _4: True,
-        terminal=lambda _1, _2, _3, _4: True)
-    moveto_option = moveto_param_option.ground([hardback1], np.array([0.5]))
-    assert moveto_option.initiable(state1)
-    moveto_hard2 = moveto_option.policy(state1)
-    moveto_hard2.set_option(moveto_option)
-    pick_param_option = utils.ParameterizedOption(
-        "Pick", [hardback_type],
-        policy=lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 1, (1, )),
-        initiable=lambda _1, _2, _3, _4: True,
-        terminal=lambda _1, _2, _3, _4: True)
-    pick_option = pick_param_option.ground([hardback1], np.array([0.5]))
-    assert pick_option.initiable(state2)
-    pick_hard2 = pick_option.policy(state2)
-    pick_hard2.set_option(pick_option)
-    movetoshelf_param_option = utils.ParameterizedOption(
-        "MoveToShelf", [shelf_type],
-        policy=lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 1, (1, )),
-        initiable=lambda _1, _2, _3, _4: True,
-        terminal=lambda _1, _2, _3, _4: True)
-    movetoshelf_option = movetoshelf_param_option.ground([shelf],
-                                                         np.array([0.5]))
-    assert movetoshelf_option.initiable(state3)
-    movetoshelf1 = movetoshelf_option.policy(state3)
-    movetoshelf1.set_option(movetoshelf_option)
-    place_param_option = utils.ParameterizedOption(
-        "Place", [hardback_type, shelf_type],
-        policy=lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 1, (1, )),
-        initiable=lambda _1, _2, _3, _4: True,
-        terminal=lambda _1, _2, _3, _4: True)
-    place_option = place_param_option.ground([hardback1, shelf],
-                                             np.array([0.5]))
-    assert place_option.initiable(state4)
-    place_hard2 = place_option.policy(state4)
-    place_hard2.set_option(place_option)
-    moveto_option_2 = moveto_param_option.ground([hardback2], np.array([0.5]))
-    assert moveto_option_2.initiable(state5)
-    moveto_hard1 = moveto_option_2.policy(state5)
-    moveto_hard1.set_option(moveto_option_2)
-    pick_option_2 = pick_param_option.ground([hardback2], np.array([0.5]))
-    assert pick_option_2.initiable(state6)
-    pick_hard1 = pick_option_2.policy(state6)
-    pick_hard1.set_option(pick_option_2)
-    movetoshelf_option_2 = movetoshelf_param_option.ground([shelf],
-                                                           np.array([0.5]))
-    assert movetoshelf_option_2.initiable(state7)
-    movetoshelf2 = movetoshelf_option_2.policy(state7)
-    movetoshelf2.set_option(movetoshelf_option_2)
-    place_option_2 = place_param_option.ground([hardback2, shelf],
-                                               np.array([0.5]))
-    assert place_option_2.initiable(state8)
-    place_hard1 = place_option_2.policy(state8)
-    place_hard1.set_option(place_option_2)
+        moveto_param_option = utils.ParameterizedOption(
+            "MoveTo", [hardback_type],
+            policy=lambda s, m, o, p: Action(p),
+            params_space=Box(0.1, 1, (1, )),
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=lambda _1, _2, _3, _4: True)
+        moveto_option = moveto_param_option.ground([hardback1],
+                                                   np.array([0.5]))
+        assert moveto_option.initiable(state1)
+        moveto_hard2 = moveto_option.policy(state1)
+        moveto_hard2.set_option(moveto_option)
+        pick_param_option = utils.ParameterizedOption(
+            "Pick", [hardback_type],
+            policy=lambda s, m, o, p: Action(p),
+            params_space=Box(0.1, 1, (1, )),
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=lambda _1, _2, _3, _4: True)
+        pick_option = pick_param_option.ground([hardback1], np.array([0.5]))
+        assert pick_option.initiable(state2)
+        pick_hard2 = pick_option.policy(state2)
+        pick_hard2.set_option(pick_option)
+        movetoshelf_param_option = utils.ParameterizedOption(
+            "MoveToShelf", [shelf_type],
+            policy=lambda s, m, o, p: Action(p),
+            params_space=Box(0.1, 1, (1, )),
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=lambda _1, _2, _3, _4: True)
+        movetoshelf_option = movetoshelf_param_option.ground([shelf],
+                                                             np.array([0.5]))
+        assert movetoshelf_option.initiable(state3)
+        movetoshelf1 = movetoshelf_option.policy(state3)
+        movetoshelf1.set_option(movetoshelf_option)
+        place_param_option = utils.ParameterizedOption(
+            "Place", [hardback_type, shelf_type],
+            policy=lambda s, m, o, p: Action(p),
+            params_space=Box(0.1, 1, (1, )),
+            initiable=lambda _1, _2, _3, _4: True,
+            terminal=lambda _1, _2, _3, _4: True)
+        place_option = place_param_option.ground([hardback1, shelf],
+                                                 np.array([0.5]))
+        assert place_option.initiable(state4)
+        place_hard2 = place_option.policy(state4)
+        place_hard2.set_option(place_option)
+        moveto_option_2 = moveto_param_option.ground([hardback2],
+                                                     np.array([0.5]))
+        assert moveto_option_2.initiable(state5)
+        moveto_hard1 = moveto_option_2.policy(state5)
+        moveto_hard1.set_option(moveto_option_2)
+        pick_option_2 = pick_param_option.ground([hardback2], np.array([0.5]))
+        assert pick_option_2.initiable(state6)
+        pick_hard1 = pick_option_2.policy(state6)
+        pick_hard1.set_option(pick_option_2)
+        movetoshelf_option_2 = movetoshelf_param_option.ground([shelf],
+                                                               np.array([0.5]))
+        assert movetoshelf_option_2.initiable(state7)
+        movetoshelf2 = movetoshelf_option_2.policy(state7)
+        movetoshelf2.set_option(movetoshelf_option_2)
+        place_option_2 = place_param_option.ground([hardback2, shelf],
+                                                   np.array([0.5]))
+        assert place_option_2.initiable(state8)
+        place_hard1 = place_option_2.policy(state8)
+        place_hard1.set_option(place_option_2)
 
-    moveto_option_3 = moveto_param_option.ground([book1], np.array([0.5]))
-    assert moveto_option_3.initiable(state1)
-    moveto_book1 = moveto_option_3.policy(state1)
-    moveto_book1.set_option(moveto_option_3)
-    pick_option_3 = pick_param_option.ground([book1], np.array([0.5]))
-    assert pick_option_3.initiable(state2)
-    pick_book1 = pick_option_3.policy(state2)
-    pick_book1.set_option(pick_option_3)
-    movetoshelf_option_3 = movetoshelf_param_option.ground([shelf],
-                                                           np.array([0.5]))
-    assert movetoshelf_option_3.initiable(state10)
-    movetoshelf2 = movetoshelf_option_3.policy(state10)
-    movetoshelf2.set_option(movetoshelf_option_3)
-    place_option_3 = place_param_option.ground([book1, shelf], np.array([0.5]))
-    assert place_option_3.initiable(state11)
-    place_book1 = place_option_3.policy(state11)
-    place_book1.set_option(place_option_3)
+        moveto_option_3 = moveto_param_option.ground([book1], np.array([0.5]))
+        assert moveto_option_3.initiable(state1)
+        moveto_book1 = moveto_option_3.policy(state1)
+        moveto_book1.set_option(moveto_option_3)
+        pick_option_3 = pick_param_option.ground([book1], np.array([0.5]))
+        assert pick_option_3.initiable(state2)
+        pick_book1 = pick_option_3.policy(state2)
+        pick_book1.set_option(pick_option_3)
+        movetoshelf_option_3 = movetoshelf_param_option.ground([shelf],
+                                                               np.array([0.5]))
+        assert movetoshelf_option_3.initiable(state10)
+        movetoshelf2 = movetoshelf_option_3.policy(state10)
+        movetoshelf2.set_option(movetoshelf_option_3)
+        place_option_3 = place_param_option.ground([book1, shelf],
+                                                   np.array([0.5]))
+        assert place_option_3.initiable(state11)
+        place_book1 = place_option_3.policy(state11)
+        place_book1.set_option(place_option_3)
 
-    # Two Tasks: (1) place both close books on top shelf and (2) place
-    # book1 on top of shelf
-    goal1 = set([
-        GroundAtom(OnTop, [hardback1, shelf]),
-        GroundAtom(OnTop, [hardback2, shelf])
-    ])
-    goal2 = set([GroundAtom(OnTop, [book1, shelf])])
-    task1 = Task(init=state1, goal=goal1)
-    task2 = Task(init=state1, goal=goal2)
-    traj1 = LowLevelTrajectory([
-        state1, state2, state3, state4, state5, state6, state7, state8, state9
-    ], [
-        moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
-        pick_hard1, movetoshelf2, place_hard1
-    ], True, 0)
-    traj2 = LowLevelTrajectory(
-        [state1, state10, state11, state12, state13],
-        [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 1)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], preds)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
-    # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             preds,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
-    natural_order_pnads = learner.learn()
-    action_space = Box(0, 1, (1, ))
-    dataset = [traj1, traj2]
-    train_tasks = [task1, task2]
-    options = {
-        moveto_param_option, pick_param_option, movetoshelf_param_option,
-        place_param_option
-    }
-    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
-    natural_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
-                                                      train_tasks,
-                                                      preds,
-                                                      options,
-                                                      action_space,
-                                                      ground_atom_dataset,
-                                                      sampler_learner="random")
+        # Two Tasks: (1) place both close books on top shelf and (2) place
+        # book1 on top of shelf
+        goal1 = set([
+            GroundAtom(OnTop, [hardback1, shelf]),
+            GroundAtom(OnTop, [hardback2, shelf])
+        ])
+        goal2 = set([GroundAtom(OnTop, [book1, shelf])])
+        task1 = Task(init=state1, goal=goal1)
+        task2 = Task(init=state1, goal=goal2)
+        traj1 = LowLevelTrajectory([
+            state1, state2, state3, state4, state5, state6, state7, state8,
+            state9
+        ], [
+            moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
+            pick_hard1, movetoshelf2, place_hard1
+        ], True, 0)
+        traj2 = LowLevelTrajectory(
+            [state1, state10, state11, state12, state13],
+            [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 1)
+        ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
+                                                             preds)
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in ground_atom_trajs
+        ]
+        # Now, run the learner on the demo.
+        learner = _MockBackchainingSTRIPSLearner([traj1, traj2],
+                                                 [task1, task2],
+                                                 preds,
+                                                 segmented_trajs,
+                                                 verify_harmlessness=True)
+        natural_order_pnads = learner.learn()
+        action_space = Box(0, 1, (1, ))
+        dataset = [traj1, traj2]
+        train_tasks = [task1, task2]
+        options = {
+            moveto_param_option, pick_param_option, movetoshelf_param_option,
+            place_param_option
+        }
+        ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+        natural_order_nsrts, _, _ = learn_nsrts_from_data(
+            dataset,
+            train_tasks,
+            preds,
+            options,
+            action_space,
+            ground_atom_dataset,
+            sampler_learner="random")
 
-    traj1 = LowLevelTrajectory([
-        state1, state2, state3, state4, state5, state6, state7, state8, state9
-    ], [
-        moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
-        pick_hard1, movetoshelf2, place_hard1
-    ], True, 1)
-    traj2 = LowLevelTrajectory(
-        [state1, state10, state11, state12, state13],
-        [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 0)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1], preds)
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
-    # Now, create and run the learner with the 3 demos in the reverse order.
-    learner = _MockBackchainingSTRIPSLearner([traj2, traj1], [task2, task1],
-                                             preds,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
-    # Be sure to reset the segment add effects before doing this.
-    learner.reset_all_segment_add_effs()
-    reverse_order_pnads = learner.learn()
-    action_space = Box(0, 1, (1, ))
-    dataset = [traj2, traj1]
-    train_tasks = [task2, task1]
-    options = {
-        moveto_param_option, pick_param_option, movetoshelf_param_option,
-        place_param_option
-    }
-    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
-    reverse_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
-                                                      train_tasks,
-                                                      preds,
-                                                      options,
-                                                      action_space,
-                                                      ground_atom_dataset,
-                                                      sampler_learner="random")
+        traj1 = LowLevelTrajectory([
+            state1, state2, state3, state4, state5, state6, state7, state8,
+            state9
+        ], [
+            moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
+            pick_hard1, movetoshelf2, place_hard1
+        ], True, 1)
+        traj2 = LowLevelTrajectory(
+            [state1, state10, state11, state12, state13],
+            [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 0)
+        ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1],
+                                                             preds)
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in ground_atom_trajs
+        ]
+        # Now, create and run the learner with the 3 demos in the reverse order.
+        learner = _MockBackchainingSTRIPSLearner([traj2, traj1],
+                                                 [task2, task1],
+                                                 preds,
+                                                 segmented_trajs,
+                                                 verify_harmlessness=True)
+        # Be sure to reset the segment add effects before doing this.
+        learner.reset_all_segment_add_effs()
+        reverse_order_pnads = learner.learn()
+        action_space = Box(0, 1, (1, ))
+        dataset = [traj2, traj1]
+        train_tasks = [task2, task1]
+        options = {
+            moveto_param_option, pick_param_option, movetoshelf_param_option,
+            place_param_option
+        }
+        ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+        reverse_order_nsrts, _, _ = learn_nsrts_from_data(
+            dataset,
+            train_tasks,
+            preds,
+            options,
+            action_space,
+            ground_atom_dataset,
+            sampler_learner="random")
 
-    # First, check that the two sets of PNADs have the same number of PNADs.
-    # Uh oh, they don't
-    assert len(natural_order_pnads) != len(reverse_order_pnads)
-    # Second, check that the two sets of NSRTs have the same number of NSRTs.
-    # They do! Because our NSRTs were learned with dataset reordering and
-    # harmless operator pruning, as opposed to our PNADs which were learned
-    # with our _MockBackchainingSTRIPSLearner that does not have these
-    # additions.
-    assert len(natural_order_nsrts) == len(reverse_order_nsrts)
+        # First, check that the two sets of PNADs have the same number of PNADs.
+        # Uh oh, they don't
+        assert len(natural_order_pnads) != len(reverse_order_pnads)
+        # Second, check that the two sets of NSRTs have the same number of NSRTs.
+        # They do! Because our NSRTs were learned with dataset reordering and
+        # harmless operator pruning, as opposed to our PNADs which were learned
+        # with our _MockBackchainingSTRIPSLearner that does not have these
+        # additions.
+        assert len(natural_order_nsrts) == len(reverse_order_nsrts)
 
 
 def test_spawn_new_pnad():
@@ -660,10 +688,14 @@ def test_spawn_new_pnad():
     assert len(new_pnad.datastore) == 1
 
 
-def test_keep_effect_data_partitioning():
-    """Test that the BackchainingSTRIPSLearner is able to correctly induce
-    operators with keep effects in a case where a naive procedure that does not
-    keep the original operators (without keep effects) would fail.
+@pytest.mark.parametrize(
+    "approach_cls",
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+def test_keep_effect_data_partitioning(approach_cls):
+    """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearner
+    are able to correctly induce operators with keep effects in a case where a
+    naive procedure that does not keep the original operators (without keep
+    effects) would fail.
 
     There are two demonstrations: [Configure, TurnOn, Run] and [TurnOn,
     Configure, Run]. TurnOn always just turns on a machine, while
@@ -777,10 +809,10 @@ def test_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the two demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
     # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
     # each of TurnOn and Run. One of the Configure operators should have

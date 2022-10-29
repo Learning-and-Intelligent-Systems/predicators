@@ -299,10 +299,12 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                     yield (op, i), child, 1.0  # cost always 1
 
         # Run hill-climbing search.
-        path, _, cost = utils.run_hill_climbing(initial_state=initial_state,
-                                                check_goal=lambda _: False,
-                                                get_successors=get_successors,
-                                                heuristic=heuristic)
+        path, _, cost = utils.run_hill_climbing(
+            initial_state=initial_state,
+            check_goal=lambda _: False,
+            get_successors=get_successors,
+            heuristic=heuristic,
+            early_termination_heuristic_thresh=0)
 
         # This effectively asserts harmlessness.
         assert cost[-1] == 0
@@ -342,10 +344,9 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         pnads = []
         for (option_spec, add_effects, keep_effects) in effect_sets:
             parameterized_option, op_vars = option_spec
-            effect_vars = {v
-                           for a in add_effects for v in a.variables
-                           } | {v
-                                for a in keep_effects for v in a.variables}
+            add_effect_vars = {v for a in add_effects for v in a.variables}
+            keep_effect_vars = {v for a in keep_effects for v in a.variables}
+            effect_vars = add_effect_vars | keep_effect_vars
             parameters = sorted(set(op_vars) | effect_vars)
             # Add all ignore effects initially so that precondition learning
             # works. Be sure that the keep effects are part of both the
