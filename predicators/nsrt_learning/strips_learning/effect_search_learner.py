@@ -299,11 +299,10 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                     yield (op, i), child, 1.0  # cost always 1
 
         # Run hill-climbing search.
-        path, _, _ = utils.run_hill_climbing(
-            initial_state=initial_state,
-            check_goal=lambda _: False,
-            get_successors=get_successors,
-            heuristic=heuristic)
+        path, _, _ = utils.run_hill_climbing(initial_state=initial_state,
+                                             check_goal=lambda _: False,
+                                             get_successors=get_successors,
+                                             heuristic=heuristic)
 
         # Extract the best effect set.
         best_effect_sets = path[-1]
