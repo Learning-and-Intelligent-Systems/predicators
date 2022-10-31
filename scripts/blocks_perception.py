@@ -59,6 +59,24 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
     # Find line that intersects the bottom row of blocks.
     bottom_row_line = parse_bottom_row_line_from_image(image, camera, debug=debug)
     # Crop the image around that line.
+    cropped_image = crop_from_bottom_row_line(image, bottom_row_line, debug=debug)
+
+
+def parse_bottom_row_line_from_image(image: Image, camera: str, debug: bool = False) -> LineSegment:
+    line = CAMERA_TO_LINE[camera]
+
+    if debug:
+        start_point = (line.x1, line.y1)
+        end_point = (line.x2, line.y2)
+        color = (255, 255, 255)
+        thickness = 5
+        line_image = cv2.line(image, start_point, end_point, color, thickness)
+        _show_image(line_image, f"Line for {camera}")
+
+    return line
+
+
+def crop_from_bottom_row_line(image: Image, bottom_row_line: LineSegment, debug: bool = False) -> Image:
     x1, y1 = bottom_row_line.x1, bottom_row_line.y1
     x2, y2 = bottom_row_line.x2, bottom_row_line.y2
     crop_height = 50
@@ -77,23 +95,9 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
     ignore_mask_color = (255, ) * channel_count
     cv2.fillPoly(mask, roi_corners, ignore_mask_color)
     cropped_image = cv2.bitwise_and(image, mask)
-    if True:  # debug:
-        _show_image(cropped_image, f"Cropped image for {camera}")
-
-
-def parse_bottom_row_line_from_image(image: Image, camera: str, debug: bool = False) -> LineSegment:
-    line = CAMERA_TO_LINE[camera]
-
     if debug:
-        start_point = (line.x1, line.y1)
-        end_point = (line.x2, line.y2)
-        color = (255, 255, 255)
-        thickness = 5
-        line_image = cv2.line(image, start_point, end_point, color, thickness)
-        _show_image(line_image, f"Line for {camera}")
-
-    return line
-
+        _show_image(cropped_image, f"Cropped image")
+    return cropped_image
 
 if __name__ == "__main__":
     color_imgs_path = Path("~/Desktop/blocks-images/color/")
