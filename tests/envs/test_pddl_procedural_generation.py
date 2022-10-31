@@ -182,8 +182,6 @@ def test_create_gripper_pddl_generator():
         assert "- ball" not in obj_str
         assert " - object" in obj_str
         # One at in init.
-        print("INIT STRING")
-        print(init_str)
         assert init_str.count(f"{prefix}at-robby") == 1
         # The goal should have at least one at.
         assert goal_str.count(f"{prefix}at") >= 1

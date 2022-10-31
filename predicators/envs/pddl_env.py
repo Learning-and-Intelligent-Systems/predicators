@@ -83,8 +83,8 @@ class _PDDLEnv(BaseEnv):
     same object parameters and no continuous parameters.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
             _parse_pddl_domain(self._domain_str)
@@ -635,7 +635,8 @@ def _parse_pddl_domain(
             parent = pyperplan_type_to_type[pyper_type.parent]
         new_type = Type(pyper_type.name, [], parent)
         pyperplan_type_to_type[pyper_type] = new_type
-    # TODO clean up and test (@Tom)
+    # Handle case where the domain is untyped.
+    # Pyperplan uses the object type by default.
     if not pyperplan_type_to_type:
         pyper_type = next(iter(pyperplan_types.values()))
         new_type = Type(pyper_type.name, [], parent=None)
