@@ -179,6 +179,17 @@ class GlobalSettings:
     pddl_forest_procedural_test_min_size = 10
     pddl_forest_procedural_test_max_size = 12
 
+    # pddl gripper and prefixed gripper env parameters
+    pddl_gripper_procedural_train_min_num_rooms = 2
+    pddl_gripper_procedural_train_max_num_rooms = 3
+    pddl_gripper_procedural_train_min_num_balls = 1
+    pddl_gripper_procedural_train_max_num_balls = 1
+
+    pddl_gripper_procedural_test_min_num_rooms = 2
+    pddl_gripper_procedural_test_max_num_rooms = 3
+    pddl_gripper_procedural_test_min_num_balls = 1
+    pddl_gripper_procedural_test_max_num_balls = 1
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
