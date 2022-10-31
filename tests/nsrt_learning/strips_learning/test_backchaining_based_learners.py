@@ -1113,7 +1113,10 @@ def test_combinatorial_keep_effect_data_partitioning():
         assert str(pnad) in correct_pnads
 
 
-def test_keep_effect_adding_new_variables():
+@pytest.mark.parametrize(
+    "approach_cls",
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+def test_keep_effect_adding_new_variables(approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
     harmlessness."""
@@ -1178,9 +1181,9 @@ def test_keep_effect_adding_new_variables():
     segmented_traj = segment_trajectory(ground_atom_traj)
 
     # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj], [task],
-                                             predicates, [segmented_traj],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj], [task],
+                           predicates, [segmented_traj],
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
 
     # Verify that all the output PNADs are correct. The PNAD for Press should

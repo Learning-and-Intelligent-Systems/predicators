@@ -90,23 +90,21 @@ class _EffectSearchOperator(abc.ABC):
     """An operator that proposes successor sets of effect sets."""
 
     def __init__(
-        self,
-        trajectories: List[LowLevelTrajectory],
-        train_tasks: List[Task],
-        predicates: Set[Predicate],
-        segmented_trajs: List[List[Segment]],
-        effect_sets_to_pnads: Callable[[_EffectSets],
-                                       List[PartialNSRTAndDatastore]],
-        backchain: Callable[
-            [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
-            _Chain],
-    ) -> None:
+            self, trajectories: List[LowLevelTrajectory],
+            train_tasks: List[Task], predicates: Set[Predicate],
+            segmented_trajs: List[List[Segment]],
+            effect_sets_to_pnads: Callable[[_EffectSets],
+                                           List[PartialNSRTAndDatastore]],
+            backchain: Callable[[
+                List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]
+            ], _Chain], associated_heuristic: _EffectSearchHeuristic) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._effect_sets_to_pnads = effect_sets_to_pnads
         self._backchain = backchain
+        self._associated_heuristic = associated_heuristic
 
     @abc.abstractmethod
     def get_successors(self,
@@ -120,17 +118,35 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
 
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
-        pnads = self._effect_sets_to_pnads(effect_sets)
-        uncovered_transition = self._get_first_uncovered_transition(pnads)
-        if uncovered_transition is not None:
-            param_option, option_objs, add_effs, keep_effs = \
-                uncovered_transition
-            option_spec, lifted_add_effs, lifted_keep_effs = \
-                self._create_new_effect_set(param_option, option_objs, \
-                    add_effs, keep_effs)
-            new_effect_sets = effect_sets.add(option_spec, lifted_add_effs,
-                                              lifted_keep_effs)
-            yield new_effect_sets
+        initial_heuristic_val = self._associated_heuristic(effect_sets)
+
+        def get_new_effect_sets_by_backchaining(curr_effect_sets):
+            new_effect_sets = curr_effect_sets
+            pnads = self._effect_sets_to_pnads(curr_effect_sets)
+            uncovered_transition = self._get_first_uncovered_transition(pnads)
+            if uncovered_transition is not None:
+                param_option, option_objs, add_effs, keep_effs = \
+                        uncovered_transition
+                option_spec, lifted_add_effs, lifted_keep_effs = \
+                    self._create_new_effect_set(param_option, option_objs, \
+                        add_effs, keep_effs)
+                new_effect_sets = curr_effect_sets.add(option_spec,
+                                                       lifted_add_effs,
+                                                       lifted_keep_effs)
+            return new_effect_sets
+
+        new_effect_sets = get_new_effect_sets_by_backchaining(effect_sets)
+        if initial_heuristic_val > 0:
+            new_heuristic_val = self._associated_heuristic(new_effect_sets)
+            if new_heuristic_val == initial_heuristic_val:
+                # This means there was a keep effect problem with the new add
+                # effects we just induced. We need to call backchaining again
+                # to fix this.
+                new_effect_sets = get_new_effect_sets_by_backchaining(
+                    new_effect_sets)
+                new_heuristic_val = self._associated_heuristic(new_effect_sets)
+                assert new_heuristic_val < initial_heuristic_val
+        yield new_effect_sets
 
     def _create_new_effect_set(
         self, param_option: ParameterizedOption, option_objs: Sequence[Object],
@@ -316,8 +332,9 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         ]
         ops = [
             cls(self._trajectories, self._train_tasks, self._predicates,
-                self._segmented_trajs, self._effect_sets_to_pnads,
-                self._backchain) for cls in op_classes
+                self._segmented_trajs,
+                self._effect_sets_to_pnads, self._backchain,
+                self._create_heuristic()) for cls in op_classes
         ]
         return ops
 
@@ -388,6 +405,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         image_chain = [necessary_image]
         for t in range(len(atoms_seq) - 2, -1, -1):
             segment = segmented_traj[t]
+            segment.necessary_image = necessary_image
             pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                 segment, objects, pnads)
             # If no match found, terminate.
