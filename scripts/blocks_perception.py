@@ -56,12 +56,32 @@ def parse_state_from_images(right_color_img: Image, left_color_img: Image,
 
 
 def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> State:
-    # Find line that orients the table.
-    table_line = parse_table_line_from_image(image, camera, debug=debug)
+    # Find line that intersects the bottom row of blocks.
+    bottom_row_line = parse_bottom_row_line_from_image(image, camera, debug=debug)
+    # Crop the image around that line.
+    x1, y1 = bottom_row_line.x1, bottom_row_line.y1
+    x2, y2 = bottom_row_line.x2, bottom_row_line.y2
+    crop_height = 50
+    bottom_left_corner = (x1, y1 - crop_height / 2)
+    top_left_corner = (x1, y1 + crop_height / 2)
+    bottom_right_corner = (x2, y2 - crop_height / 2)
+    top_right_corner = (x2, y2 + crop_height / 2)
+    mask = np.zeros(image.shape, dtype=np.uint8)
+    roi_corners = np.array([[
+        bottom_left_corner,
+        bottom_right_corner,
+        top_right_corner,
+        top_left_corner,
+    ]], dtype=np.int32)
+    channel_count = image.shape[2]
+    ignore_mask_color = (255, ) * channel_count
+    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
+    cropped_image = cv2.bitwise_and(image, mask)
+    if True:  # debug:
+        _show_image(cropped_image, f"Cropped image for {camera}")
 
 
-def parse_table_line_from_image(image: Image, camera: str, debug: bool = False) -> LineSegment:
-    
+def parse_bottom_row_line_from_image(image: Image, camera: str, debug: bool = False) -> LineSegment:
     line = CAMERA_TO_LINE[camera]
 
     if debug:
@@ -71,6 +91,8 @@ def parse_table_line_from_image(image: Image, camera: str, debug: bool = False) 
         thickness = 5
         line_image = cv2.line(image, start_point, end_point, color, thickness)
         _show_image(line_image, f"Line for {camera}")
+
+    return line
 
 
 if __name__ == "__main__":
@@ -82,4 +104,4 @@ if __name__ == "__main__":
     left_color_img_path = color_imgs_path / f"color-{img_id}-{left_camera_id}.png"
     right_color_img = iio.imread(right_color_img_path)
     left_color_img = iio.imread(left_color_img_path)
-    state = parse_state_from_images(right_color_img, left_color_img, debug=True)
+    state = parse_state_from_images(right_color_img, left_color_img, debug=False)
