@@ -43,6 +43,14 @@ class BaseApproach(abc.ABC):
         """Does the approach learn from the training tasks?"""
         raise NotImplementedError("Override me!")
 
+    @property
+    def supports_incremental_learning(self) -> bool:
+        """Can the approach learn over a stream of data sequentially?"""
+        # No original method was written with this in mind, so by default
+        # we can assume they don't, and new incremental methods would 
+        # overwrite this
+        return False
+
     @abc.abstractmethod
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Return a policy for the given task, within the given number of

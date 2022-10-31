@@ -41,4 +41,5 @@ def create_arg_parser(env_required: bool = True,
                         const=logging.DEBUG,
                         default=logging.INFO)
     parser.add_argument("--pg3_init_policy", default="", type=str)
+    parser.add_argument("--learn_incrementally", action="store_true")
     return parser

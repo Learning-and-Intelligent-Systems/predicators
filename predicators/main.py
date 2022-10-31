@@ -139,7 +139,14 @@ def _run_pipeline(env: BaseEnv,
             learning_time = 0.0  # ignore loading time
         else:
             learning_start = time.perf_counter()
-            approach.learn_from_offline_dataset(offline_dataset)
+            if CFG.learn_incrementally:
+                assert approach.supports_incremental_learning, "Cannot learn incrementally"
+                assert not offline_dataset.has_annotations
+                offline_dataset = [Dataset([offline_dataset.trajectories[i]]) for i in range(len(offline_dataset.trajectories))]
+                for i in range(CFG.num_train_tasks):
+                    approach.learn_from_offline_dataset(offline_dataset[i])
+            else:
+                approach.learn_from_offline_dataset(offline_dataset)
             learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
