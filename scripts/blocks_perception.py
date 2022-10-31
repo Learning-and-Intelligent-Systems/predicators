@@ -43,63 +43,13 @@ def parse_state_from_image(image: Image, debug: bool = False) -> State:
 
 
 def parse_table_line_from_image(image: Image, debug: bool = False) -> LineSegment:
-    # https://learnopencv.com/edge-detection-using-opencv/
-    # Convert to grayscale
-    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Blur the image for better edge detection
-    img_blur = cv2.GaussianBlur(img_gray, (3,3), 0) 
-    edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
+    lower_table_color = np.array([60, 60, 60], dtype = "uint8") 
+    upper_table_color = np.array([90, 90, 90], dtype = "uint8")
+    mask = cv2.inRange(image, lower_table_color, upper_table_color)
+    img_blur = cv2.GaussianBlur(image, (5, 5), 0)
+    detect_table_colors = cv2.bitwise_and(img_blur, img_blur, mask=mask) 
     if debug:
-        _show_image(edges, "Canny Edge Detection")
-
-    # https://stackoverflow.com/questions/45322630/how-to-detect-lines-in-opencv
-    rho = 1  # distance resolution in pixels of the Hough grid
-    theta = np.pi / 180  # angular resolution in radians of the Hough grid
-    threshold = 15  # minimum number of votes (intersections in Hough grid cell)
-    min_line_length = 50  # minimum number of pixels making up a line
-    max_line_gap = 20  # maximum gap in pixels between connectable line segments
-    line_image = np.copy(image) * 0  # creating a blank to draw lines on
-
-    # Run Hough on edge detected image
-    # Output "lines" is an array containing endpoints of detected line segments
-    lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]),
-                        min_line_length, max_line_gap)
-
-    # Get mean direction of lines
-    all_lines = [l for line in lines for l in line]
-    angles = []
-    lengths = []
-    for x1, y1, x2, y2 in all_lines:
-        theta = np.arctan2(y2 - y1, x2 - x1)
-        angles.append(theta)
-        lengths.append(np.linalg.norm([y2 - y1, x2 -x1]))
-    # Weighted mean
-    total_length = np.sum(lengths)
-    angle_fracs = [length / total_length for angle, length in zip(angles, lengths)]
-    table_angle = np.dot(angle_fracs, angles)
-
-    # Draw the angle on the image for debugging
-    if debug:
-        height, width, _ = image.shape
-        scale = height / 10
-        start_point = (height // 2, width // 2)
-        end_x = start_point[0] + scale * np.cos(table_angle)
-        end_y = start_point[1] + scale * np.sin(table_angle)
-        end_point = (int(end_x), int(end_y))
-        thickness = 9
-        color = (255, 255, 255)
-        arrow_image = cv2.arrowedLine(image, start_point, end_point,
-                                      color, thickness)
-        _show_image(arrow_image, "Detected Orientation of Table")
-
-
-    # for line in lines:
-    #     for x1,y1,x2,y2 in line:
-    #         cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),5)
-
-    # if debug:
-    #     lines_edges = cv2.addWeighted(image, 0.8, line_image, 1, 0)
-    #     _show_image(lines_edges, "Detected Lines")
+        _show_image(detect_table_colors, "Detected Table Colors")
 
 
 if __name__ == "__main__":
