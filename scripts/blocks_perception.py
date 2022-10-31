@@ -10,6 +10,15 @@ from predicators.utils import LineSegment
 from predicators.structs import Image, State
 
 
+BLOCK_COLORS = {
+    # RGB
+    "red": (120, 50, 50),
+    "purple": (60, 60, 100),
+    "orange": (160, 90, 60),
+    "yellow": (160, 120, 60),
+    "blue": (60, 90, 100),
+}
+COLOR_THRESH = 25
 
 
 def _show_image(img: Image, title: str) -> None:
@@ -43,13 +52,26 @@ def parse_state_from_image(image: Image, debug: bool = False) -> State:
 
 
 def parse_table_line_from_image(image: Image, debug: bool = False) -> LineSegment:
-    lower_table_color = np.array([60, 60, 60], dtype = "uint8") 
-    upper_table_color = np.array([90, 90, 90], dtype = "uint8")
-    mask = cv2.inRange(image, lower_table_color, upper_table_color)
     img_blur = cv2.GaussianBlur(image, (5, 5), 0)
-    detect_table_colors = cv2.bitwise_and(img_blur, img_blur, mask=mask) 
-    if debug:
-        _show_image(detect_table_colors, "Detected Table Colors")
+    
+    color_to_mask = {}
+    for name, (r, g, b) in BLOCK_COLORS.items():
+        mean_color = np.array([b, g, r], dtype=np.uint8)
+        lower_color = mean_color - COLOR_THRESH
+        upper_color = mean_color + COLOR_THRESH
+        mask = cv2.inRange(img_blur, lower_color, upper_color)
+        color_to_mask[name] = mask
+
+    for name, mask in color_to_mask.items():
+        full_mask = mask
+        for other_name in color_to_mask:
+            if name == other_name:
+                continue
+            other_mask = color_to_mask[other_name]
+            full_mask = cv2.bitwise_and(full_mask, cv2.bitwise_not(other_mask))
+        detections = cv2.bitwise_and(img_blur, img_blur, mask=full_mask)
+        if debug:
+            _show_image(detections, f"Detections for {name}")
 
 
 if __name__ == "__main__":
