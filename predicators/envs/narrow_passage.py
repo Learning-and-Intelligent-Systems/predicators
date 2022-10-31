@@ -1,8 +1,6 @@
 """Toy environment for testing option learning."""
 
-import logging
-from typing import Callable, ClassVar, Dict, Iterator, List, Optional, \
-    Sequence, Set
+from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set
 
 import matplotlib
 import matplotlib.pyplot as plt
