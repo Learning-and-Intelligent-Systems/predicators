@@ -4,7 +4,8 @@ import numpy as np
 
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator
+    create_forest_pddl_generator, create_gripper_pddl_generator, \
+    create_spanner_pddl_generator
 
 
 def _split_pddl_problem_str(problem_str):
@@ -153,3 +154,34 @@ def test_create_forest_pddl_generator():
         assert init_str.count("at ") == 1
         # The goal should have exactly one at.
         assert goal_str.count("at ") == 1
+
+
+def test_create_gripper_pddl_generator():
+    """Tests for create_gripper_pddl_generator()."""
+    prefix = "pre"
+    gen = create_gripper_pddl_generator(min_num_rooms=5,
+                                        max_num_rooms=5,
+                                        min_num_balls=3,
+                                        max_num_balls=3,
+                                        prefix=prefix)
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+
+        # There should be exactly 5 rooms.
+        for room_id in range(5):
+            assert f"room{room_id}" in obj_str
+        # There should be exactly 3 rooms.
+        for ball_id in range(3):
+            assert f"ball{ball_id}" in obj_str
+        # There should be exactly 2 grippers.
+        for gripper_id in range(2):
+            assert f"ball{gripper_id}" in obj_str
+
+        assert "- ball" not in obj_str
+        assert " - object" in obj_str
+        # One at in init.
+        assert init_str.count(f"{prefix}at-robby") == 1
+        # The goal should have at least one at.
+        assert goal_str.count(f"{prefix}at") >= 1
