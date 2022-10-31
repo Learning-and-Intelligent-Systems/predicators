@@ -235,6 +235,11 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # narrow_passage env parameters
+    narrow_passage_birrt_num_attempts = 10
+    narrow_passage_birrt_num_iters = 100
+    narrow_passage_birrt_smooth_amt = 50
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
