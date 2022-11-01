@@ -126,7 +126,7 @@ def segment_image(image: Image, debug: bool = False) -> Image:
         #     other_mask = color_to_mask[other_name]
         #     detected_mask = cv2.bitwise_and(detected_mask, cv2.bitwise_not(other_mask))
         detections = cv2.bitwise_and(image, image, mask=detected_mask)
-        if True:  #debug:
+        if debug:
             # _show_image(detected_mask, f"Detections for {name}")
             kernel = np.ones((3,3),np.uint8)
             opening = cv2.morphologyEx(detected_mask, cv2.MORPH_OPEN, kernel, iterations = 2)
