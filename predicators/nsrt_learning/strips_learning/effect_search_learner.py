@@ -133,6 +133,18 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 new_effect_sets = curr_effect_sets.add(option_spec,
                                                        lifted_add_effs,
                                                        lifted_keep_effs)
+
+            # print("CURRENT PNADS:")
+            # for pnad in pnads:
+            #     print(pnad)
+            # print("UNCOVERED TRANSITION:")
+            # print(uncovered_transition)
+            # print("NEW PNADS:")
+            # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
+            # for pnad in new_pnads:
+            #     print(pnad)
+            # import ipdb; ipdb.set_trace()
+
             return new_effect_sets
 
         new_effect_sets = get_new_effect_sets_by_backchaining(effect_sets)
@@ -200,14 +212,25 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                     t = (len(seg_traj) - 1) - len(op_chain)
                     assert t >= 0
                     segment = seg_traj[t]
+                    option = segment.get_option()
                     necessary_image = image_chain[-1]
                     # Necessary add effects are everything true in the
                     # necessary image that was not true after calling the
                     # operator from atoms_seq[t].
-                    option = segment.get_option()
-                    if last_used_op is not None:
-                        # This means that we're adding a new operator by
-                        # specializing an existing one.
+                    necessary_add_effects = necessary_image - atoms_seq[t]
+                    necessary_keep_effects = set()
+                    if last_used_op is not None and \
+                        last_used_op.add_effects == necessary_add_effects:
+                        # In this case, there exists some PNAD such that:
+                        # (1) the preconditions hold in the pre-image state of
+                        # the segment.
+                        # (2) the effects yield a state that is a subset of the
+                        # post-image state.
+                        # (3) the PNAD's add effects already capture all the
+                        # necessary add effects.
+                        # This means that the only reason this PNAD failed to
+                        # capture the necessary image is due to some issue
+                        # with delete/ignore effects.
                         pred_next_atoms = utils.apply_operator(
                             last_used_op, atoms_seq[t])
                         missing_effects = (necessary_image - pred_next_atoms)
@@ -219,14 +242,13 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                         # effects of the last_used_op.
                         necessary_keep_effects = {
                             a
-                            for a in missing_effects if a in atoms_seq[t]
-                            and a.predicate in last_used_op.ignore_effects
+                            for a in missing_effects if a in atoms_seq[t] and (
+                                a.predicate in last_used_op.ignore_effects
+                                or a in last_used_op.delete_effects)
                         }
-                    else:
-                        # This means this is the first time we're inducing an
-                        # operator for this option.
-                        necessary_add_effects = necessary_image - atoms_seq[t]
-                        necessary_keep_effects = set()
+
+                    if len(necessary_add_effects) == 0 and len(necessary_keep_effects) == 0:
+                        import ipdb; ipdb.set_trace()
 
                     return (option.parent, option.objects,
                             necessary_add_effects, necessary_keep_effects)
