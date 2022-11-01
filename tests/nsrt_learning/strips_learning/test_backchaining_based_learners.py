@@ -624,6 +624,13 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         # with our _MockBackchainingSTRIPSLearner that does not have these
         # additions.
         assert len(natural_order_nsrts) == len(reverse_order_nsrts)
+        # Lastly, check whether the natural order nsrts we generate are the
+        # same as the (correct) reverse_order_pnads.
+        for nsrt in natural_order_nsrts:
+            # Rename the output NSRT operators to standardize naming
+            # and make comparison easier.
+            op = nsrt.op.copy_with(name=nsrt.option.name + "0")
+            assert op in set(pnad.op for pnad in reverse_order_pnads)
 
 
 def test_spawn_new_pnad():
