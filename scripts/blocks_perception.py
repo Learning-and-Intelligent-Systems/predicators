@@ -124,8 +124,13 @@ def segment_image(image: Image, debug: bool = False) -> Image:
                     print(f"Converged at thresh={thresh}")
                 break
             components = new_components
-        if debug:
-            _show_image((255 * (components > 0)).astype(np.uint8), f"Components for {name}")
+        # Isolate each component
+        for component_id in np.unique(components):
+            if component_id == 0:  # background
+                continue
+            component_mask = (255 * (components == component_id)).astype(np.uint8)
+            if debug:
+                _show_image(component_mask, f"Components for {name}")
         
 
 def find_ccs_by_color(img: Image, r: float, g: float, b: float, color_thresh: float) -> Image:
