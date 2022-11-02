@@ -26,7 +26,7 @@ class CameraParams:
 
 PHYSICS_CLIENT_ID = p.connect(p.GUI)
 
-DOWNSCALE = 5
+DOWNSCALE = 3
 
 BLOCK_COLORS = {
     # RGB
@@ -160,16 +160,16 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
         p.resetBasePositionAndOrientation(block_id, [x, y, z],
                                           orientation,
                                           physicsClientId=PHYSICS_CLIENT_ID)
-        # Keys to change camera
-        # keys = p.getKeyboardEvents(physicsClientId=PHYSICS_CLIENT_ID)
 
-        # if keys.get(p.B3G_RETURN):
+        camera_state = p.getDebugVisualizerCamera(physicsClientId=PHYSICS_CLIENT_ID)
+        viewMat = camera_state[2]
+        projMat = camera_state[3]
         
         (_, _, px, _,
             _) = p.getCameraImage(width=width,
                                 height=height,
-                                viewMatrix=view_matrix,
-                                projectionMatrix=proj_matrix,
+                                viewMatrix=viewMat,
+                                projectionMatrix=projMat,
                                 renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                 physicsClientId=PHYSICS_CLIENT_ID)
 
@@ -177,10 +177,6 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
         rgb_array = rgb_array[:, :, :3].astype(np.uint8)
         cv2.imshow("Captured", cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB))
 
-        # iio.imwrite("/tmp/debug.png", rgb_array)
-        # _show_image(cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB), "PyBullet captured")
-
-    # import ipdb; ipdb.set_trace()
 
 
 if __name__ == "__main__":
