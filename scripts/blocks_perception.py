@@ -23,6 +23,9 @@ class CameraParams:
     camera_pitch: float
     camera_target: Tuple[float, float, float]
 
+PHYSICS_CLIENT_ID = p.connect(p.GUI)
+
+DOWNSCALE = 5
 
 BLOCK_COLORS = {
     # RGB
@@ -50,7 +53,7 @@ CAMERA_TO_PARAMS = {
     ),
     "right": CameraParams(
         camera_distance=0.8,
-        camera_yaw=-45.0,
+        camera_yaw=-55.0,
         camera_pitch=-24.0,
         camera_target=(1.65, 0.75, 0.42),
     ),
@@ -86,8 +89,9 @@ def parse_state_from_images(right_color_img: Image, left_color_img: Image,
 
 
 def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> State:
-    
-    physics_client_id = p.connect(p.GUI)
+
+    # Set gravity.
+    p.setGravity(0., 0., -10., physicsClientId=PHYSICS_CLIENT_ID)
 
     # Reset camera.
     camera_params = CAMERA_TO_PARAMS[camera]
@@ -96,7 +100,7 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
         camera_params.camera_yaw,
         camera_params.camera_pitch,
         camera_params.camera_target,
-        physicsClientId=physics_client_id)
+        physicsClientId=PHYSICS_CLIENT_ID)
 
     # Load table. Might not be needed later.
     table_pose = PyBulletBlocksEnv._table_pose
@@ -104,28 +108,28 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
     table_id = p.loadURDF(
         utils.get_env_asset_path("urdf/table.urdf"),
         useFixedBase=True,
-        physicsClientId=physics_client_id)
+        physicsClientId=PHYSICS_CLIENT_ID)
     p.resetBasePositionAndOrientation(
         table_id,
         table_pose,
         table_orientation,
-        physicsClientId=physics_client_id)
+        physicsClientId=PHYSICS_CLIENT_ID)
 
     # Create a block.
     color = (1.0, 0.0, 0.0, 1.0)
     block_size = PyBulletBlocksEnv.block_size
     half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
-    mass = 1.0
+    mass = 1000.0
     friction = 1.0
     orientation = [0.0, 0.0, 0.0, 1.0]
     block_id = create_pybullet_block(color, half_extents, mass, friction, orientation,
-                                     physics_client_id)
+                                     PHYSICS_CLIENT_ID)
     x = 1.35
     y = 0.7
     z = PyBulletBlocksEnv.table_height + block_size / 2.
     p.resetBasePositionAndOrientation(block_id, [x, y, z],
                                       orientation,
-                                      physicsClientId=physics_client_id)
+                                      physicsClientId=PHYSICS_CLIENT_ID)
 
     # Take an image.
     view_matrix = p.computeViewMatrixFromYawPitchRoll(
@@ -135,31 +139,37 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
             pitch=camera_params.camera_pitch,
             roll=0,
             upAxisIndex=2,
-            physicsClientId=physics_client_id)
+            physicsClientId=PHYSICS_CLIENT_ID)
 
-    width = 1280
-    height = 720
+    width = 1280 // DOWNSCALE
+    height = 720 // DOWNSCALE
 
     proj_matrix = p.computeProjectionMatrixFOV(
         fov=60,
         aspect=float(width / height),
         nearVal=0.1,
         farVal=100.0,
-        physicsClientId=physics_client_id)
+        physicsClientId=PHYSICS_CLIENT_ID)
 
-    (_, _, px, _,
-        _) = p.getCameraImage(width=width,
-                            height=height,
-                            viewMatrix=view_matrix,
-                            projectionMatrix=proj_matrix,
-                            renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                            physicsClientId=physics_client_id)
+    while True:
+        p.stepSimulation(physicsClientId=PHYSICS_CLIENT_ID)
+        keys = p.getKeyboardEvents()
+        # Keys to change camera
+        if keys.get(p.B3G_RETURN):
+            (_, _, px, _,
+                _) = p.getCameraImage(width=width,
+                                    height=height,
+                                    viewMatrix=view_matrix,
+                                    projectionMatrix=proj_matrix,
+                                    renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                                    physicsClientId=PHYSICS_CLIENT_ID)
 
-    rgb_array = np.array(px).reshape((height, width, 4))
-    rgb_array = rgb_array[:, :, :3].astype(np.uint8)
-    iio.imwrite("/tmp/debug.png", rgb_array)  
+            rgb_array = np.array(px).reshape((height, width, 4))
+            rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+            # iio.imwrite("/tmp/debug.png", rgb_array)
+            _show_image(cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB), "PyBullet captured")
 
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
 
 
 if __name__ == "__main__":
