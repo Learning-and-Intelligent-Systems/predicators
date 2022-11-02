@@ -57,8 +57,6 @@ def test_narrow_passage_actions():
     state.set(target, "x", 0.5)
     state.set(target, "y", 0.2)
     task = Task(state, goal)
-    # reset static geom cache so new target location has correct geom
-    env._static_geom_cache = {}  # pylint: disable=protected-access
 
     # Fixed action sequences to test (each is a list of action arrays)
     # Move to within range of door and open it

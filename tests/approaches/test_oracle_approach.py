@@ -14,6 +14,7 @@ from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
+from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
@@ -40,6 +41,7 @@ ENV_NAME_AND_CLS = [
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
+    ("narrow_passage", NarrowPassageEnv),
     ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
