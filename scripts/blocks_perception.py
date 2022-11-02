@@ -1,16 +1,28 @@
 """An extremely brittle and blocks/LIS/Panda-specific perception pipeline."""
 
+from dataclasses import dataclass
+from typing import Tuple
 import cv2
 import numpy as np
+import pybullet as p
 from typing import Sequence
 import imageio.v3 as iio
 from matplotlib import pyplot as plt
 from pathlib import Path
+from predicators import utils
 from predicators.utils import LineSegment
 from predicators.structs import Image, State
+from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.envs.pybullet_env import create_pybullet_block
 
 
-# TODO: maybe optimize over these hyperparameters for a few annotated images
+@dataclass
+class CameraParams:
+    camera_distance: float
+    camera_yaw: float
+    camera_pitch: float
+    camera_target: Tuple[float, float, float]
+
 
 BLOCK_COLORS = {
     # RGB
@@ -29,6 +41,20 @@ CAMERA_TO_LINE = {
     "right": LineSegment(120, 705, 975, 190),
 }
 
+CAMERA_TO_PARAMS = {
+    "left": CameraParams(
+        camera_distance=0.8,
+        camera_yaw=90.0,
+        camera_pitch=-24.0,
+        camera_target=(1.65, 0.75, 0.42),
+    ),
+    "right": CameraParams(
+        camera_distance=0.8,
+        camera_yaw=-45.0,
+        camera_pitch=-24.0,
+        camera_target=(1.65, 0.75, 0.42),
+    ),
+}
 
 def _show_image(img: Image, title: str) -> None:
     # plt.figure()
@@ -60,96 +86,80 @@ def parse_state_from_images(right_color_img: Image, left_color_img: Image,
 
 
 def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> State:
-    # Find line that intersects the bottom row of blocks.
-    bottom_row_line = parse_bottom_row_line_from_image(image, camera, debug=debug)
-    # Crop the image around that line.
-    cropped_image = crop_from_bottom_row_line(image, bottom_row_line, debug=debug)
-    # Segment by color.
-    segmented_images = segment_image(cropped_image, debug=debug)
+    
+    physics_client_id = p.connect(p.GUI)
 
+    # Reset camera.
+    camera_params = CAMERA_TO_PARAMS[camera]
+    p.resetDebugVisualizerCamera(
+        camera_params.camera_distance,
+        camera_params.camera_yaw,
+        camera_params.camera_pitch,
+        camera_params.camera_target,
+        physicsClientId=physics_client_id)
 
-def parse_bottom_row_line_from_image(image: Image, camera: str, debug: bool = False) -> LineSegment:
-    line = CAMERA_TO_LINE[camera]
+    # Load table. Might not be needed later.
+    table_pose = PyBulletBlocksEnv._table_pose
+    table_orientation = PyBulletBlocksEnv._table_orientation
+    table_id = p.loadURDF(
+        utils.get_env_asset_path("urdf/table.urdf"),
+        useFixedBase=True,
+        physicsClientId=physics_client_id)
+    p.resetBasePositionAndOrientation(
+        table_id,
+        table_pose,
+        table_orientation,
+        physicsClientId=physics_client_id)
 
-    if debug:
-        start_point = (line.x1, line.y1)
-        end_point = (line.x2, line.y2)
-        color = (255, 255, 255)
-        thickness = 5
-        line_image = image.copy()
-        cv2.line(line_image, start_point, end_point, color, thickness)
-        _show_image(line_image, f"Line for {camera}")
+    # Create a block.
+    color = (1.0, 0.0, 0.0, 1.0)
+    block_size = PyBulletBlocksEnv.block_size
+    half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
+    mass = 1.0
+    friction = 1.0
+    orientation = [0.0, 0.0, 0.0, 1.0]
+    block_id = create_pybullet_block(color, half_extents, mass, friction, orientation,
+                                     physics_client_id)
+    x = 1.35
+    y = 0.7
+    z = PyBulletBlocksEnv.table_height + block_size / 2.
+    p.resetBasePositionAndOrientation(block_id, [x, y, z],
+                                      orientation,
+                                      physicsClientId=physics_client_id)
 
-    return line
+    # Take an image.
+    view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=camera_params.camera_target,
+            distance=camera_params.camera_distance,
+            yaw=camera_params.camera_yaw,
+            pitch=camera_params.camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=physics_client_id)
 
+    width = 1280
+    height = 720
 
-def crop_from_bottom_row_line(image: Image, bottom_row_line: LineSegment, debug: bool = False) -> Image:
-    x1, y1 = bottom_row_line.x1, bottom_row_line.y1
-    x2, y2 = bottom_row_line.x2, bottom_row_line.y2
-    crop_height = 60
-    bottom_left_corner = (x1, y1 - crop_height / 2)
-    top_left_corner = (x1, y1 + crop_height / 2)
-    bottom_right_corner = (x2, y2 - crop_height / 2)
-    top_right_corner = (x2, y2 + crop_height / 2)
-    mask = np.zeros(image.shape, dtype=np.uint8)
-    roi_corners = np.array([[
-        bottom_left_corner,
-        bottom_right_corner,
-        top_right_corner,
-        top_left_corner,
-    ]], dtype=np.int32)
-    channel_count = image.shape[2]
-    ignore_mask_color = (255, ) * channel_count
-    cv2.fillPoly(mask, roi_corners, ignore_mask_color)
-    cropped_image = cv2.bitwise_and(image, mask)
-    if debug:
-        _show_image(cropped_image, f"Cropped image")
-    return cropped_image
+    proj_matrix = p.computeProjectionMatrixFOV(
+        fov=60,
+        aspect=float(width / height),
+        nearVal=0.1,
+        farVal=100.0,
+        physicsClientId=physics_client_id)
 
+    (_, _, px, _,
+        _) = p.getCameraImage(width=width,
+                            height=height,
+                            viewMatrix=view_matrix,
+                            projectionMatrix=proj_matrix,
+                            renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                            physicsClientId=physics_client_id)
 
-def segment_image(image: Image, debug: bool = False) -> Image:
-    img_blur = cv2.GaussianBlur(image, (3, 3), 0)
+    rgb_array = np.array(px).reshape((height, width, 4))
+    rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+    iio.imwrite("/tmp/debug.png", rgb_array)  
 
-    for name, (r, g, b) in BLOCK_COLORS.items():
-        # Repeat until number of components goes up.
-        thresh = INIT_COLOR_THRESH
-        components = find_ccs_by_color(img_blur, r, g, b, thresh)
-        init_num_components = len(np.unique(components)) - 1
-        while True:
-            thresh += COLOR_THRESH_INC
-            new_components = find_ccs_by_color(img_blur, r, g, b, thresh)
-            new_num_components = len(np.unique(new_components)) - 1
-            if new_num_components != init_num_components:
-                if debug:
-                    print(f"Converged at thresh={thresh}")
-                break
-            components = new_components
-        # Isolate each component
-        for component_id in np.unique(components):
-            if component_id == 0:  # background
-                continue
-            component_mask = (255 * (components == component_id)).astype(np.uint8)
-            if debug:
-                _show_image(component_mask, f"Components for {name}")
-        
-
-def find_ccs_by_color(img: Image, r: float, g: float, b: float, color_thresh: float) -> Image:
-    mean_color = np.array([b, g, r], dtype=np.uint8)
-    lower_color = mean_color - color_thresh
-    upper_color = mean_color + color_thresh
-    detected_mask = cv2.inRange(img, lower_color, upper_color)
-    detections = cv2.bitwise_and(img, img, mask=detected_mask)
-    kernel = np.ones((3,3),np.uint8)
-    opening = cv2.morphologyEx(detected_mask, cv2.MORPH_OPEN, kernel, iterations = 2)
-    # Marker labelling
-    ret, markers = cv2.connectedComponents(opening)
-    # Find the markers above a threshold size.
-    for marker in np.unique(markers):
-        if marker == 0:  # background
-            continue
-        if np.sum(markers == marker) < MARKER_THRESH:
-            markers[markers == marker] = 0
-    return markers
+    import ipdb; ipdb.set_trace()
 
 
 if __name__ == "__main__":
@@ -161,4 +171,4 @@ if __name__ == "__main__":
     left_color_img_path = color_imgs_path / f"color-{img_id}-{left_camera_id}.png"
     right_color_img = iio.imread(right_color_img_path)
     left_color_img = iio.imread(left_color_img_path)
-    state = parse_state_from_images(right_color_img, left_color_img, debug=True)
+    state = parse_state_from_images(right_color_img, left_color_img, debug=False)
