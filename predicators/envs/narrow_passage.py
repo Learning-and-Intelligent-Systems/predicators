@@ -46,8 +46,8 @@ class NarrowPassageEnv(BaseEnv):
 
     action_magnitude: ClassVar[float] = 0.1
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
         # Types
         self._robot_type = Type("robot", ["x", "y"])
         self._target_type = Type("target", ["x", "y"])
@@ -282,11 +282,7 @@ class NarrowPassageEnv(BaseEnv):
     def _MoveToTarget_policy(state: State, memory: Dict,
                              objects: Sequence[Object],
                              params: Array) -> Action:
-        del params  # unused
-        if not memory["action_plan"]:
-            print(memory)
-            print(memory["position_plan"][-1])
-            print(state.get(objects[0], "x"), state.get(objects[0], "y"))
+        del state, objects, params  # unused
         assert memory["action_plan"], "Motion plan did not reach its goal"
         return memory["action_plan"].pop(0)
 
@@ -305,7 +301,6 @@ class NarrowPassageEnv(BaseEnv):
                                objects: Sequence[Object],
                                params: Array) -> bool:
         del memory, params  # unused
-        print("terminal", self._TouchedGoal_holds(state, objects))
         return self._TouchedGoal_holds(state, objects)
 
     @staticmethod
@@ -423,7 +418,6 @@ class NarrowPassageEnv(BaseEnv):
         robot, target = objects
         robot_geom = self._object_to_geom(robot, state)
         target_geom = self._object_to_geom(target, state)
-        print(robot_geom, target_geom)
         return robot_geom.intersects(target_geom)
 
     def _DoorIsOpen_holds(self, state: State,
