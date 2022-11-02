@@ -5,6 +5,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 import pybullet as p
+import time
 from typing import Sequence
 import imageio.v3 as iio
 from matplotlib import pyplot as plt
@@ -151,23 +152,33 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
         farVal=100.0,
         physicsClientId=PHYSICS_CLIENT_ID)
 
-    while True:
-        p.stepSimulation(physicsClientId=PHYSICS_CLIENT_ID)
-        keys = p.getKeyboardEvents()
-        # Keys to change camera
-        if keys.get(p.B3G_RETURN):
-            (_, _, px, _,
-                _) = p.getCameraImage(width=width,
-                                    height=height,
-                                    viewMatrix=view_matrix,
-                                    projectionMatrix=proj_matrix,
-                                    renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                                    physicsClientId=PHYSICS_CLIENT_ID)
+    y_slider = p.addUserDebugParameter("block", PyBulletBlocksEnv.y_lb, PyBulletBlocksEnv.y_ub, y)
 
-            rgb_array = np.array(px).reshape((height, width, 4))
-            rgb_array = rgb_array[:, :, :3].astype(np.uint8)
-            # iio.imwrite("/tmp/debug.png", rgb_array)
-            _show_image(cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB), "PyBullet captured")
+    while True:
+        time.sleep(0.01)
+        y = p.readUserDebugParameter(y_slider)
+        p.resetBasePositionAndOrientation(block_id, [x, y, z],
+                                          orientation,
+                                          physicsClientId=PHYSICS_CLIENT_ID)
+        # Keys to change camera
+        # keys = p.getKeyboardEvents(physicsClientId=PHYSICS_CLIENT_ID)
+
+        # if keys.get(p.B3G_RETURN):
+        
+        (_, _, px, _,
+            _) = p.getCameraImage(width=width,
+                                height=height,
+                                viewMatrix=view_matrix,
+                                projectionMatrix=proj_matrix,
+                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                                physicsClientId=PHYSICS_CLIENT_ID)
+
+        rgb_array = np.array(px).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+        cv2.imshow("Captured", cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB))
+
+        # iio.imwrite("/tmp/debug.png", rgb_array)
+        # _show_image(cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB), "PyBullet captured")
 
     # import ipdb; ipdb.set_trace()
 
