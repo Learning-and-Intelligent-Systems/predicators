@@ -64,7 +64,7 @@ class NarrowPassageEnv(BaseEnv):
         self._MoveToTarget = ParameterizedOption(
             "MoveToTarget",
             types=[self._robot_type, self._target_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(0, 1, (1, )),
             policy=self._MoveToTarget_policy,
             initiable=self._MoveToTarget_initiable,
             terminal=self._MoveToTarget_terminal,
@@ -72,7 +72,7 @@ class NarrowPassageEnv(BaseEnv):
         self._MoveAndOpenDoor = ParameterizedOption(
             "MoveAndOpenDoor",
             types=[self._robot_type, self._door_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(0, 1, (1, )),
             policy=self._MoveAndOpenDoor_policy,
             initiable=self._MoveAndOpenDoor_initiable,
             terminal=self._MoveAndOpenDoor_terminal,
@@ -236,16 +236,16 @@ class NarrowPassageEnv(BaseEnv):
             state = utils.create_state_from_dict({
                 self._robot: {
                     "x":
-                        rng.uniform(self.x_lb, self.x_ub),
+                    rng.uniform(self.x_lb, self.x_ub),
                     "y":
-                        rng.uniform(y_mid + margin + self.robot_radius, self.y_ub),
+                    rng.uniform(y_mid + margin + self.robot_radius, self.y_ub),
                 },
                 self._target: {
                     "x":
-                        rng.uniform(self.x_lb, self.x_ub),
+                    rng.uniform(self.x_lb, self.x_ub),
                     "y":
-                        rng.uniform(self.y_lb,
-                                    y_mid - margin - self.target_radius),
+                    rng.uniform(self.y_lb,
+                                y_mid - margin - self.target_radius),
                 },
                 # wall and door positions are fixed, defined by class variables
                 self._walls[0]: {
@@ -258,10 +258,10 @@ class NarrowPassageEnv(BaseEnv):
                 },
                 self._walls[2]: {
                     "x":
-                        self.passage_x_pos + passage_width,
+                    self.passage_x_pos + passage_width,
                     "width":
-                        self.x_ub - self.passage_x_pos - passage_width +
-                        self.robot_radius,
+                    self.x_ub - self.passage_x_pos - passage_width +
+                    self.robot_radius,
                 },
                 self._door: {
                     "x": self.door_x_pos,
@@ -331,8 +331,8 @@ class NarrowPassageEnv(BaseEnv):
         # Select target point slightly above door
         door_center_x = state.get(door, "x")
         door_target_y = (
-                                self.y_ub - self.y_lb
-                        ) / 2 + self.y_lb + self.door_sensor_radius - self.robot_radius
+            self.y_ub - self.y_lb
+        ) / 2 + self.y_lb + self.door_sensor_radius - self.robot_radius
         result = self._run_birrt(state, memory, params, robot,
                                  np.array([door_center_x, door_target_y]))
         if result is False:
@@ -383,7 +383,7 @@ class NarrowPassageEnv(BaseEnv):
             return self._state_has_collision(s)
 
         def _distance_fn(from_pt: Array, to_pt: Array) -> float:
-            return np.sum(np.subtract(from_pt, to_pt) ** 2)
+            return np.sum(np.subtract(from_pt, to_pt)**2)
 
         birrt = utils.BiRRT(_sample_fn,
                             _extend_fn,
@@ -458,8 +458,8 @@ class NarrowPassageEnv(BaseEnv):
     def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
         """From doors.py."""
         x = state.get(obj, "x")
-        if (obj.is_instance(self._robot_type) or
-                obj.is_instance(self._target_type)):
+        if (obj.is_instance(self._robot_type)
+                or obj.is_instance(self._target_type)):
             y = state.get(obj, "y")
             return utils.Circle(x, y, self.robot_radius)
         # Cache static objects such as door and walls
@@ -477,7 +477,7 @@ class NarrowPassageEnv(BaseEnv):
                 else:
                     assert obj.is_instance(self._door_type)
                     y = self.y_lb + (
-                            self.y_ub - self.y_lb
+                        self.y_ub - self.y_lb
                     ) / 2 - self.wall_thickness_half + self.doorway_depth
                     width = (self.robot_radius + self.door_width_padding) * 2
                     height = (self.wall_thickness_half -
