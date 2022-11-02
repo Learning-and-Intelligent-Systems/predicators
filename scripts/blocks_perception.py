@@ -91,6 +91,12 @@ def parse_state_from_images(right_color_img: Image, left_color_img: Image,
 
 def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> State:
 
+    original_height, original_width, _ = image.shape
+    width = original_width // DOWNSCALE
+    height = original_height // DOWNSCALE
+    dim = (width, height)
+    image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+
     # Set gravity.
     p.setGravity(0., 0., -10., physicsClientId=PHYSICS_CLIENT_ID)
 
@@ -142,9 +148,6 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
             upAxisIndex=2,
             physicsClientId=PHYSICS_CLIENT_ID)
 
-    width = 1280 // DOWNSCALE
-    height = 720 // DOWNSCALE
-
     proj_matrix = p.computeProjectionMatrixFOV(
         fov=60,
         aspect=float(width / height),
@@ -175,7 +178,12 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
 
         rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3].astype(np.uint8)
-        cv2.imshow("Captured", cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB))
+        captured_img = cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB)
+
+        # Overlay
+        added_image = cv2.addWeighted(image, 0.3, captured_img, 0.7, 0)
+
+        cv2.imshow("Captured", added_image)
 
 
 
