@@ -139,6 +139,38 @@ def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
         scene.block_ids.remove(block_id)
 
 
+def add_new_block_to_scene(scene: PyBulletScene) -> int:
+    # Create the block.
+    color = (1.0, 0.0, 0.0, 1.0)
+    block_size = PyBulletBlocksEnv.block_size
+    half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
+    mass = 1000.0
+    friction = 1.0
+    orientation = [0.0, 0.0, 0.0, 1.0]
+    block_id = create_pybullet_block(color, half_extents, mass, friction,
+                                     orientation, scene.physics_client_id)
+    # Initialize the block position.
+    x = (PyBulletBlocksEnv.x_lb + PyBulletBlocksEnv.x_ub) / 2.
+    y = (PyBulletBlocksEnv.y_lb + PyBulletBlocksEnv.y_ub) / 2.
+    z = PyBulletBlocksEnv.table_height + block_size / 2.
+    p.resetBasePositionAndOrientation(block_id, [x, y, z],
+                                      orientation,
+                                      physicsClientId=scene.physics_client_id)
+    # Add the block to the scene.
+    scene.block_ids.append(block_id)
+    return block_id
+
+
+def change_block_color(block_id: int, block_color: Tuple[float, float, float],
+                       scene: PyBulletScene) -> None:
+    rgba = block_color + (255, )
+    norm_rgba = np.array(rgba) / 255.0
+    p.changeVisualShape(block_id,
+                        -1,
+                        rgbaColor=norm_rgba,
+                        physicsClientId=scene.physics_client_id)
+
+
 def parse_state_from_image(camera_image: CameraImage,
                            scene: PyBulletScene) -> State:
     rgb = camera_image.rgb
@@ -157,23 +189,22 @@ def parse_state_from_image(camera_image: CameraImage,
         # Loop through all possible block colors.
         for color_name, block_color in BLOCK_COLORS.items():
             # Change the block color.
-            change_block_color(block_id, block_color)
+            change_block_color(block_id, block_color, scene)
             # Search for blocks of this color.
             block_state = find_block_in_image(block_id, rgb, scene)
             # If a block was found, restart this process.
             if block_state is not None:
                 found_new_block = True
                 block_states.append(block_state)
-                # Keep the block for future collision checking.
-                scene.block_ids.append(block_id)
                 break
-        # If we didn't find any new blocks, stop.
+        # If we didn't find any new blocks, stop and remove the last block,
+        # just for good measure.
         if not found_new_block:
+            scene.block_ids.remove(block_id)
             break
 
     # Create a state from the found block states.
     return block_states_to_state(block_states)
-
 
 
 #################################### Main ####################################
