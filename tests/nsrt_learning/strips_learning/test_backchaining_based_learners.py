@@ -1328,9 +1328,7 @@ def test_multi_pass_backchaining(approach_cls, val):
 
 # NOTE: Will update in the future to also run the EffectSearchLearner
 # here. Currently, it just doesn't work.
-@pytest.mark.parametrize(
-    "approach_cls",
-    [_MockBackchainingSTRIPSLearner])
+@pytest.mark.parametrize("approach_cls", [_MockBackchainingSTRIPSLearner])
 def test_segment_not_in_datastore(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
