@@ -1,7 +1,7 @@
 """An extremely brittle and blocks/LIS/Panda-specific perception pipeline."""
 
-from dataclasses import dataclass
-from typing import Tuple
+from dataclasses import dataclass, field
+from typing import List, Sequence, Tuple
 import cv2
 import numpy as np
 import pybullet as p
@@ -17,17 +17,41 @@ from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
 
 
+################################### Structs ###################################
+
 @dataclass
-class CameraParams:
+class Camera:
+    name: str
     camera_distance: float
     camera_yaw: float
     camera_pitch: float
     camera_target: Tuple[float, float, float]
 
-PHYSICS_CLIENT_ID = p.connect(p.GUI)
+
+@dataclass
+class CameraImage:
+    rgb: Image
+    camera: Camera
+
+    @property
+    def width(self) -> int:
+        return self.rgb.shape[1]
+
+    @property
+    def height(self) -> int:
+        return self.rgb.shape[0]
+
+
+@dataclass
+class PyBulletScene:
+    physics_client_id: int
+    table_id: int
+    block_ids: List[int] = field(init=False, default_factory=list)
+
+
+################################## Constants ##################################
 
 DOWNSCALE = 3
-
 BLOCK_COLORS = {
     # RGB
     "red": (120, 50, 50),
@@ -36,78 +60,48 @@ BLOCK_COLORS = {
     "yellow": (160, 120, 60),
     "blue": (75, 100, 120),
 }
-INIT_COLOR_THRESH = 25
-COLOR_THRESH_INC = 5
-MARKER_THRESH = 500
 
-CAMERA_TO_LINE = {
-    "left": LineSegment(1030, 700, 250, 230),
-    "right": LineSegment(120, 705, 975, 190),
-}
-
-CAMERA_TO_PARAMS = {
-    "left": CameraParams(
+CAMERAS = [
+    Camera(name="left",
         camera_distance=0.8,
         camera_yaw=90.0,
         camera_pitch=-24.0,
-        camera_target=(1.65, 0.75, 0.42),
-    ),
-    "right": CameraParams(
+        camera_target=(1.65, 0.75, 0.42)),
+    Camera(name="right",
         camera_distance=0.8,
         camera_yaw=-55.0,
         camera_pitch=-24.0,
-        camera_target=(1.65, 0.75, 0.42),
-    ),
-}
-
-def _show_image(img: Image, title: str) -> None:
-    # plt.figure()
-    # plt.title(title)
-    # plt.imshow(img)
-    # plt.tight_layout()
-    # plt.show()
-    cv2.imshow(title, img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        camera_target=(1.65, 0.75, 0.42)),        
+]
 
 
-def parse_state_from_images(right_color_img: Image, left_color_img: Image,
-                            debug: bool = False) -> State:
-    # Convert to RBG for cv2. 
-    right_color_img = cv2.cvtColor(right_color_img, cv2.COLOR_BGR2RGB)
-    left_color_img = cv2.cvtColor(left_color_img, cv2.COLOR_BGR2RGB)
+################################## Functions ##################################
 
-    # Display raw images.
-    if debug:
-        _show_image(right_color_img, "Original Right Image")
-        _show_image(left_color_img, "Original Left Image")
-    
-    right_state = parse_state_from_image(right_color_img, "right", debug=debug)
-    left_state = parse_state_from_image(left_color_img, "left", debug=debug)
-
+def parse_state_from_images(camera_images: Sequence[CameraImage]) -> State:
+    # Downscale the images.
+    if DOWNSCALE > 1:
+        camera_images = [downscale_camera_image(im, DOWNSCALE) for im in camera_images]
+    # Initialize a PyBullet scene.
+    physics_client_id = initialize_pybullet()
+    # Parse the state from each image.
+    states = [parse_state_from_image(im, physics_client_id) for im in camera_images]
     # TODO: Average states together.
-    return right_state
+    return states[0]
 
 
-def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> State:
-
-    original_height, original_width, _ = image.shape
-    width = original_width // DOWNSCALE
-    height = original_height // DOWNSCALE
+def downscale_camera_image(camera_image: CameraImage, scale: int) -> CameraImage:
+    width = camera_image.width // scale
+    height = camera_image.height // scale
     dim = (width, height)
-    image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+    new_rgb = cv2.resize(camera_image.rgb, dim, interpolation = cv2.INTER_AREA)
+    return CameraImage(rgb=new_rgb, camera=camera_image.camera)
+
+
+def initialize_pybullet() -> PyBulletScene:
+    physics_client_id = p.connect(p.GUI)  # TODO offer non-GUI option
 
     # Set gravity.
-    p.setGravity(0., 0., -10., physicsClientId=PHYSICS_CLIENT_ID)
-
-    # Reset camera.
-    camera_params = CAMERA_TO_PARAMS[camera]
-    p.resetDebugVisualizerCamera(
-        camera_params.camera_distance,
-        camera_params.camera_yaw,
-        camera_params.camera_pitch,
-        camera_params.camera_target,
-        physicsClientId=PHYSICS_CLIENT_ID)
+    p.setGravity(0., 0., -10., physicsClientId=physics_client_id)
 
     # Load table. Might not be needed later.
     table_pose = PyBulletBlocksEnv._table_pose
@@ -115,80 +109,50 @@ def parse_state_from_image(image: Image, camera: str, debug: bool = False) -> St
     table_id = p.loadURDF(
         utils.get_env_asset_path("urdf/table.urdf"),
         useFixedBase=True,
-        physicsClientId=PHYSICS_CLIENT_ID)
+        physicsClientId=physics_client_id)
     p.resetBasePositionAndOrientation(
         table_id,
         table_pose,
         table_orientation,
-        physicsClientId=PHYSICS_CLIENT_ID)
+        physicsClientId=physics_client_id)
 
-    # Create a block.
-    color = (1.0, 0.0, 0.0, 1.0)
-    block_size = PyBulletBlocksEnv.block_size
-    half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
-    mass = 1000.0
-    friction = 1.0
-    orientation = [0.0, 0.0, 0.0, 1.0]
-    block_id = create_pybullet_block(color, half_extents, mass, friction, orientation,
-                                     PHYSICS_CLIENT_ID)
-    x = 1.35
-    y = 0.7
-    z = PyBulletBlocksEnv.table_height + block_size / 2.
-    p.resetBasePositionAndOrientation(block_id, [x, y, z],
-                                      orientation,
-                                      physicsClientId=PHYSICS_CLIENT_ID)
+    return PyBulletScene(physics_client_id=physics_client_id, table_id=table_id)
 
-    # Take an image.
-    view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=camera_params.camera_target,
-            distance=camera_params.camera_distance,
-            yaw=camera_params.camera_yaw,
-            pitch=camera_params.camera_pitch,
-            roll=0,
-            upAxisIndex=2,
-            physicsClientId=PHYSICS_CLIENT_ID)
 
-    proj_matrix = p.computeProjectionMatrixFOV(
-        fov=60,
-        aspect=float(width / height),
-        nearVal=0.1,
-        farVal=100.0,
-        physicsClientId=PHYSICS_CLIENT_ID)
+def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
+    # Reset the camera.
+    p.resetDebugVisualizerCamera(
+        camera.camera_distance,
+        camera.camera_yaw,
+        camera.camera_pitch,
+        camera.camera_target,
+        physicsClientId=scene.physics_client_id)
 
-    y_slider = p.addUserDebugParameter("block", PyBulletBlocksEnv.y_lb, PyBulletBlocksEnv.y_ub, y)
+    # Destroy any existing blocks.
+    old_block_ids = list(scene.block_ids)
+    for block_id in old_block_ids:
+        p.removeBody(block_id, physicsClientId=scene.physics_client_id)
+        scene.block_ids.remove(block_id)
 
-    while True:
-        time.sleep(0.01)
-        y = p.readUserDebugParameter(y_slider)
-        p.resetBasePositionAndOrientation(block_id, [x, y, z],
-                                          orientation,
-                                          physicsClientId=PHYSICS_CLIENT_ID)
 
-        camera_state = p.getDebugVisualizerCamera(physicsClientId=PHYSICS_CLIENT_ID)
-        viewMat = camera_state[2]
-        projMat = camera_state[3]
-        
-        (_, _, px, _,
-            _) = p.getCameraImage(width=width,
-                                height=height,
-                                viewMatrix=viewMat,
-                                projectionMatrix=projMat,
-                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                                physicsClientId=PHYSICS_CLIENT_ID)
+def parse_state_from_image(camera_image: CameraImage, scene: PyBulletScene) -> State:
+    rgb = camera_image.rgb
+    camera = camera_image.camera
 
-        rgb_array = np.array(px).reshape((height, width, 4))
-        rgb_array = rgb_array[:, :, :3].astype(np.uint8)
-        captured_img = cv2.cvtColor(rgb_array, cv2.COLOR_BGR2RGB)
+    # Reset the Pybullet scene.
+    reset_pybullet(camera, scene)
 
-        # Overlay
-        added_image = cv2.addWeighted(image, 0.3, captured_img, 0.7, 0)
+    import ipdb; ipdb.set_trace()
 
-        cv2.imshow("Captured", added_image)
 
+#################################### Main ####################################
 
 
 if __name__ == "__main__":
     color_imgs_path = Path("~/Desktop/blocks-images/color/")
+    left_camera, right_camera = CAMERAS
+    assert right_camera.name == "right"
+    assert left_camera.name == "left"
     right_camera_id = 231122071284
     left_camera_id = 231122071283
     img_id = 0
@@ -196,4 +160,6 @@ if __name__ == "__main__":
     left_color_img_path = color_imgs_path / f"color-{img_id}-{left_camera_id}.png"
     right_color_img = iio.imread(right_color_img_path)
     left_color_img = iio.imread(left_color_img_path)
-    state = parse_state_from_images(right_color_img, left_color_img, debug=False)
+    right_camera_img = CameraImage(right_color_img, right_camera)
+    left_camera_img = CameraImage(left_color_img, left_camera)
+    state = parse_state_from_images([right_camera_img, left_camera_img])
