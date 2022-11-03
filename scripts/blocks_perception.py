@@ -1,23 +1,24 @@
 """An extremely brittle and blocks/LIS/Panda-specific perception pipeline."""
 
+import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Sequence, Tuple
+
 import cv2
+import imageio.v3 as iio
 import numpy as np
 import pybullet as p
-import time
-from typing import Sequence
-import imageio.v3 as iio
 from matplotlib import pyplot as plt
-from pathlib import Path
+
 from predicators import utils
-from predicators.utils import LineSegment
-from predicators.structs import Image, State
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
-
+from predicators.structs import Image, State
+from predicators.utils import LineSegment
 
 ################################### Structs ###################################
+
 
 @dataclass
 class Camera:
@@ -63,37 +64,42 @@ BLOCK_COLORS = {
 
 CAMERAS = [
     Camera(name="left",
-        camera_distance=0.8,
-        camera_yaw=90.0,
-        camera_pitch=-24.0,
-        camera_target=(1.65, 0.75, 0.42)),
+           camera_distance=0.8,
+           camera_yaw=90.0,
+           camera_pitch=-24.0,
+           camera_target=(1.65, 0.75, 0.42)),
     Camera(name="right",
-        camera_distance=0.8,
-        camera_yaw=-55.0,
-        camera_pitch=-24.0,
-        camera_target=(1.65, 0.75, 0.42)),        
+           camera_distance=0.8,
+           camera_yaw=-55.0,
+           camera_pitch=-24.0,
+           camera_target=(1.65, 0.75, 0.42)),
 ]
 
-
 ################################## Functions ##################################
+
 
 def parse_state_from_images(camera_images: Sequence[CameraImage]) -> State:
     # Downscale the images.
     if DOWNSCALE > 1:
-        camera_images = [downscale_camera_image(im, DOWNSCALE) for im in camera_images]
+        camera_images = [
+            downscale_camera_image(im, DOWNSCALE) for im in camera_images
+        ]
     # Initialize a PyBullet scene.
     physics_client_id = initialize_pybullet()
     # Parse the state from each image.
-    states = [parse_state_from_image(im, physics_client_id) for im in camera_images]
+    states = [
+        parse_state_from_image(im, physics_client_id) for im in camera_images
+    ]
     # TODO: Average states together.
     return states[0]
 
 
-def downscale_camera_image(camera_image: CameraImage, scale: int) -> CameraImage:
+def downscale_camera_image(camera_image: CameraImage,
+                           scale: int) -> CameraImage:
     width = camera_image.width // scale
     height = camera_image.height // scale
     dim = (width, height)
-    new_rgb = cv2.resize(camera_image.rgb, dim, interpolation = cv2.INTER_AREA)
+    new_rgb = cv2.resize(camera_image.rgb, dim, interpolation=cv2.INTER_AREA)
     return CameraImage(rgb=new_rgb, camera=camera_image.camera)
 
 
@@ -106,27 +112,25 @@ def initialize_pybullet() -> PyBulletScene:
     # Load table. Might not be needed later.
     table_pose = PyBulletBlocksEnv._table_pose
     table_orientation = PyBulletBlocksEnv._table_orientation
-    table_id = p.loadURDF(
-        utils.get_env_asset_path("urdf/table.urdf"),
-        useFixedBase=True,
-        physicsClientId=physics_client_id)
-    p.resetBasePositionAndOrientation(
-        table_id,
-        table_pose,
-        table_orientation,
-        physicsClientId=physics_client_id)
+    table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                          useFixedBase=True,
+                          physicsClientId=physics_client_id)
+    p.resetBasePositionAndOrientation(table_id,
+                                      table_pose,
+                                      table_orientation,
+                                      physicsClientId=physics_client_id)
 
-    return PyBulletScene(physics_client_id=physics_client_id, table_id=table_id)
+    return PyBulletScene(physics_client_id=physics_client_id,
+                         table_id=table_id)
 
 
 def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
     # Reset the camera.
-    p.resetDebugVisualizerCamera(
-        camera.camera_distance,
-        camera.camera_yaw,
-        camera.camera_pitch,
-        camera.camera_target,
-        physicsClientId=scene.physics_client_id)
+    p.resetDebugVisualizerCamera(camera.camera_distance,
+                                 camera.camera_yaw,
+                                 camera.camera_pitch,
+                                 camera.camera_target,
+                                 physicsClientId=scene.physics_client_id)
 
     # Destroy any existing blocks.
     old_block_ids = list(scene.block_ids)
@@ -135,18 +139,19 @@ def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
         scene.block_ids.remove(block_id)
 
 
-def parse_state_from_image(camera_image: CameraImage, scene: PyBulletScene) -> State:
+def parse_state_from_image(camera_image: CameraImage,
+                           scene: PyBulletScene) -> State:
     rgb = camera_image.rgb
     camera = camera_image.camera
 
     # Reset the Pybullet scene.
     reset_pybullet(camera, scene)
 
-    import ipdb; ipdb.set_trace()
+    import ipdb
+    ipdb.set_trace()
 
 
 #################################### Main ####################################
-
 
 if __name__ == "__main__":
     color_imgs_path = Path("~/Desktop/blocks-images/color/")
