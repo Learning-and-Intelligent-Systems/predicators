@@ -260,7 +260,8 @@ class BaseSTRIPSLearner(abc.ABC):
                        not segment.necessary_add_effects.issubset(
                            ground_op.add_effects):
                         continue
-                    keep_effects = ground_op.preconditions & ground_op.add_effects
+                    keep_effects = ground_op.preconditions & \
+                        ground_op.add_effects
                     # If the segment has a non-None necessary_image,
                     # and the ground operator doesn't fit this.
                     if segment.necessary_image is not None and \

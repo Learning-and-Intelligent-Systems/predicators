@@ -1105,7 +1105,8 @@ class Segment:
     _goal: Optional[Set[GroundAtom]] = field(default=None)
     # Field used by the backchaining algorithm (gen_to_spec_learner.py)
     necessary_add_effects: Optional[Set[GroundAtom]] = field(default=None)
-    # Field used by the effect search learning algorithm (effect_search_learner.py)
+    # Field used by the effect search learning algorithm
+    # (effect_search_learner.py)
     necessary_image: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:

@@ -120,7 +120,8 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
         initial_heuristic_val = self._associated_heuristic(effect_sets)
 
-        def get_new_effect_sets_by_backchaining(curr_effect_sets):
+        def _get_new_effect_sets_by_backchaining(
+                curr_effect_sets: _EffectSets) -> _EffectSets:
             new_effect_sets = curr_effect_sets
             pnads = self._effect_sets_to_pnads(curr_effect_sets)
             uncovered_transition = self._get_first_uncovered_transition(pnads)
@@ -136,14 +137,14 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
 
             return new_effect_sets
 
-        new_effect_sets = get_new_effect_sets_by_backchaining(effect_sets)
+        new_effect_sets = _get_new_effect_sets_by_backchaining(effect_sets)
         if initial_heuristic_val > 0:
             new_heuristic_val = self._associated_heuristic(new_effect_sets)
             if new_heuristic_val == initial_heuristic_val:
                 # This means there was a keep effect problem with the new add
                 # effects we just induced. We need to call backchaining again
                 # to fix this.
-                new_effect_sets = get_new_effect_sets_by_backchaining(
+                new_effect_sets = _get_new_effect_sets_by_backchaining(
                     new_effect_sets)
                 new_heuristic_val = self._associated_heuristic(new_effect_sets)
                 assert new_heuristic_val < initial_heuristic_val
