@@ -134,17 +134,6 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                                                        lifted_add_effs,
                                                        lifted_keep_effs)
 
-            # print("CURRENT PNADS:")
-            # for pnad in pnads:
-            #     print(pnad)
-            # print("UNCOVERED TRANSITION:")
-            # print(uncovered_transition)
-            # print("NEW PNADS:")
-            # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
-            # for pnad in new_pnads:
-            #     print(pnad)
-            # import ipdb; ipdb.set_trace()
-
             return new_effect_sets
 
         new_effect_sets = get_new_effect_sets_by_backchaining(effect_sets)
@@ -246,9 +235,6 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                                 a.predicate in last_used_op.ignore_effects
                                 or a in last_used_op.delete_effects)
                         }
-
-                    if len(necessary_add_effects) == 0 and len(necessary_keep_effects) == 0:
-                        import ipdb; ipdb.set_trace()
 
                     return (option.parent, option.objects,
                             necessary_add_effects, necessary_keep_effects)
