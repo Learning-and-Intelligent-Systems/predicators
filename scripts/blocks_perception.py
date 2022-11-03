@@ -61,6 +61,7 @@ class BlockState:
 ################################## Constants ##################################
 
 FIND_BLOCK_METHOD = "manual"
+RUN_MANUAL_CAMERA_CALIBRATION = True
 DOWNSCALE = 1
 BLOCK_COLORS = {
     # RGB
@@ -93,11 +94,13 @@ def parse_state_from_images(camera_images: Sequence[CameraImage]) -> State:
             downscale_camera_image(im, DOWNSCALE) for im in camera_images
         ]
     # Initialize a PyBullet scene.
-    physics_client_id = initialize_pybullet()
+    scene = initialize_pybullet()
+    # Calibrate the cameras.
+    if RUN_MANUAL_CAMERA_CALIBRATION:
+        for camera_image in camera_images:
+            calibrate_camera(camera_image, scene)
     # Parse the state from each image.
-    states = [
-        parse_state_from_image(im, physics_client_id) for im in camera_images
-    ]
+    states = [parse_state_from_image(im, scene) for im in camera_images]
     # TODO: Average states together.
     return states[0]
 
@@ -144,6 +147,30 @@ def initialize_pybullet() -> PyBulletScene:
     return PyBulletScene(physics_client_id=physics_client_id,
                          table_id=table_id,
                          y_slider=y_slider)
+
+
+def calibrate_camera(camera_image: CameraImage, scene: PyBulletScene) -> None:
+    camera = camera_image.camera
+    rgb = camera_image.rgb
+    # Reset the camera to the default.
+    p.resetDebugVisualizerCamera(camera.camera_distance,
+                                 camera.camera_yaw,
+                                 camera.camera_pitch,
+                                 camera.camera_target,
+                                 physicsClientId=scene.physics_client_id)
+    # Click and drag to calibrate.
+    while True:  # TODO
+        time.sleep(0.01)
+        update_overlay_view(rgb, scene)
+
+
+def update_overlay_view(rgb: Image, scene: PyBulletScene) -> None:
+    # Get the image from the camera.
+    pybullet_img = take_picture(rgb.shape[1], rgb.shape[0], scene)
+    # Show overlaid image in a separate window.
+    overlaid_image = cv2.addWeighted(rgb, 0.3, pybullet_img, 0.7, 0)
+    bgr_img = cv2.cvtColor(overlaid_image, cv2.COLOR_BGR2RGB)
+    cv2.imshow("Overlay View", bgr_img)
 
 
 def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
@@ -207,20 +234,14 @@ def manual_find_block_in_image(block_id: int, rgb: Image,
         block_id, physicsClientId=scene.physics_client_id)
 
     # Loop until the user quits.
-    while True:
+    while True:  # TODO
         time.sleep(0.01)
         y = p.readUserDebugParameter(scene.y_slider)
         p.resetBasePositionAndOrientation(
             block_id, [x, y, z],
             orientation,
             physicsClientId=scene.physics_client_id)
-
-        # Get the image from the camera.
-        pybullet_img = take_picture(rgb.shape[1], rgb.shape[0], scene)
-        # Show overlaid image in a separate window.
-        overlaid_image = cv2.addWeighted(rgb, 0.3, pybullet_img, 0.7, 0)
-        bgr_img = cv2.cvtColor(overlaid_image, cv2.COLOR_BGR2RGB)
-        cv2.imshow("Captured", bgr_img)
+        update_overlay_view(rgb, scene)
 
 
 def take_picture(width: int, height: int, scene: PyBulletScene) -> Image:
