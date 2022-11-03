@@ -87,8 +87,11 @@ class Camera:
         self.camera_target = target
         self.camera_distance = dist
 
-    def take_picture(self, width: int, height: int,
-                     scene: PyBulletScene) -> Image:
+    def take_picture(self,
+                     width: int,
+                     height: int,
+                     scene: PyBulletScene,
+                     mask_object: Optional[int] = None) -> Image:
         camera_out = p.getCameraImage(width=width,
                                       height=height,
                                       viewMatrix=self.view_matrix,
@@ -99,6 +102,12 @@ class Camera:
         px = camera_out[2]
         rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+
+        if mask_object is not None:
+            segmentation = np.array(camera_out[-1]).reshape((height, width))
+            mask = (segmentation == mask_object)
+            rgb_array[~mask] = 0
+
         return rgb_array
 
     def reset_pybullet(self, scene: PybulletScene) -> None:
@@ -112,16 +121,17 @@ class Camera:
 ################################## Constants ##################################
 
 FIND_BLOCK_METHOD = "manual"
-RUN_MANUAL_CAMERA_CALIBRATION = True
+RUN_MANUAL_CAMERA_CALIBRATION = False
 DOWNSCALE = 2
 BLOCK_COLORS = {
     # RGB
-    "red": (120, 50, 50),
+    "red": (150, 50, 50),
     "purple": (60, 60, 100),
     "orange": (160, 90, 60),
     "yellow": (160, 120, 60),
     "blue": (75, 100, 120),
 }
+MATCH_SCORE_THRESHOLD = 0.95
 
 ################################## Functions ##################################
 
@@ -183,30 +193,30 @@ def initialize_pybullet() -> PyBulletScene:
                                       table_orientation,
                                       physicsClientId=physics_client_id)
 
-    # If we're using manual block finding, set up the slider.
-    if FIND_BLOCK_METHOD == "manual":
-        y_lb = PyBulletBlocksEnv.y_lb
-        y_ub = PyBulletBlocksEnv.y_ub
-        y_init = (y_lb + y_ub) / 2.0
-        y_slider = p.addUserDebugParameter("block",
-                                           y_lb,
-                                           y_ub,
-                                           y_init,
-                                           physicsClientId=physics_client_id)
-    else:
-        y_slider = None
+    y_slider, done_button = create_sliders_and_buttons(physics_client_id)
 
+    return PyBulletScene(physics_client_id=physics_client_id,
+                         table_id=table_id,
+                         done_button=done_button,
+                         y_slider=y_slider)
+
+
+def create_sliders_and_buttons(physics_client_id: int) -> int:
+    y_lb = PyBulletBlocksEnv.y_lb
+    y_ub = PyBulletBlocksEnv.y_ub
+    y_init = (y_lb + y_ub) / 2.0
+    y_slider = p.addUserDebugParameter("block",
+                                       y_lb,
+                                       y_ub,
+                                       y_init,
+                                       physicsClientId=physics_client_id)
     # Add a done button for manual anything.
     done_button = p.addUserDebugParameter("done",
                                           1,
                                           0,
                                           1,
                                           physicsClientId=physics_client_id)
-
-    return PyBulletScene(physics_client_id=physics_client_id,
-                         table_id=table_id,
-                         done_button=done_button,
-                         y_slider=y_slider)
+    return y_slider, done_button
 
 
 def calibrate_camera(camera_image: CameraImage, scene: PyBulletScene) -> None:
@@ -307,6 +317,37 @@ def manual_find_block_in_image(block_id: int, image: CameraImage,
             orientation,
             physicsClientId=scene.physics_client_id)
         update_overlay_view(image, scene)
+        # print("SCORE:", get_block_match_score(block_id, image, scene))
+
+    # Reset the slider. Currently no good way to do this, so we just destroy
+    # and rebuild it.
+    p.removeAllUserParameters(physicsClientId=scene.physics_client_id)
+    scene.y_slider, scene.done_button = create_sliders_and_buttons(
+        scene.physics_client_id)
+
+    # Check for a match.
+    match_score = get_block_match_score(block_id, image, scene)
+    if match_score > MATCH_SCORE_THRESHOLD:
+        # Found a match, return the block state.
+        return BlockState(x, y, z)
+
+    # No match found.
+    return None
+
+
+def get_block_match_score(block_id: int, image: CameraImage,
+                          scene: PyBulletScene) -> float:
+    camera = image.camera
+    camera.sync(scene)
+    pybullet_img = camera.take_picture(image.width,
+                                       image.height,
+                                       scene,
+                                       mask_object=block_id)
+    pixel_sims = (pybullet_img / 255 - image.rgb / 255)**2
+    # Note: assuming that we're not trying to find black objects.
+    mask = (pybullet_img.sum(axis=2) > 0)
+    score = 1.0 - np.mean(pixel_sims[mask])
+    return score
 
 
 def parse_state_from_image(camera_image: CameraImage,
@@ -342,6 +383,11 @@ def parse_state_from_image(camera_image: CameraImage,
 
     # Create a state from the found block states.
     return block_states_to_state(block_states)
+
+
+def block_states_to_state(block_states: Sequence[BlockState]) -> State:
+    # TODO but this is easy
+    return None
 
 
 #################################### Main ####################################
