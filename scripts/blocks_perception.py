@@ -1,4 +1,5 @@
 """An extremely brittle and blocks/LIS/Panda-specific perception pipeline."""
+from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ import imageio.v3 as iio
 import numpy as np
 import pybullet as p
 from matplotlib import pyplot as plt
+from numpy.typing import NDArray
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
@@ -18,15 +20,6 @@ from predicators.structs import Image, State
 from predicators.utils import LineSegment
 
 ################################### Structs ###################################
-
-
-@dataclass
-class Camera:
-    name: str
-    camera_distance: float
-    camera_yaw: float
-    camera_pitch: float
-    camera_target: Tuple[float, float, float]
 
 
 @dataclass
@@ -59,6 +52,63 @@ class BlockState:
     z: float
 
 
+@dataclass
+class Camera:
+    name: str
+    camera_distance: float
+    camera_yaw: float
+    camera_pitch: float
+    camera_target: Tuple[float, float, float]
+
+    @property
+    def view_matrix(self) -> NDArray[np.float32]:
+        return p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self.camera_target,
+            distance=self.camera_distance,
+            yaw=self.camera_yaw,
+            pitch=self.camera_pitch,
+            roll=0,
+            upAxisIndex=2)
+
+    @staticmethod
+    def get_proj_matrix(width: int, height: int) -> NDArray[np.float32]:
+        # TODO reconsider this
+        return p.computeProjectionMatrixFOV(fov=60,
+                                            aspect=float(width / height),
+                                            nearVal=0.1,
+                                            farVal=100.0)
+
+    def sync(self, scene: PybulletScene) -> None:
+        camera_state = p.getDebugVisualizerCamera(
+            physicsClientId=scene.physics_client_id)
+        yaw, pitch, dist, target = camera_state[-4:]
+        self.camera_yaw = yaw
+        self.camera_pitch = pitch
+        self.camera_target = target
+        self.camera_distance = dist
+
+    def take_picture(self, width: int, height: int,
+                     scene: PyBulletScene) -> Image:
+        camera_out = p.getCameraImage(width=width,
+                                      height=height,
+                                      viewMatrix=self.view_matrix,
+                                      projectionMatrix=self.get_proj_matrix(
+                                          width, height),
+                                      renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                                      physicsClientId=scene.physics_client_id)
+        px = camera_out[2]
+        rgb_array = np.array(px).reshape((height, width, 4))
+        rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+        return rgb_array
+
+    def reset_pybullet(self, scene: PybulletScene) -> None:
+        p.resetDebugVisualizerCamera(self.camera_distance,
+                                     self.camera_yaw,
+                                     self.camera_pitch,
+                                     self.camera_target,
+                                     physicsClientId=scene.physics_client_id)
+
+
 ################################## Constants ##################################
 
 FIND_BLOCK_METHOD = "manual"
@@ -72,18 +122,6 @@ BLOCK_COLORS = {
     "yellow": (160, 120, 60),
     "blue": (75, 100, 120),
 }
-CAMERAS = [
-    Camera(name="right",
-           camera_distance=0.8,
-           camera_yaw=90.0,
-           camera_pitch=-24.0,
-           camera_target=(1.65, 0.75, 0.42)),
-    Camera(name="left",
-           camera_distance=0.8,
-           camera_yaw=-55.0,
-           camera_pitch=-24.0,
-           camera_target=(1.65, 0.75, 0.42)),
-]
 
 ################################## Functions ##################################
 
@@ -100,6 +138,8 @@ def parse_state_from_images(camera_images: Sequence[CameraImage]) -> State:
     if RUN_MANUAL_CAMERA_CALIBRATION:
         for camera_image in camera_images:
             calibrate_camera(camera_image, scene)
+            print("Calibrated camera. New state:")
+            print(camera_image.camera)
     # Parse the state from each image.
     states = [parse_state_from_image(im, scene) for im in camera_images]
     # TODO: Average states together.
@@ -117,6 +157,17 @@ def downscale_camera_image(camera_image: CameraImage,
 
 def initialize_pybullet() -> PyBulletScene:
     physics_client_id = p.connect(p.GUI)  # TODO offer non-GUI option
+
+    # Disable the preview windows for faster rendering.
+    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
+    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
+    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
 
     # Set gravity.
     p.setGravity(0., 0., -10., physicsClientId=physics_client_id)
@@ -160,7 +211,6 @@ def initialize_pybullet() -> PyBulletScene:
 
 def calibrate_camera(camera_image: CameraImage, scene: PyBulletScene) -> None:
     camera = camera_image.camera
-    rgb = camera_image.rgb
     # Reset the camera to the default.
     p.resetDebugVisualizerCamera(camera.camera_distance,
                                  camera.camera_yaw,
@@ -174,26 +224,23 @@ def calibrate_camera(camera_image: CameraImage, scene: PyBulletScene) -> None:
             scene.done_button,
             physicsClientId=scene.physics_client_id) <= init_button_val:
         time.sleep(0.01)
-        update_overlay_view(rgb, scene)
+        update_overlay_view(camera_image, scene)
 
 
-def update_overlay_view(rgb: Image, scene: PyBulletScene) -> None:
+def update_overlay_view(image: CameraImage, scene: PyBulletScene) -> None:
     # Get the image from the camera.
-    pybullet_img = take_picture(rgb.shape[1], rgb.shape[0], scene)
+    camera = image.camera
+    camera.sync(scene)
+    pybullet_img = camera.take_picture(image.width, image.height, scene)
     # Show overlaid image in a separate window.
-    overlaid_image = cv2.addWeighted(rgb, 0.3, pybullet_img, 0.7, 0)
+    overlaid_image = cv2.addWeighted(image.rgb, 0.3, pybullet_img, 0.7, 0)
     bgr_img = cv2.cvtColor(overlaid_image, cv2.COLOR_BGR2RGB)
     cv2.imshow("Overlay View", bgr_img)
 
 
 def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
     # Reset the camera.
-    p.resetDebugVisualizerCamera(camera.camera_distance,
-                                 camera.camera_yaw,
-                                 camera.camera_pitch,
-                                 camera.camera_target,
-                                 physicsClientId=scene.physics_client_id)
-
+    camera.reset_pybullet(scene)
     # Destroy any existing blocks.
     old_block_ids = list(scene.block_ids)
     for block_id in old_block_ids:
@@ -233,14 +280,14 @@ def change_block_color(block_id: int, block_color: Tuple[float, float, float],
                         physicsClientId=scene.physics_client_id)
 
 
-def find_block_in_image(block_id: int, rgb: Image,
+def find_block_in_image(block_id: int, image: CameraImage,
                         scene: PyBulletScene) -> Optional[BlockState]:
     if FIND_BLOCK_METHOD == "manual":
-        return manual_find_block_in_image(block_id, rgb, scene)
+        return manual_find_block_in_image(block_id, image, scene)
     raise NotImplementedError
 
 
-def manual_find_block_in_image(block_id: int, rgb: Image,
+def manual_find_block_in_image(block_id: int, image: CameraImage,
                                scene: PyBulletScene) -> Optional[BlockState]:
     # Get the current position and orientation.
     (x, _, z), orientation = p.getBasePositionAndOrientation(
@@ -259,29 +306,11 @@ def manual_find_block_in_image(block_id: int, rgb: Image,
             block_id, [x, y, z],
             orientation,
             physicsClientId=scene.physics_client_id)
-        update_overlay_view(rgb, scene)
-
-
-def take_picture(width: int, height: int, scene: PyBulletScene) -> Image:
-    camera_state = p.getDebugVisualizerCamera(
-        physicsClientId=scene.physics_client_id)
-    view_mat = camera_state[2]
-    proj_mat = camera_state[3]
-    (_, _, px, _,
-     _) = p.getCameraImage(width=width,
-                           height=height,
-                           viewMatrix=view_mat,
-                           projectionMatrix=proj_mat,
-                           renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                           physicsClientId=scene.physics_client_id)
-    rgb_array = np.array(px).reshape((height, width, 4))
-    rgb_array = rgb_array[:, :, :3].astype(np.uint8)
-    return rgb_array
+        update_overlay_view(image, scene)
 
 
 def parse_state_from_image(camera_image: CameraImage,
                            scene: PyBulletScene) -> State:
-    rgb = camera_image.rgb
     camera = camera_image.camera
     block_states: List[BlockState] = []
 
@@ -299,7 +328,7 @@ def parse_state_from_image(camera_image: CameraImage,
             # Change the block color.
             change_block_color(block_id, block_color, scene)
             # Search for blocks of this color.
-            block_state = find_block_in_image(block_id, rgb, scene)
+            block_state = find_block_in_image(block_id, camera_image, scene)
             # If a block was found, restart this process.
             if block_state is not None:
                 found_new_block = True
@@ -318,8 +347,18 @@ def parse_state_from_image(camera_image: CameraImage,
 #################################### Main ####################################
 
 if __name__ == "__main__":
+    right_camera = Camera(name="right",
+                          camera_distance=0.8,
+                          camera_yaw=90.0,
+                          camera_pitch=-24.0,
+                          camera_target=(1.65, 0.75, 0.42))
+    left_camera = Camera(name="left",
+                         camera_distance=0.8,
+                         camera_yaw=-55.0,
+                         camera_pitch=-24.0,
+                         camera_target=(1.65, 0.75, 0.42))
+
     color_imgs_path = Path("~/Desktop/blocks-images/color/")
-    right_camera, left_camera = CAMERAS
     assert right_camera.name == "right"
     assert left_camera.name == "left"
     right_camera_id = 231122071284
