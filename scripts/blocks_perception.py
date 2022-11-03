@@ -3,7 +3,7 @@
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import cv2
 import imageio.v3 as iio
@@ -47,12 +47,21 @@ class CameraImage:
 class PyBulletScene:
     physics_client_id: int
     table_id: int
+    y_slider: Optional[int]
     block_ids: List[int] = field(init=False, default_factory=list)
+
+
+@dataclass
+class BlockState:
+    x: float
+    y: float
+    z: float
 
 
 ################################## Constants ##################################
 
-DOWNSCALE = 3
+FIND_BLOCK_METHOD = "manual"
+DOWNSCALE = 1
 BLOCK_COLORS = {
     # RGB
     "red": (120, 50, 50),
@@ -61,14 +70,13 @@ BLOCK_COLORS = {
     "yellow": (160, 120, 60),
     "blue": (75, 100, 120),
 }
-
 CAMERAS = [
-    Camera(name="left",
+    Camera(name="right",
            camera_distance=0.8,
            camera_yaw=90.0,
            camera_pitch=-24.0,
            camera_target=(1.65, 0.75, 0.42)),
-    Camera(name="right",
+    Camera(name="left",
            camera_distance=0.8,
            camera_yaw=-55.0,
            camera_pitch=-24.0,
@@ -120,8 +128,22 @@ def initialize_pybullet() -> PyBulletScene:
                                       table_orientation,
                                       physicsClientId=physics_client_id)
 
+    # If we're using manual block finding, set up the slider.
+    if FIND_BLOCK_METHOD == "manual":
+        y_lb = PyBulletBlocksEnv.y_lb
+        y_ub = PyBulletBlocksEnv.y_ub
+        y_init = (y_lb + y_ub) / 2.0
+        y_slider = p.addUserDebugParameter("block",
+                                           y_lb,
+                                           y_ub,
+                                           y_init,
+                                           physicsClientId=physics_client_id)
+    else:
+        y_slider = None
+
     return PyBulletScene(physics_client_id=physics_client_id,
-                         table_id=table_id)
+                         table_id=table_id,
+                         y_slider=y_slider)
 
 
 def reset_pybullet(camera: Camera, scene: PyBulletScene) -> None:
@@ -171,11 +193,58 @@ def change_block_color(block_id: int, block_color: Tuple[float, float, float],
                         physicsClientId=scene.physics_client_id)
 
 
+def find_block_in_image(block_id: int, rgb: Image,
+                        scene: PyBulletScene) -> Optional[BlockState]:
+    if FIND_BLOCK_METHOD == "manual":
+        return manual_find_block_in_image(block_id, rgb, scene)
+    raise NotImplementedError
+
+
+def manual_find_block_in_image(block_id: int, rgb: Image,
+                               scene: PyBulletScene) -> Optional[BlockState]:
+    # Get the current position and orientation.
+    (x, _, z), orientation = p.getBasePositionAndOrientation(
+        block_id, physicsClientId=scene.physics_client_id)
+
+    # Loop until the user quits.
+    while True:
+        time.sleep(0.01)
+        y = p.readUserDebugParameter(scene.y_slider)
+        p.resetBasePositionAndOrientation(
+            block_id, [x, y, z],
+            orientation,
+            physicsClientId=scene.physics_client_id)
+
+        # Get the image from the camera.
+        pybullet_img = take_picture(rgb.shape[1], rgb.shape[0], scene)
+        # Show overlaid image in a separate window.
+        overlaid_image = cv2.addWeighted(rgb, 0.3, pybullet_img, 0.7, 0)
+        bgr_img = cv2.cvtColor(overlaid_image, cv2.COLOR_BGR2RGB)
+        cv2.imshow("Captured", bgr_img)
+
+
+def take_picture(width: int, height: int, scene: PyBulletScene) -> Image:
+    camera_state = p.getDebugVisualizerCamera(
+        physicsClientId=scene.physics_client_id)
+    view_mat = camera_state[2]
+    proj_mat = camera_state[3]
+    (_, _, px, _,
+     _) = p.getCameraImage(width=width,
+                           height=height,
+                           viewMatrix=view_mat,
+                           projectionMatrix=proj_mat,
+                           renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                           physicsClientId=scene.physics_client_id)
+    rgb_array = np.array(px).reshape((height, width, 4))
+    rgb_array = rgb_array[:, :, :3].astype(np.uint8)
+    return rgb_array
+
+
 def parse_state_from_image(camera_image: CameraImage,
                            scene: PyBulletScene) -> State:
     rgb = camera_image.rgb
     camera = camera_image.camera
-    block_states = []
+    block_states: List[BlockState] = []
 
     # Reset the PyBullet scene.
     reset_pybullet(camera, scene)
@@ -211,7 +280,7 @@ def parse_state_from_image(camera_image: CameraImage,
 
 if __name__ == "__main__":
     color_imgs_path = Path("~/Desktop/blocks-images/color/")
-    left_camera, right_camera = CAMERAS
+    right_camera, left_camera = CAMERAS
     assert right_camera.name == "right"
     assert left_camera.name == "left"
     right_camera_id = 231122071284
