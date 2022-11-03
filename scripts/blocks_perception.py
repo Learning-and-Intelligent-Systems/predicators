@@ -351,7 +351,7 @@ if __name__ == "__main__":
                           camera_distance=1.0,
                           camera_yaw=43,
                           camera_pitch=-40,
-                          camera_target=(1.07, 0.95, -0.11637961119413376))
+                          camera_target=(1.07, 0.95, -0.116))
     left_camera = Camera(name="left",
                          camera_distance=0.8,
                          camera_yaw=-55.0,
