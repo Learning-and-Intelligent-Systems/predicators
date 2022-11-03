@@ -580,33 +580,41 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     if approach_name == "backchaining":
         # Be sure to reset the segment add effects before doing this.
         learner.reset_all_segment_add_effs()
-    reverse_order_pnads = learner.learn()
-    action_space = Box(0, 1, (1, ))
-    dataset = [traj2, traj1]
-    train_tasks = [task2, task1]
-    options = {
-        moveto_param_option, pick_param_option, movetoshelf_param_option,
-        place_param_option
-    }
-    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
-    reverse_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
-                                                      train_tasks,
-                                                      preds,
-                                                      options,
-                                                      action_space,
-                                                      ground_atom_dataset,
-                                                      sampler_learner="random")
+        reverse_order_pnads = learner.learn()
+        action_space = Box(0, 1, (1, ))
+        dataset = [traj2, traj1]
+        train_tasks = [task2, task1]
+        options = {
+            moveto_param_option, pick_param_option, movetoshelf_param_option,
+            place_param_option
+        }
+        ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
+        reverse_order_nsrts, _, _ = learn_nsrts_from_data(
+            dataset,
+            train_tasks,
+            preds,
+            options,
+            action_space,
+            ground_atom_dataset,
+            sampler_learner="random")
 
-    # First, check that the two sets of PNADs have the same number of PNADs.
-    # Uh oh, they don't
-    assert len(natural_order_pnads) != len(reverse_order_pnads)
-    # Second, check that the two sets of NSRTs have the same number of
-    # NSRTs.
-    # They do! Because our NSRTs were learned with dataset reordering and
-    # harmless operator pruning, as opposed to our PNADs which were learned
-    # with our _MockBackchainingSTRIPSLearner that does not have these
-    # additions.
-    assert len(natural_order_nsrts) == len(reverse_order_nsrts)
+        # First, check that the two sets of PNADs have the same number of PNADs.
+        # Uh oh, they don't
+        assert len(natural_order_pnads) != len(reverse_order_pnads)
+        # Second, check that the two sets of NSRTs have the same number of
+        # NSRTs.
+        # They do! Because our NSRTs were learned with dataset reordering and
+        # harmless operator pruning, as opposed to our PNADs which were learned
+        # with our _MockBackchainingSTRIPSLearner that does not have these
+        # additions.
+        assert len(natural_order_nsrts) == len(reverse_order_nsrts)
+        # Lastly, check whether the natural order nsrts we generate are the
+        # same as the (correct) reverse_order_pnads.
+        for nsrt in natural_order_nsrts:
+            # Rename the output NSRT operators to standardize naming
+            # and make comparison easier.
+            op = nsrt.op.copy_with(name=nsrt.option.name + "0")
+            assert op in set(pnad.op for pnad in reverse_order_pnads)
 
 
 def test_spawn_new_pnad():
