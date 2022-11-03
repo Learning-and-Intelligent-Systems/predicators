@@ -47,6 +47,7 @@ class CameraImage:
 class PyBulletScene:
     physics_client_id: int
     table_id: int
+    done_button: int
     y_slider: Optional[int]
     block_ids: List[int] = field(init=False, default_factory=list)
 
@@ -62,7 +63,7 @@ class BlockState:
 
 FIND_BLOCK_METHOD = "manual"
 RUN_MANUAL_CAMERA_CALIBRATION = True
-DOWNSCALE = 1
+DOWNSCALE = 2
 BLOCK_COLORS = {
     # RGB
     "red": (120, 50, 50),
@@ -144,8 +145,16 @@ def initialize_pybullet() -> PyBulletScene:
     else:
         y_slider = None
 
+    # Add a done button for manual anything.
+    done_button = p.addUserDebugParameter("done",
+                                          1,
+                                          0,
+                                          1,
+                                          physicsClientId=physics_client_id)
+
     return PyBulletScene(physics_client_id=physics_client_id,
                          table_id=table_id,
+                         done_button=done_button,
                          y_slider=y_slider)
 
 
@@ -159,7 +168,11 @@ def calibrate_camera(camera_image: CameraImage, scene: PyBulletScene) -> None:
                                  camera.camera_target,
                                  physicsClientId=scene.physics_client_id)
     # Click and drag to calibrate.
-    while True:  # TODO
+    init_button_val = p.readUserDebugParameter(
+        scene.done_button, physicsClientId=scene.physics_client_id)
+    while p.readUserDebugParameter(
+            scene.done_button,
+            physicsClientId=scene.physics_client_id) <= init_button_val:
         time.sleep(0.01)
         update_overlay_view(rgb, scene)
 
@@ -234,9 +247,14 @@ def manual_find_block_in_image(block_id: int, rgb: Image,
         block_id, physicsClientId=scene.physics_client_id)
 
     # Loop until the user quits.
-    while True:  # TODO
+    init_button_val = p.readUserDebugParameter(
+        scene.done_button, physicsClientId=scene.physics_client_id)
+    while p.readUserDebugParameter(
+            scene.done_button,
+            physicsClientId=scene.physics_client_id) <= init_button_val:
         time.sleep(0.01)
-        y = p.readUserDebugParameter(scene.y_slider)
+        y = p.readUserDebugParameter(scene.y_slider,
+                                     physicsClientId=scene.physics_client_id)
         p.resetBasePositionAndOrientation(
             block_id, [x, y, z],
             orientation,
