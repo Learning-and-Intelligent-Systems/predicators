@@ -143,12 +143,37 @@ def parse_state_from_image(camera_image: CameraImage,
                            scene: PyBulletScene) -> State:
     rgb = camera_image.rgb
     camera = camera_image.camera
+    block_states = []
 
-    # Reset the Pybullet scene.
+    # Reset the PyBullet scene.
     reset_pybullet(camera, scene)
 
-    import ipdb
-    ipdb.set_trace()
+    # Add blocks one at a time until we don't find any new ones.
+    while True:
+        # Have we found any new block to add?
+        found_new_block = False
+        # Create a new block.
+        block_id = add_new_block_to_scene(scene)
+        # Loop through all possible block colors.
+        for color_name, block_color in BLOCK_COLORS.items():
+            # Change the block color.
+            change_block_color(block_id, block_color)
+            # Search for blocks of this color.
+            block_state = find_block_in_image(block_id, rgb, scene)
+            # If a block was found, restart this process.
+            if block_state is not None:
+                found_new_block = True
+                block_states.append(block_state)
+                # Keep the block for future collision checking.
+                scene.block_ids.append(block_id)
+                break
+        # If we didn't find any new blocks, stop.
+        if not found_new_block:
+            break
+
+    # Create a state from the found block states.
+    return block_states_to_state(block_states)
+
 
 
 #################################### Main ####################################
