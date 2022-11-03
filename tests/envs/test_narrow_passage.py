@@ -255,3 +255,33 @@ def test_narrow_passage_options():
     assert GroundAtom(DoorIsOpen, [door]).holds(final_state)
     assert final_state.get(robot, "x") == 0.25
     assert final_state.get(robot, "y") == 0.7
+
+
+def test_narrow_passage_failed_birrt():
+    """Test ParametrizedOptions both are un-initiable if motion planning
+    fails."""
+    # Set up environment
+    utils.reset_config({
+        "env": "narrow_passage",
+        "narrow_passage_birrt_num_attempts": 0,
+    })
+    env = NarrowPassageEnv()
+    MoveAndOpenDoor, MoveToTarget = sorted(env.options)
+    door_type, _, robot_type, target_type, _ = sorted(env.types)
+
+    task = env.get_train_tasks()[0]
+    state = task.init
+    door, = state.get_objects(door_type)
+    robot, = state.get_objects(robot_type)
+    target, = state.get_objects(target_type)
+
+    # Test MoveToTarget
+    move_to_target = MoveToTarget.ground([robot, target], [0.15])
+    assert move_to_target.initiable(state) is False
+
+    # Test MoveAndOpenDoor
+    # move robot to other side of wall so there is no straight line path
+    # to where it tries to move to
+    state.set(robot, "y", 0.2)
+    move_and_open_door = MoveAndOpenDoor.ground([robot, door], [0.8])
+    assert move_and_open_door.initiable(state) is False
