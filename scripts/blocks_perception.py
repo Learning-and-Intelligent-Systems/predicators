@@ -73,7 +73,7 @@ class Camera:
     @staticmethod
     def get_proj_matrix(width: int, height: int) -> NDArray[np.float32]:
         # TODO reconsider this
-        return p.computeProjectionMatrixFOV(fov=60,
+        return p.computeProjectionMatrixFOV(fov=90,
                                             aspect=float(width / height),
                                             nearVal=0.1,
                                             farVal=100.0)
@@ -348,10 +348,10 @@ def parse_state_from_image(camera_image: CameraImage,
 
 if __name__ == "__main__":
     right_camera = Camera(name="right",
-                          camera_distance=0.8,
-                          camera_yaw=90.0,
-                          camera_pitch=-24.0,
-                          camera_target=(1.65, 0.75, 0.42))
+                          camera_distance=1.0,
+                          camera_yaw=43,
+                          camera_pitch=-40,
+                          camera_target=(1.07, 0.95, -0.11637961119413376))
     left_camera = Camera(name="left",
                          camera_distance=0.8,
                          camera_yaw=-55.0,
@@ -370,4 +370,7 @@ if __name__ == "__main__":
     left_color_img = iio.imread(left_color_img_path)
     right_camera_img = CameraImage(right_color_img, right_camera)
     left_camera_img = CameraImage(left_color_img, left_camera)
-    state = parse_state_from_images([right_camera_img, left_camera_img])
+    state = parse_state_from_images([
+        right_camera_img,
+        # left_camera_img
+    ])
