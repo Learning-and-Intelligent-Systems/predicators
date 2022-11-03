@@ -14,16 +14,16 @@ from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, PartialNSRTAndDatastore, \
-    Predicate, Segment, Task
+from predicators.structs import GroundAtomTrajectory, \
+    LowLevelTrajectory, NSRT, ParameterizedOption, PartialNSRTAndDatastore, \
+    Predicate, Segment, STRIPSOperator, Task
 
 
 def learn_nsrts_from_data(
     trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
     predicates: Set[Predicate], known_options: Set[ParameterizedOption],
     action_space: Box, ground_atom_dataset: List[GroundAtomTrajectory],
-    sampler_learner: str
+    sampler_learner: str, existing_nsrts: Optional[List[NSRT]] = None
 ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates.
@@ -37,6 +37,19 @@ def learn_nsrts_from_data(
     base_strips_learner.py).
     """
     logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+
+    # Check if there are already some learned PNADs from previous tasks
+    existing_pnads = []
+    if existing_nsrts is not None:
+        for nsrt_idx, nsrt in enumerate(existing_nsrts):
+            op = STRIPSOperator(f"Op{nsrt_idx}", nsrt.parameters,
+                                nsrt.preconditions, nsrt.add_effects,
+                                nsrt.delete_effects, nsrt.ignore_effects)
+            datastore = []
+            option_vars = nsrt.option_vars
+            option_spec = (nsrt.option, option_vars)
+            pnad = PartialNSRTAndDatastore(op, datastore, option_spec)
+            existing_pnads.append(pnad)
 
     # Search over data orderings to find least complex PNAD set.
     # If the strips learner is not Backchaining then it will
@@ -83,6 +96,7 @@ def learn_nsrts_from_data(
             train_tasks,
             predicates,
             segmented_trajs,
+            existing_pnads=existing_pnads,
             verify_harmlessness=True,
             verbose=(CFG.option_learner != "no_learning"))
 
@@ -136,7 +150,9 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
     # same known parameterized option, or all actions should have no option.
     known_option_pnads, unknown_option_pnads = [], []
     for pnad in pnads:
-        assert pnad.datastore
+        if not pnad.datastore:
+            # The PNAD comes from some previous task, but has no data on this task
+            continue
         example_segment, _ = pnad.datastore[0]
         example_action = example_segment.actions[0]
         pnad_options_known = example_action.has_option()

@@ -27,6 +27,7 @@ def learn_strips_operators(
     train_tasks: List[Task],
     predicates: Set[Predicate],
     segmented_trajs: List[List[Segment]],
+    existing_pnads: List[PartialNSRTAndDatastore],
     verify_harmlessness: bool,
     verbose: bool = True,
 ) -> List[PartialNSRTAndDatastore]:
@@ -39,7 +40,8 @@ def learn_strips_operators(
         if not cls.__abstractmethods__ and \
            cls.get_name() == CFG.strips_learner:
             learner = cls(trajectories, train_tasks, predicates,
-                          segmented_trajs, verify_harmlessness, verbose)
+                          segmented_trajs, existing_pnads, verify_harmlessness,
+                          verbose)
             break
     else:
         raise ValueError(f"Unrecognized STRIPS learner: {CFG.strips_learner}")

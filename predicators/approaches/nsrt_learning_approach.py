@@ -7,7 +7,7 @@ or options.
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import dill as pkl
 from gym.spaces import Box
@@ -18,8 +18,8 @@ from predicators.approaches.bilevel_planning_approach import \
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.planning import task_plan, task_plan_grounding
 from predicators.settings import CFG
-from predicators.structs import NSRT, Dataset, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, Type
+from predicators.structs import GroundAtomTrajectory, Dataset, LowLevelTrajectory, \
+    NSRT, ParameterizedOption, Predicate, Segment, Task, Type
 
 
 class NSRTLearningApproach(BilevelPlanningApproach):
@@ -96,18 +96,25 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 pkl.dump(ground_atom_dataset_to_pkl, f)
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
-            learn_nsrts_from_data(trajectories,
+            self._learn_nsrts_from_data(trajectories, ground_atom_dataset)
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
+            pkl.dump(self._nsrts, f)
+        if CFG.compute_sidelining_objective_value:
+            self._compute_sidelining_objective_value(trajectories)
+
+    def _learn_nsrts_from_data(self,
+        trajectories: List[LowLevelTrajectory], 
+        ground_atom_dataset: List[GroundAtomTrajectory],
+    ) -> Tuple[Set[NSRT], List[List[Segment]], Dict[Segment, NSRT]]:
+        """Light wrapper in case child classes use different learning process."""
+        return learn_nsrts_from_data(trajectories,
                                   self._train_tasks,
                                   self._get_current_predicates(),
                                   self._initial_options,
                                   self._action_space,
                                   ground_atom_dataset,
                                   sampler_learner=CFG.sampler_learner)
-        save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
-        if CFG.compute_sidelining_objective_value:
-            self._compute_sidelining_objective_value(trajectories)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_load_path_str()

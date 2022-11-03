@@ -22,6 +22,7 @@ class BaseSTRIPSLearner(abc.ABC):
         train_tasks: List[Task],
         predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]],
+        existing_pnads: List[PartialNSRTAndDatastore],
         verify_harmlessness: bool,
         verbose: bool = True,
     ) -> None:
@@ -30,6 +31,9 @@ class BaseSTRIPSLearner(abc.ABC):
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._verify_harmlessness = verify_harmlessness
+        if existing_pnads is None:
+            existing_pnads = []
+        self._existing_pnads = existing_pnads
         self._verbose = verbose
         self._num_segments = sum(len(t) for t in segmented_trajs)
         assert len(self._trajectories) == len(self._segmented_trajs)
@@ -316,6 +320,8 @@ class BaseSTRIPSLearner(abc.ABC):
             lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
             if i == 0:
                 preconditions = lifted_atoms
+                if len(pnad.op.preconditions) > 0:
+                    preconditions &= pnad.op.preconditions
             else:
                 preconditions &= lifted_atoms
         return preconditions

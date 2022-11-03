@@ -18,7 +18,12 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         segments = [seg for segs in self._segmented_trajs for seg in segs]
         # Cluster the segments according to common option and effects.
-        pnads: List[PartialNSRTAndDatastore] = []
+        # This creates a "deep" copy of existing PNADs to avoid modifying list
+        # Note1: pnad.copy copies everything by reference except the datastore,
+        # which is shallow-copied
+        # Note2: in principle, existing PNADs should only contain empty datastores,
+        # so this might not be the best approach
+        pnads: List[PartialNSRTAndDatastore] = [pnad.copy() for pnad in self._existing_pnads]
         for segment in segments:
             if segment.has_option():
                 segment_option = segment.get_option()
@@ -121,13 +126,20 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
     ) -> List[PartialNSRTAndDatastore]:
         new_pnads = []
         for pnad in pnads:
-            preconditions = self._induce_preconditions_via_intersection(pnad)
-            # Since we are taking an intersection, we're guaranteed that the
-            # datastore can't change, so we can safely use pnad.datastore here.
-            new_pnads.append(
-                PartialNSRTAndDatastore(
-                    pnad.op.copy_with(preconditions=preconditions),
-                    pnad.datastore, pnad.option_spec))
+            if len(pnad.datastore) > 0:
+                preconditions = self._induce_preconditions_via_intersection(pnad)
+                # Since we are taking an intersection, we're guaranteed that the
+                # datastore can't change, so we can safely use pnad.datastore here.
+                new_pnads.append(
+                    PartialNSRTAndDatastore(
+                        pnad.op.copy_with(preconditions=preconditions),
+                        pnad.datastore, pnad.option_spec))
+            elif len(pnad.op.preconditions) > 0:
+                # No new data for this operator, so just copy its preconditions
+                new_pnads.append(
+                    PartialNSRTAndDatastore(
+                        pnad.op.copy_with(),
+                        pnad.datastore, pnad.option_spec))
         return new_pnads
 
     @classmethod

@@ -1225,6 +1225,22 @@ class PartialNSRTAndDatastore:
         param_option, option_vars = self.option_spec
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
 
+
+    def copy(self) -> PartialNSRTAndDatastore:
+        """Make a copy of the PNAD."""
+        copy_pnad = PartialNSRTAndDatastore(
+            op=self.op,
+            datastore=list(self.datastore),
+            option_spec=self.option_spec
+        )
+        if hasattr(self, 'sampler'):
+            copy_pnad.sampler = self.sampler
+        if hasattr(self, 'poss_keep_effects'):
+            copy_pnad.poss_keep_effects = self.poss_keep_effects
+        if hasattr(self, 'seg_to_keep_effects_sub'):
+            copy_pnad.seg_to_keep_effects_sub = self.seg_to_keep_effects_sub
+        return copy_pnad
+
     def __repr__(self) -> str:
         param_option, option_vars = self.option_spec
         vars_str = ", ".join(str(v) for v in option_vars)
