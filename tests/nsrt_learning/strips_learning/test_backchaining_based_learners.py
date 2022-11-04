@@ -1034,8 +1034,11 @@ def test_combinatorial_keep_effect_data_partitioning(approach_name,
                            segmented_trajs,
                            verify_harmlessness=True)
     output_pnads = learner.learn()
-    # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
-    assert len(output_pnads) == 7
+    # We need 6 or 7 PNADs: 3 or 4 for configure, and 1 each for turn on,
+    # run, and fix.
+    # NOTE: Backchaining learns 7 different operators, but effect search
+    # learns only 6 (and both lead to harmlessness on the training data)!
+    assert len(output_pnads) in [6, 7]
     correct_pnads = set([
         """STRIPS-Run:
     Parameters: [?x0:machine_type]
@@ -1352,7 +1355,9 @@ def test_multi_pass_backchaining(approach_cls, val):
 
 # NOTE: Will update in the future to also run the EffectSearchLearner
 # here. Currently, it just doesn't work.
-@pytest.mark.parametrize("approach_cls", [_MockBackchainingSTRIPSLearner])
+@pytest.mark.parametrize(
+    "approach_cls",
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
 def test_segment_not_in_datastore(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
@@ -1424,6 +1429,10 @@ def test_segment_not_in_datastore(approach_cls):
                            verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
+    assert len(learned_pnads) == 4
+    # NOTE: Only 4 ops are necessary, but there are 5 here because
+    # the two different methods differ in one particular op
+    # (the third and fourth ops in this list).
     correct_pnads = [
         """STRIPS-Pick:
     Parameters: []
@@ -1436,6 +1445,12 @@ def test_segment_not_in_datastore(approach_cls):
     Preconditions: [B(), D(), E()]
     Add Effects: [A(), C()]
     Delete Effects: [B(), E()]
+    Ignore Effects: []
+    Option Spec: Pick()""", """STRIPS-Pick:
+    Parameters: []
+    Preconditions: [A(), C(), D()]
+    Add Effects: [A(), D()]
+    Delete Effects: [C()]
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []

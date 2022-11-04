@@ -27,14 +27,14 @@ class _EffectSets:
     # add effects, and keep effects.
     _param_option_to_groups: Dict[ParameterizedOption,
                                   List[Tuple[OptionSpec, Set[LiftedAtom],
-                                             Set[LiftedAtom]]]]
+                                             Set[LiftedAtom], Set[Predicate]]]]
 
     @functools.cached_property
     def _hash(self) -> int:
         option_to_hashable_group = {
-            o: (tuple(v), frozenset(aa), frozenset(ka))
+            o: (tuple(v), frozenset(aa), frozenset(ka), frozenset(p))
             for o in self._param_option_to_groups
-            for ((_, v), aa, ka) in self._param_option_to_groups[o]
+            for ((_, v), aa, ka, p) in self._param_option_to_groups[o]
         }
         return hash(tuple(option_to_hashable_group))
 
@@ -42,47 +42,50 @@ class _EffectSets:
         return self._hash
 
     def __iter__(
-            self
-    ) -> Iterator[Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom]]]:
+        self
+    ) -> Iterator[Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom],
+                        Set[Predicate]]]:
         for o in sorted(self._param_option_to_groups):
-            for (spec, add_atoms,
-                 keep_atoms) in self._param_option_to_groups[o]:
-                yield (spec, add_atoms, keep_atoms)
+            for (spec, add_atoms, keep_atoms,
+                 pred) in self._param_option_to_groups[o]:
+                yield (spec, add_atoms, keep_atoms, pred)
 
     def __str__(self) -> str:
         s = ""
-        for (spec, add_atoms, keep_atoms) in self:
+        for (spec, add_atoms, keep_atoms, unignore_preds) in self:
             opt = spec[0].name
             opt_args = ", ".join([str(a) for a in spec[1]])
-            s += f"\n{opt}({opt_args}): {add_atoms}, {keep_atoms}"
+            s += f"\n{opt}({opt_args}): {add_atoms}, {keep_atoms}, {unignore_preds}"
         s += "\n"
         return s
 
     def add(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
-            keep_effects: Set[LiftedAtom]) -> _EffectSets:
+            keep_effects: Set[LiftedAtom],
+            unignorable_preds: Set[Predicate]) -> _EffectSets:
         """Create a new _EffectSets with this new entry added to existing."""
         param_option = option_spec[0]
         new_param_option_to_groups = {
-            p: [(s, set(aa), set(ka)) for s, aa, ka in group]
+            p: [(s, set(aa), set(ka), set(pred)) for s, aa, ka, pred in group]
             for p, group in self._param_option_to_groups.items()
         }
         if param_option not in new_param_option_to_groups:
             new_param_option_to_groups[param_option] = []
         new_param_option_to_groups[param_option].append(
-            (option_spec, add_effects, keep_effects))
+            (option_spec, add_effects, keep_effects, unignorable_preds))
         return _EffectSets(new_param_option_to_groups)
 
     def remove(self, option_spec: OptionSpec, add_effects: Set[LiftedAtom],
-               keep_effects: Set[LiftedAtom]) -> _EffectSets:
+               keep_effects: Set[LiftedAtom],
+               unignorable_preds: Set[Predicate]) -> _EffectSets:
         """Create a new _EffectSets with this entry removed from existing."""
         param_option = option_spec[0]
         assert param_option in self._param_option_to_groups
         new_param_option_to_groups = {
-            p: [(s, set(aa), set(ka)) for s, aa, ka in group]
+            p: [(s, set(aa), set(ka), set(pred)) for s, aa, ka, pred in group]
             for p, group in self._param_option_to_groups.items()
         }
         new_param_option_to_groups[param_option].remove(
-            (option_spec, add_effects, keep_effects))
+            (option_spec, add_effects, keep_effects, unignorable_preds))
         return _EffectSets(new_param_option_to_groups)
 
 
@@ -120,20 +123,55 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
         initial_heuristic_val = self._associated_heuristic(effect_sets)
 
+        def _get_uncovered_transition_from_effect_sets(
+            curr_effect_sets: _EffectSets
+        ) -> Optional[Tuple[ParameterizedOption, Sequence[Object],
+                            Set[GroundAtom], Set[GroundAtom], Segment]]:
+            pnads = self._effect_sets_to_pnads(curr_effect_sets)
+            uncovered_transition = self._get_first_uncovered_transition(pnads)
+            return uncovered_transition
+
         def _get_new_effect_sets_by_backchaining(
                 curr_effect_sets: _EffectSets) -> _EffectSets:
             new_effect_sets = curr_effect_sets
-            pnads = self._effect_sets_to_pnads(curr_effect_sets)
-            uncovered_transition = self._get_first_uncovered_transition(pnads)
+            uncovered_transition = _get_uncovered_transition_from_effect_sets(
+                curr_effect_sets)
             if uncovered_transition is not None:
-                param_option, option_objs, add_effs, keep_effs = \
+                param_option, option_objs, add_effs, keep_effs, segment = \
                         uncovered_transition
-                option_spec, lifted_add_effs, lifted_keep_effs = \
+                option_spec, lifted_add_effs, lifted_keep_effs, unignorable_preds = \
                     self._create_new_effect_set(param_option, option_objs, \
-                        add_effs, keep_effs)
+                        add_effs, keep_effs, segment)
                 new_effect_sets = curr_effect_sets.add(option_spec,
                                                        lifted_add_effs,
-                                                       lifted_keep_effs)
+                                                       lifted_keep_effs,
+                                                       unignorable_preds)
+                # We should have covered this transition with the new effect sets.
+                new_uncovered_transition = _get_uncovered_transition_from_effect_sets(
+                    new_effect_sets)
+
+                if new_uncovered_transition == uncovered_transition:
+                    # If not, there is a keep effect issue!
+                    # We want to add keep effects for any atom(s) that:
+                    # (1) True in the segment.init_atoms.
+                    # (2) Also in the necessary image.
+                    # (3) Not in the current add or keep effects.
+                    keep_effs |= {
+                        a
+                        for a in segment.necessary_image
+                        if a in segment.init_atoms and a not in (add_effs
+                                                                 | keep_effs)
+                    }
+                    option_spec, lifted_add_effs, lifted_keep_effs, unignorable_preds = \
+                    self._create_new_effect_set(param_option, option_objs, \
+                        add_effs, keep_effs, segment)
+                    new_effect_sets = curr_effect_sets.add(
+                        option_spec, lifted_add_effs, lifted_keep_effs,
+                        unignorable_preds)
+                    new_uncovered_transition = _get_uncovered_transition_from_effect_sets(
+                        new_effect_sets)
+                    # Now, we can assert that we've covered this datapoint!
+                    assert new_uncovered_transition != uncovered_transition
 
             return new_effect_sets
 
@@ -151,13 +189,18 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         yield new_effect_sets
 
     def _create_new_effect_set(
-        self, param_option: ParameterizedOption, option_objs: Sequence[Object],
-        add_effs: Set[GroundAtom], keep_effs: Set[GroundAtom]
-    ) -> Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom]]:
+        self,
+        param_option: ParameterizedOption,
+        option_objs: Sequence[Object],
+        add_effs: Set[GroundAtom],
+        keep_effs: Set[GroundAtom],
+        segment_to_cover: Segment,
+    ) -> Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom], Set[Predicate]]:
         # Create a new effect set.
         all_objs = sorted(
-            set(option_objs) | {o
-                                for a in add_effs for o in a.objects})
+            set(option_objs)
+            | {o
+               for a in (add_effs | keep_effs) for o in a.objects})
         all_types = [o.type for o in all_objs]
         all_vars = utils.create_new_variables(all_types)
         obj_to_var = dict(zip(all_objs, all_vars))
@@ -165,13 +208,26 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         option_spec = (param_option, option_vars)
         lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
         lifted_keep_effs = {a.lift(obj_to_var) for a in keep_effs}
-        return (option_spec, lifted_add_effs, lifted_keep_effs)
+        # Since this segment is what caused us to create this new operator
+        # in the first place, it must have a necessary image that we're
+        # trying to achieve.
+        assert segment_to_cover.necessary_image is not None
+        # In order for this new operator to cover this segment, it cannot
+        # ignore predicates that would cause it to violate the necessary
+        # image.
+        unignorable_preds = {
+            a.predicate
+            for a in segment_to_cover.necessary_image
+            if a not in (add_effs | keep_effs)
+        }
+        return (option_spec, lifted_add_effs, lifted_keep_effs,
+                unignorable_preds)
 
     def _get_first_uncovered_transition(
         self,
         pnads: List[PartialNSRTAndDatastore],
     ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
-                        Set[GroundAtom]]]:
+                        Set[GroundAtom], Segment]]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories.
         # Compute all the chains once up front.
@@ -238,7 +294,8 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                         }
 
                     return (option.parent, option.objects,
-                            necessary_add_effects, necessary_keep_effects)
+                            necessary_add_effects, necessary_keep_effects,
+                            segment)
         return None
 
 
@@ -247,8 +304,10 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
 
     def get_successors(self,
                        effect_sets: _EffectSets) -> Iterator[_EffectSets]:
-        for (spec, add_effects, keep_effects) in effect_sets:
-            yield effect_sets.remove(spec, add_effects, keep_effects)
+        for (spec, add_effects, keep_effects,
+             unignorable_preds) in effect_sets:
+            yield effect_sets.remove(spec, add_effects, keep_effects,
+                                     unignorable_preds)
 
 
 class _EffectSearchHeuristic(abc.ABC):
@@ -364,16 +423,19 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             self, effect_sets: _EffectSets) -> List[PartialNSRTAndDatastore]:
         # Start with the add effects and option specs.
         pnads = []
-        for (option_spec, add_effects, keep_effects) in effect_sets:
+        for (option_spec, add_effects, keep_effects,
+             unignorable_preds) in effect_sets:
             parameterized_option, op_vars = option_spec
             add_effect_vars = {v for a in add_effects for v in a.variables}
             keep_effect_vars = {v for a in keep_effects for v in a.variables}
             effect_vars = add_effect_vars | keep_effect_vars
             parameters = sorted(set(op_vars) | effect_vars)
-            # Add all ignore effects initially so that precondition learning
+            # Add all ignore effects (aside from unignorable predicates from
+            # _EffectSet) initially so that precondition learning
             # works. Be sure that the keep effects are part of both the
             # preconditions and add effects.
             ignore_effects = self._predicates.copy()
+            ignore_effects = ignore_effects - unignorable_preds
             op = STRIPSOperator(parameterized_option.name, parameters,
                                 keep_effects, add_effects | keep_effects,
                                 set(), ignore_effects)
