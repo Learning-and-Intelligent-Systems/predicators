@@ -185,7 +185,6 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 new_effect_sets = _get_new_effect_sets_by_backchaining(
                     new_effect_sets)
                 new_heuristic_val = self._associated_heuristic(new_effect_sets)
-                assert new_heuristic_val < initial_heuristic_val
         yield new_effect_sets
 
     def _create_new_effect_set(
@@ -331,6 +330,13 @@ class _EffectSearchHeuristic(abc.ABC):
         self._segmented_trajs = segmented_trajs
         self._effect_sets_to_pnads = effect_sets_to_pnads
         self._backchain = backchain
+        # We compute the total number of segments, which is also the
+        # maximum number of operators that we will induce (since, in
+        # the worst case, we induce a different operator for every
+        # segment).
+        self._total_num_segments = 0
+        for seg_traj in self._segmented_trajs:
+            self._total_num_segments += len(seg_traj)
 
     @abc.abstractmethod
     def __call__(self, effect_sets: _EffectSets) -> float:
@@ -352,7 +358,20 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
                 _, chain, _ = self._backchain(seg_traj, pnads, traj_goal)
                 assert len(chain) <= len(seg_traj)
                 uncovered_transitions += len(seg_traj) - len(chain)
-        return uncovered_transitions
+        # Our objective is such that covering more data is *always*
+        # more important than creating a less complex set of operators.
+        # Thus, we multiply the coverage term by the maximum number of
+        # possible operators, so it will always be beneficial to
+        # cover more data over deleting operators to make a less complex
+        # hypothesis.
+        coverage_term = uncovered_transitions * self._total_num_segments
+        # NOTE: for now, we measure complexity by simply counting the number
+        # of learned PNADs. We could come up with more intricate and
+        # accurate measures that also take into account the add effects,
+        # arity, etc. (though this might involve changing the weighting
+        # of the coverage term).
+        complexity_term = len(pnads)
+        return coverage_term + complexity_term
 
 
 class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
