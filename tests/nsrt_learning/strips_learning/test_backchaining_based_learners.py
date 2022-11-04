@@ -863,7 +863,11 @@ def test_keep_effect_data_partitioning(approach_cls):
         assert str(pnad) in correct_pnads
 
 
-def test_combinatorial_keep_effect_data_partitioning():
+@pytest.mark.parametrize("approach_name,approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effects_search", EffectSearchSTRIPSLearner)])
+def test_combinatorial_keep_effect_data_partitioning(approach_name,
+                                                     approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that always
     induces potential keep effects would fail.
@@ -1024,11 +1028,11 @@ def test_combinatorial_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the four demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3, traj4],
-                                             [task1, task2, task3, task4],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2, traj3, traj4],
+                           [task1, task2, task3, task4],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
     # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
     assert len(output_pnads) == 7
@@ -1092,14 +1096,16 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Now, run the learner on 3/4 of the demos and verify that it produces only
     # 3 PNADs for the Configure action.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
-                                             [task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs[:-1],
-                                             verify_harmlessness=True)
-    learner.reset_all_segment_add_effs()
+    learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
+                           predicates,
+                           segmented_trajs[:-1],
+                           verify_harmlessness=True)
+    if approach_name == "backchaining":
+        learner.reset_all_segment_add_effs()
     output_pnads = learner.learn()
-    assert len(output_pnads) == 6
+    # NOTE: Backchaining learns 6 different operators, but effect search
+    # learns only 5 (and both lead to harmlessness on the training data)!
+    assert len(output_pnads) in [5, 6]
 
     correct_pnads = correct_pnads - set([
         """STRIPS-Configure:
@@ -1120,7 +1126,10 @@ def test_combinatorial_keep_effect_data_partitioning():
         assert str(pnad) in correct_pnads
 
 
-def test_keep_effect_adding_new_variables():
+@pytest.mark.parametrize(
+    "approach_cls",
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+def test_keep_effect_adding_new_variables(approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
     harmlessness."""
@@ -1185,9 +1194,9 @@ def test_keep_effect_adding_new_variables():
     segmented_traj = segment_trajectory(ground_atom_traj)
 
     # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj], [task],
-                                             predicates, [segmented_traj],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj], [task],
+                           predicates, [segmented_traj],
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
 
     # Verify that all the output PNADs are correct. The PNAD for Press should
@@ -1233,8 +1242,10 @@ def test_keep_effect_adding_new_variables():
             assert sub == {potato_x0: potato3}
 
 
-@pytest.mark.parametrize("val", [0.0, 1.0])
-def test_multi_pass_backchaining(val):
+@pytest.mark.parametrize("approach_cls, val",
+                         [(_MockBackchainingSTRIPSLearner, 0.0),
+                          (EffectSearchSTRIPSLearner, 1.0)])
+def test_multi_pass_backchaining(approach_cls, val):
     """Test that the BackchainingSTRIPSLearner does multiple passes of
     backchaining, which is needed to ensure harmlessness."""
     utils.reset_config({
@@ -1287,11 +1298,10 @@ def test_multi_pass_backchaining(val):
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the three demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
-                                             [task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
     if val == 0.0:
@@ -1340,14 +1350,24 @@ def test_multi_pass_backchaining(val):
         assert str(pnad) in correct_pnads
 
 
-def test_backchaining_segment_not_in_datastore():
-    """Test the BackchainingSTRIPSLearner on a case where it can cover a
-    particular segment using an operator that doesn't have that segment in its
-    datastore.
+# NOTE: Will update in the future to also run the EffectSearchLearner
+# here. Currently, it just doesn't work.
+@pytest.mark.parametrize("approach_cls", [_MockBackchainingSTRIPSLearner])
+def test_segment_not_in_datastore(approach_cls):
+    """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
+    where they can cover a particular segment using an operator that doesn't
+    have that segment in its datastore.
 
-    This will lead to the intermediate harmlessness check failing if not
-    handled correctly.
+    This will lead to the intermediate harmlessness check for
+    Backchaining failing, and the heuristic improvement assertion
+    failing for the EffectSearchLearner if not handled correctly.
     """
+    # Trajectories:
+    # 0. [A,B,D] -> [C,E] -> [A,B,C,D,E]; Goal = [B]
+    # 1. [A,D] -> [A,B,E]; Goal = [B]
+    # 2. [B,D,E] -> [A,B,C,D,E]; Goal = [A, C]
+    # 3. [B,C,D,E] -> [A,C,D] -> [A,B,D,E]; Goal = [A, D]
+
     utils.reset_config({
         "segmenter": "atom_changes",
         "backchaining_check_intermediate_harmlessness": True
@@ -1398,11 +1418,10 @@ def test_backchaining_segment_not_in_datastore():
     ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, run the learner on the demos.
-    learner = _MockBackchainingSTRIPSLearner(trajs,
-                                             [task0, task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls(trajs, [task0, task1, task2, task3],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
     correct_pnads = [
