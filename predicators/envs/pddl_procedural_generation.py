@@ -606,9 +606,12 @@ def _generate_gripper_problem(
     for gripper_object in gripper_objects:
         init_strs.add(f"({prefix}free {gripper_object})")
 
+    initial_ball_rooms = {}
     for ball_object in ball_objects:
+        initial_ball_rooms[ball_object] = rng.integers(num_rooms)
         init_strs.add(
-            f"({prefix}at {ball_object} room{rng.integers(num_rooms)})")
+            f"({prefix}at {ball_object} room{initial_ball_rooms[ball_object]})"
+        )
 
     # Always start robby at room0
     init_strs.add(f"({prefix}at-robby room0)")
@@ -618,9 +621,14 @@ def _generate_gripper_problem(
     goal_balls = rng.choice(sorted(list(ball_objects)),
                             size=num_goal_balls,
                             replace=False)
+    possible_goal_rooms = list(range(num_rooms))
     for goal_ball in goal_balls:
+        possible_goal_rooms.remove(initial_ball_rooms[goal_ball])
+        goal_room = rng.choice(possible_goal_rooms, 1)[0]
         goal_strs.add(
-            f"({prefix}at {goal_ball} room{rng.integers(num_rooms)})")
+            f"({prefix}at {goal_ball} room{goal_room})"
+        )
+        possible_goal_rooms.append(initial_ball_rooms[goal_ball])
 
     # Finalize PDDL problem str.
     all_objects = room_objects | ball_objects | gripper_objects
