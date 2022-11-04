@@ -624,7 +624,7 @@ def _generate_gripper_problem(
     possible_goal_rooms = list(range(num_rooms))
     for goal_ball in goal_balls:
         possible_goal_rooms.remove(initial_ball_rooms[goal_ball])
-        goal_room = rng.choice(possible_goal_rooms, 1)[0]
+        goal_room = rng.choice(possible_goal_rooms)
         goal_strs.add(
             f"({prefix}at {goal_ball} room{goal_room})"
         )
