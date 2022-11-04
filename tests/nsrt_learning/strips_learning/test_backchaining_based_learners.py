@@ -59,8 +59,7 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
 @pytest.mark.parametrize(
     "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner]
-    )
+    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
 def test_backchaining_strips_learner(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearner on a
     simple problem."""
@@ -332,8 +331,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     shelf = shelf_type("shelf")
     # Predicates
     NextTo = Predicate(
-        "NextTo", [hardback_type],
-        lambda s, o: s[o[0]][0] == s[agent][0] or
+        "NextTo", [hardback_type], lambda s, o: s[o[0]][0] == s[agent][0] or
         (s[o[0]][0] in [1, 2] and s[agent][0] in [1, 2]))
     NextToShelf = Predicate("NextToShelf", [shelf_type],
                             lambda s, o: s[agent][0] == 2)
@@ -341,7 +339,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     Holding = Predicate("Holding", [hardback_type],
                         lambda s, o: s[o[0]][0] == -1)
     OnTop = Predicate("OnTop", [hardback_type, shelf_type],
-                        lambda s, o: s[o[0]][0] == s[o[1]][0])
+                      lambda s, o: s[o[0]][0] == s[o[1]][0])
     preds = {NextTo, NextToShelf, HandEmpty, Holding, OnTop}
 
     # Agent not holding anything at location 0, hardbacks at loaction 1,
@@ -458,8 +456,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         params_space=Box(0.1, 1, (1, )),
         initiable=lambda _1, _2, _3, _4: True,
         terminal=lambda _1, _2, _3, _4: True)
-    moveto_option = moveto_param_option.ground([hardback1],
-                                                np.array([0.5]))
+    moveto_option = moveto_param_option.ground([hardback1], np.array([0.5]))
     assert moveto_option.initiable(state1)
     moveto_hard2 = moveto_option.policy(state1)
     moveto_hard2.set_option(moveto_option)
@@ -480,7 +477,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         initiable=lambda _1, _2, _3, _4: True,
         terminal=lambda _1, _2, _3, _4: True)
     movetoshelf_option = movetoshelf_param_option.ground([shelf],
-                                                            np.array([0.5]))
+                                                         np.array([0.5]))
     assert movetoshelf_option.initiable(state3)
     movetoshelf1 = movetoshelf_option.policy(state3)
     movetoshelf1.set_option(movetoshelf_option)
@@ -491,12 +488,11 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         initiable=lambda _1, _2, _3, _4: True,
         terminal=lambda _1, _2, _3, _4: True)
     place_option = place_param_option.ground([hardback1, shelf],
-                                                np.array([0.5]))
+                                             np.array([0.5]))
     assert place_option.initiable(state4)
     place_hard2 = place_option.policy(state4)
     place_hard2.set_option(place_option)
-    moveto_option_2 = moveto_param_option.ground([hardback2],
-                                                    np.array([0.5]))
+    moveto_option_2 = moveto_param_option.ground([hardback2], np.array([0.5]))
     assert moveto_option_2.initiable(state5)
     moveto_hard1 = moveto_option_2.policy(state5)
     moveto_hard1.set_option(moveto_option_2)
@@ -505,12 +501,12 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     pick_hard1 = pick_option_2.policy(state6)
     pick_hard1.set_option(pick_option_2)
     movetoshelf_option_2 = movetoshelf_param_option.ground([shelf],
-                                                            np.array([0.5]))
+                                                           np.array([0.5]))
     assert movetoshelf_option_2.initiable(state7)
     movetoshelf2 = movetoshelf_option_2.policy(state7)
     movetoshelf2.set_option(movetoshelf_option_2)
     place_option_2 = place_param_option.ground([hardback2, shelf],
-                                                np.array([0.5]))
+                                               np.array([0.5]))
     assert place_option_2.initiable(state8)
     place_hard1 = place_option_2.policy(state8)
     place_hard1.set_option(place_option_2)
@@ -524,12 +520,11 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     pick_book1 = pick_option_3.policy(state2)
     pick_book1.set_option(pick_option_3)
     movetoshelf_option_3 = movetoshelf_param_option.ground([shelf],
-                                                            np.array([0.5]))
+                                                           np.array([0.5]))
     assert movetoshelf_option_3.initiable(state10)
     movetoshelf2 = movetoshelf_option_3.policy(state10)
     movetoshelf2.set_option(movetoshelf_option_3)
-    place_option_3 = place_param_option.ground([book1, shelf],
-                                                np.array([0.5]))
+    place_option_3 = place_param_option.ground([book1, shelf], np.array([0.5]))
     assert place_option_3.initiable(state11)
     place_book1 = place_option_3.policy(state11)
     place_book1.set_option(place_option_3)
@@ -544,8 +539,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     task1 = Task(init=state1, goal=goal1)
     task2 = Task(init=state1, goal=goal2)
     traj1 = LowLevelTrajectory([
-        state1, state2, state3, state4, state5, state6, state7, state8,
-        state9
+        state1, state2, state3, state4, state5, state6, state7, state8, state9
     ], [
         moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
         pick_hard1, movetoshelf2, place_hard1
@@ -553,17 +547,13 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     traj2 = LowLevelTrajectory(
         [state1, state10, state11, state12, state13],
         [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 1)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2],
-                                                            preds)
-    segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_trajs
-    ]
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], preds)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, run the learner on the demo.
-    learner = approach_cls([traj1, traj2],
-                            [task1, task2],
-                            preds,
-                            segmented_trajs,
-                            verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2],
+                           preds,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     natural_order_pnads = learner.learn()
     action_space = Box(0, 1, (1, ))
     dataset = [traj1, traj2]
@@ -573,18 +563,16 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         place_param_option
     }
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
-    natural_order_nsrts, _, _ = learn_nsrts_from_data(
-        dataset,
-        train_tasks,
-        preds,
-        options,
-        action_space,
-        ground_atom_dataset,
-        sampler_learner="random")
+    natural_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
 
     traj1 = LowLevelTrajectory([
-        state1, state2, state3, state4, state5, state6, state7, state8,
-        state9
+        state1, state2, state3, state4, state5, state6, state7, state8, state9
     ], [
         moveto_hard2, pick_hard2, movetoshelf1, place_hard2, moveto_hard1,
         pick_hard1, movetoshelf2, place_hard1
@@ -592,17 +580,13 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     traj2 = LowLevelTrajectory(
         [state1, state10, state11, state12, state13],
         [moveto_book1, pick_book1, movetoshelf1, place_book1], True, 0)
-    ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1],
-                                                            preds)
-    segmented_trajs = [
-        segment_trajectory(traj) for traj in ground_atom_trajs
-    ]
+    ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1], preds)
+    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, create and run the learner with the 3 demos in the reverse order.
-    learner = approach_cls([traj2, traj1],
-                            [task2, task1],
-                            preds,
-                            segmented_trajs,
-                            verify_harmlessness=True)
+    learner = approach_cls([traj2, traj1], [task2, task1],
+                           preds,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     if approach_name == "backchaining":
         # Be sure to reset the segment add effects before doing this.
         learner.reset_all_segment_add_effs()
@@ -615,14 +599,13 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         place_param_option
     }
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, preds)
-    reverse_order_nsrts, _, _ = learn_nsrts_from_data(
-        dataset,
-        train_tasks,
-        preds,
-        options,
-        action_space,
-        ground_atom_dataset,
-        sampler_learner="random")
+    reverse_order_nsrts, _, _ = learn_nsrts_from_data(dataset,
+                                                      train_tasks,
+                                                      preds,
+                                                      options,
+                                                      action_space,
+                                                      ground_atom_dataset,
+                                                      sampler_learner="random")
 
     # First, check that the two sets of PNADs have the same number of PNADs.
     # (in the case of EffectSearch).
@@ -1368,8 +1351,6 @@ def test_multi_pass_backchaining(approach_cls, val):
         assert str(pnad) in correct_pnads
 
 
-# NOTE: Will update in the future to also run the EffectSearchLearner
-# here. Currently, it just doesn't work.
 @pytest.mark.parametrize(
     "approach_cls",
     [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
