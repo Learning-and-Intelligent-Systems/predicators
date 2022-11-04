@@ -625,9 +625,7 @@ def _generate_gripper_problem(
     for goal_ball in goal_balls:
         possible_goal_rooms.remove(initial_ball_rooms[goal_ball])
         goal_room = rng.choice(possible_goal_rooms)
-        goal_strs.add(
-            f"({prefix}at {goal_ball} room{goal_room})"
-        )
+        goal_strs.add(f"({prefix}at {goal_ball} room{goal_room})")
         possible_goal_rooms.append(initial_ball_rooms[goal_ball])
 
     # Finalize PDDL problem str.
