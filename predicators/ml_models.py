@@ -733,7 +733,6 @@ class ImplicitMLPRegressor(PyTorchRegressor):
         sample_idx = torch.argmax(scores)
         return candidate_ys[sample_idx]
 
-
 class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     """NeuralGaussianRegressor definition."""
 
@@ -820,6 +819,20 @@ class NeuralGaussianRegressor(PyTorchRegressor, DistributionRegressor):
     def _split_prediction(Y: Tensor) -> Tuple[Tensor, Tensor]:
         return torch.split(Y, Y.shape[-1] // 2, dim=-1)  # type: ignore
 
+class IncrementalNeuralGaussianRegressor(NeuralGaussianRegressor):
+    """IncrementalNeuralGaussianRegressor definition."""
+
+    def __init__(self, seed: int, hid_sizes: List[int],
+                 max_train_iters: MaxTrainIters, clip_gradients: bool,
+                 clip_value: float, learning_rate: float) -> None:
+        super().__init__(seed, hid_sizes, max_train_iters, clip_gradients, 
+                         clip_value, learning_rate)
+        self._is_initialized = False
+
+    def _initialize_net(self) -> None:
+        if not self._is_initialized:
+            super()._initialize_net()
+            self._is_initialized = True
 
 class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
     """A model that can be used as a DistributionRegressor, but that always
@@ -832,6 +845,9 @@ class DegenerateMLPDistributionRegressor(MLPRegressor, DistributionRegressor):
         del rng  # unused
         return self.predict(x)
 
+class IncrementalDegenerateMLPDistributionRegressor():
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError
 
 class KNeighborsRegressor(_ScikitLearnRegressor):
     """K nearest neighbors from scikit-learn."""
@@ -874,6 +890,22 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
         tensor_X = self._linears[-1](tensor_X)
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
 
+class IncrementalMLPBinaryClassifier(MLPBinaryClassifier):
+    """IncrementalMLPBinaryClassifier definition."""
+
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int],
+                 n_reinitialize_tries: int, weight_init: str) -> None:
+        super().__init__(seed, balance_data, max_train_iters, learning_rate,
+                         n_iter_no_change, hid_sizes, n_reinitialize_tries,
+                         weight_init)
+        self._is_initialized = False
+
+    def _initialize_net(self) -> None:
+        if not self._is_initialized:
+            super()._initialize_net()
+            self._is_initialized = True
 
 class KNeighborsClassifier(_ScikitLearnBinaryClassifier):
     """K nearest neighbors from scikit-learn."""

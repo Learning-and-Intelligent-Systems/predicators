@@ -11,7 +11,8 @@ from predicators.envs import get_or_create_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
-    MLPBinaryClassifier, NeuralGaussianRegressor
+    MLPBinaryClassifier, NeuralGaussianRegressor, \
+    IncrementalMLPBinaryClassifier, IncrementalNeuralGaussianRegressor
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -20,20 +21,25 @@ from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
                    datastores: List[Datastore], option_specs: List[OptionSpec],
-                   sampler_learner: str) -> List[NSRTSampler]:
+                   sampler_learner: str, 
+                   existing_samplers: List[NSRTSampler]) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters."""
     if sampler_learner == "oracle":
         return _extract_oracle_samplers(strips_ops, option_specs)
     samplers = []
     for i, op in enumerate(strips_ops):
         param_option, _ = option_specs[i]
-        if sampler_learner == "random" or \
-           param_option.params_space.shape == (0,):
-            sampler: NSRTSampler = _RandomSampler(param_option).sampler
+        if (sampler_learner == "random" or \
+           param_option.params_space.shape == (0,)):
+            if existing_samplers[i] is None:
+                sampler: NSRTSampler = _RandomSampler(param_option).sampler
+            else:
+                sampler = existing_samplers[i]
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
                                             op.preconditions, op.add_effects,
-                                            op.delete_effects, param_option, i)
+                                            op.delete_effects, param_option, i,
+                                            existing_samplers[i])
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
@@ -117,7 +123,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                           add_effects: Set[LiftedAtom],
                           delete_effects: Set[LiftedAtom],
                           param_option: ParameterizedOption,
-                          datastore_idx: int) -> NSRTSampler:
+                          datastore_idx: int,
+                          existing_sampler: NSRTSampler) -> NSRTSampler:
     """Learn a neural network sampler given data.
 
     Transitions are clustered, so that they can be used for generating
@@ -132,6 +139,69 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         param_option, datastore_idx)
     logging.info(f"Generated {len(positive_data)} positive and "
                  f"{len(negative_data)} negative examples")
+
+    # Start from previous sampler models if they exist, or create new ones
+    if existing_sampler is None:
+        if CFG.learn_incrementally:
+            classifier = IncrementalMLPBinaryClassifier(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+                weight_init="default")
+            if CFG.sampler_learning_regressor_model == "neural_gaussian":
+                regressor: DistributionRegressor = IncrementalNeuralGaussianRegressor(
+                    seed=CFG.seed,
+                    hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+                    max_train_iters=CFG.neural_gaus_regressor_max_itr,
+                    clip_gradients=CFG.mlp_regressor_clip_gradients,
+                    clip_value=CFG.mlp_regressor_gradient_clip_value,
+                    learning_rate=CFG.learning_rate)
+            else:
+                assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+                regressor = IncrementalDegenerateMLPDistributionRegressor(
+                    seed=CFG.seed,
+                    hid_sizes=CFG.mlp_regressor_hid_sizes,
+                    max_train_iters=CFG.mlp_regressor_max_itr,
+                    clip_gradients=CFG.mlp_regressor_clip_gradients,
+                    clip_value=CFG.mlp_regressor_gradient_clip_value,
+                    learning_rate=CFG.learning_rate)
+        else:
+            classifier = MLPBinaryClassifier(
+                seed=CFG.seed,
+                balance_data=CFG.mlp_classifier_balance_data,
+                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+                learning_rate=CFG.learning_rate,
+                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+                hid_sizes=CFG.mlp_classifier_hid_sizes,
+                n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+                weight_init="default")
+            if CFG.sampler_learning_regressor_model == "neural_gaussian":
+                regressor: DistributionRegressor = NeuralGaussianRegressor(
+                    seed=CFG.seed,
+                    hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+                    max_train_iters=CFG.neural_gaus_regressor_max_itr,
+                    clip_gradients=CFG.mlp_regressor_clip_gradients,
+                    clip_value=CFG.mlp_regressor_gradient_clip_value,
+                    learning_rate=CFG.learning_rate)
+            else:
+                assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+                regressor = DegenerateMLPDistributionRegressor(
+                    seed=CFG.seed,
+                    hid_sizes=CFG.mlp_regressor_hid_sizes,
+                    max_train_iters=CFG.mlp_regressor_max_itr,
+                    clip_gradients=CFG.mlp_regressor_clip_gradients,
+                    clip_value=CFG.mlp_regressor_gradient_clip_value,
+                    learning_rate=CFG.learning_rate)
+    else:
+        if len(datastores[datastore_idx]) == 0:
+            return existing_sampler
+        classifier = existing_sampler.classifier
+        print(classifier._x_dim)
+        regressor = existing_sampler.regressor
 
     # Fit classifier to data
     logging.info("Fitting classifier...")
@@ -156,16 +226,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     X_arr_classifier = np.array(X_classifier)
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
-                                [0 for _ in negative_data])
-    classifier = MLPBinaryClassifier(
-        seed=CFG.seed,
-        balance_data=CFG.mlp_classifier_balance_data,
-        max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-        learning_rate=CFG.learning_rate,
-        n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-        hid_sizes=CFG.mlp_classifier_hid_sizes,
-        n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
-        weight_init="default")
+                                [0 for _ in negative_data])      
+
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
@@ -192,29 +254,11 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     X_arr_regressor = np.array(X_regressor)
     Y_arr_regressor = np.array(Y_regressor)
 
-    if CFG.sampler_learning_regressor_model == "neural_gaussian":
-        regressor: DistributionRegressor = NeuralGaussianRegressor(
-            seed=CFG.seed,
-            hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
-            max_train_iters=CFG.neural_gaus_regressor_max_itr,
-            clip_gradients=CFG.mlp_regressor_clip_gradients,
-            clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
-    else:
-        assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
-        regressor = DegenerateMLPDistributionRegressor(
-            seed=CFG.seed,
-            hid_sizes=CFG.mlp_regressor_hid_sizes,
-            max_train_iters=CFG.mlp_regressor_max_itr,
-            clip_gradients=CFG.mlp_regressor_clip_gradients,
-            clip_value=CFG.mlp_regressor_gradient_clip_value,
-            learning_rate=CFG.learning_rate)
-
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
-                           param_option).sampler
+                           param_option)
 
 
 def _create_sampler_data(
@@ -309,7 +353,7 @@ class _LearnedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, goal: Set[GroundAtom],
+    def __call__(self, state: State, goal: Set[GroundAtom],
                 rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """The sampler corresponding to the given models.
 
@@ -344,6 +388,13 @@ class _LearnedSampler:
             num_rejections += 1
         return params
 
+    @property
+    def classifier(self):
+        return self._classifier
+
+    @property
+    def regressor(self):
+        return self._regressor
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _RandomSampler:

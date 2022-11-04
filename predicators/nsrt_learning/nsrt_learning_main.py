@@ -49,6 +49,7 @@ def learn_nsrts_from_data(
             option_vars = nsrt.option_vars
             option_spec = (nsrt.option, option_vars)
             pnad = PartialNSRTAndDatastore(op, datastore, option_spec)
+            pnad.sampler = nsrt.sampler
             existing_pnads.append(pnad)
 
     # Search over data orderings to find least complex PNAD set.
@@ -217,12 +218,14 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
     strips_ops = []
     datastores = []
     option_specs = []
+    existing_samplers = []
     for pnad in pnads:
         strips_ops.append(pnad.op)
         datastores.append(pnad.datastore)
         option_specs.append(pnad.option_spec)
+        existing_samplers.append(pnad.sampler)
     samplers = learn_samplers(strips_ops, datastores, option_specs,
-                              sampler_learner)
+                              sampler_learner, existing_samplers)
     assert len(samplers) == len(strips_ops)
     # Replace the samplers in the PNADs.
     for pnad, sampler in zip(pnads, samplers):

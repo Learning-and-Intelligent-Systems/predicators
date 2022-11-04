@@ -23,7 +23,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         # which is shallow-copied
         # Note2: in principle, existing PNADs should only contain empty datastores,
         # so this might not be the best approach
-        pnads: List[PartialNSRTAndDatastore] = [pnad.copy() for pnad in self._existing_pnads]
+        pnads: List[PartialNSRTAndDatastore] = [pnad.copy_with() for pnad in self._existing_pnads]
         for segment in segments:
             if segment.has_option():
                 segment_option = segment.get_option()
@@ -130,16 +130,10 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
                 preconditions = self._induce_preconditions_via_intersection(pnad)
                 # Since we are taking an intersection, we're guaranteed that the
                 # datastore can't change, so we can safely use pnad.datastore here.
-                new_pnads.append(
-                    PartialNSRTAndDatastore(
-                        pnad.op.copy_with(preconditions=preconditions),
-                        pnad.datastore, pnad.option_spec))
+                new_pnads.append(pnad.copy_with(op=pnad.op.copy_with(preconditions=preconditions)))
             elif len(pnad.op.preconditions) > 0:
                 # No new data for this operator, so just copy its preconditions
-                new_pnads.append(
-                    PartialNSRTAndDatastore(
-                        pnad.op.copy_with(),
-                        pnad.datastore, pnad.option_spec))
+                new_pnads.append(pnad.copy_with(op=pnad.op.copy_with()))
         return new_pnads
 
     @classmethod

@@ -1226,13 +1226,16 @@ class PartialNSRTAndDatastore:
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
 
 
-    def copy(self) -> PartialNSRTAndDatastore:
+    def copy_with(self, **kwargs: Any) -> PartialNSRTAndDatastore:
         """Make a copy of the PNAD."""
-        copy_pnad = PartialNSRTAndDatastore(
+        default_kwargs = dict(
             op=self.op,
             datastore=list(self.datastore),
             option_spec=self.option_spec
         )
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        copy_pnad = PartialNSRTAndDatastore(**default_kwargs)
         if hasattr(self, 'sampler'):
             copy_pnad.sampler = self.sampler
         if hasattr(self, 'poss_keep_effects'):
