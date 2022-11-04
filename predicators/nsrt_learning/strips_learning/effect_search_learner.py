@@ -123,7 +123,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         uncovered_transition = self._get_first_uncovered_transition(pnads)
         if uncovered_transition is not None:
             param_option, option_objs, add_effs, keep_effs = \
-                    uncovered_transition
+                uncovered_transition
             option_spec, lifted_add_effs, lifted_keep_effs = \
                 self._create_new_effect_set(param_option, option_objs, \
                     add_effs, keep_effs)
