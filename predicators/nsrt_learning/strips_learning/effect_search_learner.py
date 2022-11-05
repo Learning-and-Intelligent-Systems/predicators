@@ -55,7 +55,8 @@ class _EffectSets:
         for (spec, add_atoms, keep_atoms, unignore_preds) in self:
             opt = spec[0].name
             opt_args = ", ".join([str(a) for a in spec[1]])
-            s += f"\n{opt}({opt_args}): {add_atoms}, {keep_atoms}, {unignore_preds}"
+            s += f"\n{opt}({opt_args}): {add_atoms}, {keep_atoms}, " + \
+                f"{unignore_preds}"
         s += "\n"
         return s
 
@@ -119,70 +120,74 @@ class _EffectSearchOperator(abc.ABC):
 class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     """An operator that uses backchaining to propose a new effect set."""
 
-    def get_successors(self,
-                       effect_sets: _EffectSets) -> Iterator[_EffectSets]:
-        initial_heuristic_val = self._associated_heuristic(effect_sets)
+    def _get_uncovered_transition_from_effect_sets(
+        self, curr_effect_sets: _EffectSets
+    ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
+                        Set[GroundAtom], Segment]]:
+        pnads = self._effect_sets_to_pnads(curr_effect_sets)
+        uncovered_transition = self._get_first_uncovered_transition(pnads)
+        return uncovered_transition
 
-        def _get_uncovered_transition_from_effect_sets(
-            curr_effect_sets: _EffectSets
-        ) -> Optional[Tuple[ParameterizedOption, Sequence[Object],
-                            Set[GroundAtom], Set[GroundAtom], Segment]]:
-            pnads = self._effect_sets_to_pnads(curr_effect_sets)
-            uncovered_transition = self._get_first_uncovered_transition(pnads)
-            return uncovered_transition
-
-        def _get_new_effect_sets_by_backchaining(
-                curr_effect_sets: _EffectSets) -> _EffectSets:
-            new_effect_sets = curr_effect_sets
-            uncovered_transition = _get_uncovered_transition_from_effect_sets(
-                curr_effect_sets)
-            if uncovered_transition is not None:
-                param_option, option_objs, add_effs, keep_effs, segment = \
-                        uncovered_transition
-                option_spec, lifted_add_effs, lifted_keep_effs, unignorable_preds = \
+    def _get_new_effect_sets_by_backchaining(
+            self, curr_effect_sets: _EffectSets) -> _EffectSets:
+        new_effect_sets = curr_effect_sets
+        uncovered_transition = self._get_uncovered_transition_from_effect_sets(
+            curr_effect_sets)
+        if uncovered_transition is not None:
+            param_option, option_objs, add_effs, keep_effs, segment = \
+                    uncovered_transition
+            option_spec, lifted_add_effs, lifted_keep_effs, \
+                unignorable_preds = \
                     self._create_new_effect_set(param_option, option_objs, \
-                        add_effs, keep_effs, segment)
+                    add_effs, keep_effs, segment)
+            new_effect_sets = curr_effect_sets.add(option_spec,
+                                                   lifted_add_effs,
+                                                   lifted_keep_effs,
+                                                   unignorable_preds)
+            # We should have covered this transition with the new effect sets.
+            new_uncovered_transition = \
+                self._get_uncovered_transition_from_effect_sets(
+                    new_effect_sets)
+
+            if new_uncovered_transition == uncovered_transition:
+                # If not, there is a keep effect issue!
+                # We want to add keep effects for any atom(s) that:
+                # (1) True in the segment.init_atoms.
+                # (2) Also in the necessary image.
+                # (3) Not in the current add or keep effects.
+                keep_effs |= {
+                    a
+                    for a in segment.necessary_image
+                    if a in segment.init_atoms and a not in (add_effs
+                                                             | keep_effs)
+                }
+                option_spec, lifted_add_effs, lifted_keep_effs, \
+                    unignorable_preds = \
+                        self._create_new_effect_set(param_option, \
+                            option_objs, add_effs, keep_effs, segment)
                 new_effect_sets = curr_effect_sets.add(option_spec,
                                                        lifted_add_effs,
                                                        lifted_keep_effs,
                                                        unignorable_preds)
-                # We should have covered this transition with the new effect sets.
-                new_uncovered_transition = _get_uncovered_transition_from_effect_sets(
-                    new_effect_sets)
-
-                if new_uncovered_transition == uncovered_transition:
-                    # If not, there is a keep effect issue!
-                    # We want to add keep effects for any atom(s) that:
-                    # (1) True in the segment.init_atoms.
-                    # (2) Also in the necessary image.
-                    # (3) Not in the current add or keep effects.
-                    keep_effs |= {
-                        a
-                        for a in segment.necessary_image
-                        if a in segment.init_atoms and a not in (add_effs
-                                                                 | keep_effs)
-                    }
-                    option_spec, lifted_add_effs, lifted_keep_effs, unignorable_preds = \
-                    self._create_new_effect_set(param_option, option_objs, \
-                        add_effs, keep_effs, segment)
-                    new_effect_sets = curr_effect_sets.add(
-                        option_spec, lifted_add_effs, lifted_keep_effs,
-                        unignorable_preds)
-                    new_uncovered_transition = _get_uncovered_transition_from_effect_sets(
+                new_uncovered_transition = \
+                    self._get_uncovered_transition_from_effect_sets(
                         new_effect_sets)
-                    # Now, we can assert that we've covered this datapoint!
-                    assert new_uncovered_transition != uncovered_transition
+                # Now, we can assert that we've covered this datapoint!
+                assert new_uncovered_transition != uncovered_transition
+        return new_effect_sets
 
-            return new_effect_sets
-
-        new_effect_sets = _get_new_effect_sets_by_backchaining(effect_sets)
+    def get_successors(self,
+                       effect_sets: _EffectSets) -> Iterator[_EffectSets]:
+        initial_heuristic_val = self._associated_heuristic(effect_sets)
+        new_effect_sets = self._get_new_effect_sets_by_backchaining(
+            effect_sets)
         if initial_heuristic_val > 0:
             new_heuristic_val = self._associated_heuristic(new_effect_sets)
             if new_heuristic_val == initial_heuristic_val:
                 # This means there was a keep effect problem with the new add
                 # effects we just induced. We need to call backchaining again
                 # to fix this.
-                new_effect_sets = _get_new_effect_sets_by_backchaining(
+                new_effect_sets = self._get_new_effect_sets_by_backchaining(
                     new_effect_sets)
                 new_heuristic_val = self._associated_heuristic(new_effect_sets)
                 assert new_heuristic_val < initial_heuristic_val
