@@ -45,7 +45,10 @@ class BaseSTRIPSLearner(abc.ABC):
         learned_pnads = self._learn()
         if self._verify_harmlessness and not CFG.disable_harmlessness_check:
             logging.info("\nRunning harmlessness check...")
+            # try:
             assert self._check_harmlessness(learned_pnads)
+            # except AssertionError:
+            #     import ipdb; ipdb.set_trace()
         # Remove pnads by increasing min_data_perc until harmlessness breaks.
         if CFG.enable_harmless_op_pruning:
             assert self._verify_harmlessness
@@ -265,8 +268,8 @@ class BaseSTRIPSLearner(abc.ABC):
                     # If the segment has a non-None necessary_image,
                     # and the ground operator doesn't fit this.
                     if segment.necessary_image is not None and \
-                        len(keep_effects) > 0 and \
                         not segment.necessary_image.issubset(next_atoms):
+                        # len(keep_effects) > 0 and \
                         continue
                 else:
                     # If check_only_preconditions is True, we must be

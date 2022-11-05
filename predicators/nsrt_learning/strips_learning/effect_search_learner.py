@@ -150,6 +150,12 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 new_uncovered_transition = _get_uncovered_transition_from_effect_sets(
                     new_effect_sets)
 
+                # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
+                # for pnad in new_pnads:
+                #     print(pnad)
+                # print(new_uncovered_transition)
+                # import ipdb; ipdb.set_trace()
+
                 if new_uncovered_transition == uncovered_transition:
                     # If not, there is a keep effect issue!
                     # We want to add keep effects for any atom(s) that:
@@ -178,13 +184,27 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         new_effect_sets = _get_new_effect_sets_by_backchaining(effect_sets)
         if initial_heuristic_val > 0:
             new_heuristic_val = self._associated_heuristic(new_effect_sets)
-            if new_heuristic_val == initial_heuristic_val:
+            if new_heuristic_val >= initial_heuristic_val:
                 # This means there was a keep effect problem with the new add
                 # effects we just induced. We need to call backchaining again
                 # to fix this.
+                
+                # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
+                # for new_p in new_pnads:
+                #     print(new_p)
+                # print()
+                # import ipdb; ipdb.set_trace()
+                
                 new_effect_sets = _get_new_effect_sets_by_backchaining(
                     new_effect_sets)
                 new_heuristic_val = self._associated_heuristic(new_effect_sets)
+                
+                # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
+                # for new_p in new_pnads:
+                #     print(new_p)
+                # print()
+                # import ipdb; ipdb.set_trace()
+        
         yield new_effect_sets
 
     def _create_new_effect_set(
@@ -402,7 +422,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
                     yield (op, i), child, 1.0  # cost always 1
 
         # Run hill-climbing search.
-        path, _, _ = utils.run_hill_climbing(initial_state=initial_state,
+        path, _, costs = utils.run_hill_climbing(initial_state=initial_state,
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
                                              heuristic=heuristic)
