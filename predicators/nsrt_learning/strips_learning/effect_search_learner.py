@@ -155,6 +155,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 # (1) True in the segment.init_atoms.
                 # (2) Also in the necessary image.
                 # (3) Not in the current add or keep effects.
+                assert segment.necessary_image is not None
                 keep_effs |= {
                     a
                     for a in segment.necessary_image
@@ -420,7 +421,8 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
     def _create_initial_effect_sets(self) -> _EffectSets:
         param_option_to_groups: Dict[ParameterizedOption,
                                      List[Tuple[OptionSpec, Set[LiftedAtom],
-                                                Set[LiftedAtom]]]] = {}
+                                                Set[LiftedAtom],
+                                                Set[Predicate]]]] = {}
         return _EffectSets(param_option_to_groups)
 
     @functools.lru_cache(maxsize=None)
