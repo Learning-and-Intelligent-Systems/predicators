@@ -263,7 +263,12 @@ class BaseSTRIPSLearner(abc.ABC):
                     keep_effects = ground_op.preconditions & \
                         ground_op.add_effects
                     # If the segment has a non-None necessary_image,
-                    # and the ground operator doesn't fit this.
+                    # and there are keep effects, and the ground operator
+                    # doesn't fit this, skip.
+                    # NOTE: It's weird/janky to only be doing this check
+                    # when there are keep effects (we should always be
+                    # satisfying the necessary image I think?).
+                    # Will investigate in a future PR.
                     if segment.necessary_image is not None and \
                         len(keep_effects) > 0 and \
                         not segment.necessary_image.issubset(next_atoms):
