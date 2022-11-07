@@ -153,6 +153,8 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                 # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
                 # for pnad in new_pnads:
                 #     print(pnad)
+                # print()
+                # print(uncovered_transition)
                 # print(new_uncovered_transition)
                 # import ipdb; ipdb.set_trace()
 
@@ -199,11 +201,12 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                     new_effect_sets)
                 new_heuristic_val = self._associated_heuristic(new_effect_sets)
                 
-                # new_pnads = self._effect_sets_to_pnads(new_effect_sets)
-                # for new_p in new_pnads:
-                #     print(new_p)
-                # print()
-                # import ipdb; ipdb.set_trace()
+
+        new_pnads = self._effect_sets_to_pnads(new_effect_sets)
+        for new_p in new_pnads:
+            print(new_p)
+        print()
+        import ipdb; ipdb.set_trace()
         
         yield new_effect_sets
 

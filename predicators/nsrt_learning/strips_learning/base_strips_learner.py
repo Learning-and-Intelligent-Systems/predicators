@@ -254,6 +254,8 @@ class BaseSTRIPSLearner(abc.ABC):
                 if not check_only_preconditions:
                     # If the atoms resulting from apply_operator() don't
                     # all hold in the segment's final atoms, skip.
+                    if len(pnads) >= 4 and len(segment.init_atoms) == 4 and len(segment.final_atoms) == 3 and len(pnad.op.add_effects) == 2:
+                        import ipdb; ipdb.set_trace()
                     if not next_atoms.issubset(segment.final_atoms):
                         continue
                     # If the segment has a non-None necessary_add_effects,
@@ -268,8 +270,8 @@ class BaseSTRIPSLearner(abc.ABC):
                     # If the segment has a non-None necessary_image,
                     # and the ground operator doesn't fit this.
                     if segment.necessary_image is not None and \
-                        not segment.necessary_image.issubset(next_atoms):
-                        # len(keep_effects) > 0 and \
+                        not segment.necessary_image.issubset(next_atoms) and \
+                        len(keep_effects) > 0:
                         continue
                 else:
                     # If check_only_preconditions is True, we must be

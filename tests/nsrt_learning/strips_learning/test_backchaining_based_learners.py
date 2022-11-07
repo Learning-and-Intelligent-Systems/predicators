@@ -296,10 +296,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         assert str(natural_order_pnads[i]) in correct_pnads
         # TODO: Understand why these reverse order pnads are getting learned differently
         # somehow?
-        # try:
-        #     assert str(reverse_order_pnads[i]) in correct_pnads
-        # except AssertionError:
-        #     import ipdb; ipdb.set_trace()
+        assert str(reverse_order_pnads[i]) in correct_pnads
 
     # Weird Case: This case shows that our algorithm is not data order
     # invariant!
@@ -1360,7 +1357,8 @@ def test_multi_pass_backchaining(approach_cls, val):
 
 @pytest.mark.parametrize(
     "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+    # [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+    [EffectSearchSTRIPSLearner])
 def test_segment_not_in_datastore(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
@@ -1477,14 +1475,14 @@ def test_segment_not_in_datastore(approach_cls):
 
 
 @longrun
-@pytest.mark.parametrize(
-    "approach_cls,use_single_option,num_demos,seed_offset",
-    itertools.product([EffectSearchSTRIPSLearner], [True, False], [1, 2, 3, 4],
-                      range(250)))
 # @pytest.mark.parametrize(
 #     "approach_cls,use_single_option,num_demos,seed_offset",
-#     itertools.product([EffectSearchSTRIPSLearner], [True], [2],
-#                       [18]))
+#     itertools.product([EffectSearchSTRIPSLearner], [True, False], [1, 2, 3, 4],
+#                       range(250)))
+@pytest.mark.parametrize(
+    "approach_cls,use_single_option,num_demos,seed_offset",
+    itertools.product([EffectSearchSTRIPSLearner], [True], [2],
+                      [18]))
 def test_backchaining_randomly_generated(approach_cls, use_single_option,
                                          num_demos, seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
