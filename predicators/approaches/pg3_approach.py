@@ -172,8 +172,7 @@ class PG3Approach(NSRTLearningApproach):
         cls = heuristic_name_to_cls[CFG.pg3_heuristic]
         return cls(preds, nsrts, self._train_tasks)
 
-    @staticmethod
-    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+    def _get_policy_search_initial_ldl(self) -> LiftedDecisionList:
         # Initialize with an empty list by default, but subclasses may
         # override.
         return LiftedDecisionList([])
