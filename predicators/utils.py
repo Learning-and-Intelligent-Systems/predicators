@@ -11,6 +11,7 @@ import io
 import itertools
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -1819,6 +1820,159 @@ def _cached_all_ground_ldl_rules(
         ground_rule = rule.ground(tuple(choice))
         ground_rules.append(ground_rule)
     return ground_rules
+
+
+def parse_ldl_from_str(ldl_str: str, types: Collection[Type], predicates: Collection[Predicate], nsrts: Collection[NSRT]) -> LiftedDecisionList:
+    parser = _LDLParser(types, predicates, nsrts)
+    return parser.parse(ldl_str)
+
+
+class _LDLParser:
+    """Parser for lifted decision lists from strings.
+    """
+    def __init__(self, types, predicates, nsrts):
+        self._nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+        self._type_name_to_type = {t.name: t for t in types}
+        self._predicate_name_to_predicate = {p.name: p for p in predicates}
+
+    def parse(self, ldl_str: str) -> LiftedDecisionList:
+        """Run parsing."""
+        rules = []
+        rule_matches = re.finditer(r"\(:rule", ldl_str)
+        for start in rule_matches:
+            rule_str = self._find_balanced_expression(ldl_str, start.start())
+            rule = self._parse_rule(rule_str)
+            rules.append(rule)
+        return LiftedDecisionList(rules)
+
+    def _parse_rule(self, rule_str: str) -> LDLRule:
+        rule_pattern = r"\(:rule(.*):parameters(.*):preconditions(.*)" + \
+                       r":goals(.*):action(.*)\)"
+        matches = re.match(rule_pattern, rule_str, re.DOTALL).groups()
+        # Remove white spaces.
+        matches = [m.strip().rstrip() for m in matches]
+        # Unpack the matches.
+        rule_name, params_str, preconds_str, goals_str, nsrt_str = matches
+        # Handle the parameters.
+        assert "?" in params_str, "Assuming all rules have parameters."
+        variable_name_to_variable = {}
+        assert params_str.endswith(")")
+        for param_str in params_str[:-1].split("?")[1:]:
+            param_name, param_type_str = param_str.split("-")
+            param_name = param_name.strip()
+            param_type_str = param_type_str.strip()
+            variable_name = "?" + param_name
+            param_type = self._type_name_to_type[param_type_str]
+            variable = Variable(variable_name, param_type)
+            variable_name_to_variable[variable_name] = variable
+        # Handle the preconditions.
+        pos_preconds, neg_preconds = self._parse_lifted_atoms(preconds_str, variable_name_to_variable)
+        # Handle the goals.
+        pos_goals, neg_goals = self._parse_lifted_atoms(goals_str, variable_name_to_variable)
+        assert not neg_goals, "Negative LDL goals not currently supported"
+        # Handle the NSRT.
+        nsrt = self._parse_into_nsrt(nsrt_str, variable_name_to_variable)
+        # Finalize the rule.
+        params = sorted(variable_name_to_variable.values())
+        return LDLRule(rule_name, params, pos_preconds, neg_preconds, pos_goals, nsrt)
+
+    def _parse_lifted_atoms(self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]) -> Tuple[Set[GroundAtom], Set[GroundAtom]]:
+        """Parse the given string (representing either preconditions or effects)
+        into a set of positive lifted atoms and a set of negative lifted atoms.
+
+        Check against params to make sure typing is correct.
+        """
+        assert atoms_str[0] == "("
+        assert atoms_str[-1] == ")"
+
+        # Handle conjunctions.
+        if atoms_str.startswith("(and") and atoms_str[4] in (" ", "\n", "("):
+            clauses = self._find_all_balanced_expressions(atoms_str[4:-1].strip())
+            pos_atoms, neg_atoms = set(), set()
+            for clause in clauses:
+                clause_pos_atoms, clause_neg_atoms = self._parse_lifted_atoms(clause, variable_name_to_variable)
+                pos_atoms |= clause_pos_atoms
+                neg_atoms |= clause_neg_atoms
+            return pos_atoms, neg_atoms
+
+        # Handle negations.
+        elif atoms_str.startswith("(not") and atoms_str[4] in (" ", "\n", "("): 
+            # Only contains a single literal inside not.
+            atoms_str = atoms_str[4:-1].strip()[1: -1].strip().split()
+            pred = self._predicate_name_to_predicate[atoms_str[0]]
+            args = [variable_name_to_variable[arg] for arg in atoms_str[1:]]
+            lifted_atom = LiftedAtom(pred, args)
+            return set(), {lifted_atom}
+        
+        # Handle single positive atoms.
+        atoms_str = atoms_str[1:-1].split()
+        pred = self._predicate_name_to_predicate[atoms_str[0]]
+        args = [variable_name_to_variable[arg] for arg in atoms_str[1:]]
+        lifted_atom = LiftedAtom(pred, args)
+        return {lifted_atom}, set()
+
+    def _parse_into_nsrt(self, nsrt_str: str, variable_name_to_variable: Dict[str, Variable]) -> NSRT:
+        """Parse the given string into an NSRT.
+        """
+        assert nsrt_str[0] == "("
+        assert nsrt_str[-1] == ")"
+        nsrt_str = nsrt_str[1:-1].split()[0]
+        nsrt = self._nsrt_name_to_nsrt[nsrt_str]
+        # Validate parameters.
+        variables = variable_name_to_variable.values()
+        for v in nsrt.parameters:
+            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+        return nsrt
+
+    def _find_balanced_expression(self, string: str, index: int) -> str:
+        """Find balanced expression in string starting from given index.
+
+        # TODO move into general utilities
+        """
+        assert string[index] == "("
+        start_index = index
+        balance = 1
+        while balance != 0:
+            index += 1
+            symbol = string[index]
+            if symbol == "(":
+                balance += 1
+            elif symbol == ")":
+                balance -= 1
+        return string[start_index:index+1]
+
+    def _find_all_balanced_expressions(self, string: str) -> str:
+        """Return a list of all balanced expressions in a string,
+        starting from the beginning.
+
+        # TODO move into general utilities
+        """
+        assert string[0] == "("
+        assert string[-1] == ")"
+        exprs = []
+        index = 0
+        start_index = index
+        balance = 1
+        while index < len(string)-1:
+            index += 1
+            if balance == 0:
+                exprs.append(string[start_index:index])
+                # Jump to next "(".
+                while True:
+                    if string[index] == "(":
+                        break
+                    index += 1
+                start_index = index
+                balance = 1
+                continue
+            symbol = string[index]
+            if symbol == "(":
+                balance += 1
+            elif symbol == ")":
+                balance -= 1
+        assert balance == 0
+        exprs.append(string[start_index:index+1])
+        return exprs
 
 
 _T = TypeVar("_T")  # element of a set
