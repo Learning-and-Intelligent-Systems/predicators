@@ -18,7 +18,7 @@ def test_glib_explorer(target_predicate):
         "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     # For testing purposes, score everything except target predicate low.
@@ -60,7 +60,7 @@ def test_glib_explorer_failure_cases():
         "explorer": "glib",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     score_fn = lambda _: 0.0

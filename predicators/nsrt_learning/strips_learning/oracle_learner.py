@@ -15,7 +15,7 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
 
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         env = get_or_create_env(CFG.env)
-        gt_nsrts = get_gt_nsrts(env.predicates, env.options)
+        gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
         pnads: List[PartialNSRTAndDatastore] = []
         for nsrt in gt_nsrts:
             datastore: Datastore = []
