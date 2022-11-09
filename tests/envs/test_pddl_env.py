@@ -9,9 +9,9 @@ import pytest
 from predicators import utils
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
-    ProceduralTasksForestPDDLEnv, ProceduralTasksGripperPDDLEnv, \
-    ProceduralTasksPrefixedGripperPDDLEnv, ProceduralTasksSpannerPDDLEnv, \
-    _FixedTasksPDDLEnv, _PDDLEnv
+    ProceduralTasksFerryPDDLEnv, ProceduralTasksForestPDDLEnv, \
+    ProceduralTasksGripperPDDLEnv, ProceduralTasksPrefixedGripperPDDLEnv, \
+    ProceduralTasksSpannerPDDLEnv, _FixedTasksPDDLEnv, _PDDLEnv
 from predicators.structs import Action
 
 
@@ -480,3 +480,31 @@ def test_procedural_tasks_prefixed_gripper_pddl_env():
     assert len(test_tasks) == 2
     task = train_tasks[0]
     assert {a.predicate.name for a in task.goal}.issubset({"preat"})
+
+
+def test_procedural_tasks_ferry_pddl_env():
+    """Tests for ProceduralTasksFerryPDDLEnv class."""
+    # Note that the procedural generation itself is tested in
+    # test_pddl_procedural_generation.
+    utils.reset_config({
+        "env": "pddl_ferry_procedural_tasks",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
+    })
+    env = ProceduralTasksFerryPDDLEnv()
+    assert {t.name for t in env.types} == {"object"}
+    assert {p.name
+            for p in env.predicates} == {
+                "car", "location", "at-ferry", "empty-ferry", "at", "on",
+                "not-eq"
+            }
+    assert {p.name for p in env.goal_predicates} == {"at"}
+    assert {o.name for o in env.options} == {"board", "sail", "debark"}
+    assert {o.name
+            for o in env.strips_operators} == {"board", "sail", "debark"}
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 2
+    test_tasks = env.get_test_tasks()
+    assert len(test_tasks) == 2
+    task = train_tasks[0]
+    assert {a.predicate.name for a in task.goal}.issubset({"at"})

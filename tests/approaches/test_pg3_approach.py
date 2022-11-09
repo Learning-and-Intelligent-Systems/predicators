@@ -47,7 +47,7 @@ def test_pg3_approach(approach_name, approach_cls):
     approach = approach_cls(env.predicates, env.options, env.types,
                             env.action_space, train_tasks)
     assert approach.get_name() == approach_name
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     approach._nsrts = nsrts  # pylint: disable=protected-access
 
@@ -182,7 +182,7 @@ def test_pg3_search_operators():
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({"env": env_name})
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     pick_up_nsrt = name_to_nsrt["pick-up"]
     preds = env.predicates
@@ -284,7 +284,7 @@ def test_pg3_heuristics():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     deliver_nsrt = name_to_nsrt["deliver"]
     pick_up_nsrt = name_to_nsrt["pick-up"]

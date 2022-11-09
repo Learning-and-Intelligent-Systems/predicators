@@ -184,11 +184,20 @@ class GlobalSettings:
     pddl_gripper_procedural_train_max_num_rooms = 5
     pddl_gripper_procedural_train_min_num_balls = 1
     pddl_gripper_procedural_train_max_num_balls = 2
-
     pddl_gripper_procedural_test_min_num_rooms = 3
     pddl_gripper_procedural_test_max_num_rooms = 5
     pddl_gripper_procedural_test_min_num_balls = 1
     pddl_gripper_procedural_test_max_num_balls = 2
+
+    # pddl ferry env parameters
+    pddl_ferry_procedural_train_min_num_locs = 3
+    pddl_ferry_procedural_train_max_num_locs = 5
+    pddl_ferry_procedural_train_min_num_cars = 1
+    pddl_ferry_procedural_train_max_num_cars = 2
+    pddl_ferry_procedural_test_min_num_locs = 3
+    pddl_ferry_procedural_test_max_num_locs = 5
+    pddl_ferry_procedural_test_min_num_cars = 1
+    pddl_ferry_procedural_test_max_num_cars = 2
 
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
@@ -254,6 +263,11 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+
+    # parameters for PG3 init approach
+    # These need to be overridden via command line
+    pg3_init_policy = None
+    pg3_init_base_env = None
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal

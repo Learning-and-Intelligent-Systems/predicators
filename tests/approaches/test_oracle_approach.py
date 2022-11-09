@@ -233,9 +233,8 @@ def test_oracle_approach(env_name, env_cls):
 
 def test_get_gt_nsrts():
     """Test get_gt_nsrts alone."""
-    utils.reset_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
-        get_gt_nsrts(set(), set())
+        get_gt_nsrts("not a real environment", set(), set())
 
 
 @pytest.mark.parametrize("env_name,env_cls", ENV_NAME_AND_CLS)
@@ -247,7 +246,7 @@ def test_nsrt_parameters(env_name, env_cls):
         "num_test_tasks": 2
     })
     env = env_cls(use_gui=False)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     for nsrt in nsrts:
         effects_vars: Set[Variable] = set()
         precond_vars: Set[Variable] = set()
@@ -277,7 +276,7 @@ def test_cover_get_gt_nsrts():
     })
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
@@ -298,10 +297,10 @@ def test_cover_get_gt_nsrts():
     place_action = place_option.policy(state)
     assert env.action_space.contains(place_action.arr)
     # Excluded option
-    assert get_gt_nsrts(env.predicates, set()) == set()
+    assert get_gt_nsrts(env.get_name(), env.predicates, set()) == set()
     # Excluded predicate
     predicates = {p for p in env.predicates if p.name != "Holding"}
-    nsrts = get_gt_nsrts(predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     for atom in pick_nsrt.preconditions:
@@ -332,7 +331,7 @@ def test_cluttered_table_get_gt_nsrts(place_version):
             "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     assert len(nsrts) == 2
     if not place_version:
         dump_nsrt, grasp_nsrt = sorted(nsrts, key=lambda o: o.name)
@@ -417,7 +416,7 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     robby = [obj for obj in list(init) if obj.name == "robby"][0]
     rng = np.random.default_rng(123)
     # Test PlaceOnTable
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
     assert len(ptables) == 1
     ptable = ptables[0]
@@ -444,7 +443,7 @@ def test_playroom_get_gt_nsrts():
     })
     env = PlayroomEnv()
     # Test MoveDialToDoor for coverage.
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
     train_tasks = env.get_train_tasks()

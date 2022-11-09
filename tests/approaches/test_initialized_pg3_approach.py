@@ -21,7 +21,7 @@ def test_initialized_pg3_approach():
     })
 
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     train_tasks = env.get_train_tasks()
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
@@ -45,7 +45,7 @@ def test_initialized_pg3_approach():
     pkl.dump(ldl, ldl_policy_file)
 
     utils.reset_config({
-        "env": "blocks",
+        "env": env_name,
         "approach": "initialized_pg3",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
@@ -53,7 +53,8 @@ def test_initialized_pg3_approach():
         "pg3_heuristic": "demo_plan_comparison",  # faster for tests
         "pg3_search_method": "hill_climbing",
         "pg3_hc_enforced_depth": 0,
-        "pg3_init_policy": ldl_policy_file.name
+        "pg3_init_policy": ldl_policy_file.name,
+        "pg3_init_base_env": env_name,
     })
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
