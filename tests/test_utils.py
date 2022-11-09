@@ -3165,7 +3165,7 @@ def test_parse_ldl_from_str():
 )"""
 
     env = ProceduralTasksGripperPDDLEnv(use_gui=False)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
     assert str(ldl) == """LiftedDecisionList[
 LDLRule-rule1:

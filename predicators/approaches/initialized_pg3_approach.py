@@ -69,13 +69,13 @@ class InitializedPG3Approach(PG3Approach):
         else:
             pg3_init_policy_file = CFG.pg3_init_policy
         # Can load from a pickled LDL or a plain text LDL.
-        filename, file_extension = os.path.splitext(pg3_init_policy_file)
-        assert file_extension == ".ldl" or file_extension == ".txt"
+        _, file_extension = os.path.splitext(pg3_init_policy_file)
+        assert file_extension in (".ldl", "txt")
         if file_extension == ".ldl":
-            with open(pg3_init_policy_file, "rb") as f:
-                base_policy = pkl.load(f)
+            with open(pg3_init_policy_file, "rb") as fb:
+                base_policy = pkl.load(fb)
         else:
-            with open(pg3_init_policy_file, "r") as f:
+            with open(pg3_init_policy_file, "r", encoding="utf-8") as f:
                 base_policy_str = f.read()
             base_policy = utils.parse_ldl_from_str(base_policy_str,
                                                    base_env.types,
