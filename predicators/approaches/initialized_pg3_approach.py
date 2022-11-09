@@ -14,21 +14,23 @@ Then run:
     python predicators/main.py --approach initialized_pg3 --seed 0 \
         --env pddl_easy_delivery_procedural_tasks \
         --strips_learner oracle --num_train_tasks 10 \
-        --pg3_init_policy saved_approaches/pddl_easy_delivery_procedural_tasks__pg3__0______.saved_None.ldl \
         --pg3_init_base_env pddl_easy_delivery_procedural_tasks
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-import dill as pkl
-from typing import Dict
+from typing import Dict, Set
 
+import dill as pkl
+
+from predicators import utils
 from predicators.approaches.pg3_approach import PG3Approach
 from predicators.envs import get_or_create_env
 from predicators.envs.base_env import BaseEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.settings import CFG
-from predicators.structs import LiftedDecisionList, NSRT, Predicate, Type
+from predicators.structs import NSRT, LDLRule, LiftedAtom, \
+    LiftedDecisionList, Predicate, Type, Variable
 
 
 class InitializedPG3Approach(PG3Approach):
@@ -42,8 +44,13 @@ class InitializedPG3Approach(PG3Approach):
     @staticmethod
     def _get_policy_search_initial_ldl() -> LiftedDecisionList:
         # Initialize with initialized policy from file.
-        assert CFG.pg3_init_policy
-        with open(CFG.pg3_init_policy, "rb") as f:
+        if CFG.pg3_init_policy is None:
+            # By default, use policy from base domain.
+            save_path = utils.get_approach_save_path_str()
+            pg3_init_policy_file = f"{save_path}_None.ldl"
+        else:
+            pg3_init_policy_file = CFG.pg3_init_policy
+        with open(pg3_init_policy_file, "rb") as f:
             base_policy = pkl.load(f)
         # Determine an analogical mapping between the current env and the
         # base env that the initialized policy originates from.
@@ -77,5 +84,41 @@ def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv) -> _Analogy:
     return _Analogy(predicate_map, nsrt_map, type_map)
 
 
-def _apply_analogy_to_ldl(analogy: _Analogy, ldl: LiftedDecisionList) -> LiftedDecisionList:
-    
+def _apply_analogy_to_ldl(analogy: _Analogy,
+                          ldl: LiftedDecisionList) -> LiftedDecisionList:
+    new_rules = []
+    for rule in ldl.rules:
+        new_rule_name = rule.name
+        new_rule_parameters = [
+            _apply_analogy_to_variable(analogy, p) for p in rule.parameters
+        ]
+        new_rule_pos_preconditions = _apply_analogy_to_atoms(
+            analogy, rule.pos_state_preconditions)
+        new_rule_neg_preconditions = _apply_analogy_to_atoms(
+            analogy, rule.neg_state_preconditions)
+        new_rule_goal_preconditions = _apply_analogy_to_atoms(
+            analogy, rule.goal_preconditions)
+        new_rule_nsrt = analogy.nsrts[rule.nsrt]
+        new_rule = LDLRule(new_rule_name, new_rule_parameters,
+                           new_rule_pos_preconditions,
+                           new_rule_neg_preconditions,
+                           new_rule_goal_preconditions, new_rule_nsrt)
+        new_rules.append(new_rule)
+    return LiftedDecisionList(new_rules)
+
+
+def _apply_analogy_to_atoms(analogy: _Analogy,
+                            atoms: Set[LiftedAtom]) -> Set[LiftedAtom]:
+    new_atoms: Set[LiftedAtom] = set()
+    for atom in atoms:
+        new_variables = [
+            _apply_analogy_to_variable(analogy, v) for v in atom.variables
+        ]
+        new_predicate = analogy.predicates[atom.predicate]
+        new_atoms.add(LiftedAtom(new_predicate, new_variables))
+    return new_atoms
+
+
+def _apply_analogy_to_variable(analogy: _Analogy,
+                               variable: Variable) -> Variable:
+    return Variable(variable.name, analogy.types[variable.type])
