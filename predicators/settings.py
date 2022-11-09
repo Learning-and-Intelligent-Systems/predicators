@@ -264,6 +264,11 @@ class GlobalSettings:
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
 
+    # parameters for PG3 init approach
+    # These need to be overridden via command line
+    pg3_init_policy = None
+    pg3_init_base_env = None
+
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
     nsrt_rl_pos_reward = 0
