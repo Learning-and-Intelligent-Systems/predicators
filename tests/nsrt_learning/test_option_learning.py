@@ -187,7 +187,7 @@ def test_learned_neural_parameterized_option():
     })
     action_converter = create_action_converter()
     env = create_new_env("cover_multistep_options")
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt = min(nsrts, key=lambda o: o.name)
     pick_operator = STRIPSOperator(pick_nsrt.name, pick_nsrt.parameters,
