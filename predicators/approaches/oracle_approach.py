@@ -13,6 +13,7 @@ from gym.spaces import Box
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.ground_truth_nsrts import get_gt_nsrts
+from predicators.settings import CFG
 from predicators.structs import NSRT, ParameterizedOption, Predicate, Task, \
     Type
 
@@ -31,7 +32,7 @@ class OracleApproach(BilevelPlanningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks, task_planning_heuristic,
                          max_skeletons_optimized)
-        self._nsrts = get_gt_nsrts(self._initial_predicates,
+        self._nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                    self._initial_options)
 
     @classmethod

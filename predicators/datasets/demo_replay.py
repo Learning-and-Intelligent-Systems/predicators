@@ -27,7 +27,7 @@ def create_demo_replay_data(
         [len(traj.states) for traj in demo_dataset.trajectories])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
-    all_nsrts = get_gt_nsrts(env.predicates, env.options)
+    all_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     ground_nsrts = []
     for traj in demo_dataset.trajectories:
         objects = sorted(traj.states[0])

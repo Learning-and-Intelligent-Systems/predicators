@@ -472,7 +472,7 @@ def test_get_static_preds():
     """Tests for get_static_preds()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     static_preds = utils.get_static_preds(nsrts, env.predicates)
     assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
 
@@ -481,7 +481,7 @@ def test_get_static_atoms():
     """Tests for get_static_atoms()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     task = env.get_train_tasks()[0]
     objects = set(task.init)
     ground_nsrts = set()
@@ -2162,7 +2162,7 @@ def test_create_pddl():
     utils.reset_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     objects = list(state)
@@ -2226,7 +2226,7 @@ def test_create_pddl():
     utils.reset_config({"env": "pddl_spanner_procedural_tasks"})
     # All predicates and options
     env = ProceduralTasksSpannerPDDLEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
                                           "spanner")
     assert domain_str == """(define (domain spanner)

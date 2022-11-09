@@ -21,7 +21,7 @@ def test_initialized_pg3_approach():
     })
 
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     train_tasks = env.get_train_tasks()
 
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
