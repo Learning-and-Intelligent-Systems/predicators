@@ -39,7 +39,7 @@ def test_sesame_plan(sesame_check_expected_atoms, sesame_grounder,
         "sesame_task_planner": "astar",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
     with expectation as e:
@@ -67,7 +67,7 @@ def test_task_plan():
     """Tests for task_plan()."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     task = env.get_train_tasks()[0]
     init_atoms = utils.abstract(task.init, env.predicates)
     objects = set(task.init)
@@ -166,7 +166,7 @@ def test_sesame_plan_failures():
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     # Test that no plan is found when the horizon is too short.
     with pytest.raises(PlanningFailure):
         sesame_plan(
@@ -256,7 +256,7 @@ def test_sesame_plan_uninitiable_option():
     env = CoverEnv()
     option_model = create_option_model(CFG.option_model_name)
     initiable = lambda s, m, o, p: False
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     old_option = next(iter(env.options))
     new_option = ParameterizedOption(old_option.name, old_option.types,
                                      old_option.params_space,
@@ -452,7 +452,7 @@ def test_policy_guided_sesame():
         "cover_initial_holding_prob": 0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     task = env.get_test_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
     # With a trivial policy, we would expect the number of nodes to be the
@@ -604,7 +604,7 @@ def test_sesame_plan_fast_downward():
         # Test on the repeated_nextto_single_option env, which requires ignore
         # effects.
         env = RepeatedNextToSingleOptionEnv()
-        nsrts = get_gt_nsrts(env.predicates, env.options)
+        nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)
         try:
