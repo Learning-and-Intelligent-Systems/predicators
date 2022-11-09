@@ -642,3 +642,94 @@ def _generate_gripper_problem(
     (:goal (and {goal_str}))
 )"""
     return problem_str
+
+
+################################### Ferry #####################################
+
+
+def create_ferry_pddl_generator(min_locs: int, max_locs: int, min_cars: int,
+                                max_cars: int) -> PDDLProblemGenerator:
+    """Create a generator for ferry problems."""
+    return functools.partial(_generate_ferry_problems, min_locs, max_locs,
+                             min_cars, max_cars)
+
+
+def _generate_ferry_problems(
+    min_locs: int,
+    max_locs: int,
+    min_cars: int,
+    max_cars: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_locs, max_locs + 1)
+        num_cars = rng.integers(min_cars, max_cars + 1)
+        problem = _generate_ferry_problem(num_locs, num_cars, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_ferry_problem(
+    num_locs: int,
+    num_cars: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    loc_objects = []
+    for i in range(num_locs):
+        obj = f"l{i}"
+        loc_objects.append(obj)
+        init_strs.add(f"(location {obj})")
+    car_objects = []
+    for i in range(num_cars):
+        obj = f"c{i}"
+        car_objects.append(obj)
+        init_strs.add(f"(car {obj})")
+
+    # Add not-eq predicates for locations.
+    for loc1 in loc_objects:
+        for loc2 in loc_objects:
+            if loc1 != loc2:
+                init_strs.add(f"(not-eq {loc1} {loc2})")
+
+    # Add empty-ferry predicate.
+    init_strs.add("(empty-ferry)")
+
+    # Create car origins and destinations.
+    for i, car in enumerate(car_objects):
+        car_origin = rng.choice(loc_objects)
+        init_strs.add(f"(at {car} {car_origin})")
+        # Prevent trivial problems by forcing the first origin and dest to
+        # differ.
+        if i == 0:
+            remaining_locs = [l for l in loc_objects if l != car_origin]
+        else:
+            remaining_locs = loc_objects
+        car_dest = rng.choice(remaining_locs)
+        goal_strs.add(f"(at {car} {car_dest})")
+
+    # Create the ferry origin.
+    ferry_origin = rng.choice(loc_objects)
+    init_strs.add(f"(at-ferry {ferry_origin})")
+
+    # Finalize PDDL problem str.
+    all_objects = car_objects + loc_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem ferry-procgen)
+    (:domain ferry)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
