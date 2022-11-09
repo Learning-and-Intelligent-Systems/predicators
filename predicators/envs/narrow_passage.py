@@ -12,7 +12,7 @@ from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
-from predicators.utils import Rectangle, _Geom2D
+from predicators.utils import _Geom2D
 
 
 class NarrowPassageEnv(BaseEnv):
@@ -167,48 +167,22 @@ class NarrowPassageEnv(BaseEnv):
         sensor_color = "pink"
 
         # Draw robot and target circles
-        robot_x = state.get(self._robot, "x")
-        robot_y = state.get(self._robot, "y")
-        target_x = state.get(self._target, "x")
-        target_y = state.get(self._target, "y")
-        robot_circ = plt.Circle((robot_x, robot_y),
-                                self.robot_radius,
-                                color=robot_color)
-        target_circ = plt.Circle((target_x, target_y),
-                                 self.target_radius,
-                                 color=target_color)
-        ax.add_patch(robot_circ)
-        ax.add_patch(target_circ)
+        robot_geom = self._object_to_geom(self._robot, state)
+        robot_geom.plot(ax, color=robot_color)
+        target_geom = self._object_to_geom(self._target, state)
+        target_geom.plot(ax, color=target_color)
 
         # Draw door
-        wall_y = self.y_lb + (self.y_ub -
-                              self.y_lb) / 2 - self.wall_thickness_half
-        door_x = state.get(self._door, "x")
         door_open = state.get(self._door, "open")
         if not door_open:
-            sensor_x = state.get(self._door_sensor, "x")
-            sensor_y = self.y_lb + (self.y_ub - self.y_lb) / 2
-            sensor_circle = plt.Circle((sensor_x, sensor_y),
-                                       self.door_sensor_radius,
-                                       color=sensor_color,
-                                       fill=False)
-            ax.add_patch(sensor_circle)
-            door_width = (self.robot_radius + self.door_width_padding) * 2
-            door_rect = plt.Rectangle(
-                (door_x, wall_y + self.doorway_depth),
-                door_width,
-                (self.wall_thickness_half - self.doorway_depth) * 2,
-                color=door_color)
-            ax.add_patch(door_rect)
+            sensor_geom = self._object_to_geom(self._door_sensor, state)
+            sensor_geom.plot(ax, color=sensor_color, fill=False)
+            door_geom = self._object_to_geom(self._door, state)
+            door_geom.plot(ax, color=door_color)
         # Draw walls
         for wall in self._walls:
-            wall_x = state.get(wall, "x")
-            wall_width = state.get(wall, "width")
-            wall_rect = plt.Rectangle((wall_x, wall_y),
-                                      wall_width,
-                                      self.wall_thickness_half * 2,
-                                      color=wall_color)
-            ax.add_patch(wall_rect)
+            wall_geom = self._object_to_geom(wall, state)
+            wall_geom.plot(ax, color=wall_color)
 
         ax.set_xlim(self.x_lb - self.robot_radius,
                     self.x_ub + self.robot_radius)
@@ -487,9 +461,6 @@ class NarrowPassageEnv(BaseEnv):
                     width = (self.robot_radius + self.door_width_padding) * 2
                     height = (self.wall_thickness_half -
                               self.doorway_depth) * 2
-                self._static_geom_cache[obj] = Rectangle(x=x,
-                                                         y=y,
-                                                         width=width,
-                                                         height=height,
-                                                         theta=0)
+                self._static_geom_cache[obj] = utils.Rectangle(
+                    x=x, y=y, width=width, height=height, theta=0)
         return self._static_geom_cache[obj]
