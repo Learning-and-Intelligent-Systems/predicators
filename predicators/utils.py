@@ -1919,6 +1919,9 @@ class _LDLParser:
 
         # Handle single positive atoms.
         split_strs = atoms_str[1:-1].split()
+        # Empty conjunction.
+        if not split_strs:
+            return set(), set()
         pred = self._predicate_name_to_predicate[split_strs[0]]
         args = [variable_name_to_variable[arg] for arg in split_strs[1:]]
         lifted_atom = LiftedAtom(pred, args)

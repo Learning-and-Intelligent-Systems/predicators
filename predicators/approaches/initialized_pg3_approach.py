@@ -15,9 +15,18 @@ Then run:
         --env pddl_easy_delivery_procedural_tasks \
         --strips_learner oracle --num_train_tasks 10 \
         --pg3_init_base_env pddl_easy_delivery_procedural_tasks
+
+Alternatively, define an initial LDL in plain text and save it to
+<path to file>.txt Then run:
+    python predicators/main.py --approach initialized_pg3 --seed 0 \
+        --env pddl_easy_delivery_procedural_tasks \
+        --strips_learner oracle --num_train_tasks 10 \
+        --pg3_init_policy <path to file>.txt \
+        --pg3_init_base_env pddl_easy_delivery_procedural_tasks
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Dict, Set
 
@@ -43,6 +52,15 @@ class InitializedPG3Approach(PG3Approach):
 
     @staticmethod
     def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+        # Create base and target envs.
+        base_env_name = CFG.pg3_init_base_env
+        target_env_name = CFG.env
+        base_env = get_or_create_env(base_env_name)
+        target_env = get_or_create_env(target_env_name)
+        base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
+                                  base_env.options)
+        target_nsrts = get_gt_nsrts(target_env.get_name(),
+                                    target_env.predicates, target_env.options)
         # Initialize with initialized policy from file.
         if CFG.pg3_init_policy is None:  # pragma: no cover
             # By default, use policy from base domain.
@@ -50,15 +68,23 @@ class InitializedPG3Approach(PG3Approach):
             pg3_init_policy_file = f"{save_path}_None.ldl"
         else:
             pg3_init_policy_file = CFG.pg3_init_policy
-        with open(pg3_init_policy_file, "rb") as f:
-            base_policy = pkl.load(f)
+        # Can load from a pickled LDL or a plain text LDL.
+        filename, file_extension = os.path.splitext(pg3_init_policy_file)
+        assert file_extension == ".ldl" or file_extension == ".txt"
+        if file_extension == ".ldl":
+            with open(pg3_init_policy_file, "rb") as f:
+                base_policy = pkl.load(f)
+        else:
+            with open(pg3_init_policy_file, "r") as f:
+                base_policy_str = f.read()
+            base_policy = utils.parse_ldl_from_str(base_policy_str,
+                                                   base_env.types,
+                                                   base_env.predicates,
+                                                   base_nsrts)
         # Determine an analogical mapping between the current env and the
         # base env that the initialized policy originates from.
-        base_env_name = CFG.pg3_init_base_env
-        target_env_name = CFG.env
-        base_env = get_or_create_env(base_env_name)
-        target_env = get_or_create_env(target_env_name)
-        analogy = _find_env_analogy(base_env, target_env)
+        analogy = _find_env_analogy(base_env, target_env, base_nsrts,
+                                    target_nsrts)
         # Use the analogy to create an initial policy for the target env.
         target_policy = _apply_analogy_to_ldl(analogy, base_policy)
         # Initialize PG3 search with this new target policy.
@@ -73,13 +99,15 @@ class _Analogy:
     types: Dict[Type, Type]
 
 
-def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv) -> _Analogy:
+def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
+                      base_nsrts: Set[NSRT],
+                      target_nsrts: Set[NSRT]) -> _Analogy:
     assert base_env.get_name() == target_env.get_name(), \
         "Only trivial env mappings are implemented so far"
+    assert base_nsrts == target_nsrts
     env = base_env
     predicate_map = {p: p for p in env.predicates}
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    nsrt_map = {n: n for n in nsrts}
+    nsrt_map = {n: n for n in base_nsrts}
     type_map = {t: t for t in env.types}
     return _Analogy(predicate_map, nsrt_map, type_map)
 
