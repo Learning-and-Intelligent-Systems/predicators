@@ -23,8 +23,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_gripper_pddl_generator, \
-    create_spanner_pddl_generator
+    create_ferry_pddl_generator, create_forest_pddl_generator, \
+    create_gripper_pddl_generator, create_spanner_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -539,6 +539,43 @@ class ProceduralTasksPrefixedGripperPDDLEnv(_PrefixedGripperPDDLEnv):
         return create_gripper_pddl_generator(min_num_rooms, max_num_rooms,
                                              min_num_balls, max_num_bals,
                                              "pre")
+
+
+class _FerryPDDLEnv(_PDDLEnv):
+    """The IPC ferry domain."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/ferry/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksFerryPDDLEnv(_FerryPDDLEnv):
+    """The IPC ferry domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_ferry_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_ferry_procedural_train_min_num_locs
+        max_locs = CFG.pddl_ferry_procedural_train_max_num_locs
+        min_cars = CFG.pddl_ferry_procedural_train_min_num_cars
+        max_cars = CFG.pddl_ferry_procedural_train_max_num_cars
+        return create_ferry_pddl_generator(min_locs, max_locs, min_cars,
+                                           max_cars)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_ferry_procedural_test_min_num_locs
+        max_locs = CFG.pddl_ferry_procedural_test_max_num_locs
+        min_cars = CFG.pddl_ferry_procedural_test_min_num_cars
+        max_cars = CFG.pddl_ferry_procedural_test_max_num_cars
+        return create_ferry_pddl_generator(min_locs, max_locs, min_cars,
+                                           max_cars)
 
 
 ###############################################################################
