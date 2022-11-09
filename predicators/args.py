@@ -40,5 +40,4 @@ def create_arg_parser(env_required: bool = True,
                         dest="loglevel",
                         const=logging.DEBUG,
                         default=logging.INFO)
-    parser.add_argument("--pg3_init_policy", default="", type=str)
     return parser

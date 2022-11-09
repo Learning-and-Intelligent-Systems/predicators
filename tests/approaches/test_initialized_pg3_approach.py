@@ -41,11 +41,11 @@ def test_initialized_pg3_approach():
         pick_up_rule,
     ])
 
-    ldl_policy_file = tempfile.NamedTemporaryFile()
+    ldl_policy_file = tempfile.NamedTemporaryFile(suffix=".ldl")
     pkl.dump(ldl, ldl_policy_file)
 
     utils.reset_config({
-        "env": "blocks",
+        "env": env_name,
         "approach": "initialized_pg3",
         "num_train_tasks": 1,
         "num_test_tasks": 1,
@@ -53,10 +53,72 @@ def test_initialized_pg3_approach():
         "pg3_heuristic": "demo_plan_comparison",  # faster for tests
         "pg3_search_method": "hill_climbing",
         "pg3_hc_enforced_depth": 0,
-        "pg3_init_policy": ldl_policy_file.name
+        "pg3_init_policy": ldl_policy_file.name,
+        "pg3_init_base_env": env_name,
     })
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
     assert approach.get_name() == "initialized_pg3"
 
     assert approach._get_policy_search_initial_ldl() == ldl  # pylint: disable=protected-access
+
+    # Test loading from file.
+    ldl_str = """(define (policy delivery-individual-policy)
+	(:rule rule1 
+		:parameters (?paper - paper ?loc - loc)
+        :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
+        :goals ()
+		:action (pick-up ?paper ?loc)
+	)
+	(:rule rule2 
+		:parameters (?loc - loc ?paper - paper)
+        :preconditions (and (at ?loc) (carrying ?paper) (not (satisfied ?loc)))
+        :goals ()
+		:action (deliver ?paper ?loc)
+	)
+	(:rule rule3
+		:parameters (?from - loc ?to - loc)
+        :preconditions (and (at ?from) (safe ?from) (wantspaper ?to))
+        :goals ()
+		:action (move ?from ?to)
+	)
+)
+"""
+    ldl_policy_txt_file = tempfile.NamedTemporaryFile(suffix=".txt").name
+    with open(ldl_policy_txt_file, "w", encoding="utf-8") as f:
+        f.write(ldl_str)
+        utils.reset_config({
+            "env": env_name,
+            "approach": "initialized_pg3",
+            "num_train_tasks": 1,
+            "num_test_tasks": 1,
+            "strips_learner": "oracle",
+            "pg3_heuristic": "demo_plan_comparison",  # faster for tests
+            "pg3_search_method": "hill_climbing",
+            "pg3_hc_enforced_depth": 0,
+            "pg3_init_policy": ldl_policy_txt_file,
+            "pg3_init_base_env": env_name,
+        })
+    approach = InitializedPG3Approach(env.predicates, env.options, env.types,
+                                      env.action_space, train_tasks)
+    init_ldl = approach._get_policy_search_initial_ldl()  # pylint: disable=protected-access
+    assert str(init_ldl) == """LiftedDecisionList[
+LDLRule-rule1:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+LDLRule-rule2:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), carrying(?paper:paper)]
+    Neg State Pre: [satisfied(?loc:loc)]
+    Goal Pre: []
+    NSRT: deliver(?paper:paper, ?loc:loc)
+LDLRule-rule3:
+    Parameters: [?from:loc, ?to:loc]
+    Pos State Pre: [at(?from:loc), safe(?from:loc), wantspaper(?to:loc)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: move(?from:loc, ?to:loc)
+]"""
