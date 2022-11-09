@@ -78,13 +78,13 @@ def test_narrow_passage_actions():
 
     # Test that the open door action works
     s = state.copy()
-    # check door is not open, not touching goal
+    # Check door is not open, not touching goal
     assert not GroundAtom(DoorIsOpen, [door]).holds(s)
     assert not GroundAtom(TouchedGoal, [robot, target]).holds(s)
 
     for action in door_open_actions:
         s = env.simulate(s, Action(action))
-    # check door is open
+    # Check door is open
     assert s.get(door, "open") == 1
     assert GroundAtom(DoorIsOpen, [door]).holds(s)
 
@@ -112,7 +112,7 @@ def test_narrow_passage_actions():
 
 def test_narrow_passage_collisions():
     """Test that the robot can't go through walls or closed door."""
-    # set up environment
+    # Set up environment
     utils.reset_config({"env": "narrow_passage"})
     env = NarrowPassageEnv()
     door_type, _, robot_type, _, _ = sorted(env.types)
@@ -126,10 +126,10 @@ def test_narrow_passage_collisions():
         state = sample_task.init.copy()
         robot, = state.get_objects(robot_type)
         state.set(robot, "x", test_x)
-        # try going down a lot
+        # Try going down a lot
         for _ in range(50):
             state = env.simulate(state, down_action)
-        # make sure robot is still above the wall
+        # Make sure robot is still above the wall
         robot_y = state.get(robot, "y")
         assert robot_y > y_midpoint, f"Robot did not collide at x={test_x}"
 
@@ -139,21 +139,21 @@ def test_narrow_passage_collisions():
     door, = state.get_objects(door_type)
     state.set(robot, "x", 0.35)
     state.set(door, "open", 1)  # set the door to be open
-    # try going down a lot
+    # Try going down a lot
     for _ in range(50):
         state = env.simulate(state, down_action)
-    # make sure robot is below the wall now but not out of bounds
+    # Make sure robot is below the wall now but not out of bounds
     robot_y = state.get(robot, "y")
     assert robot_y < y_midpoint, "Robot wasn't able to pass through doorway"
     assert robot_y >= env.y_lb, "Robot went out of bounds"
 
 
 def test_narrow_passage_options():
-    """Test ParameterizedOptions work."""
+    """Tests for narrow passage parametrized options."""
     # Set up environment
     utils.reset_config({
         "env": "narrow_passage",
-        "render_state_dpi": 150,
+        # "render_state_dpi": 150,  # uncomment for higher-res test videos
     })
     env = NarrowPassageEnv()
     DoorIsOpen, TouchedGoal = sorted(env.predicates)
@@ -172,7 +172,7 @@ def test_narrow_passage_options():
         MoveToTarget.ground([robot, target], [0.5]),
     ]
     policy = utils.option_plan_to_policy(option_plan)
-    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     traj = utils.run_policy_with_simulator(
         policy,
         env.simulate,
@@ -180,12 +180,12 @@ def test_narrow_passage_options():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure},
-        monitor=monitor,
+        # monitor=monitor,
     )
     # Save video of run
-    video = monitor.get_video()
-    outfile = "hardcoded_door_options_narrow_passage.mp4"
-    utils.save_video(outfile, video)
+    # video = monitor.get_video()
+    # outfile = "hardcoded_door_options_narrow_passage.mp4"
+    # utils.save_video(outfile, video)
     final_state = traj.states[-1]
     assert GroundAtom(DoorIsOpen, [door]).holds(final_state)
     assert GroundAtom(TouchedGoal, [robot, target]).holds(final_state)
@@ -196,7 +196,7 @@ def test_narrow_passage_options():
         MoveToTarget.ground([robot, target], [0.3]),
     ]
     policy = utils.option_plan_to_policy(option_plan)
-    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     traj = utils.run_policy_with_simulator(
         policy,
         env.simulate,
@@ -204,12 +204,12 @@ def test_narrow_passage_options():
         lambda _: False,
         max_num_steps=1000,
         exceptions_to_break_on={utils.OptionExecutionFailure},
-        monitor=monitor,
+        # monitor=monitor,
     )
     # Save video of run
-    video = monitor.get_video()
-    outfile = "hardcoded_direct_options_narrow_passage.mp4"
-    utils.save_video(outfile, video)
+    # video = monitor.get_video()
+    # outfile = "hardcoded_direct_options_narrow_passage.mp4"
+    # utils.save_video(outfile, video)
     final_state = traj.states[-1]
     assert not GroundAtom(DoorIsOpen, [door]).holds(final_state)
     assert GroundAtom(TouchedGoal, [robot, target]).holds(final_state)
@@ -258,8 +258,8 @@ def test_narrow_passage_options():
 
 
 def test_narrow_passage_failed_birrt():
-    """Test ParametrizedOptions both are un-initiable if motion planning
-    fails."""
+    """Tests that narrow passage parametrized options are correctly
+    un-initiable if motion planning fails."""
     # Set up environment
     utils.reset_config({
         "env": "narrow_passage",
@@ -280,7 +280,7 @@ def test_narrow_passage_failed_birrt():
     assert move_to_target.initiable(state) is False
 
     # Test MoveAndOpenDoor
-    # move robot to other side of wall so there is no straight line path
+    # Move robot to other side of wall so there is no straight line path
     # to where it tries to move to
     state.set(robot, "y", 0.2)
     move_and_open_door = MoveAndOpenDoor.ground([robot, door], [0.8])

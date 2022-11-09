@@ -1,4 +1,4 @@
-"""Toy environment for testing option learning."""
+"""Toy environment for testing refinement cost heuristic learning."""
 
 from typing import ClassVar, Dict, Iterator, List, Optional, Sequence, Set
 
@@ -20,11 +20,12 @@ class NarrowPassageEnv(BaseEnv):
     by passing through a narrow passage, or by opening a door and passing
     through a wider passageway.
 
-    The action space is 1D, denoting the angle of movement. The
-    magnitude of the movement is constant. The point is considered
-    touched if the distance between the center of the robot and the
-    center of the target point is less than a certain threshold, which
-    is greater than the action magnitude.
+    The action space is 3D, specifying (dx, dy, door).
+    (dx, dy) defines a robot movement, where the magnitude of the movement
+    in each direction is constrained by action_magnitude.
+    door indicates a door-opening action. If door > 0, any attempted
+    movement is ignored (i.e. treat dx and dy as 0) and the robot will open
+    a closed door if nearby it.
 
     Based on the TouchPoint and Doors environments.
     """
@@ -53,6 +54,8 @@ class NarrowPassageEnv(BaseEnv):
         self._target_type = Type("target", ["x", "y"])
         self._wall_type = Type("wall", ["x", "width"])
         self._door_type = Type("door", ["x", "open"])
+        # Type for the region within which the robot must be located
+        # in order for the door-opening action to work.
         self._door_sensor_type = Type("door_sensor", ["x"])
         # Predicates
         self._TouchedGoal = Predicate("TouchedGoal",
@@ -142,7 +145,7 @@ class NarrowPassageEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # (dx, dy, door), where dx and dy are offsets
-        # and door > 0 is an attempt to open a door
+        # and door > 0 is an attempt to open a door (ignoring movement)
         lb = np.array(
             [-self.action_magnitude, -self.action_magnitude, -np.inf],
             dtype=np.float32)
@@ -163,7 +166,7 @@ class NarrowPassageEnv(BaseEnv):
         door_color = "purple"
         sensor_color = "pink"
 
-        # draw robot and target circles
+        # Draw robot and target circles
         robot_x = state.get(self._robot, "x")
         robot_y = state.get(self._robot, "y")
         target_x = state.get(self._target, "x")
@@ -177,7 +180,7 @@ class NarrowPassageEnv(BaseEnv):
         ax.add_patch(robot_circ)
         ax.add_patch(target_circ)
 
-        # draw door and walls
+        # Draw door
         wall_y = self.y_lb + (self.y_ub -
                               self.y_lb) / 2 - self.wall_thickness_half
         door_x = state.get(self._door, "x")
@@ -197,7 +200,7 @@ class NarrowPassageEnv(BaseEnv):
                 (self.wall_thickness_half - self.doorway_depth) * 2,
                 color=door_color)
             ax.add_patch(door_rect)
-        # walls
+        # Draw walls
         for wall in self._walls:
             wall_x = state.get(wall, "x")
             wall_width = state.get(wall, "width")
@@ -223,7 +226,7 @@ class NarrowPassageEnv(BaseEnv):
         goal_atom = GroundAtom(self._TouchedGoal, [self._robot, self._target])
         goal = {goal_atom}
 
-        # The initial positions of the robot and dot vary, while wall and
+        # The initial positions of the robot and target vary, while wall and
         # door positions are fixed. The robot should be above the walls, while
         # the dot should be below the walls (y coordinate)
         y_mid = (self.y_ub - self.y_lb) / 2 + self.y_lb
@@ -247,7 +250,7 @@ class NarrowPassageEnv(BaseEnv):
                     rng.uniform(self.y_lb,
                                 y_mid - margin - self.target_radius),
                 },
-                # wall and door positions are fixed, defined by class variables
+                # Wall and door positions are fixed, defined by class variables
                 self._walls[0]: {
                     "x": self.x_lb - self.robot_radius,
                     "width": self.door_x_pos + self.robot_radius,
@@ -293,9 +296,9 @@ class NarrowPassageEnv(BaseEnv):
         # Set up the target input for the motion planner.
         target_x = state.get(target, "x")
         target_y = state.get(target, "y")
-        result = self._run_birrt(state, memory, params, robot,
-                                 np.array([target_x, target_y]))
-        return result
+        success = self._run_birrt(state, memory, params, robot,
+                                  np.array([target_x, target_y]))
+        return success
 
     def _MoveToTarget_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
@@ -315,15 +318,14 @@ class NarrowPassageEnv(BaseEnv):
                                    objects: Sequence[Object],
                                    params: Array) -> bool:
         robot, door = objects
-        # If door is already open, just return True because the action is done
+        # If door is already open, just take one action that accomplishes nothing
         if self._DoorIsOpen_holds(state, [door]):
-            # set action plan to nothing
             memory["action_plan"] = [
                 Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
             ]
             return True
+        # If robot is already within range of the door, just open the door
         if self._robot_near_door(state):
-            # if robot is already within range of the door, just open the door
             memory["action_plan"] = [
                 Action(np.array([0.0, 0.0, 1.0], dtype=np.float32))
             ]
@@ -333,9 +335,9 @@ class NarrowPassageEnv(BaseEnv):
         door_target_y = (
             self.y_ub - self.y_lb
         ) / 2 + self.y_lb + self.door_sensor_radius - self.robot_radius
-        result = self._run_birrt(state, memory, params, robot,
-                                 np.array([door_center_x, door_target_y]))
-        if result is False:
+        success = self._run_birrt(state, memory, params, robot,
+                                  np.array([door_center_x, door_target_y]))
+        if not success:
             # Failed to find motion plan, so option is not initiable
             return False
         # Append open door action to memory action plan
@@ -356,8 +358,10 @@ class NarrowPassageEnv(BaseEnv):
 
         Returns true if successful, else false
         """
-        # Make a BiRRT object and return it for use
         # The seed is determined by the parameter passed into the option.
+        # This is a hack for bilevel planning from giving up if motion planning
+        # fails on the first attempt. We make the params array non-empty so it
+        # is resampled, and this sets the BiRRT rng.
         rng = np.random.default_rng(int(params[0] * 1e4))
 
         def _sample_fn(_: Array) -> Array:
@@ -401,8 +405,8 @@ class NarrowPassageEnv(BaseEnv):
         # If motion planning fails, determine the option to be not initiable.
         if position_plan is None:
             return False
-        # The position plan is used for the termination check, and for debug
-        # drawing in the rendering.
+        # The position plan is used for the termination check, and possibly
+        # can be used for debug drawing in the rendering in the future.
         memory["position_plan"] = position_plan
         # Convert the plan from position space to action space.
         deltas = np.subtract(position_plan[1:], position_plan[:-1])
@@ -451,12 +455,13 @@ class NarrowPassageEnv(BaseEnv):
         """Returns true if the robot is within range of the door sensor."""
         robot, = state.get_objects(self._robot_type)
         robot_geom = self._object_to_geom(robot, state)
+        # Check for "collision" with door sensor
         door_sensor, = state.get_objects(self._door_sensor_type)
         door_sensor_geom = self._object_to_geom(door_sensor, state)
         return robot_geom.intersects(door_sensor_geom)
 
     def _object_to_geom(self, obj: Object, state: State) -> _Geom2D:
-        """From doors.py."""
+        """Adapted from doors.py."""
         x = state.get(obj, "x")
         if (obj.is_instance(self._robot_type)
                 or obj.is_instance(self._target_type)):
