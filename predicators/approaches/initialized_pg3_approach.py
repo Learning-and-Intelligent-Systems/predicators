@@ -102,13 +102,19 @@ class _Analogy:
 def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
                       base_nsrts: Set[NSRT],
                       target_nsrts: Set[NSRT]) -> _Analogy:
-    assert base_env.get_name() == target_env.get_name(), \
-        "Only trivial env mappings are implemented so far"
-    assert base_nsrts == target_nsrts
-    env = base_env
-    predicate_map = {p: p for p in env.predicates}
-    nsrt_map = {n: n for n in base_nsrts}
-    type_map = {t: t for t in env.types}
+    # Create PDDL domains from environments.
+    base_pddl = utils.create_pddl_domain(base_nsrts, base_env.predicates,
+                                         base_env.types, base_env.get_name())
+    target_pddl = utils.create_pddl_domain(target_nsrts, target_env.predicates,
+                                           target_env.types,
+                                           target_env.get_name())
+    # Call external module to find analogy.
+    # TODO (not sure exactly what form this will take)
+    import ipdb; ipdb.set_trace()
+    analogy_result = run_magic_analogy_machine(base_pddl, target_pddl)
+    # Parse the results of the external module back into our data structures.
+    # TODO
+    predicate_map, nsrt_map, type_map = parse_analogy_result(analogy_result)
     return _Analogy(predicate_map, nsrt_map, type_map)
 
 
