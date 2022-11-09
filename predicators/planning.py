@@ -142,6 +142,9 @@ def _sesame_plan_with_astar(
             f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
+    # Make a copy of the predicates set to avoid modifying the input set,
+    # since we may be adding NotCausesFailure predicates to the set.
+    predicates = predicates.copy()
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
