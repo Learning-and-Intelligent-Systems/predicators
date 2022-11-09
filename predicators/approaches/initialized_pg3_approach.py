@@ -44,15 +44,18 @@ class InitializedPG3Approach(PG3Approach):
         # Initialize with initialized policy from file.
         assert CFG.pg3_init_policy
         with open(CFG.pg3_init_policy, "rb") as f:
-            init_policy = pkl.load(f)
-
-        # Determine an analogical mapping between the current domain and the
-        # domain that the initialized policy originates from.
+            base_policy = pkl.load(f)
+        # Determine an analogical mapping between the current env and the
+        # base env that the initialized policy originates from.
         base_env_name = CFG.pg3_init_base_env
         target_env_name = CFG.env
         base_env = get_or_create_env(base_env_name)
         target_env = get_or_create_env(target_env_name)
-        analogy = _find_domain_analogy(base_env, target_env)
+        analogy = _find_env_analogy(base_env, target_env)
+        # Use the analogy to create an initial policy for the target env.
+        target_policy = _apply_analogy_to_ldl(analogy, base_policy)
+        # Initialize PG3 search with this new target policy.
+        return target_policy
 
 
 @dataclass(frozen=True)
@@ -63,9 +66,16 @@ class _Analogy:
     types: Dict[Type, Type]
 
 
-def _find_domain_analogy(base_env: BaseEnv, target_env: BaseEnv) -> _Analogy:
+def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv) -> _Analogy:
     assert base_env.get_name() == target_env.get_name(), \
-        "Only trivial domain mappings are implemented so far"
+        "Only trivial env mappings are implemented so far"
+    env = base_env
     predicate_map = {p: p for p in env.predicates}
-    nsrt_map = {p: p for p in env.predicates}
-    import ipdb; ipdb.set_trace()
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    nsrt_map = {n: n for n in nsrts}
+    type_map = {t: t for t in env.types}
+    return _Analogy(predicate_map, nsrt_map, type_map)
+
+
+def _apply_analogy_to_ldl(analogy: _Analogy, ldl: LiftedDecisionList) -> LiftedDecisionList:
+    
