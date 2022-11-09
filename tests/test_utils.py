@@ -12,7 +12,8 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv, CoverMultistepOptions
-from predicators.envs.pddl_env import ProceduralTasksSpannerPDDLEnv, ProceduralTasksGripperPDDLEnv
+from predicators.envs.pddl_env import ProceduralTasksGripperPDDLEnv, \
+    ProceduralTasksSpannerPDDLEnv
 from predicators.ground_truth_nsrts import _get_predicates_by_names, \
     get_gt_nsrts
 from predicators.nsrt_learning.segmentation import segment_trajectory
@@ -3135,6 +3136,7 @@ def test_parse_ldl_from_str():
     """Tests for parse_ldl_from_str()."""
     utils.reset_config({"env": "pddl_gripper_procedural_tasks"})
 
+    # pylint: disable=line-too-long
     ldl_str = """(define (policy gripper-policy)
 	(:rule rule1 
 		:parameters (?obj - object ?room - object ?gripper - object)		
@@ -3165,5 +3167,29 @@ def test_parse_ldl_from_str():
     env = ProceduralTasksGripperPDDLEnv(use_gui=False)
     nsrts = get_gt_nsrts(env.predicates, env.options)
     ldl = utils.parse_ldl_from_str(ldl_str, env.types, env.predicates, nsrts)
-
-    import ipdb; ipdb.set_trace()
+    assert str(ldl) == """LiftedDecisionList[
+LDLRule-rule1:
+    Parameters: [?gripper:object, ?obj:object, ?room:object]
+    Pos State Pre: [at-robby(?room:object), ball(?obj:object), carry(?obj:object, ?gripper:object), gripper(?gripper:object), room(?room:object)]
+    Neg State Pre: [at(?obj:object, ?room:object)]
+    Goal Pre: [at(?obj:object, ?room:object)]
+    NSRT: drop(?obj:object, ?room:object, ?gripper:object)
+LDLRule-rule2:
+    Parameters: [?goalroom:object, ?gripper:object, ?obj:object, ?room:object]
+    Pos State Pre: [at(?obj:object, ?room:object), at-robby(?room:object), ball(?obj:object), free(?gripper:object), gripper(?gripper:object), room(?room:object)]
+    Neg State Pre: [at(?obj:object, ?goalroom:object)]
+    Goal Pre: [at(?obj:object, ?goalroom:object)]
+    NSRT: pick(?obj:object, ?room:object, ?gripper:object)
+LDLRule-rule3:
+    Parameters: [?from:object, ?gripper:object, ?obj:object, ?to:object]
+    Pos State Pre: [at-robby(?from:object), carry(?obj:object, ?gripper:object), room(?from:object), room(?to:object)]
+    Neg State Pre: []
+    Goal Pre: [at(?obj:object, ?to:object)]
+    NSRT: move(?from:object, ?to:object)
+LDLRule-rule4:
+    Parameters: [?from:object, ?goalroom:object, ?gripper:object, ?obj:object, ?to:object]
+    Pos State Pre: [at(?obj:object, ?to:object), at-robby(?from:object), free(?gripper:object), room(?from:object), room(?to:object)]
+    Neg State Pre: []
+    Goal Pre: [at(?obj:object, ?goalroom:object)]
+    NSRT: move(?from:object, ?to:object)
+]"""
