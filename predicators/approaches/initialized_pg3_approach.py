@@ -44,7 +44,7 @@ class InitializedPG3Approach(PG3Approach):
     @staticmethod
     def _get_policy_search_initial_ldl() -> LiftedDecisionList:
         # Initialize with initialized policy from file.
-        if CFG.pg3_init_policy is None:
+        if CFG.pg3_init_policy is None:  # pragma: no cover
             # By default, use policy from base domain.
             save_path = utils.get_approach_save_path_str()
             pg3_init_policy_file = f"{save_path}_None.ldl"
