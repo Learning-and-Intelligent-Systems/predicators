@@ -3147,7 +3147,7 @@ def test_parse_ldl_from_str():
 	(:rule rule2 
 		:parameters (?obj - object ?room - object ?gripper - object ?goalroom - object)		
         :preconditions (and (ball ?obj) (room ?room) (gripper ?gripper) (at ?obj ?room) (at-robby ?room) (free ?gripper) (not (at ?obj ?goalroom)))
-        :goals (and (at ?obj ?goalroom))
+        :goals ()
 		:action (pick ?obj ?room ?gripper)
 	)
 	(:rule rule3
@@ -3159,7 +3159,7 @@ def test_parse_ldl_from_str():
 	(:rule rule4
 		:parameters (?from - object ?to - object ?obj - object ?gripper - object ?goalroom- object)
 		:preconditions (and (room ?from) (room ?to) (at-robby ?from) (free ?gripper) (at ?obj ?to)) 
-		:goals (and (at ?obj ?goalroom))
+		:goals (at ?obj ?goalroom)
 		:action (move ?from ?to)
 	)
 )"""
@@ -3178,7 +3178,7 @@ LDLRule-rule2:
     Parameters: [?goalroom:object, ?gripper:object, ?obj:object, ?room:object]
     Pos State Pre: [at(?obj:object, ?room:object), at-robby(?room:object), ball(?obj:object), free(?gripper:object), gripper(?gripper:object), room(?room:object)]
     Neg State Pre: [at(?obj:object, ?goalroom:object)]
-    Goal Pre: [at(?obj:object, ?goalroom:object)]
+    Goal Pre: []
     NSRT: pick(?obj:object, ?room:object, ?gripper:object)
 LDLRule-rule3:
     Parameters: [?from:object, ?gripper:object, ?obj:object, ?to:object]
