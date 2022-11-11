@@ -274,6 +274,19 @@ def _main(rgb_path: Path,
         r, g, b = np.mean(block_rgb, axis=0)
         block_data["color"] = [r, g, b]
 
+    # Create and save the output JSON.
+    # Infer a problem name from the color file name.
+    problem_name = f"problem-{rgb_path.stem}"
+    output_dict = {
+        "problem_name": problem_name,
+        "blocks": blocks_data,
+        "block_size": block_size,
+        **goal_dict,
+    }
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(output_dict, f, indent=4)
+    print(f"\nDumped to {output_path}")
+
     # Create a PyBullet visualization for debugging.
     if debug_viz:
         _visualize_pybullet(blocks_data, translated_pcd)
