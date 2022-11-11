@@ -84,35 +84,39 @@ This script outputs a new JSON file in the form
 """
 
 import argparse
-from pathlib import Path
 import glob
 import json
-from typing import List, Dict
+import time
+from pathlib import Path
+from typing import Dict, List
 
 import imageio.v2 as iio
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-import time
-
+import pybullet as p
 from numpy.typing import NDArray
 
-import pybullet as p
-
 from predicators import utils
-
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.link import get_link_state
+from predicators.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 from predicators.structs import Image, State
 from predicators.utils import LineSegment
-from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
 
 
-def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Path,
-          intrinsics_path: Path, output_path: Path, debug_viz: bool = False,
-          dbscan_eps: float = 0.02, dbscan_min_points: int = 50) -> None:
+def _main(rgb_path: Path,
+          depth_path: Path,
+          goal_path: Path,
+          extrinsics_path: Path,
+          intrinsics_path: Path,
+          output_path: Path,
+          debug_viz: bool = False,
+          dbscan_eps: float = 0.02,
+          dbscan_min_points: int = 50) -> None:
     # Load images.
     rgb = iio.imread(rgb_path)
     depth = iio.imread(depth_path)
@@ -182,8 +186,7 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
     # Crop the point clouds to the workspace we care about
     # (i.e., the line the blocks lie across).
     workspace_bounds = o3d.geometry.AxisAlignedBoundingBox(
-        min_bound=workspace_min_bounds, max_bound=workspace_max_bounds
-    )
+        min_bound=workspace_min_bounds, max_bound=workspace_max_bounds)
     cropped_pcd = pcd.crop(workspace_bounds)
 
     if debug_viz:
@@ -204,7 +207,9 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
         _visualize_point_cloud(masked_pcd)
 
     # Cluster the points into piles.
-    cluster_labels = np.array(masked_pcd.cluster_dbscan(eps=dbscan_eps, min_points=dbscan_min_points))
+    cluster_labels = np.array(
+        masked_pcd.cluster_dbscan(eps=dbscan_eps,
+                                  min_points=dbscan_min_points))
     max_label = cluster_labels.max()
     if debug_viz:
         cmap = plt.get_cmap("tab20")
@@ -221,7 +226,11 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
         cluster_pcd = masked_pcd.select_by_index(indices)
         _, _, max_z = cluster_pcd.get_max_bound()
         center_x, center_y, _ = cluster_pcd.get_center()
-        piles_data.append({"center_x": center_x, "center_y": center_y, "max_z": max_z})
+        piles_data.append({
+            "center_x": center_x,
+            "center_y": center_y,
+            "max_z": max_z
+        })
         if debug_viz:
             _visualize_point_cloud(cluster_pcd)
 
@@ -229,7 +238,7 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
     w2b = _get_world_to_base()
 
     # Create the blocks from the pile data.
-    blocks_data: Dict[Dict[str, float]] = {}
+    blocks_data: Dict[str, Dict[str, float]] = {}
     # Assume the block size in the PyBullet environment is correct.
     block_size = PyBulletBlocksEnv.block_size
     # Sorting convention (must agree with goal specification): left to right
@@ -259,37 +268,93 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
         block_max_bounds = (x + hs, y + hs, z + hs)
         # Create bounding box.
         block_bounds = o3d.geometry.AxisAlignedBoundingBox(
-            min_bound=block_min_bounds, max_bound=block_max_bounds
-        )
+            min_bound=block_min_bounds, max_bound=block_max_bounds)
         block_pcd = translated_pcd.crop(block_bounds)
-        if debug_viz:
-            _visualize_point_cloud(block_pcd)
         block_rgb = np.asarray(block_pcd.colors)
-        r = np.median(block_rgb[:, 0])
-        g = np.median(block_rgb[:, 1])
-        b = np.median(block_rgb[:, 2])
+        r, g, b = np.mean(block_rgb, axis=0)
         block_data["color"] = [r, g, b]
 
     # Create a PyBullet visualization for debugging.
-
+    if debug_viz:
+        _visualize_pybullet(blocks_data, translated_pcd)
 
 
 def _visualize_point_cloud(pcd: o3d.geometry.PointCloud) -> None:
     # Show point cloud, press 'q' to close.
     # TODO: figure out the right way to rotate this...
     frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    o3d.visualization.draw_geometries(
-        [pcd, frame]
-    )
+    o3d.visualization.draw_geometries([pcd, frame])
+
+
+def _visualize_pybullet(blocks_data: Dict[str, Dict[str, float]],
+                        pcd: o3d.geometry.PointCloud) -> None:
+    utils.reset_config()
+    physics_client_id = p.connect(p.GUI)
+    # Disable the preview windows for faster rendering.
+    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
+    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
+    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+                               False,
+                               physicsClientId=physics_client_id)
+    # Load table.
+    table_pose = PyBulletBlocksEnv._table_pose
+    table_orientation = PyBulletBlocksEnv._table_orientation
+    table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
+                          useFixedBase=True,
+                          physicsClientId=physics_client_id)
+    p.resetBasePositionAndOrientation(table_id,
+                                      table_pose,
+                                      table_orientation,
+                                      physicsClientId=physics_client_id)
+    # Create the robot.
+    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
+               PyBulletBlocksEnv.robot_init_z)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
+                                             ee_home)
+    # Show the point cloud. Downsample because PyBullet has a limit on points.
+    pcd = pcd.farthest_point_down_sample(5000)
+    points = np.asarray(pcd.points)
+    colors = np.asarray(pcd.colors)
+    p.addUserDebugPoints(points,
+                         colors,
+                         pointSize=10,
+                         physicsClientId=physics_client_id)
+    # Show the inferred blocks.
+    block_size = PyBulletBlocksEnv.block_size
+    half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
+    mass = -1
+    friction = 1.0
+    orientation = [0.0, 0.0, 0.0, 1.0]
+    block_counter = 0
+    for block_data in blocks_data.values():
+        bx, by, bz = block_data["position"]
+        r, g, b = block_data["color"]
+        color = (r, g, b, 1.0)
+        block_id = create_pybullet_block(color, half_extents, mass, friction,
+                                         orientation, physics_client_id)
+        p.resetBasePositionAndOrientation(block_id, [bx, by, bz],
+                                          orientation,
+                                          physicsClientId=physics_client_id)
+
+    while True:
+        time.sleep(0.01)
+        p.stepSimulation(physicsClientId=physics_client_id)
 
 
 def _get_world_to_base() -> Pose3D:
     """Get the translation for the Panda robot in PyBullet blocks env."""
     utils.reset_config()
     physics_client_id = p.connect(p.DIRECT)
-    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y, PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id, ee_home)
-    dx, dy, dz = p.getBasePositionAndOrientation(robot.robot_id, physicsClientId=physics_client_id)[0]
+    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
+               PyBulletBlocksEnv.robot_init_z)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
+                                             ee_home)
+    dx, dy, dz = p.getBasePositionAndOrientation(
+        robot.robot_id, physicsClientId=physics_client_id)[0]
     return (dx, dy, dz)
 
 
@@ -303,4 +368,5 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--debug_viz", action="store_true")
     args = parser.parse_args()
-    _main(args.rgb, args.depth, args.goal, args.extrinsics, args.intrinsics, args.output, args.debug_viz)
+    _main(args.rgb, args.depth, args.goal, args.extrinsics, args.intrinsics,
+          args.output, args.debug_viz)
