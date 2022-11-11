@@ -84,11 +84,10 @@ This script outputs a new JSON file in the form
 """
 
 import argparse
-import glob
 import json
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import imageio.v2 as iio
 import matplotlib.pyplot as plt
@@ -101,11 +100,9 @@ from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D
-from predicators.pybullet_helpers.link import get_link_state
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
-from predicators.structs import Image, State
-from predicators.utils import LineSegment
+from predicators.structs import Image
 
 
 def _main(rgb_path: Path,
@@ -136,7 +133,7 @@ def _main(rgb_path: Path,
     workspace_max_bounds = extrinsics_dict["workspace_max_bounds"]
 
     # Load intrinsics.
-    with open(intrinsics_path, "r") as f:
+    with open(intrinsics_path, "r", encoding="utf-8") as f:
         intrinsics_metadata_dict = json.load(f)
     intrinsics_dict = intrinsics_metadata_dict["intrinsics"]
     depth_scale = intrinsics_metadata_dict["depth_scale"]
@@ -193,7 +190,7 @@ def _main(rgb_path: Path,
         _visualize_point_cloud(cropped_pcd)
 
     # Mask out the gray floor (to the extent possible).
-    def non_grey_mask(rgb: Image, thresh: float = 10 / 255) -> NDArray[bool]:
+    def non_grey_mask(rgb: Image, thresh: float = 10 / 255) -> NDArray:
         r = rgb[:, 0]
         g = rgb[:, 1]
         b = rgb[:, 2]
@@ -238,7 +235,7 @@ def _main(rgb_path: Path,
     w2b = _get_world_to_base()
 
     # Create the blocks from the pile data.
-    blocks_data: Dict[str, Dict[str, float]] = {}
+    blocks_data: Dict[str, Dict[str, Any]] = {}
     # Assume the block size in the PyBullet environment is correct.
     block_size = PyBulletBlocksEnv.block_size
     # Sorting convention (must agree with goal specification): left to right
@@ -294,12 +291,11 @@ def _main(rgb_path: Path,
 
 def _visualize_point_cloud(pcd: o3d.geometry.PointCloud) -> None:
     # Show point cloud, press 'q' to close.
-    # TODO: figure out the right way to rotate this...
     frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    o3d.visualization.draw_geometries([pcd, frame])
+    o3d.visualization.draw_geometries([pcd, frame])  # pylint: disable=no-member
 
 
-def _visualize_pybullet(blocks_data: Dict[str, Dict[str, float]],
+def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                         pcd: o3d.geometry.PointCloud) -> None:
     utils.reset_config()
     physics_client_id = p.connect(p.GUI)
@@ -314,8 +310,8 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, float]],
                                False,
                                physicsClientId=physics_client_id)
     # Load table.
-    table_pose = PyBulletBlocksEnv._table_pose
-    table_orientation = PyBulletBlocksEnv._table_orientation
+    table_pose = PyBulletBlocksEnv._table_pose  # pylint: disable=protected-access
+    table_orientation = PyBulletBlocksEnv._table_orientation  # pylint: disable=protected-access
     table_id = p.loadURDF(utils.get_env_asset_path("urdf/table.urdf"),
                           useFixedBase=True,
                           physicsClientId=physics_client_id)
@@ -326,8 +322,7 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, float]],
     # Create the robot.
     ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
                PyBulletBlocksEnv.robot_init_z)
-    robot = create_single_arm_pybullet_robot("panda", physics_client_id,
-                                             ee_home)
+    create_single_arm_pybullet_robot("panda", physics_client_id, ee_home)
     # Show the point cloud. Downsample because PyBullet has a limit on points.
     pcd = pcd.farthest_point_down_sample(5000)
     points = np.asarray(pcd.points)
@@ -342,7 +337,6 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, float]],
     mass = -1
     friction = 1.0
     orientation = [0.0, 0.0, 0.0, 1.0]
-    block_counter = 0
     for block_data in blocks_data.values():
         bx, by, bz = block_data["position"]
         r, g, b = block_data["color"]
