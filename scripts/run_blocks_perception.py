@@ -43,7 +43,7 @@ The extrinsics metadata should include:
     }
 
 The task goal should be specified in another JSON file, with block names
-ordered from left to right and then top to bottom, following this convention:
+ordered from left to right and then bottom to top, following this convention:
 
     {
         "goal": {
@@ -87,9 +87,9 @@ import argparse
 from pathlib import Path
 import glob
 import json
-from typing import List
+from typing import List, Dict
 
-import imageio
+import imageio.v2 as iio
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
@@ -103,16 +103,19 @@ from predicators import utils
 
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.pybullet_env import create_pybullet_block
+from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.link import get_link_state
 from predicators.structs import Image, State
 from predicators.utils import LineSegment
 from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
 
 
-def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Path, intrinsics_path: Path, output_path: Path, debug_viz: bool = False) -> None:
+def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Path,
+          intrinsics_path: Path, output_path: Path, debug_viz: bool = False,
+          dbscan_eps: float = 0.02, dbscan_min_points: int = 50) -> None:
     # Load images.
-    rgb = imageio.imread(rgb_path)
-    depth = imageio.imread(depth_path)
+    rgb = iio.imread(rgb_path)
+    depth = iio.imread(depth_path)
 
     # Load goal.
     with open(goal_path, "r", encoding="utf-8") as f:
@@ -201,15 +204,93 @@ def _main(rgb_path: Path, depth_path: Path, goal_path: Path, extrinsics_path: Pa
         _visualize_point_cloud(masked_pcd)
 
     # Cluster the points into piles.
-    import ipdb; ipdb.set_trace()    
+    cluster_labels = np.array(masked_pcd.cluster_dbscan(eps=dbscan_eps, min_points=dbscan_min_points))
+    max_label = cluster_labels.max()
+    if debug_viz:
+        cmap = plt.get_cmap("tab20")
+        colors = cmap(cluster_labels / (max_label if max_label > 0 else 1))
+        colors[cluster_labels < 0] = 0
+        clusters_pcd = o3d.geometry.PointCloud(masked_pcd)
+        clusters_pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
+        _visualize_point_cloud(clusters_pcd)
+
+    # Infer the pile (x, y) and heights.
+    piles_data: List[Dict[str, float]] = []
+    for cluster_id in range(max_label + 1):
+        indices = np.where(cluster_labels == cluster_id)[0]
+        cluster_pcd = masked_pcd.select_by_index(indices)
+        _, _, max_z = cluster_pcd.get_max_bound()
+        center_x, center_y, _ = cluster_pcd.get_center()
+        piles_data.append({"center_x": center_x, "center_y": center_y, "max_z": max_z})
+        if debug_viz:
+            _visualize_point_cloud(cluster_pcd)
+
+    # Get the translation for the robot base in the PyBullet environment.
+    w2b = _get_world_to_base()
+
+    # Create the blocks from the pile data.
+    blocks_data: Dict[Dict[str, float]] = {}
+    # Assume the block size in the PyBullet environment is correct.
+    block_size = PyBulletBlocksEnv.block_size
+    # Sorting convention (must agree with goal specification): left to right
+    # then bottom to top.
+    block_name_count = 1
+    for pile in sorted(piles_data, key=lambda pd: pd["center_y"]):
+        center_x = pile["center_x"]
+        center_y = pile["center_y"]
+        max_z = pile["max_z"]
+        num_blocks = int(max_z / block_size + 0.5)
+        for i in range(num_blocks):
+            block_name = f"block{block_name_count}"
+            z = i * block_size + block_size / 2
+            bx, by, bz = np.add(w2b, [center_x, center_y, z])
+            block_data = {"position": [bx, by, bz]}
+            blocks_data[block_name] = block_data
+            block_name_count += 1
+
+    # Guess block colors based on RGB of points within the bounding boxes of
+    # the blocks. This doesn't work that well right now because the vertical
+    # calibration is poor, but it doesn't actually matter for anything.
+    translated_pcd = o3d.geometry.PointCloud(masked_pcd).translate(w2b)
+    for block_data in blocks_data.values():
+        x, y, z = block_data["position"]
+        hs = block_size / 2
+        block_min_bounds = (x - hs, y - hs, z - hs)
+        block_max_bounds = (x + hs, y + hs, z + hs)
+        # Create bounding box.
+        block_bounds = o3d.geometry.AxisAlignedBoundingBox(
+            min_bound=block_min_bounds, max_bound=block_max_bounds
+        )
+        block_pcd = translated_pcd.crop(block_bounds)
+        if debug_viz:
+            _visualize_point_cloud(block_pcd)
+        block_rgb = np.asarray(block_pcd.colors)
+        r = np.median(block_rgb[:, 0])
+        g = np.median(block_rgb[:, 1])
+        b = np.median(block_rgb[:, 2])
+        block_data["color"] = [r, g, b]
+
+    # Create a PyBullet visualization for debugging.
 
 
 
 def _visualize_point_cloud(pcd: o3d.geometry.PointCloud) -> None:
     # Show point cloud, press 'q' to close.
+    # TODO: figure out the right way to rotate this...
+    frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
     o3d.visualization.draw_geometries(
-        [pcd, o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)]
+        [pcd, frame]
     )
+
+
+def _get_world_to_base() -> Pose3D:
+    """Get the translation for the Panda robot in PyBullet blocks env."""
+    utils.reset_config()
+    physics_client_id = p.connect(p.DIRECT)
+    ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y, PyBulletBlocksEnv.robot_init_z)
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id, ee_home)
+    dx, dy, dz = p.getBasePositionAndOrientation(robot.robot_id, physicsClientId=physics_client_id)[0]
+    return (dx, dy, dz)
 
 
 if __name__ == "__main__":
