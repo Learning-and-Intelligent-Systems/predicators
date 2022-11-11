@@ -567,4 +567,6 @@ class BlocksEnv(BaseEnv):
                 obj_args = [id_to_obj[a] for a in id_args]
                 goal_atom = GroundAtom(pred, obj_args)
                 goal.add(goal_atom)
-        return Task(init_state, goal)
+        task = Task(init_state, goal)
+        assert not task.goal_holds(init_state)
+        return task

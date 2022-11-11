@@ -48,11 +48,11 @@ ordered from left to right and then bottom to top, following this convention:
     {
         "goal": {
             "On": [
-                ["block1", "block2"],
-                ["block2", "block3"]
+                ["block4", "block2"],
+                ["block2", "block1"]
             ],
             "OnTable": [
-                ["block3"]
+                ["block1"]
             ]
         }
     }
