@@ -92,7 +92,7 @@ from typing import Any, Dict, List
 import imageio.v2 as iio
 import matplotlib.pyplot as plt
 import numpy as np
-import open3d as o3d
+import open3d as o3d  # pylint: disable=import-error
 import pybullet as p
 from numpy.typing import NDArray
 
