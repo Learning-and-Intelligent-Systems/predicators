@@ -112,6 +112,21 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_robot_ee_orns = {
+        # Fetch and Panda gripper down and parallel to x-axis.
+        "pybullet_cover": {
+            "fetch": (0.5, -0.5, -0.5, -0.5),
+            "panda": (0.7071, 0.7071, 0.0, 0.0),
+        },
+        "pybullet_blocks": {
+            # Fetch gripper down since it's thin we don't need to
+            # rotate 90 degrees.
+            "fetch": (0.7071, 0.0, -0.7071, 0.0),
+            # Panda gripper down and rotated 90 degrees as it's big
+            # and can cause collisions.
+            "panda": (0.7071, 0.7071, 0.0, 0.0),
+        },
+    }
 
     # IKFast parameters
     ikfast_max_time = 0.05
