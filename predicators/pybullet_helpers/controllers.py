@@ -32,9 +32,10 @@ def create_move_end_effector_to_pose_option(
     state, objects, and parameters, and returns the current pose and target
     pose of the end effector, and the finger status."""
 
-    assert robot.get_name() in _SUPPORTED_ROBOTS, (
+    robot_name = robot.get_name()
+    assert robot_name in _SUPPORTED_ROBOTS, (
         "Move end effector to pose option " +
-        f"not implemented for robot {robot.get_name()}.")
+        f"not implemented for robot {robot_name}.")
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
@@ -53,8 +54,15 @@ def create_move_end_effector_to_pose_option(
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
         try:
-            joint_positions = robot.set_joints_with_ik(
-                (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+            # For the panda, always set the joints after running IK because
+            # fastIK is very sensitive to initialization, and it's easier to
+            # find good solutions on subsequent calls if we are already near
+            # a solution from the previous call. The fetch robot does not
+            # use fastIK, and in fact gets screwed up if we set joints here.
+            joint_positions = robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]),
+                validate=False,
+                set_joints=(robot_name == "panda"))
         except InverseKinematicsError:
             raise utils.OptionExecutionFailure("Inverse kinematics failed.")
         # Handle the fingers. Fingers drift if left alone.
