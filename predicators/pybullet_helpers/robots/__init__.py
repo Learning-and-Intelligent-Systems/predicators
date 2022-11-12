@@ -26,11 +26,12 @@ def create_single_arm_pybullet_robot(
         ee_home_pose: Pose3D = (1.35, 0.6, 0.7),
 ) -> SingleArmPyBulletRobot:
     """Create a single-arm PyBullet robot."""
-    ee_orientation = CFG.pybullet_robot_ee_orns[CFG.env][robot_name]
-    if robot_name in _ROBOT_TO_CLS:
+    robot_to_ee_orn = CFG.pybullet_robot_ee_orns[CFG.env]
+    if robot_name in _ROBOT_TO_CLS and robot_name in robot_to_ee_orn:
         assert robot_name in _ROBOT_TO_BASE_POSE, \
             f"Base pose not specified for robot {robot_name}."
         base_pose = _ROBOT_TO_BASE_POSE[robot_name]
+        ee_orientation = robot_to_ee_orn[robot_name]
         cls = _ROBOT_TO_CLS[robot_name]
         return cls(ee_home_pose,
                    ee_orientation,
