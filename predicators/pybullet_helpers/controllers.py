@@ -55,10 +55,10 @@ def create_move_end_effector_to_pose_option(
         # state of the robot during simulation, which overrides physics.
         try:
             # For the panda, always set the joints after running IK because
-            # fastIK is very sensitive to initialization, and it's easier to
+            # IKFast is very sensitive to initialization, and it's easier to
             # find good solutions on subsequent calls if we are already near
             # a solution from the previous call. The fetch robot does not
-            # use fastIK, and in fact gets screwed up if we set joints here.
+            # use IKFast, and in fact gets screwed up if we set joints here.
             joint_positions = robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]),
                 validate=False,

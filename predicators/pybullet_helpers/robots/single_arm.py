@@ -423,7 +423,7 @@ class SingleArmPyBulletRobot(abc.ABC):
         the new joint positions are also returned.
 
         If set_joints is True, set the joints after running IK. This is
-        recommended when using fastIK because IK is meant to be run
+        recommended when using IKFast because IK is meant to be run
         sequentially from nearby states, since it is very sensitive to
         initialization.
 
