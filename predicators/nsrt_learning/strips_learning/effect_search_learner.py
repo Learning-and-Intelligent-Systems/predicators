@@ -91,9 +91,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             self,
             curr_pnads: PartialNSRTAndDatastore) -> PartialNSRTAndDatastore:
         # TODO: Be sure to recompute the components of the PNADs here!
-        new_effect_sets = curr_effect_sets
-        pnads = self._effect_sets_to_pnads(curr_effect_sets)
-        uncovered_transition = self._get_first_uncovered_transition(pnads)
+        uncovered_transition = self._get_first_uncovered_transition(curr_pnads)
         if uncovered_transition is not None:
             param_option, option_objs, add_effs, keep_effs = \
                 uncovered_transition
@@ -149,7 +147,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
                         Set[GroundAtom]]]:
         # TODO: Modify this to just directly return the new PNAD???
-        
+
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories.
         # Compute all the chains once up front.
@@ -248,6 +246,9 @@ class _EffectSearchHeuristic(abc.ABC):
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._backchain = backchain
+        self._recompute_pnads_from_effects = Callable[
+            [Sequence[PartialNSRTAndDatastore]],
+            Sequence[PartialNSRTAndDatastore]]
 
     @abc.abstractmethod
     def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
@@ -260,7 +261,9 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
     operator in the backchaining sense."""
 
     def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
-        # Ensure that the unnecessary keep effs sub and  poss
+        # Start by recomputing all PNADs from their effects.
+        curr_pnads = self._recompute_pnads_from_effects(curr_pnads)
+        # Ensure that the unnecessary keep effs sub and poss
         # keep effects are both cleared before backchaining.
         for pnad in curr_pnads:
             pnad.poss_keep_effects.clear()
@@ -296,6 +299,44 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
     @classmethod
     def get_name(cls) -> str:
         return "effect_search"
+
+    def _recompute_pnads_from_effects(
+        self, pnads: Sequence[PartialNSRTAndDatastore]
+    ) -> Sequence[PartialNSRTAndDatastore]:
+        # First, reset all PNADs to only maintain their add and
+        # keep effects. Ensure they ignore all predicates in the domain.
+        for pnad in pnads:
+            keep_effects = pnad.op.preconditions & pnad.op.add_effects
+            new_pnad_op = pnad.op.copy_with(
+                preconditions=keep_effects,
+                add_effects=pnad.op.add_effects,
+                ignore_effects=self._predicates.copy())
+            pnad.op = new_pnad_op
+        # Repartition all data amongst these new PNADs.
+        self._recompute_datastores_from_segments(pnads)
+        # Prune any PNADs with empty datastores.
+        pnads = [p for p in pnads if p.datastore]
+        # Add new preconditions.
+        for pnad in pnads:
+            preconditions = self._induce_preconditions_via_intersection(pnad)
+            pnad.op = pnad.op.copy_with(preconditions=preconditions)
+        # Add delete and ignore effects.
+        for pnad in pnads:
+            self._compute_pnad_delete_effects(pnad)
+            self._compute_pnad_ignore_effects(pnad)
+        # TODO: Should we add PNADs with keep effects here? Seems wrong because then
+        # say we delete a PNAD from our set and then want to compute the heuristic
+        # value of this. We would be potentially adding a bunch of new PNADs just
+        # at heuristic computation time (but this is deterministic, so maybe it's
+        # correct)?
+        # Fix naming.
+        pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
+            p.option_spec[0]: []
+            for p in pnads
+        }
+        for p in pnads:
+            pnad_map[p.option_spec[0]].append(p)
+        pnads = self._get_uniquely_named_nec_pnads(pnad_map)
 
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         # Set up hill-climbing search over effect sets.
@@ -340,7 +381,8 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
     def _create_heuristic(self) -> _EffectSearchHeuristic:
         backchaining_heur = _BackChainingHeuristic(
             self._trajectories, self._train_tasks, self._predicates,
-            self._segmented_trajs, self._effect_sets_to_pnads, self._backchain)
+            self._segmented_trajs, self._backchain,
+            self._recompute_pnads_from_effects)
         return backchaining_heur
 
     def _backchain(self, segmented_traj: List[Segment],
@@ -360,12 +402,12 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             segment.necessary_image = necessary_image
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
             pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
-                segment, objects, pnads)            
+                segment, objects, pnads)
 
             # If no match found, terminate.
             if pnad is None:
                 break
-            
+
             # TODO: Understand why TF this assertion fails so much!
             # # Assert that this segment is in the PNAD's datastore.
             # segs_in_pnad = {
@@ -382,7 +424,7 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
             next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
             # Update the PNAD's seg_to_keep_effs_sub dict.
             _update_pnad_seg_to_keep_effs(pnad, necessary_image, ground_op,
-                                          obj_to_var, segment)            
+                                          obj_to_var, segment)
             # If we're missing something in the necessary image, terminate.
             if not necessary_image.issubset(next_atoms):
                 final_failed_op = ground_op
