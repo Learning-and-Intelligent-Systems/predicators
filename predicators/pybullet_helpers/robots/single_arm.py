@@ -233,7 +233,7 @@ class SingleArmPyBulletRobot(abc.ABC):
     @cached_property
     def initial_joint_positions(self) -> JointPositions:
         """The joint values for the robot in its home pose."""
-        joint_positions = self.set_joints_with_ik(self._ee_home_pose,
+        joint_positions = self.inverse_kinematics(self._ee_home_pose,
                                                   validate=True)
         # The initial joint values for the fingers should be open. IK may
         # return anything for them.
@@ -260,7 +260,7 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         # Now run IK to get to the actual starting rx, ry, rz. We use
         # validate=True to ensure that this initialization works.
-        self.set_joints_with_ik((rx, ry, rz), validate=True)
+        self.inverse_kinematics((rx, ry, rz), validate=True)
 
         # Handle setting the robot finger joints.
         for finger_id in [self.left_finger_id, self.right_finger_id]:
@@ -411,8 +411,10 @@ class SingleArmPyBulletRobot(abc.ABC):
 
         return final_joint_state
 
-    def set_joints_with_ik(self, end_effector_pose: Pose3D,
-                           validate: bool) -> JointPositions:
+    def inverse_kinematics(self,
+                           end_effector_pose: Pose3D,
+                           validate: bool,
+                           set_joints: bool = True) -> JointPositions:
         """Compute joint positions from a target end effector position, based
         on the robot's current joint positions. Uses IKFast if the robot has
         IKFast info specified.
@@ -420,11 +422,10 @@ class SingleArmPyBulletRobot(abc.ABC):
         The robot's joint state is updated to the IK result. For convenience,
         the new joint positions are also returned.
 
-        We always set the joints after running IK because IK is meant to be run
+        If set_joints is True, set the joints after running IK. This is
+        recommended when using IKFast because IK is meant to be run
         sequentially from nearby states, since it is very sensitive to
-        initialization. We deliberately do not have a "stateless"
-        inverse_kinematics() method because there is currently no way to run
-        IK without depending on the robot's current state.
+        initialization.
 
         The target orientation is always self._ee_orientation.
 
@@ -456,6 +457,7 @@ class SingleArmPyBulletRobot(abc.ABC):
                 validate=validate,
             )
 
-        self.set_joints(joint_positions)
+        if set_joints:
+            self.set_joints(joint_positions)
 
         return joint_positions
