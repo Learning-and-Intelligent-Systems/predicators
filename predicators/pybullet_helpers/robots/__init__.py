@@ -1,9 +1,7 @@
 """Handles the creation of robots."""
-from typing import Dict, Optional, Type
+from typing import Dict, Type
 
-import numpy as np
-
-from predicators.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
+from predicators.pybullet_helpers.geometry import Pose, Pose3D
 from predicators.pybullet_helpers.robots.fetch import FetchPyBulletRobot
 from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.pybullet_helpers.robots.single_arm import \

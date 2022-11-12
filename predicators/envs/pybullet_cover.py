@@ -5,7 +5,6 @@ from typing import ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
