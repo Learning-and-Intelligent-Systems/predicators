@@ -325,7 +325,6 @@ class _KinematicActionConverter(_ActionConverter):
         # Inverse kinematics.
         x, y, z, gripper = reduced_action_arr
         # Gripper to fingers.
-        # Round the fingers.
         dist_to_open = abs(gripper - self._gripper_open)
         dist_to_closed = abs(gripper - self._gripper_closed)
         if dist_to_closed < dist_to_open:
