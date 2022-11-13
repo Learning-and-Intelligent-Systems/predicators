@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import functools
 from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
@@ -11,7 +12,8 @@ from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
 from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
     Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
-    Predicate, Segment, Task, Variable, _GroundSTRIPSOperator
+    Predicate, Segment, STRIPSOperator, Task, Variable, \
+    _GroundSTRIPSOperator
 
 # Necessary images and ground operators, in reverse order. Also, if the chain
 # is not full-length, then the "best" operator that backchaining tried to use
@@ -89,6 +91,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     def get_successors(
         self, pnads: Sequence[PartialNSRTAndDatastore]
     ) -> Iterator[PartialNSRTAndDatastore]:
+        pnads = list(pnads)
         uncovered_segment = self._get_first_uncovered_segment(pnads)
         new_pnads = pnads[:]
         if uncovered_segment is not None:
@@ -101,6 +104,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             new_pnads_set = {new_pnad} | new_pnads_with_keep_effs
             new_pnads += list(new_pnads_set)
             new_pnads = self._recompute_pnads_from_effects(new_pnads)
+            new_pnads = frozenset(new_pnads)
             yield new_pnads
 
     def _get_first_uncovered_segment(
@@ -148,32 +152,37 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
         self, pnads: Sequence[PartialNSRTAndDatastore]
     ) -> Iterator[PartialNSRTAndDatastore]:
         for pnad_to_remove in pnads:
-            yield [pnad for pnad in pnads if pnad != pnad_to_remove]
+            yield frozenset([pnad for pnad in pnads if pnad != pnad_to_remove])
 
 
 class _EffectSearchHeuristic(abc.ABC):
     """Given a set of effect sets, produce a score, with lower better."""
 
     def __init__(
-        self,
-        trajectories: List[LowLevelTrajectory],
-        train_tasks: List[Task],
-        predicates: Set[Predicate],
-        segmented_trajs: List[List[Segment]],
+        self, trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate], segmented_trajs: List[List[Segment]],
         backchain: Callable[
             [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
-            _Chain],
+            _Chain], _recompute_pnads_from_effects: Callable[
+                [Sequence[PartialNSRTAndDatastore]],
+                Sequence[PartialNSRTAndDatastore]],
+        _clear_unnecessary_keep_effs_subs: Callable[[PartialNSRTAndDatastore],
+                                                    None]
     ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._backchain = backchain
-        self._recompute_pnads_from_effects = Callable[
-            [Sequence[PartialNSRTAndDatastore]],
-            Sequence[PartialNSRTAndDatastore]]
-        self._clear_unnecessary_keep_effs_subs = Callable[
-            [PartialNSRTAndDatastore], None]
+        self._recompute_pnads_from_effects = _recompute_pnads_from_effects
+        self._clear_unnecessary_keep_effs_subs = _clear_unnecessary_keep_effs_subs
+        # We compute the total number of segments, which is also the
+        # maximum number of operators that we will induce (since, in
+        # the worst case, we induce a different operator for every
+        # segment).
+        self._total_num_segments = 0
+        for seg_traj in self._segmented_trajs:
+            self._total_num_segments += len(seg_traj)
 
     @abc.abstractmethod
     def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
@@ -192,7 +201,7 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
         # keep effects are both cleared before backchaining.
         for pnad in curr_pnads:
             pnad.poss_keep_effects.clear()
-            self._clear_unnecessary_keep_effs_sub(pnad)
+            self._clear_unnecessary_keep_effs_subs(pnad)
 
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -260,8 +269,10 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for p in pnads
         }
         for p in pnads:
+            p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
         pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+        return pnads
 
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         # Set up hill-climbing search over effect sets.
@@ -272,7 +283,7 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         heuristic = self._create_heuristic()
 
         # Initialize the search.
-        initial_state = []
+        initial_state = frozenset()
 
         def get_successors(
             pnads: Sequence[PartialNSRTAndDatastore]
@@ -288,9 +299,44 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                              get_successors=get_successors,
                                              heuristic=heuristic)
 
-        # Extract the best effect set.
+        # Extract the best PNADs set.
         final_pnads = path[-1]
+        # Fix naming.
+        pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
+            p.option_spec[0]: []
+            for p in final_pnads
+        }
+        for p in final_pnads:
+            p.op = p.op.copy_with(name=p.option_spec[0].name)
+            pnad_map[p.option_spec[0]].append(p)
+        final_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+
         return final_pnads
+
+    # NOTE: This code is literally the same as the superclass, except that
+    # we don't compute preconditions here. Is there a nicer SWE way to
+    # make this change without all this code duplication?
+    @functools.lru_cache(maxsize=None)
+    def _create_general_pnad_for_option(
+            self, parameterized_option: ParameterizedOption
+    ) -> PartialNSRTAndDatastore:
+        """Create the most general PNAD for the given option."""
+        # Create the parameters, which are determined solely from the option
+        # types, since the most general operator has no add/delete effects.
+        parameters = utils.create_new_variables(parameterized_option.types)
+        option_spec = (parameterized_option, parameters)
+
+        # In the most general operator, the ignore effects contain ALL
+        # predicates.
+        ignore_effects = self._predicates.copy()
+
+        # There are no add effects or delete effects. The preconditions
+        # are initialized to be trivial. They will be recomputed next.
+        op = STRIPSOperator(parameterized_option.name, parameters, set(),
+                            set(), set(), ignore_effects)
+        pnad = PartialNSRTAndDatastore(op, [], option_spec)
+
+        return pnad
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
         op_classes = [
@@ -299,7 +345,9 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         ops = [
             cls(self._trajectories, self._train_tasks,
                 self._predicates, self._segmented_trajs, self._backchain,
-                self._create_heuristic()) for cls in op_classes
+                self._create_heuristic(), self._spawn_new_pnad,
+                self._get_pnads_with_keep_effects,
+                self._recompute_pnads_from_effects) for cls in op_classes
         ]
         return ops
 
