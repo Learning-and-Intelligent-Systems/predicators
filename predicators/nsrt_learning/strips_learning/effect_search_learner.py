@@ -7,7 +7,8 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
     Tuple
 
 from predicators import utils
-from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
+from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
+    GeneralToSpecificSTRIPSLearner
 from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
     Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
     Predicate, Segment, Task, Variable, _GroundSTRIPSOperator
@@ -17,21 +18,6 @@ from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
 # but couldn't.
 _Chain = Tuple[List[Set[GroundAtom]], List[_GroundSTRIPSOperator],
                Optional[_GroundSTRIPSOperator]]
-
-
-def _clear_unnecessary_keep_effs_sub(pnad: PartialNSRTAndDatastore) -> None:
-    """Clear unnecessary substitution values from the PNAD's
-    seg_to_keep_effects_sub_dict.
-
-    A substitution is unnecessary if it concerns a variable that isn't
-    in the PNAD's op parameters.
-    """
-    for segment, keep_eff_sub in pnad.seg_to_keep_effects_sub.items():
-        new_keep_eff_sub_dict = {}
-        for var, obj in keep_eff_sub.items():
-            if var in pnad.op.parameters:
-                new_keep_eff_sub_dict[var] = obj
-        pnad.seg_to_keep_effects_sub[segment] = new_keep_eff_sub_dict
 
 
 def _update_pnad_seg_to_keep_effs(pnad: PartialNSRTAndDatastore,
@@ -64,17 +50,27 @@ class _EffectSearchOperator(abc.ABC):
     """An operator that proposes successor sets of effect sets."""
 
     def __init__(
-            self, trajectories: List[LowLevelTrajectory],
-            train_tasks: List[Task], predicates: Set[Predicate],
-            segmented_trajs: List[List[Segment]], backchain: Callable[[
-                List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]
-            ], _Chain], associated_heuristic: _EffectSearchHeuristic) -> None:
+        self, trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate], segmented_trajs: List[List[Segment]],
+        backchain: Callable[
+            [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
+            _Chain], associated_heuristic: _EffectSearchHeuristic,
+        spawn_new_pnad: Callable[[Segment], PartialNSRTAndDatastore],
+        get_pnads_with_keep_effects: Callable[[PartialNSRTAndDatastore],
+                                              Set[PartialNSRTAndDatastore]],
+        recompute_pnads_from_effects: Callable[
+            [Sequence[PartialNSRTAndDatastore]],
+            Sequence[PartialNSRTAndDatastore]]
+    ) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._backchain = backchain
         self._associated_heuristic = associated_heuristic
+        self._spawn_new_pnad = spawn_new_pnad
+        self._get_pnads_with_keep_effects = get_pnads_with_keep_effects
+        self._recompute_pnads_from_effects = recompute_pnads_from_effects
 
     @abc.abstractmethod
     def get_successors(
@@ -87,67 +83,30 @@ class _EffectSearchOperator(abc.ABC):
 class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     """An operator that uses backchaining to propose a new effect set."""
 
-    def _get_new_pnads_by_backchaining(
-            self,
-            curr_pnads: PartialNSRTAndDatastore) -> PartialNSRTAndDatastore:
-        # TODO: Be sure to recompute the components of the PNADs here!
-        uncovered_transition = self._get_first_uncovered_transition(curr_pnads)
-        if uncovered_transition is not None:
-            param_option, option_objs, add_effs, keep_effs = \
-                uncovered_transition
-            option_spec, lifted_add_effs, lifted_keep_effs = \
-                self._create_new_effect_set(param_option, option_objs, \
-                    add_effs, keep_effs)
-            new_effect_sets = curr_effect_sets.add(option_spec,
-                                                   lifted_add_effs,
-                                                   lifted_keep_effs)
-        return new_effect_sets
-
     # TODO: Add method that removes all components of all PNADs except add and
     # keep effects. Call this before we get the first uncovered transition?
 
     def get_successors(
         self, pnads: Sequence[PartialNSRTAndDatastore]
     ) -> Iterator[PartialNSRTAndDatastore]:
-        initial_heuristic_val = self._associated_heuristic(effect_sets)
-        new_effect_sets = self._get_new_effect_sets_by_backchaining(
-            effect_sets)
-        if initial_heuristic_val > 0:
-            new_heuristic_val = self._associated_heuristic(new_effect_sets)
-            if new_heuristic_val == initial_heuristic_val:
-                # This means there was a keep effect problem with the new add
-                # effects we just induced. We need to call backchaining again
-                # to fix this.
-                new_effect_sets = self._get_new_effect_sets_by_backchaining(
-                    new_effect_sets)
-                new_heuristic_val = self._associated_heuristic(new_effect_sets)
-                assert new_heuristic_val < initial_heuristic_val
-        yield new_effect_sets
+        uncovered_segment = self._get_first_uncovered_segment(pnads)
+        new_pnads = pnads[:]
+        if uncovered_segment is not None:
+            # We will need to induce an operator to cover this
+            # segment, and thus it must have some necessary add effects.
+            assert uncovered_segment.necessary_add_effects is not None
+            new_pnad = self._spawn_new_pnad(uncovered_segment)
+            new_pnads_with_keep_effs = self._get_pnads_with_keep_effects(
+                new_pnad)
+            new_pnads_set = {new_pnad} | new_pnads_with_keep_effs
+            new_pnads += list(new_pnads_set)
+            new_pnads = self._recompute_pnads_from_effects(new_pnads)
+            yield new_pnads
 
-    def _create_new_effect_set(
-        self, param_option: ParameterizedOption, option_objs: Sequence[Object],
-        add_effs: Set[GroundAtom], keep_effs: Set[GroundAtom]
-    ) -> Tuple[OptionSpec, Set[LiftedAtom], Set[LiftedAtom]]:
-        # Create a new effect set.
-        all_objs = sorted(
-            set(option_objs) | {o
-                                for a in add_effs for o in a.objects})
-        all_types = [o.type for o in all_objs]
-        all_vars = utils.create_new_variables(all_types)
-        obj_to_var = dict(zip(all_objs, all_vars))
-        option_vars = [obj_to_var[o] for o in option_objs]
-        option_spec = (param_option, option_vars)
-        lifted_add_effs = {a.lift(obj_to_var) for a in add_effs}
-        lifted_keep_effs = {a.lift(obj_to_var) for a in keep_effs}
-        return (option_spec, lifted_add_effs, lifted_keep_effs)
-
-    def _get_first_uncovered_transition(
+    def _get_first_uncovered_segment(
         self,
         pnads: List[PartialNSRTAndDatastore],
-    ) -> Optional[Tuple[ParameterizedOption, Sequence[Object], Set[GroundAtom],
-                        Set[GroundAtom]]]:
-        # TODO: Modify this to just directly return the new PNAD???
-
+    ) -> Optional[Segment]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories.
         # Compute all the chains once up front.
@@ -178,43 +137,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
                     t = (len(seg_traj) - 1) - len(op_chain)
                     assert t >= 0
                     segment = seg_traj[t]
-                    option = segment.get_option()
-                    necessary_image = image_chain[-1]
-                    # Necessary add effects are everything true in the
-                    # necessary image that was not true after calling the
-                    # operator from atoms_seq[t].
-                    necessary_add_effects = necessary_image - atoms_seq[t]
-                    necessary_keep_effects = set()
-                    if last_used_op is not None and \
-                        last_used_op.add_effects == necessary_add_effects:
-                        # In this case, there exists some PNAD such that:
-                        # (1) the preconditions hold in the pre-image state of
-                        # the segment.
-                        # (2) the effects yield a state that is a subset of the
-                        # post-image state.
-                        # (3) the PNAD's add effects already capture all the
-                        # necessary add effects.
-                        # This means that the only reason this PNAD failed to
-                        # capture the necessary image is due to some issue
-                        # with delete/ignore effects.
-                        pred_next_atoms = utils.apply_operator(
-                            last_used_op, atoms_seq[t])
-                        missing_effects = (necessary_image - pred_next_atoms)
-                        # These are just the missing effects + existing add
-                        # effects.
-                        necessary_add_effects = missing_effects | \
-                            last_used_op.add_effects
-                        # These are the missing effects that were ignore
-                        # effects of the last_used_op.
-                        necessary_keep_effects = {
-                            a
-                            for a in missing_effects if a in atoms_seq[t] and (
-                                a.predicate in last_used_op.ignore_effects
-                                or a in last_used_op.delete_effects)
-                        }
-
-                    return (option.parent, option.objects,
-                            necessary_add_effects, necessary_keep_effects)
+                    return segment
         return None
 
 
@@ -249,6 +172,8 @@ class _EffectSearchHeuristic(abc.ABC):
         self._recompute_pnads_from_effects = Callable[
             [Sequence[PartialNSRTAndDatastore]],
             Sequence[PartialNSRTAndDatastore]]
+        self._clear_unnecessary_keep_effs_subs = Callable[
+            [PartialNSRTAndDatastore], None]
 
     @abc.abstractmethod
     def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
@@ -267,7 +192,7 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
         # keep effects are both cleared before backchaining.
         for pnad in curr_pnads:
             pnad.poss_keep_effects.clear()
-            _clear_unnecessary_keep_effs_sub(pnad)
+            self._clear_unnecessary_keep_effs_sub(pnad)
 
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -293,7 +218,7 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
         return coverage_term + complexity_term
 
 
-class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
+class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     """Base class for a effect search STRIPS learner."""
 
     @classmethod
@@ -382,7 +307,8 @@ class EffectSearchSTRIPSLearner(BaseSTRIPSLearner):
         backchaining_heur = _BackChainingHeuristic(
             self._trajectories, self._train_tasks, self._predicates,
             self._segmented_trajs, self._backchain,
-            self._recompute_pnads_from_effects)
+            self._recompute_pnads_from_effects,
+            self._clear_unnecessary_keep_effs_sub)
         return backchaining_heur
 
     def _backchain(self, segmented_traj: List[Segment],
