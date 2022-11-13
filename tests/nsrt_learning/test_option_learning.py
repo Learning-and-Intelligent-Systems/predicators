@@ -446,7 +446,6 @@ def test_kinematic_action_conversion():
     reduced_action_arr3 = loaded_converter.env_to_reduced(env_action_arr2)
     assert np.allclose(reduced_action_arr, reduced_action_arr3)
     # Test that open and closed finger values are properly converted.
-    robot.go_home()
     env_open = env_action_arr.copy()
     env_open[robot.left_finger_joint_idx] = robot.open_fingers
     env_open[robot.right_finger_joint_idx] = robot.open_fingers
