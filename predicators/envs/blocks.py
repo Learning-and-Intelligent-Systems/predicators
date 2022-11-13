@@ -208,6 +208,8 @@ class BlocksEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
+        if CFG.blocks_holding_goals:
+            return {self._Holding}
         return {self._On, self._OnTable}
 
     @property
@@ -353,6 +355,13 @@ class BlocksEnv(BaseEnv):
     def _sample_goal_from_piles(self, num_blocks: int,
                                 piles: List[List[Object]],
                                 rng: np.random.Generator) -> Set[GroundAtom]:
+        # Sample a goal that involves holding a block that's on the top of
+        # the pile. This is useful for isolating the learning of picking and
+        # unstacking. (For just picking, use num_blocks 1).
+        if CFG.blocks_holding_goals:
+            pile_idx = rng.choice(len(piles))
+            top_block = piles[pile_idx][-1]
+            return {GroundAtom(self._Holding, [top_block])}
         # Sample goal pile that is different from initial
         while True:
             goal_piles = self._sample_initial_piles(num_blocks, rng)
