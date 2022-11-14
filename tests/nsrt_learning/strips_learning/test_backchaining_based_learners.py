@@ -150,9 +150,10 @@ def test_backchaining_strips_learner(approach_cls):
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
-@pytest.mark.parametrize("approach_name,approach_cls",
-                         [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("effects_search", EffectSearchSTRIPSLearner)])
+@pytest.mark.parametrize(
+    "approach_name,approach_cls",
+    [("backchaining", _MockBackchainingSTRIPSLearner),
+    ("effects_search", EffectSearchSTRIPSLearner)])
 def test_backchaining_strips_learner_order_dependence(approach_name,
                                                       approach_cls):
     """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearns are
@@ -1473,6 +1474,9 @@ def test_segment_not_in_datastore(approach_cls):
     "approach_cls,use_single_option,num_demos,seed_offset",
     itertools.product([EffectSearchSTRIPSLearner], [True, False], [1, 2, 3, 4],
                       range(250)))
+# @pytest.mark.parametrize(
+#     "approach_cls,use_single_option,num_demos,seed_offset",
+#     itertools.product([EffectSearchSTRIPSLearner], [True], [4], [131]))
 def test_backchaining_randomly_generated(approach_cls, use_single_option,
                                          num_demos, seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
