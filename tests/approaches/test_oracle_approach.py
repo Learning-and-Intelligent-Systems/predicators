@@ -189,6 +189,21 @@ EXTRA_ARGS_ORACLE_APPROACH["pybullet_blocks"] = [
         "blocks_num_blocks_test": [3],
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["blocks"] = [
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [3],
+    },
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [1],
+        "blocks_num_blocks_test": [1],
+        "blocks_holding_goals": True,
+    },
+]
 
 
 def _policy_solves_task(policy, task, simulator):
