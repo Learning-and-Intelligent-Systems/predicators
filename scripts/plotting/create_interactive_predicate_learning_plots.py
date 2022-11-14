@@ -163,7 +163,12 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         # Create the line.
         if label == "No Actions":
             # Draw a large star so the line is visible
-            ax.plot(new_xs, mean_ys, label=label, color=color, marker="*", markersize=16)
+            ax.plot(new_xs,
+                    mean_ys,
+                    label=label,
+                    color=color,
+                    marker="*",
+                    markersize=16)
         else:
             ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
