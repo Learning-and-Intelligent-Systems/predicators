@@ -40,7 +40,7 @@ class NarrowPassageEnv(BaseEnv):
     door_width_padding: ClassVar[float] = 0.075
     door_sensor_radius: ClassVar[float] = 0.2
     passage_x_pos: ClassVar[float] = 0.7
-    passage_width_padding: ClassVar[float] = 0.02
+    passage_width_padding: ClassVar[float] = 0.001
     wall_thickness_half: ClassVar[float] = 0.15 / 2
     doorway_depth: ClassVar[float] = 1e-2
     init_pos_margin: ClassVar[float] = 1e-3
