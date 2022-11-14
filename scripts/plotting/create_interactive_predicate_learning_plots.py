@@ -161,7 +161,16 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         std_ys = np.std(all_interp_ys, axis=0)
         assert len(mean_ys) == len(std_ys) == len(new_xs)
         # Create the line.
-        ax.plot(new_xs, mean_ys, label=label, color=color)
+        if label == "No Actions":
+            # Draw a large star so the line is visible
+            ax.plot(new_xs,
+                    mean_ys,
+                    label=label,
+                    color=color,
+                    marker="*",
+                    markersize=16)
+        else:
+            ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
                         mean_ys - std_ys,
                         mean_ys + std_ys,
@@ -187,7 +196,6 @@ def _main() -> None:
                     _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
-                ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):
