@@ -35,7 +35,8 @@ class PlayroomEnv(BlocksEnv):
     door_tol: ClassVar[float] = 0.5
     # dial_on_thresh: ClassVar[float] = 0.5
     # Arbitary, hard function
-    dial_on_intervals: ClassVar[List[Tuple[float]]] = [(0.0, 0.05), (0.3, 0.4), (0.9, 1.0)]
+    dial_on_intervals: ClassVar[List[Tuple[float]]] = [(0.0, 0.05), (0.3, 0.4),
+                                                       (0.9, 1.0)]
     dial_r: ClassVar[float] = 3.0
     dial_button_z: ClassVar[float] = 1.0
     dial_tol: ClassVar[float] = 0.5
