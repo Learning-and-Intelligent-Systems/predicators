@@ -98,7 +98,7 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # We will need to induce an operator to cover this
             # segment, and thus it must have some necessary add effects.
             new_pnad = self._spawn_new_pnad(uncovered_segment)
-            new_pnads += [new_pnad]            
+            new_pnads += [new_pnad]
             # We now repartition data to correctly induce delete and ignore
             # effects for this new spawned PNAD.
             new_pnads = self._recompute_pnads_from_effects(new_pnads)
@@ -116,10 +116,15 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # Now we can induce keep effects.
             # NOTE: we cannot use new_pnad here, since that's the old object
             # before running backchaining (thus, its poss_keep_effects are
-            # incorrect). Instead, we need to get the last element in
-            # the new_pnads list, since this will correspond to the new_pnad.
+            # incorrect). Instead, we need to find which of the new_pnads
+            # corresponds to the new_pnad we just induced.
+            newly_added_pnad = None
+            for new_p in new_pnads:
+                if new_p.op.add_effects == new_pnad.op.add_effects and new_p.op.parameters == new_pnad.op.parameters and new_p.option_spec == new_pnad.option_spec:
+                    newly_added_pnad = new_p
+            assert newly_added_pnad is not None
             new_pnads_with_keep_effs = self._get_pnads_with_keep_effects(
-                new_pnads[-1])
+                newly_added_pnad)
             new_pnads += list(new_pnads_with_keep_effs)
             # We recompute pnads again here to delete keep effect operators
             # that are unnecessary.
@@ -180,7 +185,8 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
         self, pnads: Sequence[PartialNSRTAndDatastore]
     ) -> Iterator[PartialNSRTAndDatastore]:
         # NOTE: Sorting done here to maintain determinism.
-        for pnad_to_remove in sorted(pnads, key=lambda p: len(p.op.add_effects)):
+        for pnad_to_remove in sorted(pnads,
+                                     key=lambda p: len(p.op.add_effects)):
             yield frozenset([pnad for pnad in pnads if pnad != pnad_to_remove])
 
 

@@ -150,10 +150,9 @@ def test_backchaining_strips_learner(approach_cls):
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
-@pytest.mark.parametrize(
-    "approach_name,approach_cls",
-    [("backchaining", _MockBackchainingSTRIPSLearner),
-    ("effects_search", EffectSearchSTRIPSLearner)])
+@pytest.mark.parametrize("approach_name,approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effects_search", EffectSearchSTRIPSLearner)])
 def test_backchaining_strips_learner_order_dependence(approach_name,
                                                       approach_cls):
     """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearns are
@@ -1351,10 +1350,10 @@ def test_multi_pass_backchaining(approach_cls, val):
         assert str(pnad) in correct_pnads
 
 
-@pytest.mark.parametrize(
-    "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
-def test_segment_not_in_datastore(approach_cls):
+@pytest.mark.parametrize("approach_name, approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effect_search", EffectSearchSTRIPSLearner)])
+def test_segment_not_in_datastore(approach_name, approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
     have that segment in its datastore.
@@ -1425,10 +1424,14 @@ def test_segment_not_in_datastore(approach_cls):
                            verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
-    assert len(learned_pnads) == 4
-    # NOTE: Only 4 ops are necessary, but there are 5 here because
-    # the two different methods differ in one particular op
-    # (the third and fourth ops in this list).
+
+    # Backchaining requires 4 PNADs for harmlessness here, but effect search
+    # only requires 3.
+    if approach_name == "backchaining":
+        assert len(learned_pnads) == 4
+    else:
+        assert len(learned_pnads) == 3
+
     correct_pnads = [
         """STRIPS-Pick:
     Parameters: []
@@ -1438,15 +1441,15 @@ def test_segment_not_in_datastore(approach_cls):
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
-    Preconditions: [B(), D(), E()]
-    Add Effects: [A(), C()]
-    Delete Effects: [B(), E()]
+    Preconditions: []
+    Add Effects: [B()]
+    Delete Effects: [C(), D()]
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
-    Preconditions: [A(), C(), D()]
-    Add Effects: [A(), D()]
-    Delete Effects: [C()]
+    Preconditions: [B(), D(), E()]
+    Add Effects: [A(), C()]
+    Delete Effects: [B(), E()]
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
@@ -1472,11 +1475,9 @@ def test_segment_not_in_datastore(approach_cls):
 @longrun
 @pytest.mark.parametrize(
     "approach_cls,use_single_option,num_demos,seed_offset",
-    itertools.product([EffectSearchSTRIPSLearner], [True, False], [1, 2, 3, 4],
-                      range(250)))
-# @pytest.mark.parametrize(
-#     "approach_cls,use_single_option,num_demos,seed_offset",
-#     itertools.product([EffectSearchSTRIPSLearner], [True], [4], [131]))
+    itertools.product(
+        [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner],
+        [True, False], [1, 2, 3, 4], range(250)))
 def test_backchaining_randomly_generated(approach_cls, use_single_option,
                                          num_demos, seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
