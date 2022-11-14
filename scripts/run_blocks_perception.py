@@ -216,13 +216,24 @@ def _main(rgb_path: Path,
         clusters_pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
         _visualize_point_cloud(clusters_pcd)
 
+    # Assume the block size in the PyBullet environment is correct.
+    block_size = PyBulletBlocksEnv.block_size
+
     # Infer the pile (x, y) and heights.
     piles_data: List[Dict[str, float]] = []
     for cluster_id in range(max_label + 1):
         indices = np.where(cluster_labels == cluster_id)[0]
         cluster_pcd = masked_pcd.select_by_index(indices)
         _, _, max_z = cluster_pcd.get_max_bound()
-        center_x, center_y, _ = cluster_pcd.get_center()
+        # To estimate (x, y), first crop points that are approximately on the
+        # top face of the block.
+        tol = block_size / 5
+        face_bounds = o3d.geometry.AxisAlignedBoundingBox(
+            min_bound=(-np.inf, -np.inf, max_z - tol),
+            max_bound=(np.inf, np.inf, max_z + tol))
+        face_pcd = cluster_pcd.crop(face_bounds)
+        # Take the center of the face as the estimate of (x, y).
+        center_x, center_y, _ = face_pcd.get_center()
         piles_data.append({
             "center_x": center_x,
             "center_y": center_y,
@@ -236,8 +247,6 @@ def _main(rgb_path: Path,
 
     # Create the blocks from the pile data.
     blocks_data: Dict[str, Dict[str, Any]] = {}
-    # Assume the block size in the PyBullet environment is correct.
-    block_size = PyBulletBlocksEnv.block_size
     # Sorting convention (must agree with goal specification): left to right
     # then bottom to top.
     block_name_count = 1

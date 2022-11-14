@@ -2,7 +2,7 @@
 
 DATA_DIR="blocks_vision_data"
 TASK_NUM="0"
-IMG_SUFFIX="821212060083.png"
+IMG_SUFFIX="6blocks.png"
 TASK_DIR=$DATA_DIR/tasks
 OUTPUT=$TASK_DIR/blocks-vision-task$TASK_NUM.json
 VIZ_PLANNING="True"
@@ -16,7 +16,7 @@ python scripts/run_blocks_perception.py \
         --goal $DATA_DIR/goal-$TASK_NUM.json \
         --extrinsics $DATA_DIR/extrinsics.json \
         --intrinsics $DATA_DIR/intrinsics.json \
-        --output $OUTPUT
+        --output $OUTPUT --debug_viz
 
 echo "Running planning with oracle models."
 python predicators/main.py --env pybullet_blocks --approach oracle --seed 0 \
