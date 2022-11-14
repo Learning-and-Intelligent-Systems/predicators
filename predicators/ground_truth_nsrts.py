@@ -21,7 +21,6 @@ from predicators.utils import null_sampler
 def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-<<<<<<< HEAD
     if env_name in ("cover", "cover_hierarchical_types", "cover_typed_options",
                     "cover_regrasp", "cover_multistep_options",
                     "pybullet_cover"):
@@ -52,48 +51,12 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_stick_button_gt_nsrts(env_name)
     elif env_name == "doors":
         nsrts = _get_doors_gt_nsrts(env_name)
+    elif env_name == "narrow_passage":
+        nsrts = _get_narrow_passage_gt_nsrts(env_name)
     elif env_name == "coffee":
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
-=======
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
-                   "cover_regrasp", "cover_multistep_options",
-                   "pybullet_cover"):
-        nsrts = _get_cover_gt_nsrts()
-    elif CFG.env == "cluttered_table":
-        nsrts = _get_cluttered_table_gt_nsrts()
-    elif CFG.env == "cluttered_table_place":
-        nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
-    elif CFG.env in ("blocks", "pybullet_blocks"):
-        nsrts = _get_blocks_gt_nsrts()
-    elif CFG.env in ("painting", "repeated_nextto_painting"):
-        nsrts = _get_painting_gt_nsrts()
-    elif CFG.env == "tools":
-        nsrts = _get_tools_gt_nsrts()
-    elif CFG.env == "playroom":
-        nsrts = _get_playroom_gt_nsrts()
-    elif CFG.env in ("repeated_nextto", "repeated_nextto_ambiguous"):
-        nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
-    elif CFG.env == "repeated_nextto_single_option":
-        nsrts = _get_repeated_nextto_single_option_gt_nsrts()
-    elif CFG.env == "screws":
-        nsrts = _get_screws_gt_nsrts()
-    elif CFG.env.startswith("pddl_"):
-        nsrts = _get_pddl_env_gt_nsrts(CFG.env)
-    elif CFG.env == "touch_point":
-        nsrts = _get_touch_point_gt_nsrts()
-    elif CFG.env == "stick_button":
-        nsrts = _get_stick_button_gt_nsrts()
-    elif CFG.env == "doors":
-        nsrts = _get_doors_gt_nsrts()
-    elif CFG.env == "narrow_passage":
-        nsrts = _get_narrow_passage_gt_nsrts()
-    elif CFG.env == "coffee":
-        nsrts = _get_coffee_gt_nsrts()
-    elif CFG.env in ("satellites", "satellites_simple"):
-        nsrts = _get_satellites_gt_nsrts()
->>>>>>> 37d96ad9 (Added operators for narrow_passage env)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2356,11 +2319,11 @@ def _get_doors_gt_nsrts(env_name: str) -> Set[NSRT]:
 def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for NarrowPassageEnv."""
     robot_type, door_type, target_type = _get_types_by_names(
-        CFG.env, ["robot", "door", "target"])
+        env_name, ["robot", "door", "target"])
     DoorIsClosed, DoorIsOpen, TouchedGoal = _get_predicates_by_names(
-        CFG.env, ["DoorIsClosed", "DoorIsOpen", "TouchedGoal"])
+        env_name, ["DoorIsClosed", "DoorIsOpen", "TouchedGoal"])
     MoveToTarget, MoveAndOpenDoor = _get_options_by_names(
-        CFG.env, ["MoveToTarget", "MoveAndOpenDoor"])
+        env_name, ["MoveToTarget", "MoveAndOpenDoor"])
 
     nsrts = set()
 
