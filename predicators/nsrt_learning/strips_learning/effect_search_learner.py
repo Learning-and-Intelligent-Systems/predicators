@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 import functools
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
+from typing import Callable, Dict, FrozenSet, Iterator, List, Optional, Set, \
     Tuple
 
 from predicators import utils
@@ -59,9 +59,8 @@ class _EffectSearchOperator(abc.ABC):
         spawn_new_pnad: Callable[[Segment], PartialNSRTAndDatastore],
         get_pnads_with_keep_effects: Callable[[PartialNSRTAndDatastore],
                                               Set[PartialNSRTAndDatastore]],
-        recompute_pnads_from_effects: Callable[
-            [Sequence[PartialNSRTAndDatastore]],
-            Sequence[PartialNSRTAndDatastore]],
+        recompute_pnads_from_effects: Callable[[List[PartialNSRTAndDatastore]],
+                                               List[PartialNSRTAndDatastore]],
         _clear_unnecessary_keep_effs_sub: Callable[[PartialNSRTAndDatastore],
                                                    None]
     ) -> None:
@@ -78,8 +77,8 @@ class _EffectSearchOperator(abc.ABC):
 
     @abc.abstractmethod
     def get_successors(
-        self, pnads: Sequence[PartialNSRTAndDatastore]
-    ) -> Iterator[PartialNSRTAndDatastore]:
+        self, pnads: FrozenSet[PartialNSRTAndDatastore]
+    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
         """Generate zero or more successor effect sets."""
         raise NotImplementedError("Override me!")
 
@@ -88,11 +87,11 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
     """An operator that uses backchaining to propose a new effect set."""
 
     def get_successors(
-        self, pnads: Sequence[PartialNSRTAndDatastore]
-    ) -> Iterator[PartialNSRTAndDatastore]:
-        pnads = list(pnads)
-        uncovered_segment = self._get_first_uncovered_segment(pnads)
-        new_pnads = pnads[:]
+        self, pnads: FrozenSet[PartialNSRTAndDatastore]
+    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
+        pnads_list = list(pnads)
+        uncovered_segment = self._get_first_uncovered_segment(pnads_list)
+        new_pnads = pnads_list[:]
         if uncovered_segment is not None:
             # We will need to induce an operator to cover this
             # segment, and thus it must have some necessary add effects.
@@ -130,13 +129,13 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # We recompute pnads again here to delete keep effect operators
             # that are unnecessary.
             new_pnads = self._recompute_pnads_from_effects(new_pnads)
-            new_pnads = frozenset(new_pnads)
-            yield new_pnads
+            ret_pnads = frozenset(new_pnads)
+            yield ret_pnads
 
     def _get_backchaining_results(
         self, pnads: List[PartialNSRTAndDatastore]
-    ) -> Tuple[int, List[List[Segment], List[Set[GroundAtom]], Set[GroundAtom],
-                         _Chain]]:
+    ) -> Tuple[int, List[Tuple[List[Segment], List[Set[GroundAtom]],
+                               Set[GroundAtom], _Chain]]]:
         backchaining_results = []
         max_chain_len = 0
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -183,8 +182,8 @@ class _PruningEffectSearchOperator(_EffectSearchOperator):
     """An operator that prunes effect sets."""
 
     def get_successors(
-        self, pnads: Sequence[PartialNSRTAndDatastore]
-    ) -> Iterator[PartialNSRTAndDatastore]:
+        self, pnads: FrozenSet[PartialNSRTAndDatastore]
+    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
         # NOTE: Sorting done here to maintain determinism.
         for pnad_to_remove in sorted(pnads,
                                      key=lambda p: len(p.op.add_effects)):
@@ -200,8 +199,8 @@ class _EffectSearchHeuristic(abc.ABC):
         backchain: Callable[
             [List[Segment], List[PartialNSRTAndDatastore], Set[GroundAtom]],
             _Chain], _recompute_pnads_from_effects: Callable[
-                [Sequence[PartialNSRTAndDatastore]],
-                Sequence[PartialNSRTAndDatastore]],
+                [List[PartialNSRTAndDatastore]],
+                List[PartialNSRTAndDatastore]],
         _clear_unnecessary_keep_effs_subs: Callable[[PartialNSRTAndDatastore],
                                                     None]
     ) -> None:
@@ -222,7 +221,8 @@ class _EffectSearchHeuristic(abc.ABC):
             self._total_num_segments += len(seg_traj)
 
     @abc.abstractmethod
-    def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
+    def __call__(self,
+                 curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
         """Compute the heuristic value for the given effect sets."""
         raise NotImplementedError("Override me!")
 
@@ -231,16 +231,19 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
     """Counts the number of transitions that are not yet covered by some
     operator in the backchaining sense."""
 
-    def __call__(self, curr_pnads: Sequence[PartialNSRTAndDatastore]) -> float:
+    def __call__(self,
+                 curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
         # Start by recomputing all PNADs from their effects.
-        curr_pnads = self._recompute_pnads_from_effects(curr_pnads)
-        # Next, run backchaining using these curr_pnads.
+        recomp_curr_pnads = self._recompute_pnads_from_effects(
+            list(curr_pnads))
+        # Next, run backchaining using these PNADs.
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if ll_traj.is_demo:
                 traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-                _, chain, _ = self._backchain(seg_traj, curr_pnads, traj_goal)
+                _, chain, _ = self._backchain(seg_traj, recomp_curr_pnads,
+                                              traj_goal)
                 assert len(chain) <= len(seg_traj)
                 uncovered_transitions += len(seg_traj) - len(chain)
         # Our objective is such that covering more data is *always*
@@ -255,7 +258,7 @@ class _BackChainingHeuristic(_EffectSearchHeuristic):
         # accurate measures that also take into account the add effects,
         # arity, etc. (though this might involve changing the weighting
         # of the coverage term).
-        complexity_term = len(curr_pnads)
+        complexity_term = len(recomp_curr_pnads)
         return coverage_term + complexity_term
 
 
@@ -267,8 +270,8 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         return "effect_search"
 
     def _recompute_pnads_from_effects(
-        self, pnads: Sequence[PartialNSRTAndDatastore]
-    ) -> Sequence[PartialNSRTAndDatastore]:
+            self, pnads: List[PartialNSRTAndDatastore]
+    ) -> List[PartialNSRTAndDatastore]:
         # First, reset all PNADs to only maintain their add and
         # keep effects. Ensure they ignore all predicates in the domain.
         for pnad in pnads:
@@ -308,12 +311,12 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Create the heuristic.
         heuristic = self._create_heuristic()
         # Initialize the search.
-        initial_state = frozenset()
+        initial_state: FrozenSet[PartialNSRTAndDatastore] = frozenset()
 
         def get_successors(
-            pnads: Sequence[PartialNSRTAndDatastore]
+            pnads: FrozenSet[PartialNSRTAndDatastore]
         ) -> Iterator[Tuple[Tuple[_EffectSearchOperator, int],
-                            Sequence[PartialNSRTAndDatastore], float]]:
+                            FrozenSet[PartialNSRTAndDatastore], float]]:
             for op in search_operators:
                 for i, child in enumerate(op.get_successors(pnads)):
                     yield (op, i), child, 1.0  # cost always 1
@@ -328,17 +331,18 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         final_pnads = path[-1]
         # Recompute these PNADs so that they exactly match the PNADs used
         # to compute the final heuristic.
-        final_pnads = self._recompute_pnads_from_effects(final_pnads)
+        recomp_final_pnads = self._recompute_pnads_from_effects(
+            list(final_pnads))
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
-            for p in final_pnads
+            for p in recomp_final_pnads
         }
-        for p in final_pnads:
+        for p in recomp_final_pnads:
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
-        final_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
-        return final_pnads
+        ret_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+        return ret_pnads
 
     @functools.lru_cache(maxsize=None)
     def _create_general_pnad_for_option(
