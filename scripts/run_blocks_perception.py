@@ -324,7 +324,8 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                PyBulletBlocksEnv.robot_init_z)
     create_single_arm_pybullet_robot("panda", physics_client_id, ee_home)
     # Show the point cloud. Downsample because PyBullet has a limit on points.
-    pcd = pcd.farthest_point_down_sample(5000)
+    if len(pcd.points) > 5000:
+        pcd = pcd.farthest_point_down_sample(5000)
     points = np.asarray(pcd.points)
     colors = np.asarray(pcd.colors)
     p.addUserDebugPoints(points,
