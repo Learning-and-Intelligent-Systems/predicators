@@ -98,7 +98,10 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # We will need to induce an operator to cover this
             # segment, and thus it must have some necessary add effects.
             new_pnad = self._spawn_new_pnad(uncovered_segment)
-            new_pnads += [new_pnad]
+            new_pnads += [new_pnad]            
+            # We now repartition data to correctly induce delete and ignore
+            # effects for this new spawned PNAD.
+            new_pnads = self._recompute_pnads_from_effects(new_pnads)
             # Ensure that the unnecessary keep effs sub and poss
             # keep effects are both cleared before backchaining. This is
             # important because we will be inducing keep effects after this
@@ -111,10 +114,15 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # is up-to-date.
             self._get_backchaining_results(new_pnads)
             # Now we can induce keep effects.
+            # NOTE: we cannot use new_pnad here, since that's the old object
+            # before running backchaining (thus, its poss_keep_effects are
+            # incorrect). Instead, we need to get the last element in
+            # the new_pnads list, since this will correspond to the new_pnad.
             new_pnads_with_keep_effs = self._get_pnads_with_keep_effects(
-                new_pnad)
+                new_pnads[-1])
             new_pnads += list(new_pnads_with_keep_effs)
-            new_pnads = sorted(new_pnads, key=lambda p: len(p.op.add_effects))
+            # We recompute pnads again here to delete keep effect operators
+            # that are unnecessary.
             new_pnads = self._recompute_pnads_from_effects(new_pnads)
             new_pnads = frozenset(new_pnads)
             yield new_pnads
@@ -274,11 +282,6 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         for pnad in pnads:
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
-        # TODO: Should we add PNADs with keep effects here? Seems wrong because then
-        # say we delete a PNAD from our set and then want to compute the heuristic
-        # value of this. We would be potentially adding a bunch of new PNADs just
-        # at heuristic computation time (but this is deterministic, so maybe it's
-        # correct)?
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
@@ -294,10 +297,8 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Set up hill-climbing search over effect sets.
         # Create the search operators.
         search_operators = self._create_search_operators()
-
         # Create the heuristic.
         heuristic = self._create_heuristic()
-
         # Initialize the search.
         initial_state = frozenset()
 
@@ -329,10 +330,9 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
         final_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
-
         return final_pnads
 
-    # NOTE: This code is literally the same as the superclass, except that
+    # TODO: This code is literally the same as the superclass, except that
     # we don't compute preconditions here. Is there a nicer SWE way to
     # make this change without all this code duplication?
     @functools.lru_cache(maxsize=None)
@@ -344,17 +344,14 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # types, since the most general operator has no add/delete effects.
         parameters = utils.create_new_variables(parameterized_option.types)
         option_spec = (parameterized_option, parameters)
-
         # In the most general operator, the ignore effects contain ALL
         # predicates.
         ignore_effects = self._predicates.copy()
-
         # There are no add effects or delete effects. The preconditions
         # are initialized to be trivial. They will be recomputed next.
         op = STRIPSOperator(parameterized_option.name, parameters, set(),
                             set(), set(), ignore_effects)
         pnad = PartialNSRTAndDatastore(op, [], option_spec)
-
         return pnad
 
     def _create_search_operators(self) -> List[_EffectSearchOperator]:
@@ -409,9 +406,6 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             #     for datapoint in pnad.datastore
             # }
             # assert segment in segs_in_pnad
-
-            # if "MachineConfigured" in str(pnad.op.add_effects):
-            #     import ipdb; ipdb.set_trace()
 
             assert var_to_obj is not None
             obj_to_var = {v: k for k, v in var_to_obj.items()}
