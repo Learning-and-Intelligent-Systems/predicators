@@ -112,6 +112,21 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    # env -> robot -> quaternion
+    pybullet_robot_ee_orns = defaultdict(
+        # Fetch and Panda gripper down and parallel to x-axis by default.
+        lambda: {
+            "fetch": (0.5, -0.5, -0.5, -0.5),
+            "panda": (0.7071, 0.7071, 0.0, 0.0),
+        },
+        # In Blocks, Fetch gripper down since it's thin we don't need to
+        # rotate 90 degrees.
+        {
+            "pybullet_blocks": {
+                "fetch": (0.7071, 0.0, -0.7071, 0.0),
+                "panda": (0.7071, 0.7071, 0.0, 0.0),
+            }
+        })
 
     # IKFast parameters
     ikfast_max_time = 0.05
@@ -179,6 +194,26 @@ class GlobalSettings:
     pddl_forest_procedural_test_min_size = 10
     pddl_forest_procedural_test_max_size = 12
 
+    # pddl gripper and prefixed gripper env parameters
+    pddl_gripper_procedural_train_min_num_rooms = 3
+    pddl_gripper_procedural_train_max_num_rooms = 5
+    pddl_gripper_procedural_train_min_num_balls = 1
+    pddl_gripper_procedural_train_max_num_balls = 2
+    pddl_gripper_procedural_test_min_num_rooms = 3
+    pddl_gripper_procedural_test_max_num_rooms = 5
+    pddl_gripper_procedural_test_min_num_balls = 1
+    pddl_gripper_procedural_test_max_num_balls = 2
+
+    # pddl ferry env parameters
+    pddl_ferry_procedural_train_min_num_locs = 3
+    pddl_ferry_procedural_train_max_num_locs = 5
+    pddl_ferry_procedural_train_min_num_cars = 1
+    pddl_ferry_procedural_train_max_num_cars = 2
+    pddl_ferry_procedural_test_min_num_locs = 3
+    pddl_ferry_procedural_test_max_num_locs = 5
+    pddl_ferry_procedural_test_min_num_cars = 1
+    pddl_ferry_procedural_test_max_num_cars = 2
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -243,6 +278,11 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+
+    # parameters for PG3 init approach
+    # These need to be overridden via command line
+    pg3_init_policy = None
+    pg3_init_base_env = None
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal

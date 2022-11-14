@@ -108,7 +108,7 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     if CFG.option_learner == "no_learning":
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
-    gt_nsrts = get_gt_nsrts(env.predicates, env.options)
+    gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     objects = list(traj.states[0])
     ground_nsrts = {
         ground_nsrt
