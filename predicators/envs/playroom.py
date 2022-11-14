@@ -33,7 +33,9 @@ class PlayroomEnv(BlocksEnv):
     door_r: ClassVar[float] = 5.0  # half of width
     door_button_z: ClassVar[float] = 3.0
     door_tol: ClassVar[float] = 0.5
-    dial_on_thresh: ClassVar[float] = 0.5
+    # dial_on_thresh: ClassVar[float] = 0.5
+    # Arbitary, hard function
+    dial_on_intervals: ClassVar[List[Tuple[float]]] = [(0.0, 0.05), (0.3, 0.4), (0.9, 1.0)]
     dial_r: ClassVar[float] = 3.0
     dial_button_z: ClassVar[float] = 1.0
     dial_tol: ClassVar[float] = 0.5
@@ -292,10 +294,15 @@ class PlayroomEnv(BlocksEnv):
 
     def _transition_dial(self, state: State) -> State:
         next_state = state.copy()
-        if state.get(self._dial, "level") < self.dial_on_thresh:
-            next_state.set(self._dial, "level", 1.0)
+        level = state.get(self._dial, "level")
+        lightIsOn = False
+        for (low, high) in self.dial_on_intervals:
+            if low <= level <= high:
+                lightIsOn = True
+        if not lightIsOn:
+            next_state.set(self._dial, "level", 0.35)
         else:
-            next_state.set(self._dial, "level", 0.0)
+            next_state.set(self._dial, "level", 0.1)
         return next_state
 
     @property
@@ -714,7 +721,11 @@ class PlayroomEnv(BlocksEnv):
     @staticmethod
     def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
         dial, = objects
-        return state.get(dial, "level") >= PlayroomEnv.dial_on_thresh
+        level = state.get(dial, "level")
+        for (low, high) in PlayroomEnv.dial_on_intervals:
+            if low <= level <= high:
+                return True
+        return False
 
     @staticmethod
     def _LightOff_holds(state: State, objects: Sequence[Object]) -> bool:
