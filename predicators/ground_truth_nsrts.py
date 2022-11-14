@@ -2357,8 +2357,8 @@ def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for NarrowPassageEnv."""
     robot_type, door_type, target_type = _get_types_by_names(
         CFG.env, ["robot", "door", "target"])
-    DoorIsOpen, TouchedGoal = _get_predicates_by_names(
-        CFG.env, ["DoorIsOpen", "TouchedGoal"])
+    DoorIsClosed, DoorIsOpen, TouchedGoal = _get_predicates_by_names(
+        CFG.env, ["DoorIsClosed", "DoorIsOpen", "TouchedGoal"])
     MoveToTarget, MoveAndOpenDoor = _get_options_by_names(
         CFG.env, ["MoveToTarget", "MoveAndOpenDoor"])
 
@@ -2394,11 +2394,15 @@ def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
     parameters = [robot, door]
     option_vars = [robot, door]
     option = MoveAndOpenDoor
-    preconditions = set()
+    preconditions = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
     add_effects = {
         LiftedAtom(DoorIsOpen, [door]),
     }
-    delete_effects = set()
+    delete_effects = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
     ignore_effects = set()
     move_and_open_door_nsrt = NSRT("MoveAndOpenDoor", parameters,
                                    preconditions, add_effects, delete_effects,

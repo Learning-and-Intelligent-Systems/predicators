@@ -63,6 +63,8 @@ class NarrowPassageEnv(BaseEnv):
                                       self._TouchedGoal_holds)
         self._DoorIsOpen = Predicate("DoorIsOpen", [self._door_type],
                                      self._DoorIsOpen_holds)
+        self._DoorIsClosed = Predicate("DoorIsClosed", [self._door_type],
+                                       self._DoorIsClosed_holds)
         # Options
         self._MoveToTarget = ParameterizedOption(
             "MoveToTarget",
@@ -125,7 +127,7 @@ class NarrowPassageEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._TouchedGoal, self._DoorIsOpen}
+        return {self._TouchedGoal, self._DoorIsOpen, self._DoorIsClosed}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -292,12 +294,9 @@ class NarrowPassageEnv(BaseEnv):
                                    objects: Sequence[Object],
                                    params: Array) -> bool:
         robot, door = objects
-        # If door is already open, just take one action that accomplishes nothing
+        # If door is already open, this is not initiable
         if self._DoorIsOpen_holds(state, [door]):
-            memory["action_plan"] = [
-                Action(np.array([0.0, 0.0, 0.0], dtype=np.float32))
-            ]
-            return True
+            return False
         # If robot is already within range of the door, just open the door
         if self._robot_near_door(state):
             memory["action_plan"] = [
@@ -403,6 +402,11 @@ class NarrowPassageEnv(BaseEnv):
         door = objects[0]
         return state.get(door, "open") == 1
 
+    def _DoorIsClosed_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        door = objects[0]
+        return state.get(door, "open") == 0
+
     def _coords_out_of_bounds(self, new_x: float, new_y: float) -> bool:
         if (self.x_lb <= new_x <= self.x_ub) and (self.y_lb <= new_y <=
                                                   self.y_ub):
@@ -419,7 +423,7 @@ class NarrowPassageEnv(BaseEnv):
                 return True
         # Check for collisions with closed doors.
         door, = state.get_objects(self._door_type)
-        if not self._DoorIsOpen_holds(state, [door]):
+        if self._DoorIsClosed_holds(state, [door]):
             door_geom = self._object_to_geom(door, state)
             if robot_geom.intersects(door_geom):
                 return True
@@ -461,6 +465,9 @@ class NarrowPassageEnv(BaseEnv):
                     width = (self.robot_radius + self.door_width_padding) * 2
                     height = (self.wall_thickness_half -
                               self.doorway_depth) * 2
-                self._static_geom_cache[obj] = utils.Rectangle(
-                    x=x, y=y, width=width, height=height, theta=0)
+                self._static_geom_cache[obj] = utils.Rectangle(x=x,
+                                                               y=y,
+                                                               width=width,
+                                                               height=height,
+                                                               theta=0)
         return self._static_geom_cache[obj]
