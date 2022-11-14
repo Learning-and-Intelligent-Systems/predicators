@@ -60,7 +60,7 @@ class JointInfo(NamedTuple):
         if self.is_circular:
             return False
         return self.jointLowerLimit > value - tol or \
-               value > self.jointUpperLimit + tol
+               value + tol > self.jointUpperLimit
 
 
 class JointState(NamedTuple):
