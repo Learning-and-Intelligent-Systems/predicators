@@ -10,10 +10,9 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, \
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
-from predicators.structs import GroundAtom, LiftedAtom, LowLevelTrajectory, \
-    Object, OptionSpec, ParameterizedOption, PartialNSRTAndDatastore, \
-    Predicate, Segment, STRIPSOperator, Task, Variable, \
-    _GroundSTRIPSOperator
+from predicators.structs import GroundAtom, LowLevelTrajectory, Object, \
+    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, \
+    STRIPSOperator, Task, Variable, _GroundSTRIPSOperator
 
 # Necessary images and ground operators, in reverse order. Also, if the chain
 # is not full-length, then the "best" operator that backchaining tried to use
@@ -120,7 +119,9 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
             # corresponds to the new_pnad we just induced.
             newly_added_pnad = None
             for new_p in new_pnads:
-                if new_p.op.add_effects == new_pnad.op.add_effects and new_p.op.parameters == new_pnad.op.parameters and new_p.option_spec == new_pnad.option_spec:
+                if new_p.op.add_effects == new_pnad.op.add_effects and \
+                    new_p.op.parameters == new_pnad.op.parameters and \
+                    new_p.option_spec == new_pnad.option_spec:
                     newly_added_pnad = new_p
             assert newly_added_pnad is not None
             new_pnads_with_keep_effs = self._get_pnads_with_keep_effects(
@@ -162,8 +163,8 @@ class _BackChainingEffectSearchOperator(_EffectSearchOperator):
         # Now look for an uncovered segment. If one cannot be found, this
         # method will automatically return None.
         for depth in range(max_chain_len + 1):
-            for seg_traj, atoms_seq, traj_goal, chain in backchaining_results:
-                image_chain, op_chain, last_used_op = chain
+            for seg_traj, _, _, chain in backchaining_results:
+                _, op_chain, _ = chain
                 if not (len(op_chain) > depth
                         or len(op_chain) == len(seg_traj)):
                     # We found an uncovered transition: we now need to return
@@ -210,7 +211,8 @@ class _EffectSearchHeuristic(abc.ABC):
         self._segmented_trajs = segmented_trajs
         self._backchain = backchain
         self._recompute_pnads_from_effects = _recompute_pnads_from_effects
-        self._clear_unnecessary_keep_effs_subs = _clear_unnecessary_keep_effs_subs
+        self._clear_unnecessary_keep_effs_subs = \
+            _clear_unnecessary_keep_effs_subs
         # We compute the total number of segments, which is also the
         # maximum number of operators that we will induce (since, in
         # the worst case, we induce a different operator for every
@@ -338,9 +340,6 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         final_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
         return final_pnads
 
-    # TODO: This code is literally the same as the superclass, except that
-    # we don't compute preconditions here. Is there a nicer SWE way to
-    # make this change without all this code duplication?
     @functools.lru_cache(maxsize=None)
     def _create_general_pnad_for_option(
             self, parameterized_option: ParameterizedOption
@@ -404,14 +403,6 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # If no match found, terminate.
             if pnad is None:
                 break
-
-            # TODO: Understand why TF this assertion fails so much!
-            # # Assert that this segment is in the PNAD's datastore.
-            # segs_in_pnad = {
-            #     datapoint[0]
-            #     for datapoint in pnad.datastore
-            # }
-            # assert segment in segs_in_pnad
 
             assert var_to_obj is not None
             obj_to_var = {v: k for k, v in var_to_obj.items()}
