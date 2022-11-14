@@ -67,7 +67,7 @@ ENVS:
   #   FLAGS:
   #     excluded_predicates: "Covers,Holding"
   #     max_num_steps_interaction_request: 3
-  playroom:
+  playroom-light-hard:
     NAME: "playroom"
     FLAGS:
       excluded_predicates: "LightOn,LightOff"
