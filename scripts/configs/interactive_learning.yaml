@@ -71,7 +71,7 @@ ENVS:
     NAME: "playroom"
     FLAGS:
       excluded_predicates: "LightOn,LightOff"
-      max_num_steps_interaction_request: 1000
+      max_num_steps_interaction_request: 30
 ARGS: {}
 FLAGS:  # common args
   num_online_learning_cycles: 100  # way too many cycles
