@@ -42,7 +42,7 @@ def _main() -> None:
     parser.add_argument("--time_per_conf",
                         type=float,
                         help="Time in seconds per joint command",
-                        default=0.5)
+                        default=1.0)
     args = parser.parse_args()
 
     with open(args.input, "rb") as f:
