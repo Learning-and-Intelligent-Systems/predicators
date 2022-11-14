@@ -403,11 +403,9 @@ class EffectSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
             pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                 segment, objects, pnads)
-
             # If no match found, terminate.
             if pnad is None:
                 break
-
             assert var_to_obj is not None
             obj_to_var = {v: k for k, v in var_to_obj.items()}
             assert len(var_to_obj) == len(obj_to_var)
