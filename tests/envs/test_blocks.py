@@ -51,6 +51,16 @@ def test_blocks():
             act = Pick.ground([robot, block], np.zeros(0)).policy(state)
             state = env.simulate(state, act)
             env.render_state(state, task, caption="caption")
+    # Test holding-only goals.
+    utils.reset_config({"env": "blocks", "blocks_holding_goals": True})
+    env = BlocksEnv()
+    for task in env.get_train_tasks():
+        assert len(task.goal) == 1
+        assert next(iter(task.goal)).predicate.name == "Holding"
+    for task in env.get_test_tasks():
+        assert len(task.goal) == 1
+        assert next(iter(task.goal)).predicate.name == "Holding"
+    assert {pred.name for pred in env.goal_predicates} == {"Holding"}
 
 
 def test_blocks_failure_cases():
