@@ -8,8 +8,9 @@ from typing import Dict, List, Set
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import ParameterizedOption, PartialNSRTAndDatastore, \
-    Segment, STRIPSOperator
+from predicators.structs import GroundAtom, Object, ParameterizedOption, \
+    PartialNSRTAndDatastore, Segment, STRIPSOperator, Variable, \
+    _GroundSTRIPSOperator
 
 
 class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
@@ -39,13 +40,9 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         # ignore effects contain all predicates, and effects are trivial.
         self._recompute_datastores_from_segments([pnad])
 
-        # Determine the initial preconditions via a lifted intersection.
-        preconditions = self._induce_preconditions_via_intersection(pnad)
-        pnad.op = pnad.op.copy_with(preconditions=preconditions)
-
         return pnad
 
-    def _spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
+    def spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
         """Given some segment with necessary add effects that a new PNAD must
         achieve, create such a PNAD ("spawn" from the most general one
         associated with the segment's option) so that it has the necessary add
@@ -100,7 +97,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         return new_pnad
 
     @staticmethod
-    def _get_pnads_with_keep_effects(
+    def get_pnads_with_keep_effects(
             pnad: PartialNSRTAndDatastore) -> Set[PartialNSRTAndDatastore]:
         """Return a new set of PNADs that include keep effects into the given
         PNAD."""
@@ -156,9 +153,33 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
             for segment in seg_traj:
                 segment.necessary_add_effects = None
 
+    def _update_pnad_seg_to_keep_effs(self, pnad: PartialNSRTAndDatastore,
+                                      necessary_image: Set[GroundAtom],
+                                      ground_op: _GroundSTRIPSOperator,
+                                      obj_to_var: Dict[Object, Variable],
+                                      segment: Segment) -> None:
+        """Updates the pnad's seg_to_keep_effs_sub dictionary, which is
+        necesssary for correctly grounding keep effects to data."""
+        # Every atom in the necessary_image that wasn't in the
+        # ground_op's add effects is a possible keep effect. This
+        # may add new variables, whose mappings for this segment
+        # we keep track of in the seg_to_keep_effects_sub dict.
+        for atom in necessary_image - ground_op.add_effects:
+            keep_eff_sub = {}
+            for obj in atom.objects:
+                if obj in obj_to_var:
+                    continue
+                new_var = utils.create_new_variables([obj.type],
+                                                     obj_to_var.values())[0]
+                obj_to_var[obj] = new_var
+                keep_eff_sub[new_var] = obj
+            pnad.poss_keep_effects.add(atom.lift(obj_to_var))
+            if segment not in pnad.seg_to_keep_effects_sub:
+                pnad.seg_to_keep_effects_sub[segment] = {}
+            pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
+
     @staticmethod
-    def _clear_unnecessary_keep_effs_sub(
-            pnad: PartialNSRTAndDatastore) -> None:
+    def clear_unnecessary_keep_effs_sub(pnad: PartialNSRTAndDatastore) -> None:
         """Clear unnecessary substitution values from the PNAD's
         seg_to_keep_effects_sub_dict.
 
@@ -269,7 +290,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
                     pnad.poss_keep_effects.clear()
-                    self._clear_unnecessary_keep_effs_sub(pnad)
+                    self.clear_unnecessary_keep_effs_sub(pnad)
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads)
@@ -373,7 +394,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 # these necessary add effects.
                 else:
                     nec_pnad_set_changed = True
-                    pnad = self._spawn_new_pnad(segment)
+                    pnad = self.spawn_new_pnad(segment)
                     param_opt_to_nec_pnads[option.parent].append(pnad)
 
                     # Recompute datastores for ALL PNADs associated with this
@@ -416,23 +437,9 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     ground_op = pnad.op.ground(
                         tuple(var_to_obj[var] for var in pnad.op.parameters))
 
-                # Every atom in the necessary_image that wasn't in the
-                # ground_op's add effects is a possible keep effect. This
-                # may add new variables, whose mappings for this segment
-                # we keep track of in the seg_to_keep_effects_sub dict.
-                for atom in necessary_image - ground_op.add_effects:
-                    keep_eff_sub = {}
-                    for obj in atom.objects:
-                        if obj in obj_to_var:
-                            continue
-                        new_var = utils.create_new_variables(
-                            [obj.type], obj_to_var.values())[0]
-                        obj_to_var[obj] = new_var
-                        keep_eff_sub[new_var] = obj
-                    pnad.poss_keep_effects.add(atom.lift(obj_to_var))
-                    if segment not in pnad.seg_to_keep_effects_sub:
-                        pnad.seg_to_keep_effects_sub[segment] = {}
-                    pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
+                self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
+                                                   ground_op, obj_to_var,
+                                                   segment)
 
                 # Update necessary_image for this timestep. It no longer
                 # needs to include the ground add effects of this PNAD, but
@@ -476,7 +483,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             for pnad in nec_pnad_list:
                 self._compute_pnad_delete_effects(pnad)
                 self._compute_pnad_ignore_effects(pnad)
-                pnads_with_keep_effects |= self._get_pnads_with_keep_effects(
+                pnads_with_keep_effects |= self.get_pnads_with_keep_effects(
                     pnad)
             param_opt_to_nec_pnads[option].extend(
                 list(pnads_with_keep_effects))

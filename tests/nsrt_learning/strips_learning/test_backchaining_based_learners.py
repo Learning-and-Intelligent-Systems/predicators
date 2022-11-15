@@ -10,10 +10,10 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
-from predicators.nsrt_learning.strips_learning.effect_search_learner import \
-    EffectSearchSTRIPSLearner
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
+from predicators.nsrt_learning.strips_learning.pnad_search_learner import \
+    PNADSearchSTRIPSLearner
 from predicators.settings import CFG
 from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
     PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
@@ -25,10 +25,10 @@ longrun = pytest.mark.skipif("not config.getoption('longrun')")
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def spawn_new_pnad(self, necessary_add_effects, segment):
+    def spawn_new_pnad_with_nec_add(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
-        return self._spawn_new_pnad(segment)
+        return self.spawn_new_pnad(segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -58,10 +58,9 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
 
 @pytest.mark.parametrize(
-    "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
 def test_backchaining_strips_learner(approach_cls):
-    """Test the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearner on a
+    """Test the BackchainingSTRIPSLearner and PNADSearchSTRIPSLearner on a
     simple problem."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the structs.
@@ -152,7 +151,7 @@ def test_backchaining_strips_learner(approach_cls):
 
 @pytest.mark.parametrize("approach_name,approach_cls",
                          [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("effects_search", EffectSearchSTRIPSLearner)])
+                          ("effects_search", PNADSearchSTRIPSLearner)])
 def test_backchaining_strips_learner_order_dependence(approach_name,
                                                       approach_cls):
     """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearns are
@@ -630,7 +629,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
         assert op in set(pnad.op for pnad in reverse_order_pnads)
 
 
-def test_spawn_new_pnad():
+def testspawn_new_pnad():
     """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
 
     Also, test the finding of a unification necessary for specializing,
@@ -684,20 +683,20 @@ def test_spawn_new_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Ignore Effects: [Asleep, Happy]"""
-    new_pnad = learner.spawn_new_pnad({Asleep([bob])},
-                                      Segment(traj, {Happy([bob])},
-                                              {Asleep([bob])}, Move))
+    new_pnad = learner.spawn_new_pnad_with_nec_add({Asleep([bob])},
+                                                   Segment(
+                                                       traj, {Happy([bob])},
+                                                       {Asleep([bob])}, Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
 
 
 @pytest.mark.parametrize(
-    "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
 def test_keep_effect_data_partitioning(approach_cls):
-    """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearner
-    are able to correctly induce operators with keep effects in a case where a
+    """Test that the BackchainingSTRIPSLearner and PNADSearchSTRIPSLearner are
+    able to correctly induce operators with keep effects in a case where a
     naive procedure that does not keep the original operators (without keep
     effects) would fail.
 
@@ -862,7 +861,7 @@ def test_keep_effect_data_partitioning(approach_cls):
 
 @pytest.mark.parametrize("approach_name,approach_cls",
                          [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("effects_search", EffectSearchSTRIPSLearner)])
+                          ("effects_search", PNADSearchSTRIPSLearner)])
 def test_combinatorial_keep_effect_data_partitioning(approach_name,
                                                      approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
@@ -1127,8 +1126,7 @@ def test_combinatorial_keep_effect_data_partitioning(approach_name,
 
 
 @pytest.mark.parametrize(
-    "approach_cls",
-    [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner])
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
 def test_keep_effect_adding_new_variables(approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
@@ -1244,7 +1242,7 @@ def test_keep_effect_adding_new_variables(approach_cls):
 
 @pytest.mark.parametrize("approach_cls, val",
                          [(_MockBackchainingSTRIPSLearner, 0.0),
-                          (EffectSearchSTRIPSLearner, 1.0)])
+                          (PNADSearchSTRIPSLearner, 1.0)])
 def test_multi_pass_backchaining(approach_cls, val):
     """Test that the BackchainingSTRIPSLearner does multiple passes of
     backchaining, which is needed to ensure harmlessness."""
@@ -1352,7 +1350,7 @@ def test_multi_pass_backchaining(approach_cls, val):
 
 @pytest.mark.parametrize("approach_name, approach_cls",
                          [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("effect_search", EffectSearchSTRIPSLearner)])
+                          ("effect_search", PNADSearchSTRIPSLearner)])
 def test_segment_not_in_datastore(approach_name, approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
@@ -1476,7 +1474,7 @@ def test_segment_not_in_datastore(approach_name, approach_cls):
 @pytest.mark.parametrize(
     "approach_cls,use_single_option,num_demos,seed_offset",
     itertools.product(
-        [_MockBackchainingSTRIPSLearner, EffectSearchSTRIPSLearner],
+        [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner],
         [True, False], [1, 2, 3, 4], range(250)))
 def test_backchaining_randomly_generated(approach_cls, use_single_option,
                                          num_demos, seed_offset):
