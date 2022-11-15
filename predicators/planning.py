@@ -891,6 +891,10 @@ def _sesame_plan_with_fast_downward(
         "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+    # Run to generate sas
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
+               f"--sas-file {sas_file} {dom_file} {prob_file}")
+    output = subprocess.getoutput(cmd_str)
     while True:
         cmd_str = (
                 f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
@@ -903,7 +907,6 @@ def _sesame_plan_with_fast_downward(
         metrics: Metrics = defaultdict(float)
         num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
         num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-        import ipdb; ipdb.set_trace()
         assert len(num_nodes_expanded) == 1
         assert len(num_nodes_created) == 1
         metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
@@ -942,6 +945,12 @@ def _sesame_plan_with_fast_downward(
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                             necessary_atoms_seq, seed,
                                             low_level_timeout, max_horizon)
+            if not suc:
+                if time.perf_counter() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in refinement!")
+                raise PlanningFailure("Skeleton produced by FD not refinable!")
+            metrics["plan_length"] = len(plan)
+            return plan, metrics
         except _DiscoveredFailureException as e:
             # If we get a DiscoveredFailure, give up. Note that we cannot
             # modify the NSRTs as we do in SeSamE with A*, because we don't ever
@@ -949,12 +958,8 @@ def _sesame_plan_with_fast_downward(
             metrics["num_failures_discovered"] += 1
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
             #raise PlanningFailure("Got a DiscoveredFailure when using FD!")
-        if not suc:
-            if time.perf_counter() - start_time > timeout:
-                raise PlanningTimeout("Planning timed out in refinement!")
-            raise PlanningFailure("Skeleton produced by FD not refinable!")
-        metrics["plan_length"] = len(plan)
-        return plan, metrics
+        except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
+            raise e
 
 
 class PlanningFailure(utils.ExceptionWithInfo):
