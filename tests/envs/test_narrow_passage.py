@@ -156,6 +156,7 @@ def test_narrow_passage_options():
     # Set up environment
     utils.reset_config({
         "env": "narrow_passage",
+        "narrow_passage_passage_width_padding": 0.02,
         # "render_state_dpi": 150,  # uncomment for higher-res test videos
     })
     env = NarrowPassageEnv()

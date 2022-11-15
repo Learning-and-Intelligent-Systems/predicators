@@ -236,6 +236,8 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
+    narrow_passage_door_width_padding = 0.075
+    narrow_passage_passage_width_padding = 2e-4
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
