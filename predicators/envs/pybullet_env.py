@@ -25,7 +25,6 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
@@ -56,6 +55,9 @@ class PyBulletEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Controls the maximum end effector change between time steps.
+        self._max_vel_norm = CFG.pybullet_max_vel_norm
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
