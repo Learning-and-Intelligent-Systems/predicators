@@ -100,7 +100,10 @@ class PG3Approach(NSRTLearningApproach):
         heuristic = self._create_heuristic()
 
         # Initialize the search.
-        initial_state = self._get_policy_search_initial_ldl()
+        candidate_initial_states = self._get_policy_search_initial_ldls()
+
+        # For now: pick the best initial state according to the heuristic.
+        initial_state = min(candidate_initial_states, key=heuristic)
 
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
@@ -173,10 +176,10 @@ class PG3Approach(NSRTLearningApproach):
         return cls(preds, nsrts, self._train_tasks)
 
     @staticmethod
-    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
         # Initialize with an empty list by default, but subclasses may
         # override.
-        return LiftedDecisionList([])
+        return [LiftedDecisionList([])]
 
 
 ############################## Search Operators ###############################
@@ -281,9 +284,12 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
         for pred in sorted(self._predicates):
             # Create fresh variables for the predicate to complement the
             # variables that already exist in the rule.
-            new_vars = utils.create_new_variables(pred.types, variables)
+            # TODO: make this a flag?
+            # new_vars = utils.create_new_variables(pred.types, variables)
+            # for condition in utils.get_all_lifted_atoms_for_predicate(
+            #         pred, variables | frozenset(new_vars)):
             for condition in utils.get_all_lifted_atoms_for_predicate(
-                    pred, variables | frozenset(new_vars)):
+                    pred, variables):
                 conditions.append(condition)
         return conditions
 

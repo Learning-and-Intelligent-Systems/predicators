@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict, Set
+from typing import Dict, List, Set
 
 import dill as pkl
 import smepy
@@ -52,7 +52,7 @@ class InitializedPG3Approach(PG3Approach):
         return "initialized_pg3"
 
     @staticmethod
-    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
         # Create base and target envs.
         base_env_name = CFG.pg3_init_base_env
         target_env_name = CFG.env
@@ -85,12 +85,14 @@ class InitializedPG3Approach(PG3Approach):
         # Determine an analogical mapping between the current env and the
         # base env that the initialized policy originates from.
         
-        analogy = _find_env_analogy(base_env, target_env, base_nsrts,
-                                    target_nsrts)
-        # Use the analogy to create an initial policy for the target env.
-        target_policy = _apply_analogy_to_ldl(analogy, base_policy)
-        # Initialize PG3 search with this new target policy.
-        return target_policy
+        target_policies = []
+        for analogy in _find_env_analogies(base_env, target_env, base_nsrts,
+                                           target_nsrts):
+            # Use the analogy to create an initial policy for the target env.
+            target_policy = _apply_analogy_to_ldl(analogy, base_policy)
+            # Initialize PG3 search with this new target policy.
+            target_policies.append(target_policy)
+        return target_policies
 
 
 @dataclass(frozen=True)
@@ -132,15 +134,15 @@ def to_sme_struct(pddl, name):
 
     return smepy.StructCase(actions, name), vars
 
-def run_magic_analogy_machine(base_pddl, target_pddl, max_mappings=1):
+def run_magic_analogy_machine(base_pddl, target_pddl, max_mappings=5):
     smepy.declare_nary("and") # necessary to interpret the files properly
     base_struct, base_vars = to_sme_struct(base_pddl, "base")
     target_struct, target_vars = to_sme_struct(target_pddl, "target")
 
     sme = smepy.SME(base_struct, target_struct, max_mappings=max_mappings)
     gms = sme.match()
-
-    return {'mappings': gms[0], 'base_vars': base_vars, 'target_vars': target_vars}
+    for gm in gms:
+        yield {'mappings': gm, 'base_vars': base_vars, 'target_vars': target_vars}
 
 def find_among_predicates(name, env):
     """
@@ -196,9 +198,9 @@ def parse_analogy_result(matching_result, base_env, base_nsrts, target_env, targ
     return predicate_map, nsrt_map, var_map
 
 
-def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
+def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                       base_nsrts: Set[NSRT],
-                      target_nsrts: Set[NSRT]) -> _Analogy:
+                      target_nsrts: Set[NSRT]) -> List[_Analogy]:
     # Create PDDL domains from environments.
     # base_pddl = utils.create_pddl_domain(base_nsrts, base_env.predicates,
     #                                      base_env.types, base_env.get_name())
@@ -206,14 +208,15 @@ def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
     #                                        target_env.types,
     #                                        target_env.get_name())
     # Call external module to find analogy.
-    # TODO (not sure exactly what form this will take)
-    analogy_result = run_magic_analogy_machine(base_env, target_env)
+    analogy_results = run_magic_analogy_machine(base_env, target_env)
     # Parse the results of the external module back into our data structures.
-    # TODO
-    predicate_map, nsrt_map, var_map = parse_analogy_result(analogy_result['mappings'], base_env, base_nsrts, target_env,  \
-                                            target_nsrts, analogy_result['base_vars'], analogy_result['target_vars'])
-    
-    return _Analogy(predicate_map, nsrt_map, var_map)
+    analogies = []
+    for analogy_result in analogy_results:
+        predicate_map, nsrt_map, var_map = parse_analogy_result(analogy_result['mappings'], base_env, base_nsrts, target_env,  \
+                                                target_nsrts, analogy_result['base_vars'], analogy_result['target_vars'])
+        analogy = _Analogy(predicate_map, nsrt_map, var_map)
+        analogies.append(analogy)
+    return analogies
 
 
 def _apply_analogy_to_ldl(analogy: _Analogy,
@@ -221,9 +224,6 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
     new_rules = []
     for rule in ldl.rules:
         new_rule_name = rule.name
-        new_rule_parameters = [
-            _apply_analogy_to_variable(analogy, p) for p in rule.parameters
-        ]
         new_rule_pos_preconditions = _apply_analogy_to_atoms(
             analogy, rule.pos_state_preconditions)
         new_rule_neg_preconditions = _apply_analogy_to_atoms(
@@ -236,6 +236,11 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
             # If we couldn't match the operator, skip this rule
             continue
         
+        new_rule_parameters_set = {p for a in new_rule_pos_preconditions | new_rule_neg_preconditions | new_rule_goal_preconditions
+                                   for p in a.variables}
+        new_rule_parameters_set.update(new_rule_nsrt.parameters)
+        new_rule_parameters = sorted(new_rule_parameters_set)
+
 
         new_rule = LDLRule(new_rule_name, new_rule_parameters,
                            new_rule_pos_preconditions.union({x for x in new_rule_nsrt.preconditions if x not in new_rule_pos_preconditions}),  # we would never want to suggest an action that’s actually not applicable in the current state, but it can happen that not everything is mapped between domains
