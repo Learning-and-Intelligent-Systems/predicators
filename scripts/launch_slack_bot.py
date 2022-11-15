@@ -382,6 +382,8 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     host_name = socket.gethostname()
     bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
     assert f"<@{bot_user_id}" in query
+    print("original query:")
+    print(query)
     query = query.replace(f"<@{bot_user_id}>", "").strip()
     # To use Slackbot reminders.
     if query.startswith("Reminder:"):
