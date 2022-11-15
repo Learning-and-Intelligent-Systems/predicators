@@ -196,7 +196,8 @@ def test_segment_trajectory():
 
 
 @pytest.mark.parametrize("env", [
-    "stick_button", "cover_multistep_options", "doors", "coffee", "touch_point"
+    "stick_button", "cover_multistep_options", "doors", "coffee",
+    "touch_point", "blocks"
 ])
 def test_contact_based_segmentation(env):
     """Tests for contact-based segmentation."""
