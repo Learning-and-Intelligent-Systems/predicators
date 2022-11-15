@@ -381,13 +381,13 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     home_dir = os.path.expanduser("~")
     host_name = socket.gethostname()
     bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
+    assert f"<@{bot_user_id}" in query
+    query = query.replace(f"<@{bot_user_id}>", "").strip()
     # To use Slackbot reminders.
     if query.startswith("Reminder:"):
         assert query.endswith(".")
-        query = query[len("Reminder:"):-len(".")]
+        query = query[len(f"Reminder: @{bot_user_id}"):-len(".")]
         query = query.strip()
-    assert f"<@{bot_user_id}" in query
-    query = query.replace(f"<@{bot_user_id}>", "").strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.
