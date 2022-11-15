@@ -54,7 +54,7 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
     def reset_all_segment_add_effs(self):
         """Exposed for testing."""
-        return self._reset_all_segment_add_effs()
+        return self._reset_all_segment_necessary_add_effs()
 
 
 @pytest.mark.parametrize(
@@ -308,7 +308,7 @@ def test_backchaining_strips_learner_order_dependence(approach_name,
     else:
         utils.reset_config({
             "approach": "nsrt_learning",
-            "strips_learner": "effect_search",
+            "strips_learner": "pnad_search",
             # Following are necessary to solve this case.
             "data_orderings_to_search": 1,
             "enable_harmless_op_pruning": False
@@ -1350,7 +1350,7 @@ def test_multi_pass_backchaining(approach_cls, val):
 
 @pytest.mark.parametrize("approach_name, approach_cls",
                          [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("effect_search", PNADSearchSTRIPSLearner)])
+                          ("pnad_search", PNADSearchSTRIPSLearner)])
 def test_segment_not_in_datastore(approach_name, approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't

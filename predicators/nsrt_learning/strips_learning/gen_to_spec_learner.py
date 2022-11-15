@@ -144,7 +144,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
 
         return new_pnads_with_keep_effects
 
-    def _reset_all_segment_add_effs(self) -> None:
+    def _reset_all_segment_necessary_add_effs(self) -> None:
         """Reset all segments' necessary_add_effects to None."""
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
@@ -179,13 +179,14 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
             pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
 
     @staticmethod
-    def clear_unnecessary_keep_effs_sub(pnad: PartialNSRTAndDatastore) -> None:
-        """Clear unnecessary substitution values from the PNAD's
-        seg_to_keep_effects_sub_dict.
+    def clear_unnecessary_keep_effs(pnad: PartialNSRTAndDatastore) -> None:
+        """Clear the poss_keep_effects, as well as unnecessary substitution
+        values from the PNAD's seg_to_keep_effects_sub_dict.
 
         A substitution is unnecessary if it concerns a variable that
         isn't in the PNAD's op parameters.
         """
+        pnad.poss_keep_effects.clear()
         for segment, keep_eff_sub in pnad.seg_to_keep_effects_sub.items():
             new_keep_eff_sub_dict = {}
             for var, obj in keep_eff_sub.items():
@@ -289,8 +290,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # method that handles this correctly.
             for pnads in param_opt_to_nec_pnads.values():
                 for pnad in pnads:
-                    pnad.poss_keep_effects.clear()
-                    self.clear_unnecessary_keep_effs_sub(pnad)
+                    self.clear_unnecessary_keep_effs(pnad)
             # Run one pass of backchaining.
             nec_pnad_set_changed = self._backchain_one_pass(
                 param_opt_to_nec_pnads)
@@ -309,7 +309,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         """
         # Reset all segments' necessary_add_effects so that they aren't
         # accidentally used from a previous iteration of backchaining.
-        self._reset_all_segment_add_effs()
+        self._reset_all_segment_necessary_add_effs()
         nec_pnad_set_changed = False
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):

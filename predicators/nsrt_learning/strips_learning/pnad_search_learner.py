@@ -1,4 +1,4 @@
-"""Learn operators by searching over sets of add PNAD sets."""
+"""Learn operators by searching over sets of PNADs."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # backchaining.
         for pnad in new_pnads:
             pnad.poss_keep_effects.clear()
-            self._learner.clear_unnecessary_keep_effs_sub(pnad)
+            self._learner.clear_unnecessary_keep_effs(pnad)
         # We rerun backchaining to make sure the seg_to_keep_effects_sub
         # is up-to-date.
         self._get_backchaining_results(new_pnads)
@@ -91,7 +91,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         assert newly_added_pnad is not None
         new_pnads_with_keep_effs = self._learner.get_pnads_with_keep_effects(
             newly_added_pnad)
-        new_pnads += sorted(list(new_pnads_with_keep_effs))
+        new_pnads += sorted(new_pnads_with_keep_effs)
         # We recompute pnads again here to delete keep effect operators
         # that are unnecessary.
         new_pnads = self._learner.recompute_pnads_from_effects(new_pnads)
@@ -185,7 +185,7 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
                  curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
         # Start by recomputing all PNADs from their effects.
         recomp_curr_pnads = self._learner.recompute_pnads_from_effects(
-            sorted(list(curr_pnads)))
+            sorted(curr_pnads))
         # Next, run backchaining using these PNADs.
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -217,7 +217,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
     @classmethod
     def get_name(cls) -> str:
-        return "effect_search"
+        return "pnad_search"
 
     def recompute_pnads_from_effects(
             self, pnads: List[PartialNSRTAndDatastore]
@@ -285,7 +285,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         # Recompute these PNADs so that they exactly match the PNADs used
         # to compute the final heuristic.
         recomp_final_pnads = self.recompute_pnads_from_effects(
-            sorted(list(final_pnads)))
+            sorted(final_pnads))
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
