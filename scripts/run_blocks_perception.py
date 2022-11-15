@@ -356,6 +356,26 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
         p.resetBasePositionAndOrientation(block_id, [bx, by, bz],
                                           orientation,
                                           physicsClientId=physics_client_id)
+    # Draw the workspace on the table for clarity.
+    ws_x_lb, ws_x_ub = PyBulletBlocksEnv.x_lb, PyBulletBlocksEnv.x_ub
+    ws_y_lb, ws_y_ub = PyBulletBlocksEnv.y_lb, PyBulletBlocksEnv.y_ub
+    table_height = PyBulletBlocksEnv.table_height
+    p.addUserDebugLine([ws_x_lb, ws_y_lb, table_height],
+                       [ws_x_ub, ws_y_lb, table_height], [1.0, 0.0, 0.0],
+                       lineWidth=5.0,
+                       physicsClientId=physics_client_id)
+    p.addUserDebugLine([ws_x_lb, ws_y_ub, table_height],
+                       [ws_x_ub, ws_y_ub, table_height], [1.0, 0.0, 0.0],
+                       lineWidth=5.0,
+                       physicsClientId=physics_client_id)
+    p.addUserDebugLine([ws_x_lb, ws_y_lb, table_height],
+                       [ws_x_lb, ws_y_ub, table_height], [1.0, 0.0, 0.0],
+                       lineWidth=5.0,
+                       physicsClientId=physics_client_id)
+    p.addUserDebugLine([ws_x_ub, ws_y_lb, table_height],
+                       [ws_x_ub, ws_y_ub, table_height], [1.0, 0.0, 0.0],
+                       lineWidth=5.0,
+                       physicsClientId=physics_client_id)
 
     while True:
         time.sleep(0.01)

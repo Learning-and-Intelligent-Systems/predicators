@@ -16,7 +16,7 @@ python scripts/run_blocks_perception.py \
         --goal $DATA_DIR/goal-$TASK_NUM.json \
         --extrinsics $DATA_DIR/extrinsics.json \
         --intrinsics $DATA_DIR/intrinsics.json \
-        --output $OUTPUT --debug_viz
+        --output $OUTPUT
 
 echo "Running planning with oracle models."
 python predicators/main.py --env pybullet_blocks --approach oracle --seed 0 \
