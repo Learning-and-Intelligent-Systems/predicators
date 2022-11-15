@@ -350,9 +350,10 @@ def _get_response_object(query: str, inquirer: str) -> Response:
     Return an instantiation of that class.
     """
     # To use Slackbot reminders.
-    if query.startswith("Reminder: "):
+    if query.startswith("Reminder:"):
         assert query.endswith(".")
-        query = query[len("Reminder: "):-len(".")]
+        query = query[len("Reminder:"):-len(".")]
+        query = query.strip()
     match = re.match(r"(analysis|analyze|progress|launch) (\w+)", query)
     if match is not None:
         if match.groups()[0] in ("analysis", "analyze"):
