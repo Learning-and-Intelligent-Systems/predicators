@@ -106,8 +106,6 @@ class _Analogy:
     # All maps are base -> target.
     predicates: Dict[Predicate, Predicate]
     nsrts: Dict[NSRT, NSRT]
-    types: Dict[Type, Type]
-    # TODO: see if we can remove (I think we can)
     variables: Dict[Variable, Variable]
 
 
@@ -138,9 +136,9 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
         # Can't create a rule if there is no NSRT match.
         if rule.nsrt not in analogy.nsrts:
             continue
-        # Can't create a rule if there is no type match.
-        if not all(p.type in analogy.types for p in rule.parameters):
-            continue
+        # Can't create a rule if there is no variable match.
+        # if not all(v in analogy.variables for v in rule.parameters):
+        #     continue
         new_rule_name = rule.name
         new_rule_nsrt = analogy.nsrts[rule.nsrt]
         new_rule_pos_preconditions = _apply_analogy_to_atoms(
@@ -184,7 +182,10 @@ def _apply_analogy_to_atoms(analogy: _Analogy,
 
 def _apply_analogy_to_variable(analogy: _Analogy,
                                variable: Variable) -> Variable:
-    return Variable(variable.name, analogy.types[variable.type])
+    if variable in analogy.variables:
+        return analogy.variables[variable]
+    # TODO: why does this make sense? I don't think it does...
+    return variable
 
 
 def _create_sme_inputs(
@@ -227,7 +228,6 @@ def _sme_mapping_to_analogy(
     analogy_maps: Dict[str, Dict[str, Any]] = {
         "predicates": {},
         "nsrts": {},
-        "types": {},
         "variables": {}
     }
 
@@ -238,7 +238,6 @@ def _sme_mapping_to_analogy(
     assert set(base_names_to_instances) == set(target_names_to_instances)
     assert set(base_names_to_instances) == set(analogy_maps)
 
-    match_found = False
     for match in sme_mapping.entity_matches():
         base_name = match.base.name
         target_name = match.target.name
@@ -249,15 +248,14 @@ def _sme_mapping_to_analogy(
                 base_instance = base_map[base_name]
                 target_instance = target_map[target_name]
                 analogy_maps[group][base_instance] = target_instance
-                match_found = True
-        if match_found:
-            break
+                break
 
     # Ignore types in favor of a more concise class instantiation.
     return _Analogy(**analogy_maps)  # type: ignore
 
 
 def _atom_to_s_exp(atom: LiftedAtom, nsrt_name: str) -> str:
+    # TODO: use rule names instead of NSRT names to ensure uniqueness.
     # The NSRT name is used to rename the variables.
     pred = atom.predicate
     var_exps = [_variable_to_s_exp(v, nsrt_name) for v in atom.variables]
@@ -275,11 +273,9 @@ def _create_name_to_instances(
         var_name_to_var: Dict[str, Variable]) -> Dict[str, Dict[str, Any]]:
     # Helper for _sme_mapping_to_analogy().
     pred_name_to_pred = {p.name: p for p in env.predicates}
-    type_name_to_type = {t.name: t for t in env.types}
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
     names_to_instances: Dict[str, Dict[str, Any]] = {
         "predicates": pred_name_to_pred,
-        "types": type_name_to_type,
         "nsrts": nsrt_name_to_nsrt,
         "variables": var_name_to_var,
     }
