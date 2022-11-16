@@ -382,8 +382,11 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     host_name = socket.gethostname()
     bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
     # Parse at the last occurence of "{bot_user_id}>".
-    start_idx = query.rfind(f"{bot_user_id}>")
-    query = query[start_idx:].strip()
+    start_str = f"{bot_user_id}>"
+    start_idx = query.rfind(start_str)
+    query = query[start_idx + len(start_str):]
+    query = query.replace(".", "")  # slackbot reminders end with periods
+    query = query.strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.
