@@ -144,10 +144,14 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
     def get_successors(
         self, pnads: FrozenSet[PartialNSRTAndDatastore]
     ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
-        # NOTE: Sorting done here to maintain determinism.
-        for pnad_to_remove in sorted(pnads,
-                                     key=lambda p: len(p.op.add_effects)):
-            yield frozenset([pnad for pnad in pnads if pnad != pnad_to_remove])
+        sorted_pnad_list = sorted(pnads)
+        for pnad_to_remove in sorted_pnad_list:
+            pnads_after_removal = [
+                pnad for pnad in sorted_pnad_list if pnad != pnad_to_remove
+            ]
+            recomp_pnads = self._learner.recompute_pnads_from_effects(
+                pnads_after_removal)
+            yield frozenset(recomp_pnads)
 
 
 class _PNADSearchHeuristic(abc.ABC):
@@ -183,16 +187,13 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
 
     def __call__(self,
                  curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
-        # Start by recomputing all PNADs from their effects.
-        recomp_curr_pnads = self._learner.recompute_pnads_from_effects(
-            sorted(curr_pnads))
         # Next, run backchaining using these PNADs.
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
                                      self._segmented_trajs):
             if ll_traj.is_demo:
                 traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-                chain = self._learner.backchain(seg_traj, recomp_curr_pnads,
+                chain = self._learner.backchain(seg_traj, sorted(curr_pnads),
                                                 traj_goal)
                 assert len(chain) <= len(seg_traj)
                 uncovered_transitions += len(seg_traj) - len(chain)
@@ -208,7 +209,7 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
         # accurate measures that also take into account the add effects,
         # arity, etc. (though this might involve changing the weighting
         # of the coverage term).
-        complexity_term = len(recomp_curr_pnads)
+        complexity_term = len(curr_pnads)
         return coverage_term + complexity_term
 
 
@@ -282,8 +283,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Extract the best PNADs set.
         final_pnads = path[-1]
-        # Recompute these PNADs so that they exactly match the PNADs used
-        # to compute the final heuristic.
+        # NOTE: Unclear why the below call is necessary... To be investigated.
+        # Recompute these PNADs.
         recomp_final_pnads = self.recompute_pnads_from_effects(
             sorted(final_pnads))
         # Fix naming.
