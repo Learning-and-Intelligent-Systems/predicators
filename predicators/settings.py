@@ -65,6 +65,7 @@ class GlobalSettings:
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
     blocks_test_task_json_dir = None
+    blocks_holding_goals = False
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -112,6 +113,22 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_max_vel_norm = 0.05
+    # env -> robot -> quaternion
+    pybullet_robot_ee_orns = defaultdict(
+        # Fetch and Panda gripper down and parallel to x-axis by default.
+        lambda: {
+            "fetch": (0.5, -0.5, -0.5, -0.5),
+            "panda": (0.7071, 0.7071, 0.0, 0.0),
+        },
+        # In Blocks, Fetch gripper down since it's thin we don't need to
+        # rotate 90 degrees.
+        {
+            "pybullet_blocks": {
+                "fetch": (0.7071, 0.0, -0.7071, 0.0),
+                "panda": (0.7071, 0.7071, 0.0, 0.0),
+            }
+        })
 
     # IKFast parameters
     ikfast_max_time = 0.05
@@ -219,6 +236,11 @@ class GlobalSettings:
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
+
+    # narrow_passage env parameters
+    narrow_passage_birrt_num_attempts = 10
+    narrow_passage_birrt_num_iters = 100
+    narrow_passage_birrt_smooth_amt = 50
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]

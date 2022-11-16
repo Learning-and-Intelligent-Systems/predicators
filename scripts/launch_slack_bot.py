@@ -383,6 +383,14 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     bot_user_id = app.client.auth_test().data["user_id"]  # type: ignore
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
+    # Special case: reminder from slackbot.
+    reminder_str = "predicatorobot>"
+    if reminder_str in query:
+        assert query.endswith(".")
+        start_idx = query.rfind(reminder_str) + len(reminder_str)
+        query = query[start_idx:]
+        query = query[:-1]
+        query = query.strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.

@@ -316,7 +316,7 @@ class _KinematicActionConverter(_ActionConverter):
         # Inverse kinematics.
         x, y, z, fingers = reduced_action_arr
         try:
-            joints = self._robot.set_joints_with_ik((x, y, z), validate=True)
+            joints = self._robot.inverse_kinematics((x, y, z), validate=True)
         except InverseKinematicsError:
             raise OptionExecutionFailure("IK failure in action conversion.")
         joints[self._robot.left_finger_joint_idx] = fingers
