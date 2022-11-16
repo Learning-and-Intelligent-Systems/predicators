@@ -116,18 +116,28 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
                           ldl: LiftedDecisionList) -> LiftedDecisionList:
     new_rules = []
     for rule in ldl.rules:
+        # Can't create a rule if there is no NSRT match.
+        if rule.nsrt not in analogy.nsrts:
+            continue
+        # Can't create a rule if there is no type match.
+        if not all(p.type in analogy.types for p in rule.parameters):
+            continue
         new_rule_name = rule.name
-        new_rule_parameters = [
+        new_rule_nsrt = analogy.nsrts[rule.nsrt]
+        new_rule_params = [
             _apply_analogy_to_variable(analogy, p) for p in rule.parameters
         ]
+        assert set(new_rule_params).issuperset(set(new_rule_nsrt.parameters))
         new_rule_pos_preconditions = _apply_analogy_to_atoms(
             analogy, rule.pos_state_preconditions)
+        # Always add the NSRT preconditions because we would never want to
+        # take an action that's inapplicable in a current state.
+        new_rule_pos_preconditions.update(new_rule_nsrt.preconditions)
         new_rule_neg_preconditions = _apply_analogy_to_atoms(
             analogy, rule.neg_state_preconditions)
         new_rule_goal_preconditions = _apply_analogy_to_atoms(
             analogy, rule.goal_preconditions)
-        new_rule_nsrt = analogy.nsrts[rule.nsrt]
-        new_rule = LDLRule(new_rule_name, new_rule_parameters,
+        new_rule = LDLRule(new_rule_name, new_rule_params,
                            new_rule_pos_preconditions,
                            new_rule_neg_preconditions,
                            new_rule_goal_preconditions, new_rule_nsrt)
@@ -142,6 +152,9 @@ def _apply_analogy_to_atoms(analogy: _Analogy,
         new_variables = [
             _apply_analogy_to_variable(analogy, v) for v in atom.variables
         ]
+        # Can't create an atom if there is no predicate match.
+        if atom.predicate not in analogy.predicates:
+            continue
         new_predicate = analogy.predicates[atom.predicate]
         new_atoms.add(LiftedAtom(new_predicate, new_variables))
     return new_atoms
