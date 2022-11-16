@@ -30,7 +30,7 @@ def test_initialized_pg3_approach():
     pick_up_nsrt = name_to_nsrt["pick-up"]
 
     pick_up_rule = LDLRule(name="PickUp",
-                           parameters=pick_up_nsrt.parameters,
+                           parameters=sorted(pick_up_nsrt.parameters),
                            pos_state_preconditions=set(
                                pick_up_nsrt.preconditions),
                            neg_state_preconditions=set(),
@@ -63,7 +63,7 @@ def test_initialized_pg3_approach():
     # Test loading from file.
     ldl_str = """(define (policy delivery-individual-policy)
 	(:rule rule1 
-		:parameters (?paper - paper ?loc - loc)
+		:parameters (?loc - loc ?paper - paper)
         :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
         :goals ()
 		:action (pick-up ?paper ?loc)
@@ -134,7 +134,7 @@ def test_apply_analogy_to_ldl():
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     pick_up_nsrt = name_to_nsrt["pick-up"]
     pick_up_rule = LDLRule(name="PickUp",
-                           parameters=pick_up_nsrt.parameters,
+                           parameters=sorted(pick_up_nsrt.parameters),
                            pos_state_preconditions=set(
                                pick_up_nsrt.preconditions),
                            neg_state_preconditions=set(),
@@ -161,7 +161,7 @@ def test_apply_analogy_to_ldl():
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert str(new_ldl) == """LiftedDecisionList[
 LDLRule-PickUp:
-    Parameters: [?paper:paper, ?loc:loc]
+    Parameters: [?loc:loc, ?paper:paper]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
     Neg State Pre: []
     Goal Pre: []

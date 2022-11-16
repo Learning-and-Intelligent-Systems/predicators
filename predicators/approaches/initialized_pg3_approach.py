@@ -124,10 +124,6 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
             continue
         new_rule_name = rule.name
         new_rule_nsrt = analogy.nsrts[rule.nsrt]
-        new_rule_params = [
-            _apply_analogy_to_variable(analogy, p) for p in rule.parameters
-        ]
-        assert set(new_rule_params).issuperset(set(new_rule_nsrt.parameters))
         new_rule_pos_preconditions = _apply_analogy_to_atoms(
             analogy, rule.pos_state_preconditions)
         # Always add the NSRT preconditions because we would never want to
@@ -137,6 +133,13 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
             analogy, rule.neg_state_preconditions)
         new_rule_goal_preconditions = _apply_analogy_to_atoms(
             analogy, rule.goal_preconditions)
+        # Reconstruct parameters from the other components of the LDL.
+        all_atoms = new_rule_pos_preconditions | new_rule_neg_preconditions | \
+                    new_rule_goal_preconditions
+        new_rule_params_set = {v for a in all_atoms for v in a.variables}
+        new_rule_params_set.update(new_rule_nsrt.parameters)
+        new_rule_params = sorted(new_rule_params_set)
+        assert set(new_rule_params).issuperset(set(new_rule_nsrt.parameters))
         new_rule = LDLRule(new_rule_name, new_rule_params,
                            new_rule_pos_preconditions,
                            new_rule_neg_preconditions,
