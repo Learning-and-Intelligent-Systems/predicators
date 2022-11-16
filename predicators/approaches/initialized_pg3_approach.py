@@ -89,7 +89,6 @@ class InitializedPG3Approach(PG3Approach):
         for analogy in analogies:
             # Use the analogy to create an initial policy for the target env.
             target_policy = _apply_analogy_to_ldl(analogy, base_policy)
-            # Initialize PG3 search with this new target policy.
             target_policies.append(target_policy)
         return target_policies
 
