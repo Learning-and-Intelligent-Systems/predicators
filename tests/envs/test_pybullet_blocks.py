@@ -20,6 +20,11 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._block_type
 
     @property
+    def block_size(self):
+        """Expose the block size."""
+        return self._block_size
+
+    @property
     def robot(self):
         """Expose the robot, which is a static object."""
         return self._robot
