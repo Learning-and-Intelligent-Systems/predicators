@@ -384,7 +384,7 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
     # Special case: reminder from slackbot.
-    reminder_str = "predicatorobot"
+    reminder_str = "predicatorobot>"
     if reminder_str in query:
         assert query.endswith(".")
         start_idx = query.rfind(reminder_str) + len(reminder_str)
