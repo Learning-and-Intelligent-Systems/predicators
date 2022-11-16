@@ -388,6 +388,7 @@ def _callback(ack: Callable[[], None], body: Dict) -> None:
     query = query.replace(".", "")  # slackbot reminders end with periods
     query = query.strip()
     print(f"Got query from user {inquirer}: {query}", flush=True)
+    print("bot user id:", bot_user_id)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.
     app.client.chat_postMessage(
