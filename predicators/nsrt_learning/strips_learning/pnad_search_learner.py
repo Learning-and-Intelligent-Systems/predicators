@@ -144,9 +144,10 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
     def get_successors(
         self, pnads: FrozenSet[PartialNSRTAndDatastore]
     ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
-        for pnad_to_remove in sorted(pnads):
+        sorted_pnad_list = sorted(pnads)
+        for pnad_to_remove in sorted_pnad_list:
             pnads_after_removal = [
-                pnad for pnad in sorted(pnads) if pnad != pnad_to_remove
+                pnad for pnad in sorted_pnad_list if pnad != pnad_to_remove
             ]
             recomp_pnads = self._learner.recompute_pnads_from_effects(
                 pnads_after_removal)
@@ -208,7 +209,7 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
         # accurate measures that also take into account the add effects,
         # arity, etc. (though this might involve changing the weighting
         # of the coverage term).
-        complexity_term = len(sorted(curr_pnads))
+        complexity_term = len(curr_pnads)
         return coverage_term + complexity_term
 
 
