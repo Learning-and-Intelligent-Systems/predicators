@@ -23,14 +23,22 @@ Alternatively, define an initial LDL in plain text and save it to
         --strips_learner oracle --num_train_tasks 10 \
         --pg3_init_policy <path to file>.txt \
         --pg3_init_base_env pddl_easy_delivery_procedural_tasks
+
+Command for testing gripper / ferry:
+    python predicators/main.py --approach initialized_pg3 --seed 0  \
+        --env pddl_ferry_procedural_tasks --strips_learner oracle \
+        --num_train_tasks 20 --pg3_init_policy gripper_ldl_policy.txt \
+        --pg3_init_base_env pddl_gripper_procedural_tasks \
+        --pg3_add_condition_allow_new_vars False
 """
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 import dill as pkl
+import smepy
 
 from predicators import utils
 from predicators.approaches.pg3_approach import PG3Approach
@@ -104,14 +112,20 @@ class _Analogy:
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                         base_nsrts: Set[NSRT],
                         target_nsrts: Set[NSRT]) -> List[_Analogy]:
-    assert base_env.get_name() == target_env.get_name(), \
-        "Only trivial env mappings are implemented so far"
-    assert base_nsrts == target_nsrts
-    env = base_env
-    predicate_map = {p: p for p in env.predicates}
-    nsrt_map = {n: n for n in base_nsrts}
-    type_map = {t: t for t in env.types}
-    return [_Analogy(predicate_map, nsrt_map, type_map)]
+    # Use external SME module to find analogies.
+    smepy.declare_nary("and")
+    base_sme_struct, base_sme_vars = _create_sme_inputs(base_env, base_nsrts)
+    target_sme_struct, target_sme_vars = _create_sme_inputs(
+        target_env, target_nsrts)
+    sme = smepy.SME(base_sme_struct,
+                    target_sme_struct,
+                    max_mappings=CFG.pg3_max_analogies)
+    analogies: List[_Analogy] = []
+    for sme_mapping in sme.match():
+        analogy = _sme_mapping_to_analogy(sme_mapping, base_sme_vars,
+                                          target_sme_vars)
+        analogies.append(analogy)
+    return analogies
 
 
 def _apply_analogy_to_ldl(analogy: _Analogy,
@@ -168,3 +182,54 @@ def _apply_analogy_to_atoms(analogy: _Analogy,
 def _apply_analogy_to_variable(analogy: _Analogy,
                                variable: Variable) -> Variable:
     return Variable(variable.name, analogy.types[variable.type])
+
+
+def _create_sme_inputs(
+        env: BaseEnv,
+        nsrts: Set[NSRT]) -> Tuple[smepy.StructCase, Dict[str, Variable]]:
+    # TODO: can we get rid of the second output?
+    action_terms = []
+    vars = {}
+    # Sort to ensure determinism.
+    for nsrt in sorted(nsrts):
+        new_action = []
+        new_action.append('action')
+        new_action.append(nsrt.name)
+        new_action.append([
+            'precon', ['and'] +
+            [_atom_to_s_exp(a, nsrt.name) for a in nsrt.preconditions]
+        ])
+        new_action.append([
+            'effects',
+            ['and'] + [_atom_to_s_exp(a, nsrt.name)
+                       for a in nsrt.add_effects] +
+            [['not', _atom_to_s_exp(a, nsrt.name)]
+             for a in nsrt.delete_effects]
+        ])
+        action_terms.append(new_action)
+        # Save mapping from variable names to variables.
+        for variable in nsrt.parameters:
+            var_name = _variable_to_s_exp(variable, nsrt.name)
+            vars[var_name] = variable
+    struct_case = smepy.StructCase(action_terms, env.get_name())
+    return struct_case, vars
+
+
+def _sme_mapping_to_analogy(sme_mapping: smepy.Mapping,
+                            base_vars: Dict[str, Variable],
+                            target_vars: Dict[str, Variable]) -> _Analogy:
+    # TODO: can we get rid of the second and third inputs?
+    import ipdb; ipdb.set_trace()
+
+
+def _atom_to_s_exp(atom: LiftedAtom, nsrt_name: str) -> str:
+    # The NSRT name is used to rename the variables.
+    pred = atom.predicate
+    var_exps = [_variable_to_s_exp(v, nsrt_name) for v in atom.variables]
+    return [f"term{pred.arity}", pred.name] + var_exps
+
+
+def _variable_to_s_exp(variable: Variable, nsrt_name: str) -> str:
+    # The NSRT name is used to rename the variables.
+    # Replace question marks because smepy doesn't like them.
+    return f"{nsrt_name}-{variable.name.replace('?', '')}"
