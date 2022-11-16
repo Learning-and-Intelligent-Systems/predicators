@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 import dill as pkl
 import smepy
@@ -107,6 +107,8 @@ class _Analogy:
     predicates: Dict[Predicate, Predicate]
     nsrts: Dict[NSRT, NSRT]
     types: Dict[Type, Type]
+    # TODO: see if we can remove (I think we can)
+    variables: Dict[Variable, Variable]
 
 
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
@@ -122,8 +124,9 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                     max_mappings=CFG.pg3_max_analogies)
     analogies: List[_Analogy] = []
     for sme_mapping in sme.match():
-        analogy = _sme_mapping_to_analogy(sme_mapping, base_sme_vars,
-                                          target_sme_vars)
+        analogy = _sme_mapping_to_analogy(sme_mapping, base_env, target_env,
+                                          base_nsrts, target_nsrts,
+                                          base_sme_vars, target_sme_vars)
         analogies.append(analogy)
     return analogies
 
@@ -187,49 +190,97 @@ def _apply_analogy_to_variable(analogy: _Analogy,
 def _create_sme_inputs(
         env: BaseEnv,
         nsrts: Set[NSRT]) -> Tuple[smepy.StructCase, Dict[str, Variable]]:
-    # TODO: can we get rid of the second output?
-    action_terms = []
-    vars = {}
+    action_terms: List[Any] = []
+    var_name_to_var = {}
     # Sort to ensure determinism.
     for nsrt in sorted(nsrts):
-        new_action = []
-        new_action.append('action')
-        new_action.append(nsrt.name)
-        new_action.append([
+        new_action_terms: List[Any] = []
+        new_action_terms.append('action')
+        new_action_terms.append(nsrt.name)
+        new_action_terms.append([
             'precon', ['and'] +
             [_atom_to_s_exp(a, nsrt.name) for a in nsrt.preconditions]
         ])
-        new_action.append([
-            'effects',
-            ['and'] + [_atom_to_s_exp(a, nsrt.name)
-                       for a in nsrt.add_effects] +
-            [['not', _atom_to_s_exp(a, nsrt.name)]
-             for a in nsrt.delete_effects]
-        ])
-        action_terms.append(new_action)
+        add_effect_terms = [
+            _atom_to_s_exp(a, nsrt.name) for a in nsrt.add_effects
+        ]
+        delete_effect_terms = [['not', _atom_to_s_exp(a, nsrt.name)]
+                               for a in nsrt.delete_effects]
+        # Need to ignore types because of mypy issues with recursive types.
+        effect_terms = add_effect_terms + delete_effect_terms  # type: ignore
+        new_action_terms.append(['effects', ['and'] + effect_terms])
+        action_terms.append(new_action_terms)
         # Save mapping from variable names to variables.
         for variable in nsrt.parameters:
             var_name = _variable_to_s_exp(variable, nsrt.name)
-            vars[var_name] = variable
+            var_name_to_var[var_name] = variable
     struct_case = smepy.StructCase(action_terms, env.get_name())
-    return struct_case, vars
+    return struct_case, var_name_to_var
 
 
-def _sme_mapping_to_analogy(sme_mapping: smepy.Mapping,
-                            base_vars: Dict[str, Variable],
-                            target_vars: Dict[str, Variable]) -> _Analogy:
-    # TODO: can we get rid of the second and third inputs?
-    import ipdb; ipdb.set_trace()
+def _sme_mapping_to_analogy(
+        sme_mapping: smepy.Mapping, base_env: BaseEnv, target_env: BaseEnv,
+        base_nsrts: Set[NSRT], target_nsrts: Set[NSRT],
+        base_var_name_to_var: Dict[str, Variable],
+        target_var_name_to_var: Dict[str, Variable]) -> _Analogy:
+    # Used to construct the analogy.
+    analogy_maps: Dict[str, Dict[str, Any]] = {
+        "predicates": {},
+        "nsrts": {},
+        "types": {},
+        "variables": {}
+    }
+
+    base_names_to_instances = _create_name_to_instances(
+        base_env, base_nsrts, base_var_name_to_var)
+    target_names_to_instances = _create_name_to_instances(
+        target_env, target_nsrts, target_var_name_to_var)
+    assert set(base_names_to_instances) == set(target_names_to_instances)
+    assert set(base_names_to_instances) == set(analogy_maps)
+
+    match_found = False
+    for match in sme_mapping.entity_matches():
+        base_name = match.base.name
+        target_name = match.target.name
+        for group in sorted(base_names_to_instances):
+            base_map = base_names_to_instances[group]
+            target_map = target_names_to_instances[group]
+            if base_name in base_map and target_name in target_map:
+                base_instance = base_map[base_name]
+                target_instance = target_map[target_name]
+                analogy_maps[group][base_instance] = target_instance
+                match_found = True
+        if match_found:
+            break
+
+    # Ignore types in favor of a more concise class instantiation.
+    return _Analogy(**analogy_maps)  # type: ignore
 
 
 def _atom_to_s_exp(atom: LiftedAtom, nsrt_name: str) -> str:
     # The NSRT name is used to rename the variables.
     pred = atom.predicate
     var_exps = [_variable_to_s_exp(v, nsrt_name) for v in atom.variables]
-    return [f"term{pred.arity}", pred.name] + var_exps
+    return [f"term{pred.arity}", pred.name] + var_exps  # type: ignore
 
 
 def _variable_to_s_exp(variable: Variable, nsrt_name: str) -> str:
     # The NSRT name is used to rename the variables.
     # Replace question marks because smepy doesn't like them.
     return f"{nsrt_name}-{variable.name.replace('?', '')}"
+
+
+def _create_name_to_instances(
+        env: BaseEnv, nsrts: Set[NSRT],
+        var_name_to_var: Dict[str, Variable]) -> Dict[str, Dict[str, Any]]:
+    # Helper for _sme_mapping_to_analogy().
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    type_name_to_type = {t.name: t for t in env.types}
+    nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    names_to_instances: Dict[str, Dict[str, Any]] = {
+        "predicates": pred_name_to_pred,
+        "types": type_name_to_type,
+        "nsrts": nsrt_name_to_nsrt,
+        "variables": var_name_to_var,
+    }
+    return names_to_instances
