@@ -145,8 +145,11 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
         self, pnads: FrozenSet[PartialNSRTAndDatastore]
     ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
         for pnad_to_remove in sorted(pnads):
-            pnads_after_removal = [pnad for pnad in sorted(pnads) if pnad != pnad_to_remove]
-            recomp_pnads = self._learner.recompute_pnads_from_effects(pnads_after_removal)
+            pnads_after_removal = [
+                pnad for pnad in sorted(pnads) if pnad != pnad_to_remove
+            ]
+            recomp_pnads = self._learner.recompute_pnads_from_effects(
+                pnads_after_removal)
             yield frozenset(recomp_pnads)
 
 
