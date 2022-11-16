@@ -155,7 +155,7 @@ def test_apply_analogy_to_ldl():
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert len(new_ldl.rules) == 0
 
-    # Test that an anlogy with no predicates results in an LDL with just the
+    # Test that an analogy with no predicates results in an LDL with just the
     # NSRT preconditions as positive preconditions.
     analogy = _Analogy(predicates={}, nsrts=nsrt_map, types=type_map)
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
