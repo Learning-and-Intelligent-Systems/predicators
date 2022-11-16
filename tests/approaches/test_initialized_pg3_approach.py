@@ -60,7 +60,9 @@ def test_initialized_pg3_approach():
                                       env.action_space, train_tasks)
     assert approach.get_name() == "initialized_pg3"
 
-    assert approach._get_policy_search_initial_ldl() == ldl  # pylint: disable=protected-access
+    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+    assert len(init_ldls) == 1
+    assert init_ldls[0] == ldl
 
     # Test loading from file.
     ldl_str = """(define (policy delivery-individual-policy)
@@ -101,8 +103,9 @@ def test_initialized_pg3_approach():
         })
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
-    init_ldl = approach._get_policy_search_initial_ldl()  # pylint: disable=protected-access
-    assert str(init_ldl) == """LiftedDecisionList[
+    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+    assert len(init_ldls) == 1
+    assert str(init_ldls[0]) == """LiftedDecisionList[
 LDLRule-rule1:
     Parameters: [?loc:loc, ?paper:paper]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]

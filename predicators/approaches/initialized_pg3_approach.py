@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict, Set
+from typing import Dict, List, Set
 
 import dill as pkl
 
@@ -51,7 +51,7 @@ class InitializedPG3Approach(PG3Approach):
         return "initialized_pg3"
 
     @staticmethod
-    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
         # Create base and target envs.
         base_env_name = CFG.pg3_init_base_env
         target_env_name = CFG.env
@@ -81,14 +81,17 @@ class InitializedPG3Approach(PG3Approach):
                                                    base_env.types,
                                                    base_env.predicates,
                                                    base_nsrts)
-        # Determine an analogical mapping between the current env and the
+        # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
-        analogy = _find_env_analogy(base_env, target_env, base_nsrts,
-                                    target_nsrts)
-        # Use the analogy to create an initial policy for the target env.
-        target_policy = _apply_analogy_to_ldl(analogy, base_policy)
-        # Initialize PG3 search with this new target policy.
-        return target_policy
+        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+                                        target_nsrts)
+        target_policies: List[LiftedDecisionList] = []
+        for analogy in analogies:
+            # Use the analogy to create an initial policy for the target env.
+            target_policy = _apply_analogy_to_ldl(analogy, base_policy)
+            # Initialize PG3 search with this new target policy.
+            target_policies.append(target_policy)
+        return target_policies
 
 
 @dataclass(frozen=True)
@@ -99,9 +102,9 @@ class _Analogy:
     types: Dict[Type, Type]
 
 
-def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
-                      base_nsrts: Set[NSRT],
-                      target_nsrts: Set[NSRT]) -> _Analogy:
+def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
+                        base_nsrts: Set[NSRT],
+                        target_nsrts: Set[NSRT]) -> List[_Analogy]:
     assert base_env.get_name() == target_env.get_name(), \
         "Only trivial env mappings are implemented so far"
     assert base_nsrts == target_nsrts
@@ -109,7 +112,7 @@ def _find_env_analogy(base_env: BaseEnv, target_env: BaseEnv,
     predicate_map = {p: p for p in env.predicates}
     nsrt_map = {n: n for n in base_nsrts}
     type_map = {t: t for t in env.types}
-    return _Analogy(predicate_map, nsrt_map, type_map)
+    return [_Analogy(predicate_map, nsrt_map, type_map)]
 
 
 def _apply_analogy_to_ldl(analogy: _Analogy,
