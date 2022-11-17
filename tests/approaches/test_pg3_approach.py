@@ -8,8 +8,8 @@ from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
-    _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
-    _PolicyGuidedPG3Heuristic
+    _DeleteConditionPG3SearchOperator, _DemoPlanComparisonPG3Heuristic, \
+    _PolicyEvaluationPG3Heuristic, _PolicyGuidedPG3Heuristic
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
@@ -267,6 +267,32 @@ LDLRule-MyPickUp:
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
+
+    # _DeleteConditionPG3SearchOperator
+    op = _DeleteConditionPG3SearchOperator(preds, nsrts)
+
+    # succ1 = list(op.get_successors(ldl1))
+    # assert len(succ1) == 0
+
+    # # should return zero because we don't remove preconditions that are also preconditions of nsrt
+    # succ2 = list(op.get_successors(ldl2))
+    # assert len(succ2) == 0
+
+    succ3 = list(op.get_successors(ldl2_1))
+    assert len(succ3) == 1
+
+    assert str(succ3[0]) == """LiftedDecisionList[
+LDLRule-MyPickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+
+    
+    
 
 def test_pg3_heuristics():
     """Tests for PG3 heuristic classes."""
