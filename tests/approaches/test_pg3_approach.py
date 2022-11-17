@@ -15,7 +15,7 @@ from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
-from predicators.structs import LDLRule, LiftedDecisionList
+from predicators.structs import LDLRule, LiftedDecisionList, Predicate, LiftedAtom
 
 
 class _MockOptionModel(_OptionModelBase):
@@ -292,8 +292,24 @@ LDLRule-MyPickUp:
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
+    dummy_1 = Predicate("Dummy", [], lambda s,o: True) # zero arity
+    atom_1 = LiftedAtom(dummy_1, [])
 
-    
+    dummy_2 = Predicate("OtherDummy", [], lambda s,o: True)
+    atom_2 = LiftedAtom(dummy_2, [])
+
+    another_pick_up_rule = LDLRule(name="MyOtherPickUp",
+                           parameters=pick_up_nsrt.parameters,
+                           pos_state_preconditions=set(
+                               pick_up_nsrt.preconditions).union([atom_1]),
+                           neg_state_preconditions=set(),
+                           goal_preconditions=set([atom_2]),
+                           nsrt=pick_up_nsrt)
+
+    ldl3 = LiftedDecisionList([another_pick_up_rule])
+
+    succ4 = list(op.get_successors(ldl3))
+    assert len(succ4) == 2
     
 
 def test_pg3_heuristics():
