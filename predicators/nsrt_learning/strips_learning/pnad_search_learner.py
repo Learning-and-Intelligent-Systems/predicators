@@ -40,8 +40,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
     def get_successors(
         self, pnads: FrozenSet[PartialNSRTAndDatastore]
     ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
-        pnads_list = list(pnads)
-        pnads_list = sorted(pnads_list)
+        pnads_list = sorted(pnads)
         uncovered_segment = self._get_first_uncovered_segment(pnads_list)
         if uncovered_segment is not None:
             # We will need to induce an operator to cover this
@@ -226,6 +225,10 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         """Given some input PNADs, strips away everything except the add and
         keep effects, then re-partitions data amongst these and uses this to
         recompute these components."""
+        # IMPORTANT: We need to make copies of the PNAD objects to avoid
+        # modifying the existing PNAD objects.
+        new_pnads = []
+
         # First, reset all PNADs to only maintain their add and
         # keep effects. Ensure they ignore all predicates in the domain.
         for pnad in pnads:
@@ -233,30 +236,34 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             new_pnad_op = pnad.op.copy_with(
                 preconditions=keep_effects,
                 add_effects=pnad.op.add_effects,
+                delete_effects=set(),
                 ignore_effects=self._predicates.copy())
-            pnad.op = new_pnad_op
+            new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
+                                               pnad.option_spec)
+            new_pnads.append(new_pnad)
+
         # Repartition all data amongst these new PNADs.
-        self._recompute_datastores_from_segments(pnads)
+        self._recompute_datastores_from_segments(new_pnads)
         # Prune any PNADs with empty datastores.
-        pnads = [p for p in pnads if p.datastore]
+        new_pnads = [p for p in new_pnads if p.datastore]
         # Add new preconditions.
-        for pnad in pnads:
+        for pnad in new_pnads:
             preconditions = self._induce_preconditions_via_intersection(pnad)
             pnad.op = pnad.op.copy_with(preconditions=preconditions)
         # Add delete and ignore effects.
-        for pnad in pnads:
+        for pnad in new_pnads:
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
-            for p in pnads
+            for p in new_pnads
         }
-        for p in pnads:
+        for p in new_pnads:
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
-        pnads = self._get_uniquely_named_nec_pnads(pnad_map)
-        return pnads
+        new_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
+        return new_pnads
 
     def _learn(self) -> List[PartialNSRTAndDatastore]:
         # Set up hill-climbing search over PNAD sets.
@@ -283,16 +290,13 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
         # Extract the best PNADs set.
         final_pnads = path[-1]
-        # NOTE: Unclear why the below call is necessary... To be investigated.
-        # Recompute these PNADs.
-        recomp_final_pnads = self.recompute_pnads_from_effects(
-            sorted(final_pnads))
+        sorted_final_pnads = sorted(final_pnads)
         # Fix naming.
         pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
             p.option_spec[0]: []
-            for p in recomp_final_pnads
+            for p in sorted_final_pnads
         }
-        for p in recomp_final_pnads:
+        for p in sorted_final_pnads:
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
         ret_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
