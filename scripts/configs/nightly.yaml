@@ -29,7 +29,7 @@ ENVS:
 ARGS: []
 FLAGS: {}
 START_SEED: 456
-NUM_SEEDS: 10
+NUM_SEEDS: 5
 ...
 
 # other environments with oracle and NSRT learning
@@ -51,7 +51,7 @@ ENVS:
 ARGS: []
 FLAGS: {}
 START_SEED: 456
-NUM_SEEDS: 10
+NUM_SEEDS: 5
 ...
 
 # option learning
@@ -80,5 +80,5 @@ FLAGS:
   num_train_tasks: 1000  # more train tasks (default is 50)
   timeout: 300  # more time (default is 10)
 START_SEED: 456
-NUM_SEEDS: 10
+NUM_SEEDS: 5
 ...

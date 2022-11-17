@@ -99,8 +99,9 @@ class PG3Approach(NSRTLearningApproach):
         # The heuristic is what distinguishes PG3 from baseline approaches.
         heuristic = self._create_heuristic()
 
-        # Initialize the search.
-        initial_state = self._get_policy_search_initial_ldl()
+        # Initialize the search with the best candidate.
+        candidate_initial_states = self._get_policy_search_initial_ldls()
+        initial_state = min(candidate_initial_states, key=heuristic)
 
         def get_successors(ldl: _S) -> Iterator[Tuple[_A, _S, float]]:
             for op in search_operators:
@@ -173,10 +174,10 @@ class PG3Approach(NSRTLearningApproach):
         return cls(preds, nsrts, self._train_tasks)
 
     @staticmethod
-    def _get_policy_search_initial_ldl() -> LiftedDecisionList:
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
         # Initialize with an empty list by default, but subclasses may
         # override.
-        return LiftedDecisionList([])
+        return [LiftedDecisionList([])]
 
 
 ############################## Search Operators ###############################
@@ -279,11 +280,15 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
             self, variables: FrozenSet[Variable]) -> List[LiftedAtom]:
         conditions = []
         for pred in sorted(self._predicates):
-            # Create fresh variables for the predicate to complement the
-            # variables that already exist in the rule.
-            new_vars = utils.create_new_variables(pred.types, variables)
+            if CFG.pg3_add_condition_allow_new_vars:
+                # Create fresh variables for the predicate to complement the
+                # variables that already exist in the rule.
+                new_vars = utils.create_new_variables(pred.types, variables)
+                condition_vars = variables | frozenset(new_vars)
+            else:
+                condition_vars = variables
             for condition in utils.get_all_lifted_atoms_for_predicate(
-                    pred, variables | frozenset(new_vars)):
+                    pred, condition_vars):
                 conditions.append(condition)
         return conditions
 
