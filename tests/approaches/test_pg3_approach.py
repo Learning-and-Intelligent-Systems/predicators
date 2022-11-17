@@ -310,6 +310,24 @@ LDLRule-MyPickUp:
 
     succ4 = list(op.get_successors(ldl3))
     assert len(succ4) == 2
+
+    assert str(succ4[0]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?paper:paper, ?loc:loc]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: [OtherDummy()]
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    assert str(succ4[1]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?paper:paper, ?loc:loc]
+    Pos State Pre: [Dummy(), at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
     
 
 def test_pg3_heuristics():
