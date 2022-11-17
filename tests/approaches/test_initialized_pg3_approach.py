@@ -6,7 +6,7 @@ import dill as pkl
 
 from predicators import utils
 from predicators.approaches.initialized_pg3_approach import \
-    InitializedPG3Approach
+    InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedDecisionList
@@ -30,16 +30,14 @@ def test_initialized_pg3_approach():
     pick_up_nsrt = name_to_nsrt["pick-up"]
 
     pick_up_rule = LDLRule(name="PickUp",
-                           parameters=pick_up_nsrt.parameters,
+                           parameters=sorted(pick_up_nsrt.parameters),
                            pos_state_preconditions=set(
                                pick_up_nsrt.preconditions),
                            neg_state_preconditions=set(),
                            goal_preconditions=set(),
                            nsrt=pick_up_nsrt)
 
-    ldl = LiftedDecisionList([
-        pick_up_rule,
-    ])
+    ldl = LiftedDecisionList([pick_up_rule])
 
     ldl_policy_file = tempfile.NamedTemporaryFile(suffix=".ldl")
     pkl.dump(ldl, ldl_policy_file)
@@ -60,12 +58,14 @@ def test_initialized_pg3_approach():
                                       env.action_space, train_tasks)
     assert approach.get_name() == "initialized_pg3"
 
-    assert approach._get_policy_search_initial_ldl() == ldl  # pylint: disable=protected-access
+    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+    assert len(init_ldls) == 1
+    assert init_ldls[0] == ldl
 
     # Test loading from file.
     ldl_str = """(define (policy delivery-individual-policy)
 	(:rule rule1 
-		:parameters (?paper - paper ?loc - loc)
+		:parameters (?loc - loc ?paper - paper)
         :preconditions (and (at ?loc) (ishomebase ?loc) (unpacked ?paper))
         :goals ()
 		:action (pick-up ?paper ?loc)
@@ -101,8 +101,9 @@ def test_initialized_pg3_approach():
         })
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
-    init_ldl = approach._get_policy_search_initial_ldl()  # pylint: disable=protected-access
-    assert str(init_ldl) == """LiftedDecisionList[
+    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+    assert len(init_ldls) == 1
+    assert str(init_ldls[0]) == """LiftedDecisionList[
 LDLRule-rule1:
     Parameters: [?loc:loc, ?paper:paper]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
@@ -121,4 +122,51 @@ LDLRule-rule3:
     Neg State Pre: []
     Goal Pre: []
     NSRT: move(?from:loc, ?to:loc)
+]"""
+
+
+def test_apply_analogy_to_ldl():
+    """Tests for _apply_analogy_to_ldl()."""
+    env_name = "pddl_easy_delivery_procedural_tasks"
+    utils.reset_config({
+        "env": env_name,
+        "approach": "initialized_pg3",
+    })
+    env = create_new_env(env_name)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+    pick_up_nsrt = name_to_nsrt["pick-up"]
+    pick_up_rule = LDLRule(name="PickUp",
+                           parameters=sorted(pick_up_nsrt.parameters),
+                           pos_state_preconditions=set(
+                               pick_up_nsrt.preconditions),
+                           neg_state_preconditions=set(),
+                           goal_preconditions=set(),
+                           nsrt=pick_up_nsrt)
+    ldl = LiftedDecisionList([pick_up_rule])
+    predicate_map = {p: p for p in env.predicates}
+    nsrt_map = {n: n for n in nsrts}
+    type_map = {t: t for t in env.types}
+
+    # Test that an empty analogy results in an empty LDL.
+    analogy = _Analogy(predicates={}, nsrts={}, types={})
+    new_ldl = _apply_analogy_to_ldl(analogy, ldl)
+    assert len(new_ldl.rules) == 0
+
+    # Test that an analogy with no types results in an empty LDL.
+    analogy = _Analogy(predicates=predicate_map, nsrts=nsrt_map, types={})
+    new_ldl = _apply_analogy_to_ldl(analogy, ldl)
+    assert len(new_ldl.rules) == 0
+
+    # Test that an analogy with no predicates results in an LDL with just the
+    # NSRT preconditions as positive preconditions.
+    analogy = _Analogy(predicates={}, nsrts=nsrt_map, types=type_map)
+    new_ldl = _apply_analogy_to_ldl(analogy, ldl)
+    assert str(new_ldl) == """LiftedDecisionList[
+LDLRule-PickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""

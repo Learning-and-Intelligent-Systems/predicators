@@ -113,6 +113,7 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
     pybullet_robot_ee_orns = defaultdict(
         # Fetch and Panda gripper down and parallel to x-axis by default.
@@ -284,6 +285,7 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+    pg3_add_condition_allow_new_vars = True
 
     # parameters for PG3 init approach
     # These need to be overridden via command line

@@ -1236,6 +1236,9 @@ class PartialNSRTAndDatastore:
     def __str__(self) -> str:
         return repr(self)
 
+    def __lt__(self, other: PartialNSRTAndDatastore) -> bool:
+        return repr(self) < repr(other)
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class InteractionRequest:
