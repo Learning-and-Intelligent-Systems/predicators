@@ -135,8 +135,10 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
     return analogies
 
 
-def _query_sme(base_sme_struct: smepy.StructCase,
-               target_sme_struct: smepy.StructCase) -> Iterator[smepy.Mapping]:
+def _query_sme(
+    base_sme_struct: smepy.StructCase, target_sme_struct: smepy.StructCase
+) -> Iterator[smepy.Mapping]:  # pragma: no cover
+    # Not unit-tested because slow.
     sme = smepy.SME(base_sme_struct,
                     target_sme_struct,
                     max_mappings=CFG.pg3_max_analogies)
@@ -247,6 +249,9 @@ def _sme_mapping_to_analogy(
         "nsrts": {},
         "variables": {}
     }
+
+    # TODO: this is potentially wrong when there are shared variable names
+    # between NSRTs. Special case that.
 
     base_names_to_instances = _create_name_to_instances(
         base_env, base_nsrts, base_var_name_to_var)

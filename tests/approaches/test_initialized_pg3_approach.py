@@ -4,11 +4,14 @@ import tempfile
 from unittest.mock import patch
 
 import dill as pkl
+import smepy
+from smepy.struct_case import Entity as SmepyEntity
 
 import predicators.approaches.initialized_pg3_approach
 from predicators import utils
 from predicators.approaches.initialized_pg3_approach import \
-    InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl
+    InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl, \
+    _find_env_analogies
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedDecisionList
@@ -71,8 +74,6 @@ def test_initialized_pg3_approach():
     with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
         mocker.return_value = [identity_analogy]
         init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
-        for init_ldl in init_ldls:
-            print(init_ldl)
         assert len(init_ldls) == 1
         assert init_ldls[0] == ldl
 
@@ -139,6 +140,76 @@ LDLRule-rule3:
     Goal Pre: []
     NSRT: move(?from:loc, ?to:loc)
 ]"""
+
+
+def test_find_env_analogies():
+    """Tests for _find_env_analogies()."""
+    # Test for gripper -> ferry.
+    base_env = create_new_env("pddl_gripper_procedural_tasks")
+    base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
+                              base_env.options)
+    target_env = create_new_env("pddl_ferry_procedural_tasks")
+    target_nsrts = get_gt_nsrts(target_env.get_name(), target_env.predicates,
+                                target_env.options)
+
+    # Mock SME because it's potentially slow.
+    mock_match_strs = [
+        # Operators
+        ("move", "sail"),
+        ("pick", "board"),
+        ("drop", "debark"),
+        # Variables
+        ("move-to", "sail-to"),
+        ("pick-obj", "board-car"),
+        ("move-from", "sail-from"),
+        ("drop-obj", "debark-car"),
+        ("pick-room", "board-loc"),
+        ("drop-room", "debark-loc"),
+        # Predicates
+        ("ball", "car"),
+        ("room", "location"),
+        ("at", "at"),
+        ("at-robby", "at-ferry"),
+    ]
+    mock_sme_output = smepy.Mapping(matches=[
+        smepy.Match(SmepyEntity(b), SmepyEntity(t)) for b, t in mock_match_strs
+    ])
+    with patch(f"{_MODULE_PATH}._query_sme") as mocker:
+        mocker.return_value = [mock_sme_output]
+        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+                                        target_nsrts)
+
+    assert len(analogies) == 1
+    analogy = analogies[0]
+
+    # Verify NSRT matches.
+    base_nsrt_name_to_nsrt = {n.name: n for n in base_nsrts}
+    target_nsrt_name_to_nsrt = {n.name: n for n in target_nsrts}
+    move = base_nsrt_name_to_nsrt["move"]
+    pick = base_nsrt_name_to_nsrt["pick"]
+    drop = base_nsrt_name_to_nsrt["drop"]
+    sail = target_nsrt_name_to_nsrt["sail"]
+    board = target_nsrt_name_to_nsrt["board"]
+    debark = target_nsrt_name_to_nsrt["debark"]
+    assert analogy.nsrts == {move: sail, pick: board, drop: debark}
+
+    # Verify predicate matches.
+    base_pred_name_to_pred = {n.name: n for n in base_env.predicates}
+    target_pred_name_to_pred = {n.name: n for n in target_env.predicates}
+    ball = base_pred_name_to_pred["ball"]
+    room = base_pred_name_to_pred["room"]
+    at_base = base_pred_name_to_pred["at"]
+    at_robby = base_pred_name_to_pred["at-robby"]
+    car = target_pred_name_to_pred["car"]
+    location = target_pred_name_to_pred["location"]
+    at_target = target_pred_name_to_pred["at"]
+    at_ferry = target_pred_name_to_pred["at-ferry"]
+    assert analogy.predicates == {
+        ball: car,
+        room: location,
+        at_base: at_target,
+        at_robby: at_ferry
+    }
 
 
 def test_apply_analogy_to_ldl():
