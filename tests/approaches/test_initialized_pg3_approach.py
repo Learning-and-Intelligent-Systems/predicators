@@ -215,6 +215,10 @@ def test_find_env_analogies():
         at_robby: at_ferry
     }
 
+    # Test base_nsrt_to_variable_analogy.
+    old_var_to_new_var = analogy.base_nsrt_to_variable_analogy(move)
+    assert len(old_var_to_new_var) == 1  # exclude the bogus entry
+
 
 def test_apply_analogy_to_ldl():
     """Tests for _apply_analogy_to_ldl()."""
