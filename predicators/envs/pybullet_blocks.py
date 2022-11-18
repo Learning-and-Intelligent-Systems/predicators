@@ -90,7 +90,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToStack",
                     z_func=lambda block_z: (
-                        block_z + self.block_size + self._offset_z),
+                        block_z + self._block_size + self._offset_z),
                     finger_status="closed"),
                 # Open fingers.
                 create_change_fingers_option(self._pybullet_robot,
@@ -106,7 +106,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         ## PutOnTable option
         types = self._PutOnTable.types
         params_space = self._PutOnTable.params_space
-        place_z = self.table_height + self.block_size / 2 + self._offset_z
+        place_z = self.table_height + self._block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
             [
@@ -205,8 +205,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._block_ids = []
         for i in range(num_blocks):
             color = self._obj_colors[i % len(self._obj_colors)]
-            half_extents = (self.block_size / 2.0, self.block_size / 2.0,
-                            self.block_size / 2.0)
+            half_extents = (self._block_size / 2.0, self._block_size / 2.0,
+                            self._block_size / 2.0)
             self._block_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
                                       self._obj_friction, self._default_orn,
@@ -264,7 +264,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._force_grasp_object(held_block)
 
         # For any blocks not involved, put them out of view.
-        h = self.block_size
+        h = self._block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
