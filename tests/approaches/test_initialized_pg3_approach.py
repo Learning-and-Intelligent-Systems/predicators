@@ -14,7 +14,8 @@ from predicators.approaches.initialized_pg3_approach import \
     _find_env_analogies
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.structs import LDLRule, LiftedDecisionList
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
+    Variable
 
 _MODULE_PATH = predicators.approaches.initialized_pg3_approach.__name__
 
@@ -160,11 +161,14 @@ def test_find_env_analogies():
         ("drop", "debark"),
         # Variables
         ("move-to", "sail-to"),
-        ("pick-obj", "board-car"),
         ("move-from", "sail-from"),
-        ("drop-obj", "debark-car"),
+        ("pick-obj", "board-car"),
         ("pick-room", "board-loc"),
+        ("drop-obj", "debark-car"),
         ("drop-room", "debark-loc"),
+        # Include a bogus variable mapping that should get ignored because the
+        # NSRTS are different.
+        ("move-to", "board-car"),
         # Predicates
         ("ball", "car"),
         ("room", "location"),
@@ -251,6 +255,36 @@ LDLRule-PickUp:
     Parameters: [?loc:loc, ?paper:paper]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
     Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    # Test case where there is a variable in the LDL rule that doesn't appear
+    # in the NSRT.
+    predicate_map = {p: p for p in env.predicates}
+    nsrt_map = {n: n for n in nsrts}
+    nsrt_var_map = {(n, p): (n, p) for n in nsrts for p in n.parameters}
+    identity_analogy = _Analogy(predicate_map, nsrt_map, nsrt_var_map)
+
+    type_name_to_type = {t.name: t for t in env.types}
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+    new_var = Variable("?extra", type_name_to_type["paper"])
+    unpacked = pred_name_to_pred["unpacked"]
+    params = [new_var] + sorted(pick_up_nsrt.parameters)
+    pick_up_extra_param_rule = LDLRule(
+        name="PickUp",
+        parameters=params,
+        pos_state_preconditions=set(pick_up_nsrt.preconditions),
+        neg_state_preconditions={LiftedAtom(unpacked, [new_var])},
+        goal_preconditions=set(),
+        nsrt=pick_up_nsrt)
+    ldl_extra_param = LiftedDecisionList([pick_up_extra_param_rule])
+    new_ldl = _apply_analogy_to_ldl(identity_analogy, ldl_extra_param)
+    assert str(new_ldl) == """LiftedDecisionList[
+LDLRule-PickUp:
+    Parameters: [?extra:paper, ?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: [unpacked(?extra:paper)]
     Goal Pre: []
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
