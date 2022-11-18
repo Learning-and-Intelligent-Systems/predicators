@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Dict, List, Set, Tuple
 
 import dill as pkl
@@ -108,6 +109,14 @@ class _Analogy:
     nsrts: Dict[NSRT, NSRT]
     variables: Dict[Variable, Variable]
 
+    @cached_property
+    def types(self) -> Dict[Type, Type]:
+        """Infer type analogy from variables."""
+        type_map: Dict[Type, Type] = {}
+        for old_var, new_var in self.variables.items():
+            type_map[old_var.type] = new_var.type
+        return type_map
+
 
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                         base_nsrts: Set[NSRT],
@@ -136,20 +145,20 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
         # Can't create a rule if there is no NSRT match.
         if rule.nsrt not in analogy.nsrts:
             continue
-        # Can't create a rule if there is no variable match.
-        # if not all(v in analogy.variables for v in rule.parameters):
-        #     continue
+        # Create a rule-specific mapping for variables that is a superset of
+        # the general analogy between NSRT variables.
+        old_to_new_vars = _create_variable_mapping_for_rule(analogy, rule)
         new_rule_name = rule.name
         new_rule_nsrt = analogy.nsrts[rule.nsrt]
         new_rule_pos_preconditions = _apply_analogy_to_atoms(
-            analogy, rule.pos_state_preconditions)
+            analogy, old_to_new_vars, rule.pos_state_preconditions)
         # Always add the NSRT preconditions because we would never want to
         # take an action that's inapplicable in a current state.
         new_rule_pos_preconditions.update(new_rule_nsrt.preconditions)
         new_rule_neg_preconditions = _apply_analogy_to_atoms(
-            analogy, rule.neg_state_preconditions)
+            analogy, old_to_new_vars, rule.neg_state_preconditions)
         new_rule_goal_preconditions = _apply_analogy_to_atoms(
-            analogy, rule.goal_preconditions)
+            analogy, old_to_new_vars, rule.goal_preconditions)
         # Reconstruct parameters from the other components of the LDL.
         all_atoms = new_rule_pos_preconditions | new_rule_neg_preconditions | \
                     new_rule_goal_preconditions
@@ -165,27 +174,30 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
     return LiftedDecisionList(new_rules)
 
 
-def _apply_analogy_to_atoms(analogy: _Analogy,
+def _create_variable_mapping_for_rule(
+        analogy: _Analogy, rule: LDLRule) -> Dict[Variable, Variable]:
+    old_to_new_var = analogy.variables.copy()
+    for old_var in rule.parameters:
+        if old_var in old_to_new_var:
+            continue
+        new_var_type = analogy.types[old_var.type]
+        new_var = Variable(old_var.name, new_var_type)
+        old_to_new_var[old_var] = new_var
+    return old_to_new_var
+
+
+def _apply_analogy_to_atoms(analogy: _Analogy, old_to_new_vars: Dict[Variable,
+                                                                     Variable],
                             atoms: Set[LiftedAtom]) -> Set[LiftedAtom]:
     new_atoms: Set[LiftedAtom] = set()
     for atom in atoms:
-        new_variables = [
-            _apply_analogy_to_variable(analogy, v) for v in atom.variables
-        ]
+        new_variables = [old_to_new_vars[v] for v in atom.variables]
         # Can't create an atom if there is no predicate match.
         if atom.predicate not in analogy.predicates:
             continue
         new_predicate = analogy.predicates[atom.predicate]
         new_atoms.add(LiftedAtom(new_predicate, new_variables))
     return new_atoms
-
-
-def _apply_analogy_to_variable(analogy: _Analogy,
-                               variable: Variable) -> Variable:
-    if variable in analogy.variables:
-        return analogy.variables[variable]
-    # TODO: why does this make sense? I don't think it does...
-    return variable
 
 
 def _create_sme_inputs(
@@ -255,7 +267,6 @@ def _sme_mapping_to_analogy(
 
 
 def _atom_to_s_exp(atom: LiftedAtom, nsrt_name: str) -> str:
-    # TODO: use rule names instead of NSRT names to ensure uniqueness.
     # The NSRT name is used to rename the variables.
     pred = atom.predicate
     var_exps = [_variable_to_s_exp(v, nsrt_name) for v in atom.variables]
