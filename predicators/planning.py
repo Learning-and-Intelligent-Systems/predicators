@@ -499,8 +499,22 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                 discovered_failures[cur_idx - 1] = None
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
+                # Check if objects that were outside the scope had a change
+                # in state.
+                static_obj_changed = False
+                if CFG.sesame_check_static_object_changes:
+                    static_objs = set(state) - set(nsrt.objects)
+                    for obj in sorted(static_objs):
+                        if not np.allclose(
+                                traj[cur_idx][obj],
+                                traj[cur_idx - 1][obj],
+                                atol=CFG.sesame_static_object_change_tol):
+                            static_obj_changed = True
+                            break
+                if static_obj_changed:
+                    can_continue_on = False
                 # Check if we have exceeded the horizon.
-                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
