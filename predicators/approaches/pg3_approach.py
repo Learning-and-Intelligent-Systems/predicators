@@ -294,77 +294,81 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
 
 
 class _DeleteConditionPG3SearchOperator(_PG3SearchOperator):
-    """An operator that removes conditions from existing LDL rules"""
+    """An operator that removes conditions from existing LDL rules."""
 
     def get_successors(
             self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
-            for rule_idx, rule in enumerate(ldl.rules):
-                for destination in ("pos", "neg", "goal"):
+        for rule_idx, rule in enumerate(ldl.rules):
+            for destination in ("pos", "neg", "goal"):
+                if destination == "pos":
+                    dest_set = set(rule.pos_state_preconditions)
+                elif destination == "neg":
+                    dest_set = set(rule.neg_state_preconditions)
+                else:
+                    assert destination == "goal"
+                    dest_set = set(rule.goal_preconditions)
+
+                for condition in dest_set:
+                    # if the condition to be removed
+                    #    is a precondition of an nsrt, don't remove it
+                    if condition in rule.nsrt.preconditions:
+                        continue
+
+                    #rcreate new preconditions
+                    new_pos = set(rule.pos_state_preconditions)
+                    new_neg = set(rule.neg_state_preconditions)
+                    new_goal = set(rule.goal_preconditions)
+
+                    # remove the focus predicate
                     if destination == "pos":
-                        dest_set = set(rule.pos_state_preconditions)
+                        new_pos.remove(condition)
                     elif destination == "neg":
-                        dest_set = set(rule.neg_state_preconditions)
+                        new_neg.remove(condition)
                     else:
                         assert destination == "goal"
-                        dest_set = set(rule.goal_preconditions)
+                        new_goal.remove(condition)
 
-                    for condition in dest_set:
-                        # if the condition to be removed is a precondition of an nsrt, don't remove it
-                        if condition in rule.nsrt.preconditions:
-                            continue
+                    # check that the parameters of the removed
+                    #    condition are used somewhere else
+                    # check that every variable in the
+                    condition_vars = set(condition.variables)
+                    count = {v: 0 for v in condition.variables}
 
-                        #rcreate new preconditions
-                        new_pos = set(rule.pos_state_preconditions)
-                        new_neg = set(rule.neg_state_preconditions)
-                        new_goal = set(rule.goal_preconditions)
+                    break_outer = False
+                    for ds in (new_pos, new_neg, new_goal):
+                        for p in ds:
+                            overlap = condition_vars.intersection(p.variables)
+                            for v in overlap:
+                                count[v] += 1
 
-                        # remove the focus predicate
-                        if destination == "pos":
-                            new_pos.remove(condition)
-                        elif destination == "neg":
-                            new_neg.remove(condition)
-                        else:
-                            assert destination == "goal"
-                            new_goal.remove(condition)
-
-
-                        # check that the parameters of the removed condition are used somewhere else
-                        # check that every variable in the 
-                        condition_vars = set(condition.variables)
-                        count = dict([(v, 0) for v in condition.variables])
-
-                        break_outer = False
-                        for ds in (new_pos, new_neg, new_goal):
-                            for p in ds:
-                                overlap = condition_vars.intersection(p.variables)
-                                for v in overlap:
-                                    count[v] += 1
-
-                                # if we have seen all parameters already, break
-                                if all([v > 0 for v in count.values()]):
-                                    break_outer = True
-                                    break
-
-                            if break_outer:
+                            # if we have seen all parameters already, break
+                            if all(v > 0 for v in count.values()):
+                                break_outer = True
                                 break
 
-                        # keep only the parameters that appear at least once in the rest of the preconditions
-                        # if a parameter is not in count, that means it doesn't come from the literal we remove
-                        new_parameters = [p for p in rule.parameters if count.get(p, 1) > 0]
+                        if break_outer:
+                            break
 
-                        # Create the new rule.
-                        new_rule = LDLRule(
-                            name=rule.name,
-                            parameters=new_parameters,
-                            pos_state_preconditions=new_pos,
-                            neg_state_preconditions=new_neg,
-                            goal_preconditions=new_goal,
-                            nsrt=rule.nsrt,
-                        )
-                        # Create the new LDL.
-                        new_rules = list(ldl.rules)
-                        new_rules[rule_idx] = new_rule
-                        yield LiftedDecisionList(new_rules)
+                    # keep only the parameters that appear at least once
+                    #   in the rest of the preconditions
+                    # if a parameter is not in count, that means it doesn't
+                    #   come from the literal we remove
+                    new_parameters = \
+                        [p for p in rule.parameters if count.get(p, 1) > 0]
+
+                    # Create the new rule.
+                    new_rule = LDLRule(
+                        name=rule.name,
+                        parameters=new_parameters,
+                        pos_state_preconditions=new_pos,
+                        neg_state_preconditions=new_neg,
+                        goal_preconditions=new_goal,
+                        nsrt=rule.nsrt,
+                    )
+                    # Create the new LDL.
+                    new_rules = list(ldl.rules)
+                    new_rules[rule_idx] = new_rule
+                    yield LiftedDecisionList(new_rules)
 
 
 ################################ Heuristics ###################################

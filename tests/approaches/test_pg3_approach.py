@@ -15,7 +15,8 @@ from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
-from predicators.structs import LDLRule, LiftedDecisionList, Predicate, LiftedAtom
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
+    Predicate, Type, Variable
 
 
 class _MockOptionModel(_OptionModelBase):
@@ -276,7 +277,6 @@ LDLRule-MyPickUp:
         for rule in ldl.rules:
             assert set(rule.parameters).issubset(rule.nsrt.parameters)
 
-
     # _DeleteConditionPG3SearchOperator
     op = _DeleteConditionPG3SearchOperator(preds, nsrts)
 
@@ -284,7 +284,8 @@ LDLRule-MyPickUp:
     succ1 = list(op.get_successors(ldl1))
     assert len(succ1) == 0
 
-    # should return zero because we don't remove preconditions that are also preconditions of nsrt
+    # should return zero because we don't remove preconditions
+    #   that are also preconditions of nsrt
     succ2 = list(op.get_successors(ldl2))
     assert len(succ2) == 0
 
@@ -301,30 +302,37 @@ LDLRule-MyPickUp:
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
-    dummy_1 = Predicate("Dummy", [], lambda s,o: True) # zero arity
+    dummy_1 = Predicate("Dummy", [], lambda s, o: True)  # zero arity
     atom_1 = LiftedAtom(dummy_1, [])
 
-    dummy_2 = Predicate("OtherDummy", [], lambda s,o: True)
+    dummy_2 = Predicate("OtherDummy", [], lambda s, o: True)
     atom_2 = LiftedAtom(dummy_2, [])
 
-    another_pick_up_rule = LDLRule(name="MyOtherPickUp",
-                           parameters=pick_up_nsrt.parameters,
-                           pos_state_preconditions=set(
-                               pick_up_nsrt.preconditions).union([atom_1]),
-                           neg_state_preconditions=set(),
-                           goal_preconditions=set([atom_2]),
-                           nsrt=pick_up_nsrt)
+    dummy_type = Type("dummytype", ["a", "b"])
+    dummy_var = Variable("?dv", dummy_type)
+
+    dummy_3 = Predicate("OneMoreDummy", [dummy_type], lambda s, o: True)
+    atom_3 = LiftedAtom(dummy_3, [dummy_var])
+
+    another_pick_up_rule = LDLRule(
+        name="MyOtherPickUp",
+        parameters=pick_up_nsrt.parameters + [dummy_var],
+        pos_state_preconditions=set(pick_up_nsrt.preconditions).union([atom_1
+                                                                       ]),
+        neg_state_preconditions=set([atom_3]),
+        goal_preconditions=set([atom_2]),
+        nsrt=pick_up_nsrt)
 
     ldl3 = LiftedDecisionList([another_pick_up_rule])
 
     succ4 = list(op.get_successors(ldl3))
-    assert len(succ4) == 2
+    assert len(succ4) == 3
 
     assert str(succ4[0]) == """LiftedDecisionList[
 LDLRule-MyOtherPickUp:
-    Parameters: [?paper:paper, ?loc:loc]
+    Parameters: [?paper:paper, ?loc:loc, ?dv:dummytype]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: []
+    Neg State Pre: [OneMoreDummy(?dv:dummytype)]
     Goal Pre: [OtherDummy()]
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
@@ -334,7 +342,7 @@ LDLRule-MyOtherPickUp:
     Parameters: [?paper:paper, ?loc:loc]
     Pos State Pre: [Dummy(), at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
     Neg State Pre: []
-    Goal Pre: []
+    Goal Pre: [OtherDummy()]
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
