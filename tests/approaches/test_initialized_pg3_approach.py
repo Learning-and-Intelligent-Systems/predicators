@@ -68,8 +68,8 @@ def test_initialized_pg3_approach():
 
     predicate_map = {p: p for p in env.predicates}
     nsrt_map = {n: n for n in nsrts}
-    variable_map = {p: p for n in nsrts for p in n.parameters}
-    identity_analogy = _Analogy(predicate_map, nsrt_map, variable_map)
+    nsrt_var_map = {(n, p): (n, p) for n in nsrts for p in n.parameters}
+    identity_analogy = _Analogy(predicate_map, nsrt_map, nsrt_var_map)
 
     with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
         mocker.return_value = [identity_analogy]
@@ -232,16 +232,18 @@ def test_apply_analogy_to_ldl():
                            nsrt=pick_up_nsrt)
     ldl = LiftedDecisionList([pick_up_rule])
     nsrt_map = {n: n for n in nsrts}
-    variable_map = {p: p for n in nsrts for p in n.parameters}
+    nsrt_var_map = {(n, p): (n, p) for n in nsrts for p in n.parameters}
 
     # Test that an empty analogy results in an empty LDL.
-    analogy = _Analogy(predicates={}, nsrts={}, variables={})
+    analogy = _Analogy(predicates={}, nsrts={}, nsrt_variables={})
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert len(new_ldl.rules) == 0
 
     # Test that an analogy with no predicates results in an LDL with just the
     # NSRT preconditions as positive preconditions.
-    analogy = _Analogy(predicates={}, nsrts=nsrt_map, variables=variable_map)
+    analogy = _Analogy(predicates={},
+                       nsrts=nsrt_map,
+                       nsrt_variables=nsrt_var_map)
     assert analogy.types == {t: t for t in env.types if t.name != "object"}
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert str(new_ldl) == """LiftedDecisionList[

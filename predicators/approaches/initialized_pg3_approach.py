@@ -107,15 +107,33 @@ class _Analogy:
     # All maps are base -> target.
     predicates: Dict[Predicate, Predicate]
     nsrts: Dict[NSRT, NSRT]
-    variables: Dict[Variable, Variable]
+    # Keep track of variables on a per-NSRT basis because some variable names
+    # might be the same across multiple NSRTs, but we don't want to match them.
+    nsrt_variables: Dict[Tuple[NSRT, Variable], Tuple[NSRT, Variable]]
 
     @cached_property
     def types(self) -> Dict[Type, Type]:
         """Infer type analogy from variables."""
         type_map: Dict[Type, Type] = {}
-        for old_var, new_var in self.variables.items():
-            type_map[old_var.type] = new_var.type
+        for nsrt in self.nsrts:
+            var_map = self.base_nsrt_to_variable_analogy(nsrt)
+            for old_var, new_var in var_map.items():
+                type_map[old_var.type] = new_var.type
         return type_map
+
+    def base_nsrt_to_variable_analogy(
+            self, base_nsrt: NSRT) -> Dict[Variable, Variable]:
+        """Create a map of base to target variables for a given base NSRT."""
+        old_to_new_var: Dict[Variable, Variable] = {}
+        for (old_n, old_v), (new_n, new_v) in self.nsrt_variables.items():
+            if old_n != base_nsrt:
+                continue
+            assert old_v not in old_to_new_var
+            # Don't match variables between different NSRTs.
+            if new_n != self.nsrts[old_n]:
+                continue
+            old_to_new_var[old_v] = new_v
+        return old_to_new_var
 
 
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
@@ -123,14 +141,12 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                         target_nsrts: Set[NSRT]) -> List[_Analogy]:
     # Use external SME module to find analogies.
     smepy.declare_nary("and")
-    base_sme_struct, base_sme_vars = _create_sme_inputs(base_env, base_nsrts)
-    target_sme_struct, target_sme_vars = _create_sme_inputs(
-        target_env, target_nsrts)
+    base_sme_struct = _create_sme_inputs(base_env, base_nsrts)
+    target_sme_struct = _create_sme_inputs(target_env, target_nsrts)
     analogies: List[_Analogy] = []
     for sme_mapping in _query_sme(base_sme_struct, target_sme_struct):
         analogy = _sme_mapping_to_analogy(sme_mapping, base_env, target_env,
-                                          base_nsrts, target_nsrts,
-                                          base_sme_vars, target_sme_vars)
+                                          base_nsrts, target_nsrts)
         analogies.append(analogy)
     return analogies
 
@@ -183,7 +199,7 @@ def _apply_analogy_to_ldl(analogy: _Analogy,
 
 def _create_variable_mapping_for_rule(
         analogy: _Analogy, rule: LDLRule) -> Dict[Variable, Variable]:
-    old_to_new_var = analogy.variables.copy()
+    old_to_new_var = analogy.base_nsrt_to_variable_analogy(rule.nsrt).copy()
     for old_var in rule.parameters:
         if old_var in old_to_new_var:
             continue
@@ -207,11 +223,8 @@ def _apply_analogy_to_atoms(analogy: _Analogy, old_to_new_vars: Dict[Variable,
     return new_atoms
 
 
-def _create_sme_inputs(
-        env: BaseEnv,
-        nsrts: Set[NSRT]) -> Tuple[smepy.StructCase, Dict[str, Variable]]:
+def _create_sme_inputs(env: BaseEnv, nsrts: Set[NSRT]) -> smepy.StructCase:
     action_terms: List[Any] = []
-    var_name_to_var = {}
     # Sort to ensure determinism.
     for nsrt in sorted(nsrts):
         new_action_terms: List[Any] = []
@@ -230,33 +243,23 @@ def _create_sme_inputs(
         effect_terms = add_effect_terms + delete_effect_terms  # type: ignore
         new_action_terms.append(['effects', ['and'] + effect_terms])
         action_terms.append(new_action_terms)
-        # Save mapping from variable names to variables.
-        for variable in nsrt.parameters:
-            var_name = _variable_to_s_exp(variable, nsrt.name)
-            var_name_to_var[var_name] = variable
     struct_case = smepy.StructCase(action_terms, env.get_name())
-    return struct_case, var_name_to_var
+    return struct_case
 
 
-def _sme_mapping_to_analogy(
-        sme_mapping: smepy.Mapping, base_env: BaseEnv, target_env: BaseEnv,
-        base_nsrts: Set[NSRT], target_nsrts: Set[NSRT],
-        base_var_name_to_var: Dict[str, Variable],
-        target_var_name_to_var: Dict[str, Variable]) -> _Analogy:
+def _sme_mapping_to_analogy(sme_mapping: smepy.Mapping, base_env: BaseEnv,
+                            target_env: BaseEnv, base_nsrts: Set[NSRT],
+                            target_nsrts: Set[NSRT]) -> _Analogy:
     # Used to construct the analogy.
     analogy_maps: Dict[str, Dict[str, Any]] = {
         "predicates": {},
         "nsrts": {},
-        "variables": {}
+        "nsrt_variables": {}
     }
 
-    # TODO: this is potentially wrong when there are shared variable names
-    # between NSRTs. Special case that.
-
-    base_names_to_instances = _create_name_to_instances(
-        base_env, base_nsrts, base_var_name_to_var)
+    base_names_to_instances = _create_name_to_instances(base_env, base_nsrts)
     target_names_to_instances = _create_name_to_instances(
-        target_env, target_nsrts, target_var_name_to_var)
+        target_env, target_nsrts)
     assert set(base_names_to_instances) == set(target_names_to_instances)
     assert set(base_names_to_instances) == set(analogy_maps)
 
@@ -289,15 +292,18 @@ def _variable_to_s_exp(variable: Variable, nsrt_name: str) -> str:
     return f"{nsrt_name}-{variable.name.replace('?', '')}"
 
 
-def _create_name_to_instances(
-        env: BaseEnv, nsrts: Set[NSRT],
-        var_name_to_var: Dict[str, Variable]) -> Dict[str, Dict[str, Any]]:
+def _create_name_to_instances(env: BaseEnv,
+                              nsrts: Set[NSRT]) -> Dict[str, Dict[str, Any]]:
     # Helper for _sme_mapping_to_analogy().
     pred_name_to_pred = {p.name: p for p in env.predicates}
     nsrt_name_to_nsrt = {n.name: n for n in nsrts}
+    var_name_to_nsrt_variables = {
+        _variable_to_s_exp(v, n.name): (n, v)
+        for n in nsrts for v in n.parameters
+    }
     names_to_instances: Dict[str, Dict[str, Any]] = {
         "predicates": pred_name_to_pred,
         "nsrts": nsrt_name_to_nsrt,
-        "variables": var_name_to_var,
+        "nsrt_variables": var_name_to_nsrt_variables,
     }
     return names_to_instances
