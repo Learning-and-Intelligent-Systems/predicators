@@ -1422,13 +1422,7 @@ def test_segment_not_in_datastore(approach_name, approach_cls):
                            verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
-
-    # Backchaining requires 4 PNADs for harmlessness here, but effect search
-    # only requires 3.
-    if approach_name == "backchaining":
-        assert len(learned_pnads) == 4
-    else:
-        assert len(learned_pnads) == 3
+    assert len(learned_pnads) == 4
 
     correct_pnads = [
         """STRIPS-Pick:
@@ -1436,12 +1430,6 @@ def test_segment_not_in_datastore(approach_name, approach_cls):
     Preconditions: []
     Add Effects: [B()]
     Delete Effects: [D()]
-    Ignore Effects: []
-    Option Spec: Pick()""", """STRIPS-Pick:
-    Parameters: []
-    Preconditions: []
-    Add Effects: [B()]
-    Delete Effects: [C(), D()]
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []

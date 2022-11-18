@@ -19,12 +19,14 @@ class _PNADSearchOperator(abc.ABC):
     def __init__(self, trajectories: List[LowLevelTrajectory],
                  train_tasks: List[Task], predicates: Set[Predicate],
                  segmented_trajs: List[List[Segment]],
-                 learner: PNADSearchSTRIPSLearner) -> None:
+                 learner: PNADSearchSTRIPSLearner,
+                 associated_heuristic: _PNADSearchHeuristic) -> None:
         self._trajectories = trajectories
         self._train_tasks = train_tasks
         self._predicates = predicates
         self._segmented_trajs = segmented_trajs
         self._learner = learner
+        self._associated_heuristic = associated_heuristic
 
     @abc.abstractmethod
     def get_successors(
@@ -40,15 +42,22 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
     def get_successors(
         self, pnads: FrozenSet[PartialNSRTAndDatastore]
     ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
-        pnads_list = sorted(pnads)
-        uncovered_segment = self._get_first_uncovered_segment(pnads_list)
+        init_heuristic_val = self._associated_heuristic(pnads)
+        new_heuristic_val = float('inf')
+        ret_pnads_list = sorted(pnads)
+        uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
         if uncovered_segment is not None:
-            # We will need to induce an operator to cover this
-            # segment, and thus it must have some necessary add effects.
-            new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
-            ret_pnads_list = self._append_new_pnad_and_keep_effects(
-                new_pnad, pnads_list)
-            ret_pnads = frozenset(ret_pnads_list)
+            while uncovered_segment is not None and new_heuristic_val >= init_heuristic_val:
+                # We will need to induce an operator to cover this
+                # segment, and thus it must have some necessary add effects.
+                new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
+                ret_pnads_list = self._append_new_pnad_and_keep_effects(
+                    new_pnad, ret_pnads_list)
+                ret_pnads = frozenset(ret_pnads_list)
+                new_heuristic_val = self._associated_heuristic(ret_pnads)
+                uncovered_segment = self._get_first_uncovered_segment(
+                    ret_pnads_list)
+
             yield ret_pnads
 
     def _append_new_pnad_and_keep_effects(
@@ -76,24 +85,18 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # We rerun backchaining to make sure the seg_to_keep_effects_sub
         # is up-to-date.
         self._get_backchaining_results(new_pnads)
-        # Now we can induce keep effects for new_pnad.
-        # NOTE: we cannot use new_pnad directly here, since that's the old
-        # object before running backchaining (thus, its poss_keep_effects are
-        # incorrect). Instead, we need to find which of the new_pnads
-        # corresponds to the new_pnad we just induced.
-        newly_added_pnad = None
-        for new_p in new_pnads:
-            if new_p.op.add_effects == new_pnad.op.add_effects and \
-                new_p.op.parameters == new_pnad.op.parameters and \
-                new_p.option_spec == new_pnad.option_spec:
-                newly_added_pnad = new_p
-        assert newly_added_pnad is not None
-        new_pnads_with_keep_effs = self._learner.get_pnads_with_keep_effects(
-            newly_added_pnad)
-        new_pnads += sorted(new_pnads_with_keep_effs)
+        # Now we can induce keep effects for all PNADs.
+        all_pnads_with_keep_effs = []
+        for pnad in new_pnads:
+            new_pnads_with_keep_effs = self._learner.get_pnads_with_keep_effects(
+                pnad)
+            all_pnads_with_keep_effs += sorted(new_pnads_with_keep_effs)
+        new_pnads += all_pnads_with_keep_effs
+
         # We recompute pnads again here to delete keep effect operators
         # that are unnecessary.
-        new_pnads = self._learner.recompute_pnads_from_effects(new_pnads)
+        new_pnads = self._learner.recompute_pnads_from_effects(
+            sorted(new_pnads))
         return new_pnads
 
     def _get_backchaining_results(
@@ -240,6 +243,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 ignore_effects=self._predicates.copy())
             new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
                                                pnad.option_spec)
+            new_pnad.poss_keep_effects = pnad.poss_keep_effects
+            new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
             new_pnads.append(new_pnad)
 
         # Repartition all data amongst these new PNADs.
@@ -307,8 +312,9 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             _BackChainingPNADSearchOperator, _PruningPNADSearchOperator
         ]
         ops = [
-            cls(self._trajectories, self._train_tasks, self._predicates,
-                self._segmented_trajs, self) for cls in op_classes
+            cls(self._trajectories, self._train_tasks,
+                self._predicates, self._segmented_trajs, self,
+                self._create_heuristic()) for cls in op_classes
         ]
         return ops
 
@@ -330,7 +336,6 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         necessary_image = set(traj_goal)
         for t in range(len(atoms_seq) - 2, -1, -1):
             segment = segmented_traj[t]
-            segment.necessary_image = necessary_image
             segment.necessary_add_effects = necessary_image - atoms_seq[t]
             pnad, var_to_obj = self._find_best_matching_pnad_and_sub(
                 segment, objects, pnads)
