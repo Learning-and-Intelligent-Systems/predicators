@@ -267,6 +267,15 @@ LDLRule-MyPickUp:
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
+    # Test without new vars allowed.
+    utils.reset_config({"pg3_add_condition_allow_new_vars": False})
+    op = _AddConditionPG3SearchOperator(preds, nsrts)
+    succ2_no_fresh = list(op.get_successors(ldl2))
+    assert len(succ2_no_fresh) == 15
+    for ldl in succ2_no_fresh:
+        for rule in ldl.rules:
+            assert set(rule.parameters).issubset(rule.nsrt.parameters)
+
 
 def test_pg3_heuristics():
     """Tests for PG3 heuristic classes."""
