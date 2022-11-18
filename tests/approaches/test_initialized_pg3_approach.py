@@ -1,15 +1,19 @@
 """Test cases for the Initialized PG3 approach."""
 
 import tempfile
+from unittest.mock import patch
 
 import dill as pkl
 
+import predicators.approaches.initialized_pg3_approach
 from predicators import utils
 from predicators.approaches.initialized_pg3_approach import \
     InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedDecisionList
+
+_MODULE_PATH = predicators.approaches.initialized_pg3_approach.__name__
 
 
 def test_initialized_pg3_approach():
@@ -54,13 +58,23 @@ def test_initialized_pg3_approach():
         "pg3_init_policy": ldl_policy_file.name,
         "pg3_init_base_env": env_name,
     })
+
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
     assert approach.get_name() == "initialized_pg3"
 
-    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
-    assert len(init_ldls) == 1
-    assert init_ldls[0] == ldl
+    predicate_map = {p: p for p in env.predicates}
+    nsrt_map = {n: n for n in nsrts}
+    variable_map = {p: p for n in nsrts for p in n.parameters}
+    identity_analogy = _Analogy(predicate_map, nsrt_map, variable_map)
+
+    with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
+        mocker.return_value = [identity_analogy]
+        init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+        for init_ldl in init_ldls:
+            print(init_ldl)
+        assert len(init_ldls) == 1
+        assert init_ldls[0] == ldl
 
     # Test loading from file.
     ldl_str = """(define (policy delivery-individual-policy)
@@ -101,7 +115,9 @@ def test_initialized_pg3_approach():
         })
     approach = InitializedPG3Approach(env.predicates, env.options, env.types,
                                       env.action_space, train_tasks)
-    init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
+    with patch(f"{_MODULE_PATH}._find_env_analogies") as mocker:
+        mocker.return_value = [identity_analogy]
+        init_ldls = approach._get_policy_search_initial_ldls()  # pylint: disable=protected-access
     assert len(init_ldls) == 1
     assert str(init_ldls[0]) == """LiftedDecisionList[
 LDLRule-rule1:
@@ -144,23 +160,17 @@ def test_apply_analogy_to_ldl():
                            goal_preconditions=set(),
                            nsrt=pick_up_nsrt)
     ldl = LiftedDecisionList([pick_up_rule])
-    predicate_map = {p: p for p in env.predicates}
     nsrt_map = {n: n for n in nsrts}
-    type_map = {t: t for t in env.types}
+    variable_map = {p: p for n in nsrts for p in n.parameters}
 
     # Test that an empty analogy results in an empty LDL.
-    analogy = _Analogy(predicates={}, nsrts={}, types={})
-    new_ldl = _apply_analogy_to_ldl(analogy, ldl)
-    assert len(new_ldl.rules) == 0
-
-    # Test that an analogy with no types results in an empty LDL.
-    analogy = _Analogy(predicates=predicate_map, nsrts=nsrt_map, types={})
+    analogy = _Analogy(predicates={}, nsrts={}, variables={})
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert len(new_ldl.rules) == 0
 
     # Test that an analogy with no predicates results in an LDL with just the
     # NSRT preconditions as positive preconditions.
-    analogy = _Analogy(predicates={}, nsrts=nsrt_map, types=type_map)
+    analogy = _Analogy(predicates={}, nsrts=nsrt_map, variables=variable_map)
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert str(new_ldl) == """LiftedDecisionList[
 LDLRule-PickUp:
