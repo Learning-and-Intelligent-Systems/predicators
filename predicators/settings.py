@@ -286,7 +286,10 @@ class GlobalSettings:
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
     pg3_add_condition_allow_new_vars = True
+<<<<<<< HEAD
     pg3_max_analogies = 5
+=======
+>>>>>>> aa16e9c253a421164f4e86084d9a7004c12963c6
 
     # parameters for PG3 init approach
     # These need to be overridden via command line
