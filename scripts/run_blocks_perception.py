@@ -346,7 +346,7 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                          pointSize=10,
                          physicsClientId=physics_client_id)
     # Show the inferred blocks.
-    block_size = PyBulletBlocksEnv.block_size
+    block_size = CFG.blocks_block_size
     half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
     mass = -1
     friction = 1.0
