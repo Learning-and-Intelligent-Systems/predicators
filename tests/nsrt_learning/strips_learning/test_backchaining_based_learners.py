@@ -1348,10 +1348,9 @@ def test_multi_pass_backchaining(approach_cls, val):
         assert str(pnad) in correct_pnads
 
 
-@pytest.mark.parametrize("approach_name, approach_cls",
-                         [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("pnad_search", PNADSearchSTRIPSLearner)])
-def test_segment_not_in_datastore(approach_name, approach_cls):
+@pytest.mark.parametrize(
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
+def test_segment_not_in_datastore(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
     have that segment in its datastore.

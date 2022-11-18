@@ -47,7 +47,8 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         ret_pnads_list = sorted(pnads)
         uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
         if uncovered_segment is not None:
-            while uncovered_segment is not None and new_heuristic_val >= init_heuristic_val:
+            while uncovered_segment is not None and \
+                new_heuristic_val >= init_heuristic_val:
                 # We will need to induce an operator to cover this
                 # segment, and thus it must have some necessary add effects.
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
@@ -88,8 +89,8 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         # Now we can induce keep effects for all PNADs.
         all_pnads_with_keep_effs = []
         for pnad in new_pnads:
-            new_pnads_with_keep_effs = self._learner.get_pnads_with_keep_effects(
-                pnad)
+            new_pnads_with_keep_effs = \
+                self._learner.get_pnads_with_keep_effects(pnad)
             all_pnads_with_keep_effs += sorted(new_pnads_with_keep_effs)
         new_pnads += all_pnads_with_keep_effs
 
