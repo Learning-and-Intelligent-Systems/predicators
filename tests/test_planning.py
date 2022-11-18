@@ -289,7 +289,6 @@ def test_sesame_plan_uninitiable_option():
 
 def test_sesame_check_static_object_changes():
     """Tests for sesame_check_static_object_changes = True."""
-    # pylint: disable=protected-access
     utils.reset_config({
         "env": "cover",
         "sesame_check_static_object_changes": True,
