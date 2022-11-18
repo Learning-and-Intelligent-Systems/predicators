@@ -28,6 +28,7 @@ setup(name="predicators",
           "pylint==2.14.5",
           "types-PyYAML",
           "lisdf",
+          "smepy@git+https://github.com/sebdumancic/structure_mapping.git"
       ],
       include_package_data=True,
       extras_require={
