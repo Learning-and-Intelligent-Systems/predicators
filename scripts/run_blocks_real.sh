@@ -24,6 +24,8 @@ python predicators/main.py --env pybullet_blocks --approach oracle --seed 0 \
     --pybullet_robot panda \
     --option_model_use_gui $VIZ_PLANNING \
     --option_model_name oracle --option_model_terminate_on_repeat False \
+    --blocks_block_size 0.0505 \
+    --sesame_check_static_object_changes True \
     --blocks_num_blocks_test [15] # just needs to be an upper bound
 
 # echo "Running planning with learned models."

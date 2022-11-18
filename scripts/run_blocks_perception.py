@@ -103,6 +103,7 @@ from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 from predicators.structs import Image
+from predicators.settings import CFG
 
 
 def _main(rgb_path: Path,
@@ -114,6 +115,9 @@ def _main(rgb_path: Path,
           debug_viz: bool = False,
           dbscan_eps: float = 0.02,
           dbscan_min_points: int = 50) -> None:
+
+    utils.reset_config({"blocks_block_size": 0.0505})
+
     # Load images.
     rgb = iio.imread(rgb_path)
     depth = iio.imread(depth_path)
@@ -217,7 +221,7 @@ def _main(rgb_path: Path,
         _visualize_point_cloud(clusters_pcd)
 
     # Assume the block size in the PyBullet environment is correct.
-    block_size = PyBulletBlocksEnv.block_size
+    block_size = CFG.blocks_block_size
 
     # Infer the pile (x, y) and heights.
     piles_data: List[Dict[str, float]] = []
