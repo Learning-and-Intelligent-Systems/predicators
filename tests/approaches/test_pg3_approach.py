@@ -310,9 +310,11 @@ LDLRule-MyPickUp:
 
     dummy_type = Type("dummytype", ["a", "b"])
     dummy_var = Variable("?dv", dummy_type)
+    other_dummy_var = list(pick_up_nsrt.preconditions)[0].variables[0]
 
-    dummy_3 = Predicate("OneMoreDummy", [dummy_type], lambda s, o: True)
-    atom_3 = LiftedAtom(dummy_3, [dummy_var])
+    dummy_3 = Predicate("OneMoreDummy", \
+        [dummy_type, other_dummy_var.type], lambda s, o: True)
+    atom_3 = LiftedAtom(dummy_3, [dummy_var, other_dummy_var])
 
     another_pick_up_rule = LDLRule(
         name="MyOtherPickUp",
@@ -332,7 +334,7 @@ LDLRule-MyPickUp:
 LDLRule-MyOtherPickUp:
     Parameters: [?paper:paper, ?loc:loc, ?dv:dummytype]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
-    Neg State Pre: [OneMoreDummy(?dv:dummytype)]
+    Neg State Pre: [OneMoreDummy(?dv:dummytype, ?loc:loc)]
     Goal Pre: [OtherDummy()]
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
