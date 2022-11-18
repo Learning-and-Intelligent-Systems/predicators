@@ -171,6 +171,7 @@ def test_apply_analogy_to_ldl():
     # Test that an analogy with no predicates results in an LDL with just the
     # NSRT preconditions as positive preconditions.
     analogy = _Analogy(predicates={}, nsrts=nsrt_map, variables=variable_map)
+    assert analogy.types == {t: t for t in env.types if t.name != "object"}
     new_ldl = _apply_analogy_to_ldl(analogy, ldl)
     assert str(new_ldl) == """LiftedDecisionList[
 LDLRule-PickUp:

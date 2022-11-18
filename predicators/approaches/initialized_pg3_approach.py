@@ -36,7 +36,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, Iterator, List, Set, Tuple
 
 import dill as pkl
 import smepy
@@ -126,16 +126,21 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
     base_sme_struct, base_sme_vars = _create_sme_inputs(base_env, base_nsrts)
     target_sme_struct, target_sme_vars = _create_sme_inputs(
         target_env, target_nsrts)
-    sme = smepy.SME(base_sme_struct,
-                    target_sme_struct,
-                    max_mappings=CFG.pg3_max_analogies)
     analogies: List[_Analogy] = []
-    for sme_mapping in sme.match():
+    for sme_mapping in _query_sme(base_sme_struct, target_sme_struct):
         analogy = _sme_mapping_to_analogy(sme_mapping, base_env, target_env,
                                           base_nsrts, target_nsrts,
                                           base_sme_vars, target_sme_vars)
         analogies.append(analogy)
     return analogies
+
+
+def _query_sme(base_sme_struct: smepy.StructCase,
+               target_sme_struct: smepy.StructCase) -> Iterator[smepy.Mapping]:
+    sme = smepy.SME(base_sme_struct,
+                    target_sme_struct,
+                    max_mappings=CFG.pg3_max_analogies)
+    return sme.match()
 
 
 def _apply_analogy_to_ldl(analogy: _Analogy,
