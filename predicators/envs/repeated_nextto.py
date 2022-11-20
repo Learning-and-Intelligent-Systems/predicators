@@ -249,17 +249,17 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
         return "repeated_nextto_ambiguous"
 
     def _generate_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks,
-                               rng=self._train_rng,
-                               train_or_test=True)
+        return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
+                                         rng=self._train_rng,
+                                         train_or_test=True)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks,
-                               rng=self._train_rng,
-                               train_or_test=False)
+        return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
+                                         rng=self._train_rng,
+                                         train_or_test=False)
 
-    def _get_tasks(self, num: int, rng: np.random.Generator,
-                   train_or_test: bool) -> List[Task]:
+    def _get_tasks_ambiguous(self, num: int, rng: np.random.Generator,
+                             train_or_test: bool) -> List[Task]:
         assert self.env_ub - self.env_lb > self.nextto_thresh
         tasks = []
         dots = []
