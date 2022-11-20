@@ -248,7 +248,18 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
     def get_name(cls) -> str:
         return "repeated_nextto_ambiguous"
 
-    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng,
+                               train_or_test=True)
+
+    def _generate_test_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng,
+                               train_or_test=False)
+
+    def _get_tasks(self, num: int, rng: np.random.Generator,
+                   train_or_test: bool) -> List[Task]:
         assert self.env_ub - self.env_lb > self.nextto_thresh
         tasks = []
         dots = []
@@ -269,7 +280,12 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
         for i in range(num):
             data: Dict[Object, Array] = {}
             for dot in dots:
-                dot_x = rng.uniform(self.env_ub - 0.5, self.env_ub)
+                if train_or_test:
+                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh,
+                                        self.env_ub)
+                else:
+                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh * 10,
+                                        self.env_ub)
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = self.env_lb
             data[self._robot] = np.array([robot_x])
