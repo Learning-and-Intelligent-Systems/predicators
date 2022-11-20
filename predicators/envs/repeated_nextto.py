@@ -251,15 +251,15 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
                                          rng=self._train_rng,
-                                         train_or_test=True)
+                                         are_train_tasks=True)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
                                          rng=self._train_rng,
-                                         train_or_test=False)
+                                         are_train_tasks=False)
 
     def _get_tasks_ambiguous(self, num: int, rng: np.random.Generator,
-                             train_or_test: bool) -> List[Task]:
+                             are_train_tasks: bool) -> List[Task]:
         assert self.env_ub - self.env_lb > self.nextto_thresh
         tasks = []
         dots = []
@@ -280,7 +280,7 @@ class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
         for i in range(num):
             data: Dict[Object, Array] = {}
             for dot in dots:
-                if train_or_test:
+                if are_train_tasks:
                     dot_x = rng.uniform(self.env_ub - self.nextto_thresh,
                                         self.env_ub)
                 else:
