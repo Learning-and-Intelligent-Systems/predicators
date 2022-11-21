@@ -278,6 +278,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     CFG.horizon)
                 outfile = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
+            if CFG.crash_on_failure:
+                raise e
             continue
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
@@ -333,6 +335,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
+            if CFG.crash_on_failure:
+                raise RuntimeError(log_message)
             make_video = CFG.make_failure_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
