@@ -307,14 +307,11 @@ class _DeleteConditionPG3SearchOperator(_PG3SearchOperator):
                 if condition in rule.nsrt.preconditions:
                     continue
 
-                # Recrete new preconditions.
-                # Assumes that a conditon can appear only in one set
-                new_pos = \
-                    set(rule.pos_state_preconditions).difference({condition})
-                new_neg = \
-                    set(rule.neg_state_preconditions).difference({condition})
-                new_goal = \
-                    set(rule.goal_preconditions).difference({condition})
+                # Recreate new preconditions.
+                # Assumes that a condition can appear only in one set
+                new_pos = rule.pos_state_preconditions - {condition}
+                new_neg = rule.neg_state_preconditions - {condition}
+                new_goal = rule.goal_preconditions - {condition}
 
                 # Reconstruct parameters from the other
                 # components of the LDL.
