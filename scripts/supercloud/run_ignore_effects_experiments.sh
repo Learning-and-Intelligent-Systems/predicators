@@ -9,6 +9,7 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 RUN_LOAD_EXPERIMENTS=false
 ALL_ENVS=(
     "repeated_nextto_single_option"
+    "repeated_nextto_ambiguous"
     "repeated_nextto_painting"
     "screws"
     "painting"
