@@ -332,7 +332,7 @@ LDLRule-MyPickUp:
 
     assert str(succ4[0]) == """LiftedDecisionList[
 LDLRule-MyOtherPickUp:
-    Parameters: [?paper:paper, ?loc:loc, ?dv:dummytype]
+    Parameters: [?dv:dummytype, ?loc:loc, ?paper:paper]
     Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
     Neg State Pre: [OneMoreDummy(?dv:dummytype, ?loc:loc)]
     Goal Pre: [OtherDummy()]
@@ -341,7 +341,7 @@ LDLRule-MyOtherPickUp:
 
     assert str(succ4[1]) == """LiftedDecisionList[
 LDLRule-MyOtherPickUp:
-    Parameters: [?paper:paper, ?loc:loc]
+    Parameters: [?loc:loc, ?paper:paper]
     Pos State Pre: [Dummy(), at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
     Neg State Pre: []
     Goal Pre: [OtherDummy()]
