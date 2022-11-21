@@ -324,6 +324,9 @@ class GlobalSettings:
     # OpenLid() operator in painting. So, we'll keep the former as the
     # default.
     sesame_grounder = "naive"
+    sesame_check_static_object_changes = False
+    # Warning: making this tolerance any lower breaks pybullet_blocks.
+    sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
     log_dir = "logs"
