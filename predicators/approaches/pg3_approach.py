@@ -293,6 +293,49 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
         return conditions
 
 
+class _DeleteConditionPG3SearchOperator(_PG3SearchOperator):
+    """An operator that removes conditions from existing LDL rules."""
+
+    def get_successors(
+            self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
+        for rule_idx, rule in enumerate(ldl.rules):
+            for condition in rule.pos_state_preconditions | \
+                rule.neg_state_preconditions | rule.goal_preconditions:
+
+                # If the condition to be removed is a
+                # precondition of an nsrt, don't remove it.
+                if condition in rule.nsrt.preconditions:
+                    continue
+
+                # Recreate new preconditions.
+                # Assumes that a condition can appear only in one set
+                new_pos = rule.pos_state_preconditions - {condition}
+                new_neg = rule.neg_state_preconditions - {condition}
+                new_goal = rule.goal_preconditions - {condition}
+
+                # Reconstruct parameters from the other
+                # components of the LDL.
+                all_atoms = new_pos | new_neg | new_goal
+                new_rule_params_set = \
+                    {v for a in all_atoms for v in a.variables}
+                new_rule_params_set.update(rule.nsrt.parameters)
+                new_rule_params = sorted(new_rule_params_set)
+
+                # Create the new rule.
+                new_rule = LDLRule(
+                    name=rule.name,
+                    parameters=new_rule_params,
+                    pos_state_preconditions=new_pos,
+                    neg_state_preconditions=new_neg,
+                    goal_preconditions=new_goal,
+                    nsrt=rule.nsrt,
+                )
+                # Create the new LDL.
+                new_rules = list(ldl.rules)
+                new_rules[rule_idx] = new_rule
+                yield LiftedDecisionList(new_rules)
+
+
 ################################ Heuristics ###################################
 
 
