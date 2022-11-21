@@ -383,8 +383,8 @@ class CoverEnvHandEmpty(CoverEnv):
     hand is empty or not.
 
     This allows us to learn all the predicates (Cover, Holding,
-    HandEmpty) with the assumption that the predicates are a function of only
-    their argument's states.
+    HandEmpty) with the assumption that the predicates are a function of
+    only their argument's states.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
