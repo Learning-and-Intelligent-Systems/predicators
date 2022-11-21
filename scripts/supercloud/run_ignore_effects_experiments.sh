@@ -9,6 +9,7 @@ FILE="scripts/supercloud/submit_supercloud_job.py"
 RUN_LOAD_EXPERIMENTS=false
 ALL_ENVS=(
     "repeated_nextto_single_option"
+    "repeated_nextto_ambiguous"
     "repeated_nextto_painting"
     "screws"
     "painting"
@@ -32,6 +33,8 @@ for ENV in ${ALL_ENVS[@]}; do
             # Model-free GNN option policy baseline.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_gnn_modelfree_${DEMOS}demo --load_experiment_id ${ENV}_gnn_shooting_${DEMOS}demo --approach gnn_option_policy --num_train_tasks ${DEMOS} --gnn_option_policy_solve_with_shooting False --load_approach --load_data
         else
+            # PNAD search approach with various numbers of demonstrations.
+            python $FILE $COMMON_ARGS --experiment_id ${ENV}_pnadsearch_${DEMOS}demo --approach nsrt_learning --strips_learner pnad_search --num_train_tasks ${DEMOS}
             # Main backchaining approach with various numbers of demonstrations.
             python $FILE $COMMON_ARGS --experiment_id ${ENV}_backchaining_${DEMOS}demo --approach nsrt_learning --strips_learner backchaining --num_train_tasks ${DEMOS}
             # Cluster-and-intersect (RLDM) baseline. Although it is guaranteed to

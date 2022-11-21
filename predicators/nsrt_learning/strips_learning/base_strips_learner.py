@@ -260,19 +260,6 @@ class BaseSTRIPSLearner(abc.ABC):
                        not segment.necessary_add_effects.issubset(
                            ground_op.add_effects):
                         continue
-                    keep_effects = ground_op.preconditions & \
-                        ground_op.add_effects
-                    # If the segment has a non-None necessary_image,
-                    # and there are keep effects, and the ground operator
-                    # doesn't fit this, skip.
-                    # NOTE: It's weird/janky to only be doing this check
-                    # when there are keep effects (we should always be
-                    # satisfying the necessary image I think?).
-                    # Will investigate in a future PR.
-                    if segment.necessary_image is not None and \
-                        len(keep_effects) > 0 and \
-                        not segment.necessary_image.issubset(next_atoms):
-                        continue
                 else:
                     # If check_only_preconditions is True, we must be
                     # calling this from spawning during backchaining
@@ -395,5 +382,7 @@ class BaseSTRIPSLearner(abc.ABC):
                 new_pnad = PartialNSRTAndDatastore(new_op,
                                                    list(pnad.datastore),
                                                    pnad.option_spec)
+                new_pnad.poss_keep_effects = pnad.poss_keep_effects
+                new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
                 uniquely_named_nec_pnads.append(new_pnad)
         return uniquely_named_nec_pnads
