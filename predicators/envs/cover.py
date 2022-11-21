@@ -86,6 +86,8 @@ class CoverEnv(BaseEnv):
         if held_block is None and above_block is not None:
             grasp = pose - state.get(above_block, "pose")
             next_state.set(self._robot, "hand", pose)
+            if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+                next_state.set(self._robot, "hand_empty", 0)
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block.
@@ -107,6 +109,8 @@ class CoverEnv(BaseEnv):
                     state.get(targ, "pose")+state.get(targ, "width")/2
                     for targ in targets):
                 next_state.set(self._robot, "hand", pose)
+                if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+                    next_state.set(self._robot, "hand_empty", 1)
                 next_state.set(held_block, "pose", new_pose)
                 next_state.set(held_block, "grasp", -1)
         return next_state
@@ -284,10 +288,15 @@ class CoverEnv(BaseEnv):
                     break
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
-        # [hand, pose_x, pose_z]
         # For the non-PyBullet environments, pose_x and pose_z are constant.
-        data[self._robot] = np.array(
-            [0.5, self._workspace_x, self._workspace_z])
+        if "hand_empty" in self._robot_type.feature_names:
+            # [hand, pose_x, pose_z, hand_empty]
+            data[self._robot] = np.array(
+                [0.5, self._workspace_x, self._workspace_z, 1])
+        else:
+            # [hand, pose_x, pose_z]
+            data[self._robot] = np.array(
+                [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
@@ -300,6 +309,8 @@ class CoverEnv(BaseEnv):
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
             state.set(self._robot, "hand", pick_pose)
+            if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+                state.set(self._robot, "hand_empty", 0)
             state.set(block, "grasp", pick_pose - block_pose)
         return state
 
@@ -387,100 +398,6 @@ class CoverEnvHandEmpty(CoverEnv):
     @classmethod
     def get_name(cls) -> str:
         return "cover_handempty"
-
-    def simulate(self, state: State, action: Action) -> State:
-        """This differs from CoverEnv because the hand_empty attribute of the
-        robot is set."""
-        assert self.action_space.contains(action.arr)
-        pose = action.arr.item()
-        next_state = state.copy()
-        hand_regions = self._get_hand_regions(state)
-        # If we're not in any hand region, noop.
-        if not any(hand_lb <= pose <= hand_rb
-                   for hand_lb, hand_rb in hand_regions):
-            return next_state
-        # Identify which block we're holding and which block we're above.
-        held_block = None
-        above_block = None
-        for block in state.get_objects(self._block_type):
-            if state.get(block, "grasp") != -1:
-                assert held_block is None
-                held_block = block
-            block_lb = state.get(block, "pose") - state.get(block, "width") / 2
-            block_ub = state.get(block, "pose") + state.get(block, "width") / 2
-            if state.get(block,
-                         "grasp") == -1 and block_lb <= pose <= block_ub:
-                assert above_block is None
-                above_block = block
-        # If we're not holding anything and we're above a block, grasp it.
-        # The grasped block's pose stays the same.
-        if held_block is None and above_block is not None:
-            grasp = pose - state.get(above_block, "pose")
-            next_state.set(self._robot, "hand", pose)
-            next_state.set(self._robot, "hand_empty", 0)
-            next_state.set(above_block, "grasp", grasp)
-        # If we are holding something, place it.
-        # Disallow placing on another block.
-        if held_block is not None and above_block is None:
-            new_pose = pose - state.get(held_block, "grasp")
-            # Prevent collisions with other blocks.
-            if self._any_intersection(new_pose,
-                                      state.get(held_block, "width"),
-                                      state.data,
-                                      block_only=True,
-                                      excluded_object=held_block):
-                return next_state
-            # Only place if free space placing is allowed, or if we're
-            # placing onto some target.
-            targets = state.get_objects(self._target_type)
-            if self._allow_free_space_placing or \
-                any(state.get(targ, "pose")-state.get(targ, "width")/2
-                    <= pose <=
-                    state.get(targ, "pose")+state.get(targ, "width")/2
-                    for targ in targets):
-                next_state.set(self._robot, "hand", pose)
-                next_state.set(self._robot, "hand_empty", 1)
-                next_state.set(held_block, "pose", new_pose)
-                next_state.set(held_block, "grasp", -1)
-        return next_state
-
-    def _create_initial_state(self, blocks: List[Object],
-                              targets: List[Object],
-                              rng: np.random.Generator) -> State:
-        """This differs from CoverEnv because the hand_empty attribute of the
-        robot is set."""
-        data: Dict[Object, Array] = {}
-        assert len(CFG.cover_block_widths) == len(blocks)
-        for block, width in zip(blocks, CFG.cover_block_widths):
-            while True:
-                pose = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(pose, width, data):
-                    break
-            # [is_block, is_target, width, pose, grasp]
-            data[block] = np.array([1.0, 0.0, width, pose, -1.0])
-        assert len(CFG.cover_target_widths) == len(targets)
-        for target, width in zip(targets, CFG.cover_target_widths):
-            while True:
-                pose = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(
-                        pose, width, data, larger_gap=True):
-                    break
-            # [is_block, is_target, width, pose]
-            data[target] = np.array([0.0, 1.0, width, pose])
-        # [hand, pose_x, pose_z, hand_empty]
-        # For the non-PyBullet environments, pose_x and pose_z are constant.
-        data[self._robot] = np.array(
-            [0.5, self._workspace_x, self._workspace_z, 1])
-        state = State(data)
-        # Allow some chance of holding a block in the initial state.
-        if rng.uniform() < CFG.cover_initial_holding_prob:
-            block = blocks[rng.choice(len(blocks))]
-            block_pose = state.get(block, "pose")
-            pick_pose = block_pose
-            state.set(self._robot, "hand", pick_pose)
-            state.set(self._robot, "hand_empty", 0)
-            state.set(block, "grasp", pick_pose - block_pose)
-        return state
 
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
