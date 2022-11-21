@@ -1348,10 +1348,9 @@ def test_multi_pass_backchaining(approach_cls, val):
         assert str(pnad) in correct_pnads
 
 
-@pytest.mark.parametrize("approach_name, approach_cls",
-                         [("backchaining", _MockBackchainingSTRIPSLearner),
-                          ("pnad_search", PNADSearchSTRIPSLearner)])
-def test_segment_not_in_datastore(approach_name, approach_cls):
+@pytest.mark.parametrize(
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
+def test_segment_not_in_datastore(approach_cls):
     """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
     where they can cover a particular segment using an operator that doesn't
     have that segment in its datastore.
@@ -1422,13 +1421,7 @@ def test_segment_not_in_datastore(approach_name, approach_cls):
                            verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
-
-    # Backchaining requires 4 PNADs for harmlessness here, but effect search
-    # only requires 3.
-    if approach_name == "backchaining":
-        assert len(learned_pnads) == 4
-    else:
-        assert len(learned_pnads) == 3
+    assert len(learned_pnads) == 4
 
     correct_pnads = [
         """STRIPS-Pick:
@@ -1436,12 +1429,6 @@ def test_segment_not_in_datastore(approach_name, approach_cls):
     Preconditions: []
     Add Effects: [B()]
     Delete Effects: [D()]
-    Ignore Effects: []
-    Option Spec: Pick()""", """STRIPS-Pick:
-    Parameters: []
-    Preconditions: []
-    Add Effects: [B()]
-    Delete Effects: [C(), D()]
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
