@@ -287,6 +287,7 @@ class GlobalSettings:
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
     pg3_add_condition_allow_new_vars = True
+    pg3_max_analogies = 5
 
     # parameters for PG3 init approach
     # These need to be overridden via command line
@@ -324,6 +325,9 @@ class GlobalSettings:
     # OpenLid() operator in painting. So, we'll keep the former as the
     # default.
     sesame_grounder = "naive"
+    sesame_check_static_object_changes = False
+    # Warning: making this tolerance any lower breaks pybullet_blocks.
+    sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
     log_dir = "logs"
