@@ -445,3 +445,49 @@ def test_kinematic_action_conversion():
         loaded_converter = pkl.load(f)
     reduced_action_arr3 = loaded_converter.env_to_reduced(env_action_arr2)
     assert np.allclose(reduced_action_arr, reduced_action_arr3)
+    # Test that open and closed finger values are properly converted.
+    env_open = env_action_arr.copy()
+    env_open[robot.left_finger_joint_idx] = robot.open_fingers
+    env_open[robot.right_finger_joint_idx] = robot.open_fingers
+    reduced_open = converter.env_to_reduced(env_open)
+    assert reduced_open[-1] == 1.0
+    recovered_env_open = converter.reduced_to_env(reduced_open)
+    assert np.isclose(recovered_env_open[robot.left_finger_joint_idx],
+                      robot.open_fingers)
+    assert np.isclose(recovered_env_open[robot.right_finger_joint_idx],
+                      robot.open_fingers)
+    env_closed = env_action_arr.copy()
+    env_closed[robot.left_finger_joint_idx] = robot.closed_fingers
+    env_closed[robot.right_finger_joint_idx] = robot.closed_fingers
+    reduced_closed = converter.env_to_reduced(env_closed)
+    assert reduced_closed[-1] == 0.0
+    recovered_env_closed = converter.reduced_to_env(reduced_closed)
+    assert np.isclose(recovered_env_closed[robot.left_finger_joint_idx],
+                      robot.closed_fingers)
+    assert np.isclose(recovered_env_closed[robot.right_finger_joint_idx],
+                      robot.closed_fingers)
+    # Test rounding.
+    env_open = env_action_arr.copy()
+    open_value = (0.8 * robot.open_fingers + 0.2 * robot.closed_fingers)
+    env_open[robot.left_finger_joint_idx] = open_value
+    env_open[robot.right_finger_joint_idx] = open_value
+    reduced_open = converter.env_to_reduced(env_open)
+    assert reduced_open[-1] == 1.0
+    reduced_open[-1] = 0.8
+    recovered_env_open = converter.reduced_to_env(reduced_open)
+    assert np.isclose(recovered_env_open[robot.left_finger_joint_idx],
+                      robot.open_fingers)
+    assert np.isclose(recovered_env_open[robot.right_finger_joint_idx],
+                      robot.open_fingers)
+    env_closed = env_action_arr.copy()
+    closed_value = (0.2 * robot.open_fingers + 0.8 * robot.closed_fingers)
+    env_closed[robot.left_finger_joint_idx] = closed_value
+    env_closed[robot.right_finger_joint_idx] = closed_value
+    reduced_closed = converter.env_to_reduced(env_closed)
+    assert reduced_closed[-1] == 0.0
+    reduced_closed[-1] = 0.2
+    recovered_env_closed = converter.reduced_to_env(reduced_closed)
+    assert np.isclose(recovered_env_closed[robot.left_finger_joint_idx],
+                      robot.closed_fingers)
+    assert np.isclose(recovered_env_closed[robot.right_finger_joint_idx],
+                      robot.closed_fingers)
