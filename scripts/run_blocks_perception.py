@@ -102,8 +102,8 @@ from predicators.envs.pybullet_env import create_pybullet_block
 from predicators.pybullet_helpers.geometry import Pose3D
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
-from predicators.structs import Image
 from predicators.settings import CFG
+from predicators.structs import Image
 
 
 def _main(rgb_path: Path,
@@ -392,8 +392,9 @@ def _get_world_to_base() -> Pose3D:
                PyBulletBlocksEnv.robot_init_z)
     robot = create_single_arm_pybullet_robot("panda", physics_client_id,
                                              ee_home)
-    dx, dy, dz = p.getBasePositionAndOrientation(
+    dx, dy, _ = p.getBasePositionAndOrientation(
         robot.robot_id, physicsClientId=physics_client_id)[0]
+    dz = PyBulletBlocksEnv.table_height
     return (dx, dy, dz)
 
 
