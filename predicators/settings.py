@@ -66,6 +66,7 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_test_task_json_dir = None
     blocks_holding_goals = False
+    blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
