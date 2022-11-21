@@ -134,7 +134,10 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     elif env_name == "cover_handempty":
         parameters.append(robot)
         handempty_predicate_args.append(robot)
-    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, handempty_predicate_args)}
+    preconditions = {
+        LiftedAtom(IsBlock, [block]),
+        LiftedAtom(HandEmpty, handempty_predicate_args)
+    }
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 

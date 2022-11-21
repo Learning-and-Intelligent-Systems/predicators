@@ -477,11 +477,6 @@ class CoverEnvHandEmpty(CoverEnv):
             block = blocks[rng.choice(len(blocks))]
             block_pose = state.get(block, "pose")
             pick_pose = block_pose
-            if self._initial_pick_offsets:
-                offset = rng.choice(self._initial_pick_offsets)
-                assert -1.0 < offset < 1.0, \
-                    "initial pick offset should be between -1 and 1"
-                pick_pose += state.get(block, "width") * offset / 2.
             state.set(self._robot, "hand", pick_pose)
             state.set(self._robot, "hand_empty", 0)
             state.set(block, "grasp", pick_pose - block_pose)
@@ -490,7 +485,7 @@ class CoverEnvHandEmpty(CoverEnv):
     def _HandEmpty_holds(self, state: State,
                          objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "hand_empty") == 1  # ?? TODO
+        return state.get(robot, "hand_empty") == 1
 
 
 class CoverEnvTypedOptions(CoverEnv):
