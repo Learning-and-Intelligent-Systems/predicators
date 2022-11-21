@@ -9,20 +9,16 @@ APPROACHES:
 ENVS:
   cover:
     NAME: "cover"
-    FLAGS: {}
   pybullet_blocks:
     NAME: "pybullet_blocks"
-    FLAGS: {}
   painting:
     NAME: "painting"
-    FLAGS: {}
   tools:
     NAME: "tools"
     FLAGS:
       num_train_tasks: 200  # requires more data (default is 50)
   pybullet_cover:
     NAME: "pybullet_cover"
-    FLAGS: {}
 ARGS: []
 FLAGS: {}
 START_SEED: 456

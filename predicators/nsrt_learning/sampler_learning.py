@@ -57,7 +57,7 @@ def _extract_oracle_samplers(
     # parameters, so we filter them out.
     gt_nsrts = {
         nsrt
-        for nsrt in get_gt_nsrts(env.predicates, env.options)
+        for nsrt in get_gt_nsrts(env.get_name(), env.predicates, env.options)
         if nsrt.option.params_space.shape != (0, )
     }
     assert len(strips_ops) == len(option_specs)

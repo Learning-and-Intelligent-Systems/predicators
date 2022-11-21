@@ -3,7 +3,6 @@
 APPROACHES:
   python_planner:
     NAME: "oracle"
-    FLAGS: {}
   fd_planner:
     NAME: "oracle"
     FLAGS:

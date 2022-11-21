@@ -538,3 +538,198 @@ def _generate_forest_problem(height: int, width: int,
 )"""
 
     return problem_str
+
+
+################################### Gripper ####################################
+
+
+def create_gripper_pddl_generator(min_num_rooms: int,
+                                  max_num_rooms: int,
+                                  min_num_balls: int,
+                                  max_num_balls: int,
+                                  prefix: str = "") -> PDDLProblemGenerator:
+    """Create a generator for gripper problems."""
+    return functools.partial(_generate_gripper_problems, min_num_rooms,
+                             max_num_rooms, min_num_balls, max_num_balls,
+                             prefix)
+
+
+def _generate_gripper_problems(
+    min_num_rooms: int,
+    max_num_rooms: int,
+    min_num_balls: int,
+    max_num_balls: int,
+    prefix: str,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+        num_balls = rng.integers(min_num_balls, max_num_balls + 1)
+        problem = _generate_gripper_problem(num_rooms, num_balls, prefix, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_gripper_problem(
+    num_rooms: int,
+    num_balls: int,
+    prefix: str,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    room_objects = set()
+    for r in range(num_rooms):
+        obj = f"room{r}"
+        room_objects.add(obj)
+        init_strs.add(f"({prefix}room {obj})")
+
+    ball_objects = set()
+    for ball_id in range(num_balls):
+        obj = f"ball{ball_id}"
+        ball_objects.add(obj)
+        init_strs.add(f"({prefix}ball {obj})")
+
+    gripper_objects = set()
+    num_grippers = 2
+    for gripper_id in range(num_grippers):
+        obj = f"gripper{gripper_id}"
+        gripper_objects.add(obj)
+        init_strs.add(f"({prefix}gripper {obj})")
+
+    # Add free and at ground literals
+    for gripper_object in gripper_objects:
+        init_strs.add(f"({prefix}free {gripper_object})")
+
+    initial_ball_rooms = {}
+    for ball_object in ball_objects:
+        initial_ball_rooms[ball_object] = rng.integers(num_rooms)
+        init_strs.add(
+            f"({prefix}at {ball_object} room{initial_ball_rooms[ball_object]})"
+        )
+
+    # Always start robby at room0
+    init_strs.add(f"({prefix}at-robby room0)")
+
+    # Create goal str.
+    num_goal_balls = rng.integers(1, num_balls + 1)
+    goal_balls = rng.choice(sorted(list(ball_objects)),
+                            size=num_goal_balls,
+                            replace=False)
+    possible_goal_rooms = list(range(num_rooms))
+    for goal_ball in goal_balls:
+        possible_goal_rooms.remove(initial_ball_rooms[goal_ball])
+        goal_room = rng.choice(possible_goal_rooms)
+        goal_strs.add(f"({prefix}at {goal_ball} room{goal_room})")
+        possible_goal_rooms.append(initial_ball_rooms[goal_ball])
+
+    # Finalize PDDL problem str.
+    all_objects = room_objects | ball_objects | gripper_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem gripper-procgen)
+    (:domain {prefix}gripper)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+    return problem_str
+
+
+################################### Ferry #####################################
+
+
+def create_ferry_pddl_generator(min_locs: int, max_locs: int, min_cars: int,
+                                max_cars: int) -> PDDLProblemGenerator:
+    """Create a generator for ferry problems."""
+    return functools.partial(_generate_ferry_problems, min_locs, max_locs,
+                             min_cars, max_cars)
+
+
+def _generate_ferry_problems(
+    min_locs: int,
+    max_locs: int,
+    min_cars: int,
+    max_cars: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_locs, max_locs + 1)
+        num_cars = rng.integers(min_cars, max_cars + 1)
+        problem = _generate_ferry_problem(num_locs, num_cars, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_ferry_problem(
+    num_locs: int,
+    num_cars: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    loc_objects = []
+    for i in range(num_locs):
+        obj = f"l{i}"
+        loc_objects.append(obj)
+        init_strs.add(f"(location {obj})")
+    car_objects = []
+    for i in range(num_cars):
+        obj = f"c{i}"
+        car_objects.append(obj)
+        init_strs.add(f"(car {obj})")
+
+    # Add not-eq predicates for locations.
+    for loc1 in loc_objects:
+        for loc2 in loc_objects:
+            if loc1 != loc2:
+                init_strs.add(f"(not-eq {loc1} {loc2})")
+
+    # Add empty-ferry predicate.
+    init_strs.add("(empty-ferry)")
+
+    # Create car origins and destinations.
+    for i, car in enumerate(car_objects):
+        car_origin = rng.choice(loc_objects)
+        init_strs.add(f"(at {car} {car_origin})")
+        # Prevent trivial problems by forcing the first origin and dest to
+        # differ.
+        if i == 0:
+            remaining_locs = [l for l in loc_objects if l != car_origin]
+        else:
+            remaining_locs = loc_objects
+        car_dest = rng.choice(remaining_locs)
+        goal_strs.add(f"(at {car} {car_dest})")
+
+    # Create the ferry origin.
+    ferry_origin = rng.choice(loc_objects)
+    init_strs.add(f"(at-ferry {ferry_origin})")
+
+    # Finalize PDDL problem str.
+    all_objects = car_objects + loc_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem ferry-procgen)
+    (:domain ferry)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str

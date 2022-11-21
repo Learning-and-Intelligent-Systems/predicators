@@ -17,7 +17,7 @@ from predicators.structs import Action, DefaultState, DefaultTask, \
 class BaseEnv(abc.ABC):
     """Base environment."""
 
-    def __init__(self) -> None:
+    def __init__(self, use_gui: bool = True) -> None:
         self._current_state = DefaultState  # set in reset
         self._current_task = DefaultTask  # set in reset
         self._set_seed(CFG.seed)
@@ -27,6 +27,8 @@ class BaseEnv(abc.ABC):
         # to be called in those subclasses first, to set the env seed.
         self._train_tasks: List[Task] = []
         self._test_tasks: List[Task] = []
+        # If the environment has a GUI, this determines whether to launch it.
+        self._using_gui = use_gui
 
     @classmethod
     @abc.abstractmethod
@@ -109,6 +111,11 @@ class BaseEnv(abc.ABC):
         because this method returns an active figure object!
         """
         raise NotImplementedError("Matplotlib rendering not implemented!")
+
+    @property
+    def using_gui(self) -> bool:
+        """Whether the GUI for this environment is activated."""
+        return self._using_gui
 
     def render_state(self,
                      state: State,

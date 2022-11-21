@@ -34,10 +34,10 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--experiment_id", default="", type=str)
     parser.add_argument("--load_experiment_id", default="", type=str)
     parser.add_argument("--log_file", default="", type=str)
+    parser.add_argument("--use_gui", action="store_true")
     parser.add_argument('--debug',
                         action="store_const",
                         dest="loglevel",
                         const=logging.DEBUG,
                         default=logging.INFO)
-    parser.add_argument("--pg3_init_policy", default="", type=str)
     return parser

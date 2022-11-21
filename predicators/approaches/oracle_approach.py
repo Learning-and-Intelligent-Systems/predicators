@@ -34,7 +34,7 @@ class OracleApproach(BilevelPlanningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks, task_planning_heuristic,
                          max_skeletons_optimized)
-        self._nsrts = get_gt_nsrts(self._initial_predicates,
+        self._nsrts = get_gt_nsrts(CFG.env, self._initial_predicates,
                                    self._initial_options)
 
     @classmethod
@@ -62,5 +62,6 @@ class OracleApproach(BilevelPlanningApproach):
             env = get_or_create_env("behavior")
             preds = self._get_current_predicates()
             self._initial_options = env.options
-            self._nsrts = get_gt_nsrts(preds, self._initial_options)
+            self._nsrts = get_gt_nsrts(env.get_name(), preds,
+                                       self._initial_options)
         return self._nsrts

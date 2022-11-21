@@ -95,21 +95,27 @@ def generate_run_configs(config_filename: str,
             # Loop over envs.
             for env_exp_id, env_config in config["ENVS"].items():
                 env = env_config["NAME"]
-                # Create the experiment ID and flags.
+                # Create the experiment ID, args, and flags.
                 experiment_id = f"{env_exp_id}-{approach_exp_id}"
+                run_args = list(args)
+                if "ARGS" in approach_config:
+                    run_args.extend(approach_config["ARGS"])
+                if "ARGS" in env_config:
+                    run_args.extend(env_config["ARGS"])
                 run_flags = flags.copy()
-                run_flags.update(approach_config["FLAGS"])
-                run_flags.update(env_config["FLAGS"])
+                if "FLAGS" in approach_config:
+                    run_flags.update(approach_config["FLAGS"])
+                if "FLAGS" in env_config:
+                    run_flags.update(env_config["FLAGS"])
                 # Loop or batch over seeds.
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id, approach, env,
-                                             args, run_flags.copy(), use_gpu,
+                                             run_args, run_flags, use_gpu,
                                              start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id,
-                                                  approach, env, args,
-                                                  run_flags.copy(), use_gpu,
+                        yield SingleSeedRunConfig(experiment_id, approach, env,
+                                                  run_args, run_flags, use_gpu,
                                                   seed)
 
 

@@ -6,7 +6,6 @@ from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
@@ -32,17 +31,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Dict[str, Quaternion]] = {
-        # Fetch gripper down since it's thin we don't need to rotate 90 degrees.
-        "fetch": quaternion_from_euler(0.0, np.pi / 2, -np.pi),
-        # Panda gripper down and rotated 90 degrees as it's big and can cause
-        # collisions.
-        "panda": quaternion_from_euler(np.pi, 0, np.pi / 2)
-    }
     _move_to_pose_tol: ClassVar[float] = 1e-4
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override options, keeping the types and parameter spaces the same.
         open_fingers_func = lambda s, _1, _2: (self._fingers_state_to_joint(
@@ -97,7 +89,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToStack",
                     z_func=lambda block_z: (
-                        block_z + self.block_size + self._offset_z),
+                        block_z + self._block_size + self._offset_z),
                     finger_status="closed"),
                 # Open fingers.
                 create_change_fingers_option(self._pybullet_robot,
@@ -113,7 +105,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         ## PutOnTable option
         types = self._PutOnTable.types
         params_space = self._PutOnTable.params_space
-        place_z = self.table_height + self.block_size / 2 + self._offset_z
+        place_z = self.table_height + self._block_size / 2 + self._offset_z
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
             [
@@ -167,8 +159,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "using_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
@@ -212,8 +204,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         self._block_ids = []
         for i in range(num_blocks):
             color = self._obj_colors[i % len(self._obj_colors)]
-            half_extents = (self.block_size / 2.0, self.block_size / 2.0,
-                            self.block_size / 2.0)
+            half_extents = (self._block_size / 2.0, self._block_size / 2.0,
+                            self._block_size / 2.0)
             self._block_ids.append(
                 create_pybullet_block(color, half_extents, self._obj_mass,
                                       self._obj_friction, self._default_orn,
@@ -222,10 +214,8 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        ee_orn = self._ee_orn[CFG.pybullet_robot]
         return create_single_arm_pybullet_robot(CFG.pybullet_robot,
-                                                physics_client_id, ee_home,
-                                                ee_orn)
+                                                physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         return np.array([
@@ -253,8 +243,6 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             bx = state.get(block_obj, "pose_x")
             by = state.get(block_obj, "pose_y")
             bz = state.get(block_obj, "pose_z")
-            # Assume not holding in the initial state
-            assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz],
                 self._default_orn,
@@ -269,8 +257,13 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                                 rgbaColor=color,
                                 physicsClientId=self._physics_client_id)
 
+        # Check if we're holding some block.
+        held_block = self._get_held_block(state)
+        if held_block is not None:
+            self._force_grasp_object(held_block)
+
         # For any blocks not involved, put them out of view.
-        h = self.block_size
+        h = self._block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
@@ -349,6 +342,17 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             self._pybullet_robot.left_finger_id: normal,
             self._pybullet_robot.right_finger_id: -1 * normal,
         }
+
+    def _force_grasp_object(self, block: Object) -> None:
+        block_to_block_id = {b: i for i, b in self._block_id_to_block.items()}
+        block_id = block_to_block_id[block]
+        # The block should already be held. Otherwise, the position of the
+        # block was wrong in the state.
+        held_obj_id = self._detect_held_object()
+        assert block_id == held_obj_id
+        # Create the grasp constraint.
+        self._held_obj_id = block_id
+        self._create_grasp_constraint()
 
     def _create_blocks_move_to_above_block_option(
             self, name: str, z_func: Callable[[float], float],

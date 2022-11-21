@@ -48,7 +48,7 @@ exit
 ```
 Note that supercloud sometimes hangs, so the experiment may take a few minutes to get started. But once it does, you should see 50/50 tasks solved, and the script should terminate in roughly 2 seconds (as reported at the bottom).
 
-## Running Experiments
+## Running Experiments (From Local)
 
 To get started, activate the conda environment and switch to the repository. If you followed the instructions above, you can do both with `predicate_behavior`.
 
@@ -57,15 +57,7 @@ Before running any experiments, it is good practice to make sure that you have a
 * Remove all previous results: `rm -f results/* logs/* saved_approaches/* saved_datasets/*`.
 * Make sure you are on the right branch (`git branch`) with a clean diff (`git diff`).
 
-To run our default suite of experiments (will take many hours to complete, we recommend letting it run overnight):
-```
-./scripts/supercloud/run_nightly_experiments.sh
-```
-
-Upon running that script, you should see many printouts, such as:
-```
-Running command: sbatch --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=cover_oracle --array=456-465 -o logs/cover__oracle__%a______cover_oracle__%j.log temp_run_file.sh
-```
+To run experiments defined in a YAML config, you can use the same `launch.py` script described in the previous section, but with the added `--on_supercloud` flag. For example: `python scripts/supercloud/launch.py --user tslvr --config example_basic.yaml --on_supercloud`
 
 After experiments are running:
 * To monitor experiments that are running, use `sl`.

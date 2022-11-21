@@ -33,8 +33,9 @@ class TouchPointEnv(BaseEnv):
     # is less than action_magnitude * touch_multiplier.
     touch_multiplier: ClassVar[float] = 1.5
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._robot_type = Type("robot", ["x", "y"])
         self._target_type = Type("target", ["x", "y"])

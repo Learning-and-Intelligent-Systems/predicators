@@ -36,45 +36,47 @@ except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
     pass
 
 
-def get_gt_nsrts(predicates: Set[Predicate],
+def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
-                   "cover_regrasp", "cover_multistep_options",
-                   "pybullet_cover"):
-        nsrts = _get_cover_gt_nsrts()
-    elif CFG.env == "cluttered_table":
-        nsrts = _get_cluttered_table_gt_nsrts()
-    elif CFG.env == "cluttered_table_place":
-        nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
-    elif CFG.env in ("blocks", "pybullet_blocks"):
-        nsrts = _get_blocks_gt_nsrts()
-    elif CFG.env == "behavior":
+    if env_name in ("cover", "cover_hierarchical_types", "cover_typed_options",
+                    "cover_regrasp", "cover_multistep_options",
+                    "pybullet_cover"):
+        nsrts = _get_cover_gt_nsrts(env_name)
+    elif env_name == "cluttered_table":
+        nsrts = _get_cluttered_table_gt_nsrts(env_name)
+    elif env_name == "cluttered_table_place":
+        nsrts = _get_cluttered_table_gt_nsrts(env_name, with_place=True)
+    elif env_name in ("blocks", "pybullet_blocks"):
+        nsrts = _get_blocks_gt_nsrts(env_name)
+    elif env_name == "behavior":
         nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
-    elif CFG.env in ("painting", "repeated_nextto_painting"):
-        nsrts = _get_painting_gt_nsrts()
-    elif CFG.env == "tools":
-        nsrts = _get_tools_gt_nsrts()
-    elif CFG.env == "playroom":
-        nsrts = _get_playroom_gt_nsrts()
-    elif CFG.env in ("repeated_nextto", "repeated_nextto_ambiguous"):
-        nsrts = _get_repeated_nextto_gt_nsrts(CFG.env)
-    elif CFG.env == "repeated_nextto_single_option":
-        nsrts = _get_repeated_nextto_single_option_gt_nsrts()
-    elif CFG.env == "screws":
-        nsrts = _get_screws_gt_nsrts()
-    elif CFG.env.startswith("pddl_"):
-        nsrts = _get_pddl_env_gt_nsrts(CFG.env)
-    elif CFG.env == "touch_point":
-        nsrts = _get_touch_point_gt_nsrts()
-    elif CFG.env == "stick_button":
-        nsrts = _get_stick_button_gt_nsrts()
-    elif CFG.env == "doors":
-        nsrts = _get_doors_gt_nsrts()
-    elif CFG.env == "coffee":
-        nsrts = _get_coffee_gt_nsrts()
-    elif CFG.env in ("satellites", "satellites_simple"):
-        nsrts = _get_satellites_gt_nsrts()
+    elif env_name in ("painting", "repeated_nextto_painting"):
+        nsrts = _get_painting_gt_nsrts(env_name)
+    elif env_name == "tools":
+        nsrts = _get_tools_gt_nsrts(env_name)
+    elif env_name == "playroom":
+        nsrts = _get_playroom_gt_nsrts(env_name)
+    elif env_name in ("repeated_nextto", "repeated_nextto_ambiguous"):
+        nsrts = _get_repeated_nextto_gt_nsrts(env_name)
+    elif env_name == "repeated_nextto_single_option":
+        nsrts = _get_repeated_nextto_single_option_gt_nsrts(env_name)
+    elif env_name == "screws":
+        nsrts = _get_screws_gt_nsrts(env_name)
+    elif env_name.startswith("pddl_"):
+        nsrts = _get_pddl_env_gt_nsrts(env_name)
+    elif env_name == "touch_point":
+        nsrts = _get_touch_point_gt_nsrts(env_name)
+    elif env_name == "stick_button":
+        nsrts = _get_stick_button_gt_nsrts(env_name)
+    elif env_name == "doors":
+        nsrts = _get_doors_gt_nsrts(env_name)
+    elif env_name == "narrow_passage":
+        nsrts = _get_narrow_passage_gt_nsrts(env_name)
+    elif env_name == "coffee":
+        nsrts = _get_coffee_gt_nsrts(env_name)
+    elif env_name in ("satellites", "satellites_simple"):
+        nsrts = _get_satellites_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -116,12 +118,12 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_nsrts() -> Set[NSRT]:
+def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv or environments that inherit from
     CoverEnv."""
     # Types
     block_type, target_type, robot_type = _get_types_by_names(
-        CFG.env, ["block", "target", "robot"])
+        env_name, ["block", "target", "robot"])
 
     # Objects
     block = Variable("?block", block_type)
@@ -130,40 +132,40 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
     # Predicates
     IsBlock, IsTarget, Covers, HandEmpty, Holding = \
-        _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
+        _get_predicates_by_names(env_name, ["IsBlock", "IsTarget", "Covers",
                                            "HandEmpty", "Holding"])
 
     # Options
-    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                   "cover_regrasp"):
-        PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
-        Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
+    if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                    "cover_regrasp"):
+        PickPlace, = _get_options_by_names(env_name, ["PickPlace"])
+    elif env_name in ("cover_typed_options", "cover_multistep_options"):
+        Pick, Place = _get_options_by_names(env_name, ["Pick", "Place"])
 
     nsrts = set()
 
     # Pick
     parameters = [block]
     holding_predicate_args = [block]
-    if CFG.env == "cover_multistep_options":
+    if env_name == "cover_multistep_options":
         parameters.append(robot)
         holding_predicate_args.append(robot)
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                   "cover_regrasp"):
+    if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_typed_options":
+    elif env_name == "cover_typed_options":
         option = Pick
         option_vars = [block]
-    elif CFG.env == "cover_multistep_options":
+    elif env_name == "cover_multistep_options":
         option = Pick
         option_vars = [block, robot]
 
-    if CFG.env == "cover_multistep_options":
+    if env_name == "cover_multistep_options":
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
@@ -222,11 +224,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
-            if CFG.env == "cover_typed_options":
+            if env_name == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
-            elif CFG.env in ("cover", "pybullet_cover",
-                             "cover_hierarchical_types", "cover_regrasp"):
+            elif env_name in ("cover", "pybullet_cover",
+                              "cover_hierarchical_types", "cover_regrasp"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -240,7 +242,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     # Place (to Cover)
     parameters = [block, target]
     holding_predicate_args = [block]
-    if CFG.env == "cover_multistep_options":
+    if env_name == "cover_multistep_options":
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
     preconditions = {
@@ -253,23 +255,23 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
-    if CFG.env == "cover_regrasp":
+    if env_name == "cover_regrasp":
         Clear, = _get_predicates_by_names("cover_regrasp", ["Clear"])
         preconditions.add(LiftedAtom(Clear, [target]))
         delete_effects.add(LiftedAtom(Clear, [target]))
 
-    if CFG.env in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                   "cover_regrasp"):
+    if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
+                    "cover_regrasp"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_typed_options":
+    elif env_name == "cover_typed_options":
         option = Place
         option_vars = [target]
-    elif CFG.env == "cover_multistep_options":
+    elif env_name == "cover_multistep_options":
         option = Place
         option_vars = [block, robot, target]
 
-    if CFG.env == "cover_multistep_options":
+    if env_name == "cover_multistep_options":
 
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -339,7 +341,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     nsrts.add(place_nsrt)
 
     # Place (not on any target)
-    if CFG.env == "cover_regrasp":
+    if env_name == "cover_regrasp":
         parameters = [block]
         preconditions = {
             LiftedAtom(IsBlock, [block]),
@@ -371,19 +373,18 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
+def _get_cluttered_table_gt_nsrts(env_name: str,
+                                  with_place: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for ClutteredTableEnv."""
-    can_type, = _get_types_by_names("cluttered_table", ["can"])
+    can_type, = _get_types_by_names(env_name, ["can"])
 
     HandEmpty, Holding, Untrashed = _get_predicates_by_names(
-        "cluttered_table", ["HandEmpty", "Holding", "Untrashed"])
+        env_name, ["HandEmpty", "Holding", "Untrashed"])
 
     if with_place:
-        Grasp, Place = _get_options_by_names("cluttered_table_place",
-                                             ["Grasp", "Place"])
+        Grasp, Place = _get_options_by_names(env_name, ["Grasp", "Place"])
     else:
-        Grasp, Dump = _get_options_by_names("cluttered_table",
-                                            ["Grasp", "Dump"])
+        Grasp, Dump = _get_options_by_names(env_name, ["Grasp", "Dump"])
 
     nsrts = set()
 
@@ -489,15 +490,15 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
     return nsrts
 
 
-def _get_blocks_gt_nsrts() -> Set[NSRT]:
+def _get_blocks_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for BlocksEnv."""
-    block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
+    block_type, robot_type = _get_types_by_names(env_name, ["block", "robot"])
 
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+        env_name, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
 
     Pick, Stack, PutOnTable = _get_options_by_names(
-        CFG.env, ["Pick", "Stack", "PutOnTable"])
+        env_name, ["Pick", "Stack", "PutOnTable"])
 
     nsrts = set()
 
@@ -606,29 +607,29 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_painting_gt_nsrts() -> Set[NSRT]:
+def _get_painting_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for PaintingEnv."""
     obj_type, box_type, lid_type, shelf_type, robot_type = \
-        _get_types_by_names(CFG.env, ["obj", "box", "lid", "shelf", "robot"])
+        _get_types_by_names(env_name, ["obj", "box", "lid", "shelf", "robot"])
 
     (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable, \
         NotOnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, \
         IsClean) = \
         _get_predicates_by_names(
-            CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
+            env_name, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
                         "GripperOpen", "OnTable", "NotOnTable", "HoldingTop",
                         "HoldingSide", "Holding", "IsWet", "IsDry", "IsDirty",
                         "IsClean"])
 
     Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
-        CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
+        env_name, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
 
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         (NextTo, NextToBox, NextToShelf, NextToTable) = \
          _get_predicates_by_names(
-             CFG.env, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
+             env_name, ["NextTo", "NextToBox", "NextToShelf", "NextToTable"])
         MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
-            CFG.env, ["MoveToObj", "MoveToBox", "MoveToShelf"])
+            env_name, ["MoveToObj", "MoveToBox", "MoveToShelf"])
 
     nsrts = set()
 
@@ -642,7 +643,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot]),
         LiftedAtom(OnTable, [obj])
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
@@ -668,7 +669,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot]),
         LiftedAtom(OnTable, [obj])
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingSide, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
@@ -695,7 +696,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(IsDry, [obj]),
         LiftedAtom(IsDirty, [obj])
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(IsWet, [obj]), LiftedAtom(IsClean, [obj])}
     delete_effects = {LiftedAtom(IsDry, [obj]), LiftedAtom(IsDirty, [obj])}
@@ -714,7 +715,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [obj]),
         LiftedAtom(IsWet, [obj]),
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(IsDry, [obj])}
     delete_effects = {LiftedAtom(IsWet, [obj])}
@@ -735,7 +736,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(IsDry, [obj]),
         LiftedAtom(IsClean, [obj])
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(IsBoxColor, [obj, box])}
     delete_effects = set()
@@ -764,7 +765,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(IsDry, [obj]),
         LiftedAtom(IsClean, [obj])
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {LiftedAtom(IsShelfColor, [obj, shelf])}
     delete_effects = set()
@@ -792,7 +793,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [obj]),
         LiftedAtom(HoldingTop, [obj]),
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextToBox, [robot, box]))
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {
@@ -805,7 +806,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [obj]),
         LiftedAtom(OnTable, [obj]),
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         # (Not)OnTable is affected by moving, not placing, in rnt_painting.
         # So we remove it from the add and delete effects here.
         add_effects.remove(LiftedAtom(NotOnTable, [obj]))
@@ -816,10 +817,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                            objs: Sequence[Object]) -> Array:
         del goal  # unused
         x = state.get(objs[0], "pose_x")
-        if CFG.env == "painting":
+        if env_name == "painting":
             y = rng.uniform(PaintingEnv.box_lb, PaintingEnv.box_ub)
             z = state.get(objs[0], "pose_z")
-        elif CFG.env == "repeated_nextto_painting":
+        elif env_name == "repeated_nextto_painting":
             y = rng.uniform(RepeatedNextToPaintingEnv.box_lb,
                             RepeatedNextToPaintingEnv.box_ub)
             z = RepeatedNextToPaintingEnv.obj_z
@@ -841,7 +842,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [obj]),
         LiftedAtom(HoldingSide, [obj]),
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         preconditions.add(LiftedAtom(NextToShelf, [robot, shelf]))
         preconditions.add(LiftedAtom(NextTo, [robot, obj]))
     add_effects = {
@@ -854,7 +855,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [obj]),
         LiftedAtom(OnTable, [obj]),
     }
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
         # (Not)OnTable is affected by moving, not placing, in rnt_painting.
         # So we remove it from the add and delete effects here.
         add_effects.remove(LiftedAtom(NotOnTable, [obj]))
@@ -865,10 +866,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                              objs: Sequence[Object]) -> Array:
         del goal  # unused
         x = state.get(objs[0], "pose_x")
-        if CFG.env == "painting":
+        if env_name == "painting":
             y = rng.uniform(PaintingEnv.shelf_lb, PaintingEnv.shelf_ub)
             z = state.get(objs[0], "pose_z")
-        elif CFG.env == "repeated_nextto_painting":
+        elif env_name == "repeated_nextto_painting":
             y = rng.uniform(RepeatedNextToPaintingEnv.shelf_lb,
                             RepeatedNextToPaintingEnv.shelf_ub)
             z = RepeatedNextToPaintingEnv.obj_z
@@ -900,7 +901,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [obj, robot]
     option_vars = [robot]
     option = Place
-    if CFG.env == "painting":
+    if env_name == "painting":
         # The environment is a little weird: the object is technically
         # already OnTable when we go to place it on the table, because
         # of how the classifier is implemented.
@@ -916,7 +917,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(HoldingTop, [obj]),
             LiftedAtom(HoldingSide, [obj]),
         }
-    elif CFG.env == "repeated_nextto_painting":
+    elif env_name == "repeated_nextto_painting":
         preconditions = {
             LiftedAtom(Holding, [obj]),
             LiftedAtom(NextTo, [robot, obj]),
@@ -938,12 +939,12 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                              objs: Sequence[Object]) -> Array:
         del goal  # unused
         x = state.get(objs[0], "pose_x")
-        if CFG.env == "painting":
+        if env_name == "painting":
             # Always release the object where it is, to avoid the
             # possibility of collisions with other objects.
             y = state.get(objs[0], "pose_y")
             z = state.get(objs[0], "pose_z")
-        elif CFG.env == "repeated_nextto_painting":
+        elif env_name == "repeated_nextto_painting":
             # Release the object at a randomly-chosen position on the table
             # such that it is NextTo the robot.
             robot_y = state.get(objs[1], "pose_y")
@@ -962,7 +963,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                              option_vars, placeontable_sampler)
     nsrts.add(placeontable_nsrt)
 
-    if CFG.env == "repeated_nextto_painting":
+    if env_name == "repeated_nextto_painting":
 
         def moveto_sampler(state: State, goal: Set[GroundAtom],
                            _rng: np.random.Generator,
@@ -1052,18 +1053,18 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_tools_gt_nsrts() -> Set[NSRT]:
+def _get_tools_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for ToolsEnv."""
     robot_type, screw_type, screwdriver_type, nail_type, hammer_type, \
         bolt_type, wrench_type, contraption_type = _get_types_by_names(
-            "tools", ["robot", "screw", "screwdriver", "nail", "hammer",
+            env_name, ["robot", "screw", "screwdriver", "nail", "hammer",
                       "bolt", "wrench", "contraption"])
 
     HandEmpty, HoldingScrew, HoldingScrewdriver, HoldingNail, HoldingHammer, \
         HoldingBolt, HoldingWrench, ScrewPlaced, NailPlaced, BoltPlaced, \
         ScrewFastened, NailFastened, BoltFastened, ScrewdriverGraspable, \
         HammerGraspable = _get_predicates_by_names(
-            "tools", ["HandEmpty", "HoldingScrew", "HoldingScrewdriver",
+            env_name, ["HandEmpty", "HoldingScrew", "HoldingScrewdriver",
                       "HoldingNail", "HoldingHammer", "HoldingBolt",
                       "HoldingWrench", "ScrewPlaced", "NailPlaced",
                       "BoltPlaced", "ScrewFastened", "NailFastened",
@@ -1073,7 +1074,7 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     PickScrew, PickScrewdriver, PickNail, PickHammer, PickBolt, PickWrench, \
         Place, FastenScrewWithScrewdriver, FastenScrewByHand, \
         FastenNailWithHammer, FastenBoltWithWrench = _get_options_by_names(
-            "tools", ["PickScrew", "PickScrewdriver", "PickNail", "PickHammer",
+            env_name, ["PickScrew", "PickScrewdriver", "PickNail", "PickHammer",
                       "PickBolt", "PickWrench", "Place",
                       "FastenScrewWithScrewdriver", "FastenScrewByHand",
                       "FastenNailWithHammer", "FastenBoltWithWrench"])
@@ -1377,10 +1378,10 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_playroom_gt_nsrts() -> Set[NSRT]:
+def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env."""
     block_type, robot_type, door_type, dial_type, region_type = \
-        _get_types_by_names(CFG.env,
+        _get_types_by_names(env_name,
             ["block", "robot", "door", "dial", "region"])
 
     On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, \
@@ -1888,7 +1889,7 @@ def _get_repeated_nextto_gt_nsrts(env_name: str) -> Set[NSRT]:
     return nsrts
 
 
-def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
+def _get_repeated_nextto_single_option_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for RepeatedNextToSingleOptionEnv."""
     rn_grasp_nsrt, rn_move_nsrt = sorted(
         _get_repeated_nextto_gt_nsrts("repeated_nextto"),
@@ -1896,7 +1897,7 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
     assert rn_grasp_nsrt.name == "Grasp"
     assert rn_move_nsrt.name == "Move"
 
-    MoveGrasp, = _get_options_by_names(CFG.env, ["MoveGrasp"])
+    MoveGrasp, = _get_options_by_names(env_name, ["MoveGrasp"])
 
     nsrts = set()
 
@@ -1920,19 +1921,19 @@ def _get_repeated_nextto_single_option_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_screws_gt_nsrts() -> Set[NSRT]:
+def _get_screws_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for ScrewsEnv."""
     screw_type, gripper_type, receptacle_type = _get_types_by_names(
-        CFG.env, ["screw", "gripper", "receptacle"])
+        env_name, ["screw", "gripper", "receptacle"])
     GripperCanPickScrew, AboveReceptacle, HoldingScrew, ScrewInReceptacle = \
         _get_predicates_by_names(
-        CFG.env, [
+        env_name, [
             "GripperCanPickScrew", "AboveReceptacle", "HoldingScrew",
             "ScrewInReceptacle"
         ])
     MoveToScrew, MoveToReceptacle, MagnetizeGripper, DemagnetizeGripper = \
         _get_options_by_names(
-        CFG.env, [
+        env_name, [
             "MoveToScrew", "MoveToReceptacle", "MagnetizeGripper",
             "DemagnetizeGripper"
         ])
@@ -2008,11 +2009,12 @@ def _get_screws_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_touch_point_gt_nsrts() -> Set[NSRT]:
+def _get_touch_point_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for TouchPointEnv."""
-    robot_type, target_type = _get_types_by_names(CFG.env, ["robot", "target"])
-    Touched, = _get_predicates_by_names(CFG.env, ["Touched"])
-    MoveTo, = _get_options_by_names(CFG.env, ["MoveTo"])
+    robot_type, target_type = _get_types_by_names(env_name,
+                                                  ["robot", "target"])
+    Touched, = _get_predicates_by_names(env_name, ["Touched"])
+    MoveTo, = _get_options_by_names(env_name, ["MoveTo"])
 
     nsrts = set()
 
@@ -2034,16 +2036,16 @@ def _get_touch_point_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_stick_button_gt_nsrts() -> Set[NSRT]:
+def _get_stick_button_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for StickButtonEnv."""
     robot_type, button_type, stick_type = _get_types_by_names(
-        CFG.env, ["robot", "button", "stick"])
+        env_name, ["robot", "button", "stick"])
     Pressed, RobotAboveButton, StickAboveButton, \
         Grasped, HandEmpty, AboveNoButton = _get_predicates_by_names(
-            CFG.env, ["Pressed", "RobotAboveButton",
+            env_name, ["Pressed", "RobotAboveButton",
             "StickAboveButton", "Grasped", "HandEmpty", "AboveNoButton"])
     RobotPressButton, PickStick, StickPressButton = _get_options_by_names(
-        CFG.env, ["RobotPressButton", "PickStick", "StickPressButton"])
+        env_name, ["RobotPressButton", "PickStick", "StickPressButton"])
 
     nsrts = set()
 
@@ -2195,16 +2197,16 @@ def _get_stick_button_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_doors_gt_nsrts() -> Set[NSRT]:
+def _get_doors_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for DoorsEnv."""
     robot_type, door_type, room_type = _get_types_by_names(
-        CFG.env, ["robot", "door", "room"])
+        env_name, ["robot", "door", "room"])
     InRoom, InDoorway, InMainRoom, TouchingDoor, DoorIsOpen, DoorInRoom, \
-        DoorsShareRoom = _get_predicates_by_names(CFG.env, ["InRoom",
+        DoorsShareRoom = _get_predicates_by_names(env_name, ["InRoom",
             "InDoorway", "InMainRoom", "TouchingDoor", "DoorIsOpen",
             "DoorInRoom", "DoorsShareRoom"])
     MoveToDoor, OpenDoor, MoveThroughDoor = _get_options_by_names(
-        CFG.env, ["MoveToDoor", "OpenDoor", "MoveThroughDoor"])
+        env_name, ["MoveToDoor", "OpenDoor", "MoveThroughDoor"])
 
     nsrts = set()
 
@@ -2271,7 +2273,7 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     ignore_effects = set()
 
     # Allow protected access because this is an oracle. Used in the sampler.
-    env = get_or_create_env(CFG.env)
+    env = get_or_create_env(env_name)
     assert isinstance(env, DoorsEnv)
     get_open_door_target_value = env._get_open_door_target_value  # pylint: disable=protected-access
 
@@ -2334,19 +2336,79 @@ def _get_doors_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_coffee_gt_nsrts() -> Set[NSRT]:
+def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for NarrowPassageEnv."""
+    robot_type, door_type, target_type = _get_types_by_names(
+        env_name, ["robot", "door", "target"])
+    DoorIsClosed, DoorIsOpen, TouchedGoal = _get_predicates_by_names(
+        env_name, ["DoorIsClosed", "DoorIsOpen", "TouchedGoal"])
+    MoveToTarget, MoveAndOpenDoor = _get_options_by_names(
+        env_name, ["MoveToTarget", "MoveAndOpenDoor"])
+
+    nsrts = set()
+
+    def random_sampler(state: State, goal: Set[GroundAtom],
+                       rng: np.random.Generator,
+                       objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        # Note: just return a random value from 0 to 1
+        return np.array([rng.uniform()], dtype=np.float32)
+
+    # MoveToTarget
+    robot = Variable("?robot", robot_type)
+    target = Variable("?target", target_type)
+    parameters = [robot, target]
+    option_vars = [robot, target]
+    option = MoveToTarget
+    preconditions: Set[LiftedAtom] = set()
+    add_effects: Set[LiftedAtom] = {
+        LiftedAtom(TouchedGoal, [robot, target]),
+    }
+    delete_effects: Set[LiftedAtom] = set()
+    ignore_effects: Set[Predicate] = set()
+    move_to_target_nsrt = NSRT("MoveToTarget", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, random_sampler)
+    nsrts.add(move_to_target_nsrt)
+
+    # MoveAndOpenDoor
+    robot = Variable("?robot", robot_type)
+    door = Variable("?door", door_type)
+    parameters = [robot, door]
+    option_vars = [robot, door]
+    option = MoveAndOpenDoor
+    preconditions = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
+    add_effects = {
+        LiftedAtom(DoorIsOpen, [door]),
+    }
+    delete_effects = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
+    ignore_effects = set()
+    move_and_open_door_nsrt = NSRT("MoveAndOpenDoor", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   ignore_effects, option, option_vars,
+                                   random_sampler)
+    nsrts.add(move_and_open_door_nsrt)
+
+    return nsrts
+
+
+def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for CoffeeEnv."""
     robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
-        CFG.env, ["robot", "jug", "cup", "machine"])
+        env_name, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
         JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
         Twisting, NotSameCup = \
-        _get_predicates_by_names(CFG.env, ["CupFilled",
+        _get_predicates_by_names(env_name, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
             "PressingButton", "Twisting", "NotSameCup"])
     MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
-        Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
+        Pour = _get_options_by_names(env_name, ["MoveToTwistJug", "TwistJug",
             "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
 
     nsrts = set()
@@ -2560,20 +2622,20 @@ def _get_coffee_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_satellites_gt_nsrts() -> Set[NSRT]:
+def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for SatellitesEnv."""
-    sat_type, obj_type = _get_types_by_names(CFG.env, ["satellite", "object"])
+    sat_type, obj_type = _get_types_by_names(env_name, ["satellite", "object"])
     Sees, CalibrationTarget, IsCalibrated, HasCamera, HasInfrared, HasGeiger, \
         ShootsChemX, ShootsChemY, HasChemX, HasChemY, CameraReadingTaken, \
         InfraredReadingTaken, GeigerReadingTaken = _get_predicates_by_names(
-            CFG.env, ["Sees", "CalibrationTarget", "IsCalibrated",
+            env_name, ["Sees", "CalibrationTarget", "IsCalibrated",
                       "HasCamera", "HasInfrared", "HasGeiger",
                       "ShootsChemX", "ShootsChemY", "HasChemX", "HasChemY",
                       "CameraReadingTaken", "InfraredReadingTaken",
                       "GeigerReadingTaken"])
     MoveTo, Calibrate, ShootChemX, ShootChemY, UseInstrument = \
         _get_options_by_names(
-            CFG.env, ["MoveTo", "Calibrate", "ShootChemX", "ShootChemY",
+            env_name, ["MoveTo", "Calibrate", "ShootChemX", "ShootChemY",
                       "UseInstrument"])
 
     nsrts = set()

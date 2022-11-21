@@ -158,6 +158,9 @@ def _sesame_plan_with_astar(
             f"Unrecognized sesame_grounder: {CFG.sesame_grounder}")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
+    # Make a copy of the predicates set to avoid modifying the input set,
+    # since we may be adding NotCausesFailure predicates to the set.
+    predicates = predicates.copy()
     # Keep track of partial refinements: skeletons and partial plans. This is
     # for making videos of failed planning attempts.
     partial_refinements = []
@@ -356,9 +359,9 @@ def _skeleton_generator(
             visited_atom_sets.add(frozen_atoms)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        for act in node.skeleton:
-            logging.info(f"{act.name} {act.objects}")
-        logging.info("")
+        # for act in node.skeleton:
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -509,8 +512,22 @@ def run_low_level_search(
                 discovered_failures[cur_idx - 1] = None
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
+                # Check if objects that were outside the scope had a change
+                # in state.
+                static_obj_changed = False
+                if CFG.sesame_check_static_object_changes:
+                    static_objs = set(state) - set(nsrt.objects)
+                    for obj in sorted(static_objs):
+                        if not np.allclose(
+                                traj[cur_idx][obj],
+                                traj[cur_idx - 1][obj],
+                                atol=CFG.sesame_static_object_change_tol):
+                            static_obj_changed = True
+                            break
+                if static_obj_changed:
+                    can_continue_on = False
                 # Check if we have exceeded the horizon.
-                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:
@@ -531,14 +548,14 @@ def run_low_level_search(
                     # utils.abstract(traj[cur_idx], predicates).
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
-                        logging.info("Success: Expected Atoms Check Passed!")
+                        # logging.info("Success: Expected Atoms Check Passed!")
                         if cur_idx == len(skeleton):
                             return plan, True, traj  # success!
                     else:
-                        logging.info("Failure: Expected Atoms Check Failed.")
-                        for a in expected_atoms:
-                            if not a.holds(traj[cur_idx]):
-                                logging.info(a)
+                        # logging.info("Failure: Expected Atoms Check Failed.")
+                        # for a in expected_atoms:
+                        #     if not a.holds(traj[cur_idx]):
+                        #         logging.info(a)
                         can_continue_on = False
                 else:
                     # If we're not checking expected_atoms, we need to
