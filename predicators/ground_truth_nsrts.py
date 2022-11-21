@@ -202,13 +202,16 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
             robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
-    elif env_name == "cover_handempty":
+    else:
 
         def pick_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 2
+            if env_name == "cover_handempty":
+                assert len(objs) == 2
+            else:
+                assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if env_name == "cover_typed_options":
@@ -217,25 +220,6 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
             elif env_name in ("cover", "pybullet_cover",
                               "cover_hierarchical_types", "cover_regrasp",
                               "cover_handempty"):
-                lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
-                lb = max(lb, 0.0)
-                ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
-                ub = min(ub, 1.0)
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
-    else:
-
-        def pick_sampler(state: State, goal: Set[GroundAtom],
-                         rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
-            del goal  # unused
-            assert len(objs) == 1
-            b = objs[0]
-            assert b.is_instance(block_type)
-            if env_name == "cover_typed_options":
-                lb = float(-state.get(b, "width") / 2)
-                ub = float(state.get(b, "width") / 2)
-            elif env_name in ("cover", "pybullet_cover",
-                              "cover_hierarchical_types", "cover_regrasp"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -329,28 +313,18 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
             robot_param = [delta_x, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
-    elif env_name == "cover_handempty":
-
-        def place_sampler(state: State, goal: Set[GroundAtom],
-                          rng: np.random.Generator,
-                          objs: Sequence[Object]) -> Array:
-            del goal  # unused
-            assert len(objs) == 3
-            t = objs[1]
-            assert t.is_instance(target_type)
-            lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
-            lb = max(lb, 0.0)
-            ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
-            ub = min(ub, 1.0)
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
     else:
 
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 2
-            t = objs[-1]
+            if env_name == "cover_handempty":
+                assert len(objs) == 3
+                t = objs[1]
+            else:
+                assert len(objs) == 2
+                t = objs[-1]
             assert t.is_instance(target_type)
             lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
             lb = max(lb, 0.0)
