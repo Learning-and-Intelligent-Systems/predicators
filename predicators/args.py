@@ -40,4 +40,5 @@ def create_arg_parser(env_required: bool = True,
                         dest="loglevel",
                         const=logging.DEBUG,
                         default=logging.INFO)
+    parser.add_argument("--crash_on_failure", action="store_true")
     return parser
