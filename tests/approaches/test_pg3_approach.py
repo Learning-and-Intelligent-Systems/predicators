@@ -280,16 +280,16 @@ LDLRule-MyPickUp:
     # _DeleteConditionPG3SearchOperator
     op = _DeleteConditionPG3SearchOperator(preds, nsrts)
 
-    # empty rule should have no successors
+    # Empty rule should have no successors
     succ1 = list(op.get_successors(ldl1))
     assert len(succ1) == 0
 
-    # should return zero because we don't remove preconditions
+    # Should return zero because we don't remove preconditions
     #   that are also preconditions of nsrt
     succ2 = list(op.get_successors(ldl2))
     assert len(succ2) == 0
 
-    # removing only one condition that is not in nsrt
+    # Removing only one condition that is not in nsrt
     succ3 = list(op.get_successors(ldl2_1))
     assert len(succ3) == 1
 
