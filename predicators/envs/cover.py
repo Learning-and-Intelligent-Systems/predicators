@@ -86,7 +86,8 @@ class CoverEnv(BaseEnv):
         if held_block is None and above_block is not None:
             grasp = pose - state.get(above_block, "pose")
             next_state.set(self._robot, "hand", pose)
-            if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+            if "hand_empty" in self._robot_type.feature_names:
+                # See CoverEnvHandEmpty
                 next_state.set(self._robot, "hand_empty", 0)
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
@@ -109,7 +110,8 @@ class CoverEnv(BaseEnv):
                     state.get(targ, "pose")+state.get(targ, "width")/2
                     for targ in targets):
                 next_state.set(self._robot, "hand", pose)
-                if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+                if "hand_empty" in self._robot_type.feature_names:
+                    # See CoverEnvHandEmpty
                     next_state.set(self._robot, "hand_empty", 1)
                 next_state.set(held_block, "pose", new_pose)
                 next_state.set(held_block, "grasp", -1)
@@ -309,7 +311,8 @@ class CoverEnv(BaseEnv):
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
             state.set(self._robot, "hand", pick_pose)
-            if "hand_empty" in self._robot_type.feature_names:  # See CoverEnvHandEmpty
+            if "hand_empty" in self._robot_type.feature_names:
+                # See CoverEnvHandEmpty
                 state.set(self._robot, "hand_empty", 0)
             state.set(block, "grasp", pick_pose - block_pose)
         return state
