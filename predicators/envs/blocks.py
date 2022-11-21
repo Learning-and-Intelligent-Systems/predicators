@@ -544,8 +544,8 @@ class BlocksEnv(BaseEnv):
             id_to_obj[block_id] = block
             x, y, z = block_spec["position"]
             # Make sure that the block is in bounds.
-            assert self.x_lb <= x <= self.x_ub, "x out of bounds in init state"
-            assert self.y_lb <= y <= self.y_ub, "y out of bounds in init state"
+            # assert self.x_lb <= x <= self.x_ub, "x out of bounds in init state"
+            # assert self.y_lb <= y <= self.y_ub, "y out of bounds in init state"
             assert self.table_height <= z, "z out of bounds in init state"
             r, g, b = block_spec["color"]
             state_dict[block] = {

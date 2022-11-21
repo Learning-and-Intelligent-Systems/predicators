@@ -310,7 +310,6 @@ def _visualize_point_cloud(pcd: o3d.geometry.PointCloud) -> None:
 
 def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
                         pcd: o3d.geometry.PointCloud) -> None:
-    utils.reset_config()
     physics_client_id = p.connect(p.GUI)
     # Disable the preview windows for faster rendering.
     p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
@@ -388,7 +387,6 @@ def _visualize_pybullet(blocks_data: Dict[str, Dict[str, Any]],
 
 def _get_world_to_base() -> Pose3D:
     """Get the translation for the Panda robot in PyBullet blocks env."""
-    utils.reset_config()
     physics_client_id = p.connect(p.DIRECT)
     ee_home = (PyBulletBlocksEnv.robot_init_x, PyBulletBlocksEnv.robot_init_y,
                PyBulletBlocksEnv.robot_init_z)
