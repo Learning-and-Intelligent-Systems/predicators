@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 DATA_DIR="blocks_vision_data"
 TASK_NUM="0"
 IMG_SUFFIX="6blocks.png"
