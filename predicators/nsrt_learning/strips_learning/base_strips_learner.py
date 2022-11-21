@@ -8,9 +8,9 @@ from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
 from predicators.settings import CFG
 from predicators.structs import DummyOption, GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, PartialNSRTAndDatastore, \
-    Predicate, Segment, State, STRIPSOperator, Task, Variable, \
-    _GroundSTRIPSOperator
+    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, \
+    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
+    Variable, _GroundSTRIPSOperator
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -319,3 +319,70 @@ class BaseSTRIPSLearner(abc.ABC):
             else:
                 preconditions &= lifted_atoms
         return preconditions
+
+    @staticmethod
+    def _compute_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
+        """Update the given PNAD to change the delete effects to ones obtained
+        by unioning all lifted images in the datastore.
+
+        IMPORTANT NOTE: We want to do a union here because the most
+        general delete effects are the ones that capture _any possible_
+        deletion that occurred in a training transition. (This is
+        contrast to preconditions, where we want to take an intersection
+        over our training transitions.) However, we do not allow
+        creating new variables when we create these delete effects.
+        Instead, we filter out delete effects that include new
+        variables. Therefore, even though it may seem on the surface
+        like this procedure will cause all delete effects in the data to
+        be modeled accurately, this is not actually true.
+        """
+        delete_effects = set()
+        for segment, var_to_obj in pnad.datastore:
+            obj_to_var = {o: v for v, o in var_to_obj.items()}
+            atoms = {
+                atom
+                for atom in segment.delete_effects
+                if all(o in obj_to_var for o in atom.objects)
+            }
+            lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
+            delete_effects |= lifted_atoms
+        pnad.op = pnad.op.copy_with(delete_effects=delete_effects)
+
+    @staticmethod
+    def _compute_pnad_ignore_effects(pnad: PartialNSRTAndDatastore) -> None:
+        """Update the given PNAD to change the ignore effects to ones that
+        include every unmodeled add or delete effect seen in the data."""
+        # First, strip out any existing ignore effects so that the call
+        # to apply_operator() cannot use them, which would defeat the purpose.
+        pnad.op = pnad.op.copy_with(ignore_effects=set())
+        ignore_effects = set()
+        for (segment, var_to_obj) in pnad.datastore:
+            objs = tuple(var_to_obj[param] for param in pnad.op.parameters)
+            ground_op = pnad.op.ground(objs)
+            next_atoms = utils.apply_operator(ground_op, segment.init_atoms)
+            # Note that we only induce ignore effects for atoms that are
+            # predicted to be in the next_atoms but are not actually there
+            # (since the converse doesn't change the soundness of our
+            # planning strategy).
+            for atom in next_atoms - segment.final_atoms:
+                ignore_effects.add(atom.predicate)
+        pnad.op = pnad.op.copy_with(ignore_effects=ignore_effects)
+
+    @staticmethod
+    def _get_uniquely_named_nec_pnads(
+        param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                     List[PartialNSRTAndDatastore]]
+    ) -> List[PartialNSRTAndDatastore]:
+        """Given a dictionary mapping parameterized options to PNADs, return a
+        list of PNADs that have unique names and can be used for planning."""
+        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
+        for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
+            for i, pnad in enumerate(pnad_list):
+                new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
+                new_pnad = PartialNSRTAndDatastore(new_op,
+                                                   list(pnad.datastore),
+                                                   pnad.option_spec)
+                new_pnad.poss_keep_effects = pnad.poss_keep_effects
+                new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
+                uniquely_named_nec_pnads.append(new_pnad)
+        return uniquely_named_nec_pnads

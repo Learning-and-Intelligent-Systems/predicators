@@ -28,7 +28,7 @@ def test_pg4_approach():
     train_tasks = env.get_train_tasks()
     approach = PG4Approach(env.predicates, env.options, env.types,
                            env.action_space, train_tasks)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     approach._nsrts = nsrts  # pylint: disable=protected-access
     task = train_tasks[0]
 

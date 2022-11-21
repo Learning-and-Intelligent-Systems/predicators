@@ -3,13 +3,10 @@
 APPROACHES:
   pg3:
     NAME: "pg3"
-    FLAGS: {}
   pg4:
     NAME: "pg4"
-    FLAGS: {}
   plan-only:
     NAME: "oracle"
-    FLAGS: {}
 ENVS:
   cover-easy:  # downward refinable. PG3 should succeed
     NAME: "cover"
@@ -17,7 +14,6 @@ ENVS:
       cover_initial_holding_prob: 0.0
   cover:  # PG3 should sometimes fail, but PG4 should succeed
     NAME: "cover"
-    FLAGS: {}
   painting-no-holding-shelf-only:
     NAME: "painting"
     FLAGS:
@@ -40,20 +36,16 @@ ENVS:
       painting_initial_holding_prob: 0.0
   screws:
     NAME: "screws"
-    FLAGS: {}
   repeated-nextto:
     NAME: "repeated_nextto"
-    FLAGS: {}
   cluttered-table:
     NAME: "cluttered_table"
-    FLAGS: {}
   coffee-easy:
     NAME: "coffee"
     FLAGS:
       coffee_jug_init_rot_amt: 0
   coffee-hard:
     NAME: "coffee"
-    FLAGS: {}
 ARGS: []
 FLAGS:
   strips_learner: oracle

@@ -13,7 +13,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.behavior_utils.behavior_utils import load_checkpoint_state
-from predicators.envs import BaseEnv, get_or_create_env
+from predicators.envs import BaseEnv, create_new_env, get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.settings import CFG
 from predicators.structs import DefaultState, State, _Option
@@ -22,13 +22,17 @@ from predicators.structs import DefaultState, State, _Option
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        env = get_or_create_env(CFG.env)
+        env = create_new_env(CFG.env,
+                             do_cache=False,
+                             use_gui=CFG.option_model_use_gui)
         return _OracleOptionModel(env)
     if name == "oracle_behavior":
         return _BehaviorOptionModel()
     if name.startswith("oracle"):
         env_name = name[name.index("_") + 1:]
-        env = get_or_create_env(env_name)
+        env = create_new_env(env_name,
+                             do_cache=False,
+                             use_gui=CFG.option_model_use_gui)
         return _OracleOptionModel(env)
     raise NotImplementedError(f"Unknown option model: {name}")
 
@@ -93,16 +97,20 @@ class _OracleOptionModel(_OptionModelBase):
         # if it does. This is a helpful optimization for planning with
         # fine-grained options over long horizons.
         # Note: mypy complains if this is None instead of DefaultState.
-        last_state = DefaultState
+        if CFG.option_model_terminate_on_repeat:
+            last_state = DefaultState
 
-        def _terminal(s: State) -> bool:
-            nonlocal last_state
-            if option_copy.terminal(s):
-                return True
-            if last_state is not DefaultState and last_state.allclose(s):
-                raise utils.OptionExecutionFailure("Option got stuck.")
-            last_state = s
-            return False
+            def _terminal(s: State) -> bool:
+                nonlocal last_state
+                if option_copy.terminal(s):
+                    return True
+                if last_state is not DefaultState and last_state.allclose(s):
+                    raise utils.OptionExecutionFailure("Option got stuck.")
+                last_state = s
+                return False
+        else:
+            # mypy complains without the lambda, pylint complains with it!
+            _terminal = lambda s: option_copy.terminal(s)  # pylint: disable=unnecessary-lambda
 
         try:
             traj = utils.run_policy_with_simulator(

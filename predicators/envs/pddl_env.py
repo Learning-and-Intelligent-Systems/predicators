@@ -23,7 +23,8 @@ from predicators import utils
 from predicators.envs import BaseEnv
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator
+    create_ferry_pddl_generator, create_forest_pddl_generator, \
+    create_gripper_pddl_generator, create_spanner_pddl_generator
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, LiftedAtom, \
     Object, ParameterizedOption, PDDLProblemGenerator, Predicate, State, \
@@ -82,8 +83,8 @@ class _PDDLEnv(BaseEnv):
     same object parameters and no continuous parameters.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
         # Parse the domain str.
         self._types, self._predicates, self._strips_operators = \
             _parse_pddl_domain(self._domain_str)
@@ -464,6 +465,119 @@ class ProceduralTasksForestPDDLEnv(_ForestPDDLEnv):
         return create_forest_pddl_generator(min_size, max_size)
 
 
+class _GripperPDDLEnv(_PDDLEnv):
+    """The IPC gripper domain."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/gripper/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksGripperPDDLEnv(_GripperPDDLEnv):
+    """The IPC gripper domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_gripper_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms,
+                                             min_num_balls, max_num_bals, "")
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms,
+                                             min_num_balls, max_num_bals, "")
+
+
+class _PrefixedGripperPDDLEnv(_PDDLEnv):
+    """The IPC gripper domain with prefixes on predicates."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/gripper/prefixed_domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksPrefixedGripperPDDLEnv(_PrefixedGripperPDDLEnv):
+    """The IPC gripper domain with prefixes with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_prefixed_gripper_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_train_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_train_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_train_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_train_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms,
+                                             min_num_balls, max_num_bals,
+                                             "pre")
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_num_rooms = CFG.pddl_gripper_procedural_test_min_num_rooms
+        max_num_rooms = CFG.pddl_gripper_procedural_test_max_num_rooms
+        min_num_balls = CFG.pddl_gripper_procedural_test_min_num_balls
+        max_num_bals = CFG.pddl_gripper_procedural_test_max_num_balls
+        return create_gripper_pddl_generator(min_num_rooms, max_num_rooms,
+                                             min_num_balls, max_num_bals,
+                                             "pre")
+
+
+class _FerryPDDLEnv(_PDDLEnv):
+    """The IPC ferry domain."""
+
+    @property
+    def _domain_str(self) -> str:
+        path = utils.get_env_asset_path("pddl/ferry/domain.pddl")
+        with open(path, encoding="utf-8") as f:
+            domain_str = f.read()
+        return domain_str
+
+
+class ProceduralTasksFerryPDDLEnv(_FerryPDDLEnv):
+    """The IPC ferry domain with procedural generation."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "pddl_ferry_procedural_tasks"
+
+    @property
+    def _pddl_train_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_ferry_procedural_train_min_num_locs
+        max_locs = CFG.pddl_ferry_procedural_train_max_num_locs
+        min_cars = CFG.pddl_ferry_procedural_train_min_num_cars
+        max_cars = CFG.pddl_ferry_procedural_train_max_num_cars
+        return create_ferry_pddl_generator(min_locs, max_locs, min_cars,
+                                           max_cars)
+
+    @property
+    def _pddl_test_problem_generator(self) -> PDDLProblemGenerator:
+        min_locs = CFG.pddl_ferry_procedural_test_min_num_locs
+        max_locs = CFG.pddl_ferry_procedural_test_max_num_locs
+        min_cars = CFG.pddl_ferry_procedural_test_min_num_cars
+        max_cars = CFG.pddl_ferry_procedural_test_max_num_cars
+        return create_ferry_pddl_generator(min_locs, max_locs, min_cars,
+                                           max_cars)
+
+
 ###############################################################################
 #                            Utility functions                                #
 ###############################################################################
@@ -557,6 +671,12 @@ def _parse_pddl_domain(
         else:
             parent = pyperplan_type_to_type[pyper_type.parent]
         new_type = Type(pyper_type.name, [], parent)
+        pyperplan_type_to_type[pyper_type] = new_type
+    # Handle case where the domain is untyped.
+    # Pyperplan uses the object type by default.
+    if not pyperplan_type_to_type:
+        pyper_type = next(iter(pyperplan_types.values()))
+        new_type = Type(pyper_type.name, [], parent=None)
         pyperplan_type_to_type[pyper_type] = new_type
     # Convert the predicates.
     predicate_name_to_predicate = {}

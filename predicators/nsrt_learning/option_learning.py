@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 import copy
 import logging
-from typing import Dict, List, Sequence, Set, Tuple
+from typing import ClassVar, Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 import pybullet as p
@@ -285,6 +285,8 @@ class _KinematicActionConverter(_ActionConverter):
 
     Creates a new PyBullet connection for the robot.
     """
+    _gripper_open: ClassVar[float] = 1.0
+    _gripper_closed: ClassVar[float] = 0.0
 
     def __init__(self) -> None:
         super().__init__()
@@ -310,13 +312,27 @@ class _KinematicActionConverter(_ActionConverter):
         left_finger = env_action_arr[self._robot.left_finger_joint_idx]
         right_finger = env_action_arr[self._robot.right_finger_joint_idx]
         fingers = (left_finger + right_finger) / 2.
-        return np.array([x, y, z, fingers], dtype=np.float32)
+        # Round the fingers.
+        dist_to_open = abs(fingers - self._robot.open_fingers)
+        dist_to_closed = abs(fingers - self._robot.closed_fingers)
+        if dist_to_closed < dist_to_open:
+            gripper = self._gripper_closed
+        else:
+            gripper = self._gripper_open
+        return np.array([x, y, z, gripper], dtype=np.float32)
 
     def reduced_to_env(self, reduced_action_arr: Array) -> Array:
         # Inverse kinematics.
-        x, y, z, fingers = reduced_action_arr
+        x, y, z, gripper = reduced_action_arr
+        # Gripper to fingers.
+        dist_to_open = abs(gripper - self._gripper_open)
+        dist_to_closed = abs(gripper - self._gripper_closed)
+        if dist_to_closed < dist_to_open:
+            fingers = self._robot.closed_fingers
+        else:
+            fingers = self._robot.open_fingers
         try:
-            joints = self._robot.set_joints_with_ik((x, y, z), validate=True)
+            joints = self._robot.inverse_kinematics((x, y, z), validate=True)
         except InverseKinematicsError:
             raise OptionExecutionFailure("IK failure in action conversion.")
         joints[self._robot.left_finger_joint_idx] = fingers

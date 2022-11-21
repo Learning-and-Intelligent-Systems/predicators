@@ -157,6 +157,16 @@ def test_default_option_model():
     assert next_state.allclose(state)
     assert num_act == 0
 
+    # Test disabling repeated state checking.
+    utils.reset_config({
+        "option_model_terminate_on_repeat": False,
+        "max_num_steps_option_rollout": 5,
+    })
+
+    model = _OracleOptionModel(env)
+    _, num_act = model.get_next_state_and_num_actions(state, infinite_option)
+    assert num_act == 5
+
 
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors."""

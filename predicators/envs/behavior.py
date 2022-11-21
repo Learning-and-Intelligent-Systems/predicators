@@ -57,7 +57,7 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
 class BehaviorEnv(BaseEnv):
     """BEHAVIOR (iGibson) environment."""
 
-    def __init__(self) -> None:
+    def __init__(self, use_gui: bool = True) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("BEHAVIOR is not installed.")
         # Loads dictionary mapping tasks to vaild scenes in BEHAVIOR.
