@@ -8,14 +8,15 @@ from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
-    _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
-    _PolicyGuidedPG3Heuristic
+    _DeleteConditionPG3SearchOperator, _DemoPlanComparisonPG3Heuristic, \
+    _PolicyEvaluationPG3Heuristic, _PolicyGuidedPG3Heuristic
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase
-from predicators.structs import LDLRule, LiftedDecisionList
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
+    Predicate, Type, Variable
 
 
 class _MockOptionModel(_OptionModelBase):
@@ -275,6 +276,77 @@ LDLRule-MyPickUp:
     for ldl in succ2_no_fresh:
         for rule in ldl.rules:
             assert set(rule.parameters).issubset(rule.nsrt.parameters)
+
+    # _DeleteConditionPG3SearchOperator
+    op = _DeleteConditionPG3SearchOperator(preds, nsrts)
+
+    # Empty rule should have no successors
+    succ1 = list(op.get_successors(ldl1))
+    assert len(succ1) == 0
+
+    # Should return zero because we don't remove preconditions
+    #   that are also preconditions of nsrt
+    succ2 = list(op.get_successors(ldl2))
+    assert len(succ2) == 0
+
+    # Removing only one condition that is not in nsrt
+    succ3 = list(op.get_successors(ldl2_1))
+    assert len(succ3) == 1
+
+    assert str(succ3[0]) == """LiftedDecisionList[
+LDLRule-MyPickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    dummy_1 = Predicate("Dummy", [], lambda s, o: True)  # zero arity
+    atom_1 = LiftedAtom(dummy_1, [])
+
+    dummy_2 = Predicate("OtherDummy", [], lambda s, o: True)
+    atom_2 = LiftedAtom(dummy_2, [])
+
+    dummy_type = Type("dummytype", ["a", "b"])
+    dummy_var = Variable("?dv", dummy_type)
+    other_dummy_var = list(pick_up_nsrt.preconditions)[0].variables[0]
+
+    dummy_3 = Predicate("OneMoreDummy", \
+        [dummy_type, other_dummy_var.type], lambda s, o: True)
+    atom_3 = LiftedAtom(dummy_3, [dummy_var, other_dummy_var])
+
+    another_pick_up_rule = LDLRule(
+        name="MyOtherPickUp",
+        parameters=pick_up_nsrt.parameters + [dummy_var],
+        pos_state_preconditions=set(pick_up_nsrt.preconditions).union([atom_1
+                                                                       ]),
+        neg_state_preconditions=set([atom_3]),
+        goal_preconditions=set([atom_2]),
+        nsrt=pick_up_nsrt)
+
+    ldl3 = LiftedDecisionList([another_pick_up_rule])
+
+    succ4 = list(op.get_successors(ldl3))
+    assert len(succ4) == 3
+
+    assert str(succ4[0]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?dv:dummytype, ?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: [OneMoreDummy(?dv:dummytype, ?loc:loc)]
+    Goal Pre: [OtherDummy()]
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    assert str(succ4[1]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [Dummy(), at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: [OtherDummy()]
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
 
 
 def test_pg3_heuristics():
