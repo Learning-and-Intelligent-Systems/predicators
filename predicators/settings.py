@@ -326,10 +326,6 @@ class GlobalSettings:
     # default.
     sesame_grounder = "naive"
     sesame_check_static_object_changes = False
-<<<<<<< HEAD
-=======
-    # Warning: making this tolerance any lower breaks pybullet_blocks.
->>>>>>> 4709f7c64fd60c6ee08601327f53a74d92109191
     sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
