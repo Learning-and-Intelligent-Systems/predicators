@@ -548,7 +548,7 @@ class BlocksEnv(BaseEnv):
             if not (self.x_lb <= x <= self.x_ub and \
                     self.y_lb <= y <= self.y_ub and \
                     self.table_height <= z):
-                logging.warn("Block out of bounds in initial state!")
+                logging.warning("Block out of bounds in initial state!")
             r, g, b = block_spec["color"]
             state_dict[block] = {
                 "pose_x": x,
