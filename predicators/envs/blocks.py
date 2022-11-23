@@ -8,6 +8,7 @@ environment makes it a good testbed for predicate invention.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -544,9 +545,10 @@ class BlocksEnv(BaseEnv):
             id_to_obj[block_id] = block
             x, y, z = block_spec["position"]
             # Make sure that the block is in bounds.
-            assert self.x_lb <= x <= self.x_ub, "x out of bounds in init state"
-            assert self.y_lb <= y <= self.y_ub, "y out of bounds in init state"
-            assert self.table_height <= z, "z out of bounds in init state"
+            if not (self.x_lb <= x <= self.x_ub and \
+                    self.y_lb <= y <= self.y_ub and \
+                    self.table_height <= z):
+                logging.warn("Block out of bounds in initial state!")
             r, g, b = block_spec["color"]
             state_dict[block] = {
                 "pose_x": x,
