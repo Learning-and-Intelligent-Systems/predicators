@@ -30,6 +30,8 @@ python predicators/main.py --env pybullet_blocks --approach oracle \
     --option_model_name oracle --option_model_terminate_on_repeat False \
     --blocks_block_size 0.0505 \
     --sesame_check_static_object_changes True \
+    --crash_on_failure \
+    --timeout 100 \
     --blocks_num_blocks_test [15] # just needs to be an upper bound
 
 echo "Converting plan to LISDF."
