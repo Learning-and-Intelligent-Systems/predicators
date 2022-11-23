@@ -203,10 +203,14 @@ robby              1.35      0.75       0.7          1
                 "position": [-100, 1.0389289, 0.2225],
                 "color": [1, 0, 0]
             },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
         },
         "block_size": 0.045,
         "goal": {
-            "OnTable": [["red_block"]]
+            "OnTable": [["green_block"]]
         }
     }
 
