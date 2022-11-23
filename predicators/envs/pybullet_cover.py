@@ -72,7 +72,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         name="MoveEndEffectorToPose",
                         target_z=self._pickplace_z),
                     # Toggle fingers.
-                    create_change_fingers_option(self._pybullet_robot,
+                    create_change_fingers_option(self._pybullet_robot2,
                         "ToggleFingers", types, params_space,
                         toggle_fingers_func,
                         self._max_vel_norm, self._grasp_tol),
@@ -350,7 +350,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot, name, types, params_space,
+            self._pybullet_robot2, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
