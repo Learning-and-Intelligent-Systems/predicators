@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 import predicators.envs.blocks
 from predicators import utils
@@ -227,5 +226,5 @@ robby              1.35      0.75       0.7          1
             env = BlocksEnv()
             env.get_test_tasks()
 
-    mock_logging.warn.assert_called_once_with(
+    mock_logging.warning.assert_called_once_with(
         "Block out of bounds in initial state!")
