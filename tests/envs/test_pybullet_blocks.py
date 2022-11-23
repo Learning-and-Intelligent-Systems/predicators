@@ -538,7 +538,7 @@ def test_pybullet_blocks_load_task_from_json():
                 "color": [0, 0, 1]
             }
         },
-        "block_size": 0.0505,
+        "block_size": 0.045,
         "goal": {
             "On": [["red_block", "green_block"], ["green_block",
                                                   "blue_block"]],
