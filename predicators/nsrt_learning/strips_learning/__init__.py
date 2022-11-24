@@ -8,8 +8,8 @@ from predicators import utils
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import LowLevelTrajectory, PartialNSRTAndDatastore, \
-    Predicate, Segment, Task
+from predicators.structs import PNAD, LowLevelTrajectory, Predicate, Segment, \
+    Task
 
 __all__ = ["BaseSTRIPSLearner"]
 
@@ -29,7 +29,7 @@ def learn_strips_operators(
     segmented_trajs: List[List[Segment]],
     verify_harmlessness: bool,
     verbose: bool = True,
-) -> List[PartialNSRTAndDatastore]:
+) -> List[PNAD]:
     """Learn strips operators on the given data segments.
 
     Return a list of PNADs with op (STRIPSOperator), datastore, and
