@@ -181,14 +181,15 @@ def _sesame_plan_with_astar(
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
-                    max_horizon)
+                    metrics, max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
                         f"Planning succeeded! Found plan of length "
                         f"{len(plan)} after "
                         f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons, discovering "
+                        f"skeletons with {int(metrics['num_samples'])}"
+                        f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     return plan, metrics
@@ -437,7 +438,7 @@ def _skeleton_generator(
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          skeleton: List[_GroundNSRT],
                          atoms_sequence: List[Set[GroundAtom]], seed: int,
-                         timeout: float,
+                         timeout: float, metrics: Metrics,
                          max_horizon: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
@@ -485,6 +486,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
+        # Increment num_samples metric by 1
+        metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         if option.initiable(state):
@@ -803,7 +806,8 @@ def _sesame_plan_with_fast_downward(
             skeleton, atoms_sequence, task.goal)
         plan, suc = run_low_level_search(task, option_model, skeleton,
                                          necessary_atoms_seq, seed,
-                                         low_level_timeout, max_horizon)
+                                         low_level_timeout, metrics,
+                                         max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot
         # modify the NSRTs as we do in SeSamE with A*, because we don't ever
