@@ -146,6 +146,9 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
+    "narrow_passage_passage_width_padding": 0.075,
+}]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
     {
         "pddl_delivery_procedural_train_min_num_locs": 2,
