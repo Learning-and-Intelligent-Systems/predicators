@@ -8,8 +8,9 @@ from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
-    _DeleteConditionPG3SearchOperator, _DemoPlanComparisonPG3Heuristic, \
-    _PolicyEvaluationPG3Heuristic, _PolicyGuidedPG3Heuristic
+    _DeleteConditionPG3SearchOperator, _DeleteRulePG3SearchOperator, \
+    _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
+    _PolicyGuidedPG3Heuristic
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
@@ -347,6 +348,19 @@ LDLRule-MyOtherPickUp:
     Goal Pre: [OtherDummy()]
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
+
+    # _DeleteRulePG3SearchOperator
+    op = _DeleteRulePG3SearchOperator(preds, nsrts)
+
+    # Empty list should have no successors
+    succ1 = list(op.get_successors(ldl1))
+    assert len(succ1) == 0
+
+    # Removing from list with one rule should have 1 empty successor
+    succ2 = list(op.get_successors(ldl2))
+    assert len(succ2) == 1
+    ldl2_succ = next(iter(succ2))
+    assert len(ldl2_succ.rules) == 0
 
 
 def test_pg3_heuristics():

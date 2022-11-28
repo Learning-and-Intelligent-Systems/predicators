@@ -336,6 +336,16 @@ class _DeleteConditionPG3SearchOperator(_PG3SearchOperator):
                 yield LiftedDecisionList(new_rules)
 
 
+class _DeleteRulePG3SearchOperator(_PG3SearchOperator):
+    """An operator that removes entire rules from existing LDL rules."""
+
+    def get_successors(
+            self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
+        for rule_idx in range(len(ldl.rules)):
+            new_rules = [r for i, r in enumerate(ldl.rules) if i != rule_idx]
+            yield LiftedDecisionList(new_rules)
+
+
 ################################ Heuristics ###################################
 
 
