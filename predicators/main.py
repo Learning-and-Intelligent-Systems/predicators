@@ -349,6 +349,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    metrics["min_num_samples"] = approach.metrics[
+        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+            "inf") else 0
+    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"] if approach.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
@@ -363,7 +367,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
     for metric_name in [
-            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:
