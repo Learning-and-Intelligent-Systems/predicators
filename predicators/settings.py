@@ -426,6 +426,10 @@ class GlobalSettings:
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
 
+    # refinement cost estimation parameters
+    refinement_estimator = "oracle"  # default refinement cost estimator
+    refinement_estimation_num_skeletons_generated = 3
+
     # glib explorer parameters
     glib_min_goal_size = 1
     glib_max_goal_size = 1
