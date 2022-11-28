@@ -23,7 +23,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
     """Create ground truth NSRTs for an env."""
     if env_name in ("cover", "cover_hierarchical_types", "cover_typed_options",
                     "cover_regrasp", "cover_multistep_options",
-                    "pybullet_cover"):
+                    "pybullet_cover", "cover_handempty"):
         nsrts = _get_cover_gt_nsrts(env_name)
     elif env_name == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts(env_name)
@@ -117,7 +117,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
 
     # Options
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         PickPlace, = _get_options_by_names(env_name, ["PickPlace"])
     elif env_name in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(env_name, ["Pick", "Place"])
@@ -127,15 +127,22 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     # Pick
     parameters = [block]
     holding_predicate_args = [block]
+    handempty_predicate_args = []
     if env_name == "cover_multistep_options":
         parameters.append(robot)
         holding_predicate_args.append(robot)
-    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
+    elif env_name == "cover_handempty":
+        parameters.append(robot)
+        handempty_predicate_args.append(robot)
+    preconditions = {
+        LiftedAtom(IsBlock, [block]),
+        LiftedAtom(HandEmpty, handempty_predicate_args)
+    }
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
-    delete_effects = {LiftedAtom(HandEmpty, [])}
+    delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         option = PickPlace
         option_vars = []
     elif env_name == "cover_typed_options":
@@ -201,14 +208,18 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 1
+            if env_name == "cover_handempty":
+                assert len(objs) == 2
+            else:
+                assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if env_name == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
             elif env_name in ("cover", "pybullet_cover",
-                              "cover_hierarchical_types", "cover_regrasp"):
+                              "cover_hierarchical_types", "cover_regrasp",
+                              "cover_handempty"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -225,13 +236,15 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     if env_name == "cover_multistep_options":
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
+    elif env_name == "cover_handempty":
+        parameters.append(robot)
     preconditions = {
         LiftedAtom(IsBlock, [block]),
         LiftedAtom(IsTarget, [target]),
         LiftedAtom(Holding, holding_predicate_args)
     }
     add_effects = {
-        LiftedAtom(HandEmpty, []),
+        LiftedAtom(HandEmpty, handempty_predicate_args),
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
@@ -241,7 +254,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects.add(LiftedAtom(Clear, [target]))
 
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         option = PickPlace
         option_vars = []
     elif env_name == "cover_typed_options":
@@ -306,8 +319,12 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 2
-            t = objs[-1]
+            if env_name == "cover_handempty":
+                assert len(objs) == 3
+                t = objs[1]
+            else:
+                assert len(objs) == 2
+                t = objs[-1]
             assert t.is_instance(target_type)
             lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
             lb = max(lb, 0.0)
@@ -328,7 +345,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
             LiftedAtom(Holding, [block])
         }
         add_effects = {
-            LiftedAtom(HandEmpty, []),
+            LiftedAtom(HandEmpty, handempty_predicate_args),
         }
         delete_effects = {LiftedAtom(Holding, [block])}
         option = PickPlace

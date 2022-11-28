@@ -65,6 +65,8 @@ class GlobalSettings:
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
     blocks_test_task_json_dir = None
+    blocks_holding_goals = False
+    blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -112,6 +114,7 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
     pybullet_robot_ee_orns = defaultdict(
         # Fetch and Panda gripper down and parallel to x-axis by default.
@@ -285,6 +288,8 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+    pg3_add_condition_allow_new_vars = True
+    pg3_max_analogies = 5
 
     # parameters for PG3 init approach
     # These need to be overridden via command line
@@ -322,6 +327,9 @@ class GlobalSettings:
     # OpenLid() operator in painting. So, we'll keep the former as the
     # default.
     sesame_grounder = "naive"
+    sesame_check_static_object_changes = False
+    # Warning: making this tolerance any lower breaks pybullet_blocks.
+    sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
     log_dir = "logs"
