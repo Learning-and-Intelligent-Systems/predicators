@@ -486,6 +486,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
+        # Increment num_samples metric by 1
+        metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         if option.initiable(state):
@@ -537,8 +539,6 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     if all(a.holds(traj[cur_idx]) for a in expected_atoms):
                         can_continue_on = True
                         if cur_idx == len(skeleton):
-                            # Set num_samples metric to total # of tries
-                            metrics["num_samples"] = sum(num_tries)
                             return plan, True  # success!
                     else:
                         can_continue_on = False
@@ -548,8 +548,6 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):
                         if task.goal_holds(traj[cur_idx]):
-                            # Set num_samples metric to total # of tries
-                            metrics["num_samples"] = sum(num_tries)
                             return plan, True  # success!
                         can_continue_on = False
         else:
@@ -593,8 +591,6 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                                     "longest_failed_refinement":
                                     longest_failed_refinement
                                 })
-                    # Set num_samples metric to total # of tries
-                    metrics["num_samples"] = sum(num_tries)
                     return longest_failed_refinement, False
     # Should only get here if the skeleton was empty.
     assert not skeleton
