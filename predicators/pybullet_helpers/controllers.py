@@ -62,7 +62,7 @@ def create_move_end_effector_to_pose_option(
             joint_positions = robot.inverse_kinematics(
                 (ee_action[0], ee_action[1], ee_action[2]),
                 validate=False,
-                set_joints=(robot_name == "panda"))
+                set_joints=True)
         except InverseKinematicsError:
             raise utils.OptionExecutionFailure("Inverse kinematics failed.")
         # Handle the fingers. Fingers drift if left alone.
