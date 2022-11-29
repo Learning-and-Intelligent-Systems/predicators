@@ -60,7 +60,8 @@ class InitializedPG3Approach(PG3Approach):
         return "initialized_pg3"
 
     @staticmethod
-    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
+    def _get_policy_search_initial_ldls(
+        one_to_many: bool = False) -> List[LiftedDecisionList]:
         # Create base and target envs.
         base_env_name = CFG.pg3_init_base_env
         target_env_name = CFG.env
@@ -92,7 +93,11 @@ class InitializedPG3Approach(PG3Approach):
                                                    base_nsrts)
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
-        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+        if one_to_many:
+            analogies = _find_analogies_multi_shot(base_env, target_env,
+                                base_nsrts, target_nsrts)
+        else:
+            analogies = _find_env_analogies(base_env, target_env, base_nsrts,
                                         target_nsrts)
         target_policies: List[LiftedDecisionList] = []
         for analogy in analogies:
@@ -135,6 +140,27 @@ class _Analogy:
             old_to_new_var[old_v] = new_v
         return old_to_new_var
 
+    def is_consistent_with(self, other: _Analogy) -> bool:
+        """
+        Checks whether a given analogy is consistent with a given analogy.
+        """
+        return all(
+            self.predicates[p] == other.predicates[p]
+            for p in self.predicates if p in other.predicates) & \
+            all(
+                self.nsrts[n] == other.nsrts[n]
+                for n in self.nsrts if n in other.nsrts)
+
+    def extend_with(self, other: _Analogy) -> _Analogy:
+        """
+            Creates a new analogy by exteding this one with
+            mappings from another analogy.
+            The method does not check if the analogies are consistent.
+        """
+        return _Analogy(predicates=self.predicates | other.predicates,
+            nsrts=self.nsrts | other.nsrts,
+            nsrt_variables=self.nsrt_variables | other.nsrt_variables)
+
 
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
                         base_nsrts: Set[NSRT],
@@ -151,6 +177,59 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
     return analogies
 
 
+def _find_analogies_multi_shot(base_env: BaseEnv, target_env: BaseEnv,
+                        base_nsrts: Set[NSRT],
+                        target_nsrts: Set[NSRT]) -> List[_Analogy]:
+    """
+    Multishot analogical matching intended to overcome
+        1-to-1 mapping constraints
+
+    It follows a simple procedure and focuses on mapping actions:
+        - it does one step of SME
+        - if there are unmatched actions:
+            - remove all *target* actions that are matched
+            - do one SME run again
+            - check if the new mapping is consistent with the previous one
+    """
+    # Use external SME module to find analogies.
+    smepy.declare_nary("and")
+    base_sme_struct = _create_sme_inputs(base_env, base_nsrts)
+    target_sme_struct = _create_sme_inputs(target_env, target_nsrts)
+
+    analogies: List[_Analogy] = []
+
+    for sme_mapping in _query_sme(base_sme_struct, target_sme_struct):
+        analogy = _sme_mapping_to_analogy(sme_mapping, base_env, target_env,
+                                          base_nsrts, target_nsrts)
+
+        # Check which target nsrts are missing.
+        missing_nsrts = target_nsrts - {n for _,n in analogy.nsrts.items()}
+
+        if len(missing_nsrts) == 0:
+            # If we covered all nsrts, remember the analogy.
+            analogies.append(analogy)
+        elif len(missing_nsrts) != len(target_nsrts):
+            # If we only match part of the target nsrts,
+            #   remove the matched nsrts and try again.
+            sub_analogies = _find_analogies_multi_shot(base_env, target_env,
+                base_nsrts, missing_nsrts)
+            sub_analogies = [
+                _sme_mapping_to_analogy(m, base_env, target_env,
+                    base_nsrts, missing_nsrts)
+                for m in sub_analogies]
+
+            # Combine the top analogy with every consistent
+            # sub-analogy. We skip the subanalogy if it didn't
+            # match any of nsrts.
+            for inner_a in sub_analogies:
+                if len(inner_a.nsrts) > 0 and \
+                    analogy.is_consistent_with(inner_a):
+                    analogies.append(analogy.extend_with(inner_a))
+        else:
+            # If none of the above, return an empty analogy
+            analogies.append(_Analogy({}, {}, {}))
+    return analogies
+
 def _query_sme(
     base_sme_struct: smepy.StructCase, target_sme_struct: smepy.StructCase
 ) -> Iterator[smepy.Mapping]:  # pragma: no cover
@@ -159,7 +238,6 @@ def _query_sme(
                     target_sme_struct,
                     max_mappings=CFG.pg3_max_analogies)
     return sme.match()
-
 
 def _apply_analogy_to_ldl(analogy: _Analogy,
                           ldl: LiftedDecisionList) -> LiftedDecisionList:
