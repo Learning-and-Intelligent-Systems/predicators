@@ -23,6 +23,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase
+from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
@@ -56,6 +57,7 @@ def sesame_plan(
         max_horizon: int,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
+        refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
@@ -73,8 +75,8 @@ def sesame_plan(
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
-            abstract_policy, max_policy_guided_rollout, check_dr_reachable,
-            allow_noops, use_visited_state_set)
+            abstract_policy, max_policy_guided_rollout, refinement_estimator,
+            check_dr_reachable, allow_noops, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -114,6 +116,7 @@ def _sesame_plan_with_astar(
         max_horizon: int,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
+        refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
@@ -175,6 +178,21 @@ def _sesame_plan_with_astar(
                 timeout - (time.perf_counter() - start_time), metrics,
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
+            # If a refinement cost estimator is provided, generate a number of
+            # skeletons first, then predict the refinement cost of each skeleton
+            # and attempt to refine them in this order.
+            if refinement_estimator is not None:
+                estimator: BaseRefinementEstimator = refinement_estimator
+                proposed_skeletons = []
+                for _ in range(
+                        CFG.refinement_estimation_num_skeletons_generated):
+                    try:
+                        proposed_skeletons.append(next(gen))
+                    except _MaxSkeletonsFailure:
+                        break
+                gen = iter(
+                    sorted(proposed_skeletons,
+                           key=lambda s: estimator.get_cost(*s)))
             for skeleton, atoms_sequence in gen:
                 necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                     skeleton, atoms_sequence, task.goal)
