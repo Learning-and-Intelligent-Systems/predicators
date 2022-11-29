@@ -5,13 +5,15 @@ https://github.com/IntelRealSense/librealsense/issues/8388
 """
 from __future__ import annotations
 
+import argparse
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import imageio.v2 as iio
 import numpy as np
 import pyrealsense2 as rs  # pylint: disable=import-error
-
-__all__ = ["Device", "find_devices", "start_pipelines", "stop_pipelines"]
 
 # Note: change these to fit your use case. Assuming USB 3.2 connection.
 _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
@@ -33,7 +35,7 @@ _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
 
 
 @dataclass
-class Device:
+class _Device:
     """A single realsense camera."""
     name: str
     serial_number: str
@@ -42,8 +44,8 @@ class Device:
     counter = 0
 
     @classmethod
-    def from_rs_device(cls, dev: rs.device) -> Device:
-        """Initialize a Device from a pyrealsense2 device."""
+    def from_rs_device(cls, dev: rs.device) -> _Device:
+        """Initialize a _Device from a pyrealsense2 device."""
         name = dev.get_info(rs.camera_info.name)
         serial_number = dev.get_info(rs.camera_info.serial_number)
         return cls(name, serial_number)
@@ -92,6 +94,7 @@ class Device:
         print("Retrieved sensors")
 
         if custom_exposure_and_wb:
+            # TODO fix this
             color_sensor.set_option(rs.option.enable_auto_exposure, False)
             # Use 438 with Yang's ring light
             color_sensor.set_option(rs.option.exposure, 2000)
@@ -112,7 +115,8 @@ class Device:
         """Stop RealSense pipeline."""
         if not self.pipeline:
             print(
-                f"Warning! Device {self} does not have a pipeline initialized")
+                f"Warning! Device {self} does not have a pipeline initialized"
+            )
         else:
             self.pipeline.stop()
             print(f"Stopped pipeline for {self}")
@@ -144,14 +148,14 @@ class Device:
         return str(self)
 
 
-def find_devices(device_filter: str = "") -> List[Device]:
+def _find_devices(device_filter: str = "") -> List[_Device]:
     """Get devices as detected by RealSense and filter devices that only
     contain the provided device_filter string in their name.
 
-    e.g. to filter for D435 only you can call `find_devices("D435")`
+    e.g. to filter for D435 only you can call `_find_devices("D435")`
     """
     ctx = rs.context()
-    devices = [Device.from_rs_device(dev) for dev in ctx.devices]
+    devices = [_Device.from_rs_device(dev) for dev in ctx.devices]
 
     # Filter devices
     if device_filter:
@@ -165,45 +169,52 @@ def find_devices(device_filter: str = "") -> List[Device]:
     return devices
 
 
-def start_pipelines(devices: List[Device], **kwargs) -> None:
-    """Enable each device by starting a stream."""
-    for device in devices:
-        device.start_pipeline(**kwargs)
-
-
-def stop_pipelines(devices: List[Device]) -> None:
-    """Stop all the pipelines."""
-    for device in devices:
-        device.stop_pipeline()
-
-
-def hardware_reset_connected_devices() -> None:
-    """Reset all connected devices."""
+def _hardware_reset_connected_devices() -> None:
+    """Reset all connected devices.
+    
+    Useful if the USB connection is unreliable, or we get bad stream from the
+    camera.
+    """
     ctx = rs.context()
     devices = ctx.query_devices()
     for dev in devices:
         dev.hardware_reset()
 
 
-# if __name__ == "__main__":
-#     os.makedirs("blocks_vision_data", exist_ok=True)
-#     # hardware_reset_connected_devices()
+def _main(
+    output_dir: str,
+    color_filename: str,
+    depth_filename: str,
+    device_name: str,
+    reset_hardware: bool = False,
+) -> None:
+    """Capture and save a color and depth image from the device."""
+    os.makedirs(output_dir, exist_ok=True)
+    color_path = os.path.join(output_dir, color_filename)
+    depth_path = os.path.join(output_dir, depth_filename)
 
-#     # Detect devices, start pipelines, visualize, and stop pipelines
-#     devices = find_devices("d415")
-#     assert len(devices) == 1
-#     start_pipelines(devices, custom_exposure_and_wb=True)
+    if reset_hardware:
+        _hardware_reset_connected_devices()
 
-#     device = devices[0]
-#     color, depth = device.capture_images()
-#     color_path = os.path.join("blocks_vision_data",
-#                               f"color-0-{device.serial_number}.png")
-#     depth_path = os.path.join("blocks_vision_data",
-#                               f"depth-0-{device.serial_number}.png")
-#     cv2.imwrite(color_path, color)
-#     cv2.imwrite(depth_path, depth)
+    devices = _find_devices(device_name)
+    assert len(devices) == 1
+    device = devices[0]
+    device.start_pipeline(custom_exposure_and_wb=True)
 
-#     # try:
-#     #     visualize_devices(devices, save_dir="blocks_vision_data")
-#     # finally:
-#     stop_pipelines(devices)
+    color, depth = device.capture_images()
+    iio.imwrite(color_path, color)
+    iio.imwrite(depth_path, depth)
+
+    device.stop_pipeline()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output_dir", required=True, type=Path)
+    parser.add_argument("--color_filename", type=str, default="color.png")
+    parser.add_argument("--depth_filename", type=str, default="depth.png")
+    parser.add_argument("--device_name", type=str, default="D415")
+    parser.add_argument("--reset_hardware", action="store_true")
+    args = parser.parse_args()
+    _main(args.output_dir, args.color_filename, args.depth_filename,
+          args.device_name, args.reset_hardware)
