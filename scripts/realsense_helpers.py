@@ -5,11 +5,9 @@ https://github.com/IntelRealSense/librealsense/issues/8388
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-import cv2  # pylint: disable=import-error
 import numpy as np
 import pyrealsense2 as rs  # pylint: disable=import-error
 
@@ -19,9 +17,8 @@ __all__ = ["Device", "find_devices", "start_pipelines", "stop_pipelines"]
 _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
     # Mapping of camera name to a list of streams to enable
     # in the cfg.enable_stream format
-    # Disabling depth camera as we don't need it right now
     "Intel RealSense L515": [
-        # (rs.stream.depth, 1024, 768, rs.format.z16, 30),
+        (rs.stream.depth, 1024, 768, rs.format.z16, 30),
         (rs.stream.color, 1920, 1080, rs.format.bgr8, 30),
     ],
     "Intel RealSense D415": [
