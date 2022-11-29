@@ -6,17 +6,14 @@ https://github.com/IntelRealSense/librealsense/issues/8388
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import cv2  # pylint: disable=import-error
 import numpy as np
 import pyrealsense2 as rs  # pylint: disable=import-error
 
-__all__ = [
-    "Device", "WindowEvent", "find_devices", "start_pipelines",
-    "stop_pipelines"
-]
+__all__ = ["Device", "find_devices", "start_pipelines", "stop_pipelines"]
 
 # Note: change these to fit your use case. Assuming USB 3.2 connection.
 _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
@@ -38,14 +35,6 @@ _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
 }
 
 
-class WindowEvent:
-    """Enum for cv2 interactive windows."""
-    EXIT = "exit"
-    SAVE = "save"
-    NONE = "none"
-    ROBOT = "robot"
-
-
 @dataclass
 class Device:
     """A single realsense camera."""
@@ -54,7 +43,6 @@ class Device:
     # RealSense pipeline for this device
     pipeline: Optional[rs.pipeline] = None
     counter = 0
-    depth_enabled: bool = field(default=False)
 
     @classmethod
     def from_rs_device(cls, dev: rs.device) -> Device:
@@ -94,8 +82,7 @@ class Device:
                 # Something wrong with stream configurations probably
                 raise RuntimeError(
                     f"{message} for {self}. Check stream configuration and "
-                    "USB connection."
-                )
+                    "USB connection.")
             raise e
 
         # Warmup camera
@@ -153,64 +140,6 @@ class Device:
 
         return color_image, depth_image
 
-    def visualize(
-        self,
-        save_dir: str = "",
-        save_image: bool = False,
-        flip_180: bool = True,
-    ) -> WindowEvent:
-        """Visualize color and depth images in a cv2 window. Terminates when
-        'esc' or 'q' key is pressed.
-
-        Saves an image when the 's' key is pressed or if the 'save_image'
-        flag is specified.
-
-        Images are saved to the specified save_dir, which we
-        assume to already exist.
-
-        Returns a WindowEvent indicating status of cv2.
-        """
-        color_image, depth_image = self.capture_images()
-
-        # Form heatmap for depth and stack with color image
-        # depth_colormap = cv2.applyColorMap(
-        #     cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET
-        # )
-        images = color_image
-        # images = np.hstack((color_image, depth_colormap))
-
-        window_name = str(self)
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        if flip_180:
-            images = np.rot90(np.rot90(images))
-        cv2.imshow(window_name, images)
-        # cv2.resizeWindow(window_name, 1280, 720)
-        key = cv2.waitKey(1)
-
-        # Exit on 'esc' or 'q'
-        if key & 0xFF == ord("q") or key == 27:
-            cv2.destroyWindow(window_name)
-            return WindowEvent.EXIT
-
-        # Save images if 's' key is pressed
-        if key == 115 or save_image:
-            color_path = os.path.join(
-                save_dir, f"color-{self.counter}-{self.serial_number}.png")
-            depth_path = os.path.join(
-                save_dir, f"depth-{self.counter}-{self.serial_number}.png")
-            cv2.imwrite(color_path, images)
-            cv2.imwrite(depth_path, depth_image)
-            # print(f"Saved depth image for {self} to {depth_fname}")
-            print(f"Saved color image to {self} to {color_path}")
-            print(f"Saved depth image to {self} to {depth_path}")
-            self.counter += 1
-            return WindowEvent.SAVE
-
-        if key == 103:
-            return WindowEvent.ROBOT
-
-        return WindowEvent.NONE
-
     def __str__(self) -> str:
         return f"{self.name} ({self.serial_number})"
 
@@ -257,49 +186,6 @@ def hardware_reset_connected_devices() -> None:
     devices = ctx.query_devices()
     for dev in devices:
         dev.hardware_reset()
-
-
-def visualize_devices(devices: List[Device],
-                      save_dir: str = "",
-                      flip: bool = False) -> None:
-    """Visualizes all the devices in a cv2 window. Press 'q' or 'esc' on any of
-    the windows to exit the infinite loop.
-
-    Press the 's' key in a specific window to save the color and depth image
-    to disk.
-
-    You can use a similar loop interface in other places where you need
-    a live camera feed (e.g. collecting demonstrations).
-    """
-    print("Beginning visualization loop. Press 'q' or 'esc' to exit.")
-    os.makedirs(save_dir, exist_ok=True)
-
-    while True:
-        stop = False
-        save = False
-
-        processed_devices = []
-        for device in devices:
-            window_event = device.visualize(save_dir,
-                                            save_image=save,
-                                            flip_180=flip)
-            if window_event == WindowEvent.SAVE:
-                # We use this to propagate a save command across all windows
-                save = True
-                for device_ in processed_devices:
-                    device_.visualize(save_dir, save_image=True, flip_180=flip)
-            else:
-                processed_devices.append(device)
-
-            # Exit all windows
-            if window_event == WindowEvent.EXIT:
-                stop = True
-                break
-
-        if stop:
-            print("Exit key pressed.")
-            cv2.destroyAllWindows()
-            break
 
 
 # if __name__ == "__main__":
