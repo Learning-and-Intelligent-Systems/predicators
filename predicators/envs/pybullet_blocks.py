@@ -1,6 +1,7 @@
 """A PyBullet version of Blocks."""
 
 import logging
+from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -323,6 +324,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                    rng: np.random.Generator) -> List[Task]:
         tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
         return self._add_pybullet_state_to_tasks(tasks)
+
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        task = super()._load_task_from_json(json_file)
+        return self._add_pybullet_state_to_tasks([task])[0]
 
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
