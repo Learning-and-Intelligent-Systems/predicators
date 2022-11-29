@@ -6,7 +6,6 @@ https://github.com/IntelRealSense/librealsense/issues/8388
 from __future__ import annotations
 
 import argparse
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -185,15 +184,12 @@ def _hardware_reset_connected_devices() -> None:
 
 def _main(
     output_dir: str,
-    color_filename: str,
-    depth_filename: str,
+    color_path: Path,
+    depth_path: Path,
     device_name: str,
     reset_hardware: bool = False,
 ) -> None:
     """Capture and save a color and depth image from the device."""
-    os.makedirs(output_dir, exist_ok=True)
-    color_path = os.path.join(output_dir, color_filename)
-    depth_path = os.path.join(output_dir, depth_filename)
 
     if reset_hardware:
         _hardware_reset_connected_devices()
@@ -212,11 +208,9 @@ def _main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output_dir", required=True, type=Path)
-    parser.add_argument("--color_filename", type=str, default="color.png")
-    parser.add_argument("--depth_filename", type=str, default="depth.png")
+    parser.add_argument("--rgb", type=str, default="color.png")
+    parser.add_argument("--depth", type=str, default="depth.png")
     parser.add_argument("--device_name", type=str, default="D415")
     parser.add_argument("--reset_hardware", action="store_true")
     args = parser.parse_args()
-    _main(args.output_dir, args.color_filename, args.depth_filename,
-          args.device_name, args.reset_hardware)
+    _main(args.rgb, args.depth, args.device_name, args.reset_hardware)
