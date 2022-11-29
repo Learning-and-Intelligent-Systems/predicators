@@ -156,7 +156,7 @@ def _find_devices(device_filter: str = "") -> List[_Device]:
     e.g. to filter for D435 only you can call `_find_devices("D435")`
     """
     ctx = rs.context()
-    devices = [_Device.from_rs_device(dev) for dev in ctx.devices]
+    devices = [_Device.from_rs_device(dev) for dev in ctx.devices]  # pylint: disable=not-an-iterable
 
     # Filter devices
     if device_filter:
@@ -183,7 +183,6 @@ def _hardware_reset_connected_devices() -> None:
 
 
 def _main(
-    output_dir: str,
     color_path: Path,
     depth_path: Path,
     device_name: str,
