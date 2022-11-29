@@ -1,10 +1,9 @@
 """Base class for a refinement cost estimator."""
 
 import abc
-from typing import List
+from typing import List, Set
 
-from predicators.structs import _GroundNSRT
-from predicators.utils import ExceptionWithInfo
+from predicators.structs import GroundAtom, _GroundNSRT
 
 
 class BaseRefinementEstimator(abc.ABC):
@@ -18,11 +17,7 @@ class BaseRefinementEstimator(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_cost(self, skeleton: List[_GroundNSRT]) -> float:
+    def get_cost(self, skeleton: List[_GroundNSRT],
+                 atoms_sequence: List[Set[GroundAtom]]) -> float:
         """Return an estimated cost for a proposed high-level skeleton."""
         raise NotImplementedError("Override me!")
-
-
-class RefinementCostEstimationFailure(ExceptionWithInfo):
-    """Exception raised when refinement cost estimation fails for some
-    reason."""

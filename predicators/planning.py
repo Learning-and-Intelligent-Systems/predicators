@@ -192,7 +192,7 @@ def _sesame_plan_with_astar(
                         break
                 gen = iter(
                     sorted(proposed_skeletons,
-                           key=lambda s: estimator.get_cost(s[0])))
+                           key=lambda s: estimator.get_cost(*s)))
             for skeleton, atoms_sequence in gen:
                 necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                     skeleton, atoms_sequence, task.goal)

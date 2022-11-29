@@ -16,7 +16,7 @@ def test_oracle_refinement_estimator():
     estimator = OracleRefinementEstimator()
     assert estimator.get_name() == "oracle"
     with pytest.raises(NotImplementedError):
-        estimator.get_cost([])
+        estimator.get_cost([], [])
 
 
 def test_narrow_passage_oracle_refinement_estimator():
@@ -40,7 +40,7 @@ def test_narrow_passage_oracle_refinement_estimator():
 
     # Test direct MoveToTarget skeleton
     move_direct_skeleton = [ground_move_to_target]
-    move_direct_cost = estimator.get_cost(move_direct_skeleton)
+    move_direct_cost = estimator.get_cost(move_direct_skeleton, [])
     assert move_direct_cost == 3
 
     # Test open door then move skeleton
@@ -48,7 +48,7 @@ def test_narrow_passage_oracle_refinement_estimator():
         ground_move_and_open_door,
         ground_move_to_target,
     ]
-    move_through_door_cost = estimator.get_cost(move_through_door_skeleton)
+    move_through_door_cost = estimator.get_cost(move_through_door_skeleton, [])
     assert move_through_door_cost == 1 + 1
 
     # Test open door multiple times then move skeleton
@@ -58,7 +58,8 @@ def test_narrow_passage_oracle_refinement_estimator():
         ground_move_and_open_door,
         ground_move_to_target,
     ]
-    move_door_multiple_cost = estimator.get_cost(move_door_multiple_skeleton)
+    move_door_multiple_cost = estimator.get_cost(move_door_multiple_skeleton,
+                                                 [])
     assert move_door_multiple_cost == 4
 
     # Make sure that sorting the costs makes sense
