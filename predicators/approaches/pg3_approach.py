@@ -77,7 +77,8 @@ class PG3Approach(NSRTLearningApproach):
         try:
             option_list, succeeded = run_low_level_search(
                 task, self._option_model, skeleton, atoms_sequence, self._seed,
-                timeout - (time.perf_counter() - start_time), CFG.horizon)
+                timeout - (time.perf_counter() - start_time), self._metrics,
+                CFG.horizon)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         if not succeeded:

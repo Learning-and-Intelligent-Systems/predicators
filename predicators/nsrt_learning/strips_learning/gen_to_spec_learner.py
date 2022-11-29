@@ -8,8 +8,8 @@ from typing import Dict, List, Set
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import GroundAtom, Object, ParameterizedOption, \
-    PartialNSRTAndDatastore, Segment, STRIPSOperator, Variable, \
+from predicators.structs import PNAD, GroundAtom, Object, \
+    ParameterizedOption, Segment, STRIPSOperator, Variable, \
     _GroundSTRIPSOperator
 
 
@@ -18,8 +18,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
 
     @functools.lru_cache(maxsize=None)
     def _create_general_pnad_for_option(
-            self, parameterized_option: ParameterizedOption
-    ) -> PartialNSRTAndDatastore:
+            self, parameterized_option: ParameterizedOption) -> PNAD:
         """Create the most general PNAD for the given option."""
         # Create the parameters, which are determined solely from the option
         # types, since the most general operator has no add/delete effects.
@@ -34,7 +33,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         # are initialized to be trivial. They will be recomputed next.
         op = STRIPSOperator(parameterized_option.name, parameters, set(),
                             set(), set(), ignore_effects)
-        pnad = PartialNSRTAndDatastore(op, [], option_spec)
+        pnad = PNAD(op, [], option_spec)
 
         # Recompute datastore. This simply clusters by option, since the
         # ignore effects contain all predicates, and effects are trivial.
@@ -42,7 +41,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
 
         return pnad
 
-    def spawn_new_pnad(self, segment: Segment) -> PartialNSRTAndDatastore:
+    def spawn_new_pnad(self, segment: Segment) -> PNAD:
         """Given some segment with necessary add effects that a new PNAD must
         achieve, create such a PNAD ("spawn" from the most general one
         associated with the segment's option) so that it has the necessary add
@@ -89,7 +88,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         new_pnad_op = pnad.op.copy_with(parameters=updated_params,
                                         preconditions=set(),
                                         add_effects=updated_add_effects)
-        new_pnad = PartialNSRTAndDatastore(new_pnad_op, [], pnad.option_spec)
+        new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
         # Note: we don't need to copy anything related to keep effects into
         # new_pnad here, because we only care about keep effects on the final
         # iteration of backchaining, where this function is never called.
@@ -97,8 +96,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
         return new_pnad
 
     @staticmethod
-    def get_pnads_with_keep_effects(
-            pnad: PartialNSRTAndDatastore) -> Set[PartialNSRTAndDatastore]:
+    def get_pnads_with_keep_effects(pnad: PNAD) -> Set[PNAD]:
         """Return a new set of PNADs that include keep effects into the given
         PNAD."""
         # The keep effects that we want are the subset of possible keep
@@ -136,8 +134,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
                 new_pnad_op = pnad.op.copy_with(parameters=parameters,
                                                 preconditions=preconditions,
                                                 add_effects=add_effects)
-                new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
-                                                   pnad.option_spec)
+                new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
                 # Remember to copy seg_to_keep_effects_sub into the new_pnad!
                 new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
                 new_pnads_with_keep_effects.add(new_pnad)
@@ -153,7 +150,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
             for segment in seg_traj:
                 segment.necessary_add_effects = None
 
-    def _update_pnad_seg_to_keep_effs(self, pnad: PartialNSRTAndDatastore,
+    def _update_pnad_seg_to_keep_effs(self, pnad: PNAD,
                                       necessary_image: Set[GroundAtom],
                                       ground_op: _GroundSTRIPSOperator,
                                       obj_to_var: Dict[Object, Variable],
@@ -179,7 +176,7 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
             pnad.seg_to_keep_effects_sub[segment].update(keep_eff_sub)
 
     @staticmethod
-    def clear_unnecessary_keep_effs(pnad: PartialNSRTAndDatastore) -> None:
+    def clear_unnecessary_keep_effs(pnad: PNAD) -> None:
         """Clear the poss_keep_effects, as well as unnecessary substitution
         values from the PNAD's seg_to_keep_effects_sub_dict.
 
@@ -198,11 +195,10 @@ class GeneralToSpecificSTRIPSLearner(BaseSTRIPSLearner):
 class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     """Learn STRIPS operators by backchaining."""
 
-    def _learn(self) -> List[PartialNSRTAndDatastore]:
+    def _learn(self) -> List[PNAD]:
         # Initialize the most general PNADs by merging self._initial_pnads.
         # As a result, we will have one very general PNAD per option.
-        param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                     List[PartialNSRTAndDatastore]] = {}
+        param_opt_to_nec_pnads: Dict[ParameterizedOption, List[PNAD]] = {}
         # Extract all parameterized options from the data.
         parameterized_options = set()
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -269,9 +265,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         return final_pnads
 
     def _backchain_multipass(
-        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]]
-    ) -> None:
+            self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                               List[PNAD]]) -> None:
         """Take multiple passes through the demonstrations, running
         self._backchain_one_pass() each time.
 
@@ -298,9 +293,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 break
 
     def _backchain_one_pass(
-        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]]
-    ) -> bool:
+            self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                               List[PNAD]]) -> bool:
         """Take one pass through the demonstrations in the given order.
 
         Go through each one from the end back to the start, making the
@@ -335,9 +329,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                     general_pnad = self._create_general_pnad_for_option(
                         option.parent)
                     pnads_for_option = [
-                        PartialNSRTAndDatastore(general_pnad.op,
-                                                list(general_pnad.datastore),
-                                                general_pnad.option_spec)
+                        PNAD(general_pnad.op, list(general_pnad.datastore),
+                             general_pnad.option_spec)
                     ]
                 else:
                     pnads_for_option = param_opt_to_nec_pnads[option.parent]
@@ -456,7 +449,7 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
     @staticmethod
     def _remove_empty_datastore_pnads(param_opt_to_nec_pnads: Dict[
-        ParameterizedOption, List[PartialNSRTAndDatastore]],
+        ParameterizedOption, List[PNAD]],
                                       param_opt: ParameterizedOption) -> None:
         """Removes all PNADs associated with the given param_opt that have
         empty datastores from the input param_opt_to_nec_pnads dict."""
@@ -468,9 +461,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             param_opt_to_nec_pnads[param_opt].remove(rm_pnad)
 
     def _induce_delete_side_keep(
-        self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                           List[PartialNSRTAndDatastore]]
-    ) -> None:
+            self, param_opt_to_nec_pnads: Dict[ParameterizedOption,
+                                               List[PNAD]]) -> None:
         """Given the current PNADs where add effects and preconditions are
         correct, learn the remaining components: delete effects, side
         predicates, and keep_effects.
@@ -492,8 +484,8 @@ class BackchainingSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "backchaining"
 
-    def _assert_all_data_in_exactly_one_datastore(
-            self, pnads: List[PartialNSRTAndDatastore]) -> None:
+    def _assert_all_data_in_exactly_one_datastore(self,
+                                                  pnads: List[PNAD]) -> None:
         """Assert that every demo datapoint appears in exactly one datastore
         among the given PNADs' datastores."""
         all_segs_in_data_lst = [

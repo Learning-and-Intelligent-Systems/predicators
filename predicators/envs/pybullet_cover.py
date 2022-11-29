@@ -72,7 +72,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         name="MoveEndEffectorToPose",
                         target_z=self._pickplace_z),
                     # Toggle fingers.
-                    create_change_fingers_option(self._pybullet_robot,
+                    create_change_fingers_option(self._pybullet_robot_sim,
                         "ToggleFingers", types, params_space,
                         toggle_fingers_func,
                         self._max_vel_norm, self._grasp_tol),
@@ -243,10 +243,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
         # constraint before we can call PyBullet.
-        # Use self._pybullet_robot2 to run forward kinematics, since that
+        # Use self._pybullet_robot_sim to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
         joint_positions = action.arr.tolist()
-        _, ry, rz = self._pybullet_robot2.forward_kinematics(joint_positions)
+        _, ry, rz = self._pybullet_robot_sim.forward_kinematics(
+            joint_positions)
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.
@@ -350,7 +351,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot, name, types, params_space,
+            self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
