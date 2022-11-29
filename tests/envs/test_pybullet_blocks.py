@@ -1,5 +1,9 @@
 """Test cases for PyBulletBlocksEnv."""
 
+import json
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import pytest
 from gym.spaces import Box
@@ -513,3 +517,51 @@ def test_pybullet_blocks_abstract_states(env):
         Clear([block1]),
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
+
+
+def test_pybullet_blocks_load_task_from_json():
+    """Tests for loading blocks test tasks from a JSON file."""
+    # Set up the JSON file.
+    task_spec = {
+        "problem_name": "blocks_test_problem1",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size": 0.045,
+        "goal": {
+            "On": [["red_block", "green_block"], ["green_block",
+                                                  "blue_block"]],
+            "OnTable": [["blue_block"]]
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task1.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "blocks",
+            "num_test_tasks": 1,
+            "blocks_test_task_json_dir": json_dir
+        })
+
+        env = PyBulletBlocksEnv(use_gui=False)
+        test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+
+    # Other tests are in the parent class.
+    assert len(task.init.simulator_state) > 0
