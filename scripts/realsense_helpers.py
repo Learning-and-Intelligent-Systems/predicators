@@ -58,7 +58,13 @@ class _Device:
 
         return _NAME_TO_STREAM_CONFIGURATIONS[self.name]
 
-    def start_pipeline(self, custom_exposure_and_wb: bool = True) -> None:
+    def start_pipeline(self,
+                       use_auto_exposure: bool = False,
+                       custom_exposure: int = 2000,
+                       custom_gain: int = 50,
+                       use_auto_white_balance: bool = False,
+                       use_backlight_compensation: bool = True,
+                       custom_white_balance: int = 3700) -> None:
         """Start RealSense pipeline."""
         if self.pipeline is not None:
             print(f"Pipeline already started for {self}")
@@ -91,21 +97,19 @@ class _Device:
 
         # Set profile
         _, color_sensor, *_ = profile.get_device().query_sensors()
-        print("Retrieved sensors")
 
-        if custom_exposure_and_wb:
-            # TODO fix this
+        if not use_auto_exposure:
             color_sensor.set_option(rs.option.enable_auto_exposure, False)
-            # Use 438 with Yang's ring light
-            color_sensor.set_option(rs.option.exposure, 2000)
-            color_sensor.set_option(rs.option.gain, 50)
+            color_sensor.set_option(rs.option.exposure, custom_exposure)
+            color_sensor.set_option(rs.option.gain, custom_gain)
 
-            # Disable backlight compensation
-            # color_sensor.set_option(rs.option.backlight_compensation, 0)
+        if not use_backlight_compensation:
+            color_sensor.set_option(rs.option.backlight_compensation, 0)
 
+        if not use_auto_white_balance:
             color_sensor.set_option(rs.option.enable_auto_white_balance, False)
-            color_sensor.set_option(rs.option.white_balance, 3700)
-            print("Disabled auto exposure and white balance for color sensor")
+            color_sensor.set_option(rs.option.white_balance,
+                                    custom_white_balance)
 
         # Set the pipeline on the device
         self.pipeline = pipeline
@@ -114,9 +118,7 @@ class _Device:
     def stop_pipeline(self) -> None:
         """Stop RealSense pipeline."""
         if not self.pipeline:
-            print(
-                f"Warning! Device {self} does not have a pipeline initialized"
-            )
+            print(f"Warning! {self} does not have a pipeline initialized")
         else:
             self.pipeline.stop()
             print(f"Stopped pipeline for {self}")
@@ -171,9 +173,9 @@ def _find_devices(device_filter: str = "") -> List[_Device]:
 
 def _hardware_reset_connected_devices() -> None:
     """Reset all connected devices.
-    
-    Useful if the USB connection is unreliable, or we get bad stream from the
-    camera.
+
+    Useful if the USB connection is unreliable, or we get bad stream
+    from the camera.
     """
     ctx = rs.context()
     devices = ctx.query_devices()
@@ -199,7 +201,7 @@ def _main(
     devices = _find_devices(device_name)
     assert len(devices) == 1
     device = devices[0]
-    device.start_pipeline(custom_exposure_and_wb=True)
+    device.start_pipeline()
 
     color, depth = device.capture_images()
     iio.imwrite(color_path, color)
