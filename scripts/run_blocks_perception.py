@@ -194,7 +194,7 @@ def _main(rgb_path: Path,
         _visualize_point_cloud(cropped_pcd)
 
     # Mask out the gray floor (to the extent possible).
-    def non_grey_mask(rgb: Image, thresh: float = 10 / 255) -> NDArray:
+    def non_grey_mask(rgb: Image, thresh: float = 13 / 255) -> NDArray:
         r = rgb[:, 0]
         g = rgb[:, 1]
         b = rgb[:, 2]

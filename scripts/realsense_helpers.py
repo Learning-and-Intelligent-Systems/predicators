@@ -20,15 +20,15 @@ _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
     # in the cfg.enable_stream format
     "Intel RealSense L515": [
         (rs.stream.depth, 1024, 768, rs.format.z16, 30),
-        (rs.stream.color, 1920, 1080, rs.format.bgr8, 30),
+        (rs.stream.color, 1920, 1080, rs.format.rgb8, 30),
     ],
     "Intel RealSense D415": [
         (rs.stream.depth, 1280, 720, rs.format.z16, 30),
-        (rs.stream.color, 1280, 720, rs.format.bgr8, 30),
+        (rs.stream.color, 1280, 720, rs.format.rgb8, 30),
     ],
     "Intel RealSense D435": [
         (rs.stream.depth, 1280, 720, rs.format.z16, 30),
-        (rs.stream.color, 1280, 720, rs.format.bgr8, 30),
+        (rs.stream.color, 1280, 720, rs.format.rgb8, 30),
     ],
 }
 
@@ -58,11 +58,11 @@ class _Device:
         return _NAME_TO_STREAM_CONFIGURATIONS[self.name]
 
     def start_pipeline(self,
-                       use_auto_exposure: bool = False,
+                       use_auto_exposure: bool = True,
                        custom_exposure: int = 2000,
                        custom_gain: int = 50,
-                       use_auto_white_balance: bool = False,
-                       use_backlight_compensation: bool = True,
+                       use_auto_white_balance: bool = True,
+                       use_backlight_compensation: bool = False,
                        custom_white_balance: int = 3700) -> None:
         """Start RealSense pipeline."""
         if self.pipeline is not None:
@@ -160,7 +160,9 @@ def _find_devices(device_filter: str = "") -> List[_Device]:
 
     # Filter devices
     if device_filter:
-        devices = [d for d in devices if device_filter in d.name.lower()]
+        devices = [
+            d for d in devices if device_filter.lower() in d.name.lower()
+        ]
         print(f"Found devices (filter={device_filter}): {devices}")
     else:
         print(f"Found devices: {devices}")
