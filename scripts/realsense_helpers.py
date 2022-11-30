@@ -160,7 +160,9 @@ def _find_devices(device_filter: str = "") -> List[_Device]:
 
     # Filter devices
     if device_filter:
-        devices = [d for d in devices if device_filter in d.name.lower()]
+        devices = [
+            d for d in devices if device_filter.lower() in d.name.lower()
+        ]
         print(f"Found devices (filter={device_filter}): {devices}")
     else:
         print(f"Found devices: {devices}")
