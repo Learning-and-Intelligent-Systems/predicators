@@ -39,6 +39,14 @@ python scripts/eval_trajectory_to_lisdf.py \
         --input eval_trajectories/pybullet_blocks__oracle__${SEED}________task1.traj \
         --output /tmp/pybullet_blocks__oracle__${SEED}________task1.json
 
-echo "Visualizing LISDF plan."
-python scripts/lisdf_pybullet_executor.py \
+echo "Planning to reset the robot."
+python scripts/eval_trajectory_to_lisdf.py \
         --lisdf /tmp/pybullet_blocks__oracle__${SEED}________task1.json
+        --config TODO!!!
+        --output /tmp/final_plan.json
+
+echo "Visualizing LISDF plan."
+python scripts/lisdf_pybullet_visualizer.py --lisdf /tmp/final_plan.json
+
+echo "Executing the LISDF plan on the real robot."
+panda-client execute_lisdf_plan /tmp/final_plan.json
