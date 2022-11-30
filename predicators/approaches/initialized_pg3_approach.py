@@ -92,7 +92,7 @@ class InitializedPG3Approach(PG3Approach):
                                                    base_nsrts)
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
-        analogies = _find_analogies_multi_shot(base_env, target_env,
+        analogies = _find_env_analogies(base_env, target_env,
                                                base_nsrts, target_nsrts)
 
         target_policies: List[LiftedDecisionList] = []
@@ -164,23 +164,7 @@ class _Analogy:
                             **other.nsrt_variables
                         })
 
-
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
-                        base_nsrts: Set[NSRT],
-                        target_nsrts: Set[NSRT]) -> List[_Analogy]:
-    # Use external SME module to find analogies.
-    smepy.declare_nary("and")
-    base_sme_struct = _create_sme_inputs(base_env, base_nsrts)
-    target_sme_struct = _create_sme_inputs(target_env, target_nsrts)
-    analogies: List[_Analogy] = []
-    for sme_mapping in _query_sme(base_sme_struct, target_sme_struct):
-        analogy = _sme_mapping_to_analogy(sme_mapping, base_env, target_env,
-                                          base_nsrts, target_nsrts)
-        analogies.append(analogy)
-    return analogies
-
-
-def _find_analogies_multi_shot(base_env: BaseEnv, target_env: BaseEnv,
                                base_nsrts: Set[NSRT],
                                target_nsrts: Set[NSRT]) -> List[_Analogy]:
     """Multishot analogical matching intended to overcome 1-to-1 mapping
@@ -213,7 +197,7 @@ def _find_analogies_multi_shot(base_env: BaseEnv, target_env: BaseEnv,
         elif len(missing_nsrts) != len(target_nsrts):
             # If we only match part of the target nsrts,
             #   remove the matched nsrts and try again.
-            sub_analogies = _find_analogies_multi_shot(base_env, target_env,
+            sub_analogies = _find_env_analogies(base_env, target_env,
                                                        base_nsrts,
                                                        missing_nsrts)
 
@@ -230,7 +214,9 @@ def _find_analogies_multi_shot(base_env: BaseEnv, target_env: BaseEnv,
                     else:
                         analogies.append(analogy)
         else:
-            # If none of the above, return an empty analogy
+            # If none of the above, return an empty analogy.
+            # That is, we did not manage to match any nsrt which
+            # is a sign of a spurious match. Hence, empty analogy.
             analogies.append(_Analogy({}, {}, {}))
     return analogies
 
