@@ -12,6 +12,11 @@ VIZ_PLANNING="True"
 
 mkdir -p $TASK_DIR
 
+echo "Capturing images."
+python scripts/realsense_helpers.py \
+        --rgb $DATA_DIR/color-$TASK_NUM-$IMG_SUFFIX \
+        --depth $DATA_DIR/depth-$TASK_NUM-$IMG_SUFFIX
+
 echo "Running perception."
 python scripts/run_blocks_perception.py \
         --rgb $DATA_DIR/color-$TASK_NUM-$IMG_SUFFIX \
