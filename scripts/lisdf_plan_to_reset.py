@@ -1,6 +1,8 @@
 """Create a plan that resets the robot from its current state to the initial
-state of another LISDF plan. Concatenate that "reset" plan with the other
-LISDF plan to create a final plan.
+state of another LISDF plan.
+
+Concatenate that "reset" plan with the other LISDF plan to create a
+final plan.
 """
 import argparse
 from pathlib import Path
@@ -16,12 +18,15 @@ from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.motion_planning import run_motion_planning
-from predicators.pybullet_helpers.robots import create_single_arm_pybullet_robot
+from predicators.pybullet_helpers.robots import \
+    create_single_arm_pybullet_robot
 
 
 def _get_first_joints_from_lisdf(
         plan: LISDFPlan, joint_name_ordering: Sequence[str]) -> JointPositions:
-    path_commands = list(filter(lambda command: isinstance(command, JointSpacePath), plan.commands))
+    path_commands = list(
+        filter(lambda command: isinstance(command, JointSpacePath),
+               plan.commands))
     assert len(path_commands) > 0
     first_path_command = path_commands[0]
     return first_path_command.waypoint_as_np_array(
@@ -30,7 +35,8 @@ def _get_first_joints_from_lisdf(
 
 def _concatenate_lisdf_plans(plans: Sequence[LISDFPlan]) -> LISDFPlan:
     # TODO
-    import ipdb; ipdb.set_trace()
+    import ipdb
+    ipdb.set_trace()
 
 
 def _main(lisdf_filepath: Path,
