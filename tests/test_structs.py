@@ -5,12 +5,11 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.structs import NSRT, Action, DefaultState, \
+from predicators.structs import NSRT, PNAD, Action, DefaultState, \
     DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
     LDLRule, LiftedAtom, LiftedDecisionList, LowLevelTrajectory, Object, \
-    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Query, Segment, \
-    State, STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
-    _GroundSTRIPSOperator, _Option
+    ParameterizedOption, Predicate, Query, Segment, State, STRIPSOperator, \
+    Task, Type, Variable, _Atom, _GroundNSRT, _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -804,7 +803,7 @@ def test_segment():
 
 
 def test_pnad():
-    """Tests for PartialNSRTAndDatastore class."""
+    """Tests for PNAD class."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -842,8 +841,7 @@ def test_pnad():
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects,
                                      ignore_effects)
-    pnad = PartialNSRTAndDatastore(strips_operator, datastore,
-                                   (parameterized_option, []))
+    pnad = PNAD(strips_operator, datastore, (parameterized_option, []))
     assert len(pnad.datastore) == 1
     pnad.add_to_datastore((segment2, var_to_obj))
     assert len(pnad.datastore) == 2

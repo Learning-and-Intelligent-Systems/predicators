@@ -253,6 +253,8 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
+    narrow_passage_door_width_padding = 0.075
+    narrow_passage_passage_width_padding = 2e-4
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
@@ -437,6 +439,10 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+
+    # refinement cost estimation parameters
+    refinement_estimator = "oracle"  # default refinement cost estimator
+    refinement_estimation_num_skeletons_generated = 3
 
     # glib explorer parameters
     glib_min_goal_size = 1

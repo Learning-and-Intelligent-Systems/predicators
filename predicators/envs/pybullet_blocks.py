@@ -1,6 +1,7 @@
 """A PyBullet version of Blocks."""
 
 import logging
+from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -56,8 +57,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     finger_status="open"),
                 # Open fingers.
                 create_change_fingers_option(
-                    self._pybullet_robot, "OpenFingers", types, params_space,
-                    open_fingers_func, self._max_vel_norm, self._grasp_tol),
+                    self._pybullet_robot_sim, "OpenFingers", types,
+                    params_space, open_fingers_func, self._max_vel_norm,
+                    self._grasp_tol),
                 # Move down to grasp.
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorToGrasp",
@@ -65,8 +67,9 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     finger_status="open"),
                 # Close fingers.
                 create_change_fingers_option(
-                    self._pybullet_robot, "CloseFingers", types, params_space,
-                    close_fingers_func, self._max_vel_norm, self._grasp_tol),
+                    self._pybullet_robot_sim, "CloseFingers", types,
+                    params_space, close_fingers_func, self._max_vel_norm,
+                    self._grasp_tol),
                 # Move back up.
                 self._create_blocks_move_to_above_block_option(
                     name="MoveEndEffectorBackUp",
@@ -92,7 +95,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                         block_z + self._block_size + self._offset_z),
                     finger_status="closed"),
                 # Open fingers.
-                create_change_fingers_option(self._pybullet_robot,
+                create_change_fingers_option(self._pybullet_robot_sim,
                     "OpenFingers", types, params_space, open_fingers_func,
                     self._max_vel_norm, self._grasp_tol),
                 # Move back up.
@@ -120,7 +123,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
                     z=place_z,
                     finger_status="closed"),
                 # Open fingers.
-                create_change_fingers_option(self._pybullet_robot,
+                create_change_fingers_option(self._pybullet_robot_sim,
                     "OpenFingers", types, params_space, open_fingers_func,
                     self._max_vel_norm, self._grasp_tol),
                 # Move back up.
@@ -324,6 +327,10 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
         tasks = super()._get_tasks(num_tasks, possible_num_blocks, rng)
         return self._add_pybullet_state_to_tasks(tasks)
 
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        task = super()._load_task_from_json(json_file)
+        return self._add_pybullet_state_to_tasks([task])[0]
+
     def _get_object_ids_for_held_check(self) -> List[int]:
         return sorted(self._block_id_to_block)
 
@@ -380,7 +387,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot, name, types, params_space,
+            self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
@@ -410,7 +417,7 @@ class PyBulletBlocksEnv(PyBulletEnv, BlocksEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot, name, types, params_space,
+            self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
