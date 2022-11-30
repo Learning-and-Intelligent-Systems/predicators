@@ -20,15 +20,15 @@ _NAME_TO_STREAM_CONFIGURATIONS: Dict[str, List[Tuple]] = {
     # in the cfg.enable_stream format
     "Intel RealSense L515": [
         (rs.stream.depth, 1024, 768, rs.format.z16, 30),
-        (rs.stream.color, 1920, 1080, rs.format.bgr8, 30),
+        (rs.stream.color, 1920, 1080, rs.format.rgb8, 30),
     ],
     "Intel RealSense D415": [
         (rs.stream.depth, 1280, 720, rs.format.z16, 30),
-        (rs.stream.color, 1280, 720, rs.format.bgr8, 30),
+        (rs.stream.color, 1280, 720, rs.format.rgb8, 30),
     ],
     "Intel RealSense D435": [
         (rs.stream.depth, 1280, 720, rs.format.z16, 30),
-        (rs.stream.color, 1280, 720, rs.format.bgr8, 30),
+        (rs.stream.color, 1280, 720, rs.format.rgb8, 30),
     ],
 }
 
