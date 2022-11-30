@@ -217,6 +217,20 @@ class GlobalSettings:
     pddl_ferry_procedural_test_min_num_cars = 1
     pddl_ferry_procedural_test_max_num_cars = 2
 
+    # pddl miconic env parameters
+    pddl_miconic_procedural_train_min_buildings = 1
+    pddl_miconic_procedural_train_max_buildings = 2
+    pddl_miconic_procedural_train_min_floors = 3
+    pddl_miconic_procedural_train_max_floors = 5
+    pddl_miconic_procedural_train_min_passengers = 1
+    pddl_miconic_procedural_train_max_passengers = 2
+    pddl_miconic_procedural_test_min_buildings = 1
+    pddl_miconic_procedural_test_max_buildings = 2
+    pddl_miconic_procedural_test_min_floors = 3
+    pddl_miconic_procedural_test_max_floors = 5
+    pddl_miconic_procedural_test_min_passengers = 1
+    pddl_miconic_procedural_test_max_passengers = 2
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
