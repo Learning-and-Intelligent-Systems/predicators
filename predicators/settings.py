@@ -469,6 +469,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
+    # PNAD search parameters
+    pnad_search_heuristic = "coverage"  # exp_nodes or coverage
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple, Sequence
 
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
+from predicators.planning import PlanningFailure, PlanningTimeout, task_plan, \
+    task_plan_grounding
+from predicators.settings import CFG
 from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
-    ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
+    OptionSpec, ParameterizedOption, Predicate, Segment, STRIPSOperator, \
+    Task, _GroundSTRIPSOperator
 
 
 class _PNADSearchOperator(abc.ABC):
@@ -177,7 +181,7 @@ class _PNADSearchHeuristic(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class _BackChainingHeuristic(_PNADSearchHeuristic):
+class _BackChainingCoverageHeuristic(_PNADSearchHeuristic):
     """Counts the number of transitions that are not yet covered by some
     operator in the backchaining sense."""
 
@@ -206,6 +210,135 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
         # of the coverage term).
         complexity_term = len(curr_pnads)
         return coverage_term + complexity_term
+
+
+class _BackChainingExpNodesHeuristic(_PNADSearchHeuristic):
+    """Counts the number of transitions that are not yet covered by some
+    operator in the backchaining sense."""
+
+    def __call__(self, curr_pnads: FrozenSet[PNAD]) -> float:
+        strips_ops: List[STRIPSOperator] = [pnad.op for pnad in curr_pnads]
+        option_specs: List[OptionSpec] = [
+            pnad.option_spec for pnad in curr_pnads
+        ]
+
+        # NOTE: TEMPORARY HACK JUST FOR GUESTIMATING LEARNER SLOWNESS!
+        uncovered_transitions = 0
+
+        exp_nodes_term = 0.0
+        # Next, run backchaining using these PNADs.
+        for ll_traj, seg_traj in zip(self._trajectories,
+                                     self._segmented_trajs):
+            if ll_traj.is_demo:
+                traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
+                chain = self._learner.backchain(seg_traj, sorted(curr_pnads),
+                                                traj_goal)
+                assert len(chain) <= len(seg_traj)
+                demo_atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
+                    seg_traj)
+                goal = self._train_tasks[ll_traj.train_task_idx].goal
+                # We find the init atoms by getting the last segment that backchaining
+                # was able to use the operators to cover, and getting this segment's
+                # init atoms. If backchaining wasn't able to cover any operators, then
+                # we simply use the segment.final_atoms.
+                if len(chain) == 0:
+                    init_atoms = seg_traj[-1].final_atoms
+                else:
+                    t = len(seg_traj) - len(chain)
+                    assert t >= 0            
+                    init_atoms = seg_traj[t].init_atoms
+
+                # Ground everything once per demo.
+                objects = set(ll_traj.states[0])
+                ground_nsrts, reachable_atoms = task_plan_grounding(
+                    init_atoms,
+                    objects,
+                    strips_ops,
+                    option_specs,
+                    allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
+                # NOTE: all below code straight-up copied from the predicate search
+                # score function.
+                heuristic = utils.create_task_planning_heuristic(
+                    CFG.sesame_task_planning_heuristic, init_atoms, goal,
+                    ground_nsrts, self._predicates, objects)
+                # The expected time needed before a low-level plan is found. We
+                # approximate this using node creations and by adding a penalty
+                # for every skeleton after the first to account for backtracking.
+                expected_planning_time = 0.0
+                # Keep track of the probability that a refinable skeleton has still
+                # not been found, updated after each new goal-reaching skeleton is
+                # considered.
+                refinable_skeleton_not_found_prob = 1.0
+                if CFG.grammar_search_expected_nodes_max_skeletons == -1:
+                    max_skeletons = CFG.sesame_max_skeletons_optimized
+                else:
+                    max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+                assert max_skeletons <= CFG.sesame_max_skeletons_optimized
+                assert not CFG.sesame_use_visited_state_set
+                # generator = task_plan(init_atoms,
+                #                     goal,
+                #                     ground_nsrts,
+                #                     reachable_atoms,
+                #                     heuristic,
+                #                     CFG.seed,
+                #                     CFG.grammar_search_task_planning_timeout,
+                #                     max_skeletons,
+                #                     use_visited_state_set=False)
+                # try:
+                #     for idx, (_, plan_atoms_sequence,
+                #             metrics) in enumerate(generator):
+                #         assert goal.issubset(plan_atoms_sequence[-1])
+                #         # Estimate the probability that this skeleton is refinable.
+                #         refinement_prob = self._get_refinement_prob(
+                #             demo_atoms_sequence, plan_atoms_sequence)
+                #         # Get the number of nodes that have been created or
+                #         # expanded so far.
+                #         assert "num_nodes_created" in metrics
+                #         num_nodes = metrics["num_nodes_created"]
+                #         # This contribution to the expected number of nodes is for
+                #         # the event that the current skeleton is refinable, but no
+                #         # previous skeleton has been refinable.
+                #         p = refinable_skeleton_not_found_prob * refinement_prob
+                #         expected_planning_time += p * num_nodes
+                #         # Apply a penalty to account for the time that we'd spend
+                #         # in backtracking if the last skeleton was not refinable.
+                #         if idx > 0:
+                #             w = CFG.grammar_search_expected_nodes_backtracking_cost
+                #             expected_planning_time += p * w
+                #         # Update the probability that no skeleton yet is refinable.
+                #         refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+                # except (PlanningTimeout, PlanningFailure):
+                #     # Note if we failed to find any skeleton, the next lines add
+                #     # the upper bound with refinable_skeleton_not_found_prob = 1.0,
+                #     # so no special action is required.
+                #     pass
+                # # After exhausting the skeleton budget or timeout, we use this
+                # # probability to estimate a "worst-case" planning time, making the
+                # # soft assumption that some skeleton will eventually work.
+                # ub = CFG.grammar_search_expected_nodes_upper_bound
+                # expected_planning_time += refinable_skeleton_not_found_prob * ub
+                # # The score is simply the total expected planning time.
+                # exp_nodes_term += expected_planning_time
+                uncovered_transitions += len(seg_traj) - len(chain)
+
+        coverage_term = uncovered_transitions * self._total_num_segments
+        complexity_term = len(curr_pnads)
+        return coverage_term + complexity_term
+
+    @staticmethod
+    def _get_refinement_prob(
+            demo_atoms_sequence: Sequence[Set[GroundAtom]],
+            plan_atoms_sequence: Sequence[Set[GroundAtom]]) -> float:
+        """Estimate the probability that plan_atoms_sequence is refinable using
+        the demonstration demo_atoms_sequence."""
+        # Make a soft assumption that the demonstrations are optimal,
+        # using a geometric distribution.
+        demo_len = len(demo_atoms_sequence)
+        plan_len = len(plan_atoms_sequence)
+        # The exponent is the difference in plan lengths.
+        exponent = abs(demo_len - plan_len)
+        p = CFG.grammar_search_expected_nodes_optimal_demo_prob
+        return p * (1 - p)**exponent
 
 
 class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
@@ -308,10 +441,18 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         return ops
 
     def _create_heuristic(self) -> _PNADSearchHeuristic:
-        backchaining_heur = _BackChainingHeuristic(self._trajectories,
-                                                   self._train_tasks,
-                                                   self._predicates,
-                                                   self._segmented_trajs, self)
+        if CFG.pnad_search_heuristic == "coverage":
+            backchaining_heur = _BackChainingCoverageHeuristic(
+                self._trajectories, self._train_tasks, self._predicates,
+                self._segmented_trajs, self)
+        elif CFG.pnad_search_heuristic == "exp_nodes":
+            backchaining_heur = _BackChainingExpNodesHeuristic(
+                self._trajectories, self._train_tasks, self._predicates,
+                self._segmented_trajs, self)
+        else:
+            raise ValueError(
+                f"PNAD search heuristic" +
+                f"{CFG.pnad_search_heuristic} is not implemented.")
         return backchaining_heur
 
     def backchain(self, segmented_traj: List[Segment], pnads: List[PNAD],
