@@ -614,18 +614,20 @@ def _update_nsrts_with_failure(
             new_ground_nsrts.append(new_ground_nsrt)
     return new_predicates, new_ground_nsrts
 
+
 def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                                   sas_file: str) -> None:
     """Update the given sas_file of ground_nsrts for FD based on the given
-    DiscoveredFailure. We directly update the sas_file with the new
-    ground_nsrts.
+    DiscoveredFailure.
+
+    We directly update the sas_file with the new ground_nsrts.
     """
     # Get string representation of the ground_nsrt with the Discovered Failure.
     ground_op_str = discovered_failure.failing_nsrt.name.lower(
     ) + " " + " ".join(o.name for o in discovered_failure.failing_nsrt.objects)
     # Add Discovered Failure for each offending object.
     for obj in discovered_failure.env_failure.info["offending_objects"]:
-        with open(sas_file, 'r') as f:
+        with open(sas_file, 'r', encoding="utf-8") as f:
             sas_lines = f.readlines()
         # For every line in our sas_file we are going to copy it to our
         # new_sas_file and make edits as needed.
@@ -761,7 +763,7 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
         for i, line in enumerate(sas_lines[sas_file_i:]):
             new_sas_file.append(line)
         # Overwrite sas_file with new_sas_file.
-        with open(sas_file, 'w') as f:
+        with open(sas_file, 'w', encoding="utf-8") as f:
             f.writelines(new_sas_file)
 
 
@@ -897,7 +899,7 @@ def _sesame_plan_with_fast_downward(
     output = subprocess.getoutput(cmd_str)
     while True:
         cmd_str = (
-                f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
         output = subprocess.getoutput(cmd_str)
         cleanup_cmd_str = f"{exec_str} --cleanup"
         subprocess.getoutput(cleanup_cmd_str)
@@ -920,7 +922,8 @@ def _sesame_plan_with_fast_downward(
         else:
             skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
             if not skeleton_str:
-                raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+                raise PlanningFailure(
+                    f"Plan not found with FD! Error: {output}")
         skeleton = []
         atoms_sequence = [init_atoms]
         nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
@@ -943,8 +946,8 @@ def _sesame_plan_with_fast_downward(
             necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                 skeleton, atoms_sequence, task.goal)
             plan, suc = run_low_level_search(task, option_model, skeleton,
-                                            necessary_atoms_seq, seed,
-                                            low_level_timeout, max_horizon)
+                                             necessary_atoms_seq, seed,
+                                             low_level_timeout, max_horizon)
             if not suc:
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout("Planning timed out in refinement!")
