@@ -92,8 +92,8 @@ class InitializedPG3Approach(PG3Approach):
                                                    base_nsrts)
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
-        analogies = _find_env_analogies(base_env, target_env,
-                                               base_nsrts, target_nsrts)
+        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+                                        target_nsrts)
 
         target_policies: List[LiftedDecisionList] = []
         for analogy in analogies:
@@ -164,9 +164,10 @@ class _Analogy:
                             **other.nsrt_variables
                         })
 
+
 def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
-                               base_nsrts: Set[NSRT],
-                               target_nsrts: Set[NSRT]) -> List[_Analogy]:
+                        base_nsrts: Set[NSRT],
+                        target_nsrts: Set[NSRT]) -> List[_Analogy]:
     """Multishot analogical matching intended to overcome 1-to-1 mapping
     constraints.
 
@@ -198,8 +199,7 @@ def _find_env_analogies(base_env: BaseEnv, target_env: BaseEnv,
             # If we only match part of the target nsrts,
             #   remove the matched nsrts and try again.
             sub_analogies = _find_env_analogies(base_env, target_env,
-                                                       base_nsrts,
-                                                       missing_nsrts)
+                                                base_nsrts, missing_nsrts)
 
             # Combine the top analogy with every consistent
             # sub-analogy. We skip the subanalogy if it didn't

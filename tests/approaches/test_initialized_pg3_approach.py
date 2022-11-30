@@ -11,7 +11,7 @@ import predicators.approaches.initialized_pg3_approach
 from predicators import utils
 from predicators.approaches.initialized_pg3_approach import \
     InitializedPG3Approach, _Analogy, _apply_analogy_to_ldl, \
-    _find_env_analogies, _find_env_analogies, _sme_mapping_to_analogy
+    _find_env_analogies, _sme_mapping_to_analogy
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
@@ -264,8 +264,8 @@ def test_find_env_analogies():
     with patch(f"{_MODULE_PATH}._query_sme") as mocker:
         mocker.side_effect = [[mock_sme_output_1], [mock_sme_output_2],
                               [empty_mapping]]
-        analogies = _find_env_analogies(base_env, target_env,
-                                               base_nsrts, target_nsrts)
+        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+                                        target_nsrts)
 
     assert len(analogies) == 1
     analogy = analogies[0]
@@ -302,8 +302,8 @@ def test_find_env_analogies():
     # Alternative test
     with patch(f"{_MODULE_PATH}._query_sme") as mocker:
         mocker.side_effect = [[mock_sme_output_1], [predicate_mapping]]
-        analogies = _find_env_analogies(base_env, target_env,
-                                               base_nsrts, target_nsrts)
+        analogies = _find_env_analogies(base_env, target_env, base_nsrts,
+                                        target_nsrts)
     assert len(analogies) == 1
 
 
