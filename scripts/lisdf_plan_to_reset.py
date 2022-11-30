@@ -6,7 +6,7 @@ final plan.
 """
 import argparse
 from pathlib import Path
-from typing import Dict, Sequence, cast
+from typing import Dict, cast
 
 import numpy as np
 import pybullet as p
@@ -16,7 +16,6 @@ from panda_robot_client import PandaClient  # pylint: disable=import-error
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
-from predicators.pybullet_helpers.joint import JointPositions
 from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
@@ -65,7 +64,8 @@ def _main(lisdf_filepath: Path, output_filepath: Path, seed: int = 0) -> None:
     current_joints = client.get_joint_positions()
     # Create a motion plan from the current state to the first state in the
     # LISDF plan. For now, ignore possible collisions with other objects.
-    # Assume grippers are open, as that makes motion planning more difficult and hence safer.
+    # Assume grippers are open, as that makes motion planning more difficult
+    # and hence safer.
     current_joints[robot.left_finger_joint_name] = robot.open_fingers
     current_joints[robot.right_finger_joint_name] = robot.open_fingers
     plan_init_joints[robot.left_finger_joint_name] = robot.open_fingers
