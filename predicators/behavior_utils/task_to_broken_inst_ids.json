@@ -11,6 +11,12 @@
             "train": [],
             "test": [14]
         }
-    }
+    },
 
+    "throwing_away_leftovers": {
+        "Ihlen_1_int": {
+            "train": [1, 2, 3, 4, 5, 9],
+            "test": [10, 13, 14, 15, 16, 17, 18, 19, 25, 26]
+        }
+    }
 }

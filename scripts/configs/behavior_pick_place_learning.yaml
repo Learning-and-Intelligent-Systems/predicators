@@ -8,76 +8,76 @@ APPROACHES:
       timeout: 500.0
       plan_only_eval: True
       sesame_task_planner: fdopt
-  backchaining:
-    NAME: "nsrt_learning"
-    FLAGS:
-      offline_data_planning_timeout: 500.0
-      timeout: 500.0
-      sampler_learner: neural
-      strips_learner: backchaining
-      plan_only_eval: True
-      sesame_task_planner: fdopt
+  # backchaining:
+  #   NAME: "nsrt_learning"
+  #   FLAGS:
+  #     offline_data_planning_timeout: 500.0
+  #     timeout: 500.0
+  #     sampler_learner: neural
+  #     strips_learner: backchaining
+  #     plan_only_eval: True
+  #     sesame_task_planner: fdopt
 ENVS:
-  putting-leftovers-away-Ihlen_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Ihlen_1_int
-      behavior_task_list: "[putting_leftovers_away]"
-      behavior_option_model_eval: True
+  # putting-leftovers-away-Ihlen_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Ihlen_1_int
+  #     behavior_task_list: "[putting_leftovers_away]"
+  #     behavior_option_model_eval: True
   throwing-away-leftovers-Ihlen_1_int:
     NAME: "behavior"
     FLAGS:
       behavior_scene_name: Ihlen_1_int
       behavior_task_list: "[throwing_away_leftovers]"
       behavior_option_model_eval: True
-  collecting-aluminum-cans-Ihlen_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Ihlen_1_int
-      behavior_task_list: "[collecting_aluminum_cans]"
-      behavior_option_model_eval: True
-  storing-food-Beechwood_0_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Beechwood_0_int
-      behavior_task_list: "[storing_food]"
-      behavior_option_model_eval: True
-  sorting-books-Pomaria_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Pomaria_1_int
-      behavior_task_list: "[sorting_books]"
-      behavior_option_model_eval: True
-  re-shelving-library-books-Pomaria_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Pomaria_1_int
-      behavior_task_list: "[re-shelving_library_books]"
-      behavior_option_model_eval: True
-  opening-packages-Pomaria_2_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Pomaria_2_int
-      behavior_task_list: "[opening_packages]"
-      behavior_option_model_eval: True
-  opening-presents-Pomaria_2_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Pomaria_2_int
-      behavior_task_list: "[opening_presents]"
-      behavior_option_model_eval: True
-  locking-every-window-Merom_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Merom_1_int
-      behavior_task_list: "[locking_every_window]"
-      behavior_option_model_eval: True
-  locking-every-door-Merom_1_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Merom_1_int
-      behavior_task_list: "[locking_every_door]"
-      behavior_option_model_eval: True
+  # collecting-aluminum-cans-Ihlen_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Ihlen_1_int
+  #     behavior_task_list: "[collecting_aluminum_cans]"
+  #     behavior_option_model_eval: True
+  # storing-food-Beechwood_0_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Beechwood_0_int
+  #     behavior_task_list: "[storing_food]"
+  #     behavior_option_model_eval: True
+  # sorting-books-Pomaria_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Pomaria_1_int
+  #     behavior_task_list: "[sorting_books]"
+  #     behavior_option_model_eval: True
+  # re-shelving-library-books-Pomaria_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Pomaria_1_int
+  #     behavior_task_list: "[re-shelving_library_books]"
+  #     behavior_option_model_eval: True
+  # opening-packages-Pomaria_2_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Pomaria_2_int
+  #     behavior_task_list: "[opening_packages]"
+  #     behavior_option_model_eval: True
+  # opening-presents-Pomaria_2_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Pomaria_2_int
+  #     behavior_task_list: "[opening_presents]"
+  #     behavior_option_model_eval: True
+  # locking-every-window-Merom_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Merom_1_int
+  #     behavior_task_list: "[locking_every_window]"
+  #     behavior_option_model_eval: True
+  # locking-every-door-Merom_1_int:
+  #   NAME: "behavior"
+  #   FLAGS:
+  #     behavior_scene_name: Merom_1_int
+  #     behavior_task_list: "[locking_every_door]"
+  #     behavior_option_model_eval: True
 ARGS: {}
 FLAGS:  # general flags
   num_train_tasks: 10
