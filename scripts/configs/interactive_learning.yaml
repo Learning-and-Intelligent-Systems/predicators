@@ -62,16 +62,11 @@ APPROACHES:
       predicate_mlp_classifier_n_reinitialize_tries: 5
       predicate_mlp_classifier_init: "normal"
 ENVS:
-  # cover:
-  #   NAME: "cover"
-  #   FLAGS:
-  #     excluded_predicates: "Covers,Holding"
-  #     max_num_steps_interaction_request: 3
-  playroom-light-hard:
-    NAME: "playroom"
+  cover:
+    NAME: "cover"
     FLAGS:
-      excluded_predicates: "LightOn,LightOff"
-      max_num_steps_interaction_request: 30
+      excluded_predicates: "Covers,Holding"
+      max_num_steps_interaction_request: 3
 ARGS: {}
 FLAGS:  # common args
   num_online_learning_cycles: 100  # way too many cycles
