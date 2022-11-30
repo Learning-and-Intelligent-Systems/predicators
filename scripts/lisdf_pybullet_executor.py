@@ -4,6 +4,8 @@ Currently specific to the blocks environment.
 
 For safety, this script should be run before executing an LISDF plan on the
 real robot. If the plan looks jerky, fast, etc., don't execute it.
+
+Quit early with the "q" key.
 """
 import argparse
 import time
@@ -77,7 +79,13 @@ def _main(lisdf_filepath: Path) -> None:
     start_time = time.perf_counter()
     current_time = 0.0
     count = 0
+    q_key = ord('q')
     while current_time < plan_executor.end_time:
+        # Quit early if "q" is pressed.
+        p.getKeyboardEvents(physicsClientId=physics_client_id)
+        keys = p.getKeyboardEvents()
+        if q_key in keys:
+            break
         plan_executor.execute(current_time)
         robot.set_joints(lisdf_robot.configuration.tolist())
         if count % 5000 == 0:
