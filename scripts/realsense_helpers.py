@@ -58,11 +58,11 @@ class _Device:
         return _NAME_TO_STREAM_CONFIGURATIONS[self.name]
 
     def start_pipeline(self,
-                       use_auto_exposure: bool = False,
+                       use_auto_exposure: bool = True,
                        custom_exposure: int = 2000,
                        custom_gain: int = 50,
-                       use_auto_white_balance: bool = False,
-                       use_backlight_compensation: bool = True,
+                       use_auto_white_balance: bool = True,
+                       use_backlight_compensation: bool = False,
                        custom_white_balance: int = 3700) -> None:
         """Start RealSense pipeline."""
         if self.pipeline is not None:
