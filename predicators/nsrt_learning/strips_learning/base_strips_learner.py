@@ -65,7 +65,6 @@ class BaseSTRIPSLearner(abc.ABC):
         # Iterates over each PNAD in the learned PNADs removing the
         # PNAD that uses the least amount of data.
         for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
-            learned_pnads = self._learn()
             min_data = max(CFG.min_data_for_nsrt,
                            self._num_segments * min_perc_data_for_nsrt)
             learned_pnads = [
