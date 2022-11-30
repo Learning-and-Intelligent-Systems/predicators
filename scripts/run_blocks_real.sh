@@ -45,7 +45,7 @@ python scripts/eval_trajectory_to_lisdf.py \
         --output /tmp/pybullet_blocks__oracle__${SEED}________task1.json
 
 echo "Planning to reset the robot."
-python scripts/eval_trajectory_to_lisdf.py \
+python scripts/lisdf_plan_to_reset.py \
         --lisdf /tmp/pybullet_blocks__oracle__${SEED}________task1.json
         --output /tmp/final_plan.json
 
