@@ -38,3 +38,7 @@ echo "Converting plan to LISDF."
 python scripts/eval_trajectory_to_lisdf.py \
         --input eval_trajectories/pybullet_blocks__oracle__${SEED}________task1.traj \
         --output /tmp/pybullet_blocks__oracle__${SEED}________task1.json
+
+echo "Visualizing LISDF plan."
+python scripts/lisdf_pybullet_executor.py \
+        --lisdf /tmp/pybullet_blocks__oracle__${SEED}________task1.json
