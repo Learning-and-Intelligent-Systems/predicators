@@ -616,7 +616,7 @@ def _update_nsrts_with_failure(
 
 
 def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
-                                  sas_file: str) -> None: # pragma: no cover
+                                  sas_file: str) -> None:  # pragma: no cover
     """Update the given sas_file of ground_nsrts for FD based on the given
     DiscoveredFailure.
 
