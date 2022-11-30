@@ -60,8 +60,7 @@ class InitializedPG3Approach(PG3Approach):
         return "initialized_pg3"
 
     @staticmethod
-    def _get_policy_search_initial_ldls(
-            one_to_many: bool = False) -> List[LiftedDecisionList]:
+    def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
         # Create base and target envs.
         base_env_name = CFG.pg3_init_base_env
         target_env_name = CFG.env
@@ -93,12 +92,9 @@ class InitializedPG3Approach(PG3Approach):
                                                    base_nsrts)
         # Determine analogical mappings between the current env and the
         # base env that the initialized policy originates from.
-        if one_to_many:
-            analogies = _find_analogies_multi_shot(base_env, target_env,
-                                                   base_nsrts, target_nsrts)
-        else:
-            analogies = _find_env_analogies(base_env, target_env, base_nsrts,
-                                            target_nsrts)
+        analogies = _find_analogies_multi_shot(base_env, target_env,
+                                               base_nsrts, target_nsrts)
+
         target_policies: List[LiftedDecisionList] = []
         for analogy in analogies:
             # Use the analogy to create an initial policy for the target env.
@@ -225,9 +221,14 @@ def _find_analogies_multi_shot(base_env: BaseEnv, target_env: BaseEnv,
             # sub-analogy. We skip the subanalogy if it didn't
             # match any of nsrts.
             for inner_a in sub_analogies:
-                if len(inner_a.nsrts) > 0 and \
-                    analogy.is_consistent_with(inner_a):
-                    analogies.append(analogy.extend_with(inner_a))
+                if analogy.is_consistent_with(inner_a):
+                    if len(inner_a.nsrts) > 0:
+                        # If there are no matching nsrts, we reject the analogy.
+                        # This likely indicates a spurious match that would
+                        # cause PG3 to remove lots of literals first.
+                        analogies.append(analogy.extend_with(inner_a))
+                    else:
+                        analogies.append(analogy)
         else:
             # If none of the above, return an empty analogy
             analogies.append(_Analogy({}, {}, {}))

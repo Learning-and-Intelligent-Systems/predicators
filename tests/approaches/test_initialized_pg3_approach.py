@@ -219,18 +219,7 @@ def test_find_env_analogies():
     old_var_to_new_var = analogy.base_nsrt_to_variable_analogy(move)
     assert len(old_var_to_new_var) == 1  # exclude the bogus entry
 
-
-def test_find_analogies_multi_shot():
-    """Tests for _find_env_analogies()."""
-    # Test for gripper -> ferry.
-    base_env = create_new_env("pddl_gripper_procedural_tasks")
-    base_nsrts = get_gt_nsrts(base_env.get_name(), base_env.predicates,
-                              base_env.options)
-    target_env = create_new_env("pddl_ferry_procedural_tasks")
-    target_nsrts = get_gt_nsrts(target_env.get_name(), target_env.predicates,
-                                target_env.options)
-
-    # Mock SME because it's potentially slow.
+    # Test multi-shot analogies
     mock_match_strs_1 = [
         # Operators
         ("move", "sail"),
@@ -254,6 +243,11 @@ def test_find_analogies_multi_shot():
         ("at", "at"),
         ("at-robby", "at-ferry"),
     ]
+    mock_match_strs_3 = [
+        # Predicates
+        ("at", "at"),
+        ("at-robby", "at-ferry"),
+    ]
     mock_sme_output_1 = smepy.Mapping(matches=[
         smepy.Match(SmepyEntity(b), SmepyEntity(t))
         for b, t in mock_match_strs_1
@@ -262,8 +256,14 @@ def test_find_analogies_multi_shot():
         smepy.Match(SmepyEntity(b), SmepyEntity(t))
         for b, t in mock_match_strs_2
     ])
+    predicate_mapping = smepy.Mapping(matches=[
+        smepy.Match(SmepyEntity(b), SmepyEntity(t))
+        for b, t in mock_match_strs_3
+    ])
+    empty_mapping = smepy.Mapping(matches=[])
     with patch(f"{_MODULE_PATH}._query_sme") as mocker:
-        mocker.side_effect = [[mock_sme_output_1], [mock_sme_output_2], []]
+        mocker.side_effect = [[mock_sme_output_1], [mock_sme_output_2],
+                              [empty_mapping]]
         analogies = _find_analogies_multi_shot(base_env, target_env,
                                                base_nsrts, target_nsrts)
 
@@ -298,6 +298,13 @@ def test_find_analogies_multi_shot():
         at_base: at_target,
         at_robby: at_ferry
     }
+
+    # Alternative test
+    with patch(f"{_MODULE_PATH}._query_sme") as mocker:
+        mocker.side_effect = [[mock_sme_output_1], [predicate_mapping]]
+        analogies = _find_analogies_multi_shot(base_env, target_env,
+                                               base_nsrts, target_nsrts)
+    assert len(analogies) == 1
 
 
 def test_apply_analogy_to_ldl():
