@@ -996,7 +996,6 @@ def _sesame_plan_with_fast_downward(
             # compute all the ground NSRTs ourselves when using Fast Downward.
             metrics["num_failures_discovered"] += 1
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
-            #raise PlanningFailure("Got a DiscoveredFailure when using FD!")
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
             raise e
 
