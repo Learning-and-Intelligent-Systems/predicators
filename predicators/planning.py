@@ -23,6 +23,7 @@ import numpy as np
 
 from predicators import utils
 from predicators.option_model import _OptionModelBase
+from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, DefaultState, \
     DummyOption, GroundAtom, Metrics, Object, OptionSpec, \
@@ -56,6 +57,7 @@ def sesame_plan(
         max_horizon: int,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
+        refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
@@ -73,8 +75,8 @@ def sesame_plan(
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
-            abstract_policy, max_policy_guided_rollout, check_dr_reachable,
-            allow_noops, use_visited_state_set)
+            abstract_policy, max_policy_guided_rollout, refinement_estimator,
+            check_dr_reachable, allow_noops, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -114,6 +116,7 @@ def _sesame_plan_with_astar(
         max_horizon: int,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
+        refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
         use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
@@ -175,20 +178,36 @@ def _sesame_plan_with_astar(
                 timeout - (time.perf_counter() - start_time), metrics,
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
+            # If a refinement cost estimator is provided, generate a number of
+            # skeletons first, then predict the refinement cost of each skeleton
+            # and attempt to refine them in this order.
+            if refinement_estimator is not None:
+                estimator: BaseRefinementEstimator = refinement_estimator
+                proposed_skeletons = []
+                for _ in range(
+                        CFG.refinement_estimation_num_skeletons_generated):
+                    try:
+                        proposed_skeletons.append(next(gen))
+                    except _MaxSkeletonsFailure:
+                        break
+                gen = iter(
+                    sorted(proposed_skeletons,
+                           key=lambda s: estimator.get_cost(*s)))
             for skeleton, atoms_sequence in gen:
                 necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                     skeleton, atoms_sequence, task.goal)
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
-                    max_horizon)
+                    metrics, max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
                         f"Planning succeeded! Found plan of length "
                         f"{len(plan)} after "
                         f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons, discovering "
+                        f"skeletons with {int(metrics['num_samples'])}"
+                        f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     return plan, metrics
@@ -437,7 +456,7 @@ def _skeleton_generator(
 def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          skeleton: List[_GroundNSRT],
                          atoms_sequence: List[Set[GroundAtom]], seed: int,
-                         timeout: float,
+                         timeout: float, metrics: Metrics,
                          max_horizon: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
@@ -485,6 +504,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
+        # Increment num_samples metric by 1
+        metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         if option.initiable(state):
@@ -499,8 +520,22 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                 discovered_failures[cur_idx - 1] = None
                 num_actions_per_option[cur_idx - 1] = num_actions
                 traj[cur_idx] = next_state
+                # Check if objects that were outside the scope had a change
+                # in state.
+                static_obj_changed = False
+                if CFG.sesame_check_static_object_changes:
+                    static_objs = set(state) - set(nsrt.objects)
+                    for obj in sorted(static_objs):
+                        if not np.allclose(
+                                traj[cur_idx][obj],
+                                traj[cur_idx - 1][obj],
+                                atol=CFG.sesame_static_object_change_tol):
+                            static_obj_changed = True
+                            break
+                if static_obj_changed:
+                    can_continue_on = False
                 # Check if we have exceeded the horizon.
-                if np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
+                elif np.sum(num_actions_per_option[:cur_idx]) > max_horizon:
                     can_continue_on = False
                 # Check if the option was effectively a noop.
                 elif num_actions == 0:

@@ -55,11 +55,12 @@ class JointInfo(NamedTuple):
         """Whether the joint is fixed or not."""
         return self.jointType == p.JOINT_FIXED
 
-    def violates_limit(self, value: float) -> bool:
+    def violates_limit(self, value: float, tol: float = 0.1) -> bool:
         """Whether the given value violates the joint's limits."""
         if self.is_circular:
             return False
-        return self.jointLowerLimit > value or value > self.jointUpperLimit
+        return self.jointLowerLimit > value - tol or \
+               value + tol > self.jointUpperLimit
 
 
 class JointState(NamedTuple):

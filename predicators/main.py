@@ -278,6 +278,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     CFG.horizon)
                 outfile = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
+            if CFG.crash_on_failure:
+                raise e
             continue
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
@@ -333,6 +335,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
+            if CFG.crash_on_failure:
+                raise RuntimeError(log_message)
             make_video = CFG.make_failure_videos
             video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
@@ -345,6 +349,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    metrics["min_num_samples"] = approach.metrics[
+        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+            "inf") else 0
+    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"] if approach.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
@@ -359,7 +367,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
     for metric_name in [
-            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:

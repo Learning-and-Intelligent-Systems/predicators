@@ -8,6 +8,7 @@ environment makes it a good testbed for predicate invention.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -28,14 +29,13 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height: ClassVar[float] = 0.2
-    block_size: ClassVar[float] = 0.0505
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a
     # block's origin is its center, so the block itself may extend beyond
     # the boundaries while the origin remains in bounds.
-    x_lb: ClassVar[float] = 1.35 - block_size / 2
-    x_ub: ClassVar[float] = 1.35 + block_size / 2
+    x_lb: ClassVar[float] = 1.325
+    x_ub: ClassVar[float] = 1.375
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
@@ -47,7 +47,6 @@ class BlocksEnv(BaseEnv):
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
-    assert pick_tol < block_size
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
@@ -93,6 +92,7 @@ class BlocksEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
+        self._block_size = CFG.blocks_block_size
         self._num_blocks_train = CFG.blocks_num_blocks_train
         self._num_blocks_test = CFG.blocks_num_blocks_test
 
@@ -106,7 +106,7 @@ class BlocksEnv(BaseEnv):
         # Infer which transition function to follow
         if fingers < 0.5:
             return self._transition_pick(state, x, y, z)
-        if z < self.table_height + self.block_size:
+        if z < self.table_height + self._block_size:
             return self._transition_putontable(state, x, y, z)
         return self._transition_stack(state, x, y, z)
 
@@ -179,7 +179,7 @@ class BlocksEnv(BaseEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z + self.block_size)
+        next_state.set(block, "pose_z", cur_z + self._block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
@@ -233,7 +233,7 @@ class BlocksEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        r = self.block_size * 0.5  # block radius
+        r = self._block_size * 0.5  # block radius
 
         width_ratio = max(
             1. / 5,
@@ -340,7 +340,7 @@ class BlocksEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + self.block_size * (0.5 + pile_j)
+            z = self.table_height + self._block_size * (0.5 + pile_j)
             r, g, b = rng.uniform(size=3)
             # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
             data[block] = np.array([x, y, z, 0.0, r, g, b])
@@ -389,11 +389,11 @@ class BlocksEnv(BaseEnv):
     def _table_xy_is_clear(self, x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
         if all(
-                abs(x - other_x) > self.collision_padding * self.block_size
+                abs(x - other_x) > self.collision_padding * self._block_size
                 for other_x, _ in existing_xys):
             return True
         if all(
-                abs(y - other_y) > self.collision_padding * self.block_size
+                abs(y - other_y) > self.collision_padding * self._block_size
                 for _, other_y in existing_xys):
             return True
         return False
@@ -412,13 +412,13 @@ class BlocksEnv(BaseEnv):
         x2 = state.get(block2, "pose_x")
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2 + self.block_size],
+        return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
-        desired_z = self.table_height + self.block_size * 0.5
+        desired_z = self.table_height + self._block_size * 0.5
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
@@ -469,7 +469,7 @@ class BlocksEnv(BaseEnv):
         relative_grasp = np.array([
             0.,
             0.,
-            self.block_size,
+            self._block_size,
         ])
         arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -482,7 +482,7 @@ class BlocksEnv(BaseEnv):
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        z = self.table_height + 0.5 * self.block_size
+        z = self.table_height + 0.5 * self._block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
@@ -537,13 +537,18 @@ class BlocksEnv(BaseEnv):
         # One day, we can make the block size a feature of the blocks, but
         # for now, we'll just make sure that the block size in the real env
         # matches what we expect in sim.
-        assert np.isclose(task_spec["block_size"], self.block_size)
+        assert np.isclose(task_spec["block_size"], self._block_size)
         state_dict: Dict[Object, Dict[str, float]] = {}
         id_to_obj: Dict[str, Object] = {}  # used in the goal construction
         for block_id, block_spec in task_spec["blocks"].items():
             block = Object(block_id, self._block_type)
             id_to_obj[block_id] = block
             x, y, z = block_spec["position"]
+            # Make sure that the block is in bounds.
+            if not (self.x_lb <= x <= self.x_ub and \
+                    self.y_lb <= y <= self.y_ub and \
+                    self.table_height <= z):
+                logging.warning("Block out of bounds in initial state!")
             r, g, b = block_spec["color"]
             state_dict[block] = {
                 "pose_x": x,
@@ -576,4 +581,6 @@ class BlocksEnv(BaseEnv):
                 obj_args = [id_to_obj[a] for a in id_args]
                 goal_atom = GroundAtom(pred, obj_args)
                 goal.add(goal_atom)
-        return Task(init_state, goal)
+        task = Task(init_state, goal)
+        assert not task.goal_holds(init_state)
+        return task
