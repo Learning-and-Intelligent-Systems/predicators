@@ -35,7 +35,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_painting_gt_nsrts(env_name)
     elif env_name == "tools":
         nsrts = _get_tools_gt_nsrts(env_name)
-    elif env_name == "playroom":
+    elif env_name in ("playroom", "playroom_hard"):
         nsrts = _get_playroom_gt_nsrts(env_name)
     elif env_name == "playroom_simple":
         nsrts = _get_playroom_simple_gt_nsrts(env_name)

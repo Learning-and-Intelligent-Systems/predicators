@@ -217,6 +217,20 @@ class GlobalSettings:
     pddl_ferry_procedural_test_min_num_cars = 1
     pddl_ferry_procedural_test_max_num_cars = 2
 
+    # pddl miconic env parameters
+    pddl_miconic_procedural_train_min_buildings = 1
+    pddl_miconic_procedural_train_max_buildings = 2
+    pddl_miconic_procedural_train_min_floors = 3
+    pddl_miconic_procedural_train_max_floors = 5
+    pddl_miconic_procedural_train_min_passengers = 1
+    pddl_miconic_procedural_train_max_passengers = 2
+    pddl_miconic_procedural_test_min_buildings = 1
+    pddl_miconic_procedural_test_max_buildings = 2
+    pddl_miconic_procedural_test_min_floors = 3
+    pddl_miconic_procedural_test_max_floors = 5
+    pddl_miconic_procedural_test_min_passengers = 1
+    pddl_miconic_procedural_test_max_passengers = 2
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -239,6 +253,8 @@ class GlobalSettings:
     doors_draw_debug = False
 
     # narrow_passage env parameters
+    narrow_passage_door_width_padding = 0.075
+    narrow_passage_passage_width_padding = 2e-4
     narrow_passage_birrt_num_attempts = 10
     narrow_passage_birrt_num_iters = 100
     narrow_passage_birrt_smooth_amt = 50
@@ -423,6 +439,10 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+
+    # refinement cost estimation parameters
+    refinement_estimator = "oracle"  # default refinement cost estimator
+    refinement_estimation_num_skeletons_generated = 3
 
     # glib explorer parameters
     glib_min_goal_size = 1

@@ -111,7 +111,7 @@ class PyBulletEnv(BaseEnv):
         # Load robot.
         self._pybullet_robot = self._create_pybullet_robot(
             self._physics_client_id)
-        self._pybullet_robot2 = self._create_pybullet_robot(
+        self._pybullet_robot_sim = self._create_pybullet_robot(
             self._physics_client_id2)
 
         # Set gravity.
@@ -125,7 +125,7 @@ class PyBulletEnv(BaseEnv):
         physics_client_id.
 
         It will be saved as either self._pybullet_robot or
-        self._pybullet_robot2.
+        self._pybullet_robot_sim.
         """
         raise NotImplementedError("Override me!")
 
@@ -204,8 +204,9 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
         self._held_obj_id = None
 
-        # Reset robot.
+        # Reset robots.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        self._pybullet_robot_sim.reset_state(self._extract_robot_state(state))
 
     def render(self,
                action: Optional[Action] = None,
