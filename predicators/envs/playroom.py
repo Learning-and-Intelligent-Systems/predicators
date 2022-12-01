@@ -135,7 +135,7 @@ class PlayroomSimpleEnv(BlocksEnv):
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
         was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
-        if self.get_name() == "playroom":
+        if isinstance(self, PlayroomEnv):
             was_next_to_door = {
                 door: self._NextToDoor_holds(state, (self._robot, door))
                 for door in self._doors
@@ -160,8 +160,8 @@ class PlayroomSimpleEnv(BlocksEnv):
             if z < self.table_height + self._block_size:
                 return self._transition_putontable(state, x, y, z)
             return self._transition_stack(state, x, y, z)
-        # Interact with some door, only in playroom env
-        if self.get_name() == "playroom":
+        if isinstance(self, PlayroomEnv):
+            # Interact with some door
             if any(
                     self._NextToDoor_holds(state, (self._robot, door))
                     for door in self._doors):
@@ -286,7 +286,7 @@ class PlayroomSimpleEnv(BlocksEnv):
         ax.add_patch(hallway)
 
         # Draw doors if playroom env
-        if self.get_name() == "playroom":
+        if isinstance(self, PlayroomEnv):
             for door in self._doors:
                 x = state.get(door, "pose_x")
                 y = state.get(door, "pose_y")
@@ -478,8 +478,8 @@ class PlayroomSimpleEnv(BlocksEnv):
         data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
-        # Create states for doors and regions if playroom env
-        if self.get_name() == "playroom":
+        if isinstance(self, PlayroomEnv):
+            # Create states for doors and regions
             # [pose_x, pose_y, open], all doors start off open except door1
             data[self._door1] = np.array([1, 30.0, 15.0, 0.0])
             data[self._door2] = np.array([2, 50.0, 15.0, 1.0])
@@ -561,9 +561,8 @@ class PlayroomSimpleEnv(BlocksEnv):
         dial, = objects
         return state.get(dial, "level") >= PlayroomSimpleEnv.dial_on_thresh
 
-    @staticmethod
-    def _LightOff_holds(state: State, objects: Sequence[Object]) -> bool:
-        return not PlayroomSimpleEnv._LightOn_holds(state, objects)
+    def _LightOff_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        return not self._LightOn_holds(state, objects)
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
