@@ -1,0 +1,48 @@
+# A configuration file for 4 representative pick and place BEHAVIOR tasks.
+# python scripts/supercloud/launch.py \
+# --user wmcclinton \
+# --config behavior_pick_place_data_collection.yaml
+---
+APPROACHES:
+  pnad-search:
+    NAME: "nsrt_learning"
+    FLAGS:
+      offline_data_planning_timeout: 1000.0
+      timeout: 1000.0
+      sampler_learner: neural
+      strips_learner: pnad_search
+      plan_only_eval: True
+      sesame_task_planner: fdopt
+      create_training_dataset: True
+ENVS:
+  collecting-aluminum-cans-Ihlen_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Ihlen_1_int
+      behavior_task_list: "[collecting_aluminum_cans]"
+      behavior_option_model_eval: True
+  storing-food-Beechwood_0_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Beechwood_0_int
+      behavior_task_list: "[storing_food]"
+      behavior_option_model_eval: True
+  opening-presents-Pomaria_2_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_2_int
+      behavior_task_list: "[opening_presents]"
+      behavior_option_model_eval: True
+  locking-every-window-Merom_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Merom_1_int
+      behavior_task_list: "[locking_every_window]"
+      behavior_option_model_eval: True
+ARGS: {}
+FLAGS:  # general flags
+  num_train_tasks: 10
+  num_test_tasks: 0
+START_SEED: 456
+NUM_SEEDS: 10
+USE_GPU: True
