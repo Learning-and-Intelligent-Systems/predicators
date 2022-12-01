@@ -155,6 +155,17 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 ground_atom_dataset_to_pkl.append(trajectory)
             with open(dataset_fname, "wb") as f:
                 pkl.dump(ground_atom_dataset_to_pkl, f)
+            # If we're only interested in creating a training dataset, then
+            # terminate the program here and return how many demos were
+            # collected.
+            if CFG.create_training_dataset:  # pragma: no cover
+                if CFG.num_train_tasks != len(trajectories):
+                    raise AssertionError(
+                        "ERROR!: Collected only" +
+                        f"{len(trajectories)} trajectories, but needed" +
+                        f"{CFG.num_train_tasks}.")
+                raise AssertionError("SUCCESS!: Created training dataset" +
+                                     f"with {len(trajectories)} trajectories.")
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,

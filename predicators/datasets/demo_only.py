@@ -66,17 +66,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task],
                     env.task_num_task_instance_id_to_igibson_seed
             with open(dataset_fname.replace(".data", ".info"), "wb") as f:
                 pkl.dump(info, f)
-            # If we're only interested in creating a training dataset, then
-            # terminate the program here and return how many demos were
-            # collected.
-            if CFG.create_training_dataset:
-                if CFG.num_train_tasks != len(trajectories):
-                    raise AssertionError(
-                        "ERROR!: Collected only" +
-                        f"{len(trajectories)} trajectories, but needed" +
-                        f"{CFG.num_train_tasks}.")
-                raise AssertionError("SUCCESS!: Created training dataset" +
-                                     f"with {len(trajectories)} trajectories.")
 
     # NOTE: This is necessary because we replace BEHAVIOR
     # options with dummy options in order to pickle them, so
