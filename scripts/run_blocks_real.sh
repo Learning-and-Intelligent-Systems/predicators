@@ -19,7 +19,7 @@ FINAL_PLAN_FILE="/tmp/file_plan.json"
 # Start the pipeline.
 mkdir -p $TASK_DIR
 
-# echo "Capturing images."
+echo "Capturing images."
 python scripts/realsense_helpers.py \
         --rgb $DATA_DIR/color-$TASK_NUM-$IMG_SUFFIX \
         --depth $DATA_DIR/depth-$TASK_NUM-$IMG_SUFFIX
