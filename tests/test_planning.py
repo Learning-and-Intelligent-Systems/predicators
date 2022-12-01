@@ -596,9 +596,9 @@ def test_sesame_plan_fast_downward():
     """
     for sesame_task_planner in ("fdopt", "fdsat", "not a real task planner"):
         utils.reset_config({
-            "env": "repeated_nextto_single_option",
-            "num_test_tasks": 1,
-            "painting_lid_open_prob": 1.0,
+            "env": "cluttered_table",
+            "num_test_tasks": 50,
+            "sesame_task_planner": sesame_task_planner,
         })
         # Test on the repeated_nextto_single_option env, which requires ignore
         # effects.
