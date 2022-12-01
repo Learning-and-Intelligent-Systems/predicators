@@ -10,10 +10,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
-from predicators.envs.blocks import BlocksEnv
 from predicators.envs.cover import CoverEnv
 from predicators.envs.painting import PaintingEnv
-from predicators.envs.repeated_nextto import RepeatedNextToSingleOptionEnv
+from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
@@ -285,58 +284,6 @@ def test_sesame_plan_uninitiable_option():
             CFG.sesame_max_skeletons_optimized,
             max_horizon=CFG.horizon)
     assert "Planning reached max_skeletons_optimized!" in str(e.value)
-
-
-def test_sesame_check_static_object_changes():
-    """Tests for sesame_check_static_object_changes = True."""
-    utils.reset_config({
-        "env": "cover",
-        "sesame_check_static_object_changes": True,
-        "sesame_static_object_change_tol": 1e-3,
-    })
-    env = CoverEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name)
-    # In Cover, the NSRTs do not contain the robot as an argument, so planning
-    # is not possible if we are checking for static object changes.
-    with pytest.raises(PlanningFailure) as e:
-        # Planning should reach sesame_max_skeletons_optimized
-        sesame_plan(
-            task,
-            option_model,
-            nsrts,
-            env.predicates,
-            env.types,
-            500,  # timeout
-            123,  # seed
-            CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,
-            max_horizon=CFG.horizon)
-    assert "Planning reached max_skeletons_optimized!" in str(e.value)
-    # In Blocks, the NSRTs are fully scoped, so planning should succeed even
-    # when sesame_check_static_object_changes is True.
-    utils.reset_config({
-        "env": "blocks",
-        "sesame_check_static_object_changes": True,
-        "sesame_static_object_change_tol": 1e-3,
-    })
-    env = BlocksEnv()
-    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    task = env.get_test_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name)
-    plan, _ = sesame_plan(
-        task,
-        option_model,
-        nsrts,
-        env.predicates,
-        env.types,
-        500,  # timeout
-        123,  # seed
-        CFG.sesame_task_planning_heuristic,
-        CFG.sesame_max_skeletons_optimized,
-        max_horizon=CFG.horizon)
-    assert len(plan) > 0
 
 
 def test_planning_determinism():
@@ -655,7 +602,7 @@ def test_sesame_plan_fast_downward():
         })
         # Test on the repeated_nextto_single_option env, which requires ignore
         # effects.
-        env = RepeatedNextToSingleOptionEnv()
+        env = ClutteredTableEnv()
         nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
         task = env.get_test_tasks()[0]
         option_model = create_option_model(CFG.option_model_name)

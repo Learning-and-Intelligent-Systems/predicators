@@ -982,7 +982,8 @@ def _sesame_plan_with_fast_downward(
                 skeleton, atoms_sequence, task.goal)
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
-                                             low_level_timeout, max_horizon)
+                                             low_level_timeout, metrics,
+                                             max_horizon)
             if not suc:
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout("Planning timed out in refinement!")
