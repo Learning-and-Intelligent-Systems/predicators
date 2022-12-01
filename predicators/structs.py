@@ -1105,9 +1105,6 @@ class Segment:
     _goal: Optional[Set[GroundAtom]] = field(default=None)
     # Field used by the backchaining algorithm (gen_to_spec_learner.py)
     necessary_add_effects: Optional[Set[GroundAtom]] = field(default=None)
-    # Field used by the effect search learning algorithm
-    # (effect_search_learner.py)
-    necessary_image: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1166,8 +1163,10 @@ class Segment:
 
 
 @dataclass(eq=False, repr=False)
-class PartialNSRTAndDatastore:
-    """PNAD: A helper class for NSRT learning that contains information
+class PNAD:
+    """PNAD: PartialNSRTAndDatastore.
+
+    A helper class for NSRT learning that contains information
     useful to maintain throughout the learning procedure. Each object of
     this class corresponds to a learned NSRT. We use this class because
     we don't want to clutter the NSRT class with a datastore, since data
@@ -1235,6 +1234,9 @@ class PartialNSRTAndDatastore:
 
     def __str__(self) -> str:
         return repr(self)
+
+    def __lt__(self, other: PNAD) -> bool:
+        return repr(self) < repr(other)
 
 
 @dataclass(frozen=True, eq=False, repr=False)

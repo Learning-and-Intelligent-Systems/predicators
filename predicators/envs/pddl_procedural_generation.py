@@ -1,7 +1,7 @@
 """Procedurally generates PDDL problem strings."""
 
 import functools
-from typing import Collection, Iterator, List, Optional, Set, Tuple
+from typing import Collection, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -727,6 +727,120 @@ def _generate_ferry_problem(
     (:domain ferry)
     (:objects
         {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
+
+
+################################## Miconic ####################################
+
+
+def create_miconic_pddl_generator(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+) -> PDDLProblemGenerator:
+    """Create a generator for miconic problems."""
+    return functools.partial(_generate_miconic_problems, min_num_buildings,
+                             max_num_buildings, min_num_floors, max_num_floors,
+                             min_num_passengers, max_num_passengers)
+
+
+def _generate_miconic_problems(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_buildings = rng.integers(min_num_buildings, max_num_buildings + 1)
+        num_floors = rng.integers(min_num_floors, max_num_floors + 1)
+        num_passengers = rng.integers(min_num_passengers,
+                                      max_num_passengers + 1)
+        problem = _generate_miconic_problem(num_buildings, num_floors,
+                                            num_passengers, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_miconic_problem(
+    num_buildings: int,
+    num_floors: int,
+    num_passengers: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create floors and passengers per building.
+    buildings = list(range(num_buildings))
+    building_to_floors: Dict[int, List[str]] = {b: [] for b in buildings}
+    building_to_passengers: Dict[int, List[str]] = {b: [] for b in buildings}
+    for b in buildings:
+        # Create floors.
+        for i in range(num_floors):
+            floor = f"f{i}_b{b}"
+            building_to_floors[b].append(floor)
+        # Create passengers.
+        for i in range(num_passengers):
+            passenger = f"p{i}_b{b}"
+            building_to_passengers[b].append(passenger)
+
+    # Create above atoms.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        for i, below_floor in enumerate(building_floors[:-1]):
+            for above_floor in building_floors[i + 1:]:
+                init_strs.add(f"(above {below_floor} {above_floor})")
+
+    # Create origin and destination atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        free_floors = list(building_to_floors[b])
+        for passenger in building_passengers:
+            # Only allow one passenger origin or destination per floor.
+            origin = rng.choice(free_floors)
+            free_floors.remove(origin)
+            destination = rng.choice(free_floors)
+            init_strs.add(f"(origin {passenger} {origin})")
+            init_strs.add(f"(destin {passenger} {destination})")
+
+    # Create lift origins.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        lift_origin = rng.choice(building_floors)
+        init_strs.add(f"(lift-at {lift_origin})")
+
+    # Create goal atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        for passenger in building_passengers:
+            goal_strs.add(f"(served {passenger})")
+
+    # Finalize PDDL problem str.
+    all_floors = [f for fs in building_to_floors.values() for f in fs]
+    all_passengers = [p for ps in building_to_passengers.values() for p in ps]
+    floors_str = " ".join(sorted(all_floors))
+    passengers_str = " ".join(sorted(all_passengers))
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem miconic-procgen)
+    (:domain miconic)
+    (:objects
+        {floors_str} - floor
+        {passengers_str} - passenger
     )
     (:init {init_str})
     (:goal (and {goal_str}))

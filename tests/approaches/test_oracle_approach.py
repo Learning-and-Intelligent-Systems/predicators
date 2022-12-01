@@ -14,6 +14,7 @@ from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
+from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
@@ -40,7 +41,8 @@ ENV_NAME_AND_CLS = [
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
-    ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
+    ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
+    ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
     ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
@@ -144,6 +146,10 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
+    "narrow_passage_passage_width_padding":
+    0.075,
+}]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
     {
         "pddl_delivery_procedural_train_min_num_locs": 2,
@@ -187,6 +193,21 @@ EXTRA_ARGS_ORACLE_APPROACH["pybullet_blocks"] = [
         "num_test_tasks": 1,
         "blocks_num_blocks_train": [3],
         "blocks_num_blocks_test": [3],
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["blocks"] = [
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [3],
+    },
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [1],
+        "blocks_num_blocks_test": [1],
+        "blocks_holding_goals": True,
     },
 ]
 

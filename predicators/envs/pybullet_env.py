@@ -25,7 +25,6 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
@@ -56,6 +55,9 @@ class PyBulletEnv(BaseEnv):
 
     def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
+
+        # Controls the maximum end effector change between time steps.
+        self._max_vel_norm = CFG.pybullet_max_vel_norm
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
@@ -109,7 +111,7 @@ class PyBulletEnv(BaseEnv):
         # Load robot.
         self._pybullet_robot = self._create_pybullet_robot(
             self._physics_client_id)
-        self._pybullet_robot2 = self._create_pybullet_robot(
+        self._pybullet_robot_sim = self._create_pybullet_robot(
             self._physics_client_id2)
 
         # Set gravity.
@@ -123,7 +125,7 @@ class PyBulletEnv(BaseEnv):
         physics_client_id.
 
         It will be saved as either self._pybullet_robot or
-        self._pybullet_robot2.
+        self._pybullet_robot_sim.
         """
         raise NotImplementedError("Override me!")
 
@@ -202,8 +204,9 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
         self._held_obj_id = None
 
-        # Reset robot.
+        # Reset robots.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        self._pybullet_robot_sim.reset_state(self._extract_robot_state(state))
 
     def render(self,
                action: Optional[Action] = None,

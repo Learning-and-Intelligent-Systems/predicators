@@ -65,6 +65,8 @@ class GlobalSettings:
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
     blocks_test_task_json_dir = None
+    blocks_holding_goals = False
+    blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -112,6 +114,7 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_max_vel_norm = 0.05
     # env -> robot -> quaternion
     pybullet_robot_ee_orns = defaultdict(
         # Fetch and Panda gripper down and parallel to x-axis by default.
@@ -214,6 +217,20 @@ class GlobalSettings:
     pddl_ferry_procedural_test_min_num_cars = 1
     pddl_ferry_procedural_test_max_num_cars = 2
 
+    # pddl miconic env parameters
+    pddl_miconic_procedural_train_min_buildings = 1
+    pddl_miconic_procedural_train_max_buildings = 2
+    pddl_miconic_procedural_train_min_floors = 3
+    pddl_miconic_procedural_train_max_floors = 5
+    pddl_miconic_procedural_train_min_passengers = 1
+    pddl_miconic_procedural_train_max_passengers = 2
+    pddl_miconic_procedural_test_min_buildings = 1
+    pddl_miconic_procedural_test_max_buildings = 2
+    pddl_miconic_procedural_test_min_floors = 3
+    pddl_miconic_procedural_test_max_floors = 5
+    pddl_miconic_procedural_test_min_passengers = 1
+    pddl_miconic_procedural_test_max_passengers = 2
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -234,6 +251,13 @@ class GlobalSettings:
     doors_birrt_num_iters = 100
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
+
+    # narrow_passage env parameters
+    narrow_passage_door_width_padding = 0.075
+    narrow_passage_passage_width_padding = 2e-4
+    narrow_passage_birrt_num_attempts = 10
+    narrow_passage_birrt_num_iters = 100
+    narrow_passage_birrt_smooth_amt = 50
 
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
@@ -278,6 +302,8 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+    pg3_add_condition_allow_new_vars = True
+    pg3_max_analogies = 5
 
     # parameters for PG3 init approach
     # These need to be overridden via command line
@@ -315,6 +341,9 @@ class GlobalSettings:
     # OpenLid() operator in painting. So, we'll keep the former as the
     # default.
     sesame_grounder = "naive"
+    sesame_check_static_object_changes = False
+    # Warning: making this tolerance any lower breaks pybullet_blocks.
+    sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
     log_dir = "logs"
@@ -410,6 +439,10 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+
+    # refinement cost estimation parameters
+    refinement_estimator = "oracle"  # default refinement cost estimator
+    refinement_estimation_num_skeletons_generated = 3
 
     # glib explorer parameters
     glib_min_goal_size = 1

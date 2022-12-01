@@ -18,7 +18,6 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
 class PlayroomEnv(BlocksEnv):
     """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    block_size: ClassVar[float] = 0.5
     x_lb: ClassVar[float] = 0.0
     y_lb: ClassVar[float] = 0.0
     x_ub: ClassVar[float] = 140.0
@@ -40,7 +39,6 @@ class PlayroomEnv(BlocksEnv):
     dial_button_tol: ClassVar[float] = 0.4
     pick_tol: ClassVar[float] = 0.4
     on_tol: ClassVar[float] = pick_tol
-    assert pick_tol < block_size
     pick_z: ClassVar[float] = 1.5
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -208,6 +206,8 @@ class PlayroomEnv(BlocksEnv):
         # Hyperparameters from CFG.
         self._num_blocks_train = CFG.playroom_num_blocks_train
         self._num_blocks_test = CFG.playroom_num_blocks_test
+        # Override block size from parent class.
+        self._block_size = 0.5
 
     @classmethod
     def get_name(cls) -> str:
@@ -238,7 +238,7 @@ class PlayroomEnv(BlocksEnv):
             and (self.table_y_lb < y < self.table_y_ub):
             if fingers < 0.5:
                 return self._transition_pick(state, x, y, z)
-            if z < self.table_height + self.block_size:
+            if z < self.table_height + self._block_size:
                 return self._transition_putontable(state, x, y, z)
             return self._transition_stack(state, x, y, z)
         # Interact with some door
@@ -344,7 +344,7 @@ class PlayroomEnv(BlocksEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        r = self.block_size * 0.5  # block radius
+        r = self._block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))
         ax = plt.subplot(211)
@@ -561,7 +561,7 @@ class PlayroomEnv(BlocksEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + self.block_size * (0.5 + pile_j)
+            z = self.table_height + self._block_size * (0.5 + pile_j)
             max_j = max(j for i, j in block_to_pile_idx.values()
                         if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
@@ -747,7 +747,7 @@ class PlayroomEnv(BlocksEnv):
         relative_grasp = np.array([
             0.,
             0.,
-            self.block_size,
+            self._block_size,
         ])
         arr = np.r_[block_pose + relative_grasp, params[-1],
                     1.0].astype(np.float32)
@@ -762,7 +762,7 @@ class PlayroomEnv(BlocksEnv):
         x_norm, y_norm = params[:-1]
         x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
         y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
-        z = self.table_height + 0.5 * self.block_size
+        z = self.table_height + 0.5 * self._block_size
         arr = np.array([x, y, z, params[-1], 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)

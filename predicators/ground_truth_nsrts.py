@@ -23,7 +23,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
     """Create ground truth NSRTs for an env."""
     if env_name in ("cover", "cover_hierarchical_types", "cover_typed_options",
                     "cover_regrasp", "cover_multistep_options",
-                    "pybullet_cover"):
+                    "pybullet_cover", "cover_handempty"):
         nsrts = _get_cover_gt_nsrts(env_name)
     elif env_name == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts(env_name)
@@ -51,6 +51,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_stick_button_gt_nsrts(env_name)
     elif env_name == "doors":
         nsrts = _get_doors_gt_nsrts(env_name)
+    elif env_name == "narrow_passage":
+        nsrts = _get_narrow_passage_gt_nsrts(env_name)
     elif env_name == "coffee":
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
@@ -115,7 +117,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
 
     # Options
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         PickPlace, = _get_options_by_names(env_name, ["PickPlace"])
     elif env_name in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(env_name, ["Pick", "Place"])
@@ -125,15 +127,22 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     # Pick
     parameters = [block]
     holding_predicate_args = [block]
+    handempty_predicate_args = []
     if env_name == "cover_multistep_options":
         parameters.append(robot)
         holding_predicate_args.append(robot)
-    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
+    elif env_name == "cover_handempty":
+        parameters.append(robot)
+        handempty_predicate_args.append(robot)
+    preconditions = {
+        LiftedAtom(IsBlock, [block]),
+        LiftedAtom(HandEmpty, handempty_predicate_args)
+    }
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
-    delete_effects = {LiftedAtom(HandEmpty, [])}
+    delete_effects = {LiftedAtom(HandEmpty, handempty_predicate_args)}
 
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         option = PickPlace
         option_vars = []
     elif env_name == "cover_typed_options":
@@ -199,14 +208,18 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
                          rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 1
+            if env_name == "cover_handempty":
+                assert len(objs) == 2
+            else:
+                assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if env_name == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
             elif env_name in ("cover", "pybullet_cover",
-                              "cover_hierarchical_types", "cover_regrasp"):
+                              "cover_hierarchical_types", "cover_regrasp",
+                              "cover_handempty"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -223,13 +236,15 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
     if env_name == "cover_multistep_options":
         parameters = [block, robot, target]
         holding_predicate_args.append(robot)
+    elif env_name == "cover_handempty":
+        parameters.append(robot)
     preconditions = {
         LiftedAtom(IsBlock, [block]),
         LiftedAtom(IsTarget, [target]),
         LiftedAtom(Holding, holding_predicate_args)
     }
     add_effects = {
-        LiftedAtom(HandEmpty, []),
+        LiftedAtom(HandEmpty, handempty_predicate_args),
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
@@ -239,7 +254,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects.add(LiftedAtom(Clear, [target]))
 
     if env_name in ("cover", "pybullet_cover", "cover_hierarchical_types",
-                    "cover_regrasp"):
+                    "cover_regrasp", "cover_handempty"):
         option = PickPlace
         option_vars = []
     elif env_name == "cover_typed_options":
@@ -304,8 +319,12 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             del goal  # unused
-            assert len(objs) == 2
-            t = objs[-1]
+            if env_name == "cover_handempty":
+                assert len(objs) == 3
+                t = objs[1]
+            else:
+                assert len(objs) == 2
+                t = objs[-1]
             assert t.is_instance(target_type)
             lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
             lb = max(lb, 0.0)
@@ -326,7 +345,7 @@ def _get_cover_gt_nsrts(env_name: str) -> Set[NSRT]:
             LiftedAtom(Holding, [block])
         }
         add_effects = {
-            LiftedAtom(HandEmpty, []),
+            LiftedAtom(HandEmpty, handempty_predicate_args),
         }
         delete_effects = {LiftedAtom(Holding, [block])}
         option = PickPlace
@@ -2310,6 +2329,66 @@ def _get_doors_gt_nsrts(env_name: str) -> Set[NSRT]:
                                   add_effects, delete_effects, ignore_effects,
                                   option, option_vars, null_sampler)
     nsrts.add(move_through_door_nsrt)
+
+    return nsrts
+
+
+def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for NarrowPassageEnv."""
+    robot_type, door_type, target_type = _get_types_by_names(
+        env_name, ["robot", "door", "target"])
+    DoorIsClosed, DoorIsOpen, TouchedGoal = _get_predicates_by_names(
+        env_name, ["DoorIsClosed", "DoorIsOpen", "TouchedGoal"])
+    MoveToTarget, MoveAndOpenDoor = _get_options_by_names(
+        env_name, ["MoveToTarget", "MoveAndOpenDoor"])
+
+    nsrts = set()
+
+    def random_sampler(state: State, goal: Set[GroundAtom],
+                       rng: np.random.Generator,
+                       objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        # Note: just return a random value from 0 to 1
+        return np.array([rng.uniform()], dtype=np.float32)
+
+    # MoveToTarget
+    robot = Variable("?robot", robot_type)
+    target = Variable("?target", target_type)
+    parameters = [robot, target]
+    option_vars = [robot, target]
+    option = MoveToTarget
+    preconditions: Set[LiftedAtom] = set()
+    add_effects: Set[LiftedAtom] = {
+        LiftedAtom(TouchedGoal, [robot, target]),
+    }
+    delete_effects: Set[LiftedAtom] = set()
+    ignore_effects: Set[Predicate] = set()
+    move_to_target_nsrt = NSRT("MoveToTarget", parameters, preconditions,
+                               add_effects, delete_effects, ignore_effects,
+                               option, option_vars, random_sampler)
+    nsrts.add(move_to_target_nsrt)
+
+    # MoveAndOpenDoor
+    robot = Variable("?robot", robot_type)
+    door = Variable("?door", door_type)
+    parameters = [robot, door]
+    option_vars = [robot, door]
+    option = MoveAndOpenDoor
+    preconditions = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
+    add_effects = {
+        LiftedAtom(DoorIsOpen, [door]),
+    }
+    delete_effects = {
+        LiftedAtom(DoorIsClosed, [door]),
+    }
+    ignore_effects = set()
+    move_and_open_door_nsrt = NSRT("MoveAndOpenDoor", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   ignore_effects, option, option_vars,
+                                   random_sampler)
+    nsrts.add(move_and_open_door_nsrt)
 
     return nsrts
 
