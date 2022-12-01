@@ -917,6 +917,13 @@ def _sesame_plan_with_fast_downward(
 
     On MacOS, to use gtimeout:
     4) brew install coreutils
+
+    Important Note: Fast Downward will potentially not work with null operators
+    (i.e. operators that have an empty effect set). This happens when
+    Fast Downward grounds the operators, null operators get pruned because they
+    cannot help satisfy the goal. In A* search Discovered Failures could
+    potentially add effects to null operators, but this ability is not
+    implemented here.
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
