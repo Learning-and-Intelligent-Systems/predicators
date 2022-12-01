@@ -652,7 +652,7 @@ def _update_nsrts_with_failure(
 
 def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                                   sas_file: str) -> None:  # pragma: no cover
-    """Update the given sas_file of ground_nsrts for FD based on the given
+    """Update the given sas_file of ground NSRTs for FD based on the given
     DiscoveredFailure.
 
     We directly update the sas_file with the new ground NSRTs.
@@ -725,11 +725,11 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 line = line.strip()
                 assert line.isdigit()
                 num_operators = int(line)
-                assert num_operators is not None
                 sas_file_i = sas_file_i + i + 1
                 new_sas_file_lines.append(f"{num_operators}\n")
                 break
             if "end_state" in line:
+                assert num_operators is not None
                 new_sas_file_lines.append("1\n")
                 new_sas_file_lines.append(line)
             else:
