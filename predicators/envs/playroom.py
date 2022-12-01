@@ -930,7 +930,7 @@ class PlayroomHardEnv(PlayroomEnv):
     """Boring room vs playroom domain where the light on/off function is
     arbitrary and hard."""
     dial_on_intervals: ClassVar[List[Tuple[float, float]]] = [(0.0, 0.05),
-                                                              (0.3, 0.4),
+                                                              (0.3, 0.65),
                                                               (0.9, 1.0)]
 
     @classmethod
@@ -940,12 +940,12 @@ class PlayroomHardEnv(PlayroomEnv):
     def _transition_dial(self, state: State) -> State:
         next_state = state.copy()
         level = state.get(self._dial, "level")
-        lightIsOn = False
+        light_is_on = False
         for (low, high) in self.dial_on_intervals:
             if low <= level <= high:
-                lightIsOn = True
-        if not lightIsOn:
-            next_state.set(self._dial, "level", 0.35)
+                light_is_on = True
+        if not light_is_on:
+            next_state.set(self._dial, "level", 0.5)
         else:
             next_state.set(self._dial, "level", 0.1)
         return next_state
