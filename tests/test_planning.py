@@ -10,9 +10,9 @@ from gym.spaces import Box
 from predicators import utils
 from predicators.approaches import ApproachFailure, ApproachTimeout
 from predicators.approaches.oracle_approach import OracleApproach
+from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.envs.cover import CoverEnv
 from predicators.envs.painting import PaintingEnv
-from predicators.envs.cluttered_table import ClutteredTableEnv
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.option_model import _OptionModelBase, _OracleOptionModel, \
     create_option_model
