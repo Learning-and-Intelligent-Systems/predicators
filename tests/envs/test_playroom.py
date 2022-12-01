@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.playroom import PlayroomEnv
+from predicators.envs.playroom import PlayroomEnv, PlayroomHardEnv
 from predicators.structs import Action
 
 
@@ -445,3 +445,56 @@ def test_playroom_action_sequence_video():
     env.render_state(traj.states[1], task)
     # Render end state with open and closed doors
     env.render_state(traj.states[-1], task, caption="caption")
+
+
+def test_playroom_hard():
+    """Tests for PlayroomHardEnv."""
+    utils.reset_config({"env": "playroom_hard"})
+    env = PlayroomHardEnv()
+    dial_type = [t for t in env.types if t.name == "dial"][0]
+    task = env.get_train_tasks()[0]
+    state = task.init
+    dial = None
+    for item in state:
+        if item.type == dial_type:
+            dial = item
+    assert dial is not None
+    LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
+
+    actions = [
+        # Move to boring room door
+        np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
+        # Open boring room door
+        np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
+        # Move to playroom
+        np.array([30.3, 15, 3, 0, 1]).astype(np.float32),
+        np.array([49.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([50.3, 15, 3, 0, 1]).astype(np.float32),
+        np.array([59.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([60.3, 15, 3, 0, 1]).astype(np.float32),
+        np.array([79.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([80.3, 15, 3, 0, 1]).astype(np.float32),
+        np.array([99.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([100.3, 15, 3, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 3, 0, 1]).astype(np.float32),
+        # Advance through door6
+        np.array([110.2, 15, 3, 0.5, 1]).astype(np.float32),
+        # Move to dial
+        np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32),
+    ]
+    for arr in actions:
+        act = Action(arr)
+        next_state = env.simulate(state, act)
+        state = next_state
+    # Test ground truth classifier for coverage
+    assert LightOn.holds(state, (dial, ))
+    # Toggle dial off
+    act = Action(np.array([125, 14.9, 1, -0.5, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert not np.allclose(state[dial], next_state[dial])
+    assert not LightOn.holds(next_state, (dial, ))
+    state = next_state
+    # Toggle dial on
+    act = Action(np.array([125, 14.9, 1, -0.5, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert not np.allclose(state[dial], next_state[dial])
