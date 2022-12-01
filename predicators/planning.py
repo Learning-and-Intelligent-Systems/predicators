@@ -655,9 +655,9 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
     """Update the given sas_file of ground_nsrts for FD based on the given
     DiscoveredFailure.
 
-    We directly update the sas_file with the new ground_nsrts.
+    We directly update the sas_file with the new ground NSRTs.
     """
-    # Get string representation of the ground_nsrt with the Discovered Failure.
+    # Get string representation of the ground NSRTs with the Discovered Failure.
     ground_op_str = discovered_failure.failing_nsrt.name.lower(
     ) + " " + " ".join(o.name for o in discovered_failure.failing_nsrt.objects)
     # Add Discovered Failure for each offending object.
@@ -665,15 +665,18 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
         with open(sas_file, 'r', encoding="utf-8") as f:
             sas_lines = f.readlines()
         # For every line in our sas_file we are going to copy it to our
-        # new_sas_file and make edits as needed.
-        new_sas_file = []
+        # new_sas_file_lines and make edits as needed.
+        new_sas_file_lines = []
         sas_file_i = 0
 
-        # Fix sas_file Variables:
+        # We use the Fast Downward documentation to parse the sas_file
+        # For more info: https://www.fast-downward.org/TranslatorOutputFormat
+        # First we fix sas_file Variables:
         # The first line is "begin_variable".
         # The second line contains the name of the variable (which is
         # usually a nondescriptive name like "var7").
         # The third line specifies the axiom layer of the variable.
+        # Single variables are always -1.
         # The fourth line specifies the variable's range, i.e., the
         # number of different values it can take it on. The value of
         # a variable is always from the set {0, 1, 2, ..., range - 1}.
@@ -687,56 +690,63 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
         for i, line in enumerate(sas_lines):
             # We copy lines until we've reached end_metric. Then we
             # increment the number of variables by 1 and add our new
-            # not-causes-failure variable in the new_sas_file.
+            # not-causes-failure variable in the new_sas_file_lines.
             if i > 0 and "end_metric" in sas_lines[i - 1]:
-                num_variables = int(line.replace("\n", ""))
-                # change num variables
-                new_sas_file.append(f"{num_variables+1}\n")
+                line = line.strip()
+                assert line.isdigit()
+                num_variables = int(line)
+                # Change num variables
+                new_sas_file_lines.append(f"{num_variables+1}\n")
             elif "end_variable" in line:
                 count_variables += 1
-                new_sas_file.append(line)
+                new_sas_file_lines.append(line)
                 if count_variables == num_variables:
-                    # add new variables here
-                    new_sas_file.append("begin_variable\n")
-                    new_sas_file.append(f"var{count_variables}\n")
-                    new_sas_file.append("-1\n")
-                    new_sas_file.append("2\n")
-                    new_sas_file.append(
+                    # Add new variables here
+                    new_sas_file_lines.append("begin_variable\n")
+                    new_sas_file_lines.append(f"var{count_variables}\n")
+                    new_sas_file_lines.append("-1\n")
+                    new_sas_file_lines.append("2\n")
+                    new_sas_file_lines.append(
                         f"Atom not-causes-failure({obj.name.lower()})\n")
-                    new_sas_file.append(
+                    new_sas_file_lines.append(
                         f"NegatedAtom not-causes-failure({obj.name.lower()})\n"
                     )
-                    new_sas_file.append("end_variable\n")
+                    new_sas_file_lines.append("end_variable\n")
                     sas_file_i = i + 1
                     break
             else:
-                new_sas_file.append(line)
+                new_sas_file_lines.append(line)
 
         # Add sas_file init_state, goal, and mutex.
         num_operators = None
         for i, line in enumerate(sas_lines[sas_file_i:]):
             if i > 0 and "end_goal" in sas_lines[sas_file_i + i - 1]:
                 # Save num_operators for use later.
-                num_operators = int(line.replace("\n", ""))
+                line = line.strip()
+                assert line.isdigit()
+                num_operators = int(line)
+                assert num_operators is not None
                 sas_file_i = sas_file_i + i + 1
-                new_sas_file.append(f"{num_operators}\n")
+                new_sas_file_lines.append(f"{num_operators}\n")
                 break
             if "end_state" in line:
-                new_sas_file.append("1\n")
-                new_sas_file.append(line)
+                new_sas_file_lines.append("1\n")
+                new_sas_file_lines.append(line)
             else:
-                new_sas_file.append(line)
+                new_sas_file_lines.append(line)
 
-        # Fix sas_file Operators:
+        # We use the Fast Downward documentation to parse the sas_file
+        # For more info: https://www.fast-downward.org/TranslatorOutputFormat
+        # Second we fix sas_file Operators:
         # The first line is "begin_operator".
         # The second line contains the name of the operator.
         # The third line contains a single number, denoting the number of
-        # prevail conditions.
-        # The following lines describe the prevail conditions, one line for
-        # each condition. A prevail condition is given by two numbers
+        # precondition conditions.
+        # The following lines describe the precondition conditions, one line
+        # for each condition. A precondition condition is given by two numbers
         # separated by spaces, denoting a variable/value pairing in the
         # same notation for goals described above.
-        # The first line after the prevail conditions contains a single
+        # The first line after the precondition conditions contains a single
         # number, denoting the number of effects.
         # The following lines describe the effects, one line for each effect
         # (read on).
@@ -748,58 +758,65 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
         for i, line in enumerate(sas_lines[sas_file_i:]):
             # We copy each operator from the sas_file and add our new
             # not-causes-failure variable to the necessary operators in
-            # the new_sas_file.
+            # the new_sas_file_lines.
             if "begin_operator" in line:
                 # Parse Operator from sas_lines.
                 count_operators += 1
                 begin_operator_str = sas_lines[sas_file_i + i]
                 operator_str = sas_lines[sas_file_i + i + 1]
-                num_prevail_conditons = int(sas_lines[sas_file_i + i +
-                                                      2].replace("\n", ""))
-                num_effects = int(sas_lines[sas_file_i + i + 3 +
-                                            num_prevail_conditons].replace(
-                                                "\n", ""))
-                cost = int(
-                    sas_lines[sas_file_i + i + 4 + num_prevail_conditons +
-                              num_effects].replace("\n", ""))
+                line = sas_lines[sas_file_i + i + 2].strip()
+                assert line.isdigit()
+                num_precondition_conditons = int(line)
+                line = sas_lines[sas_file_i + i + 3 +
+                                 num_precondition_conditons].strip()
+                assert line.isdigit()
+                num_effects = int(line)
+                line = sas_lines[sas_file_i + i + 4 +
+                                 num_precondition_conditons +
+                                 num_effects].strip()
+                assert line.isdigit()
+                cost = int(line)
                 end_operator_str = sas_lines[sas_file_i + i + 5 +
-                                             num_prevail_conditons +
+                                             num_precondition_conditons +
                                              num_effects]
                 # Begin Operator
-                new_sas_file.append(begin_operator_str)
-                new_sas_file.append(operator_str)
-                # append preconditions
+                new_sas_file_lines.append(begin_operator_str)
+                new_sas_file_lines.append(operator_str)
+                # Append preconditions
                 if operator_str.replace("\n", "") == ground_op_str:
-                    new_sas_file.append(f"{num_prevail_conditons+1}\n")
-                    new_sas_file.append(
+                    new_sas_file_lines.append(
+                        f"{num_precondition_conditons+1}\n")
+                    new_sas_file_lines.append(
                         f"{num_variables} 0\n")  # additional precondition
                 else:
-                    new_sas_file.append(f"{num_prevail_conditons}\n")
-                for j in range(num_prevail_conditons):
-                    new_sas_file.append(sas_lines[sas_file_i + i + 3 + j])
-                # append effects
-                if obj.name.lower(
-                ) in operator_str and "navigateto" not in operator_str:
-                    new_sas_file.append(f"{num_effects+1}\n")
-                    new_sas_file.append(
+                    new_sas_file_lines.append(
+                        f"{num_precondition_conditons}\n")
+                for j in range(num_precondition_conditons):
+                    new_sas_file_lines.append(sas_lines[sas_file_i + i + 3 +
+                                                        j])
+                # Append effects
+                if obj.name.lower() in operator_str:
+                    new_sas_file_lines.append(f"{num_effects+1}\n")
+                    new_sas_file_lines.append(
                         f"0 {num_variables} -1 0\n")  # additional effect
                 else:
-                    new_sas_file.append(f"{num_effects}\n")
+                    new_sas_file_lines.append(f"{num_effects}\n")
                 for j in range(num_effects):
-                    new_sas_file.append(sas_lines[sas_file_i + i + 4 +
-                                                  num_prevail_conditons + j])
+                    new_sas_file_lines.append(
+                        sas_lines[sas_file_i + i + 4 +
+                                  num_precondition_conditons + j])
                 # End Operator
-                new_sas_file.append(f"{cost}\n")
-                new_sas_file.append(end_operator_str)
+                new_sas_file_lines.append(f"{cost}\n")
+                new_sas_file_lines.append(end_operator_str)
                 if count_operators == num_operators:
                     sas_file_i = sas_file_i + i + 1
                     break
         # Copy the rest of the file.
         for i, line in enumerate(sas_lines[sas_file_i:]):
-            new_sas_file.append(line)
-        # Overwrite sas_file with new_sas_file.
+            new_sas_file_lines.append(line)
+        # Overwrite sas_file with new_sas_file_lines.
         with open(sas_file, 'w', encoding="utf-8") as f:
-            f.writelines(new_sas_file)
+            f.writelines(new_sas_file_lines)
 
 
 def task_plan_with_option_plan_constraint(
@@ -914,9 +931,11 @@ def _sesame_plan_with_fast_downward(
     prob_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(prob_file, "w", encoding="utf-8") as f:
         f.write(prob_str)
-    # The SAS file isn't actually used, but it's important that we give it a
-    # name, because otherwise Fast Downward uses a fixed default name, which
-    # will cause issues if you run multiple processes simultaneously.
+    # The SAS file is used when augmenting the grounded operators,
+    # during dicovered failures, and it's important that we give
+    # it a name, because otherwise Fast Downward uses a fixed
+    # default name, which will cause issues if you run multiple
+    # processes simultaneously.
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
     # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
@@ -991,9 +1010,6 @@ def _sesame_plan_with_fast_downward(
             metrics["plan_length"] = len(plan)
             return plan, metrics
         except _DiscoveredFailureException as e:
-            # If we get a DiscoveredFailure, give up. Note that we cannot
-            # modify the NSRTs as we do in SeSamE with A*, because we don't ever
-            # compute all the ground NSRTs ourselves when using Fast Downward.
             metrics["num_failures_discovered"] += 1
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
