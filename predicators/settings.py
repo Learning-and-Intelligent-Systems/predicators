@@ -123,6 +123,7 @@ class GlobalSettings:
     behavior_randomize_init_state = True
     behavior_option_model_eval = False
     behavior_option_model_rrt = False
+    create_training_dataset = False
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
