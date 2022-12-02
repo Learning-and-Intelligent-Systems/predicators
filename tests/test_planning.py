@@ -674,6 +674,7 @@ def test_sesame_plan_fast_downward():
             "num_test_tasks": 50,
             "sesame_task_planner": sesame_task_planner,
         })
+        # Test on the ClutteredTable env.
         env = ClutteredTableEnv()
         nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
         task = env.get_test_tasks()[0]
