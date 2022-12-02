@@ -1059,4 +1059,4 @@ class _SkeletonSearchTimeout(PlanningTimeout):
     """Raised when timeout occurs in run_low_level_search()."""
 
     def __init__(self) -> None:
-        super().__init__("Planning timed out in skeleton search!") 
+        super().__init__("Planning timed out in skeleton search!")
