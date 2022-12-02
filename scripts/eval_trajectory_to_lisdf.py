@@ -44,7 +44,7 @@ def joints_to_arm_gripper_vals(
         gripper_state = GripperPosition.open
     # Extract the arm joint state.
     arm_state = np.delete(joints, gripper_idxs)
-    return (arm_state, gripper_state)
+    return arm_state, gripper_state
 
 
 def create_path_command(arm_states: List[NDArray[np.float32]],
