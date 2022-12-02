@@ -806,11 +806,11 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 new_sas_file_lines.append(f"{num_operators}\n")
                 break
             if "end_state" in line:
-                assert num_operators is not None
                 new_sas_file_lines.append("1\n")
                 new_sas_file_lines.append(line)
             else:
                 new_sas_file_lines.append(line)
+        assert num_operators is not None
 
         # We use the Fast Downward documentation to parse the sas_file
         # For more info: https://www.fast-downward.org/TranslatorOutputFormat
@@ -1035,79 +1035,85 @@ def _sesame_plan_with_fast_downward(
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
-    cleanup_cmd_str = f"{exec_str} --cleanup"
-    subprocess.getoutput(cleanup_cmd_str)
-    if time.perf_counter() - start_time > timeout:
-        raise PlanningTimeout("Planning timed out in call to FD!")
-    # Parse and log metrics.
-    metrics: Metrics = defaultdict(float)
-    num_nodes_expanded = re.findall(r"Evaluated (\d+) state", output)
-    num_nodes_created = re.findall(r"Generated (\d+) state", output)
-    try:
-        assert len(num_nodes_expanded) == 1
-        assert len(num_nodes_created) == 1
-    # In case the following exception is raised, the below info
-    # is extremely helpful for debugging.
-    except AssertionError:
-        logging.info(f"Output: {output}")
-        logging.info(f"Num Nodes Expanded: {num_nodes_expanded}")
-        logging.info(f"Init Atoms: {init_atoms}")
-        logging.info(f"Goal: {task.goal}")
-        logging.info(f"Objects: {objects}")
-        env = get_or_create_env("behavior")
-        assert isinstance(env, BehaviorEnv)
-        logging.info(f"Task Relevant Types: {env.task_relevant_types}")
-        logging.info(f"Env Predicates: {env.predicates}")
-        logging.info(f"Domain String: {dom_str}")
-        logging.info(f"Problem String: {prob_str}")
-    metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
-    metrics["num_nodes_created"] = float(num_nodes_created[0])
-    # Extract the skeleton from the output and compute the atoms_sequence.
-    if "Solution found!" not in output:
-        raise PlanningFailure(f"Plan not found with FD! Error: {output}")
-    if "Plan length: 0 step" in output:
-        # Handle the special case where the plan is found to be trivial.
-        skeleton_str = []
-    else:
-        skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
-        if not skeleton_str:
-            raise PlanningFailure(f"Plan not found with FD! Error: {output}")
-    skeleton = []
-    atoms_sequence = [init_atoms]
-    nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
-    obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
-    for nsrt_str in skeleton_str:
-        str_split = nsrt_str.split()
-        nsrt = nsrt_name_to_nsrt[str_split[0]]
-        objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
-        ground_nsrt = nsrt.ground(objs)
-        skeleton.append(ground_nsrt)
-        atoms_sequence.append(
-            utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
-    if len(skeleton) > max_horizon:
-        raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
-    # Run low-level search on this skeleton.
-    low_level_timeout = timeout - (time.perf_counter() - start_time)
-    metrics["num_skeletons_optimized"] = 1
-    metrics["num_failures_discovered"] = 0
-    try:
-        necessary_atoms_seq = utils.compute_necessary_atoms_seq(
-            skeleton, atoms_sequence, task.goal)
-        plan, suc, traj = run_low_level_search(task, option_model, skeleton,
-                                               necessary_atoms_seq, seed,
-                                               low_level_timeout, metrics,
-                                               max_horizon)
-    except _DiscoveredFailureException:
-        # If we get a DiscoveredFailure, give up. Note that we cannot
-        # modify the NSRTs as we do in SeSamE with A*, because we don't ever
-        # compute all the ground NSRTs ourselves when using Fast Downward.
-        raise PlanningFailure("Got a DiscoveredFailure when using FD!")
-    if not suc:
+    while True:
+        cmd_str = (
+            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+        output = subprocess.getoutput(cmd_str)
+        cleanup_cmd_str = f"{exec_str} --cleanup"
+        subprocess.getoutput(cleanup_cmd_str)
         if time.perf_counter() - start_time > timeout:
-            raise PlanningTimeout("Planning timed out in refinement!")
-        raise PlanningFailure("Skeleton produced by FD not refinable!")
-    metrics["plan_length"] = len(plan)
-    return plan, metrics, traj
+            raise PlanningTimeout("Planning timed out in call to FD!")
+        # Parse and log metrics.
+        metrics: Metrics = defaultdict(float)
+        num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
+        num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
+        try:
+            assert len(num_nodes_expanded) == 1
+            assert len(num_nodes_created) == 1
+        # In case the following exception is raised, the below info
+        # is extremely helpful for debugging.
+        except AssertionError:
+            logging.info(f"Output: {output}")
+            logging.info(f"Num Nodes Expanded: {num_nodes_expanded}")
+            logging.info(f"Init Atoms: {init_atoms}")
+            logging.info(f"Goal: {task.goal}")
+            logging.info(f"Objects: {objects}")
+            env = get_or_create_env("behavior")
+            assert isinstance(env, BehaviorEnv)
+            logging.info(f"Task Relevant Types: {env.task_relevant_types}")
+            logging.info(f"Env Predicates: {env.predicates}")
+            logging.info(f"Domain String: {dom_str}")
+            logging.info(f"Problem String: {prob_str}")
+        metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
+        metrics["num_nodes_created"] = float(num_nodes_created[0])
+        # Extract the skeleton from the output and compute the atoms_sequence.
+        if "Solution found!" not in output:
+            raise PlanningFailure(f"Plan not found with FD! Error: {output}")
+        if "Plan length: 0 step" in output:
+            # Handle the special case where the plan is found to be trivial.
+            skeleton_str = []
+        else:
+            skeleton_str = re.findall(r"(.+) \(\d+?\)", output)
+            if not skeleton_str:
+                raise PlanningFailure(
+                    f"Plan not found with FD! Error: {output}")
+        skeleton = []
+        atoms_sequence = [init_atoms]
+        nsrt_name_to_nsrt = {nsrt.name.lower(): nsrt for nsrt in nsrts}
+        obj_name_to_obj = {obj.name.lower(): obj for obj in objects}
+        for nsrt_str in skeleton_str:
+            str_split = nsrt_str.split()
+            nsrt = nsrt_name_to_nsrt[str_split[0]]
+            objs = [obj_name_to_obj[obj_name] for obj_name in str_split[1:]]
+            ground_nsrt = nsrt.ground(objs)
+            skeleton.append(ground_nsrt)
+            atoms_sequence.append(
+                utils.apply_operator(ground_nsrt, atoms_sequence[-1]))
+        if len(skeleton) > max_horizon:
+            raise PlanningFailure("Skeleton produced by FD exceeds horizon!")
+        # Run low-level search on this skeleton.
+        low_level_timeout = timeout - (time.perf_counter() - start_time)
+        metrics["num_skeletons_optimized"] = 1
+        metrics["num_failures_discovered"] = 0
+        try:
+            necessary_atoms_seq = utils.compute_necessary_atoms_seq(
+                skeleton, atoms_sequence, task.goal)
+            plan, suc, traj = run_low_level_search(task, option_model,
+                                                   skeleton,
+                                                   necessary_atoms_seq, seed,
+                                                   low_level_timeout, metrics,
+                                                   max_horizon)
+            if not suc:
+                if time.perf_counter() - start_time > timeout:
+                    raise PlanningTimeout("Planning timed out in refinement!")
+                raise PlanningFailure("Skeleton produced by FD not refinable!")
+            metrics["plan_length"] = len(plan)
+            return plan, metrics, traj
+        except _DiscoveredFailureException as e:
+            metrics["num_failures_discovered"] += 1
+            _update_sas_file_with_failure(e.discovered_failure, sas_file)
+        except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
+            raise e
 
 
 class PlanningFailure(utils.ExceptionWithInfo):
