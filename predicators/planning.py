@@ -25,6 +25,7 @@ from predicators import utils
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.option_model import _BehaviorOptionModel, _OptionModelBase
+from predicators.refinement_estimators import BaseRefinementEstimator
 from predicators.settings import CFG
 from predicators.structs import NSRT, AbstractPolicy, Action, DefaultState, \
     DummyOption, GroundAtom, LowLevelTrajectory, Metrics, Object, OptionSpec, \
@@ -58,6 +59,7 @@ def sesame_plan(
     max_horizon: int,
     abstract_policy: Optional[AbstractPolicy] = None,
     max_policy_guided_rollout: int = 0,
+    refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
     use_visited_state_set: bool = False
@@ -88,8 +90,8 @@ def sesame_plan(
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
-            abstract_policy, max_policy_guided_rollout, check_dr_reachable,
-            allow_noops, use_visited_state_set)
+            abstract_policy, max_policy_guided_rollout, refinement_estimator,
+            check_dr_reachable, allow_noops, use_visited_state_set)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -129,6 +131,7 @@ def _sesame_plan_with_astar(
     max_horizon: int,
     abstract_policy: Optional[AbstractPolicy] = None,
     max_policy_guided_rollout: int = 0,
+    refinement_estimator: Optional[BaseRefinementEstimator] = None,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
     use_visited_state_set: bool = False
@@ -191,20 +194,36 @@ def _sesame_plan_with_astar(
                 timeout - (time.perf_counter() - start_time), metrics,
                 max_skeletons_optimized, abstract_policy,
                 max_policy_guided_rollout, use_visited_state_set)
+            # If a refinement cost estimator is provided, generate a number of
+            # skeletons first, then predict the refinement cost of each skeleton
+            # and attempt to refine them in this order.
+            if refinement_estimator is not None:
+                estimator: BaseRefinementEstimator = refinement_estimator
+                proposed_skeletons = []
+                for _ in range(
+                        CFG.refinement_estimation_num_skeletons_generated):
+                    try:
+                        proposed_skeletons.append(next(gen))
+                    except _MaxSkeletonsFailure:
+                        break
+                gen = iter(
+                    sorted(proposed_skeletons,
+                           key=lambda s: estimator.get_cost(*s)))
             for skeleton, atoms_sequence in gen:
                 necessary_atoms_seq = utils.compute_necessary_atoms_seq(
                     skeleton, atoms_sequence, task.goal)
                 plan, suc, traj = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
-                    max_horizon)
+                    metrics, max_horizon)
                 if suc:
                     # Success! It's a complete plan.
                     logging.info(
                         f"Planning succeeded! Found plan of length "
                         f"{len(plan)} after "
                         f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons, discovering "
+                        f"skeletons with {int(metrics['num_samples'])}"
+                        f" samples, discovering "
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     return plan, metrics, traj
@@ -450,7 +469,7 @@ def _skeleton_generator(
 def run_low_level_search(
         task: Task, option_model: _OptionModelBase,
         skeleton: List[_GroundNSRT], atoms_sequence: List[Set[GroundAtom]],
-        seed: int, timeout: float,
+        seed: int, timeout: float, metrics: Metrics,
         max_horizon: int) -> Tuple[List[_Option], bool, List[State]]:
     """Backtracking search over continuous values.
 
@@ -498,6 +517,8 @@ def run_low_level_search(
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
+        # Increment num_samples metric by 1
+        metrics["num_samples"] += 1
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
         if option.initiable(state):
@@ -706,6 +727,175 @@ def _update_nsrts_with_failure(
     return new_predicates, new_ground_nsrts
 
 
+def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
+                                  sas_file: str) -> None:  # pragma: no cover
+    """Update the given sas_file of ground NSRTs for FD based on the given
+    DiscoveredFailure.
+
+    We directly update the sas_file with the new ground NSRTs.
+    """
+    # Get string representation of the ground NSRTs with the Discovered Failure.
+    ground_op_str = discovered_failure.failing_nsrt.name.lower(
+    ) + " " + " ".join(o.name for o in discovered_failure.failing_nsrt.objects)
+    # Add Discovered Failure for each offending object.
+    for obj in discovered_failure.env_failure.info["offending_objects"]:
+        with open(sas_file, 'r', encoding="utf-8") as f:
+            sas_lines = f.readlines()
+        # For every line in our sas_file we are going to copy it to our
+        # new_sas_file_lines and make edits as needed.
+        new_sas_file_lines = []
+        sas_file_i = 0
+
+        # We use the Fast Downward documentation to parse the sas_file
+        # For more info: https://www.fast-downward.org/TranslatorOutputFormat
+        # First we fix sas_file Variables:
+        # The first line is "begin_variable".
+        # The second line contains the name of the variable (which is
+        # usually a nondescriptive name like "var7").
+        # The third line specifies the axiom layer of the variable.
+        # Single variables are always -1.
+        # The fourth line specifies the variable's range, i.e., the
+        # number of different values it can take it on. The value of
+        # a variable is always from the set {0, 1, 2, ..., range - 1}.
+        # The following range lines specify the symbolic names for
+        # each of the range values the variable can take on, one at a
+        # time. These typically correspond to grounded PDDL facts,
+        # except for values that represent that none out a set of PDDL
+        # facts is true.
+        # The final line is "end_variable".
+        count_variables = 0
+        for i, line in enumerate(sas_lines):
+            # We copy lines until we've reached end_metric. Then we
+            # increment the number of variables by 1 and add our new
+            # not-causes-failure variable in the new_sas_file_lines.
+            if i > 0 and "end_metric" in sas_lines[i - 1]:
+                line = line.strip()
+                assert line.isdigit()
+                num_variables = int(line)
+                # Change num variables
+                new_sas_file_lines.append(f"{num_variables+1}\n")
+            elif "end_variable" in line:
+                count_variables += 1
+                new_sas_file_lines.append(line)
+                if count_variables == num_variables:
+                    # Add new variables here
+                    new_sas_file_lines.append("begin_variable\n")
+                    new_sas_file_lines.append(f"var{count_variables}\n")
+                    new_sas_file_lines.append("-1\n")
+                    new_sas_file_lines.append("2\n")
+                    new_sas_file_lines.append(
+                        f"Atom not-causes-failure({obj.name.lower()})\n")
+                    new_sas_file_lines.append(
+                        f"NegatedAtom not-causes-failure({obj.name.lower()})\n"
+                    )
+                    new_sas_file_lines.append("end_variable\n")
+                    sas_file_i = i + 1
+                    break
+            else:
+                new_sas_file_lines.append(line)
+
+        # Add sas_file init_state, goal, and mutex.
+        num_operators = None
+        for i, line in enumerate(sas_lines[sas_file_i:]):
+            if i > 0 and "end_goal" in sas_lines[sas_file_i + i - 1]:
+                # Save num_operators for use later.
+                line = line.strip()
+                assert line.isdigit()
+                num_operators = int(line)
+                sas_file_i = sas_file_i + i + 1
+                new_sas_file_lines.append(f"{num_operators}\n")
+                break
+            if "end_state" in line:
+                assert num_operators is not None
+                new_sas_file_lines.append("1\n")
+                new_sas_file_lines.append(line)
+            else:
+                new_sas_file_lines.append(line)
+
+        # We use the Fast Downward documentation to parse the sas_file
+        # For more info: https://www.fast-downward.org/TranslatorOutputFormat
+        # Second we fix sas_file Operators:
+        # The first line is "begin_operator".
+        # The second line contains the name of the operator.
+        # The third line contains a single number, denoting the number of
+        # precondition conditions.
+        # The following lines describe the precondition conditions, one line
+        # for each condition. A precondition condition is given by two numbers
+        # separated by spaces, denoting a variable/value pairing in the
+        # same notation for goals described above.
+        # The first line after the precondition conditions contains a single
+        # number, denoting the number of effects.
+        # The following lines describe the effects, one line for each effect
+        # (read on).
+        # The line before last gives the operator cost. This line only
+        # matters if metric is 1 (otherwise, any number here will be treated
+        # as 1).
+        # The final line is "end_operator".
+        count_operators = 0
+        for i, line in enumerate(sas_lines[sas_file_i:]):
+            # We copy each operator from the sas_file and add our new
+            # not-causes-failure variable to the necessary operators in
+            # the new_sas_file_lines.
+            if "begin_operator" in line:
+                # Parse Operator from sas_lines.
+                count_operators += 1
+                begin_operator_str = sas_lines[sas_file_i + i]
+                operator_str = sas_lines[sas_file_i + i + 1]
+                line = sas_lines[sas_file_i + i + 2].strip()
+                assert line.isdigit()
+                num_precondition_conditons = int(line)
+                line = sas_lines[sas_file_i + i + 3 +
+                                 num_precondition_conditons].strip()
+                assert line.isdigit()
+                num_effects = int(line)
+                line = sas_lines[sas_file_i + i + 4 +
+                                 num_precondition_conditons +
+                                 num_effects].strip()
+                assert line.isdigit()
+                cost = int(line)
+                end_operator_str = sas_lines[sas_file_i + i + 5 +
+                                             num_precondition_conditons +
+                                             num_effects]
+                # Begin Operator
+                new_sas_file_lines.append(begin_operator_str)
+                new_sas_file_lines.append(operator_str)
+                # Append preconditions
+                if operator_str.replace("\n", "") == ground_op_str:
+                    new_sas_file_lines.append(
+                        f"{num_precondition_conditons+1}\n")
+                    new_sas_file_lines.append(
+                        f"{num_variables} 0\n")  # additional precondition
+                else:
+                    new_sas_file_lines.append(
+                        f"{num_precondition_conditons}\n")
+                for j in range(num_precondition_conditons):
+                    new_sas_file_lines.append(sas_lines[sas_file_i + i + 3 +
+                                                        j])
+                # Append effects
+                if obj.name.lower() in operator_str:
+                    new_sas_file_lines.append(f"{num_effects+1}\n")
+                    new_sas_file_lines.append(
+                        f"0 {num_variables} -1 0\n")  # additional effect
+                else:
+                    new_sas_file_lines.append(f"{num_effects}\n")
+                for j in range(num_effects):
+                    new_sas_file_lines.append(
+                        sas_lines[sas_file_i + i + 4 +
+                                  num_precondition_conditons + j])
+                # End Operator
+                new_sas_file_lines.append(f"{cost}\n")
+                new_sas_file_lines.append(end_operator_str)
+                if count_operators == num_operators:
+                    sas_file_i = sas_file_i + i + 1
+                    break
+        # Copy the rest of the file.
+        for i, line in enumerate(sas_lines[sas_file_i:]):
+            new_sas_file_lines.append(line)
+        # Overwrite sas_file with new_sas_file_lines.
+        with open(sas_file, 'w', encoding="utf-8") as f:
+            f.writelines(new_sas_file_lines)
+
+
 def task_plan_with_option_plan_constraint(
     objects: Set[Object],
     predicates: Set[Predicate],
@@ -801,6 +991,16 @@ def _sesame_plan_with_fast_downward(
     1) git clone https://github.com/ronuchit/downward.git
     2) cd downward && ./build.py
     3) export FD_EXEC_PATH="<your path here>/downward"
+
+    On MacOS, to use gtimeout:
+    4) brew install coreutils
+
+    Important Note: Fast Downward will potentially not work with null operators
+    (i.e. operators that have an empty effect set). This happens when
+    Fast Downward grounds the operators, null operators get pruned because they
+    cannot help satisfy the goal. In A* search Discovered Failures could
+    potentially add effects to null operators, but this ability is not
+    implemented here.
     """
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -815,9 +1015,11 @@ def _sesame_plan_with_fast_downward(
     prob_file = tempfile.NamedTemporaryFile(delete=False).name
     with open(prob_file, "w", encoding="utf-8") as f:
         f.write(prob_str)
-    # The SAS file isn't actually used, but it's important that we give it a
-    # name, because otherwise Fast Downward uses a fixed default name, which
-    # will cause issues if you run multiple processes simultaneously.
+    # The SAS file is used when augmenting the grounded operators,
+    # during dicovered failures, and it's important that we give
+    # it a name, because otherwise Fast Downward uses a fixed
+    # default name, which will cause issues if you run multiple
+    # processes simultaneously.
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
     # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
@@ -829,6 +1031,7 @@ def _sesame_plan_with_fast_downward(
         "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
+    # Run to generate sas
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
@@ -892,7 +1095,8 @@ def _sesame_plan_with_fast_downward(
             skeleton, atoms_sequence, task.goal)
         plan, suc, traj = run_low_level_search(task, option_model, skeleton,
                                                necessary_atoms_seq, seed,
-                                               low_level_timeout, max_horizon)
+                                               low_level_timeout, metrics,
+                                               max_horizon)
     except _DiscoveredFailureException:
         # If we get a DiscoveredFailure, give up. Note that we cannot
         # modify the NSRTs as we do in SeSamE with A*, because we don't ever

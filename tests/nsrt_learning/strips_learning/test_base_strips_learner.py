@@ -4,8 +4,8 @@ import pytest
 
 from predicators.nsrt_learning.strips_learning.base_strips_learner import \
     BaseSTRIPSLearner
-from predicators.structs import LowLevelTrajectory, PartialNSRTAndDatastore, \
-    Predicate, Segment, State, STRIPSOperator, Task, Type
+from predicators.structs import PNAD, LowLevelTrajectory, Predicate, Segment, \
+    State, STRIPSOperator, Task, Type
 from predicators.utils import SingletonParameterizedOption
 
 
@@ -36,9 +36,9 @@ def test_recompute_datastores_from_segments():
     state = State({obj: [1.0]})
     act = opt_name_to_opt["Act"].ground([], [])
     op1 = STRIPSOperator("Op1", [var], set(), {Pred([var])}, set(), set())
-    pnad1 = PartialNSRTAndDatastore(op1, [], (act.parent, []))
+    pnad1 = PNAD(op1, [], (act.parent, []))
     op2 = STRIPSOperator("Op2", [], set(), set(), set(), set())
-    pnad2 = PartialNSRTAndDatastore(op2, [], (act.parent, []))
+    pnad2 = PNAD(op2, [], (act.parent, []))
     traj = LowLevelTrajectory([state, state], [act], True, 0)
     task = Task(state, set())
     segment = Segment(traj, {Pred([obj])}, {Pred([obj])}, act)

@@ -1,4 +1,4 @@
-"""Boring room vs playroom domain."""
+"""Boring room vs playroom domain and variants."""
 
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -923,4 +923,38 @@ class PlayroomEnv(BlocksEnv):
                 self._NextToDoor_holds(next_state, (self._robot, door))
                 for door in self._doors):
             return door == self._get_door_next_to(next_state)
+        return False
+
+
+class PlayroomHardEnv(PlayroomEnv):
+    """Boring room vs playroom domain where the light on/off function is
+    arbitrary and hard."""
+    dial_on_intervals: ClassVar[List[Tuple[float, float]]] = [(0.0, 0.05),
+                                                              (0.3, 0.65),
+                                                              (0.9, 1.0)]
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "playroom_hard"
+
+    def _transition_dial(self, state: State) -> State:
+        next_state = state.copy()
+        level = state.get(self._dial, "level")
+        light_is_on = False
+        for (low, high) in self.dial_on_intervals:
+            if low <= level <= high:
+                light_is_on = True
+        if not light_is_on:
+            next_state.set(self._dial, "level", 0.5)
+        else:
+            next_state.set(self._dial, "level", 0.1)
+        return next_state
+
+    @staticmethod
+    def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
+        dial, = objects
+        level = state.get(dial, "level")
+        for (low, high) in PlayroomHardEnv.dial_on_intervals:
+            if low <= level <= high:
+                return True
         return False

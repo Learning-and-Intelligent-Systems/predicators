@@ -15,9 +15,8 @@ from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
 from predicators.nsrt_learning.strips_learning.pnad_search_learner import \
     PNADSearchSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type
+from predicators.structs import PNAD, Action, GroundAtom, LowLevelTrajectory, \
+    Predicate, Segment, State, STRIPSOperator, Task, Type
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -648,7 +647,7 @@ def testspawn_new_pnad():
     add_effects = {Asleep([human_var])}
     op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
                         set([Asleep, Happy]))
-    pnad = PartialNSRTAndDatastore(op, [], (opt, []))
+    pnad = PNAD(op, [], (opt, []))
     bob = human_type("bob")
     state = State({bob: [0.0]})
     task = Task(state, set())

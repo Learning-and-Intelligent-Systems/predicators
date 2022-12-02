@@ -77,7 +77,8 @@ class PG3Approach(NSRTLearningApproach):
         try:
             option_list, succeeded, _ = run_low_level_search(
                 task, self._option_model, skeleton, atoms_sequence, self._seed,
-                timeout - (time.perf_counter() - start_time), CFG.horizon)
+                timeout - (time.perf_counter() - start_time), self._metrics,
+                CFG.horizon)
         except PlanningFailure as e:
             raise ApproachFailure(e.args[0], e.info)
         if not succeeded:
@@ -334,6 +335,16 @@ class _DeleteConditionPG3SearchOperator(_PG3SearchOperator):
                 new_rules = list(ldl.rules)
                 new_rules[rule_idx] = new_rule
                 yield LiftedDecisionList(new_rules)
+
+
+class _DeleteRulePG3SearchOperator(_PG3SearchOperator):
+    """An operator that removes entire rules from existing LDL rules."""
+
+    def get_successors(
+            self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:
+        for rule_idx in range(len(ldl.rules)):
+            new_rules = [r for i, r in enumerate(ldl.rules) if i != rule_idx]
+            yield LiftedDecisionList(new_rules)
 
 
 ################################ Heuristics ###################################

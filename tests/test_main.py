@@ -187,17 +187,21 @@ def test_main():
         "--predicate_mlp_classifier_max_itr", "lambda n: n * 50"
     ]
     main()
-    # Try the above test but with harmlessness check enabled.
+    # Tests for --crash_on_failure flag.
     sys.argv = [
-        "dummy", "--env", "cover", "--approach", "interactive_learning",
-        "--seed", "123", "--num_online_learning_cycles", "1",
-        "--online_learning_max_transitions", "0", "--excluded_predicates",
-        "Covers", "--interactive_num_ensemble_members", "1",
-        "--num_train_tasks", "3", "--num_test_tasks", "3",
-        "--predicate_mlp_classifier_max_itr", "lambda n: n * 50",
-        "--disable_harmlessness_check", "False"
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "3", "--timeout", "0", "--crash_on_failure"
     ]
-    main()
+    with pytest.raises(ApproachTimeout) as e:
+        main()  # should time out
+    assert "Planning timed out in grounding!" in str(e)
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_actions", "--seed",
+        "123", "--num_test_tasks", "3", "--crash_on_failure"
+    ]
+    with pytest.raises(RuntimeError) as e:
+        main()  # should fail to solve the task
+    assert "Policy failed to reach goal" in str(e)
 
 
 def test_bilevel_planning_approach_failure_and_timeout():

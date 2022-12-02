@@ -37,10 +37,8 @@ class NarrowPassageEnv(BaseEnv):
     robot_radius: ClassVar[float] = 0.1 / 2
     target_radius: ClassVar[float] = 0.1 / 2
     door_x_pos: ClassVar[float] = 0.2
-    door_width_padding: ClassVar[float] = 0.075
     door_sensor_radius: ClassVar[float] = 0.2
     passage_x_pos: ClassVar[float] = 0.7
-    passage_width_padding: ClassVar[float] = 0.02
     wall_thickness_half: ClassVar[float] = 0.15 / 2
     doorway_depth: ClassVar[float] = 1e-2
     init_pos_margin: ClassVar[float] = 1e-3
@@ -207,8 +205,10 @@ class NarrowPassageEnv(BaseEnv):
         # the dot should be below the walls (y coordinate)
         y_mid = (self.y_ub - self.y_lb) / 2 + self.y_lb
         margin = self.wall_thickness_half + self.init_pos_margin
-        door_width = (self.robot_radius + self.door_width_padding) * 2
-        passage_width = (self.robot_radius + self.passage_width_padding) * 2
+        door_width = (self.robot_radius +
+                      CFG.narrow_passage_door_width_padding) * 2
+        passage_width = (self.robot_radius +
+                         CFG.narrow_passage_passage_width_padding) * 2
 
         tasks: List[Task] = []
         while len(tasks) < num:
@@ -462,7 +462,8 @@ class NarrowPassageEnv(BaseEnv):
                     y = self.y_lb + (
                         self.y_ub - self.y_lb
                     ) / 2 - self.wall_thickness_half + self.doorway_depth
-                    width = (self.robot_radius + self.door_width_padding) * 2
+                    width = (self.robot_radius +
+                             CFG.narrow_passage_door_width_padding) * 2
                     height = (self.wall_thickness_half -
                               self.doorway_depth) * 2
                 self._static_geom_cache[obj] = utils.Rectangle(x=x,

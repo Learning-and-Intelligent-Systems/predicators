@@ -14,9 +14,8 @@ from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
-from predicators.structs import NSRT, GroundAtomTrajectory, \
-    LowLevelTrajectory, ParameterizedOption, PartialNSRTAndDatastore, \
-    Predicate, Segment, Task
+from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(
@@ -77,7 +76,7 @@ def learn_nsrts_from_data(
                         segment.set_goal(goal)
 
         # STEP 2: Learn STRIPS operators from the data, and use them to
-        #         produce PartialNSRTAndDatastore (PNAD) objects. Each PNAD
+        #         produce PNAD objects. Each PNAD
         #         contains a STRIPSOperator, Datastore, and OptionSpec. The
         #         samplers will be filled in on a later step.
         pnads = learn_strips_operators(
@@ -129,7 +128,7 @@ def learn_nsrts_from_data(
     return set(nsrts), segmented_trajs, seg_to_nsrt
 
 
-def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
+def _learn_pnad_options(pnads: List[PNAD],
                         known_options: Set[ParameterizedOption],
                         action_space: Box) -> None:
     logging.info("\nDoing option learning...")
@@ -174,8 +173,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore],
 
 
 def _learn_pnad_options_with_learner(
-        pnads: List[PartialNSRTAndDatastore],
-        option_learner: _OptionLearnerBase) -> None:
+        pnads: List[PNAD], option_learner: _OptionLearnerBase) -> None:
     """Helper for _learn_pnad_options()."""
     strips_ops = []
     datastores = []
@@ -197,8 +195,7 @@ def _learn_pnad_options_with_learner(
             option_learner.update_segment_from_option_spec(segment, spec)
 
 
-def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
-                         sampler_learner: str) -> None:
+def _learn_pnad_samplers(pnads: List[PNAD], sampler_learner: str) -> None:
     logging.info("\nDoing sampler learning...")
     strips_ops = []
     datastores = []

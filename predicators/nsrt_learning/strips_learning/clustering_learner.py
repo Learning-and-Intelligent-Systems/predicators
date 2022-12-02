@@ -8,17 +8,17 @@ from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 from predicators import utils
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import Datastore, DummyOption, LiftedAtom, \
-    PartialNSRTAndDatastore, Predicate, STRIPSOperator, VarToObjSub
+from predicators.structs import PNAD, Datastore, DummyOption, LiftedAtom, \
+    Predicate, STRIPSOperator, VarToObjSub
 
 
 class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for a clustering-based STRIPS learner."""
 
-    def _learn(self) -> List[PartialNSRTAndDatastore]:
+    def _learn(self) -> List[PNAD]:
         segments = [seg for segs in self._segmented_trajs for seg in segs]
         # Cluster the segments according to common option and effects.
-        pnads: List[PartialNSRTAndDatastore] = []
+        pnads: List[PNAD] = []
         for segment in segments:
             if segment.has_option():
                 segment_option = segment.get_option()
@@ -77,8 +77,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                 datastore = [(segment, var_to_obj)]
                 option_vars = [obj_to_var[o] for o in segment_option_objs]
                 option_spec = (segment_param_option, option_vars)
-                pnads.append(
-                    PartialNSRTAndDatastore(op, datastore, option_spec))
+                pnads.append(PNAD(op, datastore, option_spec))
 
         # Learn the preconditions of the operators in the PNADs. This part
         # is flexible; subclasses choose how to implement it.
@@ -95,18 +94,15 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         return pnads
 
     @abc.abstractmethod
-    def _learn_pnad_preconditions(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         """Subclass-specific algorithm for learning PNAD preconditions.
 
         Returns a list of new PNADs. Should NOT modify the given PNADs.
         """
         raise NotImplementedError("Override me!")
 
-    def _postprocessing_learn_ignore_effects(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def _postprocessing_learn_ignore_effects(self,
+                                             pnads: List[PNAD]) -> List[PNAD]:
         """Optionally postprocess to learn ignore effects."""
         _ = self  # unused, but may be used in subclasses
         return pnads
@@ -116,18 +112,15 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via
     intersection."""
 
-    def _learn_pnad_preconditions(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
         for pnad in pnads:
             preconditions = self._induce_preconditions_via_intersection(pnad)
             # Since we are taking an intersection, we're guaranteed that the
             # datastore can't change, so we can safely use pnad.datastore here.
             new_pnads.append(
-                PartialNSRTAndDatastore(
-                    pnad.op.copy_with(preconditions=preconditions),
-                    pnad.datastore, pnad.option_spec))
+                PNAD(pnad.op.copy_with(preconditions=preconditions),
+                     pnad.datastore, pnad.option_spec))
         return new_pnads
 
     @classmethod
@@ -139,9 +132,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
     """A clustering STRIPS learner that learns preconditions via search,
     following the LOFT algorithm: https://arxiv.org/abs/2103.00589."""
 
-    def _learn_pnad_preconditions(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
         for i, pnad in enumerate(pnads):
             positive_data = pnad.datastore
@@ -162,14 +153,14 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             for j, preconditions in enumerate(all_preconditions_to_datastores):
                 datastore = all_preconditions_to_datastores[preconditions]
                 new_pnads.append(
-                    PartialNSRTAndDatastore(
+                    PNAD(
                         pnad.op.copy_with(name=f"{pnad.op.name}-{j}",
                                           preconditions=preconditions),
                         datastore, pnad.option_spec))
         return new_pnads
 
     def _run_outer_search(
-            self, pnad: PartialNSRTAndDatastore, positive_data: Datastore,
+            self, pnad: PNAD, positive_data: Datastore,
             negative_data: Datastore
     ) -> Dict[FrozenSet[LiftedAtom], Datastore]:
         """Run outer-level search to find a set of precondition sets and
@@ -218,8 +209,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             all_preconditions_to_datastores[frozenset()] = positive_data
         return all_preconditions_to_datastores
 
-    def _run_inner_search(self, pnad: PartialNSRTAndDatastore,
-                          positive_data: Datastore,
+    def _run_inner_search(self, pnad: PNAD, positive_data: Datastore,
                           negative_data: Datastore) -> FrozenSet[LiftedAtom]:
         """Run inner-level search to find a single precondition set."""
         initial_state = self._get_initial_preconditions(positive_data)
@@ -265,8 +255,7 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
             yield i, frozenset(successor), 1.0
 
     @staticmethod
-    def _score_preconditions(pnad: PartialNSRTAndDatastore,
-                             positive_data: Datastore,
+    def _score_preconditions(pnad: PNAD, positive_data: Datastore,
                              negative_data: Datastore,
                              preconditions: FrozenSet[LiftedAtom]) -> float:
         candidate_op = pnad.op.copy_with(preconditions=preconditions)
@@ -326,9 +315,8 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
     """Base class for a clustering-based STRIPS learner that does sidelining
     via hill climbing, after operator learning."""
 
-    def _postprocessing_learn_ignore_effects(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def _postprocessing_learn_ignore_effects(self,
+                                             pnads: List[PNAD]) -> List[PNAD]:
         # Run hill climbing search, starting from original PNADs.
         path, _, _ = utils.run_hill_climbing(
             tuple(pnads), self._check_goal, self._get_sidelining_successors,
@@ -342,8 +330,8 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
         return pnads
 
     @abc.abstractmethod
-    def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
-                  s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+    def _evaluate(self, initial_pnads: List[PNAD], s: Tuple[PNAD,
+                                                            ...]) -> float:
         """Abstract evaluation/score function for search.
 
         Lower is better.
@@ -351,15 +339,15 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
         raise NotImplementedError("Override me!")
 
     @staticmethod
-    def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
+    def _check_goal(s: Tuple[PNAD, ...]) -> bool:
         del s  # unused
         # There are no goal states for this search; run until exhausted.
         return False
 
     @staticmethod
     def _get_sidelining_successors(
-        s: Tuple[PartialNSRTAndDatastore, ...],
-    ) -> Iterator[Tuple[None, Tuple[PartialNSRTAndDatastore, ...], float]]:
+        s: Tuple[PNAD,
+                 ...], ) -> Iterator[Tuple[None, Tuple[PNAD, ...], float]]:
         # For each PNAD/operator...
         for i in range(len(s)):
             pnad = s[i]
@@ -368,7 +356,7 @@ class ClusterAndIntersectSidelineSTRIPSLearner(ClusterAndIntersectSTRIPSLearner
             for effect in pnad.op.add_effects:
                 if len(pnad.op.add_effects) > 1:
                     # We don't want sidelining to result in a noop.
-                    new_pnad = PartialNSRTAndDatastore(
+                    new_pnad = PNAD(
                         pnad.op.effect_to_ignore_effect(
                             effect, option_vars, "add"), pnad.datastore,
                         pnad.option_spec)
@@ -391,8 +379,8 @@ class ClusterAndIntersectSidelinePredictionErrorSTRIPSLearner(
     def get_name(cls) -> str:
         return "cluster_and_intersect_sideline_prederror"
 
-    def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
-                  s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+    def _evaluate(self, initial_pnads: List[PNAD], s: Tuple[PNAD,
+                                                            ...]) -> float:
         segments = [seg for traj in self._segmented_trajs for seg in traj]
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
@@ -416,8 +404,8 @@ class ClusterAndIntersectSidelineHarmlessnessSTRIPSLearner(
     def get_name(cls) -> str:
         return "cluster_and_intersect_sideline_harmlessness"
 
-    def _evaluate(self, initial_pnads: List[PartialNSRTAndDatastore],
-                  s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+    def _evaluate(self, initial_pnads: List[PNAD], s: Tuple[PNAD,
+                                                            ...]) -> float:
         preserves_harmlessness = self._check_harmlessness(list(s))
         if preserves_harmlessness:
             # If harmlessness is preserved, the score is the number of
