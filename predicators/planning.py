@@ -729,11 +729,11 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                 new_sas_file_lines.append(f"{num_operators}\n")
                 break
             if "end_state" in line:
-                assert num_operators is not None
                 new_sas_file_lines.append("1\n")
                 new_sas_file_lines.append(line)
             else:
                 new_sas_file_lines.append(line)
+        assert num_operators is not None
 
         # We use the Fast Downward documentation to parse the sas_file
         # For more info: https://www.fast-downward.org/TranslatorOutputFormat
