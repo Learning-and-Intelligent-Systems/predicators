@@ -159,7 +159,7 @@ class PG3Approach(NSRTLearningApproach):
         ]
         preds = self._get_current_predicates()
         nsrts = self._get_current_nsrts()
-        return [cls(preds, nsrts) for cls in search_operator_classes]
+        return [_BottomUpPG3SearchOperator(preds, nsrts, self._create_heuristic())] + [cls(preds, nsrts) for cls in search_operator_classes]
 
     def _create_heuristic(self) -> _PG3Heuristic:
         preds = self._get_current_predicates()
@@ -287,6 +287,246 @@ class _AddConditionPG3SearchOperator(_PG3SearchOperator):
                 conditions.append(condition)
         return conditions
 
+
+class _BottomUpPG3SearchOperator(_PG3SearchOperator):
+    """An operator that adds new rules created from a bottom up method an existing LDL policy."""
+
+    def __init__(self, predicates: Set[Predicate], nsrts: Set[NSRT], pg3_heuristic: _PlanComparisonPG3Heuristic) -> None:
+        super().__init__(predicates, nsrts)
+        self.heuristic = pg3_heuristic
+
+    def get_successors(
+            self, ldl: LiftedDecisionList) -> Iterator[LiftedDecisionList]:    
+        kept_prob_idx = None
+        shortest_plan_len = float("inf")
+        kept_flattened_plan = None
+        kept_problem_goals = None
+        kept_actions = None
+
+        for task_idx in range(len(self.heuristic._abstract_train_tasks)):
+            plan, actions = self.heuristic._get_plan_and_actions(ldl, task_idx)
+            objects, _, goal = self.heuristic._abstract_train_tasks[task_idx]
+
+            for t in range(len(plan)-1):
+                state = plan[t]
+                ground_nsrt = utils.query_ldl(ldl, state, objects, goal)
+                #Found failed plan - policy has no action or action doesn't match with plan
+                if ground_nsrt is None or utils.apply_operator(ground_nsrt, state) != plan[t+1]:
+                    if len(plan) < shortest_plan_len:
+                        kept_prob_idx = task_idx
+                        kept_flattened_plan = plan
+                        kept_problem_goals = goal
+                        kept_actions = actions
+                        shortest_plan_len = len(plan)
+        
+        #Perfect policy TODO: CHECK THAT THIS ONLY RETURNS ONE POLICY WITH THE YIELD LATER
+        if kept_prob_idx is None:
+            yield ldl
+
+        action_profiles = self._get_action_profiles(kept_prob_idx, kept_flattened_plan, kept_actions, ldl)
+        goal_indices = self._get_established_goal_indices(kept_problem_goals, action_profiles)
+
+        triangle_table = TriangleTable(kept_flattened_plan[0], kept_problem_goals, action_profiles)
+
+        #Find relevant indices of actions for each established goal ("directly-contributes" - recursive definition)
+        failed_action_index = self._find_last_failed_action_index(action_profiles)
+        closest_est_goal_index = shortestBFS(failed_action_index, triangle_table.reversed_adjacency_list, goal_indices.values())
+        
+        if closest_est_goal_index == None:
+            yield ldl
+
+        if failed_action_index == closest_est_goal_index:
+            relevant_action_indices = []
+        else:
+            relevant_action_indices = [i for i in range(len(triangle_table.adjacency_list)) if distanceBFS(closest_est_goal_index, failed_action_index, triangle_table.adjacency_list)[i] is not None and i != failed_action_index]
+        failed_action_profile = action_profiles[failed_action_index]
+        est_goal = set(action_profiles[closest_est_goal_index].pos_effects) & kept_problem_goals
+        relevant_action_profiles = [action_profiles[i] for i in relevant_action_indices]
+
+        """
+        print("ITERATION")
+        print("states")
+        for s in kept_flattened_plan:
+            print(s)
+
+        print("Failed action index", failed_action_index, "\n")
+        print("Relevant action indices", relevant_action_indices, "\n")
+        print("-----------")
+
+        """
+       
+        #ldl = ldl.copy()
+        ldl = self._induce_policy_update(ldl, failed_action_profile, relevant_action_profiles, est_goal)
+
+
+        yield ldl
+
+    def _induce_policy_update(self, policy, failed_action_profile, relevant_action_profiles, est_goal):
+        """est_goal = set of goal literals satisfied in the established goal"""
+        rule_goal_conds = est_goal
+
+        rule_pos_preconds = set(failed_action_profile.pos_preconds) 
+        rule_neg_preconds = set(failed_action_profile.neg_preconds) #Always include failed action preconds
+        for goal_cond in est_goal:
+            #not_goal_cond = goal_cond.predicate.get_negation()(goal_cond.objects) #TODO CHECK THIS
+            rule_neg_preconds.add(goal_cond)
+
+        ordered_action_profiles = [relevant_action_profile for relevant_action_profile in relevant_action_profiles]
+        all_valid_preconds = set()
+        #Forming the "context": a smaller state to work with
+        for action_profile in ordered_action_profiles:
+            all_valid_preconds = all_valid_preconds | (failed_action_profile.state[0] & set(action_profile.pos_preconds))
+        #Initialize important variables to be those in failed action and in goal condition
+        important_variables = {var for goal_cond in est_goal for var in goal_cond.objects} | {var for var in failed_action_profile.variables} #Those in the goal literal and failed action
+
+        #Initialize rule preconds to be those in valid preconds/context and all variables are important
+        rule_pos_preconds = rule_pos_preconds | {precond for precond in all_valid_preconds if {var for var in precond.objects}.issubset(important_variables)}
+
+        #Finding unique rule name
+        existing_rule_names = {rule.name for rule in policy.rules}
+        rule_name_suffix = 0
+        rule_name = None
+        while "TT-rule-" + str(rule_name_suffix) in existing_rule_names:
+            rule_name_suffix += 1
+        rule_name = "TT-rule-"+str(rule_name_suffix) 
+
+        #TODO: WHERE WE LEFT OFF:
+        # We're in the process finishing this function off. Currently, we're about to create a new rule using the 
+        # first round of preconds/variables. However, there's two challenges here:
+        #   1. preconds need to be split up in positive and negative (annoying)
+        #   2. you need to get all the variables/parameters from these preconds because they may be more than important variables
+        # Other notes: can't copy policy lol
+        # Also when get action from a rule, probably use the query (but we need to assume objects are the same and we need to pass it in)
+        #Continue adding actions from ordered action profiles until we the right action
+
+
+        #Lifting rule
+        rule_objects = sorted({var for precond in rule_pos_preconds for var in precond.objects} | {var for precond in rule_pos_preconds for var in precond.objects})
+        rule_object_to_var = {obj: obj.type("?" + obj.name) for obj in rule_objects}
+        rule_variables = [obj.type("?" + obj.name) for obj in rule_objects]
+        rule_pos_preconds = {precond.lift(rule_object_to_var) for precond in rule_pos_preconds}
+        rule_neg_preconds = {precond.lift(rule_object_to_var) for precond in rule_neg_preconds}
+        rule_goal_conds = {precond.lift(rule_object_to_var) for precond in rule_goal_conds}
+        rule_nsrt = self._lift_ground_nsrt(failed_action_profile.plan_action)
+
+        print(rule_name)
+        print(rule_variables)
+        print(rule_pos_preconds)
+        print(rule_neg_preconds)
+        print(rule_goal_conds)
+        print(rule_nsrt)
+
+        rule = LDLRule(rule_name, rule_variables, rule_pos_preconds, rule_neg_preconds, rule_goal_conds, rule_nsrt)
+        most_overfit_rule = rule
+
+        if rule.get_action(failed_action_profile.state) == failed_action_profile.action:
+            new_policy = policy.copy()
+            new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, rule)
+            return new_policy
+
+        for i in range(len(ordered_action_profiles)):
+            action_profile_variables = set(ordered_action_profiles[i].variables)
+            if len(action_profile_variables - important_variables) == 0: #If no new variables, skip
+                continue
+            
+            important_variables = important_variables | action_profile_variables
+            rule_preconds = rule_preconds | {precond for precond in all_valid_preconds if {var for var in precond.variables}.issubset(important_variables)}
+            rule = Rule(policy.env, rule_name, rule_preconds, rule_goal_conds, failed_action_profile.action)
+            if i == len(ordered_action_profiles)-1:
+                most_overfit_rule = rule
+            try:
+                if rule.get_action(failed_action_profile.state) == failed_action_profile.action:
+                    new_policy = policy.copy()
+                    new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, rule)
+                    return new_policy
+            except:
+                pass
+        
+        #If not found, return the most overfit
+        new_policy = policy.copy()
+        new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, most_overfit_rule)
+        return new_policy 
+    
+    def _lift_ground_nsrt(self, ground_nsrt: _GroundNSRT) -> NSRT:
+        objs = ground_nsrt.objects
+        objs_to_vars = {obj: obj.type("?" + obj.name) for obj in ground_nsrt.objects}
+
+        name = ground_nsrt.name
+        parameters = sorted({obj.type("?" + obj.name) for obj in ground_nsrt.objects})
+        preconditions = {precond.lift(objs_to_vars) for precond in ground_nsrt.preconditions}
+        add_effects = {effect.lift(objs_to_vars) for effect in ground_nsrt.add_effects}
+        delete_effects = {effect.lift(objs_to_vars) for effect in ground_nsrt.delete_effects}
+        ignore_effects = set()
+        option = ground_nsrt.option
+        option_vars = [obj.type("?" + obj.name) for obj in ground_nsrt.option_objs]
+        _sampler = ground_nsrt._sampler
+
+        return NSRT(name, parameters, preconditions, add_effects, delete_effects, ignore_effects, option, option_vars, _sampler)
+
+
+
+    def _find_last_failed_action_index(self, action_profiles):
+        for i in range(len(action_profiles)-1, -1, -1):
+            if action_profiles[i].is_failed:
+                return i
+
+    def _get_established_goal_indices(self, problem_goals, action_profiles):
+        goal_indices = {}
+        for i in range(len(action_profiles)-1, -1, -1):
+            action_profile = action_profiles[i]
+            current_state = action_profile.state
+            unsatisfied_goal_conditions = problem_goals - current_state
+            for unsatisfied_goal_condition in unsatisfied_goal_conditions:
+                if unsatisfied_goal_condition not in goal_indices.keys():
+                    goal_indices[unsatisfied_goal_condition] = i
+        return goal_indices
+    
+    def _get_action_profiles(self, task_idx, plan_states, plan_actions, policy):
+        action_profiles = []
+
+        objects, _, goal = self.heuristic._abstract_train_tasks[task_idx]
+
+        for i in range(len(plan_actions)):
+            state = plan_states[i]
+            policy_action = utils.query_ldl(policy, state, objects, goal)
+            plan_action = plan_actions[i]
+            plan_action_pos_preconds, plan_action_neg_preconds = self._get_ground_action_to_preconds(plan_action)
+            plan_action_pos_effects = plan_action.add_effects
+            plan_action_neg_effects = plan_action.delete_effects
+            action_profile = TTActionProfile(plan_action, policy_action, state, plan_action_pos_preconds, plan_action_neg_preconds, plan_action_pos_effects, plan_action_neg_effects)
+            action_profiles.append(action_profile)
+        return action_profiles
+
+    def _get_ground_action_to_preconds(self, action):
+        """Returns pair of pos_preconds and neg_preconds for a ground action
+        """
+        pos_preconds = []
+        neg_preconds = []
+        for precond in action.preconditions:
+            if str(precond.predicate).startswith("NOT-"):
+                neg_preconds.append(precond)
+            else:
+                pos_preconds.append(precond)
+        return pos_preconds, neg_preconds
+
+
+class TTActionProfile():
+    def __init__(self, plan_action, policy_action, state, pos_preconds, neg_preconds, pos_effects, neg_effects):
+        self.plan_action = plan_action
+        self.policy_action = policy_action
+        if policy_action is None or plan_action != policy_action:
+            self.is_failed = True
+        else:
+            self.is_failed = False
+        self.state = state
+        self.pos_preconds = pos_preconds
+        self.neg_preconds = neg_preconds
+        self.pos_effects = pos_effects
+        self.neg_effects = neg_effects
+        self.variables = self.plan_action.objects
+
+    def __str__(self):
+        return "\tAction:"+ str(self.plan_action) + "\nPos preconds"+ str(sorted(self.pos_preconds)) + "\nNeg preconds"+ str(sorted(self.neg_preconds)) + "\nPos Effects"+ str(sorted(self.pos_effects)) + "\nNeg Effects"+ str(sorted(self.neg_effects))
 
 ################################ Heuristics ###################################
 
@@ -509,3 +749,189 @@ class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
             raise PlanningFailure("Could not find plan for train task.")
 
         return [set(atoms) for atoms in planned_frozen_atoms_seq]
+
+    def _get_plan_and_actions(self, ldl: LiftedDecisionList,
+                                task_idx: int) -> Sequence[Set[GroundAtom]]:
+
+        objects, init, goal = self._abstract_train_tasks[task_idx]
+        ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
+
+        # Set up a policy-guided A* search.
+        _S: TypeAlias = FrozenSet[GroundAtom]
+        _A: TypeAlias = _GroundNSRT
+
+        def check_goal(atoms: _S) -> bool:
+            return goal.issubset(atoms)
+
+        def get_valid_actions(atoms: _S) -> Iterator[Tuple[_A, float]]:
+            for op in utils.get_applicable_operators(ground_nsrts, atoms):
+                yield (op, 1.0)
+
+        def get_next_state(atoms: _S, ground_nsrt: _A) -> _S:
+            return frozenset(utils.apply_operator(ground_nsrt, set(atoms)))
+
+        heuristic = utils.create_task_planning_heuristic(
+            heuristic_name=CFG.pg3_task_planning_heuristic,
+            init_atoms=init,
+            goal=goal,
+            ground_ops=ground_nsrts,
+            predicates=self._predicates,
+            objects=objects,
+        )
+
+        def policy(atoms: _S) -> Optional[_A]:
+            return utils.query_ldl(ldl, set(atoms), objects, goal)
+
+        planned_frozen_atoms_seq, action_seq = utils.run_policy_guided_astar(
+            initial_state=frozenset(init),
+            check_goal=check_goal,
+            get_valid_actions=get_valid_actions,
+            get_next_state=get_next_state,
+            heuristic=heuristic,
+            policy=policy,
+            num_rollout_steps=CFG.pg3_max_policy_guided_rollout,
+            rollout_step_cost=0)
+
+        if not check_goal(planned_frozen_atoms_seq[-1]):
+            raise PlanningFailure("Could not find plan for train task.")
+
+        return [set(atoms) for atoms in planned_frozen_atoms_seq], action_seq
+
+class TriangleTable():
+    def __init__(self, init_state, problem_goals, profiled_plan):
+        self.init_state = init_state
+        self.problem_goals = problem_goals
+        self.profiled_plan = profiled_plan
+
+        self.n = len(profiled_plan)
+        self.triangle_table = [[" " for _ in range(self.n + 1)] for _ in range(self.n + 1)]
+        self.marked_init = [] #Marked clauses for operations (marked_init[i] = marked clauses for operation i)
+        self.adjacency_list = [[] for _ in range(self.n)] #Note: this is a DAG directed backwards (e.g. for goal regression)
+        self.reversed_adjacency_list = [[] for _ in range(self.n)] #Note: this is a DAG directed forwards (e.g. for goal finding)
+
+        self.fill_column_zero()
+        self.fill_delta_and_action()
+
+    def fill_column_zero(self):
+        current_state = self.init_state
+        init_leftover = [None for _ in range(self.n+1)] #init_leftover[i] = leftovers after operation i-1 (so first entry is just the initial state)
+        init_leftover[0] = current_state
+        for i in range(len(self.profiled_plan)):
+            current_marked_clauses = current_state & set(self.profiled_plan[i].pos_preconds) #Note, this won't take care of negative effects
+            self.marked_init.append(current_marked_clauses)
+            self.triangle_table[i][0] = InitSquare(current_state - current_marked_clauses, current_marked_clauses)
+            #Only want to deletions, we don't care about additions
+            for effect in self.profiled_plan[i].neg_effects:
+                if effect in current_state:
+                    current_state.remove(effect)
+            init_leftover[i+1] = current_state
+
+    def fill_delta_and_action(self):
+        for i in range(len(self.profiled_plan)):
+            action = self.profiled_plan[i].plan_action
+            self.triangle_table[i][i+1] = ActionSquare(action) #Action Square
+            curr_action_effects = set(self.profiled_plan[i].pos_effects)
+
+            # (Automaticaly?) Filter out anti action effects
+            """
+            anti_action_effects = set()
+            for effect in curr_action_effects:
+                if effect.is_anti:
+                    anti_action_effects.add(effect)
+            curr_action_effects = curr_action_effects - anti_action_effects
+
+            """
+           
+            for j in range(i+1, len(self.profiled_plan)):
+                new_action_pos_preconds = set(self.profiled_plan[j].pos_preconds)
+                marked_clauses = new_action_pos_preconds & curr_action_effects
+                if len(marked_clauses) > 0:
+                    self.adjacency_list[j].append((i, marked_clauses))
+                    self.reversed_adjacency_list[i].append((j, marked_clauses))
+                self.triangle_table[j][i+1] = DeltaSquare(curr_action_effects - marked_clauses, marked_clauses)
+                for effect in self.profiled_plan[j].neg_effects:
+                    if effect in curr_action_effects:
+                        curr_action_effects.remove(effect) #Note, this won't take care of negative effects of the original action
+            marked_clauses = self.problem_goals & curr_action_effects #Different from paper!
+            self.triangle_table[self.n][i+1] = DeltaSquare(curr_action_effects - marked_clauses, marked_clauses)
+
+    """
+     def display(self):
+        cell_text = [[str(obj) for obj in self.triangle_table[i]] for i in range(len(self.triangle_table))]
+        table = plt.table(cellText = cell_text, loc = "center", cellLoc = "center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(5)
+        table.scale(1, 2)
+        plt.axis('off')
+        plt.show()
+
+    """
+   
+class TriangleTableSquare():
+    def __init__(self):
+        self.prob_idx = None
+        self.prob_goals = None
+
+class DeltaSquare(TriangleTableSquare):
+    def __init__(self, unmarked_clauses, marked_clauses):
+        self.unmarked_clauses = unmarked_clauses 
+        self.marked_clauses = marked_clauses
+
+    def __str__(self):
+        entire_str = "Marked:\n"
+        for marked_clause in self.marked_clauses:
+            entire_str += str(marked_clause) + "\n"
+        
+        entire_str += "Unmarked\n"
+        for unmarked_clause in self.unmarked_clauses:
+            entire_str += str(unmarked_clause) + "\n"
+        return entire_str
+
+class InitSquare(TriangleTableSquare):
+    def __init__(self, unmarked_clauses, marked_clauses):
+        self.leftovers = unmarked_clauses 
+        self.marked_clauses = marked_clauses
+
+    def __str__(self):
+        entire_str = "Marked:\n"
+        for marked_clause in self.marked_clauses:
+            entire_str += str(marked_clause) + "\n"
+        return entire_str
+
+class ActionSquare(TriangleTableSquare):
+    def __init__(self, action):
+        self.action =  action
+
+    def __str__(self):
+        return str(self.action)
+
+def distanceBFS(start, block, adjacency_list):
+    """Returns list mapping index to shortest distance
+    Should be used from an established goal (start) to find directly-contributing actions
+    block = failing action (and should not search from that node)
+    """
+    distances = [None for _ in range(len(adjacency_list))]
+    queue = [(start, 0)]
+    while len(queue) != 0:
+        node, distance = queue.pop(0)
+        if distances[node] is not None: #If already visited
+            continue
+        distances[node] = distance
+        for neighbor, marked_clauses in adjacency_list[node]:
+            if neighbor > block:
+                queue.append((neighbor, distance+1))
+    return distances
+
+def shortestBFS(start, adjacency_list, goals):
+    distances = [None for _ in range(len(adjacency_list))]
+    queue = [(start, 0)]
+    while len(queue) != 0:
+        node, distance = queue.pop(0)
+        if distances[node] is not None: #If already visited
+            continue
+        if node in goals:
+            return node
+        distances[node] = distance
+        for neighbor, marked_clauses in adjacency_list[node]:
+            queue.append((neighbor, distance+1))
+    return None
