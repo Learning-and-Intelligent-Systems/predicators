@@ -98,7 +98,7 @@ class PlayroomSimpleEnv(BlocksEnv):
             self._MoveTableToDial_policy,  # uses robot, dial
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
-                             high=np.array([4.0, 4.0, 1.0])),  # TODO
+                             high=np.array([4.0, 4.0, 1.0])),
             initiable=self._NextToTable_initiable)  # uses robot
         self._TurnOnDial = utils.SingletonParameterizedOption(
             # variables: [robot, dial]
@@ -137,7 +137,7 @@ class PlayroomSimpleEnv(BlocksEnv):
         was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
         if isinstance(self, PlayroomEnv):
             was_next_to_door = {
-                door: self._NextToDoor_holds(state, (self._robot, door))
+                door: PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
                 for door in self._doors
             }
             prev_region = self._get_region_in(state,
@@ -163,11 +163,11 @@ class PlayroomSimpleEnv(BlocksEnv):
         if isinstance(self, PlayroomEnv):
             # Interact with some door
             if any(
-                    self._NextToDoor_holds(state, (self._robot, door))
+                    PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
                     for door in self._doors):
                 door = self._get_door_next_to(state)
                 current_region = self._get_region_in(state, x)
-                # Robot was already next to this door and did not move through it
+                # Robot was already next to this door and did not go through it
                 if was_next_to_door[door] and prev_region == current_region:
                     door_x = state.get(door, "pose_x")
                     door_y = state.get(door, "pose_y")
@@ -222,9 +222,7 @@ class PlayroomSimpleEnv(BlocksEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {
-            self._block_type, self._robot_type, self._dial_type
-        }
+        return {self._block_type, self._robot_type, self._dial_type}
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -292,21 +290,21 @@ class PlayroomSimpleEnv(BlocksEnv):
                 y = state.get(door, "pose_y")
                 if state.get(door, "open") < self.door_open_thresh:
                     door = patches.Rectangle((x - 1.0, y - 5.0),
-                                            1,
-                                            10,
-                                            zorder=1,
-                                            linewidth=1,
-                                            edgecolor='black',
-                                            facecolor='brown')
+                                             1,
+                                             10,
+                                             zorder=1,
+                                             linewidth=1,
+                                             edgecolor='black',
+                                             facecolor='brown')
                     ax.add_patch(door)
                 else:
                     door = patches.Rectangle((x - 1.0, y - 5.0),
-                                            1,
-                                            1,
-                                            zorder=1,
-                                            linewidth=1,
-                                            edgecolor='black',
-                                            facecolor='brown')
+                                             1,
+                                             1,
+                                             zorder=1,
+                                             linewidth=1,
+                                             edgecolor='black',
+                                             facecolor='brown')
                     ax.add_patch(door)
 
         # Draw dial
@@ -622,7 +620,6 @@ class PlayroomSimpleEnv(BlocksEnv):
     def _MoveTableToDial_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
                                 params: Array) -> Action:
-        """Not in PlayroomEnv."""
         del memory  # unused
         # params: [dx, dy, rotation]
         robot, dial = objects
@@ -1009,7 +1006,8 @@ class PlayroomEnv(PlayroomSimpleEnv):
         raise RuntimeError(f"x-coord {x} not part of any region")
 
     def _robot_can_move(self, state: State, action: Action) -> bool:
-        """Includes extra checks for allowable movement between regions and through doors."""
+        """Includes extra checks for allowable movement between regions and
+        through doors."""
         prev_x = state.get(self._robot, "pose_x")
         x, y, _, _, _ = action.arr
         prev_region = self._get_region_in(state, prev_x)

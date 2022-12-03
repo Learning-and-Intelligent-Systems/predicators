@@ -1379,7 +1379,7 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env and variants."""
     block_type, robot_type, dial_type = \
         _get_types_by_names(env_name, ["block", "robot", "dial"])
-    
+
     On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDial, \
         LightOn, LightOff = \
             _get_predicates_by_names(
@@ -1389,11 +1389,13 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
     Pick, Stack, PutOnTable, TurnOnDial, TurnOffDial = \
         _get_options_by_names(env_name,
         ["Pick", "Stack", "PutOnTable", "TurnOnDial", "TurnOffDial"])
-        
+
     if env_name == "playroom_simple":
-        MoveTableToDial, = _get_options_by_names("playroom_simple", ["MoveTableToDial"])
+        MoveTableToDial, = _get_options_by_names("playroom_simple",
+                                                 ["MoveTableToDial"])
     else:  # playroom or playroom_hard
-        door_type, region_type = _get_types_by_names(env_name, ["door", "region"])
+        door_type, region_type = _get_types_by_names(env_name,
+                                                     ["door", "region"])
 
         NextToDoor, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, \
             IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed = \
@@ -1618,9 +1620,7 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         parameters = [robot, dial]
         option_vars = [robot, dial]
         option = MoveTableToDial
-        preconditions = {
-            LiftedAtom(NextToTable, [robot])
-        }
+        preconditions = {LiftedAtom(NextToTable, [robot])}
         add_effects = {LiftedAtom(NextToDial, [robot, dial])}
         delete_effects = {LiftedAtom(NextToTable, [robot])}
 
@@ -1630,9 +1630,10 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
             del state, goal, rng, objs  # unused
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
-        movetabletodial_nsrt = NSRT("MoveTableToDial", parameters, preconditions,
-                                    add_effects, delete_effects, set(), option,
-                                    option_vars, movetabletodial_sampler)
+        movetabletodial_nsrt = NSRT("MoveTableToDial", parameters,
+                                    preconditions, add_effects, delete_effects,
+                                    set(), option, option_vars,
+                                    movetabletodial_sampler)
         nsrts.add(movetabletodial_nsrt)
     else:  # playroom or playroom_hard
         # AdvanceThroughDoor
@@ -1653,8 +1654,8 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects = {LiftedAtom(InRegion, [robot, from_region])}
 
         def advancethroughdoor_sampler(state: State, goal: Set[GroundAtom],
-                                    rng: np.random.Generator,
-                                    objs: Sequence[Object]) -> Array:
+                                       rng: np.random.Generator,
+                                       objs: Sequence[Object]) -> Array:
             del goal, rng  # unused
             assert len(objs) == 4
             robot, door, _, _ = objs
@@ -1665,9 +1666,9 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
             return np.array([-0.2, 0.0, -1.0], dtype=np.float32)
 
         advancethroughdoor_nsrt = NSRT("AdvanceThroughDoor", parameters,
-                                    preconditions, add_effects, delete_effects,
-                                    set(), option, option_vars,
-                                    advancethroughdoor_sampler)
+                                       preconditions, add_effects,
+                                       delete_effects, set(), option,
+                                       option_vars, advancethroughdoor_sampler)
         nsrts.add(advancethroughdoor_nsrt)
 
         # MoveTableToDoor
@@ -1743,8 +1744,8 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects = {LiftedAtom(NextToDoor, [robot, fromdoor])}
 
         def movedoortodoor_sampler(state: State, goal: Set[GroundAtom],
-                                rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                   rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
             del goal, rng  # unused
             assert len(objs) == 4
             _, fromdoor, todoor, _ = objs
@@ -1754,9 +1755,10 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
                 return np.array([-0.1, 0.0, 0.0], dtype=np.float32)
             return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
-        movedoortodoor_nsrt = NSRT("MoveDoorToDoor", parameters, preconditions,
-                                add_effects, delete_effects, set(), option,
-                                option_vars, movedoortodoor_sampler)
+        movedoortodoor_nsrt = NSRT("MoveDoorToDoor", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars,
+                                   movedoortodoor_sampler)
         nsrts.add(movedoortodoor_nsrt)
 
         # MoveDoorToDial
@@ -1777,14 +1779,15 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
 
         def movedoortodial_sampler(state: State, goal: Set[GroundAtom],
-                                rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                   rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
             del state, goal, rng, objs  # unused
             return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
-        movedoortodial_nsrt = NSRT("MoveDoorToDial", parameters, preconditions,
-                                add_effects, delete_effects, set(), option,
-                                option_vars, movedoortodial_sampler)
+        movedoortodial_nsrt = NSRT("MoveDoorToDial", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars,
+                                   movedoortodial_sampler)
         nsrts.add(movedoortodial_nsrt)
 
         # MoveDialToDoor
@@ -1805,14 +1808,15 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects = {LiftedAtom(NextToDial, [robot, dial])}
 
         def movedialtodoor_sampler(state: State, goal: Set[GroundAtom],
-                                rng: np.random.Generator,
-                                objs: Sequence[Object]) -> Array:
+                                   rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
             del state, goal, rng, objs  # unused
             return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
-        movedialtodoor_nsrt = NSRT("MoveDialToDoor", parameters, preconditions,
-                                add_effects, delete_effects, set(), option,
-                                option_vars, movedialtodoor_sampler)
+        movedialtodoor_nsrt = NSRT("MoveDialToDoor", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars,
+                                   movedialtodoor_sampler)
         nsrts.add(movedialtodoor_nsrt)
 
         # OpenDoor
@@ -1830,8 +1834,8 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         delete_effects = {LiftedAtom(DoorClosed, [door])}
 
         def toggledoor_sampler(state: State, goal: Set[GroundAtom],
-                            rng: np.random.Generator,
-                            objs: Sequence[Object]) -> Array:
+                               rng: np.random.Generator,
+                               objs: Sequence[Object]) -> Array:
             del goal, rng  # unused
             assert len(objs) == 2
             robot, door = objs
@@ -1842,9 +1846,9 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
             dx = -0.2 if x < door_x else 0.2
             return np.array([dx, 0, 0, rotation], dtype=np.float32)
 
-        opendoor_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
-                            delete_effects, set(), option, option_vars,
-                            toggledoor_sampler)
+        opendoor_nsrt = NSRT("OpenDoor", parameters, preconditions,
+                             add_effects, delete_effects, set(), option,
+                             option_vars, toggledoor_sampler)
         nsrts.add(opendoor_nsrt)
 
         # CloseDoor
@@ -1860,9 +1864,9 @@ def _get_playroom_gt_nsrts(env_name: str) -> Set[NSRT]:
         }
         add_effects = {LiftedAtom(DoorClosed, [door])}
         delete_effects = {LiftedAtom(DoorOpen, [door])}
-        closedoor_nsrt = NSRT("CloseDoor", parameters, preconditions, add_effects,
-                            delete_effects, set(), option, option_vars,
-                            toggledoor_sampler)
+        closedoor_nsrt = NSRT("CloseDoor", parameters, preconditions,
+                              add_effects, delete_effects, set(), option,
+                              option_vars, toggledoor_sampler)
         nsrts.add(closedoor_nsrt)
 
     return nsrts
