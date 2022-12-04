@@ -24,8 +24,42 @@ from lisdf.planner_output.plan import LISDFPlan
 from numpy.typing import NDArray
 
 from predicators import utils
-from predicators.pybullet_helpers.robots import \
+from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
+
+
+def joints_to_arm_gripper_vals(
+        robot: SingleArmPyBulletRobot, joints: NDArray[np.float32],
+        gripper_idxs: List[int]
+) -> Tuple[NDArray[np.float32], GripperPosition]:
+    """Convert joints into a tuple of arm joints and gripper position."""
+    # Determine if gripper is currently closed or open.
+    # Use arbitrary gripper idx.
+    gripper_val = joints[gripper_idxs[0]]
+    dist_to_open = abs(gripper_val - robot.open_fingers)
+    dist_to_closed = abs(gripper_val - robot.closed_fingers)
+    if dist_to_closed < dist_to_open:
+        gripper_state = GripperPosition.close
+    else:
+        gripper_state = GripperPosition.open
+    # Extract the arm joint state.
+    arm_state = np.delete(joints, gripper_idxs)
+    return arm_state, gripper_state
+
+
+def create_path_command(arm_states: List[NDArray[np.float32]],
+                        arm_joint_names: List[str], label: str,
+                        time_per_conf: float) -> JointSpacePath:
+    """Create a JointSpacePath from a sequence of arm states."""
+    duration = time_per_conf * len(arm_states)
+    arm_states_np = np.array(arm_states)
+    path_command = JointSpacePath.from_waypoints_np_array(
+        arm_states_np,
+        arm_joint_names,
+        duration=duration,
+        label=label,
+    )
+    return path_command
 
 
 def _main() -> None:
@@ -62,24 +96,9 @@ def _main() -> None:
     # and the arm joint state is the original joints with grippers removed.
     gripper_idxs = [robot.left_finger_joint_idx, robot.right_finger_joint_idx]
     arm_joint_names = list(np.delete(joint_names, gripper_idxs))
-
-    def _joints_to_arm_gripper_vals(
-        joints: NDArray[np.float32]
-    ) -> Tuple[NDArray[np.float32], GripperPosition]:
-        # Determine if gripper is currently closed or open.
-        # Use arbitrary gripper idx.
-        gripper_val = joints[gripper_idxs[0]]
-        dist_to_open = abs(gripper_val - robot.open_fingers)
-        dist_to_closed = abs(gripper_val - robot.closed_fingers)
-        if dist_to_closed < dist_to_open:
-            gripper_state = GripperPosition.close
-        else:
-            gripper_state = GripperPosition.open
-        # Extract the arm joint state.
-        arm_state = np.delete(joints, gripper_idxs)
-        return (arm_state, gripper_state)
-
-    arm_gripper_states = list(map(_joints_to_arm_gripper_vals, joint_arr))
+    arm_gripper_states = [
+        joints_to_arm_gripper_vals(robot, j, gripper_idxs) for j in joint_arr
+    ]
 
     # List of LISDF commands, alternating JointSpacePath and ActuateGripper.
     commands: List[Command] = []
@@ -93,17 +112,10 @@ def _main() -> None:
 
     # Helper function for converting an accum_arm_states to a JointSpacePath.
     def _create_path_command(
-            arm_states: List[NDArray[np.float32]]) -> JointSpacePath:
-        duration = args.time_per_conf * len(arm_states)
-        arm_states_np = np.array(arm_states)
-        label = f"path_command{next(path_command_count)}"
-        path_command = JointSpacePath.from_waypoints_np_array(
-            arm_states_np,
-            arm_joint_names,
-            duration=duration,
-            label=label,
-        )
-        return path_command
+            current_arm_states: List[NDArray[np.float32]]) -> JointSpacePath:
+        return create_path_command(current_arm_states, arm_joint_names,
+                                   f"path_command{next(path_command_count)}",
+                                   args.time_per_conf)
 
     # Track changes in the gripper state.
     _, prev_gripper_state = arm_gripper_states[0]
