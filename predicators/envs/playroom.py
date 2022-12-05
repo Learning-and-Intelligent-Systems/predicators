@@ -452,23 +452,6 @@ class PlayroomSimpleEnv(BlocksEnv):
         data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
-        if isinstance(self, PlayroomEnv):
-            # Create states for doors and regions
-            # [pose_x, pose_y, open], all doors start off open except door1
-            data[self._door1] = np.array([1, 30.0, 15.0, 0.0])
-            data[self._door2] = np.array([2, 50.0, 15.0, 1.0])
-            data[self._door3] = np.array([3, 60.0, 15.0, 1.0])
-            data[self._door4] = np.array([4, 80.0, 15.0, 1.0])
-            data[self._door5] = np.array([5, 100.0, 15.0, 1.0])
-            data[self._door6] = np.array([6, 110.0, 15.0, 1.0])
-            # [id, x_lb, y_lb, x_ub, y_ub], regions left to right
-            data[self._region1] = np.array([1, 0.0, 0.0, 30.0, 30.0])
-            data[self._region2] = np.array([2, 30.0, 10.0, 50.0, 20.0])
-            data[self._region3] = np.array([3, 50.0, 10.0, 60.0, 20.0])
-            data[self._region4] = np.array([4, 60.0, 10.0, 80.0, 20.0])
-            data[self._region5] = np.array([5, 80.0, 10.0, 100.0, 20.0])
-            data[self._region6] = np.array([6, 100.0, 10.0, 110.0, 20.0])
-            data[self._region7] = np.array([7, 110.0, 0.0, 140.0, 30.0])
         return State(data)
 
     def _sample_goal(self, num_blocks: int, piles: List[List[Object]],
