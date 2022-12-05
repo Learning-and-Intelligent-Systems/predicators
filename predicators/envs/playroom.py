@@ -135,13 +135,6 @@ class PlayroomSimpleEnv(BlocksEnv):
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
         was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
-        if isinstance(self, PlayroomEnv):
-            was_next_to_door = {
-                door: PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
-                for door in self._doors
-            }
-            prev_region = self._get_region_in(state,
-                                              state.get(self._robot, "pose_x"))
         was_next_to_dial = self._NextToDial_holds(state,
                                                   (self._robot, self._dial))
         if not self._is_valid_loc(x, y) or not self._robot_can_move(
@@ -160,23 +153,6 @@ class PlayroomSimpleEnv(BlocksEnv):
             if z < self.table_height + self._block_size:
                 return self._transition_putontable(state, x, y, z)
             return self._transition_stack(state, x, y, z)
-        if isinstance(self, PlayroomEnv):
-            # Interact with some door
-            if any(
-                    PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
-                    for door in self._doors):
-                door = self._get_door_next_to(state)
-                current_region = self._get_region_in(state, x)
-                # Robot was already next to this door and did not go through it
-                if was_next_to_door[door] and prev_region == current_region:
-                    door_x = state.get(door, "pose_x")
-                    door_y = state.get(door, "pose_y")
-                    if (door_x-self.door_tol < x < door_x+self.door_tol) \
-                        and (door_y-self.door_tol < y < door_y+self.door_tol) \
-                        and (self.door_button_z-self.door_tol < z
-                                < self.door_button_z+self.door_tol) \
-                        and fingers >= self.open_fingers:
-                        return self._transition_door(state, door)
         # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
@@ -773,6 +749,66 @@ class PlayroomEnv(PlayroomSimpleEnv):
     @classmethod
     def get_name(cls) -> str:
         return "playroom"
+
+    def simulate(self, state: State, action: Action) -> State:
+        """Allows for interaction with doors."""
+        assert self.action_space.contains(action.arr)
+        x, y, z, _, fingers = action.arr
+        was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
+        was_next_to_door = {
+            door: PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
+            for door in self._doors
+        }
+        prev_region = self._get_region_in(state,
+                                          state.get(self._robot, "pose_x"))
+        was_next_to_dial = self._NextToDial_holds(state,
+                                                  (self._robot, self._dial))
+        if not self._is_valid_loc(x, y) or not self._robot_can_move(
+                state, action):
+            return state.copy()
+        # Update robot position
+        state = self._transition_move(state, action)
+        x = state.get(self._robot, "pose_x")
+        y = state.get(self._robot, "pose_y")
+        # Interact with blocks if robot was already next to table
+        if was_next_to_table \
+            and (self.table_x_lb < x < self.table_x_ub) \
+            and (self.table_y_lb < y < self.table_y_ub):
+            if fingers < 0.5:
+                return self._transition_pick(state, x, y, z)
+            if z < self.table_height + self._block_size:
+                return self._transition_putontable(state, x, y, z)
+            return self._transition_stack(state, x, y, z)
+        # Interact with some door
+        if any(
+                PlayroomEnv._NextToDoor_holds(state, (self._robot, door))
+                for door in self._doors):
+            door = self._get_door_next_to(state)
+            current_region = self._get_region_in(state, x)
+            # Robot was already next to this door and did not go through it
+            if was_next_to_door[door] and prev_region == current_region:
+                door_x = state.get(door, "pose_x")
+                door_y = state.get(door, "pose_y")
+                if (door_x-self.door_tol < x < door_x+self.door_tol) \
+                    and (door_y-self.door_tol < y < door_y+self.door_tol) \
+                    and (self.door_button_z-self.door_tol < z
+                            < self.door_button_z+self.door_tol) \
+                    and fingers >= self.open_fingers:
+                    return self._transition_door(state, door)
+        # Interact with dial if robot was already next to dial
+        dial_x = state.get(self._dial, "pose_x")
+        dial_y = state.get(self._dial, "pose_y")
+        if was_next_to_dial \
+            and (dial_x-self.dial_button_tol < x
+                    < dial_x+self.dial_button_tol) \
+            and (dial_y-self.dial_button_tol < y
+                    < dial_y+self.dial_button_tol) \
+            and (self.dial_button_z-self.dial_button_tol < z
+                    < self.dial_button_z+self.dial_button_tol) \
+            and fingers >= self.open_fingers:
+            return self._transition_dial(state)
+
+        return state.copy()
 
     def _transition_door(self, state: State, door: Object) -> State:
         # opens/closes a door that the robot is next to
