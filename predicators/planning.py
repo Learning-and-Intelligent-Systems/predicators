@@ -872,7 +872,8 @@ def _update_sas_file_with_failure(discovered_failure: _DiscoveredFailure,
                     new_sas_file_lines.append(sas_lines[sas_file_i + i + 3 +
                                                         j])
                 # Append effects
-                if obj.name.lower() in operator_str:
+                if obj.name.lower(
+                ) in operator_str and 'navigateto' not in operator_str:
                     new_sas_file_lines.append(f"{num_effects+1}\n")
                     new_sas_file_lines.append(
                         f"0 {num_variables} -1 0\n")  # additional effect

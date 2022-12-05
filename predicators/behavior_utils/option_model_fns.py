@@ -2,19 +2,27 @@
 model for that plan."""
 
 import logging
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import numpy as np
 import pybullet as p
 
-from predicators.structs import State
+from predicators import utils
+from predicators.behavior_utils.behavior_utils import ALL_RELEVANT_OBJECT_TYPES
+from predicators.structs import Object, State, Type
 
 try:
     from igibson import object_states
     from igibson.envs.behavior_env import \
         BehaviorEnv  # pylint: disable=unused-import
+    from igibson.object_states.adjacency import VerticalAdjacency
+    from igibson.object_states.on_floor import \
+        RoomFloor  # pylint: disable=unused-import
+    from igibson.object_states.touching import Touching
     from igibson.objects.articulated_object import \
         URDFObject  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import \
+        BRBody  # pylint: disable=unused-import
 except (ImportError, ModuleNotFoundError) as e:
     pass
 
@@ -144,6 +152,44 @@ def create_place_option_model(
         # to let the object fall into its place
         for _ in range(15):
             env.step(np.zeros(env.action_space.shape))
+        # Check whether object is ontop of not a target object
+        objs_under = set()
+        for obj in env.scene.get_objects():
+            if not obj_in_hand.states[Touching].get_value(obj):
+                continue
+            adjacency = obj.states[VerticalAdjacency].get_value()
+            if obj_in_hand.get_body_id() in adjacency.positive_neighbors:
+                if "floor" not in obj.category:
+                    if obj != obj_to_place:
+                        type_name = obj.category
+                        _type_name_to_type: Dict[str, Type] = {}
+                        for type_name in ALL_RELEVANT_OBJECT_TYPES:
+                            if type_name in _type_name_to_type:
+                                continue
+                            # In the future, we may need other object
+                            # attributes, but for the moment, we just
+                            # need position and orientation.
+                            obj_type = Type(
+                                type_name,
+                                [
+                                    "pos_x", "pos_y", "pos_z", "orn_0",
+                                    "orn_1", "orn_2", "orn_3"
+                                ],
+                            )
+                            _type_name_to_type[type_name] = obj_type
+                        if isinstance(obj, (URDFObject, RoomFloor)):
+                            if "board_game" in obj.name:
+                                obj_name = obj.name + ".n.01_1"
+                            else:
+                                obj_name = obj.bddl_object_scope
+                        else:
+                            assert isinstance(obj, BRBody)
+                            obj_name = "agent"
+                        obj_type = _type_name_to_type[type_name]
+                        objs_under.add(Object(obj_name, obj_type))
+        if len(objs_under) != 0:
+            raise utils.EnvironmentFailure("collision",
+                                           {"offending_objects": objs_under})
 
     return placeOntopObjectOptionModel
 

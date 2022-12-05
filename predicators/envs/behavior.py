@@ -508,7 +508,16 @@ class BehaviorEnv(BaseEnv):
                         "behavior_mode in settings.py instead")
 
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
-        return list(self.igibson_behavior_env.task.object_scope.values())
+        # Sometimes other objects (not in the envs object scope) will cause
+        # a Discovered Failure when interacting with a relevant object.
+        # Here we add board_games one of those addtional items that have to
+        # be added to the envs relevant objects.
+        additional_objs = [
+            obj for obj in self.igibson_behavior_env.scene.get_objects()
+            if "board_game" in obj.name
+        ]
+        return list(self.igibson_behavior_env.task.object_scope.values()
+                    ) + additional_objs
 
     def set_igibson_behavior_env(self, task_num: int, task_instance_id: int,
                                  seed: int) -> None:
@@ -534,8 +543,8 @@ class BehaviorEnv(BaseEnv):
             self.igibson_behavior_env.step(
                 np.zeros(self.igibson_behavior_env.action_space.shape))
             ig_objs_bddl_scope = [
-                self._ig_object_name(obj)
-                for obj in self._get_task_relevant_objects()
+                self._ig_object_name(obj) for obj in list(
+                    self.igibson_behavior_env.task.object_scope.values())
             ]
             if None not in ig_objs_bddl_scope or env_creation_attempts > 9:
                 break
@@ -756,6 +765,8 @@ class BehaviorEnv(BaseEnv):
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
         if isinstance(ig_obj, (URDFObject, RoomFloor)):
+            if "board_game" in ig_obj.name:
+                return ig_obj.name + ".n.01_1"
             return ig_obj.bddl_object_scope
         # Robot does not have a field "bddl_object_scope", so we define
         # its name manually.
