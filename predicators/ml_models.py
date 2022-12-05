@@ -203,7 +203,6 @@ class DistributionRegressor(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-
 class BinaryClassifier(abc.ABC):
     """ABC for binary classifier classes."""
 
@@ -889,6 +888,17 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
             tensor_X = F.relu(linear(tensor_X))
         tensor_X = self._linears[-1](tensor_X)
         return torch.sigmoid(tensor_X.squeeze(dim=-1))
+
+import sklearn.linear_model
+class LinearBinaryClassifier:
+    def __init__(self):
+        self.classifier = sklearn.linear_model.LogisticRegression()
+
+    def fit(self, X, y):
+        self.classifier.fit(X, y)
+
+    def classify(self, x):
+        return self.classifier.predict(x[np.newaxis, :])[0]
 
 class IncrementalMLPBinaryClassifier(MLPBinaryClassifier):
     """IncrementalMLPBinaryClassifier definition."""

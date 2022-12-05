@@ -13,6 +13,8 @@ from predicators.ml_models import BinaryClassifier, \
     DegenerateMLPDistributionRegressor, DistributionRegressor, \
     MLPBinaryClassifier, NeuralGaussianRegressor, \
     IncrementalMLPBinaryClassifier, IncrementalNeuralGaussianRegressor
+from predicators.ml_models2 import GMM, IncrementalGMM
+from predicators.ml_models import LinearBinaryClassifier
 from predicators.settings import CFG
 from predicators.structs import NSRT, Array, Datastore, EntToEntSub, \
     GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
@@ -143,32 +145,34 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     # Start from previous sampler models if they exist, or create new ones
     if existing_sampler is None:
         if CFG.learn_incrementally:
-            classifier = IncrementalMLPBinaryClassifier(
-                seed=CFG.seed,
-                balance_data=CFG.mlp_classifier_balance_data,
-                max_train_iters=CFG.sampler_mlp_classifier_max_itr,
-                learning_rate=CFG.learning_rate,
-                n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
-                hid_sizes=CFG.mlp_classifier_hid_sizes,
-                n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
-                weight_init="default")
-            if CFG.sampler_learning_regressor_model == "neural_gaussian":
-                regressor: DistributionRegressor = IncrementalNeuralGaussianRegressor(
-                    seed=CFG.seed,
-                    hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
-                    max_train_iters=CFG.neural_gaus_regressor_max_itr,
-                    clip_gradients=CFG.mlp_regressor_clip_gradients,
-                    clip_value=CFG.mlp_regressor_gradient_clip_value,
-                    learning_rate=CFG.learning_rate)
-            else:
-                assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
-                regressor = IncrementalDegenerateMLPDistributionRegressor(
-                    seed=CFG.seed,
-                    hid_sizes=CFG.mlp_regressor_hid_sizes,
-                    max_train_iters=CFG.mlp_regressor_max_itr,
-                    clip_gradients=CFG.mlp_regressor_clip_gradients,
-                    clip_value=CFG.mlp_regressor_gradient_clip_value,
-                    learning_rate=CFG.learning_rate)
+            # classifier = IncrementalMLPBinaryClassifier(
+            #     seed=CFG.seed,
+            #     balance_data=CFG.mlp_classifier_balance_data,
+            #     max_train_iters=CFG.sampler_mlp_classifier_max_itr,
+            #     learning_rate=CFG.learning_rate,
+            #     n_iter_no_change=CFG.mlp_classifier_n_iter_no_change,
+            #     hid_sizes=CFG.mlp_classifier_hid_sizes,
+            #     n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
+            #     weight_init="default")
+            classifier = LinearBinaryClassifier()
+            # if CFG.sampler_learning_regressor_model == "neural_gaussian":
+            #     regressor: DistributionRegressor = IncrementalNeuralGaussianRegressor(
+            #         seed=CFG.seed,
+            #         hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+            #         max_train_iters=CFG.neural_gaus_regressor_max_itr,
+            #         clip_gradients=CFG.mlp_regressor_clip_gradients,
+            #         clip_value=CFG.mlp_regressor_gradient_clip_value,
+            #         learning_rate=CFG.learning_rate)
+            # else:
+            #     assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+            #     regressor = IncrementalDegenerateMLPDistributionRegressor(
+            #         seed=CFG.seed,
+            #         hid_sizes=CFG.mlp_regressor_hid_sizes,
+            #         max_train_iters=CFG.mlp_regressor_max_itr,
+            #         clip_gradients=CFG.mlp_regressor_clip_gradients,
+            #         clip_value=CFG.mlp_regressor_gradient_clip_value,
+            #         learning_rate=CFG.learning_rate)
+            regressor = IncrementalGMM(n_components=1)
         else:
             classifier = MLPBinaryClassifier(
                 seed=CFG.seed,
@@ -179,30 +183,30 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                 hid_sizes=CFG.mlp_classifier_hid_sizes,
                 n_reinitialize_tries=CFG.sampler_mlp_classifier_n_reinitialize_tries,
                 weight_init="default")
-            if CFG.sampler_learning_regressor_model == "neural_gaussian":
-                regressor: DistributionRegressor = NeuralGaussianRegressor(
-                    seed=CFG.seed,
-                    hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
-                    max_train_iters=CFG.neural_gaus_regressor_max_itr,
-                    clip_gradients=CFG.mlp_regressor_clip_gradients,
-                    clip_value=CFG.mlp_regressor_gradient_clip_value,
-                    learning_rate=CFG.learning_rate)
-            else:
-                assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
-                regressor = DegenerateMLPDistributionRegressor(
-                    seed=CFG.seed,
-                    hid_sizes=CFG.mlp_regressor_hid_sizes,
-                    max_train_iters=CFG.mlp_regressor_max_itr,
-                    clip_gradients=CFG.mlp_regressor_clip_gradients,
-                    clip_value=CFG.mlp_regressor_gradient_clip_value,
-                    learning_rate=CFG.learning_rate)
+            # classifier = LinearBinaryClassifier()
+            # if CFG.sampler_learning_regressor_model == "neural_gaussian":
+            #     regressor: DistributionRegressor = NeuralGaussianRegressor(
+            #         seed=CFG.seed,
+            #         hid_sizes=CFG.neural_gaus_regressor_hid_sizes,
+            #         max_train_iters=CFG.neural_gaus_regressor_max_itr,
+            #         clip_gradients=CFG.mlp_regressor_clip_gradients,
+            #         clip_value=CFG.mlp_regressor_gradient_clip_value,
+            #         learning_rate=CFG.learning_rate)
+            # else:
+            #     assert CFG.sampler_learning_regressor_model == "degenerate_mlp"
+            #     regressor = DegenerateMLPDistributionRegressor(
+            #         seed=CFG.seed,
+            #         hid_sizes=CFG.mlp_regressor_hid_sizes,
+            #         max_train_iters=CFG.mlp_regressor_max_itr,
+            #         clip_gradients=CFG.mlp_regressor_clip_gradients,
+            #         clip_value=CFG.mlp_regressor_gradient_clip_value,
+            #         learning_rate=CFG.learning_rate)
+            regressor = GMM(n_components=1)
     else:
         if len(datastores[datastore_idx]) == 0:
             return existing_sampler
         classifier = existing_sampler.classifier
-        print(classifier._x_dim)
         regressor = existing_sampler.regressor
-
     # Fit classifier to data
     logging.info("Fitting classifier...")
     X_classifier: List[List[Array]] = []
@@ -255,6 +259,11 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     Y_arr_regressor = np.array(Y_regressor)
 
     regressor.fit(X_arr_regressor, Y_arr_regressor)
+    # print('max weight', max([np.abs(reg.coef_).max() for reg in regressor.regressor_]))
+    # print([reg.intercept_ for reg in regressor.regressor_])
+    # print(regressor.weights_)
+    # print(regressor.covars_)
+    # exit()
 
     # Construct and return sampler
     return _LearnedSampler(classifier, regressor, variables,
