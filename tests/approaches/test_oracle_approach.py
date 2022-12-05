@@ -465,7 +465,7 @@ def test_playroom_simple_get_gt_nsrts():
     env = PlayroomSimpleEnv()
     # Test MoveTableToDial for coverage.
     nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
-    mvoetabletodial = [nsrt for nsrt in nsrts \
+    movetabletodial = [nsrt for nsrt in nsrts \
                        if nsrt.name == "MoveTableToDial"][0]
     train_tasks = env.get_train_tasks()
     train_task = train_tasks[0]
@@ -474,7 +474,7 @@ def test_playroom_simple_get_gt_nsrts():
     robot, dial = objs[-1], objs[-2]
     assert robot.name == "robby"
     assert dial.name == "dial"
-    movetabletodial_nsrt = mvoetabletodial.ground([robot, dial])
+    movetabletodial_nsrt = movetabletodial.ground([robot, dial])
     rng = np.random.default_rng(123)
     movetodial_option = movetabletodial_nsrt.sample_option(
         state, train_task.goal, rng)
