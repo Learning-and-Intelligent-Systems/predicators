@@ -6,14 +6,14 @@ import numpy as np
 from PIL import Image
 
 from predicators import utils
-from predicators.envs.bookshelf import BookShelf
+from predicators.envs.bookshelf import BookshelfEnv
 
 matplotlib.use('TkAgg')
 
 
 def test_init_sampler():
     utils.reset_config({"env": "bookshelf"})
-    env = BookShelf()
+    env = BookshelfEnv()
     t = env._get_tasks(1, [200], env._train_rng)
     state = t[0].init
     env.render_state_plt(state, t[0])
@@ -22,7 +22,7 @@ def test_init_sampler():
 
 def test_navigate_bookshelf_action():
     utils.reset_config({"env": "bookshelf"})
-    env = BookShelf()
+    env = BookshelfEnv()
     t = env._get_tasks(1, [0], env._train_rng)
     state = t[0].init
     env.render_state_plt(state, t[0])
@@ -86,7 +86,7 @@ def test_navigate_bookshelf_action():
 
 def test_navigate_book_action():
     utils.reset_config({"env": "bookshelf"})
-    env = BookShelf()
+    env = BookshelfEnv()
     t = env._get_tasks(1, [1], env._train_rng)
     state = t[0].init
     env.render_state_plt(state, t[0])
@@ -151,7 +151,7 @@ def test_navigate_book_action():
 
 def test_navigate_pick_place():
     utils.reset_config({"env": "bookshelf"})
-    env = BookShelf()
+    env = BookshelfEnv()
     t = env._get_tasks(1, [1], env._train_rng)
     state = t[0].init
     env.render_state_plt(state, t[0])
@@ -191,7 +191,7 @@ def test_navigate_pick_place():
 
 
 if __name__ == '__main__':
-    # test_init_sampler()
-    # test_navigate_bookshelf_action()
-    # test_navigate_book_action()
+    test_init_sampler()
+    test_navigate_bookshelf_action()
+    test_navigate_book_action()
     test_navigate_pick_place()

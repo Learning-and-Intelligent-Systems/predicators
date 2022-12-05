@@ -13,7 +13,7 @@ from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
-class BookShelf(BaseEnv):
+class BookshelfEnv(BaseEnv):
     """Bookshelf domain."""
 
     env_x_lb: ClassVar[float] = 0
