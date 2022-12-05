@@ -39,6 +39,12 @@ ENVS:
       behavior_scene_name: Merom_1_int
       behavior_task_list: "[locking_every_window]"
       behavior_option_model_eval: True
+  sorting-books-Pomaria_1_int:
+    NAME: "behavior"
+    FLAGS:
+      behavior_scene_name: Pomaria_1_int
+      behavior_task_list: "[sorting_books]"
+      behavior_option_model_eval: True
 ARGS: {}
 FLAGS:  # general flags
   num_train_tasks: 10
