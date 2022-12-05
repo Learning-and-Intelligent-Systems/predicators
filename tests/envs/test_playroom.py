@@ -4,25 +4,33 @@ import numpy as np
 import pytest
 
 from predicators import utils
-from predicators.envs.playroom import PlayroomEnv, PlayroomHardEnv
+from predicators.envs import create_new_env
+from predicators.envs.playroom import PlayroomEnv, PlayroomHardEnv, \
+    PlayroomSimpleEnv
 from predicators.structs import Action
 
 
-def test_playroom():
-    """Tests for PlayroomEnv class properties."""
-    utils.reset_config({"env": "playroom"})
-    env = PlayroomEnv()
+@pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
+def test_playroom(env_name):
+    """Tests for PlayroomSimpleEnv and PlayroomEnv class properties."""
+    utils.reset_config({"env": env_name})
+    env = create_new_env(env_name)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 19
+    if env_name == "playroom_simple":
+        assert len(env.predicates) == 9
+        assert len(env.options) == 6
+        assert len(env.types) == 3
+    elif env_name == "playroom":
+        assert len(env.predicates) == 19
+        assert len(env.options) == 10
+        assert len(env.types) == 5
     assert {pred.name for pred in env.goal_predicates} == \
         {"On", "OnTable", "LightOn", "LightOff"}
-    assert len(env.options) == 10
-    assert len(env.types) == 5
     assert env.action_space.shape == (5, )
     assert abs(env.action_space.low[0] - PlayroomEnv.x_lb) < 1e-3
     assert abs(env.action_space.high[0] - PlayroomEnv.x_ub) < 1e-3
@@ -34,10 +42,11 @@ def test_playroom():
     assert abs(env.action_space.high[3] - 1) < 1e-3
 
 
-def test_playroom_failure_cases():
+@pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
+def test_playroom_failure_cases(env_name):
     """Tests for the cases where simulate() is a noop."""
-    utils.reset_config({"env": "playroom"})
-    env = PlayroomEnv()
+    utils.reset_config({"env": env_name})
+    env = create_new_env(env_name)
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -54,12 +63,13 @@ def test_playroom_failure_cases():
             robot = item
             break
     assert robot is not None
-    # Check robot is not next to any door
-    with pytest.raises(RuntimeError):
-        env._get_door_next_to(state)  # pylint: disable=protected-access
-    # Test failure case for _get_region_in() helper
-    with pytest.raises(RuntimeError):
-        env._get_region_in(state, 150)  # pylint: disable=protected-access
+    if env_name == "playroom":
+        # Check robot is not next to any door
+        with pytest.raises(RuntimeError):
+            env._get_door_next_to(state)  # pylint: disable=protected-access
+        # Test failure case for _get_region_in() helper
+        with pytest.raises(RuntimeError):
+            env._get_region_in(state, 150)  # pylint: disable=protected-access
     # block1 is on block0 is on the table, block2 is on the table
     assert OnTable([block0]) in atoms
     assert OnTable([block1]) not in atoms
@@ -132,11 +142,12 @@ def test_playroom_failure_cases():
     assert state.allclose(next_state)
 
 
-def test_playroom_simulate_blocks():
+@pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
+def test_playroom_simulate_blocks(env_name):
     """Tests for the cases where simulate() allows the robot to interact with
     blocks."""
-    utils.reset_config({"env": "playroom"})
-    env = PlayroomEnv()
+    utils.reset_config({"env": env_name})
+    env = create_new_env(env_name)
     block_type = [t for t in env.types if t.name == "block"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
@@ -149,17 +160,18 @@ def test_playroom_simulate_blocks():
             robot = item
             break
     assert robot is not None
-    # Move to boring room door
-    act = Action(np.array([29.6, 15, 1, 1, 0]).astype(np.float32))
-    next_state = env.simulate(state, act)
-    assert not np.allclose(state[robot], next_state[robot])
-    state = next_state
-    # Move to table but do not pick block 1
-    act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
-    next_state = env.simulate(state, act)
-    assert not np.allclose(state[robot], next_state[robot])
-    assert np.allclose(state[block1], next_state[block1])
-    state = next_state
+    if env_name == "playroom":
+        # Move to boring room door
+        act = Action(np.array([29.6, 15, 1, 1, 0]).astype(np.float32))
+        next_state = env.simulate(state, act)
+        assert not np.allclose(state[robot], next_state[robot])
+        state = next_state
+        # Move to table but do not pick block 1
+        act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
+        next_state = env.simulate(state, act)
+        assert not np.allclose(state[robot], next_state[robot])
+        assert np.allclose(state[block1], next_state[block1])
+        state = next_state
     # Perform valid pick of block 1 (do not have to face the block)
     act = Action(np.array([12, 11.8, 0.95, -0.35, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -298,8 +310,43 @@ def test_playroom_simulate_doors_and_dial():
     state = env.simulate(state, act)
 
 
+def test_playroom_simple_options():
+    """Tests for PlayroomSimpleEnv option policies."""
+    utils.reset_config({"env": "playroom_simple"})
+    env = PlayroomSimpleEnv()
+    robot_type = [t for t in env.types if t.name == "robot"][0]
+    dial_type = [t for t in env.types if t.name == "dial"][0]
+    LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
+    robot = robot_type("robby")
+    dial = dial_type("dial")
+    task = env.get_train_tasks()[0]
+    state = task.init
+    # Run through a specific plan of options.
+    MoveTableToDial = [o for o in env.options
+                       if o.name == "MoveTableToDial"][0]
+    TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
+    TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
+    plan = [
+        # Picking/placing blocks will be covered in the next test
+        MoveTableToDial.ground([robot, dial], [-0.2, 0.0, 0.0]),
+        TurnOffDial.ground([robot, dial], [0.0, -0.2, 0.0, 0.5]),
+        TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
+    ]
+    assert plan[0].initiable(state)
+
+    policy = utils.option_plan_to_policy(plan)
+
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           task.goal_holds,
+                                           max_num_steps=len(plan))
+    final_atoms = utils.abstract(traj.states[-1], env.predicates)
+    assert LightOn([dial]) in final_atoms
+
+
 def test_playroom_options():
-    """Tests for predicate option policies."""
+    """Tests for PlayroomEnv option policies."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     robot_type = [t for t in env.types if t.name == "robot"][0]
