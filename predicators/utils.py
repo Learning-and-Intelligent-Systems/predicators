@@ -369,7 +369,8 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+        rotate_matrix = np.array([[np.cos(self.theta),
+                                   np.sin(self.theta)],
                                   [-np.sin(self.theta),
                                    np.cos(self.theta)]])
         rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
