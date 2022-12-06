@@ -24,6 +24,9 @@ class GlobalSettings:
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
+    # Maximum number of times to attempt a demonstration when generating
+    # demonstration dataset.
+    max_demo_attempts = 1
     # If this is False, then environment interactions can only take place
     # on tasks that have no demonstrations.
     allow_interaction_in_demo_tasks = True

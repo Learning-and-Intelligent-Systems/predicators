@@ -14,6 +14,7 @@ APPROACHES:
       plan_only_eval: True
       sesame_task_planner: fdopt
       create_training_dataset: True
+      max_demo_attempts: 10
 ENVS:
   collecting-aluminum-cans-Ihlen_1_int:
     NAME: "behavior"
