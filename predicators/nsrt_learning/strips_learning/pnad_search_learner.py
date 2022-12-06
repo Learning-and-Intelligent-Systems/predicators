@@ -10,6 +10,7 @@ from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
 from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
+from predicators.settings import CFG
 
 
 class _PNADSearchOperator(abc.ABC):
@@ -298,8 +299,10 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
 
     def _create_search_operators(self) -> List[_PNADSearchOperator]:
         op_classes = [
-            _BackChainingPNADSearchOperator, _PruningPNADSearchOperator
+            _BackChainingPNADSearchOperator,
         ]
+        if not CFG.pnad_search_without_del:
+            op_classes.append(_PruningPNADSearchOperator)
         ops = [
             cls(self._trajectories, self._train_tasks,
                 self._predicates, self._segmented_trajs, self,
