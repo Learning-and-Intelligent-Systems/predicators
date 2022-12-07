@@ -8,6 +8,7 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
+from predicators.settings import CFG
 from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
 
@@ -300,7 +301,9 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         op_classes = [
             _BackChainingPNADSearchOperator, _PruningPNADSearchOperator
         ]
-        ops = [
+        if CFG.pnad_search_without_del:
+            op_classes.remove(_PruningPNADSearchOperator)
+        ops: List[_PNADSearchOperator] = [
             cls(self._trajectories, self._train_tasks,
                 self._predicates, self._segmented_trajs, self,
                 self._create_heuristic()) for cls in op_classes
