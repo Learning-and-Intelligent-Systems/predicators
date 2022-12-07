@@ -380,6 +380,7 @@ class GlobalSettings:
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False
+    pnad_search_without_del = False
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
