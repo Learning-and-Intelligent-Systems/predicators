@@ -57,6 +57,8 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_coffee_gt_nsrts(env_name)
     elif env_name in ("satellites", "satellites_simple"):
         nsrts = _get_satellites_gt_nsrts(env_name)
+    elif env_name == "bookshelf":
+        nsrts = _get_bookshelf_gt_nsrts(env_name)
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates from NSRTs, and filter out NSRTs whose
@@ -2837,6 +2839,125 @@ def _get_satellites_gt_nsrts(env_name: str) -> Set[NSRT]:
                                     ignore_effects, option, option_vars,
                                     null_sampler)
     nsrts.add(take_geiger_reading_nsrt)
+
+    return nsrts
+
+def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
+    """Create ground truth NSRTs for BookShelfEnv."""
+    object_type, book_type, shelf_type, robot_type = \
+        _get_types_by_names(env_name, ["object", "book", "shelf", "robot"])
+
+    OnShelf, CanReach, Holding, GripperFree = _get_predicates_by_names(
+        env_name, ["OnShelf", "CanReach", "Holding", "GripperFree"])
+
+    NavigateTo, PickBook, PlaceBookOnShelf = _get_options_by_names(
+        env_name, ["NavigateTo", "PickBook", "PlaceBookOnShelf"])
+
+    nsrts = set()
+
+    # NavigateTo
+    obj = Variable("?object", object_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [obj, robot]
+    option_vars = [robot, obj]
+    option = NavigateTo
+    preconditions = set()
+    add_effects = {LiftedAtom(CanReach, [obj, robot])}
+    delete_effects = set()
+    ignore_effects = {CanReach}
+
+    def navigateto_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        del goal # unused
+        option = NavigateTo
+        env = get_or_create_env(env_name)
+        low = option.params_space.low
+        high = option.params_space.high
+        obj, robot = objs
+        # TODO: Increase range below for rejection sampling
+        for tries in range(1):
+            if (tries + 1) % 100 == 0:
+                print(f'{tries} failed tries')
+            params = rng.uniform(low, high)
+            # action = option.ground([robot, obj], params).policy(state)
+            # next_state = env.simulate(state, action)
+            # if CanReach.holds(next_state, [obj, robot]):
+            #     break
+        return params
+
+    navigateto_nsrt = NSRT("NavigateTo", parameters, preconditions,
+                           add_effects, delete_effects, ignore_effects,
+                           option, option_vars, navigateto_sampler)
+    nsrts.add(navigateto_nsrt)
+
+    # PickBook
+    book = Variable("?book", book_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [book, robot]
+    option_vars = [robot, book]
+    option = PickBook
+    preconditions = {
+        LiftedAtom(CanReach, [book, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    add_effects = {LiftedAtom(Holding, [book])}
+    delete_effects = {
+        LiftedAtom(CanReach, [book, robot]),
+        LiftedAtom(GripperFree, [robot])
+    }
+    ignore_effects = set()
+
+    def pickbook_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        option = PickBook
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    pickbook_nsrt = NSRT("PickBook", parameters, preconditions,
+                         add_effects, delete_effects, ignore_effects,
+                         option, option_vars, pickbook_sampler)
+    nsrts.add(pickbook_nsrt)
+
+    # PlaceBookOnShelf
+    book = Variable("?book", book_type)
+    shelf = Variable("?shelf", shelf_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [book, shelf, robot]
+    option_vars = [robot, book, shelf]
+    option = PlaceBookOnShelf
+    preconditions = {
+        LiftedAtom(Holding, [book]),
+        LiftedAtom(CanReach, [shelf, robot]),
+    }
+    add_effects = {
+        LiftedAtom(OnShelf, [book, shelf]),
+        LiftedAtom(GripperFree, [robot]),
+    }
+    delete_effects = {LiftedAtom(Holding, [book])}
+    ignore_effects = {CanReach}
+    
+    def placebookonshelf_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
+                                 objs: Sequence[Object]) -> Array:
+        del state, goal, objs  # unused
+        option = PlaceBookOnShelf
+        low = option.params_space.low
+        high = option.params_space.high
+        params = rng.uniform(low, high)
+        # TODO: implement rejection sampling?
+        return params
+
+    placebokonshelf_nsrt = NSRT("PlaceBookOnShelf", parameters, preconditions,
+                                add_effects, delete_effects,
+                                ignore_effects, option, option_vars, 
+                                placebookonshelf_sampler)
+    nsrts.add(placebokonshelf_nsrt)
 
     return nsrts
 

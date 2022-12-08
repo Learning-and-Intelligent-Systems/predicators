@@ -9,6 +9,7 @@ from matplotlib import patches
 
 from predicators import utils
 from predicators.envs import BaseEnv
+from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
@@ -51,6 +52,9 @@ class BookshelfEnv(BaseEnv):
         self._OnShelf = Predicate("OnShelf",
                                   [self._book_type, self._shelf_type],
                                   self._OnShelf_holds)
+        self._CanReach = Predicate("CanReach",
+                                  [self._object_type, self._robot_type],
+                                  self._CanReach_holds)
         self._Holding = Predicate("Holding", [self._book_type],
                                   self._Holding_holds)
         self._GripperFree = Predicate("GripperFree", [self._robot_type],
@@ -243,7 +247,7 @@ class BookshelfEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._OnShelf, self._Holding}
+        return {self._OnShelf, self._CanReach, self._Holding, self._GripperFree}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -610,6 +614,30 @@ class BookshelfEnv(BaseEnv):
                            objects: Sequence[Object]) -> bool:
         robby, = objects
         return state.get(robby, "gripper_free") == 1.0
+
+    def _CanReach_holds(self, state: State,
+                        objects: Sequence[Object]) -> bool:
+        obj, robby = objects
+        if obj.is_instance(self._book_type) and self._Holding_holds(state, [obj]):
+            return False
+        if obj.is_instance(self._book_type) or obj.is_instance(self._shelf_type):
+            x = state.get(obj, "pose_x")
+            y = state.get(obj, "pose_y")
+            width = state.get(obj, "width")
+            height = state.get(obj, "height")
+            theta = state.get(obj, "yaw")
+            obj_geom = utils.Rectangle(x, y, width, height, theta)
+        else:
+            raise ValueError("Can only compute reachable for books and shelves")
+
+        robby_x = state.get(robby, "pose_x")
+        robby_y = state.get(robby, "pose_y")
+        robby_yaw = state.get(robby, "yaw")
+        tip_x = robby_x + (self.robot_radius + self.gripper_length) * np.cos(robby_yaw)
+        tip_y = robby_y + (self.robot_radius + self.gripper_length) * np.sin(robby_yaw)
+        gripper_line = utils.LineSegment(robby_x, robby_y, tip_x, tip_y)
+        return utils.geom2ds_intersect(gripper_line, obj_geom)
+
 
     def _get_pickable_book(self, state: State, tip_x: float, tip_y: float):
         pick_book = None

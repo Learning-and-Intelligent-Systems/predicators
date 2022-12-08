@@ -163,6 +163,7 @@ def test_navigate_pick_place():
     a = env._NavigateTo_policy(state, {}, navigate_objects, navigate_params)
     s = env.simulate(state, a)
     env.render_state_plt(s, t[0], caption='left')
+    assert env._CanReach_holds(s, [book, env._robot])
     plt.show()
 
     state = s
@@ -171,6 +172,7 @@ def test_navigate_pick_place():
     a = env._PickBook_policy(state, {}, pick_objects, pick_params)
     s = env.simulate(state, a)
     env.render_state_plt(s, t[0], caption='pick')
+    assert env._Holding_holds(s, [book])
     plt.show()
 
     state = s
@@ -179,6 +181,7 @@ def test_navigate_pick_place():
     a = env._NavigateTo_policy(state, {}, navigate_objects, navigate_params)
     s = env.simulate(state, a)
     env.render_state_plt(s, t[0], caption='right')
+    assert env._CanReach_holds(s, [env._shelf, env._robot])
     plt.show()
 
     state = s
@@ -187,6 +190,7 @@ def test_navigate_pick_place():
     a = env._PlaceBookOnShelf_policy(state, {}, place_objects, place_params)
     s = env.simulate(state, a)
     env.render_state_plt(s, t[0], caption='right')
+    assert env._OnShelf_holds(s, [book, env._shelf])
     plt.show()
 
 
