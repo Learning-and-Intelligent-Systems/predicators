@@ -60,7 +60,7 @@ OUTER_HEADER_GROUPS = [
     
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "Cluster and Intersect", "LOFT", "Prediction Error", "GNN Shooting"]
+DOUBLE_LINES_AFTER = ["Ours", "Cluster and Intersect", "LOFT", "Prediction Error"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
