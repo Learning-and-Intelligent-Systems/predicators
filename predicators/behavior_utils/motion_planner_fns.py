@@ -9,9 +9,10 @@ import pybullet as p
 import scipy
 from numpy.random._generator import Generator
 
-from predicators.behavior_utils.behavior_utils import detect_robot_collision, \
+from predicators.behavior_utils.behavior_utils import check_nav_end_pose, \
     get_aabb_volume, get_closest_point_on_aabb, get_scene_body_ids, \
     reset_and_release_hand
+from predicators.settings import CFG
 from predicators.structs import Array
 
 try:
@@ -95,28 +96,19 @@ def make_navigation_plan(
                       f"{pos_offset} fail")
         return None
 
-    obj_pos = obj.get_position()
-    pos = [
-        pos_offset[0] + obj_pos[0],
-        pos_offset[1] + obj_pos[1],
-        env.robots[0].initial_z_offset,
-    ]
-    yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
-    orn = [0, 0, yaw_angle]
-    env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))
-    eye_pos = env.robots[0].parts["eye"].get_position()
-    ray_test_res = p.rayTest(eye_pos, obj_pos)
-    # Test to see if the robot is obstructed by some object, but make sure
-    # that object is not either the robot's body or the object we want to
-    # pick up!
-    blocked = len(ray_test_res) > 0 and (ray_test_res[0][0] not in (
-        env.robots[0].parts["body"].get_body_id(),
-        obj.get_body_id(),
-    ))
-    if blocked:
-        logging.warning("WARNING: Position commanded is blocked!")
-    if not detect_robot_collision(env.robots[0]):
-        valid_position = (pos, orn)
+    # If we're going to override the learned samplers, then there's
+    # no point doing this check here. We instead set valid position
+    # to the robot's original position and orientation, because it
+    # won't be used anyways...
+    # NOTE: it would be nice if we only do this at test time and not
+    # during test time iff we're using the learned sampler. Right now,
+    # this code will also run during oracle execution.
+    if not CFG.behavior_override_learned_samplers:
+        valid_position = check_nav_end_pose(env, obj, pos_offset)
+    else:
+        rob_pos = env.robots[0].get_position()
+        valid_position = ([rob_pos[0], rob_pos[1],
+                           rob_pos[2]], original_orientation)
 
     if valid_position is None:
         logging.warning("WARNING: Position commanded is in collision!")

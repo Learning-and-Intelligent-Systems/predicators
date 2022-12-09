@@ -126,6 +126,7 @@ class GlobalSettings:
     behavior_randomize_init_state = True
     behavior_option_model_eval = False
     behavior_option_model_rrt = False
+    behavior_override_learned_samplers = False
     create_training_dataset = False
 
     # general pybullet parameters

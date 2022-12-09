@@ -6,9 +6,12 @@ from typing import Callable, Dict, List
 
 import numpy as np
 import pybullet as p
+from numpy.random import RandomState
 
 from predicators import utils
-from predicators.behavior_utils.behavior_utils import ALL_RELEVANT_OBJECT_TYPES
+from predicators.behavior_utils.behavior_utils import \
+    ALL_RELEVANT_OBJECT_TYPES, sample_navigation_params
+from predicators.settings import CFG
 from predicators.structs import Object, State, Type
 
 try:
@@ -26,6 +29,10 @@ try:
 except (ImportError, ModuleNotFoundError) as e:
     pass
 
+# Necessary to ensure different numbers sampled within the
+# NavigateToOptionModel.
+prng = RandomState(10000)
+
 
 def create_navigate_option_model(
         plan: List[List[float]], _original_orientation: List[List[float]],
@@ -37,10 +44,30 @@ def create_navigate_option_model(
 
     def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
-        target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
         robot_orn = p.getEulerFromQuaternion(env.robots[0].get_orientation())
+        # If we're not overriding the learned samplers, then we will directly
+        # use the elements of `plan`, which in turn use the outputs of the
+        # learned samplers. Otherwise, we will ignore these and use our
+        # oracle sampler to give us values to use.
+        if not CFG.behavior_override_learned_samplers:
+            desired_xpos = plan[-1][0]
+            desired_ypos = plan[-1][1]
+            desired_zrot = plan[-1][2]
+        else:
+            rng = np.random.default_rng(prng.randint(10000))
+            sample_arr = sample_navigation_params(env, _obj_to_nav_to, rng)
+            obj_pos = _obj_to_nav_to.get_position()
+            desired_xpos = sample_arr[0] + obj_pos[0]
+            desired_ypos = sample_arr[1] + obj_pos[1]
+            desired_zrot = np.arctan2(sample_arr[1], sample_arr[0]) - np.pi
+            logging.info(f"PRIMITIVE: Overriding sample ({plan[-1][0]}" +
+                         f", {plan[-1][1]}) and attempting to " +
+                         f"navigate to {_obj_to_nav_to.name} with "
+                         f"params {sample_arr}")
+
+        target_pos = np.array([desired_xpos, desired_ypos, robot_z])
         target_orn = p.getQuaternionFromEuler(
-            np.array([robot_orn[0], robot_orn[1], plan[-1][2]]))
+            np.array([robot_orn[0], robot_orn[1], desired_zrot]))
         env.robots[0].set_position_orientation(target_pos, target_orn)
         # this is running a zero action to step simulator so
         # the environment updates to the correct final position

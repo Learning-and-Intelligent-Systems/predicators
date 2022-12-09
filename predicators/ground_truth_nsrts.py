@@ -10,7 +10,7 @@ from numpy.random._generator import Generator
 from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
     PICK_PLACE_OBJECT_TYPES, PLACE_INTO_SURFACE_OBJECT_TYPES, \
     PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_hand_end_pose, \
-    check_nav_end_pose, load_checkpoint_state
+    load_checkpoint_state, sample_navigation_params
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.envs.doors import DoorsEnv
@@ -2883,8 +2883,6 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         return np.array([0.0, 0.0, 0.0])
 
     # NavigateTo sampler definition.
-    MAX_NAVIGATION_SAMPLES = 50
-
     def navigate_to_param_sampler(state: State, goal: Set[GroundAtom],
                                   rng: Generator,
                                   objects: Sequence["URDFObject"]) -> Array:
@@ -2902,41 +2900,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         # The navigation nsrts are designed such that the target
         # obj is always last in the params list.
         obj_to_sample_near = objects[-1]
-        closeness_limit = 2.00
-        nearness_limit = 0.15
-        distance = nearness_limit + (
-            (closeness_limit - nearness_limit) * rng.random())
-        yaw = rng.random() * (2 * np.pi) - np.pi
-        x = distance * np.cos(yaw)
-        y = distance * np.sin(yaw)
-        sampler_output = np.array([x, y])
-        # The below while loop avoids sampling values that would put the
-        # robot in collision with some object in the environment. It may
-        # not always succeed at this and will exit after a certain number
-        # of tries.
-        logging.info("Sampling params for navigation...")
-        num_samples_tried = 0
-        while (check_nav_end_pose(env.igibson_behavior_env, obj_to_sample_near,
-                                  sampler_output) is None):
-            distance = closeness_limit * rng.random()
-            yaw = rng.random() * (2 * np.pi) - np.pi
-            x = distance * np.cos(yaw)
-            y = distance * np.sin(yaw)
-            sampler_output = np.array([x, y])
-            if obj_to_sample_near.category == "shelf":
-                if check_nav_end_pose(env.igibson_behavior_env,
-                                      obj_to_sample_near,
-                                      sampler_output,
-                                      ignore_blocked=True):
-                    return sampler_output
-            # NOTE: In many situations, it is impossible to find a good sample
-            # no matter how many times we try. Thus, we break this loop after
-            # a certain number of tries so the planner will backtrack.
-            if num_samples_tried > MAX_NAVIGATION_SAMPLES:
-                break
-            num_samples_tried += 1
-
-        return sampler_output
+        return sample_navigation_params(env.igibson_behavior_env,
+                                        obj_to_sample_near, rng)
 
     # Grasp sampler definition.
     def grasp_obj_param_sampler(state: State, goal: Set[GroundAtom],

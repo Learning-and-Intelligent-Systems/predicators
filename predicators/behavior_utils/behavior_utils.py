@@ -402,7 +402,8 @@ def check_nav_end_pose(
         env.robots[0].initial_z_offset,
     ]
     yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
-    orn = [0, 0, yaw_angle]
+    robot_orn = p.getEulerFromQuaternion(env.robots[0].get_orientation())
+    orn = [robot_orn[0], robot_orn[1], yaw_angle]
     env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))
     eye_pos = env.robots[0].parts["eye"].get_position()
     ray_test_res = p.rayTest(eye_pos, obj_pos)
@@ -447,6 +448,52 @@ def check_hand_end_pose(env: "BehaviorEnv", obj: Union["URDFObject",
     p.removeState(state)
 
     return ret_bool
+
+
+MAX_NAVIGATION_SAMPLES = 50
+
+
+def sample_navigation_params(igibson_behavior_env: "BehaviorEnv",
+                             obj_to_sample_near: "URDFObject",
+                             rng: np.random.Generator) -> Array:
+    """Main logic for navigation param sampler.
+
+    Implemented in a separate method to enable code reuse in
+    option_model_fns.
+    """
+    closeness_limit = 2.00
+    nearness_limit = 0.15
+    distance = nearness_limit + (
+        (closeness_limit - nearness_limit) * rng.random())
+    yaw = rng.random() * (2 * np.pi) - np.pi
+    x = distance * np.cos(yaw)
+    y = distance * np.sin(yaw)
+    sampler_output = np.array([x, y])
+    # The below while loop avoids sampling values that would put the
+    # robot in collision with some object in the environment. It may
+    # not always succeed at this and will exit after a certain number
+    # of tries.
+    num_samples_tried = 0
+    while (check_nav_end_pose(igibson_behavior_env, obj_to_sample_near,
+                              sampler_output) is None):
+        distance = closeness_limit * rng.random()
+        yaw = rng.random() * (2 * np.pi) - np.pi
+        x = distance * np.cos(yaw)
+        y = distance * np.sin(yaw)
+        sampler_output = np.array([x, y])
+        if obj_to_sample_near.category == "shelf":
+            if check_nav_end_pose(igibson_behavior_env,
+                                  obj_to_sample_near,
+                                  sampler_output,
+                                  ignore_blocked=True):
+                return sampler_output
+        # NOTE: In many situations, it is impossible to find a good sample
+        # no matter how many times we try. Thus, we break this loop after
+        # a certain number of tries so the planner will backtrack.
+        if num_samples_tried > MAX_NAVIGATION_SAMPLES:
+            break
+        num_samples_tried += 1
+    return sampler_output
 
 
 def load_checkpoint_state(s: State,
