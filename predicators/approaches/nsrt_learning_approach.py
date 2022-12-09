@@ -318,10 +318,11 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                     r"\[(.*?)\]", str_params)[0].split(", ")
             ]
             add_effects = re.findall(r"\[(.*?)\]",
-                                     str_add_effects)[0].split(", ")
-            precond = re.findall(r"\[(.*?)\]", str_precond)[0].split(", ")
-            delete_effects = re.findall(r"\[(.*?)\]",
-                                        str_delete_effects)[0].split(", ")
+                                     str_add_effects)[0][:-1].split("), ")
+            precond = re.findall(r"\[(.*?)\]",
+                                 str_precond)[0][:-1].split("), ")
+            delete_effects = re.findall(
+                r"\[(.*?)\]", str_delete_effects)[0][:-1].split("), ")
             ignore_effects = re.findall(r"\[(.*?)\]",
                                         str_ignore_effects)[0].split(", ")
             option_spec = option_spec.replace(", ", "").split(": ")[1]
@@ -339,6 +340,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                 if unparsed_preds == [""]:
                     return predicates
                 for unparsed_pred in unparsed_preds:
+                    unparsed_pred += ")"
                     pred_name = unparsed_pred.split("(")[0]
                     pred_vars = [
                         pred_var.split(":") for pred_var in re.findall(
