@@ -260,6 +260,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
 
     save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
+    curr_num_nodes_created = 0
+    curr_num_nodes_expanded = 0
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
@@ -283,6 +285,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_created"] = approach.metrics[
+                "total_num_nodes_created"] - curr_num_nodes_created
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = approach.metrics[
+                "total_num_nodes_expanded"] - curr_num_nodes_expanded
+        curr_num_nodes_created = approach.metrics["total_num_nodes_created"]
+        curr_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+
         num_found_policy += 1
         make_video = False
         solved = False
