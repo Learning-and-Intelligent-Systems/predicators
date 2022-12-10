@@ -260,8 +260,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
 
     save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
-    curr_num_nodes_created = 0
-    curr_num_nodes_expanded = 0
+    curr_num_nodes_created = 0.0
+    curr_num_nodes_expanded = 0.0
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
