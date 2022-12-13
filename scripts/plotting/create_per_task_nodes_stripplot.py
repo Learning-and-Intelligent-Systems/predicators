@@ -3,11 +3,11 @@
 Assumes that files in the results/ directory can be grouped by
 experiment ID alone.
 """
-
 import glob
 import os
 import re
 from collections import defaultdict
+from typing import Dict, List
 
 import dill as pkl
 import matplotlib.pyplot as plt
@@ -47,8 +47,12 @@ def _main() -> None:
                           "results")
     os.makedirs(outdir, exist_ok=True)
 
-    expanded_data = defaultdict(lambda: defaultdict(list))
-    created_data = defaultdict(lambda: defaultdict(list))
+    expanded_data: Dict[str,
+                        Dict[str,
+                             List]] = defaultdict(lambda: defaultdict(list))
+    created_data: Dict[str,
+                       Dict[str,
+                            List]] = defaultdict(lambda: defaultdict(list))
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             outdata = pkl.load(f)
@@ -100,11 +104,11 @@ def _main() -> None:
         num_test_tasks = outdata["config"].num_test_tasks
         if probs_solved_in_this_file < num_test_tasks:
             for _ in range(num_test_tasks - probs_solved_in_this_file):
-                created_data[approach_name]["values"].append(
-                    1e06 + np.random.randint(-6e05, 6e05))
+                value = 1e06 + np.random.randint(-int(6e05), int(6e05))
+                created_data[approach_name]["values"].append(value)
                 created_data[approach_name]["env_names"].append(env_name)
-                expanded_data[approach_name]["values"].append(
-                    1e06 + np.random.randint(-6e05, 6e05))
+                value = 1e06 + np.random.randint(-int(6e05), int(6e05))
+                expanded_data[approach_name]["values"].append(value)
                 expanded_data[approach_name]["env_names"].append(env_name)
     if not created_data and not expanded_data:
         raise ValueError(f"No per-task node data found in {CFG.results_dir}/")

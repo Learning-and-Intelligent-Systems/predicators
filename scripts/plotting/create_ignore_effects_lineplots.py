@@ -10,7 +10,7 @@ import pandas as pd
 from scripts.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 
-pd.options.mode.chained_assignment = None  # default='warn'
+pd.set_option('chained_assignment', None)
 plt.rcParams["font.family"] = "Serif"
 
 ############################ Change below here ################################
@@ -68,7 +68,7 @@ TITLE_ENVS = [("Screws", "screws"),
               ("Satellites Simple", "satellites_simple")]
 
 
-def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.DataFrame:
+def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.Series:
     # Need to do some additional work because some of the names of
     # the environments are subsets of others.
     if approach == "painting":
