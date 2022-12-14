@@ -1738,6 +1738,41 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     return atoms
 
 
+def abstract_from_last(
+        state: State, preds: Collection[Predicate], last_state: State,
+        last_atoms: Set[GroundAtom]) -> Set[GroundAtom]:  # pragma: no cover
+    """Get the atomic representation of the given state (i.e., a set of ground
+    atoms), using the given set of predicates and the last state and atoms.
+
+    Duplicate arguments in predicates are allowed.
+    """
+    # Finds objects whose states have changed.
+    changed_objs = set()
+    agent_changed = False
+    for obj in state.data:
+        if not np.allclose(state.data[obj], last_state.data[obj], atol=1e-3):
+            if obj.name == "agent":
+                agent_changed = True
+            changed_objs.add(obj)
+    atoms = set()
+    # Adds to atoms all last_atoms about objects whose state is unchanged.
+    # For all predicates with objects not changed, if the predicate is
+    # reachable and the agent has moved position we want to recompute it.
+    for atom in last_atoms:
+        if all(obj not in changed_objs for obj in atom.objects):
+            if not ("reachable" in atom.predicate.name and agent_changed):
+                atoms.add(atom)
+    # Computes predicates for atoms with objects whose state has changed.
+    for pred in preds:
+        for choice in get_object_combinations(list(state), pred.types):
+            if any(obj in changed_objs
+                   for obj in choice) or ("reachable" in pred.name
+                                          and agent_changed):
+                if pred.holds(state, choice):
+                    atoms.add(GroundAtom(pred, choice))
+    return atoms
+
+
 def all_ground_operators(
         operator: STRIPSOperator,
         objects: Collection[Object]) -> Iterator[_GroundSTRIPSOperator]:
