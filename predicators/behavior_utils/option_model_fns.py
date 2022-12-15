@@ -24,8 +24,9 @@ try:
     from igibson.object_states.touching import Touching
     from igibson.objects.articulated_object import \
         URDFObject  # pylint: disable=unused-import
-    from igibson.robots.behavior_robot import \
-        BRBody  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import BRBody, BREye, BRHand \
+        # pylint: disable=unused-import
+
 except (ImportError, ModuleNotFoundError) as e:
     pass
 
@@ -210,7 +211,7 @@ def create_place_option_model(
                             else:
                                 obj_name = obj.bddl_object_scope
                         else:
-                            assert isinstance(obj, BRBody)
+                            assert isinstance(obj, (BRBody, BRHand, BREye))
                             obj_name = "agent"
                         obj_type = _type_name_to_type[type_name]
                         objs_under.add(Object(obj_name, obj_type))
