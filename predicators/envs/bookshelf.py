@@ -229,7 +229,7 @@ class BookshelfEnv(BaseEnv):
 
     @property
     def _num_books_train(self) -> List[int]:
-        return CFG.bokshelf_num_books_train
+        return CFG.bookshelf_num_books_train
 
     @property
     def _num_books_test(self) -> List[int]:
