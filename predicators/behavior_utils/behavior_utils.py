@@ -5,6 +5,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pybullet as p
+from tqdm import tqdm
 
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, GroundAtomTrajectory, \
@@ -571,16 +572,19 @@ def create_ground_atom_dataset_behavior(
 ) -> List[GroundAtomTrajectory]:  # pragma: no cover
     """Apply all predicates to all trajectories in the dataset."""
     ground_atom_dataset = []
-    for traj in trajectories:
+    num_traj = len(trajectories)
+    for i, traj in enumerate(trajectories):
         last_s: State = State(data={})
         last_atoms: Set[GroundAtom] = set()
         atoms = []
-        for i, s in enumerate(traj.states):
+        first_state = True
+        for s in tqdm(traj.states):
             # If th environment is BEHAVIOR we need to load the state before
             # we call the predicate classifiers.
             load_checkpoint_state(s, env)
-            if not use_last_state or i == 0:
+            if not use_last_state or first_state:
                 next_atoms = abstract(s, predicates)
+                first_state = False
             else:
                 # Get atoms from last abstract state and state change
                 next_atoms = abstract_from_last(s, predicates, last_s,
@@ -589,4 +593,5 @@ def create_ground_atom_dataset_behavior(
             last_s = s
             last_atoms = next_atoms
         ground_atom_dataset.append((traj, atoms))
+        print(f"Completed {(i+1)}/{num_traj} trajectories.")
     return ground_atom_dataset

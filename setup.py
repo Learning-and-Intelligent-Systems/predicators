@@ -9,7 +9,7 @@ setup(name="predicators",
           "imageio-ffmpeg", "pandas", "torch", "scipy", "tabulate", "dill",
           "pyperplan", "pathos", "requests", "slack_bolt", "pybullet>=3.2.0",
           "scikit-learn", "graphlib-backport", "openai", "pyyaml",
-          "pylint==2.14.5", "types-PyYAML", "lisdf",
+          "pylint==2.14.5", "types-PyYAML", "lisdf", "tqdm",
           "smepy@git+https://github.com/sebdumancic/structure_mapping.git"
       ],
       include_package_data=True,
