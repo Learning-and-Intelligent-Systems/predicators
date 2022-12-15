@@ -271,8 +271,8 @@ class GlobalSettings:
     satellites_num_obj_test = [4, 5]
 
     # bookshelf env parameters
-    bookshelf_num_books_train = 4
-    bookshelf_num_books_test = 4
+    bookshelf_num_books_train = [4]
+    bookshelf_num_books_test = [4]
 
     # parameters for random options approach
     random_options_max_tries = 100
