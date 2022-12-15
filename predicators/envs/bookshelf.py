@@ -66,8 +66,8 @@ class BookshelfEnv(BaseEnv):
             "NavigateTo",
             self._NavigateTo_policy,
             types=[self._robot_type, self._object_type],
-            params_space=Box(np.array([-4, -4], dtype=np.float32),
-                             np.array([5, 5], dtype=np.float32)))
+            params_space=Box(np.array([-8, -4], dtype=np.float32),
+                             np.array([9, 5], dtype=np.float32)))
         self._PickBook = utils.SingletonParameterizedOption(
             # variables: [robot, book to pick]
             # params: [offset_gripper, book_yaw]
