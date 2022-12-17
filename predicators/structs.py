@@ -1230,7 +1230,13 @@ class PNAD:
     def copy(self) -> PNAD:
         new_op = self.op.copy_with()
         new_poss_keep_effects = set(self.poss_keep_effects)
-        new_seg_to_keep_effects_sub = dict(self.seg_to_keep_effects_sub)
+        new_seg_to_keep_effects_sub = {}
+        # NOTE: Below line effectively does a deep-copy of the nested dicts
+        # here. This is crucial for the PNAD search learner (since otherwise,
+        # updating a PNAD in a different set may change this dict for a PNAD
+        # in the current set).
+        for k, v in self.seg_to_keep_effects_sub.items():
+            new_seg_to_keep_effects_sub[k] = dict(v)
         new_pnad = PNAD(new_op, self.datastore, self.option_spec)
         new_pnad.poss_keep_effects = new_poss_keep_effects
         new_pnad.seg_to_keep_effects_sub = new_seg_to_keep_effects_sub

@@ -1514,7 +1514,7 @@ def run_hill_climbing(
         if last_heuristic <= best_heuristic:
             logging.info(
                 "\nTerminating hill climbing, could not improve score")
-            # import ipdb; ipdb.set_trace()
+            import ipdb; ipdb.set_trace()
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
