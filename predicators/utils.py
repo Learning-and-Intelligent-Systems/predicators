@@ -1450,6 +1450,11 @@ def run_hill_climbing(
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
+
+        node_state_to_heuristic_vals = {}
+        child_nodes = []
+        old_child_node = None
+
         for depth in range(0, enforced_depth + 1):
             logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
@@ -1471,9 +1476,20 @@ def run_hill_climbing(
                     if parallelize:
                         continue  # heuristic computation is parallelized later
                     child_heuristic = heuristic(child_node.state)
+
+                    # if child_heuristic == 15649 or old_child_node is not None:
+                    #     if old_child_node is None:
+                    #         old_child_node = child_node
+                    #     import ipdb; ipdb.set_trace()
+                    #     heuristic(old_child_node.state)
+
+                    node_state_to_heuristic_vals[child_node.state] = child_heuristic
+                    child_nodes.append(child_node)
+
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node
+            
             if parallelize:
                 # Parallelize the expensive part (heuristic computation).
                 num_cpus = mp.cpu_count()
@@ -1498,10 +1514,19 @@ def run_hill_climbing(
         if last_heuristic <= best_heuristic:
             logging.info(
                 "\nTerminating hill climbing, could not improve score")
+            # import ipdb; ipdb.set_trace()
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
+
+        # for cn in child_nodes:
+        #     if cn.state not in node_state_to_heuristic_vals:
+        #         import ipdb; ipdb.set_trace()
+        #     else:
+        #         if heuristic(cn.state) != node_state_to_heuristic_vals[cn.state]:
+        #             import ipdb; ipdb.set_trace()
+
         logging.info(f"\nHill climbing reached new state {cur_node.state} "
                      f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)

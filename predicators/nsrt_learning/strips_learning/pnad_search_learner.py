@@ -43,6 +43,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         new_heuristic_val = float('inf')
         ret_pnads_list = sorted(pnads)
         uncovered_segment = self._get_first_uncovered_segment(ret_pnads_list)
+
         if uncovered_segment is not None:
             while uncovered_segment is not None and \
                 new_heuristic_val >= init_heuristic_val:
@@ -51,12 +52,13 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
-                ret_pnads = frozenset(ret_pnads_list)
+                ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
                     ret_pnads_list)
 
             yield ret_pnads
+
 
     def _append_new_pnad_and_keep_effects(
             self, new_pnad: PNAD, current_pnads: List[PNAD]) -> List[PNAD]:
@@ -144,7 +146,7 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
         sorted_pnad_list = sorted(pnads)
         for pnad_to_remove in sorted_pnad_list:
             pnads_after_removal = [
-                pnad for pnad in sorted_pnad_list if pnad != pnad_to_remove
+                pnad.copy() for pnad in sorted_pnad_list if pnad != pnad_to_remove
             ]
             recomp_pnads = self._learner.recompute_pnads_from_effects(
                 pnads_after_removal)
@@ -192,6 +194,11 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
                                                 traj_goal)
                 assert len(chain) <= len(seg_traj)
                 uncovered_transitions += len(seg_traj) - len(chain)
+                
+                # if len(curr_pnads) == 9:
+                #     print((uncovered_transitions, len(seg_traj), len(chain)))
+                #     import ipdb; ipdb.set_trace()
+
         # Our objective is such that covering more data is *always*
         # more important than creating a less complex set of operators.
         # Thus, we multiply the coverage term by the maximum number of
@@ -339,6 +346,10 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             # Update the PNAD's seg_to_keep_effs_sub dict.
             self._update_pnad_seg_to_keep_effs(pnad, necessary_image,
                                                ground_op, obj_to_var, segment)
+            
+            # if len(segmented_traj) == 23 and len(pnads) == 9 and "inside-pop-bucket(pop.n.02_2:pop, bucket.n.01_1:bucket)" in str(traj_goal):
+            #     import ipdb; ipdb.set_trace()
+            
             # If we're missing something in the necessary image, terminate.
             if not necessary_image.issubset(next_atoms):
                 break
