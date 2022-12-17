@@ -1228,6 +1228,8 @@ class PNAD:
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
 
     def copy(self) -> PNAD:
+        """Make a copy of this PNAD object, taking care to ensure that
+        modifying the original will not affect the copy."""
         new_op = self.op.copy_with()
         new_poss_keep_effects = set(self.poss_keep_effects)
         new_seg_to_keep_effects_sub = {}
