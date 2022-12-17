@@ -104,10 +104,10 @@ def _main() -> None:
         num_test_tasks = outdata["config"].num_test_tasks
         if probs_solved_in_this_file < num_test_tasks:
             for _ in range(num_test_tasks - probs_solved_in_this_file):
-                value = 1e06 + np.random.randint(-int(6e05), int(6e05))
+                value = 1e06  # + np.random.randint(-int(6e05), int(6e05))
                 created_data[approach_name]["values"].append(value)
                 created_data[approach_name]["env_names"].append(env_name)
-                value = 1e06 + np.random.randint(-int(6e05), int(6e05))
+                value = 1e06  # + np.random.randint(-int(6e05), int(6e05))
                 expanded_data[approach_name]["values"].append(value)
                 expanded_data[approach_name]["env_names"].append(env_name)
     if not created_data and not expanded_data:
@@ -134,81 +134,94 @@ def _main() -> None:
                                          keys=list(expanded_data.keys()))
     all_methods_expanded_dfs = all_methods_expanded_dfs.reset_index()
 
-    # Initialize the figure with a logarithmic x axis
-    f0, ax0 = plt.subplots()
-    f1, ax1 = plt.subplots()
-    ax0.set_xscale("log")
-    ax1.set_xscale("log")
-    # Create the plot for nodes_created. Here, "level_0" will correspond
-    # to the approach name because of how the reset_index() command above
-    # works.
-    sns.stripplot(
-        data=all_methods_created_dfs,
-        x="values",
-        y="level_0",
-        hue="env_names",
-        orient='h',
-        size=2.5,
-        alpha=0.6,
-        ax=ax0,
-        marker="D",
-        palette=sns.color_palette("hls", 6),
-        # NOTE: This below line might need to get
-        # changed if different approaches are used.
-        order=["Ours", "Cluster and Intersect", "LOFT", "Prediction Error"],
-        jitter=True)
-    sns.violinplot(
-        data=all_methods_created_dfs,
-        x="values",
-        y="level_0",
-        orient="h",
-        order=["Ours", "Cluster and Intersect", "LOFT", "Prediction Error"],
-        ax=ax0)
-    ax0.legend(title="Environment",
-               loc='center left',
-               bbox_to_anchor=(1, 0.5),
-               prop={'size': 12})
-    ax0.set(xlabel="Nodes Created",
-            ylabel="Learning Approach",
-            title=f"Nodes Created with {num_demos_to_consider} Demos")
-    # Create the plot for nodes_expande.
-    sns.stripplot(
-        data=all_methods_expanded_dfs,
-        x="values",
-        y="level_0",
-        hue="env_names",
-        orient='h',
-        size=2.5,
-        alpha=0.6,
-        ax=ax1,
-        marker="D",
-        palette=sns.color_palette("hls", 6),
-        # NOTE: This below line might need to get
-        # changed if different approaches are used.
-        order=["Ours", "Cluster and Intersect", "LOFT", "Prediction Error"],
-        jitter=True)
-    sns.violinplot(
-        data=all_methods_expanded_dfs,
-        x="values",
-        y="level_0",
-        orient="h",
-        order=["Ours", "Cluster and Intersect", "LOFT", "Prediction Error"],
-        ax=ax1)
-    ax1.legend(title="Environment",
-               loc='center left',
-               bbox_to_anchor=(1, 0.5),
-               prop={'size': 12})
-    ax1.set(xlabel="Nodes Expanded",
-            ylabel="Learning Approach",
-            title=f"Nodes Expanded with {num_demos_to_consider} Demos")
+    for env_name in envs:
+        curr_created_df = all_methods_created_dfs.loc[
+            all_methods_created_dfs["env_names"] == env_name]
+        curr_created_df = all_methods_expanded_dfs.loc[
+            all_methods_expanded_dfs["env_names"] == env_name]
+        # Initialize the figure with a logarithmic x axis
+        f0, ax0 = plt.subplots()
+        f1, ax1 = plt.subplots()
+        ax0.set_xscale("log")
+        ax1.set_xscale("log")
+        # Create the plot for nodes_created. Here, "level_0" will correspond
+        # to the approach name because of how the reset_index() command above
+        # works.
+        sns.stripplot(
+            data=curr_created_df,
+            x="values",
+            y="level_0",
+            # hue="env_names",
+            orient='h',
+            size=2.5,
+            alpha=0.6,
+            ax=ax0,
+            marker="D",
+            palette=sns.color_palette("hls", 6),
+            # NOTE: This below line might need to get
+            # changed if different approaches are used.
+            order=[
+                "Ours", "Cluster and Intersect", "LOFT", "Prediction Error"
+            ],
+            jitter=True)
+        sns.violinplot(data=all_methods_created_dfs,
+                       x="values",
+                       y="level_0",
+                       orient="h",
+                       order=[
+                           "Ours", "Cluster and Intersect", "LOFT",
+                           "Prediction Error"
+                       ],
+                       ax=ax0)
+        # ax0.legend(title="Environment",
+        #            loc='center left',
+        #            bbox_to_anchor=(1, 0.5),
+        #            prop={'size': 12})
+        ax0.set(xlabel="Nodes Created",
+                ylabel="Learning Approach",
+                title=f"Nodes Created with {num_demos_to_consider} Demos")
+        # Create the plot for nodes_expande.
+        sns.stripplot(
+            data=all_methods_expanded_dfs,
+            x="values",
+            y="level_0",
+            # hue="env_names",
+            orient='h',
+            size=2.5,
+            alpha=0.6,
+            ax=ax1,
+            marker="D",
+            palette=sns.color_palette("hls", 6),
+            # NOTE: This below line might need to get
+            # changed if different approaches are used.
+            order=[
+                "Ours", "Cluster and Intersect", "LOFT", "Prediction Error"
+            ],
+            jitter=True)
+        sns.violinplot(data=all_methods_expanded_dfs,
+                       x="values",
+                       y="level_0",
+                       orient="h",
+                       order=[
+                           "Ours", "Cluster and Intersect", "LOFT",
+                           "Prediction Error"
+                       ],
+                       ax=ax1)
+        # ax1.legend(title="Environment",
+        #            loc='center left',
+        #            bbox_to_anchor=(1, 0.5),
+        #            prop={'size': 12})
+        ax1.set(xlabel="Nodes Expanded",
+                ylabel="Learning Approach",
+                title=f"Nodes Expanded with {num_demos_to_consider} Demos")
 
-    # Save figures
-    outfile = os.path.join(outdir, "nodes_created.png")
-    f0.set_size_inches(10, 4)
-    f0.savefig(outfile, bbox_inches='tight')
-    outfile = os.path.join(outdir, "nodes_expanded.png")
-    f1.set_size_inches(10, 4)
-    f1.savefig(outfile, bbox_inches='tight')
+        # Save figures
+        outfile = os.path.join(outdir, f"nodes_created_{env_name}.png")
+        f0.set_size_inches(10, 4)
+        f0.savefig(outfile, bbox_inches='tight')
+        outfile = os.path.join(outdir, f"nodes_expanded_{env_name}.png")
+        f1.set_size_inches(10, 4)
+        f1.savefig(outfile, bbox_inches='tight')
 
 
 if __name__ == "__main__":
