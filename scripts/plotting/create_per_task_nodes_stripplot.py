@@ -11,7 +11,6 @@ from typing import Dict, List
 
 import dill as pkl
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -36,6 +35,14 @@ envs = [
     "repeated_nextto_single_option", "repeated_nextto_painting", "painting",
     "satellites", "satellites_simple", "screws"
 ]
+env_rename = {
+    "repeated_nextto_single_option": "Repeated NextTo",
+    "repeated_nextto_painting": "RNT Painting",
+    "painting": "Painting",
+    "satellites": "Satellites",
+    "satellites_simple": "Satellites Simple",
+    "screws": "Screws"
+}
 # This script only analyzes nodes created/expanded for a fixed amount of
 # training data. This below variable controls this amount.
 num_demos_to_consider = 50
@@ -151,7 +158,6 @@ def _main() -> None:
             data=curr_created_df,
             x="values",
             y="level_0",
-            # hue="env_names",
             orient='h',
             size=2.5,
             alpha=0.6,
@@ -173,13 +179,10 @@ def _main() -> None:
                            "Prediction Error"
                        ],
                        ax=ax0)
-        # ax0.legend(title="Environment",
-        #            loc='center left',
-        #            bbox_to_anchor=(1, 0.5),
-        #            prop={'size': 12})
         ax0.set(xlabel="Nodes Created",
                 ylabel="Learning Approach",
-                title=f"Nodes Created with {num_demos_to_consider} Demos")
+                title=f"Nodes Created for {env_rename[env_name]} with " +
+                f"{num_demos_to_consider} Demos")
         # Create the plot for nodes_expande.
         sns.stripplot(
             data=all_methods_expanded_dfs,
@@ -207,13 +210,10 @@ def _main() -> None:
                            "Prediction Error"
                        ],
                        ax=ax1)
-        # ax1.legend(title="Environment",
-        #            loc='center left',
-        #            bbox_to_anchor=(1, 0.5),
-        #            prop={'size': 12})
         ax1.set(xlabel="Nodes Expanded",
                 ylabel="Learning Approach",
-                title=f"Nodes Expanded with {num_demos_to_consider} Demos")
+                title=f"Nodes Expanded for {env_rename[env_name]} with " +
+                f"{num_demos_to_consider} Demos")
 
         # Save figures
         outfile = os.path.join(outdir, f"nodes_created_{env_name}.png")
