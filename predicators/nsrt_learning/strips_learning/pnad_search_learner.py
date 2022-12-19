@@ -8,6 +8,7 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
+from predicators.settings import CFG
 from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
     ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
 
@@ -51,7 +52,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
-                ret_pnads = frozenset(ret_pnads_list)
+                ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
                     ret_pnads_list)
@@ -144,7 +145,8 @@ class _PruningPNADSearchOperator(_PNADSearchOperator):
         sorted_pnad_list = sorted(pnads)
         for pnad_to_remove in sorted_pnad_list:
             pnads_after_removal = [
-                pnad for pnad in sorted_pnad_list if pnad != pnad_to_remove
+                pnad.copy() for pnad in sorted_pnad_list
+                if pnad != pnad_to_remove
             ]
             recomp_pnads = self._learner.recompute_pnads_from_effects(
                 pnads_after_removal)
@@ -300,7 +302,9 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         op_classes = [
             _BackChainingPNADSearchOperator, _PruningPNADSearchOperator
         ]
-        ops = [
+        if CFG.pnad_search_without_del:
+            op_classes.remove(_PruningPNADSearchOperator)
+        ops: List[_PNADSearchOperator] = [
             cls(self._trajectories, self._train_tasks,
                 self._predicates, self._segmented_trajs, self,
                 self._create_heuristic()) for cls in op_classes

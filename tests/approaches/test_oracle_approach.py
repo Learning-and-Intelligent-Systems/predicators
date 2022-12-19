@@ -19,7 +19,7 @@ from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
-from predicators.envs.playroom import PlayroomEnv
+from predicators.envs.playroom import PlayroomEnv, PlayroomSimpleEnv
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
     RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
@@ -468,6 +468,35 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     assert opt.objects == [robby]
     assert RepeatedNextToPaintingEnv.shelf_lb < opt.params[1] < \
         RepeatedNextToPaintingEnv.shelf_ub
+
+
+def test_playroom_simple_get_gt_nsrts():
+    """Tests for the ground truth NSRTs in PlayroomSimpleEnv."""
+    utils.reset_config({
+        "env": "playroom_simple",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1
+    })
+    env = PlayroomSimpleEnv()
+    # Test MoveTableToDial for coverage.
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    movetabletodial = [nsrt for nsrt in nsrts \
+                       if nsrt.name == "MoveTableToDial"][0]
+    train_tasks = env.get_train_tasks()
+    train_task = train_tasks[0]
+    state = train_task.init
+    objs = list(state)
+    robot, dial = objs[-1], objs[-2]
+    assert robot.name == "robby"
+    assert dial.name == "dial"
+    movetabletodial_nsrt = movetabletodial.ground([robot, dial])
+    rng = np.random.default_rng(123)
+    movetodial_option = movetabletodial_nsrt.sample_option(
+        state, train_task.goal, rng)
+    movetodial_action = movetodial_option.policy(state)
+    assert env.action_space.contains(movetodial_action.arr)
+    assert np.all(movetodial_action.arr == np.array([125, 15, 1, 0, 1],
+                                                    dtype=np.float32))
 
 
 def test_playroom_get_gt_nsrts():

@@ -1227,6 +1227,23 @@ class PNAD:
         param_option, option_vars = self.option_spec
         return self.op.make_nsrt(param_option, option_vars, self.sampler)
 
+    def copy(self) -> PNAD:
+        """Make a copy of this PNAD object, taking care to ensure that
+        modifying the original will not affect the copy."""
+        new_op = self.op.copy_with()
+        new_poss_keep_effects = set(self.poss_keep_effects)
+        new_seg_to_keep_effects_sub = {}
+        # NOTE: Below line effectively does a deep-copy of the nested dicts
+        # here. This is crucial for the PNAD search learner (since otherwise,
+        # updating a PNAD in a different set may change this dict for a PNAD
+        # in the current set).
+        for k, v in self.seg_to_keep_effects_sub.items():
+            new_seg_to_keep_effects_sub[k] = dict(v)
+        new_pnad = PNAD(new_op, self.datastore, self.option_spec)
+        new_pnad.poss_keep_effects = new_poss_keep_effects
+        new_pnad.seg_to_keep_effects_sub = new_seg_to_keep_effects_sub
+        return new_pnad
+
     def __repr__(self) -> str:
         param_option, option_vars = self.option_spec
         vars_str = ", ".join(str(v) for v in option_vars)

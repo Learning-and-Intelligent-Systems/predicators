@@ -369,12 +369,13 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
-                                  [np.sin(self.theta),
+        rotate_matrix = np.array([[np.cos(self.theta),
+                                   np.sin(self.theta)],
+                                  [-np.sin(self.theta),
                                    np.cos(self.theta)]])
-        rx, ry = np.array([x, y]) @ rotate_matrix.T
-        return self.x <= rx <= self.x + self.width and \
-               self.y <= ry <= self.y + self.height
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        return 0 <= rx <= self.width and \
+               0 <= ry <= self.height
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
