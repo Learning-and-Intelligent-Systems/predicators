@@ -1574,13 +1574,17 @@ def run_policy_guided_astar(
     return state_seq, action_seq
 
 
-class BiRRT(Generic[_S]):
+_BiRRTState = TypeVar("_BiRRTState")
+
+
+class BiRRT(Generic[_BiRRTState]):
     """Bidirectional rapidly-exploring random tree."""
 
-    def __init__(self, sample_fn: Callable[[_S], _S],
-                 extend_fn: Callable[[_S, _S], Iterator[_S]],
-                 collision_fn: Callable[[_S], bool],
-                 distance_fn: Callable[[_S, _S],
+    def __init__(self, sample_fn: Callable[[_BiRRTState], _BiRRTState],
+                 extend_fn: Callable[[_BiRRTState, _BiRRTState],
+                                     Iterator[_BiRRTState]],
+                 collision_fn: Callable[[_BiRRTState], bool],
+                 distance_fn: Callable[[_BiRRTState, _BiRRTState],
                                        float], rng: np.random.Generator,
                  num_attempts: int, num_iters: int, smooth_amt: int):
         self._sample_fn = sample_fn
@@ -1592,7 +1596,8 @@ class BiRRT(Generic[_S]):
         self._num_iters = num_iters
         self._smooth_amt = smooth_amt
 
-    def query(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def query(self, pt1: _BiRRTState,
+              pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         """Query the BiRRT, to get a collision-free path from pt1 to pt2.
 
         If none is found, returns None.
@@ -1608,7 +1613,8 @@ class BiRRT(Generic[_S]):
                 return self._smooth_path(path)
         return None
 
-    def _try_direct_path(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def _try_direct_path(self, pt1: _BiRRTState,
+                         pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         path = [pt1]
         for newpt in self._extend_fn(pt1, pt2):
             if self._collision_fn(newpt):
@@ -1616,11 +1622,13 @@ class BiRRT(Generic[_S]):
             path.append(newpt)
         return path
 
-    def _rrt_connect(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def _rrt_connect(self, pt1: _BiRRTState,
+                     pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
         nodes1, nodes2 = [root1], [root2]
 
-        def _get_pt_dist_to_node(pt: _S, node: _BiRRTNode[_S]) -> float:
+        def _get_pt_dist_to_node(pt: _BiRRTState,
+                                 node: _BiRRTNode[_BiRRTState]) -> float:
             return self._distance_fn(pt, node.data)
 
         for _ in range(self._num_iters):
@@ -1652,7 +1660,7 @@ class BiRRT(Generic[_S]):
                 return [node.data for node in path]
         return None
 
-    def _smooth_path(self, path: List[_S]) -> List[_S]:
+    def _smooth_path(self, path: List[_BiRRTState]) -> List[_BiRRTState]:
         assert len(path) > 2
         for _ in range(self._smooth_amt):
             i = self._rng.integers(0, len(path) - 1)
@@ -1668,19 +1676,19 @@ class BiRRT(Generic[_S]):
         return path
 
 
-class _BiRRTNode(Generic[_S]):
+class _BiRRTNode(Generic[_BiRRTState]):
     """A node for BiRRT."""
 
     def __init__(self,
-                 data: _S,
-                 parent: Optional[_BiRRTNode[_S]] = None) -> None:
+                 data: _BiRRTState,
+                 parent: Optional[_BiRRTNode[_BiRRTState]] = None) -> None:
         self.data = data
         self.parent = parent
 
-    def path_from_root(self) -> List[_BiRRTNode[_S]]:
+    def path_from_root(self) -> List[_BiRRTNode[_BiRRTState]]:
         """Return the path from the root to this node."""
         sequence = []
-        node: Optional[_BiRRTNode[_S]] = self
+        node: Optional[_BiRRTNode[_BiRRTState]] = self
         while node is not None:
             sequence.append(node)
             node = node.parent
