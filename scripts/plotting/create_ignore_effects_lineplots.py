@@ -72,13 +72,16 @@ def _select_data(env: str, approach: str, df: pd.DataFrame) -> pd.Series:
     # Need to do some additional work because some of the names of
     # the environments are subsets of others.
     if approach == "painting":
-        return df["EXPERIMENT_ID"].apply(lambda v: v.startswith(
+        series = df["EXPERIMENT_ID"].apply(lambda v: v.startswith(
             f"{env}_{approach}_") and "repeated_nextto" not in v)
-    if approach == "satellites":
-        return df["EXPERIMENT_ID"].apply(
+    elif approach == "satellites":
+        series = df["EXPERIMENT_ID"].apply(
             lambda v: v.startswith(f"{env}_{approach}_") and "simple" not in v)
-    return df["EXPERIMENT_ID"].apply(
-        lambda v: v.startswith(f"{env}_{approach}_"))
+    else:
+        series = df["EXPERIMENT_ID"].apply(
+            lambda v: v.startswith(f"{env}_{approach}_"))
+    assert isinstance(series, pd.Series)
+    return series
 
 
 PLOT_GROUPS = {
