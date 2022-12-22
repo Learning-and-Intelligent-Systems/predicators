@@ -7,10 +7,10 @@ import numpy as np
 import pybullet as p
 from tqdm import tqdm
 
+from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, Predicate, Set, State
-from predicators.utils import abstract, abstract_from_last
 
 try:
     from igibson.envs.behavior_env import \
@@ -579,16 +579,16 @@ def create_ground_atom_dataset_behavior(
         atoms = []
         first_state = True
         for s in tqdm(traj.states):
-            # If th environment is BEHAVIOR we need to load the state before
+            # If the environment is BEHAVIOR we need to load the state before
             # we call the predicate classifiers.
             load_checkpoint_state(s, env)
             if not use_last_state or first_state:
-                next_atoms = abstract(s, predicates)
+                next_atoms = utils.abstract(s, predicates)
                 first_state = False
             else:
                 # Get atoms from last abstract state and state change
-                next_atoms = abstract_from_last(s, predicates, last_s,
-                                                last_atoms)
+                next_atoms = utils.abstract_from_last(s, predicates, last_s,
+                                                      last_atoms)
             atoms.append(next_atoms)
             last_s = s
             last_atoms = next_atoms

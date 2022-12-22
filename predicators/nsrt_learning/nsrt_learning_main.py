@@ -3,19 +3,30 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Set, Tuple
+import os
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
+from predicators.behavior_utils import behavior_utils
+from predicators.envs import get_or_create_env
 from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.settings import CFG
-from predicators.structs import NSRT, PNAD, GroundAtomTrajectory, \
+from predicators.structs import NSRT, PNAD, GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory, ParameterizedOption, Predicate, Segment, Task
+
+try:
+    from igibson.envs.behavior_env import \
+        BehaviorEnv  # pylint: disable=unused-import
+except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
+    pass
 
 
 def learn_nsrts_from_data(
@@ -126,6 +137,109 @@ def learn_nsrts_from_data(
     logging.info("")
 
     return set(nsrts), segmented_trajs, seg_to_nsrt
+
+
+def get_ground_atoms_dataset(
+        trajectories: Sequence[LowLevelTrajectory], predicates: Set[Predicate],
+        online_learning_cycle: Optional[int]) -> List[GroundAtomTrajectory]:
+    """Either tries to load a saved ground atom dataset, or creates a new one
+    depending on the CFG.load_atoms flag.
+
+    If creating a new one, then save a ground atoms dataset file.
+    """
+    dataset_fname, _ = utils.create_dataset_filename_str(
+        saving_ground_atoms=True, online_learning_cycle=online_learning_cycle)
+    # If CFG.load_atoms is set, then try to create a GroundAtomTrajectory
+    # by loading sets of GroundAtoms directly from a saved file.
+    if CFG.load_atoms:
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        # Check that the dataset file was previously saved.
+        if os.path.exists(dataset_fname):
+            # Load the ground atoms dataset.
+            with open(dataset_fname, "rb") as f:
+                ground_atom_dataset_atoms = pkl.load(f)
+            assert len(trajectories) == len(ground_atom_dataset_atoms)
+            logging.info("\n\nLOADED GROUND ATOM DATASET")
+
+            if CFG.env == "behavior":  # pragma: no cover
+                pred_name_to_pred = {pred.name: pred for pred in predicates}
+                new_ground_atom_dataset_atoms = []
+                # Since we save ground atoms for behavior with dummy
+                # classifiers, we need to restore the correct classifers.
+                for ground_atom_seq in ground_atom_dataset_atoms:
+                    new_ground_atom_seq = []
+                    for ground_atom_set in ground_atom_seq:
+                        new_ground_atom_set = {
+                            GroundAtom(pred_name_to_pred[atom.predicate.name],
+                                       atom.entities)
+                            for atom in ground_atom_set
+                        }
+                        new_ground_atom_seq.append(new_ground_atom_set)
+                    new_ground_atom_dataset_atoms.append(new_ground_atom_seq)
+
+            # The saved ground atom dataset consists only of sequences
+            # of sets of GroundAtoms, we need to recombine this with
+            # the LowLevelTrajectories to create a GroundAtomTrajectory.
+            ground_atom_dataset = []
+            for i, traj in enumerate(trajectories):
+                if CFG.env == "behavior":
+                    ground_atom_seq = new_ground_atom_dataset_atoms[
+                        i]  # pragma: no cover
+                else:
+                    ground_atom_seq = ground_atom_dataset_atoms[i]
+                ground_atom_dataset.append(
+                    (traj, [set(atoms) for atoms in ground_atom_seq]))
+        else:
+            raise ValueError(f"Cannot load ground atoms: {dataset_fname}")
+    else:
+        # Apply predicates to data, producing a dataset of abstract states.
+        if CFG.env == "behavior":  # pragma: no cover
+            env = get_or_create_env("behavior")
+            assert isinstance(env, BehaviorEnv)
+            ground_atom_dataset = \
+                behavior_utils.create_ground_atom_dataset_behavior(
+                    trajectories, predicates, env)
+        else:
+            ground_atom_dataset = utils.create_ground_atom_dataset(
+                trajectories, predicates)
+        # Save ground atoms dataset to file. Note that a
+        # GroundAtomTrajectory contains a normal LowLevelTrajectory and a
+        # list of sets of GroundAtoms, so we only save the list of
+        # GroundAtoms (the LowLevelTrajectories are saved separately).
+        ground_atom_dataset_to_pkl = []
+        for gt_traj in ground_atom_dataset:
+            trajectory = []
+            for ground_atom_set in gt_traj[1]:
+                if CFG.env == "behavior":  # pragma: no cover
+                    # In the case of behavior, we cannot directly pickle
+                    # the ground atoms dataset because the classifiers are
+                    # linked to the simulator, which cannot be pickled.
+                    # Thus, we must strip away the classifiers and replace
+                    # them with dummies.
+                    trajectory.append({
+                        GroundAtom(
+                            Predicate(atom.predicate.name,
+                                      atom.predicate.types,
+                                      lambda s, o: False), atom.entities)
+                        for atom in ground_atom_set
+                    })
+                else:
+                    trajectory.append(ground_atom_set)
+            ground_atom_dataset_to_pkl.append(trajectory)
+        with open(dataset_fname, "wb") as f:
+            pkl.dump(ground_atom_dataset_to_pkl, f)
+        # If we're only interested in creating a training dataset, then
+        # terminate the program here and return how many demos were
+        # collected.
+        if CFG.create_training_dataset:  # pragma: no cover
+            if CFG.num_train_tasks != len(trajectories):
+                raise AssertionError(
+                    "ERROR!: Collected only" +
+                    f"{len(trajectories)} trajectories, but needed" +
+                    f"{CFG.num_train_tasks}.")
+            raise AssertionError("SUCCESS!: Created training dataset" +
+                                 f"with {len(trajectories)} trajectories.")
+    return ground_atom_dataset
 
 
 def _learn_pnad_options(pnads: List[PNAD],
