@@ -133,6 +133,7 @@ class PlayroomSimpleEnv(BlocksEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
+        prev_state = state.copy()
         x, y, z, _, fingers = action.arr
         was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
         was_next_to_dial = self._NextToDial_holds(state,
@@ -165,8 +166,11 @@ class PlayroomSimpleEnv(BlocksEnv):
                     < self.dial_button_z+self.dial_button_tol) \
             and fingers >= self.open_fingers:
             return self._transition_dial(state)
-
-        return state.copy()
+        # Otherwise, robot can only move from table to dial
+        if was_next_to_table and self._NextToDial_holds(state,
+                                                  (self._robot, self._dial)):
+            return state.copy()
+        return prev_state
 
     def _transition_move(self, state: State, action: Action) -> State:
         x, y, _, rotation, _ = action.arr
