@@ -157,16 +157,15 @@ class PlayroomSimpleEnv(BlocksEnv):
         # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        if was_next_to_dial:
-            if (dial_x-self.dial_button_tol < x
+        if was_next_to_dial \
+            and (dial_x-self.dial_button_tol < x
                     < dial_x+self.dial_button_tol) \
             and (dial_y-self.dial_button_tol < y
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
                     < self.dial_button_z+self.dial_button_tol) \
-            and fingers >= self.open_fingers:
+            and fingers >= self.open_fingers:  # TODO: problem b/c not in preconditions?
                 return self._transition_dial(state)
-            return prev_state
         # Otherwise, robot can only move from table to dial
         if was_next_to_table and self._NextToDial_holds(state,
                                                   (self._robot, self._dial)):
@@ -620,13 +619,19 @@ class PlayroomSimpleEnv(BlocksEnv):
     def _robot_can_move(self, state: State, action: Action) -> bool:
         """No region or door stuff."""
         x, y, _, _, _ = action.arr
+        was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
+        was_next_to_dial = self._NextToDial_holds(state,
+                                                  (self._robot, self._dial))
         next_state = state.copy()
         next_state.set(self._robot, "pose_x", x)
         next_state.set(self._robot, "pose_y", y)
-        # Robot must end up next to something
-        if not (self._NextToTable_holds(next_state, (self._robot, ))
-                or self._NextToDial_holds(next_state,
-                                          (self._robot, self._dial))):
+        is_next_to_table = self._NextToTable_holds(next_state, (self._robot, ))
+        is_next_to_dial = self._NextToDial_holds(next_state,
+                                                 (self._robot, self._dial))
+        # Robot can only move in these ways
+        if not ((was_next_to_table and is_next_to_table) or
+                (was_next_to_table and is_next_to_dial) or
+                (was_next_to_dial and is_next_to_dial)):
             return False
         return True
 
