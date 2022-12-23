@@ -157,15 +157,16 @@ class PlayroomSimpleEnv(BlocksEnv):
         # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        if was_next_to_dial \
-            and (dial_x-self.dial_button_tol < x
+        if was_next_to_dial:
+            if (dial_x-self.dial_button_tol < x
                     < dial_x+self.dial_button_tol) \
             and (dial_y-self.dial_button_tol < y
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
                     < self.dial_button_z+self.dial_button_tol) \
             and fingers >= self.open_fingers:
-            return self._transition_dial(state)
+                return self._transition_dial(state)
+            return prev_state
         # Otherwise, robot can only move from table to dial
         if was_next_to_table and self._NextToDial_holds(state,
                                                   (self._robot, self._dial)):
