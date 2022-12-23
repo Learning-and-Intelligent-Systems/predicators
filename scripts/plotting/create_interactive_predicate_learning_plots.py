@@ -61,15 +61,15 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Main Approaches in CoverEnv Excluding Covers,Holding": [
+    "Main Approaches in PlayroomSimpleEnv excluding all but Clear": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "playroom-main")),
         ("Main (MLP)", "orange",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
     ],
-    "Query Baselines in CoverEnv Excluding Covers,Holding": [
+    "Query Baselines in PlayroomSimpleEnv excluding all but Clear": [
         ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "playroom-main")),
         ("Ask All", "green",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
         ("Ask None", "red",
@@ -77,9 +77,9 @@ PLOT_GROUPS = {
         ("Ask Randomly", "purple",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
     ],
-    "Action Baselines in CoverEnv Excluding Covers,Holding": [
+    "Action Baselines in PlayroomSimpleEnv excluding all but Clear": [
         ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "playroom-main")),
         ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
         ("Random Actions", "brown",
