@@ -122,7 +122,8 @@ class GlobalSettings:
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_list = ["re-shelving_library_books"]
-    behavior_scene_name = "Pomaria_1_int"
+    behavior_train_scene_name = "Pomaria_1_int"
+    behavior_test_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = True
     behavior_option_model_eval = False
     behavior_option_model_rrt = False

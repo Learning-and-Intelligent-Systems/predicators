@@ -58,7 +58,7 @@ class BilevelPlanningApproach(BaseApproach):
             env = get_or_create_env("behavior")
             assert isinstance(env, BehaviorEnv)
             if not task.init.allclose(
-                    env.current_ig_state_to_state(save_state=False)):
+                    env.current_ig_state_to_state(save_state=False, use_test_scene=env.task_num>=10)):
                 load_checkpoint_state(task.init, env)
 
         nsrts = self._get_current_nsrts()

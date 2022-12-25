@@ -436,7 +436,7 @@ def _save_test_results(results: Metrics,
             CFG.behavior_task_list) == 1 else "all"
         outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
                    f"{online_learning_cycle}__{behavior_task_name}__"
-                   f"{CFG.behavior_scene_name}.pkl")
+                   f"{CFG.behavior_test_scene_name}.pkl")
     else:
         outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
                    f"{online_learning_cycle}.pkl")
