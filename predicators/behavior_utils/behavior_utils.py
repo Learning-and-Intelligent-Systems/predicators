@@ -498,7 +498,7 @@ def sample_navigation_params(igibson_behavior_env: "BehaviorEnv",
 
 
 def sample_place_inside_params(obj_to_place_inside: "URDFObject",
-                             rng: np.random.Generator) -> Array:
+                               rng: np.random.Generator) -> Array:
     """Main logic for place inside param sampler.
 
     Implemented in a separate method to enable code reuse in
@@ -589,7 +589,9 @@ def load_checkpoint_state(s: State,
                 new_task_num_task_instance_id])
         env.igibson_behavior_env.simulator.frame_count = frame_count
         env.set_options()
-        env.current_ig_state_to_state(use_test_scene=env.task_num>=10) # overwrite the old task_init checkpoint file!
+        env.current_ig_state_to_state(
+            use_test_scene=env.task_num >=
+            10)  # overwrite the old task_init checkpoint file!
         env.igibson_behavior_env.reset()
     behavior_task_name = CFG.behavior_task_list[0] if len(
         CFG.behavior_task_list) == 1 else "all"

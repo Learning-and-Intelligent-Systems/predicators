@@ -10,7 +10,8 @@ from numpy.random import RandomState
 
 from predicators import utils
 from predicators.behavior_utils.behavior_utils import \
-    ALL_RELEVANT_OBJECT_TYPES, sample_navigation_params, sample_place_inside_params
+    ALL_RELEVANT_OBJECT_TYPES, sample_navigation_params, \
+    sample_place_inside_params
 from predicators.settings import CFG
 from predicators.structs import Object, State, Type
 
@@ -305,7 +306,7 @@ def create_place_inside_option_model(
                                          in obj_to_place_into.states):
                     logging.info(f"PRIMITIVE: place {obj_in_hand.name} inside "
                                  f"{obj_to_place_into.name} success")
-                    
+
                     # If we're not overriding the learned samplers, then we will directly
                     # use the elements of `plan`, which in turn use the outputs of the
                     # learned samplers. Otherwise, we will ignore these and use our
@@ -315,14 +316,17 @@ def create_place_inside_option_model(
                         target_orn = plan[-1][3:6]
                     else:
                         rng = np.random.default_rng(prng.randint(10000))
-                        place_rel_pos = sample_place_inside_params(obj_to_place_into, rng)
-                        target_pos = np.add(place_rel_pos, obj_to_place_into.get_position())
+                        place_rel_pos = sample_place_inside_params(
+                            obj_to_place_into, rng)
+                        target_pos = np.add(place_rel_pos,
+                                            obj_to_place_into.get_position())
                         target_pos[2] += 0.2
                         target_orn = plan[-1][3:6]
-                        logging.info(f"PRIMITIVE: Overriding sample ({plan[-1][0:3]}" +
-                                    f", {plan[-1][3:6]}) and attempting to " +
-                                    f"place inside to {obj_to_place_into.name} with "
-                                    f"params {target_pos}")
+                        logging.info(
+                            f"PRIMITIVE: Overriding sample ({plan[-1][0:3]}" +
+                            f", {plan[-1][3:6]}) and attempting to " +
+                            f"place inside to {obj_to_place_into.name} with "
+                            f"params {target_pos}")
                     env.robots[0].parts["right_hand"].force_release_obj()
                     obj_to_place_into.force_wakeup()
                     obj_in_hand.set_position_orientation(

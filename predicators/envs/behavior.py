@@ -88,8 +88,8 @@ class BehaviorEnv(BaseEnv):
         else:
             self._config_file = modify_config_file(
                 os.path.join(igibson.root_path, CFG.behavior_config_file),
-                CFG.behavior_task_list[0], CFG.behavior_train_scene_name, False,
-                CFG.seed)
+                CFG.behavior_task_list[0], CFG.behavior_train_scene_name,
+                False, CFG.seed)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
@@ -194,7 +194,6 @@ class BehaviorEnv(BaseEnv):
             CFG.behavior_task_list[task_index], self.scene_list[task_num],
             False, CFG.seed)
 
-
     def get_random_scene_for_task(self, behavior_task_name: str,
                                   rng: Generator) -> str:
         """A method that gets a valid random scene for a BEHAVIOR Task."""
@@ -241,7 +240,8 @@ class BehaviorEnv(BaseEnv):
                 linearVelocity=[0, 0, 0],
                 angularVelocity=[0, 0, 0],
             )
-        next_state = self.current_ig_state_to_state(use_test_scene=self.task_num>=10)
+        next_state = self.current_ig_state_to_state(
+            use_test_scene=self.task_num >= 10)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -295,11 +295,12 @@ class BehaviorEnv(BaseEnv):
                                 self.task_instance_id = rng.integers(0, 10)
                 if len(CFG.behavior_task_list) != 1:
                     self.set_config_by_task_num(self.task_num)
-                elif (CFG.behavior_train_scene_name != CFG.behavior_test_scene_name):
+                elif (CFG.behavior_train_scene_name !=
+                      CFG.behavior_test_scene_name):
                     self._config_file = modify_config_file(
-                        os.path.join(igibson.root_path, CFG.behavior_config_file),
-                        CFG.behavior_task_list[0], scene_name,
-                        False, CFG.seed)
+                        os.path.join(igibson.root_path,
+                                     CFG.behavior_config_file),
+                        CFG.behavior_task_list[0], scene_name, False, CFG.seed)
 
                 self.set_igibson_behavior_env(
                     task_num=self.task_num,
@@ -316,13 +317,14 @@ class BehaviorEnv(BaseEnv):
                         f"{CFG.seed}__{self.task_num}__" +
                         f"{self.task_instance_id}",
                         exist_ok=True)
-            
+
             # NOTE: We load_checkpoint_state here because there appears to
             # be a subtle difference between calling the predicate classifiers
             # on a particular state, and calling them after loading checkpoint
             # on that particular state. Doing this resolves that discrepancy.
-            load_checkpoint_state(self.current_ig_state_to_state(use_test_scene=testing), self)
-            
+            load_checkpoint_state(
+                self.current_ig_state_to_state(use_test_scene=testing), self)
+
             # Initial state objects might not have settled yet, so we step the
             # simulator a few times to let the objects settle.
             for _ in range(15):
@@ -609,7 +611,9 @@ class BehaviorEnv(BaseEnv):
                 return pred
         raise ValueError(f"No predicate found for name {name}.")
 
-    def current_ig_state_to_state(self, save_state: bool = True, use_test_scene: bool = False) -> State:
+    def current_ig_state_to_state(self,
+                                  save_state: bool = True,
+                                  use_test_scene: bool = False) -> State:
         """Function to create a predicators State from the current underlying
         iGibson simulator state."""
         state_data = {}
@@ -655,7 +659,8 @@ class BehaviorEnv(BaseEnv):
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
             if not s.allclose(
-                    self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                    self.current_ig_state_to_state(
+                        save_state=False, use_test_scene=self.task_num >= 10)):
                 load_checkpoint_state(s, self)
 
             arity = self._bddl_predicate_arity(bddl_predicate)
@@ -682,7 +687,8 @@ class BehaviorEnv(BaseEnv):
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
@@ -706,7 +712,8 @@ class BehaviorEnv(BaseEnv):
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 0
         for obj in state:
@@ -735,7 +742,8 @@ class BehaviorEnv(BaseEnv):
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
@@ -744,7 +752,8 @@ class BehaviorEnv(BaseEnv):
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
@@ -753,7 +762,8 @@ class BehaviorEnv(BaseEnv):
     def _openable_classifier(self, state: State,
                              objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
@@ -767,7 +777,8 @@ class BehaviorEnv(BaseEnv):
 
     def _closed_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         if not state.allclose(
-                self.current_ig_state_to_state(save_state=False, use_test_scene=self.task_num>=10)):
+                self.current_ig_state_to_state(
+                    save_state=False, use_test_scene=self.task_num >= 10)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
