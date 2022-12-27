@@ -497,6 +497,57 @@ def sample_navigation_params(igibson_behavior_env: "BehaviorEnv",
     return sampler_output
 
 
+def sample_place_inside_params(obj_to_place_inside: "URDFObject",
+                               rng: np.random.Generator) -> Array:
+    """Main logic for place inside param sampler.
+
+    Implemented in a separate method to enable code reuse in
+    option_model_fns.
+    """
+    # Custom object-specific sampler methods.
+    if obj_to_place_inside.category == "bucket":
+        # # Get the current env for collision checking.
+        # env = get_or_create_env("behavior")
+        # assert isinstance(env, BehaviorEnv)
+        # load_checkpoint_state(state, env)
+        objB_sampling_bounds = obj_to_place_inside.bounding_box / 2
+        # Since the bucket's hole is generally in the center,
+        # we want a very small sampling range around the
+        # object's position in the x and y directions (hence
+        # we divide the x and y bounds futher by 2).
+        sample_params = np.array([
+            rng.uniform(-objB_sampling_bounds[0] / 2,
+                        objB_sampling_bounds[0] / 2),
+            rng.uniform(-objB_sampling_bounds[1] / 2,
+                        objB_sampling_bounds[1] / 2),
+            rng.uniform(objB_sampling_bounds[2] + 0.15,
+                        objB_sampling_bounds[2] + 0.5)
+        ])
+        return sample_params
+    if obj_to_place_inside.category == "trash_can":
+        objB_sampling_bounds = obj_to_place_inside.bounding_box / 2
+        # Since the trash can's hole is generally in the center,
+        # we want a very small sampling range around the
+        # object's position in the x and y directions (hence
+        # we divide the x and y bounds futher by 4).
+        sample_params = np.array([
+            rng.uniform(-objB_sampling_bounds[0] / 4,
+                        objB_sampling_bounds[0] / 4),
+            rng.uniform(-objB_sampling_bounds[1] / 4,
+                        objB_sampling_bounds[1] / 4),
+            rng.uniform(objB_sampling_bounds[2] + 0.05,
+                        objB_sampling_bounds[2] + 0.15)
+        ])
+        return sample_params
+    # If there's no object specific sampler, just return a
+    # random sample.
+    return np.array([
+        rng.uniform(-0.5, 0.5),
+        rng.uniform(-0.5, 0.5),
+        rng.uniform(0.3, 1.0)
+    ])
+
+
 def load_checkpoint_state(s: State,
                           env: "BehaviorEnv",
                           reset: bool = False) -> None:
@@ -539,12 +590,21 @@ def load_checkpoint_state(s: State,
         env.igibson_behavior_env.simulator.frame_count = frame_count
         env.set_options()
         env.current_ig_state_to_state(
-        )  # overwrite the old task_init checkpoint file!
+            use_test_scene=env.task_num >=
+            10)  # overwrite the old task_init checkpoint file!
         env.igibson_behavior_env.reset()
     behavior_task_name = CFG.behavior_task_list[0] if len(
         CFG.behavior_task_list) == 1 else "all"
+    # NOTE: This below logic exploits the fact that we know training
+    # tasks must have a task num below 10 and test tasks must have one
+    # above 10. This is sketchy in general and we should probably come
+    # up with something cleaner!
+    if env.task_num < 10:
+        scene_name = CFG.behavior_train_scene_name
+    else:
+        scene_name = CFG.behavior_test_scene_name
     checkpoint_file_str = (
-        f"tmp_behavior_states/{CFG.behavior_scene_name}__" +
+        f"tmp_behavior_states/{scene_name}__" +
         f"{behavior_task_name}__{CFG.num_train_tasks}__" +
         f"{CFG.seed}__{env.task_num}__{env.task_instance_id}")
     frame_num = int(s.simulator_state.split("-")[2])

@@ -10,7 +10,8 @@ from numpy.random._generator import Generator
 from predicators.behavior_utils.behavior_utils import OPENABLE_OBJECT_TYPES, \
     PICK_PLACE_OBJECT_TYPES, PLACE_INTO_SURFACE_OBJECT_TYPES, \
     PLACE_ONTOP_SURFACE_OBJECT_TYPES, check_hand_end_pose, \
-    load_checkpoint_state, sample_navigation_params
+    load_checkpoint_state, sample_navigation_params, \
+    sample_place_inside_params
 from predicators.envs import get_or_create_env
 from predicators.envs.behavior import BehaviorEnv
 from predicators.envs.doors import DoorsEnv
@@ -3041,7 +3042,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             state: State, goal: Set[GroundAtom], rng: Generator,
             objects: Union["URDFObject", "RoomFloor"]) -> Array:
         """Sampler for placeOnTop option."""
-        del goal
+        del state, goal
         assert rng is not None
         # objA is the object the robot is currently holding, and
         # objB is the surface that it must place onto.
@@ -3074,47 +3075,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
         if sampling_results[0] is None or sampling_results[0][0] is None:
             # If sampling fails, fall back onto custom-defined object-specific
             # samplers
-            if objB.category == "bucket":
-                # Get the current env for collision checking.
-                env = get_or_create_env("behavior")
-                assert isinstance(env, BehaviorEnv)
-                load_checkpoint_state(state, env)
-                objB_sampling_bounds = objB.bounding_box / 2
-                # Since the bucket's hole is generally in the center,
-                # we want a very small sampling range around the
-                # object's position in the x and y directions (hence
-                # we divide the x and y bounds futher by 2).
-                sample_params = np.array([
-                    rng.uniform(-objB_sampling_bounds[0] / 2,
-                                objB_sampling_bounds[0] / 2),
-                    rng.uniform(-objB_sampling_bounds[1] / 2,
-                                objB_sampling_bounds[1] / 2),
-                    rng.uniform(objB_sampling_bounds[2] + 0.15,
-                                objB_sampling_bounds[2] + 0.5)
-                ])
-                return sample_params
-            if objB.category == "trash_can":
-                objB_sampling_bounds = objB.bounding_box / 2
-                # Since the trash can's hole is generally in the center,
-                # we want a very small sampling range around the
-                # object's position in the x and y directions (hence
-                # we divide the x and y bounds futher by 4).
-                sample_params = np.array([
-                    rng.uniform(-objB_sampling_bounds[0] / 4,
-                                objB_sampling_bounds[0] / 4),
-                    rng.uniform(-objB_sampling_bounds[1] / 4,
-                                objB_sampling_bounds[1] / 4),
-                    rng.uniform(objB_sampling_bounds[2] + 0.05,
-                                objB_sampling_bounds[2] + 0.15)
-                ])
-                return sample_params
-            # If there's no object specific sampler, just return a
-            # random sample.
-            return np.array([
-                rng.uniform(-0.5, 0.5),
-                rng.uniform(-0.5, 0.5),
-                rng.uniform(0.3, 1.0)
-            ])
+            return sample_place_inside_params(objB, rng)
 
         rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
         return rnd_params

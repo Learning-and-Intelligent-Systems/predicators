@@ -43,7 +43,7 @@ This repository is integrated with the [BEHAVIOR benchmark of tasks](https://beh
 
 That's it! You can verify installation by running a simple command such as:
 ```
-python predicators/main.py --env behavior --approach oracle --option_model_name oracle_behavior --num_train_tasks 0 --num_test_tasks 1 --behavior_scene_name Pomaria_2_int --behavior_task_list "[opening_packages]" --seed 1000 --offline_data_planning_timeout 500.0 --timeout 500.0 --behavior_option_model_eval True --plan_only_eval True
+python predicators/main.py --env behavior --approach oracle --option_model_name oracle_behavior --num_train_tasks 0 --num_test_tasks 1 --behavior_train_scene_name Pomaria_2_int --behavior_test_scene_name Pomaria_2_int --behavior_task_list "[opening_packages]" --seed 1000 --offline_data_planning_timeout 500.0 --timeout 500.0 --behavior_option_model_eval True --plan_only_eval True
 ```
 
 ## Installing on MIT Supercloud
