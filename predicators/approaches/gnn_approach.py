@@ -201,6 +201,39 @@ class GNNApproach(BaseApproach, Generic[_Output]):
             "input_normalizers": self._input_normalizers,
             "target_normalizers": self._target_normalizers,
         }
+
+        # We cannot pickle BEHAVIOR predicates, since their classifiers are
+        # linked to the simulator, which cannot be pickled. Thus, we will
+        # strip away the classifiers and replace them with dummies before
+        # saving. Note that when loading, we will re-associate the correct
+        # classifiers with each predicate.
+        if CFG.env == "behavior":  # pragma: no cover
+
+            def _make_pred_dict_picklable(
+                    in_dict: Dict[Any, int]) -> Dict[Any, int]:
+                picklable_dict = {}
+                for k, v in in_dict.items():
+                    if not isinstance(k, Predicate):
+                        picklable_dict[k] = v
+                    else:
+                        picklable_pred = Predicate(k.name, k.types,
+                                                   lambda s, o: False)
+                        picklable_dict[picklable_pred] = v
+                return picklable_dict
+
+            picklable_nullary_predicates: List[Predicate] = []
+            for pred in self._nullary_predicates:
+                picklable_pred = Predicate(pred.name, pred.types,
+                                           lambda s, o: False)
+                picklable_nullary_predicates.append(picklable_pred)
+            info["nullary_predicates"] = picklable_nullary_predicates
+            picklable_node_feature_to_index = _make_pred_dict_picklable(
+                self._node_feature_to_index)
+            info["node_feature_to_index"] = picklable_node_feature_to_index
+            picklable_edge_feature_to_index = _make_pred_dict_picklable(
+                self._edge_feature_to_index)
+            info["edge_feature_to_index"] = picklable_edge_feature_to_index
+
         self._add_output_specific_fields_to_save_info(info)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_None.gnn", "wb") as f:
@@ -222,6 +255,56 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         self._edge_feature_to_index = info["edge_feature_to_index"]
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
+
+        # Since we cannot pickle BEHAVIOR predicates correctly, we pickle
+        # them with dummy classifiers. Thus, we must re-associate each
+        # predicate with the correct classifier here.
+        if CFG.env == "behavior":  # pragma: no cover
+
+            def _get_unmodified_predicate_name(modified_name_str: str) -> str:
+                out_name_str = modified_name_str
+                if "GOAL-REV" == modified_name_str[0:8]:
+                    out_name_str = modified_name_str[9:]
+                elif "GOAL" == modified_name_str[0:4]:
+                    out_name_str = modified_name_str[5:]
+                elif "REV" == modified_name_str[0:3]:
+                    out_name_str = modified_name_str[4:]
+                return out_name_str
+
+            def _create_correct_predicate_dict(
+                in_dict: Dict[Any, int],
+                pred_name_to_correct_pred: Dict[str,
+                                                Predicate]) -> Dict[Any, int]:
+                out_dict: Dict[Any, int] = {}
+                for k, v in in_dict.items():
+                    if not isinstance(k, Predicate):
+                        out_dict[k] = v
+                    else:
+                        k_name = _get_unmodified_predicate_name(k.name)
+                        correct_predicate = Predicate(
+                            k.name, pred_name_to_correct_pred[k_name].types,
+                            pred_name_to_correct_pred[k_name]._classifier)  # pylint: disable=W0212
+                        out_dict[correct_predicate] = v
+                return out_dict
+
+            pred_name_to_correct_pred = {
+                pred.name: pred
+                for pred in self._initial_predicates
+            }
+            correct_nullary_preds: List[Predicate] = []
+            for null_pred in self._nullary_predicates:
+                null_pred_name = _get_unmodified_predicate_name(null_pred.name)
+                correct_predicate = Predicate(
+                    null_pred.name,
+                    pred_name_to_correct_pred[null_pred_name].types,
+                    pred_name_to_correct_pred[null_pred_name]._classifier)  # pylint: disable=W0212
+                correct_nullary_preds.append(correct_predicate)
+            self._nullary_predicates = correct_nullary_preds
+            self._node_feature_to_index = _create_correct_predicate_dict(
+                self._node_feature_to_index, pred_name_to_correct_pred)
+            self._edge_feature_to_index = _create_correct_predicate_dict(
+                self._edge_feature_to_index, pred_name_to_correct_pred)
+
         self._load_output_specific_fields_from_save_info(info)
 
     def _predict(self, state: State, atoms: Set[GroundAtom],
