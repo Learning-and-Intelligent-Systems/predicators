@@ -22,12 +22,6 @@ ENVS:
       behavior_scene_name: Ihlen_1_int
       behavior_task_list: "[collecting_aluminum_cans]"
       behavior_option_model_eval: True
-  storing-food-Beechwood_0_int:
-    NAME: "behavior"
-    FLAGS:
-      behavior_scene_name: Beechwood_0_int
-      behavior_task_list: "[storing_food]"
-      behavior_option_model_eval: True
   opening-presents-Pomaria_2_int:
     NAME: "behavior"
     FLAGS:
