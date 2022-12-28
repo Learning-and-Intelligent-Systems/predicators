@@ -28,7 +28,7 @@ def test_online_nsrt_learning_approach():
         "num_train_tasks": 3,
         "num_test_tasks": 3,
         "explorer": "random_options",
-        "glib_max_novelty_count": float("inf"),
+        "online_learning_max_novelty_count": float("inf"),
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()

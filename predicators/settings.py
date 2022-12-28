@@ -440,6 +440,7 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+    online_learning_max_novelty_count = 0
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -449,7 +450,6 @@ class GlobalSettings:
     glib_min_goal_size = 1
     glib_max_goal_size = 1
     glib_num_babbles = 10
-    glib_max_novelty_count = 0
 
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
