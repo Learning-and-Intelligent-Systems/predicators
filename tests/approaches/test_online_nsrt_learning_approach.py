@@ -79,7 +79,7 @@ def test_online_nsrt_learning_approach():
     assert covers_score > is_target_score
     # Scores should now be -inf.
     utils.update_config({
-        "glib_max_novelty_count": 0,
+        "online_learning_max_novelty_count": 0,
     })
     covers_score = approach._score_atoms_novelty(covers)  # pylint: disable=protected-access
     is_block_score = approach._score_atoms_novelty(is_block)  # pylint: disable=protected-access
