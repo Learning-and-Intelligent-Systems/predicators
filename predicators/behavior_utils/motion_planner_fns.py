@@ -380,7 +380,7 @@ def make_place_plan(
         ][0]
         logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop"
                      f"/inside {obj.name} with params {place_rel_pos}")
-    except ValueError:
+    except (ValueError, IndexError):
         logging.info("Cannot place; either no object in hand or holding "
                      "the object to be placed on-top/inside of!")
         return None
