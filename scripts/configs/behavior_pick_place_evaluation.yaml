@@ -27,8 +27,8 @@ APPROACHES:
     FLAGS: 
       strips_learner: "cluster_and_intersect_sideline_prederror" 
       disable_harmlessness_check: True
-  # gnn_shooting:  # Model-based GNN option policy baseline.
-  #   NAME: "gnn_option_policy"
+  gnn_shooting:  # Model-based GNN option policy baseline.
+    NAME: "gnn_option_policy"
   # gnn_modelfree:  # Model-free GNN option policy baseline. Note: this needs to run after Model-based GNN
   #   NAME: "gnn_option_policy"
   #   FLAGS:
@@ -41,6 +41,7 @@ ENVS:
       behavior_test_scene_name: Pomaria_2_int
       behavior_task_list: "[collecting_aluminum_cans]"
       behavior_option_model_eval: True
+      horizon: 50
   opening-presents-Pomaria_2_int:
     NAME: "behavior"
     FLAGS:
@@ -48,6 +49,7 @@ ENVS:
       behavior_test_scene_name: Benevolence_2_int
       behavior_task_list: "[opening_presents]"
       behavior_option_model_eval: True
+      horizon: 50
   locking-every-window-Merom_1_int:
     NAME: "behavior"
     FLAGS:
@@ -55,6 +57,7 @@ ENVS:
       behavior_test_scene_name: Wainscott_0_int
       behavior_task_list: "[locking_every_window]"
       behavior_option_model_eval: True
+      horizon: 50
   sorting-books-Pomaria_1_int:
     NAME: "behavior"
     FLAGS:
@@ -62,12 +65,13 @@ ENVS:
       behavior_test_scene_name: Ihlen_0_int
       behavior_task_list: "[sorting_books]"
       behavior_option_model_eval: True
+      horizon: 50
 ARGS:
   - "load_data"
   - "load_atoms"
 FLAGS:  # general flags
-  offline_data_planning_timeout: 1000.0
-  timeout: 1000.0
+  offline_data_planning_timeout: 500.0
+  timeout: 500.0
   plan_only_eval: True
   sesame_task_planner: fdsat
   behavior_override_learned_samplers: True
