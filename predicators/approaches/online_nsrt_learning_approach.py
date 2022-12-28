@@ -130,10 +130,9 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         canonical_atoms = self._get_canonical_lifted_atoms(atoms)
         # Note minus sign: less frequent is better.
         count = self._novelty_counts[canonical_atoms]
-        if count > 0:
+        if count > CFG.glib_max_novelty_count:
             return -float("inf")
-        assert count == 0
-        return count
+        return -count
 
     @staticmethod
     def _get_canonical_lifted_atoms(

@@ -449,6 +449,7 @@ class GlobalSettings:
     glib_min_goal_size = 1
     glib_max_goal_size = 1
     glib_num_babbles = 10
+    glib_max_novelty_count = 0
 
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
