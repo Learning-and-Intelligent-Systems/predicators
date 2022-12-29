@@ -408,12 +408,14 @@ class GNNApproach(BaseApproach, Generic[_Output]):
         # Input globals: nullary predicates in atoms and goal.
         atoms_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
         for atom in atoms:
-            if atom.predicate.arity != 0:
+            if atom.predicate.arity != 0 or atom.predicate not in \
+                self._nullary_predicates: # pragma: no cover
                 continue
             atoms_globals[self._nullary_predicates.index(atom.predicate)] = 1
         goal_globals = np.zeros(len(self._nullary_predicates), dtype=np.int64)
         for atom in goal:
-            if atom.predicate.arity != 0:
+            if atom.predicate.arity != 0 or atom.predicate not in \
+                self._nullary_predicates: # pragma: no cover
                 continue
             goal_globals[self._nullary_predicates.index(atom.predicate)] = 1
         graph["globals"] = np.r_[atoms_globals, goal_globals]
@@ -430,7 +432,8 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add node features for unary atoms.
         for atom in atoms:
-            if atom.predicate.arity != 1:
+            if atom.predicate.arity != 1 or atom.predicate not in \
+                self._node_feature_to_index: # pragma: no cover
                 continue
             obj_index = object_to_node[atom.objects[0]]
             atom_index = self._node_feature_to_index[atom.predicate]
@@ -438,8 +441,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add node features for unary atoms in goal.
         for atom in goal:
-            if atom.predicate.arity != 1:
-                continue
+            if atom.predicate.arity != 1 or G(
+                    atom.predicate) not in self._node_feature_to_index:
+                continue  # pragma: no cover
             obj_index = object_to_node[atom.objects[0]]
             atom_index = self._node_feature_to_index[G(atom.predicate)]
             node_features[obj_index, atom_index] = 1
@@ -462,8 +466,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add edge features for binary atoms.
         for atom in atoms:
-            if atom.predicate.arity != 2:
-                continue
+            if atom.predicate.arity != 2 or atom.predicate not in \
+                self._edge_feature_to_index:
+                continue  # pragma: no cover
             pred_index = self._edge_feature_to_index[atom.predicate]
             obj0_index = object_to_node[atom.objects[0]]
             obj1_index = object_to_node[atom.objects[1]]
@@ -471,8 +476,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add edge features for reversed binary atoms.
         for atom in atoms:
-            if atom.predicate.arity != 2:
-                continue
+            if atom.predicate.arity != 2 or R(
+                    atom.predicate) not in self._edge_feature_to_index:
+                continue  # pragma: no cover
             pred_index = self._edge_feature_to_index[R(atom.predicate)]
             obj0_index = object_to_node[atom.objects[0]]
             obj1_index = object_to_node[atom.objects[1]]
@@ -481,8 +487,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add edge features for binary atoms in goal.
         for atom in goal:
-            if atom.predicate.arity != 2:
-                continue
+            if atom.predicate.arity != 2 or G(
+                    atom.predicate) not in self._edge_feature_to_index:
+                continue  # pragma: no cover
             pred_index = self._edge_feature_to_index[G(atom.predicate)]
             obj0_index = object_to_node[atom.objects[0]]
             obj1_index = object_to_node[atom.objects[1]]
@@ -490,8 +497,9 @@ class GNNApproach(BaseApproach, Generic[_Output]):
 
         ## Add edge features for reversed binary atoms in goal.
         for atom in goal:
-            if atom.predicate.arity != 2:
-                continue
+            if atom.predicate.arity != 2 or G(R(
+                    atom.predicate)) not in self._edge_feature_to_index:
+                continue  # pragma: no cover
             pred_index = self._edge_feature_to_index[G(R(atom.predicate))]
             obj0_index = object_to_node[atom.objects[0]]
             obj1_index = object_to_node[atom.objects[1]]
