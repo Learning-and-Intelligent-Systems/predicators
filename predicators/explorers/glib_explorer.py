@@ -64,11 +64,18 @@ class GLIBExplorer(BilevelPlanningExplorer):
             min_set_size=CFG.glib_min_goal_size,
             max_set_size=CFG.glib_max_goal_size,
             rng=self._rng)
-        # Exclude goals that hold in the initial state to prevent trivial
-        # interaction requests.
-        possible_goal_lst = [
-            g for g in possible_goals if not all(a.holds(init) for a in g)
-        ]
+        possible_goal_lst = []
+        for goal in possible_goals:
+            # Exclude goals that hold in the initial state to prevent trivial
+            # interaction requests.
+            if all(a.holds(init) for a in goal):
+                continue
+            score = self._atom_score_fn(goal)
+            # Also exclude goals that score to -inf.
+            if score == -float("inf"):
+                continue
+            possible_goal_lst.append(goal)
+        # Sort the goals by score where larger is better (first).
         goal_list = sorted(possible_goal_lst,
                            key=self._atom_score_fn,
                            reverse=True)  # largest to smallest
@@ -81,6 +88,7 @@ class GLIBExplorer(BilevelPlanningExplorer):
                 logging.info(f"GLIB found a plan with goal {glib_task.goal}.")
                 return strategy
             except (PlanningFailure, PlanningTimeout):
+                logging.info(f"GLIB failed to plan to goal {glib_task.goal}.")
                 continue
         # Fall back to a random exploration strategy if no solvable task
         # can be found.
