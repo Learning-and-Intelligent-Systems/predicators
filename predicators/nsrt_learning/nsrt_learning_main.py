@@ -12,7 +12,7 @@ from gym.spaces import Box
 
 from predicators import utils
 from predicators.behavior_utils import behavior_utils
-from predicators.envs import get_or_create_env
+from predicators.envs import behavior, get_or_create_env
 from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers
@@ -195,7 +195,7 @@ def get_ground_atoms_dataset(
         # Apply predicates to data, producing a dataset of abstract states.
         if CFG.env == "behavior":  # pragma: no cover
             env = get_or_create_env("behavior")
-            assert isinstance(env, BehaviorEnv)
+            assert isinstance(env, behavior.BehaviorEnv)
             ground_atom_dataset = \
                 behavior_utils.create_ground_atom_dataset_behavior(
                     trajectories, predicates, env)
