@@ -49,6 +49,7 @@ from predicators.approaches import ApproachFailure, ApproachTimeout, \
     BaseApproach, create_approach
 from predicators.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.approaches.gnn_approach import GNNApproach
 from predicators.datasets import create_dataset
 from predicators.envs import BaseEnv, create_new_env
 from predicators.planning import _run_plan_with_option_model
@@ -325,10 +326,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 # To evaluate BEHAVIOR on our option model, we are going
                 # to run our approach's plan on our option model.
                 # Note that if approach is not a BilevelPlanningApproach
-                # we cannot use this method to evaluate and would need to
-                # run the policy on the option model, not the plan
-                assert CFG.env == "behavior" and isinstance(
-                    approach, BilevelPlanningApproach)
+                # or a GNNApproach, we cannot use this method to evaluate
+                # and would need to run the policy on the option model, not
+                # the plan
+                assert CFG.env == "behavior" and (isinstance(
+                    approach, (BilevelPlanningApproach, GNNApproach)))
                 last_plan = approach.get_last_plan()
                 last_traj = approach.get_last_traj()
                 option_model_start_time = time.time()
