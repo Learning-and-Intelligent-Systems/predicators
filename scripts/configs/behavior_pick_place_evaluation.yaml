@@ -8,10 +8,10 @@
 APPROACHES:
   oracle: # Oracle
     NAME: "oracle"
-  pnad_search: # PNAD search approach.
-    NAME: "nsrt_learning"
-    FLAGS:
-      strips_learner: "pnad_search"
+  # pnad_search: # PNAD search approach.
+  #   NAME: "nsrt_learning"
+  #   FLAGS:
+  #     strips_learner: "pnad_search"
   # cluster_and_intersect:  # Cluster-and-intersect baseline.
   #   NAME: "nsrt_learning"
   #   FLAGS:
@@ -78,5 +78,5 @@ FLAGS:  # general flags
   num_train_tasks: 10
   num_test_tasks: 10
 START_SEED: 456
-NUM_SEEDS: 10
+NUM_SEEDS: 1
 USE_GPU: True
