@@ -334,6 +334,12 @@ class BehaviorEnv(BaseEnv):
             init_state = self.current_ig_state_to_state(use_test_scene=testing)
             goal = self._get_task_goal()
             task = Task(init_state, goal)
+            #############
+            print("TASK NUM:", self.task_num)
+            print("TASK INSTANCE ID:", self.task_instance_id)
+            print("SEED:", curr_env_seed)
+            print("TASK INSTANCE ID TO IGIBSON SEED", self.task_num_task_instance_id_to_igibson_seed[(self.task_num, self.task_instance_id)])
+            #############
             tasks.append(task)
             self.task_num += 1
 
