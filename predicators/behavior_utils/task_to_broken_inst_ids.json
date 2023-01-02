@@ -3,6 +3,11 @@
         "Ihlen_1_int": {
             "train": [],
             "test": [19]
+        },
+
+        "Pomaria_2_int": {
+            "train": [],
+            "test": [10, 12, 14, 15, 19]
         }
     },
 
