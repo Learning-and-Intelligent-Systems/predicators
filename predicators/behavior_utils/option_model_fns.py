@@ -207,7 +207,7 @@ def create_place_option_model(
                             )
                             _type_name_to_type[type_name] = obj_type
                         if isinstance(obj, (URDFObject, RoomFloor)):
-                            if "board_game" in obj.name:
+                            if "board_game" in obj.name or "video_game" in obj.name:
                                 obj_name = obj.name + ".n.01_1"
                             else:
                                 obj_name = obj.bddl_object_scope
