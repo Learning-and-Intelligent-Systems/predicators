@@ -8,6 +8,8 @@
 APPROACHES:
   oracle: # Oracle
     NAME: "oracle"
+    FLAGS:
+      disable_harmlessness_check: True
   pnad_search: # PNAD search approach.
     NAME: "nsrt_learning"
     FLAGS:
