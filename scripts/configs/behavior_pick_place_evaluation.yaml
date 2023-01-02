@@ -11,7 +11,7 @@ APPROACHES:
   pnad_search: # PNAD search approach.
     NAME: "nsrt_learning"
     FLAGS:
-      strips_learner: pnad_search
+      strips_learner: "pnad_search"
   # cluster_and_intersect:  # Cluster-and-intersect baseline.
   #   NAME: "nsrt_learning"
   #   FLAGS:
