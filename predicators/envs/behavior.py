@@ -242,7 +242,7 @@ class BehaviorEnv(BaseEnv):
                 angularVelocity=[0, 0, 0],
             )
         next_state = self.current_ig_state_to_state(
-            use_test_scene=self.task_num >= 10)
+            use_test_scene=self.task_instance_id >= 10)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -691,7 +691,8 @@ class BehaviorEnv(BaseEnv):
             return
         if not state.allclose(
                 self.current_ig_state_to_state(
-                    save_state=False, use_test_scene=self.task_num >= 10)):
+                    save_state=False,
+                    use_test_scene=self.task_instance_id >= 10)):
             load_checkpoint_state(state, self)
 
     def _reachable_classifier(self, state: State,

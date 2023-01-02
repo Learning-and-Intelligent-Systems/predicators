@@ -590,7 +590,7 @@ def load_checkpoint_state(s: State,
         env.igibson_behavior_env.simulator.frame_count = frame_count
         env.set_options()
         env.current_ig_state_to_state(
-            use_test_scene=env.task_num >=
+            use_test_scene=env.task_instance_id >=
             10)  # overwrite the old task_init checkpoint file!
         env.igibson_behavior_env.reset()
     behavior_task_name = CFG.behavior_task_list[0] if len(
@@ -599,7 +599,7 @@ def load_checkpoint_state(s: State,
     # tasks must have a task num below 10 and test tasks must have one
     # above 10. This is sketchy in general and we should probably come
     # up with something cleaner!
-    if env.task_num < 10:
+    if env.task_instance_id < 10:
         scene_name = CFG.behavior_train_scene_name
     else:
         scene_name = CFG.behavior_test_scene_name
