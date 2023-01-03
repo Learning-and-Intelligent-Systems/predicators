@@ -70,9 +70,7 @@ class GreedyLookaheadExplorer(BaseExplorer):
                                                    rng=self._rng)
                 # Assume for now that options will be initiable when the
                 # preconditions of the NSRT are satisfied.
-                assert option.initiable(state), (f"Ground NSRT: {ground_nsrt}\n"
-                                                 f"Option: {option}\n"
-                                                 f"State: {state}")
+                assert option.initiable(state)
                 state, num_actions = \
                     self._option_model.get_next_state_and_num_actions(state,
                                                                       option)

@@ -164,11 +164,11 @@ class PlayroomSimpleEnv(BlocksEnv):
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
                     < self.dial_button_z+self.dial_button_tol) \
-            and fingers >= self.open_fingers:  # TODO: problem b/c not in preconditions?
-                return self._transition_dial(state)
+            and fingers >= self.open_fingers:
+            return self._transition_dial(state)
         # Otherwise, robot can only move from table to dial
-        if was_next_to_table and self._NextToDial_holds(state,
-                                                  (self._robot, self._dial)):
+        if was_next_to_table and self._NextToDial_holds(
+                state, (self._robot, self._dial)):
             return state.copy()
         return prev_state
 
