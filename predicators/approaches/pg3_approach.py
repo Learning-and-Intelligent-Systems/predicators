@@ -302,6 +302,7 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
         kept_flattened_plan = None
         kept_problem_goals = None
         kept_actions = None
+        kept_objects = None
 
         for task_idx in range(len(self.heuristic._abstract_train_tasks)):
             plan, actions = self.heuristic._get_plan_and_actions(ldl, task_idx)
@@ -317,16 +318,18 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
                         kept_flattened_plan = plan
                         kept_problem_goals = goal
                         kept_actions = actions
+                        kept_objects = objects
                         shortest_plan_len = len(plan)
         
         #Perfect policy TODO: CHECK THAT THIS ONLY RETURNS ONE POLICY WITH THE YIELD LATER
+        print(f"KEPT PROB IDX{kept_prob_idx}")
         if kept_prob_idx is None:
             yield ldl
 
         action_profiles = self._get_action_profiles(kept_prob_idx, kept_flattened_plan, kept_actions, ldl)
         goal_indices = self._get_established_goal_indices(kept_problem_goals, action_profiles)
 
-        triangle_table = TriangleTable(kept_flattened_plan[0], kept_problem_goals, action_profiles)
+        triangle_table = TriangleTable(kept_flattened_plan[0].copy(), kept_problem_goals, action_profiles)
 
         #Find relevant indices of actions for each established goal ("directly-contributes" - recursive definition)
         failed_action_index = self._find_last_failed_action_index(action_profiles)
@@ -356,12 +359,14 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
         """
        
         #ldl = ldl.copy()
-        ldl = self._induce_policy_update(ldl, failed_action_profile, relevant_action_profiles, est_goal)
+        #import ipdb; ipdb.set_trace()
+
+        ldl = self._induce_policy_update(ldl, failed_action_profile, relevant_action_profiles, est_goal, kept_objects)
 
 
         yield ldl
 
-    def _induce_policy_update(self, policy, failed_action_profile, relevant_action_profiles, est_goal):
+    def _induce_policy_update(self, policy, failed_action_profile, relevant_action_profiles, est_goal, state_objects):
         """est_goal = set of goal literals satisfied in the established goal"""
         rule_goal_conds = est_goal
 
@@ -375,7 +380,7 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
         all_valid_preconds = set()
         #Forming the "context": a smaller state to work with
         for action_profile in ordered_action_profiles:
-            all_valid_preconds = all_valid_preconds | (failed_action_profile.state[0] & set(action_profile.pos_preconds))
+            all_valid_preconds = all_valid_preconds | (failed_action_profile.state & set(action_profile.pos_preconds))
         #Initialize important variables to be those in failed action and in goal condition
         important_variables = {var for goal_cond in est_goal for var in goal_cond.objects} | {var for var in failed_action_profile.variables} #Those in the goal literal and failed action
 
@@ -390,41 +395,32 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
             rule_name_suffix += 1
         rule_name = "TT-rule-"+str(rule_name_suffix) 
 
-        #TODO: WHERE WE LEFT OFF:
-        # We're in the process finishing this function off. Currently, we're about to create a new rule using the 
-        # first round of preconds/variables. However, there's two challenges here:
-        #   1. preconds need to be split up in positive and negative (annoying)
-        #   2. you need to get all the variables/parameters from these preconds because they may be more than important variables
-        # Other notes: can't copy policy lol
-        # Also when get action from a rule, probably use the query (but we need to assume objects are the same and we need to pass it in)
-        #Continue adding actions from ordered action profiles until we the right action
-
 
         #Lifting rule
-        rule_objects = sorted({var for precond in rule_pos_preconds for var in precond.objects} | {var for precond in rule_pos_preconds for var in precond.objects})
+        rule_objects = {var for precond in rule_pos_preconds for var in precond.objects} | {var for precond in rule_neg_preconds for var in precond.objects}
+        extra_rule_objects = rule_objects - {obj for obj in failed_action_profile.plan_action.objects} # Objects not in the nsrt for order purposes
         rule_object_to_var = {obj: obj.type("?" + obj.name) for obj in rule_objects}
-        rule_variables = [obj.type("?" + obj.name) for obj in rule_objects]
+        rule_variables = [obj.type("?" + obj.name) for obj in failed_action_profile.plan_action.objects] + [obj.type("?" + obj.name) for obj in extra_rule_objects] 
         rule_pos_preconds = {precond.lift(rule_object_to_var) for precond in rule_pos_preconds}
+
         rule_neg_preconds = {precond.lift(rule_object_to_var) for precond in rule_neg_preconds}
         rule_goal_conds = {precond.lift(rule_object_to_var) for precond in rule_goal_conds}
         rule_nsrt = self._lift_ground_nsrt(failed_action_profile.plan_action)
 
-        print(rule_name)
-        print(rule_variables)
-        print(rule_pos_preconds)
-        print(rule_neg_preconds)
-        print(rule_goal_conds)
-        print(rule_nsrt)
-
         rule = LDLRule(rule_name, rule_variables, rule_pos_preconds, rule_neg_preconds, rule_goal_conds, rule_nsrt)
         most_overfit_rule = rule
 
-        if rule.get_action(failed_action_profile.state) == failed_action_profile.action:
-            new_policy = policy.copy()
-            new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, rule)
+        temp_ldl = LiftedDecisionList([most_overfit_rule])
+        temp_action = utils.query_ldl(temp_ldl, failed_action_profile.state, state_objects, est_goal)
+
+        import ipdb;ipdb.set_trace()
+        if temp_action == failed_action_profile.plan_action:
+            new_policy = LiftedDecisionList([r for r in policy.rules])
+            new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, state_objects, est_goal, rule)
             return new_policy
 
         for i in range(len(ordered_action_profiles)):
+            #TODO HERE HERE HERE
             action_profile_variables = set(ordered_action_profiles[i].variables)
             if len(action_profile_variables - important_variables) == 0: #If no new variables, skip
                 continue
@@ -432,12 +428,16 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
             important_variables = important_variables | action_profile_variables
             rule_preconds = rule_preconds | {precond for precond in all_valid_preconds if {var for var in precond.variables}.issubset(important_variables)}
             rule = Rule(policy.env, rule_name, rule_preconds, rule_goal_conds, failed_action_profile.action)
+
             if i == len(ordered_action_profiles)-1:
                 most_overfit_rule = rule
             try:
+                temp_ldl = LiftedDecisionList([rule])
+                temp_action = utils.query_ldl(temp_ldl, failed_action_profile.state, state_objects, est_goal)
+
                 if rule.get_action(failed_action_profile.state) == failed_action_profile.action:
-                    new_policy = policy.copy()
-                    new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, rule)
+                    new_policy = LiftedDecisionList([r for r in policy.rules])
+                    new_policy = self._insert_rule_in_last_valid(new_policy, failed_action_profile, state_objects, est_goal, rule)
                     return new_policy
             except:
                 pass
@@ -452,7 +452,7 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
         objs_to_vars = {obj: obj.type("?" + obj.name) for obj in ground_nsrt.objects}
 
         name = ground_nsrt.name
-        parameters = sorted({obj.type("?" + obj.name) for obj in ground_nsrt.objects})
+        parameters = [obj.type("?" + obj.name) for obj in ground_nsrt.objects]
         preconditions = {precond.lift(objs_to_vars) for precond in ground_nsrt.preconditions}
         add_effects = {effect.lift(objs_to_vars) for effect in ground_nsrt.add_effects}
         delete_effects = {effect.lift(objs_to_vars) for effect in ground_nsrt.delete_effects}
@@ -463,7 +463,20 @@ class _BottomUpPG3SearchOperator(_PG3SearchOperator):
 
         return NSRT(name, parameters, preconditions, add_effects, delete_effects, ignore_effects, option, option_vars, _sampler)
 
+    def _insert_rule_in_last_valid(self, policy, failed_action_profile, failed_action_objects, goal, rule):
+        for idx, existing_rule in enumerate(policy.rules):
+            # Does this rule apply?
+            temp_ldl = LiftedDecisionList([existing_rule])
+            temp_action = utils.query_ldl(temp_ldl, failed_action_profile.state, failed_action_objects, goal)
 
+            if temp_action is not None:
+                break
+        else:
+            idx = len(policy.rules)
+
+        # Add in the rule
+        policy.rules.insert(idx, rule)
+        return policy
 
     def _find_last_failed_action_index(self, action_profiles):
         for i in range(len(action_profiles)-1, -1, -1):
