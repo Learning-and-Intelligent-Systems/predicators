@@ -142,6 +142,52 @@ def test_playroom_failure_cases(env_name):
     assert state.allclose(next_state)
 
 
+def test_playroom_simple_noop_cases():
+    """Tests for the cases in PlayroomSimplEnv where simulate() is a noop."""
+    utils.reset_config({"env": "playroom_simple"})
+    env = PlayroomSimpleEnv()
+    robot_type = [t for t in env.types if t.name == "robot"][0]
+    task = env.get_train_tasks()[0]
+    state = task.init
+    robot = None
+    for item in state:
+        if item.type == robot_type:
+            robot = item
+            break
+    assert robot is not None
+    # No-op bc x, y not within table bounds
+    act = Action(np.array([9.5, 15, 3, 0, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        assert np.allclose(
+            state[o], next_state[o]
+        ), f"obj {o} in state {state} and \nnext state {next_state}"
+    # Move to dial
+    act = Action(np.array([125, 15, 1, 0, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert not np.allclose(state[robot], next_state[robot])
+    for o in state:
+        if o.type != robot_type:
+            assert np.allclose(
+                state[o], next_state[o]
+            ), f"obj {o} in state {state} and \nnext state {next_state}"
+    state = next_state
+    # Can't move back to table
+    act = Action(np.array([9.5, 15, 3, 0, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        assert np.allclose(
+            state[o], next_state[o]
+        ), f"obj {o} in state {state} and \nnext state {next_state}"
+    # No-op because not within dial button tolerance
+    act = Action(np.array([125, 15, 3, 0, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        assert np.allclose(
+            state[o], next_state[o]
+        ), f"obj {o} in state {state} and \nnext state {next_state}"
+
+
 @pytest.mark.parametrize("env_name", ["playroom_simple", "playroom"])
 def test_playroom_simulate_blocks(env_name):
     """Tests for the cases where simulate() allows the robot to interact with
