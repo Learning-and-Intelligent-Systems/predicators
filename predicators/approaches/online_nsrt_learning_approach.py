@@ -129,7 +129,13 @@ class OnlineNSRTLearningApproach(NSRTLearningApproach):
         assert CFG.glib_min_goal_size <= len(atoms) <= CFG.glib_max_goal_size
         canonical_atoms = self._get_canonical_lifted_atoms(atoms)
         # Note minus sign: less frequent is better.
-        return -self._novelty_counts[canonical_atoms]
+        count = self._novelty_counts[canonical_atoms]
+        # Once some goal has been seen online_learning_max_novelty_count
+        # number of times, it is no longer considered "novel" and, for example,
+        # won't be babbled by the GLIB explorer anymore.
+        if count > CFG.online_learning_max_novelty_count:
+            return -float("inf")
+        return -count
 
     @staticmethod
     def _get_canonical_lifted_atoms(

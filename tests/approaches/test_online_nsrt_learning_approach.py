@@ -28,6 +28,7 @@ def test_online_nsrt_learning_approach():
         "num_train_tasks": 3,
         "num_test_tasks": 3,
         "explorer": "random_options",
+        "online_learning_max_novelty_count": float("inf"),
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -76,3 +77,11 @@ def test_online_nsrt_learning_approach():
     is_target_score = approach._score_atoms_novelty(is_target)  # pylint: disable=protected-access
     assert covers_score > is_block_score
     assert covers_score > is_target_score
+    # Scores should now be -inf.
+    utils.update_config({
+        "online_learning_max_novelty_count": 0,
+    })
+    covers_score = approach._score_atoms_novelty(covers)  # pylint: disable=protected-access
+    is_block_score = approach._score_atoms_novelty(is_block)  # pylint: disable=protected-access
+    is_target_score = approach._score_atoms_novelty(is_target)  # pylint: disable=protected-access
+    assert covers_score == is_block_score == is_target_score == -float("inf")

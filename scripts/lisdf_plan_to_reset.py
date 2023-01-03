@@ -1,7 +1,8 @@
 """Create a command that resets the robot from its current state to the initial
 state of another LISDF plan.
 
-Prepend that "reset" command with the other LISDF plan to create a final plan.
+Prepend that "reset" command with the other LISDF plan to create a final
+plan.
 """
 import argparse
 from pathlib import Path
