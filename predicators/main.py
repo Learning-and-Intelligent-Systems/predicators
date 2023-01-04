@@ -352,7 +352,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
-            if not CFG.plan_only_eval:  # in this case, traj is not defined.
+            # In this case, traj is not defined.
+            if not CFG.plan_only_eval and CFG.env != "behavior":
                 # Save the successful trajectory, e.g., for playback on a robot.
                 traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
                 traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
