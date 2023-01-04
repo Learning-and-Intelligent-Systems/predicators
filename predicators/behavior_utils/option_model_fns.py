@@ -207,15 +207,22 @@ def create_place_option_model(
                             )
                             _type_name_to_type[type_name] = obj_type
                         if isinstance(obj, (URDFObject, RoomFloor)):
-                            if "board_game" in obj.name:
+                            if "board_game" in obj.name or \
+                                "video_game" in obj.name:
                                 obj_name = obj.name + ".n.01_1"
                             else:
                                 obj_name = obj.bddl_object_scope
                         else:
                             assert isinstance(obj, (BRBody, BRHand, BREye))
                             obj_name = "agent"
-                        obj_type = _type_name_to_type[type_name]
-                        objs_under.add(Object(obj_name, obj_type))
+                        # This checks if our obj type is in _type_name_to_type
+                        # which has all relevant objects. If not, it continues
+                        # and does not add the obj as an offedning_object.
+                        if type_name in _type_name_to_type:
+                            obj_type = _type_name_to_type[type_name]
+                            objs_under.add(Object(obj_name, obj_type))
+                        else:
+                            continue
         if len(objs_under) != 0:
             raise utils.EnvironmentFailure("collision",
                                            {"offending_objects": objs_under})

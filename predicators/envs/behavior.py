@@ -533,7 +533,7 @@ class BehaviorEnv(BaseEnv):
         # be added to the envs relevant objects.
         additional_objs = [
             obj for obj in self.igibson_behavior_env.scene.get_objects()
-            if "board_game" in obj.name
+            if "board_game" in obj.name or "video_game" in obj.name
         ]
         return list(self.igibson_behavior_env.task.object_scope.values()
                     ) + additional_objs
@@ -789,7 +789,7 @@ class BehaviorEnv(BaseEnv):
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
         if isinstance(ig_obj, (URDFObject, RoomFloor)):
-            if "board_game" in ig_obj.name:
+            if "board_game" in ig_obj.name or "video_game" in ig_obj.name:
                 return ig_obj.name + ".n.01_1"
             return ig_obj.bddl_object_scope
         # Robot does not have a field "bddl_object_scope", so we define
