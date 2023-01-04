@@ -10,7 +10,7 @@ from tqdm import tqdm
 from predicators import utils
 from predicators.settings import CFG
 from predicators.structs import Array, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, Predicate, Set, State
+    LowLevelTrajectory, Predicate, Set, State, Task
 
 try:
     from igibson.envs.behavior_env import \
@@ -628,9 +628,13 @@ def create_ground_atom_dataset_behavior(
     trajectories: Sequence[LowLevelTrajectory],
     predicates: Set[Predicate],
     env: "BehaviorEnv",
-    use_last_state: bool = True
+    train_tasks: List[Task],
+    use_last_state: bool = False
 ) -> List[GroundAtomTrajectory]:  # pragma: no cover
     """Apply all predicates to all trajectories in the dataset."""
+    # NOTE: setting use_last_state to True is potentially
+    # dangerous (especially if the task involves opening/closing
+    # things). There is currently an issue open to try to resolve this.
     ground_atom_dataset = []
     num_traj = len(trajectories)
     for i, traj in enumerate(trajectories):
@@ -653,5 +657,17 @@ def create_ground_atom_dataset_behavior(
             last_s = s
             last_atoms = next_atoms
         ground_atom_dataset.append((traj, atoms))
+        # Assert here that traj goal is a subset of the final atoms in
+        # each trajectory.
+        if traj.is_demo:
+            try:
+                assert train_tasks[traj.train_task_idx].goal.issubset(
+                    last_atoms)
+            except AssertionError as err:
+                missing_atoms = train_tasks[
+                    traj.train_task_idx].goal - last_atoms
+                print("Train task goal not achieved by demonstration. " +
+                      f"Discrepancy: {missing_atoms}")
+                raise err
         print(f"Completed {(i+1)}/{num_traj} trajectories.")
     return ground_atom_dataset

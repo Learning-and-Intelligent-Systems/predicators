@@ -46,7 +46,8 @@ class GNNOptionPolicyApproach(GNNApproach):
     ) -> List[Tuple[State, Set[GroundAtom], Set[GroundAtom], _Option]]:
         data = []
         ground_atom_dataset = get_ground_atoms_dataset(
-            dataset.trajectories, self._initial_predicates, None)
+            dataset.trajectories, self._initial_predicates, None,
+            self._train_tasks)
         # In this approach, we never learned any NSRTs, so we just call
         # segment_trajectory() to segment the given dataset.
         segmented_trajs = [

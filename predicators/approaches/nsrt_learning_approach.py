@@ -68,7 +68,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
                      online_learning_cycle: Optional[int]) -> None:
         ground_atom_dataset = get_ground_atoms_dataset(
             trajectories, self._get_current_predicates(),
-            online_learning_cycle)
+            online_learning_cycle, self._train_tasks)
 
         self._nsrts, self._segmented_trajs, self._seg_to_nsrt = \
             learn_nsrts_from_data(trajectories,

@@ -141,7 +141,8 @@ def learn_nsrts_from_data(
 
 def get_ground_atoms_dataset(
         trajectories: Sequence[LowLevelTrajectory], predicates: Set[Predicate],
-        online_learning_cycle: Optional[int]) -> List[GroundAtomTrajectory]:
+        online_learning_cycle: Optional[int],
+        train_tasks: List[Task]) -> List[GroundAtomTrajectory]:
     """Either tries to load a saved ground atom dataset, or creates a new one
     depending on the CFG.load_atoms flag.
 
@@ -198,7 +199,7 @@ def get_ground_atoms_dataset(
             assert isinstance(env, behavior.BehaviorEnv)
             ground_atom_dataset = \
                 behavior_utils.create_ground_atom_dataset_behavior(
-                    trajectories, predicates, env)
+                    trajectories, predicates, env, train_tasks)
         else:
             ground_atom_dataset = utils.create_ground_atom_dataset(
                 trajectories, predicates)
