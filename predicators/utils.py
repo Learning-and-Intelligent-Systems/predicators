@@ -2758,9 +2758,9 @@ def query_ldl_all(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                   goal: Set[GroundAtom]) -> Iterable[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
-    Given an abstract state and goal, the rules are grounded in order. For the
-    first lifted rule that has some grounding, all possible groundings of that
-    rule that satisfy its preconditions are yielded.
+    Given an abstract state and goal, the rules are grounded in order.
+    For the first lifted rule that has some grounding, all possible
+    groundings of that rule that satisfy its preconditions are yielded.
     """
     for rule in ldl.rules:
         rule_applicable = False

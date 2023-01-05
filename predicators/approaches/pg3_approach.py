@@ -139,9 +139,11 @@ class PG3Approach(NSRTLearningApproach):
         # TODO remove
         preds = self._get_current_predicates()
         nsrts = self._get_current_nsrts()
-        new_heur = _DemoPlanComparisonAnyMatchPG3Heuristic(preds, nsrts, self._train_tasks)
+        new_heur = _DemoPlanComparisonAnyMatchPG3Heuristic(
+            preds, nsrts, self._train_tasks)
         print("Final new heuristic evaluation:", new_heur(self._current_ldl))
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
         logging.info(f"Keeping best policy:\n{self._current_ldl}")
         save_path = utils.get_approach_save_path_str()
@@ -533,19 +535,24 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
 
         return [set(atoms) for atoms in planned_frozen_atoms_seq]
 
-    def _get_demo_atom_plan_for_task_from_llm(self, task_idx: int) -> Sequence[Set[GroundAtom]]:
+    def _get_demo_atom_plan_for_task_from_llm(
+            self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         objects, init, goal = self._abstract_train_tasks[task_idx]
         ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
 
 class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
-    """Similar to DemoPlanComparisonPG3Heuristic, except rather than
-    checking if the exact action returned by the policy matches the demo,
-    we check to see if grounding the LDL rules in _any_ order would match
-    the demo at each step. This removes the influence of the arbitrary order
-    in the case where multiple groundings of a rule satisfy the preconditions.
+    """Similar to DemoPlanComparisonPG3Heuristic, except rather than checking
+    if the exact action returned by the policy matches the demo, we check to
+    see if grounding the LDL rules in _any_ order would match the demo at each
+    step.
+
+    This removes the influence of the arbitrary order in the case where
+    multiple groundings of a rule satisfy the preconditions.
     """
+
     @staticmethod
     def _count_missed_steps(ldl: LiftedDecisionList,
                             atoms_seq: Sequence[Set[GroundAtom]],
@@ -555,13 +562,14 @@ class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
         # check just the single action returned by the policy.
         missed_steps = 0.0
         for t in range(len(atoms_seq) - 1):
-            ground_nsrts = utils.query_ldl_all(ldl, atoms_seq[t], objects, goal)
+            ground_nsrts = utils.query_ldl_all(ldl, atoms_seq[t], objects,
+                                               goal)
             candidate_found = False
             match_found = False
             for ground_nsrt in ground_nsrts:
                 candidate_found = True
                 predicted_atoms = utils.apply_operator(ground_nsrt,
-                                                        atoms_seq[t])
+                                                       atoms_seq[t])
                 if predicted_atoms == atoms_seq[t + 1]:
                     match_found = True
                     break
@@ -571,7 +579,6 @@ class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
                 else:
                     missed_steps += CFG.pg3_plan_compare_inapplicable_cost
         return missed_steps
-
 
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
