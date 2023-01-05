@@ -302,6 +302,7 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+    pg3_plan_compare_demo_source = "planner"  # planner or llm
     pg3_add_condition_allow_new_vars = True
     pg3_max_analogies = 5
 

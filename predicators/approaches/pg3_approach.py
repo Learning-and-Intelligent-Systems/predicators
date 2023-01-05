@@ -491,7 +491,13 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
     def _get_demo_atom_plan_for_task(
             self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         # Run planning once per task and cache the result.
+        if CFG.pg3_plan_compare_demo_source == "planner":
+            return self._get_demo_atom_plan_for_task_from_planner(task_idx)
+        assert CFG.pg3_plan_compare_demo_source == "llm"
+        return self._get_demo_atom_plan_for_task_from_llm(task_idx)
 
+    def _get_demo_atom_plan_for_task_from_planner(
+            self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         objects, init, goal = self._abstract_train_tasks[task_idx]
         ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
 
@@ -526,6 +532,11 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
             raise PlanningFailure("Could not find plan for train task.")
 
         return [set(atoms) for atoms in planned_frozen_atoms_seq]
+
+    def _get_demo_atom_plan_for_task_from_llm(self, task_idx: int) -> Sequence[Set[GroundAtom]]:
+        objects, init, goal = self._abstract_train_tasks[task_idx]
+        ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
+        import ipdb; ipdb.set_trace()
 
 
 class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
