@@ -15,9 +15,8 @@ from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
 from predicators.nsrt_learning.strips_learning.pnad_search_learner import \
     PNADSearchSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type
+from predicators.structs import PNAD, Action, GroundAtom, LowLevelTrajectory, \
+    Predicate, Segment, State, STRIPSOperator, Task, Type
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -57,9 +56,10 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
         return self._reset_all_segment_necessary_add_effs()
 
 
-@pytest.mark.parametrize(
-    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
-def test_backchaining_strips_learner(approach_cls):
+@pytest.mark.parametrize("approach_name, approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("pnad_search", PNADSearchSTRIPSLearner)])
+def test_backchaining_strips_learner(approach_name, approach_cls):
     """Test the BackchainingSTRIPSLearner and PNADSearchSTRIPSLearner on a
     simple problem."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
@@ -147,6 +147,15 @@ def test_backchaining_strips_learner(approach_cls):
     Ignore Effects: []
     Option Spec: Cry()"""
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
+    if approach_name == "pnad_search":
+        # Learn using pnad_search_without_del
+        utils.reset_config({"pnad_search_without_del": True})
+        learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
+                               [[segment3], [segment4]],
+                               verify_harmlessness=True)
+        pnads = learner.learn()
+        assert len(pnads) == 1
+        assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
 @pytest.mark.parametrize("approach_name,approach_cls",
@@ -646,7 +655,7 @@ def testspawn_new_pnad():
     add_effects = {Asleep([human_var])}
     op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
                         set([Asleep, Happy]))
-    pnad = PartialNSRTAndDatastore(op, [], (opt, []))
+    pnad = PNAD(op, [], (opt, []))
     bob = human_type("bob")
     state = State({bob: [0.0]})
     task = Task(state, set())

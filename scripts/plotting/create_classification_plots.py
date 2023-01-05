@@ -33,7 +33,7 @@ def _main() -> None:
                                env.action_space, train_tasks)
     assert isinstance(approach, InteractiveLearningApproach)
     # Get plotting function
-    if CFG.env == "cover":
+    if CFG.env in ("cover", "cover_handempty"):
         assert isinstance(env, CoverEnv)
         plot_fnc = _plot_cover
     else:

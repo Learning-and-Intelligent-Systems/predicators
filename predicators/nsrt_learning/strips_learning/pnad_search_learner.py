@@ -8,9 +8,9 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 from predicators import utils
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     GeneralToSpecificSTRIPSLearner
-from predicators.structs import GroundAtom, LowLevelTrajectory, \
-    ParameterizedOption, PartialNSRTAndDatastore, Predicate, Segment, Task, \
-    _GroundSTRIPSOperator
+from predicators.settings import CFG
+from predicators.structs import PNAD, GroundAtom, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, Task, _GroundSTRIPSOperator
 
 
 class _PNADSearchOperator(abc.ABC):
@@ -29,9 +29,8 @@ class _PNADSearchOperator(abc.ABC):
         self._associated_heuristic = associated_heuristic
 
     @abc.abstractmethod
-    def get_successors(
-        self, pnads: FrozenSet[PartialNSRTAndDatastore]
-    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
+    def get_successors(self,
+                       pnads: FrozenSet[PNAD]) -> Iterator[FrozenSet[PNAD]]:
         """Generate zero or more successor PNAD sets."""
         raise NotImplementedError("Override me!")
 
@@ -39,9 +38,8 @@ class _PNADSearchOperator(abc.ABC):
 class _BackChainingPNADSearchOperator(_PNADSearchOperator):
     """An operator that uses backchaining to propose a new PNAD set."""
 
-    def get_successors(
-        self, pnads: FrozenSet[PartialNSRTAndDatastore]
-    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
+    def get_successors(self,
+                       pnads: FrozenSet[PNAD]) -> Iterator[FrozenSet[PNAD]]:
         init_heuristic_val = self._associated_heuristic(pnads)
         new_heuristic_val = float('inf')
         ret_pnads_list = sorted(pnads)
@@ -54,7 +52,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
                 new_pnad = self._learner.spawn_new_pnad(uncovered_segment)
                 ret_pnads_list = self._append_new_pnad_and_keep_effects(
                     new_pnad, ret_pnads_list)
-                ret_pnads = frozenset(ret_pnads_list)
+                ret_pnads = frozenset(pnad.copy() for pnad in ret_pnads_list)
                 new_heuristic_val = self._associated_heuristic(ret_pnads)
                 uncovered_segment = self._get_first_uncovered_segment(
                     ret_pnads_list)
@@ -62,9 +60,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
             yield ret_pnads
 
     def _append_new_pnad_and_keep_effects(
-        self, new_pnad: PartialNSRTAndDatastore,
-        current_pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+            self, new_pnad: PNAD, current_pnads: List[PNAD]) -> List[PNAD]:
         """Given some newly-created PNAD and a set of existing PNADs, correctly
         repartition data amongst all these PNADs and induce keep effects for
         the newly-created PNAD.
@@ -101,7 +97,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
         return new_pnads
 
     def _get_backchaining_results(
-        self, pnads: List[PartialNSRTAndDatastore]
+        self, pnads: List[PNAD]
     ) -> Tuple[int, List[Tuple[List[Segment], List[_GroundSTRIPSOperator]]]]:
         backchaining_results = []
         max_chain_len = 0
@@ -116,7 +112,7 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
 
     def _get_first_uncovered_segment(
         self,
-        pnads: List[PartialNSRTAndDatastore],
+        pnads: List[PNAD],
     ) -> Optional[Segment]:
         # Find the first uncovered segment. Do this in a kind of breadth-first
         # backward search over trajectories.
@@ -144,13 +140,13 @@ class _BackChainingPNADSearchOperator(_PNADSearchOperator):
 class _PruningPNADSearchOperator(_PNADSearchOperator):
     """An operator that prunes PNAD sets."""
 
-    def get_successors(
-        self, pnads: FrozenSet[PartialNSRTAndDatastore]
-    ) -> Iterator[FrozenSet[PartialNSRTAndDatastore]]:
+    def get_successors(self,
+                       pnads: FrozenSet[PNAD]) -> Iterator[FrozenSet[PNAD]]:
         sorted_pnad_list = sorted(pnads)
         for pnad_to_remove in sorted_pnad_list:
             pnads_after_removal = [
-                pnad for pnad in sorted_pnad_list if pnad != pnad_to_remove
+                pnad.copy() for pnad in sorted_pnad_list
+                if pnad != pnad_to_remove
             ]
             recomp_pnads = self._learner.recompute_pnads_from_effects(
                 pnads_after_removal)
@@ -178,8 +174,7 @@ class _PNADSearchHeuristic(abc.ABC):
             self._total_num_segments += len(seg_traj)
 
     @abc.abstractmethod
-    def __call__(self,
-                 curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
+    def __call__(self, curr_pnads: FrozenSet[PNAD]) -> float:
         """Compute the heuristic value for the given PNAD sets."""
         raise NotImplementedError("Override me!")
 
@@ -188,8 +183,7 @@ class _BackChainingHeuristic(_PNADSearchHeuristic):
     """Counts the number of transitions that are not yet covered by some
     operator in the backchaining sense."""
 
-    def __call__(self,
-                 curr_pnads: FrozenSet[PartialNSRTAndDatastore]) -> float:
+    def __call__(self, curr_pnads: FrozenSet[PNAD]) -> float:
         # Next, run backchaining using these PNADs.
         uncovered_transitions = 0
         for ll_traj, seg_traj in zip(self._trajectories,
@@ -223,9 +217,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
     def get_name(cls) -> str:
         return "pnad_search"
 
-    def recompute_pnads_from_effects(
-            self, pnads: List[PartialNSRTAndDatastore]
-    ) -> List[PartialNSRTAndDatastore]:
+    def recompute_pnads_from_effects(self, pnads: List[PNAD]) -> List[PNAD]:
         """Given some input PNADs, strips away everything except the add and
         keep effects, then re-partitions data amongst these and uses this to
         recompute these components."""
@@ -242,8 +234,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                 add_effects=pnad.op.add_effects,
                 delete_effects=set(),
                 ignore_effects=self._predicates.copy())
-            new_pnad = PartialNSRTAndDatastore(new_pnad_op, [],
-                                               pnad.option_spec)
+            new_pnad = PNAD(new_pnad_op, [], pnad.option_spec)
             new_pnad.poss_keep_effects = pnad.poss_keep_effects
             new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
             new_pnads.append(new_pnad)
@@ -261,29 +252,28 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
             self._compute_pnad_delete_effects(pnad)
             self._compute_pnad_ignore_effects(pnad)
         # Fix naming.
-        pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
-            p.option_spec[0]: []
-            for p in new_pnads
-        }
+        pnad_map: Dict[ParameterizedOption,
+                       List[PNAD]] = {p.option_spec[0]: []
+                                      for p in new_pnads}
         for p in new_pnads:
             p.op = p.op.copy_with(name=p.option_spec[0].name)
             pnad_map[p.option_spec[0]].append(p)
         new_pnads = self._get_uniquely_named_nec_pnads(pnad_map)
         return new_pnads
 
-    def _learn(self) -> List[PartialNSRTAndDatastore]:
+    def _learn(self) -> List[PNAD]:
         # Set up hill-climbing search over PNAD sets.
         # Create the search operators.
         search_operators = self._create_search_operators()
         # Create the heuristic.
         heuristic = self._create_heuristic()
         # Initialize the search.
-        initial_state: FrozenSet[PartialNSRTAndDatastore] = frozenset()
+        initial_state: FrozenSet[PNAD] = frozenset()
 
         def get_successors(
-            pnads: FrozenSet[PartialNSRTAndDatastore]
-        ) -> Iterator[Tuple[Tuple[_PNADSearchOperator, int],
-                            FrozenSet[PartialNSRTAndDatastore], float]]:
+            pnads: FrozenSet[PNAD]
+        ) -> Iterator[Tuple[Tuple[_PNADSearchOperator, int], FrozenSet[PNAD],
+                            float]]:
             for op in search_operators:
                 for i, child in enumerate(op.get_successors(pnads)):
                     yield (op, i), child, 1.0  # cost always 1
@@ -298,7 +288,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         final_pnads = path[-1]
         sorted_final_pnads = sorted(final_pnads)
         # Fix naming.
-        pnad_map: Dict[ParameterizedOption, List[PartialNSRTAndDatastore]] = {
+        pnad_map: Dict[ParameterizedOption, List[PNAD]] = {
             p.option_spec[0]: []
             for p in sorted_final_pnads
         }
@@ -312,7 +302,9 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         op_classes = [
             _BackChainingPNADSearchOperator, _PruningPNADSearchOperator
         ]
-        ops = [
+        if CFG.pnad_search_without_del:
+            op_classes.remove(_PruningPNADSearchOperator)
+        ops: List[_PNADSearchOperator] = [
             cls(self._trajectories, self._train_tasks,
                 self._predicates, self._segmented_trajs, self,
                 self._create_heuristic()) for cls in op_classes
@@ -326,8 +318,7 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
                                                    self._segmented_trajs, self)
         return backchaining_heur
 
-    def backchain(self, segmented_traj: List[Segment],
-                  pnads: List[PartialNSRTAndDatastore],
+    def backchain(self, segmented_traj: List[Segment], pnads: List[PNAD],
                   traj_goal: Set[GroundAtom]) -> List[_GroundSTRIPSOperator]:
         """Returns chain of ground operators in REVERSE order."""
         operator_chain: List[_GroundSTRIPSOperator] = []

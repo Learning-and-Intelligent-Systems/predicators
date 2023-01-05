@@ -6,15 +6,17 @@ import pytest
 from gym.spaces import Box
 
 from predicators import utils
-from predicators.envs.cover import CoverEnv, CoverEnvRegrasp, \
-    CoverEnvTypedOptions, CoverMultistepOptions
+from predicators.envs import create_new_env
+from predicators.envs.cover import CoverEnvRegrasp, CoverEnvTypedOptions, \
+    CoverMultistepOptions
 from predicators.structs import Action, Task
 
 
-def test_cover():
+@pytest.mark.parametrize("env_name", ["cover", "cover_handempty"])
+def test_cover(env_name):
     """Tests for CoverEnv class."""
     utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
-    env = CoverEnv()
+    env = create_new_env(env_name)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -57,11 +59,12 @@ def test_cover():
     ]
     plan = []
     state = task.init
-    env.render_state_plt(state, task)
-    plt.close()
-    env.reset("train", 0)
-    env.render_plt()
-    plt.close()
+    if env_name == "cover":
+        env.render_state_plt(state, task)
+        plt.close()
+        env.reset("train", 0)
+        env.render_plt()
+        plt.close()
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],
@@ -99,7 +102,7 @@ def test_cover():
     assert traj.states[0].allclose(traj.states[1])
     # Test cover_initial_holding_prob.
     utils.update_config({"cover_initial_holding_prob": 1.0})
-    env = CoverEnv()
+    env = create_new_env(env_name)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])

@@ -7,10 +7,9 @@ from typing import Dict, List, Optional, Set, Tuple
 from predicators import utils
 from predicators.planning import task_plan_with_option_plan_constraint
 from predicators.settings import CFG
-from predicators.structs import DummyOption, GroundAtom, LiftedAtom, \
-    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Variable, _GroundSTRIPSOperator
+from predicators.structs import PNAD, DummyOption, GroundAtom, LiftedAtom, \
+    LowLevelTrajectory, Object, OptionSpec, ParameterizedOption, Predicate, \
+    Segment, State, STRIPSOperator, Task, Variable, _GroundSTRIPSOperator
 
 
 class BaseSTRIPSLearner(abc.ABC):
@@ -34,7 +33,7 @@ class BaseSTRIPSLearner(abc.ABC):
         self._num_segments = sum(len(t) for t in segmented_trajs)
         assert len(self._trajectories) == len(self._segmented_trajs)
 
-    def learn(self) -> List[PartialNSRTAndDatastore]:
+    def learn(self) -> List[PNAD]:
         """The public method for a STRIPS operator learning strategy.
 
         A wrapper around self._learn() to sanity check that harmlessness
@@ -66,7 +65,6 @@ class BaseSTRIPSLearner(abc.ABC):
         # Iterates over each PNAD in the learned PNADs removing the
         # PNAD that uses the least amount of data.
         for min_perc_data_for_nsrt in pnad_perc_data_low_to_high:
-            learned_pnads = self._learn()
             min_data = max(CFG.min_data_for_nsrt,
                            self._num_segments * min_perc_data_for_nsrt)
             learned_pnads = [
@@ -88,7 +86,7 @@ class BaseSTRIPSLearner(abc.ABC):
         return learned_pnads
 
     @abc.abstractmethod
-    def _learn(self) -> List[PartialNSRTAndDatastore]:
+    def _learn(self) -> List[PNAD]:
         """The key method that a STRIPS operator learning strategy must
         implement.
 
@@ -105,8 +103,7 @@ class BaseSTRIPSLearner(abc.ABC):
         strips_learner setting in settings.py."""
         raise NotImplementedError("Override me!")
 
-    def _check_harmlessness(self,
-                            pnads: List[PartialNSRTAndDatastore]) -> bool:
+    def _check_harmlessness(self, pnads: List[PNAD]) -> bool:
         """Function to check whether the given PNADs holistically preserve
         harmlessness over demonstrations on the training tasks.
 
@@ -164,8 +161,7 @@ class BaseSTRIPSLearner(abc.ABC):
             traj_goal, option_plan, atoms_seq)
         return ground_nsrt_plan is not None
 
-    def _recompute_datastores_from_segments(
-            self, pnads: List[PartialNSRTAndDatastore]) -> None:
+    def _recompute_datastores_from_segments(self, pnads: List[PNAD]) -> None:
         """For the given PNADs, wipe and recompute the datastores.
 
         Uses a "rationality" heuristic, where for each segment, we
@@ -192,10 +188,9 @@ class BaseSTRIPSLearner(abc.ABC):
         self,
         segment: Segment,
         objects: Set[Object],
-        pnads: List[PartialNSRTAndDatastore],
+        pnads: List[PNAD],
         check_only_preconditions: bool = False
-    ) -> Tuple[Optional[PartialNSRTAndDatastore], Optional[Dict[Variable,
-                                                                Object]]]:
+    ) -> Tuple[Optional[PNAD], Optional[Dict[Variable, Object]]]:
         """Find the best matching PNAD (if any) given our rationality-based
         score function, and return the PNAD and substitution necessary to
         ground it. If no PNAD from the input list matches the segment, then
@@ -300,8 +295,7 @@ class BaseSTRIPSLearner(abc.ABC):
             len(keep_effects)
 
     @staticmethod
-    def _induce_preconditions_via_intersection(
-            pnad: PartialNSRTAndDatastore) -> Set[LiftedAtom]:
+    def _induce_preconditions_via_intersection(pnad: PNAD) -> Set[LiftedAtom]:
         """Given a PNAD with a nonempty datastore, compute the preconditions
         for the PNAD's operator by intersecting all lifted preimages."""
         assert len(pnad.datastore) > 0
@@ -321,7 +315,7 @@ class BaseSTRIPSLearner(abc.ABC):
         return preconditions
 
     @staticmethod
-    def _compute_pnad_delete_effects(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_delete_effects(pnad: PNAD) -> None:
         """Update the given PNAD to change the delete effects to ones obtained
         by unioning all lifted images in the datastore.
 
@@ -349,7 +343,7 @@ class BaseSTRIPSLearner(abc.ABC):
         pnad.op = pnad.op.copy_with(delete_effects=delete_effects)
 
     @staticmethod
-    def _compute_pnad_ignore_effects(pnad: PartialNSRTAndDatastore) -> None:
+    def _compute_pnad_ignore_effects(pnad: PNAD) -> None:
         """Update the given PNAD to change the ignore effects to ones that
         include every unmodeled add or delete effect seen in the data."""
         # First, strip out any existing ignore effects so that the call
@@ -370,18 +364,15 @@ class BaseSTRIPSLearner(abc.ABC):
 
     @staticmethod
     def _get_uniquely_named_nec_pnads(
-        param_opt_to_nec_pnads: Dict[ParameterizedOption,
-                                     List[PartialNSRTAndDatastore]]
-    ) -> List[PartialNSRTAndDatastore]:
+        param_opt_to_nec_pnads: Dict[ParameterizedOption, List[PNAD]]
+    ) -> List[PNAD]:
         """Given a dictionary mapping parameterized options to PNADs, return a
         list of PNADs that have unique names and can be used for planning."""
-        uniquely_named_nec_pnads: List[PartialNSRTAndDatastore] = []
+        uniquely_named_nec_pnads: List[PNAD] = []
         for pnad_list in sorted(param_opt_to_nec_pnads.values(), key=str):
             for i, pnad in enumerate(pnad_list):
                 new_op = pnad.op.copy_with(name=(pnad.op.name + str(i)))
-                new_pnad = PartialNSRTAndDatastore(new_op,
-                                                   list(pnad.datastore),
-                                                   pnad.option_spec)
+                new_pnad = PNAD(new_op, list(pnad.datastore), pnad.option_spec)
                 new_pnad.poss_keep_effects = pnad.poss_keep_effects
                 new_pnad.seg_to_keep_effects_sub = pnad.seg_to_keep_effects_sub
                 uniquely_named_nec_pnads.append(new_pnad)

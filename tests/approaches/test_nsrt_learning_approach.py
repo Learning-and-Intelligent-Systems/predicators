@@ -286,6 +286,11 @@ def test_oracle_samplers():
                    sampler_learner="oracle",
                    check_solution=True,
                    num_train_tasks=3)
+    _test_approach(env_name="cover_handempty",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True,
+                   num_train_tasks=3)
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",

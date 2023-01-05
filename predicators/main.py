@@ -260,6 +260,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
 
     save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
+    curr_num_nodes_created = 0.0
+    curr_num_nodes_expanded = 0.0
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
         solve_start = time.perf_counter()
@@ -283,6 +285,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_created"] = approach.metrics[
+                "total_num_nodes_created"] - curr_num_nodes_created
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = approach.metrics[
+                "total_num_nodes_expanded"] - curr_num_nodes_expanded
+        curr_num_nodes_created = approach.metrics["total_num_nodes_created"]
+        curr_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+
         num_found_policy += 1
         make_video = False
         solved = False
@@ -349,6 +360,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    metrics["min_num_samples"] = approach.metrics[
+        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+            "inf") else 0
+    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"] if approach.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
@@ -363,7 +378,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
     for metric_name in [
-            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:
