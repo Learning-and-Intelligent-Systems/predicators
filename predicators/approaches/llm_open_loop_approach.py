@@ -140,7 +140,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
                 continue
             if option_name not in option_name_to_option.keys() or \
                 "(" not in option_str:
-                logging.info(
+                logging.debug(
                     f"Line {option_str} output by LLM doesn't "
                     "contain a valid option name. Terminating option plan "
                     "parsing.")
@@ -156,14 +156,14 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
                 object_type_str_list = type_object_string.strip().split(':')
                 # We expect this list to be [object_name, type_name].
                 if len(object_type_str_list) != 2:
-                    logging.info(f"Line {option_str} output by LLM has a "
+                    logging.debug(f"Line {option_str} output by LLM has a "
                                  "malformed object-type list.")
                     malformed = True
                     break
                 object_name = object_type_str_list[0]
                 type_name = object_type_str_list[1]
                 if object_name not in obj_name_to_obj.keys():
-                    logging.info(f"Line {option_str} output by LLM has an "
+                    logging.debug(f"Line {option_str} output by LLM has an "
                                  "invalid object name.")
                     malformed = True
                     break
@@ -171,7 +171,7 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
                 # Check that the type of this object agrees
                 # with what's expected given the ParameterizedOption.
                 if type_name != option.types[i].name:
-                    logging.info(f"Line {option_str} output by LLM has an "
+                    logging.debug(f"Line {option_str} output by LLM has an "
                                  "invalid type name.")
                     malformed = True
                     break

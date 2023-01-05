@@ -142,9 +142,7 @@ class PG3Approach(NSRTLearningApproach):
         nsrts = self._get_current_nsrts()
         new_heur = _DemoPlanComparisonAnyMatchPG3Heuristic(
             preds, nsrts, self._train_tasks)
-        print("Final new heuristic evaluation:", new_heur(self._current_ldl))
-        import ipdb
-        ipdb.set_trace()
+        print("Final DEMO PLAN COMPARISON ANY MATCH heuristic evaluation:", new_heur(self._current_ldl))
 
         logging.info(f"Keeping best policy:\n{self._current_ldl}")
         save_path = utils.get_approach_save_path_str()
@@ -546,6 +544,8 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
             self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         objects, init, goal = self._abstract_train_tasks[task_idx]
         plan = self.llm_planning_approach._get_llm_based_plan(objects, init, goal)
+        if not plan:
+            raise PlanningFailure("Could not find plan for train task.")
         atoms = set(init)
         atoms_seq = [atoms]
         for ground_nsrt in plan:
@@ -593,6 +593,11 @@ class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
                 else:
                     missed_steps += CFG.pg3_plan_compare_inapplicable_cost
         return missed_steps
+
+    @functools.lru_cache(maxsize=None)
+    def _get_demo_atom_plan_for_task(
+            self, task_idx: int) -> Sequence[Set[GroundAtom]]:
+        return self._get_demo_atom_plan_for_task_from_planner(task_idx)
 
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):
