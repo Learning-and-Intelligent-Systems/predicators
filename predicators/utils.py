@@ -2755,7 +2755,7 @@ def nostdout() -> Generator[None, None, None]:
 
 def query_ldl_all(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
                   objects: Set[Object],
-                  goal: Set[GroundAtom]) -> Iterable[_GroundNSRT]:
+                  goal: Set[GroundAtom]) -> Iterator[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
     Given an abstract state and goal, the rules are grounded in order.
