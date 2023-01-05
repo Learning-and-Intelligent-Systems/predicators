@@ -25,6 +25,7 @@ from typing_extensions import TypeAlias
 from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.nsrt_learning_approach import NSRTLearningApproach
+from predicators.approaches.llm_open_loop_approach import LLMOpenLoopApproach
 from predicators.planning import PlanningFailure, run_low_level_search
 from predicators.settings import CFG
 from predicators.structs import NSRT, Action, Box, Dataset, GroundAtom, \
@@ -86,7 +87,7 @@ class PG3Approach(NSRTLearningApproach):
         policy = utils.option_plan_to_policy(option_list)
         return policy
 
-    def _learn_ldl(self, online_learning_cycle: Optional[int]) -> None:
+    def _learn_ldl(self, dataset: Dataset, online_learning_cycle: Optional[int]) -> None:
         """Learn a lifted decision list policy."""
         # Set up a search over LDL space.
         _S: TypeAlias = LiftedDecisionList
@@ -98,7 +99,7 @@ class PG3Approach(NSRTLearningApproach):
         search_operators = self._create_search_operators()
 
         # The heuristic is what distinguishes PG3 from baseline approaches.
-        heuristic = self._create_heuristic()
+        heuristic = self._create_heuristic(dataset)
 
         # Initialize the search with the best candidate.
         candidate_initial_states = self._get_policy_search_initial_ldls()
@@ -154,7 +155,7 @@ class PG3Approach(NSRTLearningApproach):
         # First, learn NSRTs.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
         # Now, learn the LDL policy.
-        self._learn_ldl(online_learning_cycle=None)
+        self._learn_ldl(dataset, online_learning_cycle=None)
 
     def load(self, online_learning_cycle: Optional[int]) -> None:
         # Load the NSRTs.
@@ -173,7 +174,7 @@ class PG3Approach(NSRTLearningApproach):
         nsrts = self._get_current_nsrts()
         return [cls(preds, nsrts) for cls in search_operator_classes]
 
-    def _create_heuristic(self) -> _PG3Heuristic:
+    def _create_heuristic(self, dataset: Dataset) -> _PG3Heuristic:
         preds = self._get_current_predicates()
         nsrts = self._get_current_nsrts()
         heuristic_name_to_cls: Dict[str, TypingType[_PG3Heuristic]] = {
@@ -183,7 +184,13 @@ class PG3Approach(NSRTLearningApproach):
             "demo_plan_any_match": _DemoPlanComparisonAnyMatchPG3Heuristic,
         }
         cls = heuristic_name_to_cls[CFG.pg3_heuristic]
-        return cls(preds, nsrts, self._train_tasks)
+        heuristic = cls(preds, nsrts, self._train_tasks)
+        # TODO: pay for my sins
+        if CFG.pg3_plan_compare_demo_source == "llm":
+            llm_planning_approach = LLMOpenLoopApproach(preds, self._initial_options, self._types, self._action_space, self._train_tasks)
+            llm_planning_approach.learn_from_offline_dataset(dataset)
+            heuristic.llm_planning_approach = llm_planning_approach
+        return heuristic
 
     @staticmethod
     def _get_policy_search_initial_ldls() -> List[LiftedDecisionList]:
@@ -538,9 +545,16 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
     def _get_demo_atom_plan_for_task_from_llm(
             self, task_idx: int) -> Sequence[Set[GroundAtom]]:
         objects, init, goal = self._abstract_train_tasks[task_idx]
-        ground_nsrts = self._train_task_idx_to_ground_nsrts[task_idx]
-        import ipdb
-        ipdb.set_trace()
+        plan = self.llm_planning_approach._get_llm_based_plan(objects, init, goal)
+        atoms = set(init)
+        atoms_seq = [atoms]
+        for ground_nsrt in plan:
+            if not ground_nsrt.preconditions.issubset(atoms):
+                break
+            atoms = utils.apply_operator(ground_nsrt, atoms)
+            atoms_seq.append(atoms)
+        return atoms_seq
+
 
 
 class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):

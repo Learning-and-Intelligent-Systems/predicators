@@ -68,7 +68,8 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         if "abstract_plan" in memory and memory["abstract_plan"]:
             return memory["abstract_plan"].pop(0)
         # Otherwise, we need to make a new abstract plan.
-        action_seq = self._get_llm_based_plan(state, atoms, goal)
+        objects = set(state)
+        action_seq = self._get_llm_based_plan(objects, atoms, goal)
         if action_seq is not None:
             # If valid plan, add plan to memory so it can be refined!
             memory["abstract_plan"] = action_seq
@@ -76,11 +77,10 @@ class LLMOpenLoopApproach(NSRTMetacontrollerApproach):
         raise ApproachFailure("No LLM predicted plan achieves the goal.")
 
     def _get_llm_based_plan(
-            self, state: State, atoms: Set[GroundAtom],
+            self, objects: Set[Object], atoms: Set[GroundAtom],
             goal: Set[GroundAtom]) -> Optional[List[_GroundNSRT]]:
         # Try to convert each output into an abstract plan.
         # Return the first abstract plan that is found this way.
-        objects = set(state)
         for option_plan in self._get_llm_based_option_plans(
                 atoms, objects, goal):
             ground_nsrt_plan = self._option_plan_to_nsrt_plan(
