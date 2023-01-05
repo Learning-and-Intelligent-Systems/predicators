@@ -135,6 +135,14 @@ class PG3Approach(NSRTLearningApproach):
 
         # Save the best seen policy.
         self._current_ldl = path[-1]
+
+        # TODO remove
+        preds = self._get_current_predicates()
+        nsrts = self._get_current_nsrts()
+        new_heur = _DemoPlanComparisonAnyMatchPG3Heuristic(preds, nsrts, self._train_tasks)
+        print("Final new heuristic evaluation:", new_heur(self._current_ldl))
+        import ipdb; ipdb.set_trace()
+
         logging.info(f"Keeping best policy:\n{self._current_ldl}")
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.ldl", "wb") as f:
@@ -170,6 +178,7 @@ class PG3Approach(NSRTLearningApproach):
             "policy_guided": _PolicyGuidedPG3Heuristic,
             "policy_evaluation": _PolicyEvaluationPG3Heuristic,
             "demo_plan_comparison": _DemoPlanComparisonPG3Heuristic,
+            "demo_plan_any_match": _DemoPlanComparisonAnyMatchPG3Heuristic,
         }
         cls = heuristic_name_to_cls[CFG.pg3_heuristic]
         return cls(preds, nsrts, self._train_tasks)
@@ -517,6 +526,41 @@ class _DemoPlanComparisonPG3Heuristic(_PlanComparisonPG3Heuristic):
             raise PlanningFailure("Could not find plan for train task.")
 
         return [set(atoms) for atoms in planned_frozen_atoms_seq]
+
+
+class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
+    """Similar to DemoPlanComparisonPG3Heuristic, except rather than
+    checking if the exact action returned by the policy matches the demo,
+    we check to see if grounding the LDL rules in _any_ order would match
+    the demo at each step. This removes the influence of the arbitrary order
+    in the case where multiple groundings of a rule satisfy the preconditions.
+    """
+    @staticmethod
+    def _count_missed_steps(ldl: LiftedDecisionList,
+                            atoms_seq: Sequence[Set[GroundAtom]],
+                            objects: Set[Object],
+                            goal: Set[GroundAtom]) -> float:
+        # This requires a different implementation because we can no longer
+        # check just the single action returned by the policy.
+        missed_steps = 0.0
+        for t in range(len(atoms_seq) - 1):
+            ground_nsrts = utils.query_ldl_all(ldl, atoms_seq[t], objects, goal)
+            candidate_found = False
+            match_found = False
+            for ground_nsrt in ground_nsrts:
+                candidate_found = True
+                predicted_atoms = utils.apply_operator(ground_nsrt,
+                                                        atoms_seq[t])
+                if predicted_atoms == atoms_seq[t + 1]:
+                    match_found = True
+                    break
+            if not match_found:
+                if candidate_found:
+                    missed_steps += 1
+                else:
+                    missed_steps += CFG.pg3_plan_compare_inapplicable_cost
+        return missed_steps
+
 
 
 class _PolicyGuidedPG3Heuristic(_PlanComparisonPG3Heuristic):

@@ -2753,6 +2753,27 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = save_stdout
 
 
+def query_ldl_all(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
+                  objects: Set[Object],
+                  goal: Set[GroundAtom]) -> Iterable[_GroundNSRT]:
+    """Queries a lifted decision list representing a goal-conditioned policy.
+
+    Given an abstract state and goal, the rules are grounded in order. For the
+    first lifted rule that has some grounding, all possible groundings of that
+    rule that satisfy its preconditions are yielded.
+    """
+    for rule in ldl.rules:
+        rule_applicable = False
+        for ground_rule in all_ground_ldl_rules(rule, objects):
+            if ground_rule.pos_state_preconditions.issubset(atoms) and \
+               not ground_rule.neg_state_preconditions & atoms and \
+               ground_rule.goal_preconditions.issubset(goal):
+                rule_applicable = True
+                yield ground_rule.ground_nsrt
+        if rule_applicable:
+            break
+
+
 def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
               objects: Set[Object],
               goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
@@ -2763,12 +2784,8 @@ def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
 
     If no rule is applicable, returns None.
     """
-    for rule in ldl.rules:
-        for ground_rule in all_ground_ldl_rules(rule, objects):
-            if ground_rule.pos_state_preconditions.issubset(atoms) and \
-               not ground_rule.neg_state_preconditions & atoms and \
-               ground_rule.goal_preconditions.issubset(goal):
-                return ground_rule.ground_nsrt
+    for ground_nsrt in query_ldl_all(ldl, atoms, objects, goal):
+        return ground_nsrt
     return None
 
 
