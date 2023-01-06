@@ -38,13 +38,13 @@ class BookshelfEnv(BaseEnv):
         super().__init__(use_gui)
 
         # Types
-        self._object_type = Type("object", [])
+        self._object_type = Type("object", ["pose_x", "pose_y", "width", "height", "yaw", "held"])
         # Book: when held, pose becomes relative to gripper
         self._book_type = Type(
             "book", ["pose_x", "pose_y", "width", "height", "yaw", "held"],
             self._object_type)
         self._shelf_type = Type("shelf",
-                                ["pose_x", "pose_y", "width", "height", "yaw"],
+                                ["pose_x", "pose_y", "width", "height", "yaw", "held"],
                                 self._object_type)
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "yaw", "gripper_free"])
@@ -233,16 +233,16 @@ class BookshelfEnv(BaseEnv):
 
     @property
     def _num_books_test(self) -> List[int]:
-        return CFG.num_books_test
+        return CFG.bookshelf_num_books_test
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_books_lst=self._num_books_train,
+                               possible_num_books=self._num_books_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_books_lst=self._num_books_test,
+                               possible_num_books=self._num_books_test,
                                rng=self._test_rng)
 
     @property
@@ -337,13 +337,14 @@ class BookshelfEnv(BaseEnv):
         ax.set_ylim(self.env_y_lb, self.env_y_ub)
         plt.suptitle(caption, fontsize=12, wrap=True)
         plt.tight_layout()
+        plt.axis("off")
         return fig
 
-    def _get_tasks(self, num_tasks: int, num_books_lst: List[int],
+    def _get_tasks(self, num_tasks: int, possible_num_books: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
-            num_books = num_books_lst[i % len(num_books_lst)]
+            num_books = rng.choice(possible_num_books)
             data = {}
 
             # Sample shelf variables
@@ -376,7 +377,7 @@ class BookshelfEnv(BaseEnv):
             shelf_rect = utils.Rectangle(shelf_x, shelf_y, shelf_w, shelf_h,
                                          shelf_yaw)
             data[self._shelf] = np.array(
-                [shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw])
+                [shelf_x, shelf_y, shelf_w, shelf_h, shelf_yaw, 0.0])
 
             tmp_state = State(data)
             # Initialize robot pos
