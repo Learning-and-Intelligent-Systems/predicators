@@ -388,6 +388,8 @@ class _PG3Heuristic(abc.ABC):
         score = 0.0
         for idx in range(len(self._abstract_train_tasks)):
             score += self._get_score_for_task(ldl, idx)
+        # Super hacky complexity penalty.
+        score += 1e-4 * len(str(ldl))
         logging.debug(f"Scoring:\n{ldl}\nScore: {score}")
         return score
 
@@ -575,7 +577,12 @@ class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
         # This requires a different implementation because we can no longer
         # check just the single action returned by the policy.
         missed_steps = 0.0
+        total_steps = 0.0
+        print("Goal", goal)
         for t in range(len(atoms_seq) - 1):
+            print(f"Step {t} added {atoms_seq[t + 1] - atoms_seq[t]}")
+            print("Full state:", atoms_seq[t])
+            total_steps += 1
             ground_nsrts = utils.query_ldl_all(ldl, atoms_seq[t], objects,
                                                goal)
             candidate_found = False
@@ -589,10 +596,17 @@ class _DemoPlanComparisonAnyMatchPG3Heuristic(_DemoPlanComparisonPG3Heuristic):
                     break
             if not match_found:
                 if candidate_found:
+                    print("No match found...")
+                    print("But found candidate:")
+                    print(ground_nsrt.name, ground_nsrt.objects)
                     missed_steps += 1
                 else:
+                    print("No match found.")
                     missed_steps += CFG.pg3_plan_compare_inapplicable_cost
-        return missed_steps
+            else:
+                print("Match found.")
+        import ipdb; ipdb.set_trace()
+        return missed_steps / total_steps
 
     @functools.lru_cache(maxsize=None)
     def _get_demo_atom_plan_for_task(
