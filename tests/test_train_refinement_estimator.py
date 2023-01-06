@@ -50,8 +50,8 @@ def test_train_refinement_estimator():
         "dummy", "--env", "narrow_passage", "--approach",
         "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
         "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
-        "--data_dir", data_dir, "--data_file_name", "test.data",
-        "--log_file", temp_log_file
+        "--data_dir", data_dir, "--data_file_name", "test.data", "--log_file",
+        temp_log_file
     ]
     sys.argv = train_sys_argv
     train_refinement_estimation_approach()
