@@ -14,5 +14,6 @@ def test_refinement_estimator_creation():
         estimator = create_refinement_estimator(est_name)
         assert isinstance(estimator, BaseRefinementEstimator)
         assert estimator.get_name() == est_name
+        estimator.train([])
     with pytest.raises(NotImplementedError):
         create_refinement_estimator("non-existent refinement estimator")

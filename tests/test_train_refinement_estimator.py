@@ -3,6 +3,7 @@
 import os
 import shutil
 import sys
+import tempfile
 
 import pytest
 
@@ -44,11 +45,13 @@ def test_train_refinement_estimator():
     approach_dir = os.path.join(parent_dir, "_fake_approach")
 
     # Test successful data generation and training
+    temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
     train_sys_argv = [
         "dummy", "--env", "narrow_passage", "--approach",
         "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
         "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
-        "--data_dir", data_dir, "--data_file_name", "test.data"
+        "--data_dir", data_dir, "--data_file_name", "test.data",
+        "--log_file", temp_log_file
     ]
     sys.argv = train_sys_argv
     train_refinement_estimation_approach()
