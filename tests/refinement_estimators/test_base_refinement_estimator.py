@@ -5,7 +5,7 @@ import pytest
 from predicators.refinement_estimators import BaseRefinementEstimator, \
     create_refinement_estimator
 
-ESTIMATOR_NAMES = ["oracle"]
+ESTIMATOR_NAMES = ["oracle", "tabular"]
 
 
 def test_refinement_estimator_creation():

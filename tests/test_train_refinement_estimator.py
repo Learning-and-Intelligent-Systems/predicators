@@ -1,0 +1,106 @@
+"""Tests for train_refinement_estimator.py."""
+
+import os
+import shutil
+import sys
+
+import pytest
+
+from predicators import utils
+from predicators.envs.narrow_passage import NarrowPassageEnv
+from predicators.option_model import create_option_model
+from predicators.planning import PlanningFailure
+from predicators.train_refinement_estimator import \
+    _collect_refinement_data_for_task, train_refinement_estimation_approach
+
+
+def test_train_refinement_estimator():
+    """Tests for train_refinement_estimator.py."""
+    utils.reset_config({
+        "env": "narrow_passage",
+        "narrow_passage_passage_width_padding": 0.02,
+        "num_train_tasks": 1,
+    })
+    sys.argv = [
+        "dummy", "--env", "narrow_passage", "--approach", "oracle", "--seed",
+        "123", "--num_train_tasks", "3"
+    ]
+    with pytest.raises(AssertionError):
+        train_refinement_estimation_approach()  # invalid approach
+    sys.argv = [
+        "dummy", "--env", "narrow_passage", "--approach",
+        "refinement_estimation", "--seed", "123"
+    ]
+    with pytest.raises(AssertionError):
+        train_refinement_estimation_approach()  # invalid refinement estimator
+    sys.argv = [
+        "dummy", "--env", "narrow_passage", "--approach",
+        "refinement_estimation", "--seed", "123", "--not-a-real-flag", "0"
+    ]
+    with pytest.raises(ValueError):
+        train_refinement_estimation_approach()  # invalid flag
+    parent_dir = os.path.dirname(__file__)
+    data_dir = os.path.join(parent_dir, "_fake_data")
+    approach_dir = os.path.join(parent_dir, "_fake_approach")
+
+    # Test successful data generation and training
+    train_sys_argv = [
+        "dummy", "--env", "narrow_passage", "--approach",
+        "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
+        "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
+        "--data_dir", data_dir, "--data_file_name", "test.data"
+    ]
+    sys.argv = train_sys_argv
+    train_refinement_estimation_approach()
+
+    # Test training from loaded data
+    sys.argv = train_sys_argv + ["--load_data"]
+    train_refinement_estimation_approach()
+
+    # Test skipping training
+    sys.argv = train_sys_argv + ["--skip_training"]
+    train_refinement_estimation_approach()
+
+    # Test that PlanningTimeout is handled properly
+    sys.argv = train_sys_argv + ["--skip_training", "--timeout", "0"]
+    train_refinement_estimation_approach()
+
+    # Test _MaxSkeletonsFailure is handled properly
+    sys.argv = train_sys_argv + [
+        "--skip_training", "--refinement_data_num_skeletons", "1"
+    ]
+    train_refinement_estimation_approach()
+
+    # Test for different sesame_grounder
+    sys.argv = train_sys_argv + [
+        "--skip_training", "--timeout", "0", "--sesame_grounder",
+        "fd_translator"
+    ]
+    train_refinement_estimation_approach()
+    sys.argv = train_sys_argv + [
+        "--skip_training", "--timeout", "0", "--sesame_grounder",
+        "doesn't exist"
+    ]
+    with pytest.raises(ValueError):
+        train_refinement_estimation_approach()  # invalid sesame grounder
+
+    shutil.rmtree(data_dir)
+    shutil.rmtree(approach_dir)
+
+    sys.argv = [
+        "dummy", "--env", "narrow_passage", "--approach",
+        "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
+        "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
+        "--data_dir", data_dir, "--load_data"
+    ]
+    with pytest.raises(FileNotFoundError):
+        train_refinement_estimation_approach()  # load non-existent file
+
+    # Test PlanningFailure if goal is not dr-reachable
+    sample_env = NarrowPassageEnv()
+    sample_task = sample_env.get_train_tasks()[0]
+    sample_option_model = create_option_model("oracle")
+    utils.reset_config()
+    with pytest.raises(PlanningFailure):
+        _collect_refinement_data_for_task(sample_task, sample_option_model,
+                                          set(), set(), set(), 0, [])

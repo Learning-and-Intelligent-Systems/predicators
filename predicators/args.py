@@ -41,4 +41,7 @@ def create_arg_parser(env_required: bool = True,
                         const=logging.DEBUG,
                         default=logging.INFO)
     parser.add_argument("--crash_on_failure", action="store_true")
+    # Used when running train_refinement_estimator.py from the command line
+    parser.add_argument("--data_file_name", default="", type=str)
+    parser.add_argument("--skip_training", action="store_true")
     return parser
