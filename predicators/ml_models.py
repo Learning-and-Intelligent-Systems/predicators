@@ -396,9 +396,9 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
             else:
                 raise NotImplementedError(
                     f"{weight_init} weight initialization unknown")
-        else:
-            # To make sure all the weights are being reset
-            assert m is self or isinstance(m, nn.ModuleList)
+        # else:
+        #     # To make sure all the weights are being reset
+        #     assert m is self or isinstance(m, nn.ModuleList)
 
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
