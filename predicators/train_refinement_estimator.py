@@ -118,6 +118,7 @@ def train_refinement_estimation_approach() -> None:
     if CFG.skip_training:
         script_time = time.perf_counter() - script_start
         logging.info(f"\n\nScript terminated in {script_time:.5f} seconds")
+        return
 
     # Create approach
     assert CFG.approach == "refinement_estimation", \

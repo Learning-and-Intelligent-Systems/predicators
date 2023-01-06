@@ -49,10 +49,10 @@ class RefinementEstimationApproach(OracleApproach):
             state_file_path = Path(CFG.approach_dir) / state_file
             try:
                 self._refinement_estimator.load_state(state_file_path)
-                logging.info(f"Loaded trained estimator state"
+                logging.info(f"Loaded trained estimator state "
                              f"from {state_file_path}")
             except FileNotFoundError:
-                logging.info(f"Could not find estimator state file"
+                logging.info(f"Could not find estimator state file "
                              f"at {state_file_path}")
 
     @classmethod
