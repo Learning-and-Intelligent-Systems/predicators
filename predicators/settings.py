@@ -270,10 +270,6 @@ class GlobalSettings:
     satellites_num_sat_test = [3, 4]
     satellites_num_obj_test = [4, 5]
 
-    # bookshelf env parameters
-    bookshelf_num_books_train = [4]
-    bookshelf_num_books_test = [4]
-
     # parameters for random options approach
     random_options_max_tries = 100
 
@@ -400,7 +396,8 @@ class GlobalSettings:
     mlp_regressor_hid_sizes = [32, 32]
     mlp_regressor_clip_gradients = False
     mlp_regressor_gradient_clip_value = 5
-    mlp_classifier_hid_sizes = [32, 32]
+    # mlp_classifier_hid_sizes = [32, 32]
+    mlp_classifier_hid_sizes = [256, 256]
     mlp_classifier_balance_data = True
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 1000
@@ -486,6 +483,19 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+
+    # GPU
+    use_cuda = False
+
+    # EBM model
+    use_full_state = False
+    use_skeleton_state = False
+    sampler_horizon = 1     # 1 is the minimum, which is completely myopic
+    use_ebm = True
+
+    # bookshelf env parameters
+    bookshelf_num_books_train = [2, 3]
+    bookshelf_num_books_test = [3, 4]
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -595,6 +605,8 @@ def get_allowed_query_type_names() -> Set[str]:
             "PathToStateQuery",
             "_MockQuery",
         }
+    if CFG.approach == "sampler_learning":
+        return {"GroundAtomsHoldQuery"}
     return set()
 
 

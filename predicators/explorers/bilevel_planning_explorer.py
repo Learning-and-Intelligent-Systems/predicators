@@ -37,7 +37,7 @@ class BilevelPlanningExplorer(BaseExplorer):
         seed = self._seed + self._num_calls
         # Note: subclasses are responsible for catching PlanningFailure and
         # PlanningTimeout and handling them accordingly.
-        plan, _ = sesame_plan(
+        plan, _, skeleton = sesame_plan(
             task,
             self._option_model,
             self._nsrts,
@@ -46,11 +46,14 @@ class BilevelPlanningExplorer(BaseExplorer):
             timeout,
             seed,
             CFG.sesame_task_planning_heuristic,
-            CFG.sesame_max_skeletons_optimized,
+            # CFG.sesame_max_skeletons_optimized,
+            1,
             max_horizon=CFG.horizon,
+            max_samples_per_step=1,
             allow_noops=CFG.sesame_allow_noops,
-            use_visited_state_set=CFG.sesame_use_visited_state_set)
+            use_visited_state_set=CFG.sesame_use_visited_state_set,
+            return_skeleton=True)
         policy = utils.option_plan_to_policy(plan)
         termination_function = task.goal_holds
 
-        return policy, termination_function
+        return policy, termination_function, skeleton

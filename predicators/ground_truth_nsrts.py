@@ -1,6 +1,6 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-from typing import List, Sequence, Set
+from typing import Any, List, Sequence, Set
 
 import numpy as np
 
@@ -2868,8 +2868,9 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
 
     def navigateto_sampler(state: State, goal: Set[GroundAtom],
                            rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
-        del goal # unused
+                           objs: Sequence[Object],
+                           skeleton: List[Any]) -> Array:
+        del goal, skeleton # unused
         option = NavigateTo
         env = get_or_create_env(env_name)
         low = option.params_space.low
@@ -2910,8 +2911,9 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
 
     def pickbook_sampler(state: State, goal: Set[GroundAtom],
                          rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
-        del state, goal, objs  # unused
+                         objs: Sequence[Object],
+                         skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
         option = PickBook
         low = option.params_space.low
         high = option.params_space.high
@@ -2944,8 +2946,9 @@ def _get_bookshelf_gt_nsrts(env_name: str) -> Set[NSRT]:
     
     def placebookonshelf_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
-                                 objs: Sequence[Object]) -> Array:
-        del state, goal, objs  # unused
+                                 objs: Sequence[Object],
+                                 skeleton: List[Any]) -> Array:
+        del state, goal, objs, skeleton  # unused
         option = PlaceBookOnShelf
         low = option.params_space.low
         high = option.params_space.high

@@ -55,12 +55,14 @@ def sesame_plan(
         task_planning_heuristic: str,
         max_skeletons_optimized: int,
         max_horizon: int,
+        max_samples_per_step: Optional[int] = None,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
         refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+        use_visited_state_set: bool = False,
+        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:
     """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
@@ -71,12 +73,15 @@ def sesame_plan(
     only consider at most one skeleton, and DiscoveredFailures cannot be
     handled.
     """
+    if max_samples_per_step is None:
+        max_samples_per_step = CFG.sesame_max_samples_per_step
     if CFG.sesame_task_planner == "astar":
         return _sesame_plan_with_astar(
             task, option_model, nsrts, predicates, types, timeout, seed,
             task_planning_heuristic, max_skeletons_optimized, max_horizon,
-            abstract_policy, max_policy_guided_rollout, refinement_estimator,
-            check_dr_reachable, allow_noops, use_visited_state_set)
+            max_samples_per_step, abstract_policy, max_policy_guided_rollout, 
+            refinement_estimator, check_dr_reachable, allow_noops, 
+            use_visited_state_set, return_skeleton)
     if CFG.sesame_task_planner == "fdopt":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -87,6 +92,7 @@ def sesame_plan(
                                                timeout,
                                                seed,
                                                max_horizon,
+                                               max_samples_per_step,
                                                optimal=True)
     if CFG.sesame_task_planner == "fdsat":
         assert abstract_policy is None
@@ -98,6 +104,7 @@ def sesame_plan(
                                                timeout,
                                                seed,
                                                max_horizon,
+                                               max_samples_per_step,
                                                optimal=False)
     raise ValueError("Unrecognized sesame_task_planner: "
                      f"{CFG.sesame_task_planner}")
@@ -114,12 +121,14 @@ def _sesame_plan_with_astar(
         task_planning_heuristic: str,
         max_skeletons_optimized: int,
         max_horizon: int,
+        max_samples_per_step: int,
         abstract_policy: Optional[AbstractPolicy] = None,
         max_policy_guided_rollout: int = 0,
         refinement_estimator: Optional[BaseRefinementEstimator] = None,
         check_dr_reachable: bool = True,
         allow_noops: bool = False,
-        use_visited_state_set: bool = False) -> Tuple[List[_Option], Metrics]:
+        use_visited_state_set: bool = False,
+        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:
     """The default version of SeSamE, which runs A* to produce skeletons."""
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
@@ -199,17 +208,19 @@ def _sesame_plan_with_astar(
                 plan, suc = run_low_level_search(
                     task, option_model, skeleton, necessary_atoms_seq,
                     new_seed, timeout - (time.perf_counter() - start_time),
-                    metrics, max_horizon)
+                    metrics, max_horizon, max_samples_per_step)
                 if suc:
                     # Success! It's a complete plan.
-                    logging.info(
-                        f"Planning succeeded! Found plan of length "
-                        f"{len(plan)} after "
-                        f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons with {int(metrics['num_samples'])}"
-                        f" samples, discovering "
-                        f"{int(metrics['num_failures_discovered'])} failures")
+                    # logging.info(
+                    #     f"Planning succeeded! Found plan of length "
+                    #     f"{len(plan)} after "
+                    #     f"{int(metrics['num_skeletons_optimized'])} "
+                    #     f"skeletons with {int(metrics['num_samples'])}"
+                    #     f" samples, discovering "
+                    #     f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
+                    if return_skeleton:
+                        return plan, metrics, skeleton
                     return plan, metrics
                 partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
@@ -457,7 +468,8 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
                          skeleton: List[_GroundNSRT],
                          atoms_sequence: List[Set[GroundAtom]], seed: int,
                          timeout: float, metrics: Metrics,
-                         max_horizon: int) -> Tuple[List[_Option], bool]:
+                         max_horizon: int,
+                         max_samples_per_step: int) -> Tuple[List[_Option], bool]:
     """Backtracking search over continuous values.
 
     Returns a sequence of options and a boolean. If the boolean is True,
@@ -476,7 +488,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
     # Optimization: if the params_space for the NSRT option is empty, only
     # sample it once, because all samples are just empty (so equivalent).
     max_tries = [
-        CFG.sesame_max_samples_per_step
+        max_samples_per_step
         if nsrt.option.params_space.shape[0] > 0 else 1 for nsrt in skeleton
     ]
     plan: List[_Option] = [DummyOption for _ in skeleton]
@@ -502,7 +514,7 @@ def run_low_level_search(task: Task, option_model: _OptionModelBase,
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(state, task.goal, rng_sampler)
+        option = nsrt.sample_option(state, task.goal, skeleton[cur_idx+1:], rng_sampler)
         plan[cur_idx] = option
         # Increment num_samples metric by 1
         metrics["num_samples"] += 1
@@ -905,7 +917,8 @@ def _sesame_plan_with_fast_downward(
         task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
         predicates: Set[Predicate], types: Set[Type], timeout: float,
         seed: int, max_horizon: int,
-        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+        optimal: bool,
+        max_samples_per_step) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -1009,7 +1022,7 @@ def _sesame_plan_with_fast_downward(
             plan, suc = run_low_level_search(task, option_model, skeleton,
                                              necessary_atoms_seq, seed,
                                              low_level_timeout, metrics,
-                                             max_horizon)
+                                             max_horizon, max_samples_per_step)
             if not suc:
                 if time.perf_counter() - start_time > timeout:
                     raise PlanningTimeout("Planning timed out in refinement!")

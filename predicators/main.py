@@ -236,7 +236,7 @@ def _generate_interaction_results(
         request_responses = monitor.get_responses()
         query_cost += monitor.get_query_cost()
         result = InteractionResult(traj.states, traj.actions,
-                                   request_responses)
+                                   request_responses, request.skeleton)
         results.append(result)
         if CFG.make_interaction_videos:
             video.extend(monitor.get_video())

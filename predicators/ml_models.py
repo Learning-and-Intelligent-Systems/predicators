@@ -23,6 +23,7 @@ from torch import Tensor, nn, optim
 from torch.distributions.categorical import Categorical
 
 from predicators.structs import Array, MaxTrainIters, Object, State
+from predicators.settings import CFG
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 torch.set_num_threads(1)  # fixes libglomp error on supercloud
@@ -345,8 +346,11 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         self._max_train_iters = max_train_iters
         self._learning_rate = learning_rate
         self._n_iter_no_change = n_iter_no_change
+        assert n_reinitialize_tries == 1, "Changed code to ignore n_reinitialize_tries"
         self._n_reinitialize_tries = n_reinitialize_tries
         self._weight_init = weight_init
+        self._device = 'cuda' if CFG.use_cuda else 'cpu'
+        self._optimizer = None
 
     @abc.abstractmethod
     def forward(self, tensor_X: Tensor) -> Tensor:
@@ -373,14 +377,18 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
 
     def _create_optimizer(self) -> optim.Optimizer:
         """Create an optimizer after the model is initialized."""
-        return optim.Adam(self.parameters(), lr=self._learning_rate)
+        if self._optimizer is None:
+            print('Creating optimizer afresh')
+            self._optimizer = optim.Adam(self.parameters(), lr=self._learning_rate)
+        return self._optimizer
 
     def _reset_weights(self) -> None:
         """(Re-)initialize the network weights."""
+        print("Resetting weights")
         self.apply(lambda m: self._weight_reset(m, self._weight_init))
 
     def _weight_reset(self, m: torch.nn.Module, weight_init: str) -> None:
-        if isinstance(m, nn.Linear):
+        if isinstance(m, (nn.Linear, nn.Conv2d)):
             if weight_init == "default":
                 m.reset_parameters()
             elif weight_init == "normal":
@@ -395,31 +403,27 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
     def _fit(self, X: Array, y: Array) -> None:
         # Initialize the network.
         self._initialize_net()
+        # Create the optimizer.
+        optimizer = self._create_optimizer()
+        self.to(self._device)
         # Create the loss function.
         loss_fn = self._create_loss_fn()
         # Convert data to tensors.
-        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32))
-        tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+        tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(self._device)
         batch_generator = _single_batch_generator(tensor_X, tensor_y)
         # Run training.
-        for _ in range(self._n_reinitialize_tries):
-            # (Re-)initialize weights.
-            self._reset_weights()
-            # Create the optimizer.
-            optimizer = self._create_optimizer()
-            # Run training.
-            best_loss = _train_pytorch_model(
-                self,
-                loss_fn,
-                optimizer,
-                batch_generator,
-                max_train_iters=self._max_train_iters,
-                dataset_size=X.shape[0],
-                n_iter_no_change=self._n_iter_no_change)
-            # Weights may not have converged during training.
-            if best_loss < 1:
-                break  # success!
-        else:
+        # Run training.
+        loss = _train_pytorch_model(
+            self,
+            loss_fn,
+            optimizer,
+            batch_generator,
+            max_train_iters=self._max_train_iters,
+            dataset_size=X.shape[0],
+            n_iter_no_change=self._n_iter_no_change)
+        # Weights may not have converged during training.
+        if loss >= 1:
             raise RuntimeError(f"Failed to converge within "
                                f"{self._n_reinitialize_tries} tries")
 
@@ -427,10 +431,10 @@ class PyTorchBinaryClassifier(_NormalizingBinaryClassifier, nn.Module):
         """Helper for _classify() and predict_proba()."""
         assert x.shape == (self._x_dim, )
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
-        tensor_X = tensor_x.unsqueeze(dim=0)
+        tensor_X = tensor_x.unsqueeze(dim=0).to(self._device)
         tensor_Y = self(tensor_X)
         tensor_y = tensor_Y.squeeze(dim=0)
-        y = tensor_y.detach().numpy()
+        y = tensor_y.detach().to('cpu').numpy()
         proba = y.item()
         assert 0 <= proba <= 1
         return proba
@@ -855,14 +859,17 @@ class MLPBinaryClassifier(PyTorchBinaryClassifier):
         self._hid_sizes = hid_sizes
         # Set in fit().
         self._linears = nn.ModuleList()
+        self._is_initialized = False
 
     def _initialize_net(self) -> None:
-        self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
-        for i in range(len(self._hid_sizes) - 1):
-            self._linears.append(
-                nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
-        self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
-        self._reset_weights()
+        if len(self._linears) == 0:
+            self._linears.append(nn.Linear(self._x_dim, self._hid_sizes[0]))
+            for i in range(len(self._hid_sizes) - 1):
+                self._linears.append(
+                    nn.Linear(self._hid_sizes[i], self._hid_sizes[i + 1]))
+            self._linears.append(nn.Linear(self._hid_sizes[-1], 1))
+            self._reset_weights()
+        self._is_initialized = True
 
     def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
         return nn.BCELoss()
@@ -911,6 +918,88 @@ class BinaryClassifierEnsemble(BinaryClassifier):
         """Return class probabilities predicted by each member."""
         return np.array([m.predict_proba(x) for m in self._members])
 
+############################# Energy-based models #############################
+class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
+    """A wrapper around a binary classifier that uses Langevin dynamics
+    to generate samples using the classifier as an energy function."""
+    
+    @property
+    def is_trained(self):
+        return self._is_initialized
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.BCEWithLogitsLoss()
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        assert not self._do_single_class_prediction
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X.squeeze(dim=-1)
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        """Assume that x contains the conditioning variables and that these
+        correspond to the first x.shape[1] inputs to the model."""
+        cond_dim = x.shape[0]
+        out_dim = self._x_dim - cond_dim
+        # samples = torch.from_numpy(rng.normal(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
+        samples = torch.from_numpy(rng.uniform(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
+        x = (x - self._input_shift[:cond_dim]) / self._input_scale[:cond_dim]
+        tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
+        tensor_X = tensor_x.unsqueeze(dim=0)
+        stepsize = 1e-4 # TODO: pass to CFG
+        n_steps = 100 # TODO: pass to CFG
+        noise_scale = np.sqrt(stepsize * 2)
+        samples.requires_grad = True
+        for _ in range(n_steps):
+            noise = torch.from_numpy(rng.normal(size=out_dim).astype(np.float32)).to(self._device) * noise_scale
+            out = self.forward(torch.cat((tensor_X, samples), dim=1))
+            grad = torch.autograd.grad(out.sum(), samples)[0]
+            dynamics = stepsize * grad + noise
+            samples = samples + dynamics
+        samples = samples.squeeze().detach().to('cpu').numpy()
+        samples = samples * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
+        return samples
+
+class BinaryCNNEBM(BinaryEBM):
+
+    def __init__(self, seed: int, balance_data: bool,
+                 max_train_iters: MaxTrainIters, learning_rate: float,
+                 n_iter_no_change: int, hid_sizes: List[int],
+                 n_reinitialize_tries: int, weight_init: str) -> None:
+        super().__init__(seed, balance_data, max_train_iters, learning_rate, 
+                         n_iter_no_change, hid_sizes, n_reinitialize_tries,
+                         weight_init)
+
+        # Store information about CNN 
+        self._conv_backbone = None
+
+
+    def _initialize_net(self) -> None:
+        if self._conv_backbone is None:
+            self._conv_backbone = nn.Sequential(
+                nn.Conv2d(1, 6, kernel_size=5, padding=2),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(6, 16, kernel_size=5),
+                nn.MaxPool2d(2, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(16, 32, kernel_size=5),
+                nn.ReLU()
+            )      
+        self._x_dim -= 900  # subtract image dimensions
+        self._x_dim += 32   # add CNN output dimensions
+        super()._initialize_net()
+        self._x_dim += 900
+        self._x_dim -= 32    
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        assert not self._do_single_class_prediction
+        img_X = tensor_X[:, :900].reshape(tensor_X.shape[0], 1, 30, 30)
+        tensor_X = tensor_X[:, 900:]
+        img_X = self._conv_backbone(img_X)
+        tensor_X = torch.cat((tensor_X, img_X.reshape(-1, 32)), dim=1)
+        return super().forward(tensor_X)
 
 ################################## Utilities ##################################
 
@@ -957,12 +1046,20 @@ def _balance_binary_classification_data(
     return (X, y)
 
 
+# def _single_batch_generator(
+#         tensor_X: Tensor, tensor_Y: Tensor) -> Iterator[Tuple[Tensor, Tensor]]:
+#     """Infinitely generate all of the data in one batch."""
+#     while True:
+#         yield (tensor_X, tensor_Y)
+
 def _single_batch_generator(
         tensor_X: Tensor, tensor_Y: Tensor) -> Iterator[Tuple[Tensor, Tensor]]:
     """Infinitely generate all of the data in one batch."""
-    while True:
-        yield (tensor_X, tensor_Y)
+    data = torch.utils.data.TensorDataset(tensor_X, tensor_Y)
+    return torch.utils.data.DataLoader(data, batch_size=64, shuffle=False)
 
+    # while True:
+    #     yield (tensor_X, tensor_Y)
 
 def _train_pytorch_model(model: nn.Module,
                          loss_fn: Callable[[Tensor, Tensor], Tensor],
@@ -989,28 +1086,31 @@ def _train_pytorch_model(model: nn.Module,
     else:  # assume that it's a function from dataset size to max iters
         max_iters = max_train_iters(dataset_size)
     assert isinstance(max_iters, int)
-    for tensor_X, tensor_Y in batch_generator:
-        Y_hat = model(tensor_X)
-        loss = loss_fn(Y_hat, tensor_Y)
-        if loss.item() < best_loss:
-            best_loss = loss.item()
+    for itr in range(max_iters):
+        cum_loss = 0
+        n = 0
+        for tensor_X, tensor_Y in batch_generator:
+            Y_hat = model(tensor_X)
+            loss = loss_fn(Y_hat, tensor_Y)
+            optimizer.zero_grad()
+            loss.backward()  # type: ignore
+            if clip_gradients:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
+            optimizer.step()
+            cum_loss += loss.item() * tensor_X.shape[0]
+            n += tensor_X.shape[0]
+        cum_loss /= n
+        if cum_loss < best_loss:
+            best_loss = cum_loss
             best_itr = itr
             # Save this best model.
             torch.save(model.state_dict(), model_name)
         if itr % print_every == 0:
-            logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_iters}")
-        optimizer.zero_grad()
-        loss.backward()  # type: ignore
-        if clip_gradients:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
-        optimizer.step()
+            logging.info(f"Loss: {cum_loss:.5f}, iter: {itr}/{max_iters}")
         if itr - best_itr > n_iter_no_change:
             logging.info(f"Loss did not improve after {n_iter_no_change} "
                          f"itrs, terminating at itr {itr}.")
             break
-        if itr == max_iters:
-            break
-        itr += 1
     # Load best model.
     model.load_state_dict(torch.load(model_name))  # type: ignore
     os.remove(model_name)
