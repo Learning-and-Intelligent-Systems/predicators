@@ -388,8 +388,6 @@ class _PG3Heuristic(abc.ABC):
         score = 0.0
         for idx in range(len(self._abstract_train_tasks)):
             score += self._get_score_for_task(ldl, idx)
-        # Super hacky complexity penalty.
-        score += 1e-4 * len(str(ldl))
         logging.debug(f"Scoring:\n{ldl}\nScore: {score}")
         return score
 
