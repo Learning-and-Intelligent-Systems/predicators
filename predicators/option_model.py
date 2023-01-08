@@ -141,7 +141,7 @@ class _BehaviorOptionModel(_OptionModelBase):
         assert isinstance(env, BehaviorEnv)
         assert option.memory.get("model_controller") is not None
         assert option.memory.get("planner_result") is not None
-        if not CFG.plan_only_eval:
+        if not CFG.plan_only_eval and not CFG.simulate_nav:
             if not state.allclose(
                     env.current_ig_state_to_state(
                         save_state=False,

@@ -129,6 +129,7 @@ class GlobalSettings:
     behavior_option_model_rrt = False
     behavior_override_learned_samplers = False
     create_training_dataset = False
+    simulate_nav = False
 
     # general pybullet parameters
     pybullet_draw_debug = False  # useful for annotating in the GUI
