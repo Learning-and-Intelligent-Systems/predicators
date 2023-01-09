@@ -948,7 +948,7 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(self._device)
         tensor_X = tensor_x.unsqueeze(dim=0)
         stepsize = 1e-4 # TODO: pass to CFG
-        n_steps = 100 # TODO: pass to CFG
+        n_steps = 10 # TODO: pass to CFG
         noise_scale = np.sqrt(stepsize * 2)
         samples.requires_grad = True
         for _ in range(n_steps):
