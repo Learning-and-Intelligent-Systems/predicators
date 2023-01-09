@@ -1,4 +1,7 @@
-# A configuration file for evaluation on 5 pick and place BEHAVIOR tasks.
+# A configuration file for evaluation on 4 pick and place BEHAVIOR tasks.
+# Note that not all baselines can be run at once. Comment things out, change flags,
+# and run accordingly.
+# Example Usage:
 # python scripts/supercloud/launch.py \
 # --user wmcclinton \
 # --config behavior_pick_place_evaluation.yaml \
@@ -27,9 +30,12 @@ APPROACHES:
     FLAGS: 
       strips_learner: "cluster_and_intersect_sideline_prederror" 
       disable_harmlessness_check: True
-  gnn_shooting:  # Model-based GNN option policy baseline.
-    NAME: "gnn_option_policy"
-  # gnn_modelfree:  # Model-free GNN option policy baseline. Note: this needs to run after Model-based GNN
+  # NOTE: Set the 'plan_only_eval' flag to false when running either
+  # of the below GNN approaches.
+  # gnn_shooting:  # Model-based GNN option policy baseline.
+  #   NAME: "gnn_option_policy"
+  # NOTE: this needs to run after Model-based GNN has already been run.
+  # gnn_modelfree:  # Model-free GNN option policy baseline.
   #   NAME: "gnn_option_policy"
   #   FLAGS:
   #     gnn_option_policy_solve_with_shooting: False
@@ -72,7 +78,8 @@ ARGS:
 FLAGS:  # general flags
   offline_data_planning_timeout: 500.0
   timeout: 500.0
-  plan_only_eval: True
+  # NOTE: set below to False when using GNN's!
+  plan_only_eval: True #False
   sesame_task_planner: fdsat
   behavior_override_learned_samplers: True
   num_train_tasks: 10
