@@ -1,4 +1,11 @@
-"""An environment where a robot must press buttons with its hand or a stick."""
+"""An environment where a robot must press buttons with its hand or a stick.
+
+Example to make videos:
+
+python src/main.py --env stick_button --approach oracle --seed 0 --make_test_videos \
+    --pybullet_use_gui True --num_test_tasks 1 --stick_button_render_mode pybullet \
+    --pybullet_control_mode reset
+"""
 
 import logging
 from typing import Callable, ClassVar, Dict, List, Optional, Sequence, Set, \
@@ -1032,7 +1039,7 @@ class StickButtonEnv(BaseEnv):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                physicsClientId=self._physics_client_id)
 
-        rgb_array = np.array(px)
+        rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3]
         return rgb_array
 
