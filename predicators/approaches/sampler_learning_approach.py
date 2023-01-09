@@ -267,7 +267,7 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                             # Store only single-step failed actions, because those are always on-policy
                             X_replay_new.append(np.r_[x, a])
                             Y_replay_new.append(annotation)
-            if len(X) > 0 and 0 < sum(Y) <= len(Y + Y_replay):
+            if len(X) > 0 and 0 < sum(Y + Y_replay) < len(Y + Y_replay):
                 X_arr = np.array(X + X_replay)
                 Y_arr = np.array(Y + Y_replay)
                 print(X_arr.shape, Y_arr.shape)
@@ -311,8 +311,21 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                 # exit()
             else:
                 print('No data or success for', nsrt.name, ':', len(X), sum(Y))
-            X_replay += X_replay_new
-            Y_replay += Y_replay_new
+            replay_capacity = 1000
+            if len(X_replay) + len(X_replay_new) < replay_capacity:
+                X_replay += X_replay_new
+                Y_replay += Y_replay_new
+            elif len(X_replay_new) < replay_capacity:
+                num_keep_old = replay_capacity - len(X_replay_new)
+                X_replay += X_replay_new
+                Y_replay += Y_replay_new
+                del X_replay[:-num_keep_old]
+                del Y_replay[:-num_keep_old]
+            else:
+                X_replay += X_replay_new
+                Y_replay += Y_replay_new
+                del X_replay[:-len(X_replay_new)]
+                del Y_replay[:-len(Y_replay_new)]
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:
