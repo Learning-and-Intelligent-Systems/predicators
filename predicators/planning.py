@@ -1027,18 +1027,26 @@ def _sesame_plan_with_fast_downward(
     if optimal:
         alias_flag = "--alias seq-opt-lmcut"
     else:  # satisficing
-        alias_flag = "--alias lama-first"
+        alias_flag = "--evaluator 'hlm=lmcount(lm_factory=lm_rhw" + \
+            "(reasonable_orders=true),transform=adapt_costs(one)," + \
+            "pref=false)' --evaluator 'hff=ff(transform=adapt_costs(one))'" + \
+            " --search 'lazy_greedy([hff],preferred=[hff,hlm]," + \
+            "cost_type=one,reopen_closed=false)'"
     assert "FD_EXEC_PATH" in os.environ, \
         "Please follow the instructions in the docstring of this method!"
     fd_exec_path = os.environ["FD_EXEC_PATH"]
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
-    # Run to generate sas
-    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
+    # Run to generate sas file.
+    cmd_str = (f"{timeout_cmd} {timeout} {exec_str} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
     while True:
-        cmd_str = (
-            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+        if optimal:
+            cmd_str = (
+                f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+        else:
+            cmd_str = (
+                f"{timeout_cmd} {timeout} {exec_str} {sas_file} {alias_flag}")
         output = subprocess.getoutput(cmd_str)
         cleanup_cmd_str = f"{exec_str} --cleanup"
         subprocess.getoutput(cleanup_cmd_str)
