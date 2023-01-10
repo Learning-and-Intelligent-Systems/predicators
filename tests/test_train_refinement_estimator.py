@@ -50,8 +50,8 @@ def test_train_refinement_estimator():
         "dummy", "--env", "narrow_passage", "--approach",
         "refinement_estimation", "--refinement_estimator", "tabular", "--seed",
         "123", "--num_train_tasks", "1", "--approach_dir", approach_dir,
-        "--data_dir", data_dir, "--data_file_name", "test.data", "--log_file",
-        temp_log_file
+        "--data_dir", data_dir, "--refinement_data_file_name", "test.data",
+        "--log_file", temp_log_file
     ]
     sys.argv = train_sys_argv
     train_refinement_estimation_approach()
@@ -61,28 +61,31 @@ def test_train_refinement_estimator():
     train_refinement_estimation_approach()
 
     # Test skipping training
-    sys.argv = train_sys_argv + ["--skip_training"]
+    sys.argv = train_sys_argv + ["--skip_refinement_estimator_training"]
     train_refinement_estimation_approach()
 
     # Test that PlanningTimeout is handled properly
-    sys.argv = train_sys_argv + ["--skip_training", "--timeout", "0"]
+    sys.argv = train_sys_argv + [
+        "--skip_refinement_estimator_training", "--timeout", "0"
+    ]
     train_refinement_estimation_approach()
 
     # Test _MaxSkeletonsFailure is handled properly
     sys.argv = train_sys_argv + [
-        "--skip_training", "--refinement_data_num_skeletons", "1"
+        "--skip_refinement_estimator_training",
+        "--refinement_data_num_skeletons", "1"
     ]
     train_refinement_estimation_approach()
 
     # Test for different sesame_grounder
     sys.argv = train_sys_argv + [
-        "--skip_training", "--timeout", "0", "--sesame_grounder",
-        "fd_translator"
+        "--skip_refinement_estimator_training", "--timeout", "0",
+        "--sesame_grounder", "fd_translator"
     ]
     train_refinement_estimation_approach()
     sys.argv = train_sys_argv + [
-        "--skip_training", "--timeout", "0", "--sesame_grounder",
-        "doesn't exist"
+        "--skip_refinement_estimator_training", "--timeout", "0",
+        "--sesame_grounder", "doesn't exist"
     ]
     with pytest.raises(ValueError):
         train_refinement_estimation_approach()  # invalid sesame grounder

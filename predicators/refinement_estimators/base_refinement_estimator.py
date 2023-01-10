@@ -29,20 +29,20 @@ class BaseRefinementEstimator(abc.ABC):
         """Return an estimated cost for a proposed high-level skeleton."""
         raise NotImplementedError("Override me!")
 
-    def train(self, data: List) -> None:  # pragma: no cover
+    def train(self, data: List) -> None:
         """Train the estimator on given training data.
 
         Only called if is_learning_based is True.
         """
 
-    def save_state(self, filepath: Path) -> None:  # pragma: no cover
-        """Save the training state of the approach to a file.
+    def save_model(self, filepath: Path) -> None:
+        """Save the training model of the approach to a file.
 
         Only called if is_learning_based is True.
         """
 
-    def load_state(self, filepath: Path) -> None:  # pragma: no cover
-        """Load the training state of the approach from a file.
+    def load_model(self, filepath: Path) -> None:
+        """Load the training model of the approach from a file.
 
         Only called if is_learning_based is True.
         """

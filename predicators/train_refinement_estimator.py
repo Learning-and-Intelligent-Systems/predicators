@@ -9,7 +9,7 @@ Example usage to generate data and train:
 To save a generated dataset under a name different from the default:
     python predicators/train_refinement_estimator.py --env narrow_passage \
         --approach refinement_estimation --refinement_estimator tabular \
-        --seed 0 --data_file_name my_data_file.data
+        --seed 0 --refinement_data_file_name my_data_file.data
 
 To skip data collection and load a dataset file instead:
     python predicators/train_refinement_estimator.py --env narrow_passage \
@@ -19,12 +19,12 @@ To skip data collection and load a dataset file instead:
 To specify a dataset file name different from the default:
     python predicators/train_refinement_estimator.py --env narrow_passage \
         --approach refinement_estimation --refinement_estimator tabular \
-        --seed 0 --load_data --data_file_name my_data_file.data
+        --seed 0 --load_data --refinement_data_file_name my_data_file.data
 
 To skip training the approach:
     python predicators/train_refinement_estimator.py --env narrow_passage \
         --approach refinement_estimation --refinement_estimator tabular \
-        --seed 0 --skip_training
+        --seed 0 --skip_refinement_estimator_training
 """
 
 import logging
@@ -50,9 +50,6 @@ from predicators.planning import PlanningFailure, PlanningTimeout, \
 from predicators.settings import CFG
 from predicators.structs import NSRT, Metrics, ParameterizedOption, \
     Predicate, RefinementDatapoint, Task, Type
-
-assert os.environ.get("PYTHONHASHSEED") == "0", \
-        "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
 
 def train_refinement_estimation_approach() -> None:
@@ -89,11 +86,6 @@ def train_refinement_estimation_approach() -> None:
 
     # Create the train tasks.
     train_tasks = env.get_train_tasks()
-    # If train tasks have goals that involve excluded predicates, strip those
-    # predicate classifiers to prevent leaking information to the approaches.
-    stripped_train_tasks = [
-        utils.strip_task(task, preds) for task in train_tasks
-    ]
     # Assume we're not doing option learning, pass in all the environment's
     # oracle options.
     options = env.options
@@ -106,16 +98,15 @@ def train_refinement_estimation_approach() -> None:
         logging.info(f"Loaded dataset from {data_file_path}")
     else:
         logging.info("Generating refinement data using"
-                     f"{len(stripped_train_tasks)} train tasks...")
+                     f"{len(train_tasks)} train tasks...")
         data_gen_start_time = time.perf_counter()
-        dataset = _generate_refinement_data(env, preds, options,
-                                            stripped_train_tasks)
+        dataset = _generate_refinement_data(env, preds, options, train_tasks)
         data_gen_time = time.perf_counter() - data_gen_start_time
         logging.info(f"Generated {len(dataset)} datapoints in "
                      f"{data_gen_time:.5f} seconds")
 
     # Terminate early if training should be skipped
-    if CFG.skip_training:
+    if CFG.skip_refinement_estimator_training:
         script_time = time.perf_counter() - script_start
         logging.info(f"\n\nScript terminated in {script_time:.5f} seconds")
         return
@@ -126,7 +117,7 @@ def train_refinement_estimation_approach() -> None:
     approach = cast(
         RefinementEstimationApproach,
         create_approach(CFG.approach, preds, options, env.types,
-                        env.action_space, stripped_train_tasks))
+                        env.action_space, train_tasks))
     refinement_estimator = approach.refinement_estimator
     assert refinement_estimator.is_learning_based, \
         "Refinement estimator (--refinement_estimator) must be learning-based"
@@ -136,14 +127,14 @@ def train_refinement_estimation_approach() -> None:
     refinement_estimator.train(dataset)
     train_time = time.perf_counter() - train_start_time
     logging.info(f"Finished training in {train_time:.5f} seconds")
-    # Save the training state to a file
+    # Save the training model to a file
     # Create saved data directory.
     os.makedirs(CFG.approach_dir, exist_ok=True)
     config_path_str = utils.get_config_path_str()
-    state_file = f"{CFG.refinement_estimator}_{config_path_str}.estimator"
-    state_file_path = Path(CFG.approach_dir) / state_file
-    refinement_estimator.save_state(state_file_path)
-    logging.info(f"Saved trained estimator to {state_file_path}")
+    model_file = f"{CFG.refinement_estimator}_{config_path_str}.estimator"
+    model_file_path = Path(CFG.approach_dir) / model_file
+    refinement_estimator.save_model(model_file_path)
+    logging.info(f"Saved trained estimator to {model_file_path}")
 
     script_time = time.perf_counter() - script_start
     logging.info(f"\n\nScript terminated in {script_time:.5f} seconds")
@@ -267,8 +258,8 @@ def _collect_refinement_data_for_task(task: Task,
 
 
 def _get_data_file_path() -> Path:
-    if len(CFG.data_file_name):
-        file_name = CFG.data_file_name
+    if len(CFG.refinement_data_file_name):
+        file_name = CFG.refinement_data_file_name
     else:
         config_path_str = utils.get_config_path_str()
         file_name = f"refinement_data_{config_path_str}.data"
