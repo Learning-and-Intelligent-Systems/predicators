@@ -1812,22 +1812,52 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
-def all_ground_ldl_rules(rule: LDLRule,
-                         objects: Collection[Object]) -> List[_GroundLDLRule]:
-    """Get all possible groundings of the given rule with the given objects."""
-    return _cached_all_ground_ldl_rules(rule, frozenset(objects))
+def all_ground_ldl_rules(
+        rule: LDLRule,
+        objects: Collection[Object],
+        static_predicates: Optional[Collection[Predicate]] = None,
+        init_atoms: Optional[Collection[GroundAtom]] = None,
+        goal: Optional[Collection[GroundAtom]] = None) -> List[_GroundLDLRule]:
+    """Get all possible groundings of the given rule with the given objects.
+
+    TODO update docstring.
+    """
+    if static_predicates is None:
+        static_predicates = set()
+    if init_atoms is None:
+        init_atoms = set()
+    if goal is None:
+        goal = set()
+    return _cached_all_ground_ldl_rules(rule, frozenset(objects),
+                                        frozenset(static_predicates),
+                                        frozenset(init_atoms), frozenset(goal))
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_all_ground_ldl_rules(
-        rule: LDLRule,
-        frozen_objects: FrozenSet[Object]) -> List[_GroundLDLRule]:
+        rule: LDLRule, objects: FrozenSet[Object],
+        static_predicates: FrozenSet[Predicate],
+        init_atoms: FrozenSet[GroundAtom],
+        goal: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
     types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(frozen_objects, types):
+    for choice in get_object_combinations(objects, types):
         ground_rule = rule.ground(tuple(choice))
-        ground_rules.append(ground_rule)
+        # Check static preconditions.
+        keep_rule = True
+        for atom in ground_rule.pos_state_preconditions:
+            if atom.predicate in static_predicates and atom not in init_atoms:
+                keep_rule = False
+                break
+        for atom in ground_rule.neg_state_preconditions:        
+            if atom.predicate in static_predicates and atom in init_atoms:
+                keep_rule = False
+                break
+        if not ground_rule.goal_preconditions.issubset(goal):
+            keep_rule = False
+        if keep_rule:
+            ground_rules.append(ground_rule)
     return ground_rules
 
 
@@ -2753,18 +2783,31 @@ def nostdout() -> Generator[None, None, None]:
     sys.stdout = save_stdout
 
 
-def query_ldl(ldl: LiftedDecisionList, atoms: Set[GroundAtom],
-              objects: Set[Object],
-              goal: Set[GroundAtom]) -> Optional[_GroundNSRT]:
+def query_ldl(
+    ldl: LiftedDecisionList,
+    atoms: Set[GroundAtom],
+    objects: Set[Object],
+    goal: Set[GroundAtom],
+    static_predicates: Optional[Set[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> Optional[_GroundNSRT]:
     """Queries a lifted decision list representing a goal-conditioned policy.
 
     Given an abstract state and goal, the rules are grounded in order. The
     first applicable ground rule is used to return a ground NSRT.
 
+    If static_predicates is provided, it is used to avoid grounding rules with
+    nonsense preconditions like IsBall(robot).
+
     If no rule is applicable, returns None.
     """
     for rule in ldl.rules:
-        for ground_rule in all_ground_ldl_rules(rule, objects):
+        for ground_rule in all_ground_ldl_rules(
+                rule,
+                objects,
+                static_predicates=static_predicates,
+                init_atoms=init_atoms,
+                goal=goal):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
                not ground_rule.neg_state_preconditions & atoms and \
                ground_rule.goal_preconditions.issubset(goal):
