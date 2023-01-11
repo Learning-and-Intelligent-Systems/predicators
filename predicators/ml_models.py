@@ -961,6 +961,71 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         samples = samples * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
         return samples
 
+'''
+class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
+    """A wrapper around a binary classifier that uses Langevin dynamics
+    to generate samples using the classifier as an energy function."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cached_x = None
+        self._use_cache = True  # TODO: move to global CFG
+        if self._use_cache:
+            self._cache_size = CFG.sesame_max_samples_per_step
+        else:
+            self._cache_size = 1
+    
+    @property
+    def is_trained(self):
+        return self._is_initialized
+
+    def _create_loss_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
+        return nn.BCEWithLogitsLoss()
+
+    def forward(self, tensor_X: Tensor) -> Tensor:
+        assert not self._do_single_class_prediction
+        for _, linear in enumerate(self._linears[:-1]):
+            tensor_X = F.relu(linear(tensor_X))
+        tensor_X = self._linears[-1](tensor_X)
+        return tensor_X.squeeze(dim=-1)
+
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
+        """Assume that x contains the conditioning variables and that these
+        correspond to the first x.shape[1] inputs to the model."""
+
+        cond_dim = x.shape[0]
+        if self._cached_x is not None and self._cached_sample_idx < self._cached_samples.shape[0] and np.allclose(x, self._cached_x):
+            sample = self._cached_samples[self._cached_sample_idx]
+            self._cached_sample_idx += 1
+            sample = sample * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
+            return sample
+        self._cached_x = x
+        out_dim = self._x_dim - cond_dim
+        # samples = torch.from_numpy(rng.normal(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
+        # samples = torch.from_numpy(rng.uniform(size=out_dim).astype(np.float32)).unsqueeze(0).to(self._device)
+        samples = torch.from_numpy(rng.uniform(size=(self._cache_size,out_dim)).astype(np.float32)).to(self._device)
+        x = (x - self._input_shift[:cond_dim]) / self._input_scale[:cond_dim]
+        tensor_x = torch.from_numpy(np.repeat(np.array(x, dtype=np.float32).reshape(1, -1), self._cache_size, axis=0)).to(self._device)
+        tensor_X = tensor_x#.unsqueeze(dim=0)
+        stepsize = 1e-4 # TODO: pass to CFG
+        n_steps = 10 # TODO: pass to CFG
+        noise_scale = np.sqrt(stepsize * 2)
+        samples.requires_grad = True
+        for _ in range(n_steps):
+            noise = torch.from_numpy(rng.normal(size=(self._cache_size, out_dim)).astype(np.float32)).to(self._device) * noise_scale
+            out = self.forward(torch.cat((tensor_X, samples), dim=1))
+            grad = torch.autograd.grad(out.sum(), samples)[0]
+            dynamics = stepsize * grad + noise
+            samples = samples + dynamics
+        self._cached_samples = samples.detach().to('cpu').numpy()
+        self._cached_sample_idx = 0
+        sample = self._cached_samples[self._cached_sample_idx]
+        self._cached_sample_idx += 1
+        sample = sample * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
+        return sample
+
+'''
+
 class BinaryCNNEBM(BinaryEBM):
 
     def __init__(self, seed: int, balance_data: bool,

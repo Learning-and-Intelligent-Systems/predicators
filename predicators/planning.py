@@ -93,7 +93,8 @@ def sesame_plan(
                                                seed,
                                                max_horizon,
                                                max_samples_per_step,
-                                               optimal=True)
+                                               optimal=True,
+                                               return_skeleton=return_skeleton)
     if CFG.sesame_task_planner == "fdsat":
         assert abstract_policy is None
         return _sesame_plan_with_fast_downward(task,
@@ -105,7 +106,8 @@ def sesame_plan(
                                                seed,
                                                max_horizon,
                                                max_samples_per_step,
-                                               optimal=False)
+                                               optimal=False,
+                                               return_skeleton=return_skeleton)
     raise ValueError("Unrecognized sesame_task_planner: "
                      f"{CFG.sesame_task_planner}")
 
@@ -918,7 +920,8 @@ def _sesame_plan_with_fast_downward(
         predicates: Set[Predicate], types: Set[Type], timeout: float,
         seed: int, max_horizon: int,
         max_samples_per_step,
-        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+        optimal: bool,
+        return_skeleton: bool = False) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 
@@ -971,6 +974,7 @@ def _sesame_plan_with_fast_downward(
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
                f"--sas-file {sas_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
+    partial_refinements = []
     while True:
         cmd_str = (
             f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
@@ -1024,15 +1028,25 @@ def _sesame_plan_with_fast_downward(
                                              low_level_timeout, metrics,
                                              max_horizon, max_samples_per_step)
             if not suc:
+                partial_refinements.append((skeleton, plan))
                 if time.perf_counter() - start_time > timeout:
-                    raise PlanningTimeout("Planning timed out in refinement!")
-                raise PlanningFailure("Skeleton produced by FD not refinable!")
+                    raise PlanningTimeout(
+                        "Planning timed out in refinement!",
+                        info={"partial_refinements": partial_refinements})
+                raise PlanningFailure(
+                    "Skeleton produced by FD not refinable!",
+                    info={"partial_refinements": partial_refinements})
             metrics["plan_length"] = len(plan)
+            if return_skeleton:
+                return plan, metrics, skeleton
             return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
+            partial_refinements.append(
+                (skeleton, e.info["longest_failed_refinement"]))
             _update_sas_file_with_failure(e.discovered_failure, sas_file)
         except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
+            e.info["partial_refinements"] = partial_refinements
             raise e
 
 

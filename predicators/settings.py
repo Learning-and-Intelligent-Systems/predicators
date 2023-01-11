@@ -494,8 +494,8 @@ class GlobalSettings:
     use_ebm = True
 
     # bookshelf env parameters
-    bookshelf_num_books_train = [2, 3]
-    bookshelf_num_books_test = [3, 4]
+    bookshelf_num_books_train = [4, 5]#[3, 4]#[2, 3]#
+    bookshelf_num_books_test = [5, 6]#[4, 5]#[3, 4]#
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

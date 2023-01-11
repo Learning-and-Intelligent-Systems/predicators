@@ -415,8 +415,8 @@ class _LearnedSampler2:
 
         May be used as the _sampler field in an NSRT.
         """
-        # if not self._ebm.is_trained:
-        #     return self._original_sampler(state, goal, rng, objects, skeleton)
+        if self._regressor._x_dim == -1:
+            return self._original_sampler(state, goal, rng, objects, skeleton)
         x_lst: List[Any] = []  
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
