@@ -1815,9 +1815,9 @@ def all_possible_ground_atoms(state: State,
 def all_ground_ldl_rules(
         rule: LDLRule,
         objects: Collection[Object],
+        goal: Optional[Collection[GroundAtom]],
         static_predicates: Optional[Collection[Predicate]] = None,
-        init_atoms: Optional[Collection[GroundAtom]] = None,
-        goal: Optional[Collection[GroundAtom]] = None) -> List[_GroundLDLRule]:
+        init_atoms: Optional[Collection[GroundAtom]] = None) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
     TODO update docstring.
@@ -1841,23 +1841,40 @@ def _cached_all_ground_ldl_rules(
         goal: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
-    types = [p.type for p in rule.parameters]
-    for choice in get_object_combinations(objects, types):
-        ground_rule = rule.ground(tuple(choice))
-        # Check static preconditions.
-        keep_rule = True
-        for atom in ground_rule.pos_state_preconditions:
-            if atom.predicate in static_predicates and atom not in init_atoms:
-                keep_rule = False
-                break
-        for atom in ground_rule.neg_state_preconditions:        
-            if atom.predicate in static_predicates and atom in init_atoms:
-                keep_rule = False
-                break
-        if not ground_rule.goal_preconditions.issubset(goal):
-            keep_rule = False
-        if keep_rule:
-            ground_rules.append(ground_rule)
+    all_atoms = rule.pos_state_preconditions | rule.neg_state_preconditions | \
+        rule.goal_preconditions | init_atoms | goal
+    all_predicates = {atom.predicate for atom in all_atoms}
+    # Use static preconds to reduce the map of parameters to possible objects.
+    # For example, if IsBall(?x) is a positive state precondition, then only
+    # the objects that appear in init_atoms with IsBall could bind to ?x.
+    pred_to_init_atom_args = {pred: set() for pred in static_predicates}
+    for atom in init_atoms:
+        if atom.predicate in static_predicates:
+            pred_to_init_atom_args[atom.predicate].add(tuple(atom.objects))
+    pred_to_goal_args = {pred: set() for pred in all_predicates}
+    for atom in goal:
+        pred_to_goal_args[atom.predicate].add(tuple(atom.objects))
+    # Prepare to filter based on positive state preconditions.
+    pred_to_positive_params = {pred: set() for pred in static_predicates}
+    for atom in rule.pos_state_preconditions:
+        if atom.predicate in static_predicates:
+            pred_to_positive_params[atom.predicate].add(tuple(atom.variables))
+    # Prepare to filter based on negative state preconditions.
+    pred_to_negative_params = {pred: set() for pred in static_predicates}
+    for atom in rule.neg_state_preconditions:
+        if atom.predicate in static_predicates:
+            pred_to_negative_params[atom.predicate].add(tuple(atom.variables))
+    # Prepare to filter based on goal preconditions.
+    pred_to_goal_params = {pred: set() for pred in all_predicates}
+    for atom in rule.goal_preconditions:
+        pred_to_goal_params[atom.predicate].add(tuple(atom.variables))
+    # Filter.
+    param_to_choices = {p: set(objects) for p in rule.parameters}
+    import ipdb; ipdb.set_trace()
+    param_choices = [sorted(param_to_choices[p]) for p in rule.parameters]
+    for choice in itertools.product(*param_choices):
+        ground_rule = rule.ground(choice)
+        ground_rules.append(ground_rule)
     return ground_rules
 
 
@@ -2805,9 +2822,9 @@ def query_ldl(
         for ground_rule in all_ground_ldl_rules(
                 rule,
                 objects,
+                goal,
                 static_predicates=static_predicates,
-                init_atoms=init_atoms,
-                goal=goal):
+                init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
                not ground_rule.neg_state_preconditions & atoms and \
                ground_rule.goal_preconditions.issubset(goal):
