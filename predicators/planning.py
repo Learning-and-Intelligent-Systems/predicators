@@ -917,8 +917,8 @@ def _sesame_plan_with_fast_downward(
         task: Task, option_model: _OptionModelBase, nsrts: Set[NSRT],
         predicates: Set[Predicate], types: Set[Type], timeout: float,
         seed: int, max_horizon: int,
-        optimal: bool,
-        max_samples_per_step) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
+        max_samples_per_step,
+        optimal: bool) -> Tuple[List[_Option], Metrics]:  # pragma: no cover
     """A version of SeSamE that runs the Fast Downward planner to produce a
     single skeleton, then calls run_low_level_search() to turn it into a plan.
 

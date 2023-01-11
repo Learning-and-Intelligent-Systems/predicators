@@ -2349,12 +2349,18 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
             if t.parent:
                 parent_to_children_types[t.parent].append(t)
         types_str = ""
+        included_types = set()
         for parent_type in sorted(parent_to_children_types):
             child_types = parent_to_children_types[parent_type]
             if not child_types:
                 continue
             child_type_str = " ".join(t.name for t in child_types)
             types_str += f"\n    {child_type_str} - {parent_type.name}"
+            included_types.add(parent_type)
+            included_types |= set(child_types)
+        for parent_type in sorted(parent_to_children_types):
+            if parent_type not in included_types:
+                types_str += f"\n    {parent_type.name}"
     ops_lst = sorted(operators)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
