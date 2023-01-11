@@ -1848,6 +1848,8 @@ def _cached_all_ground_ldl_rules(
     for param in rule.parameters:
         choices = []
         for obj in objects:
+            if obj.type != param.type:
+                continue
             binding_valid = True
             # Would binding this param to this object make matching impossible?
             # Check static positive preconditions.
