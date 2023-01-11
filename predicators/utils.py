@@ -1841,37 +1841,54 @@ def _cached_all_ground_ldl_rules(
         goal: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
-    all_atoms = rule.pos_state_preconditions | rule.neg_state_preconditions | \
-        rule.goal_preconditions | init_atoms | goal
-    all_predicates = {atom.predicate for atom in all_atoms}
     # Use static preconds to reduce the map of parameters to possible objects.
     # For example, if IsBall(?x) is a positive state precondition, then only
     # the objects that appear in init_atoms with IsBall could bind to ?x.
-    pred_to_init_atom_args = {pred: set() for pred in static_predicates}
-    for atom in init_atoms:
-        if atom.predicate in static_predicates:
-            pred_to_init_atom_args[atom.predicate].add(tuple(atom.objects))
-    pred_to_goal_args = {pred: set() for pred in all_predicates}
-    for atom in goal:
-        pred_to_goal_args[atom.predicate].add(tuple(atom.objects))
-    # Prepare to filter based on positive state preconditions.
-    pred_to_positive_params = {pred: set() for pred in static_predicates}
-    for atom in rule.pos_state_preconditions:
-        if atom.predicate in static_predicates:
-            pred_to_positive_params[atom.predicate].add(tuple(atom.variables))
-    # Prepare to filter based on negative state preconditions.
-    pred_to_negative_params = {pred: set() for pred in static_predicates}
-    for atom in rule.neg_state_preconditions:
-        if atom.predicate in static_predicates:
-            pred_to_negative_params[atom.predicate].add(tuple(atom.variables))
-    # Prepare to filter based on goal preconditions.
-    pred_to_goal_params = {pred: set() for pred in all_predicates}
-    for atom in rule.goal_preconditions:
-        pred_to_goal_params[atom.predicate].add(tuple(atom.variables))
-    # Filter.
-    param_to_choices = {p: set(objects) for p in rule.parameters}
-    import ipdb; ipdb.set_trace()
-    param_choices = [sorted(param_to_choices[p]) for p in rule.parameters]
+    param_choices = []
+    for param in rule.parameters:
+        choices = []
+        for obj in objects:
+            binding_valid = True
+            # Would binding this param to this object make matching impossible?
+            # Check static positive preconditions.
+            for atom in rule.pos_state_preconditions:
+                pred = atom.predicate
+                if pred not in static_predicates or pred.arity != 1:
+                    continue
+                # TODO: there must be a better way to do this...
+                if atom.variables[0] != param:
+                    continue
+                # TODO: avoid constructing new instances
+                if GroundAtom(pred, [obj]) not in init_atoms:
+                    binding_valid = False
+                    break
+            # Check static negative preconditions.
+            for atom in rule.neg_state_preconditions:
+                pred = atom.predicate
+                if pred not in static_predicates or pred.arity != 1:
+                    continue
+                # TODO: there must be a better way to do this...
+                if atom.variables[0] != param:
+                    continue
+                # TODO: avoid constructing new instances
+                if GroundAtom(pred, [obj]) in init_atoms:
+                    binding_valid = False
+                    break
+            # Check goal preconditions (which are static).
+            for atom in rule.goal_preconditions:
+                pred = atom.predicate
+                if pred not in static_predicates or pred.arity != 1:
+                    continue
+                # TODO: there must be a better way to do this...
+                if atom.variables[0] != param:
+                    continue
+                # TODO: avoid constructing new instances
+                if GroundAtom(pred, [obj]) not in goal:
+                    binding_valid = False
+                    break
+            if binding_valid:
+                choices.append(obj)
+        param_choices.append(choices)
     for choice in itertools.product(*param_choices):
         ground_rule = rule.ground(choice)
         ground_rules.append(ground_rule)
