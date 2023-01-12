@@ -1884,7 +1884,8 @@ def _cached_all_ground_ldl_rules(
                     break
             if binding_valid:
                 choices.append(obj)
-        param_choices.append(choices)
+        # Must be sorted for consistency with other grounding code.
+        param_choices.append(sorted(choices))
     for choice in itertools.product(*param_choices):
         ground_rule = rule.ground(choice)
         ground_rules.append(ground_rule)
