@@ -1844,8 +1844,14 @@ def _cached_all_ground_ldl_rules(
     # For now, we just check unary static predicates, since that covers the
     # common case where such predicates are used in place of types.
     # Create map from each param to unary static predicates.
-    param_to_pos_preds = {p: set() for p in rule.parameters}
-    param_to_neg_preds = {p: set() for p in rule.parameters}
+    param_to_pos_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
+    param_to_neg_preds: Dict[Variable, Set[Predicate]] = {
+        p: set()
+        for p in rule.parameters
+    }
     for (preconditions, param_to_preds) in [
         (rule.pos_state_preconditions, param_to_pos_preds),
         (rule.neg_state_preconditions, param_to_neg_preds),
