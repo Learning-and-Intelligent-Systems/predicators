@@ -1820,7 +1820,9 @@ def all_ground_ldl_rules(
 ) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
-    TODO update docstring.
+    If provided, use the static predicates and init_atoms to avoid
+    grounding rules that will never have satisfied preconditions in any
+    state.
     """
     if static_predicates is None:
         static_predicates = set()
