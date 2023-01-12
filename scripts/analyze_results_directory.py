@@ -48,6 +48,9 @@ COLUMN_NAMES_AND_KEYS = [
     # ("QUERY_COST", "query_cost"),
 ]
 
+DERIVED_KEYS = [("percentage_solved", lambda d:
+                 (d["num_solved"] / d["num_test_tasks"]) * 100)]
+
 
 def pd_create_equal_selector(
         key: str, value: str) -> Callable[[pd.DataFrame], pd.Series]:
@@ -163,7 +166,8 @@ def create_dataframes(
 
 
 def _main() -> None:
-    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS, [])
+    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS,
+                                           DERIVED_KEYS)
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
@@ -181,6 +185,7 @@ def _main() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sidelining", action="store_true")
+    parser.add_argument("--percentage_solved", action="store_true")
     args = parser.parse_args()
 
     if args.sidelining:
@@ -190,5 +195,9 @@ if __name__ == "__main__":
              "offline_learning_sidelining_obj_num_plans_up_to_n"))
         COLUMN_NAMES_AND_KEYS.append(
             ("SO_COMPLEXITY", "offline_learning_sidelining_obj_complexity"))
+
+    if args.percentage_solved:
+        COLUMN_NAMES_AND_KEYS.append(
+            ("PERCENT_TEST_SOLVED", "percentage_solved"))
 
     _main()
