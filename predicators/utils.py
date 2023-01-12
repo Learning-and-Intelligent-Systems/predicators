@@ -1858,10 +1858,9 @@ def _cached_all_ground_ldl_rules(
     ]:
         for atom in preconditions:
             pred = atom.predicate
-            if pred not in static_predicates or pred.arity != 1:
-                continue
-            param = atom.variables[0]
-            param_to_preds[param].add(pred)
+            if pred in static_predicates and pred.arity == 1:
+                param = atom.variables[0]
+                param_to_preds[param].add(pred)
     # Create the param choices, filtering based on the unary static atoms.
     param_choices = []  # list of lists of possible objects for each param
     # Preprocess the atom sets for faster lookups.
