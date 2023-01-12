@@ -1813,11 +1813,11 @@ def all_possible_ground_atoms(state: State,
 
 
 def all_ground_ldl_rules(
-        rule: LDLRule,
-        objects: Collection[Object],
-        goal: Optional[Collection[GroundAtom]],
-        static_predicates: Optional[Collection[Predicate]] = None,
-        init_atoms: Optional[Collection[GroundAtom]] = None) -> List[_GroundLDLRule]:
+    rule: LDLRule,
+    objects: Collection[Object],
+    static_predicates: Optional[Collection[Predicate]] = None,
+    init_atoms: Optional[Collection[GroundAtom]] = None
+) -> List[_GroundLDLRule]:
     """Get all possible groundings of the given rule with the given objects.
 
     TODO update docstring.
@@ -1826,66 +1826,54 @@ def all_ground_ldl_rules(
         static_predicates = set()
     if init_atoms is None:
         init_atoms = set()
-    if goal is None:
-        goal = set()
     return _cached_all_ground_ldl_rules(rule, frozenset(objects),
                                         frozenset(static_predicates),
-                                        frozenset(init_atoms), frozenset(goal))
+                                        frozenset(init_atoms))
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_all_ground_ldl_rules(
         rule: LDLRule, objects: FrozenSet[Object],
         static_predicates: FrozenSet[Predicate],
-        init_atoms: FrozenSet[GroundAtom],
-        goal: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
+        init_atoms: FrozenSet[GroundAtom]) -> List[_GroundLDLRule]:
     """Helper for all_ground_ldl_rules() that caches the outputs."""
     ground_rules = []
     # Use static preconds to reduce the map of parameters to possible objects.
     # For example, if IsBall(?x) is a positive state precondition, then only
     # the objects that appear in init_atoms with IsBall could bind to ?x.
-    param_choices = []
+    # For now, we just check unary static predicates, since that covers the
+    # common case where such predicates are used in place of types.
+    # Create map from each param to unary static predicates.
+    param_to_pos_preds = {p: set() for p in rule.parameters}
+    param_to_neg_preds = {p: set() for p in rule.parameters}
+    for (preconditions, param_to_preds) in [
+        (rule.pos_state_preconditions, param_to_pos_preds),
+        (rule.neg_state_preconditions, param_to_neg_preds),
+    ]:
+        for atom in preconditions:
+            pred = atom.predicate
+            if pred not in static_predicates or pred.arity != 1:
+                continue
+            param = atom.variables[0]
+            param_to_preds[param].add(pred)
+    # Create the param choices, filtering based on the unary static atoms.
+    param_choices = []  # list of lists of possible objects for each param
+    # Preprocess the atom sets for faster lookups.
+    init_atom_tups = {(a.predicate, tuple(a.objects)) for a in init_atoms}
     for param in rule.parameters:
         choices = []
         for obj in objects:
+            # Types must match, as usual.
             if obj.type != param.type:
                 continue
+            # Check the static conditions.
             binding_valid = True
-            # Would binding this param to this object make matching impossible?
-            # Check static positive preconditions.
-            for atom in rule.pos_state_preconditions:
-                pred = atom.predicate
-                if pred not in static_predicates or pred.arity != 1:
-                    continue
-                # TODO: there must be a better way to do this...
-                if atom.variables[0] != param:
-                    continue
-                # TODO: avoid constructing new instances
-                if GroundAtom(pred, [obj]) not in init_atoms:
+            for pred in param_to_pos_preds[param]:
+                if (pred, (obj, )) not in init_atom_tups:
                     binding_valid = False
                     break
-            # Check static negative preconditions.
-            for atom in rule.neg_state_preconditions:
-                pred = atom.predicate
-                if pred not in static_predicates or pred.arity != 1:
-                    continue
-                # TODO: there must be a better way to do this...
-                if atom.variables[0] != param:
-                    continue
-                # TODO: avoid constructing new instances
-                if GroundAtom(pred, [obj]) in init_atoms:
-                    binding_valid = False
-                    break
-            # Check goal preconditions (which are static).
-            for atom in rule.goal_preconditions:
-                pred = atom.predicate
-                if pred not in static_predicates or pred.arity != 1:
-                    continue
-                # TODO: there must be a better way to do this...
-                if atom.variables[0] != param:
-                    continue
-                # TODO: avoid constructing new instances
-                if GroundAtom(pred, [obj]) not in goal:
+            for pred in param_to_neg_preds[param]:
+                if (pred, (obj, )) in init_atom_tups:
                     binding_valid = False
                     break
             if binding_valid:
@@ -2841,7 +2829,6 @@ def query_ldl(
         for ground_rule in all_ground_ldl_rules(
                 rule,
                 objects,
-                goal,
                 static_predicates=static_predicates,
                 init_atoms=init_atoms):
             if ground_rule.pos_state_preconditions.issubset(atoms) and \
