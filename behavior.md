@@ -18,9 +18,9 @@ This repository is integrated with the [BEHAVIOR benchmark of tasks](https://beh
 1. Download and obtain access to the BEHAVIOR Dataset of Objects (3D assets with physical and semantic annotations) 
     1. Accept the license agreement filling the [form](https://forms.gle/GXAacjpnotKkM2An7). This allows you to use the assets within iGibson for free for your research.    
     1. You will receive a encryption key (`igibson.key`). Move the key into the data folder of the iGibson repository, `iGibson/igibson/data`.    
-    1. Download the BEHAVIOR data bundle including the BEHAVIOR Dataset of Objects and the iGibson2 Dataset of scenes, and particular robot assets. There will be two sub-folders: `ig_dataset` and `assets` that need to be extracted into the `iGibson/igibson/data` folder.
+    1. Download the BEHAVIOR data bundle including the BEHAVIOR Dataset of Objects and the iGibson2 Dataset of scenes, and particular robot assets. There will be two sub-folders: `ig_dataset` and `assets` that need to be extracted into the `iGibson/igibson/data` folder. (NOTE: if you are on a Mac you will have to install wget)
     ```
-    wget https://www.dropbox.com/s/p8ljo8yeanrjfgc/assets_ig_dataset.zip?dl=0
+    wget "https://www.dropbox.com/s/p8ljo8yeanrjfgc/assets_ig_dataset.zip?dl=0"
     mv assets_ig_dataset.zip\?dl\=0 ./assets_ig_dataset.zip
     unzip assets_ig_dataset.zip -d .
     mv assets_ig_dataset/* ./iGibson/igibson/data/
