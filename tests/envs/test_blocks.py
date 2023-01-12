@@ -1,9 +1,17 @@
 """Test cases for the blocks environment."""
 
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 import numpy as np
 
+import predicators.envs.blocks
 from predicators import utils
 from predicators.envs.blocks import BlocksEnv
+
+_MODULE_PATH = predicators.envs.blocks.__name__
 
 
 def test_blocks():
@@ -47,6 +55,16 @@ def test_blocks():
             act = Pick.ground([robot, block], np.zeros(0)).policy(state)
             state = env.simulate(state, act)
             env.render_state(state, task, caption="caption")
+    # Test holding-only goals.
+    utils.reset_config({"env": "blocks", "blocks_holding_goals": True})
+    env = BlocksEnv()
+    for task in env.get_train_tasks():
+        assert len(task.goal) == 1
+        assert next(iter(task.goal)).predicate.name == "Holding"
+    for task in env.get_test_tasks():
+        assert len(task.goal) == 1
+        assert next(iter(task.goal)).predicate.name == "Holding"
+    assert {pred.name for pred in env.goal_predicates} == {"Holding"}
 
 
 def test_blocks_failure_cases():
@@ -111,3 +129,106 @@ def test_blocks_failure_cases():
     act = Stack.ground([robot, block0], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
+
+
+def test_blocks_load_task_from_json():
+    """Tests for loading blocks test tasks from a JSON file."""
+    # Set up the JSON file.
+    task_spec = {
+        "problem_name": "blocks_test_problem1",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size": 0.045,
+        "goal": {
+            "On": [["red_block", "green_block"], ["green_block",
+                                                  "blue_block"]],
+            "OnTable": [["blue_block"]]
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task1.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "blocks",
+            "num_test_tasks": 1,
+            "blocks_test_task_json_dir": json_dir
+        })
+
+        env = BlocksEnv()
+        test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+
+    # pylint: disable=line-too-long
+    assert task.init.pretty_str(
+    ) == """####################################### STATE ######################################
+type: block      pose_x    pose_y    pose_z    held    color_r    color_g    color_b
+-------------  --------  --------  --------  ------  ---------  ---------  ---------
+blue_block       1.3548  0.910648    0.2225       0          0          0          1
+green_block      1.3641  1.03893     0.2675       0          0          1          0
+red_block        1.3641  1.03893     0.2225       0          1          0          0
+
+type: robot      pose_x    pose_y    pose_z    fingers
+-------------  --------  --------  --------  ---------
+robby              1.35      0.75       0.7          1
+####################################################################################
+"""
+    assert str(
+        sorted(task.goal)
+    ) == "[On(green_block:block, blue_block:block), On(red_block:block, green_block:block), OnTable(blue_block:block)]"
+
+    # Test that a warning is raised if we try to load from a state where the
+    # blocks are not in the workspace.
+    task_spec = {
+        "problem_name": "blocks_test_problem2",
+        "blocks": {
+            "red_block": {
+                # x is out of bounds
+                "position": [-100, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+        },
+        "block_size": 0.045,
+        "goal": {
+            "OnTable": [["green_block"]]
+        }
+    }
+
+    with patch(f"{_MODULE_PATH}.logging") as mock_logging:
+
+        with tempfile.TemporaryDirectory() as json_dir:
+            json_file = Path(json_dir) / "example_task2.json"
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(task_spec, f)
+
+            utils.reset_config({
+                "env": "blocks",
+                "num_test_tasks": 1,
+                "blocks_test_task_json_dir": json_dir
+            })
+
+            env = BlocksEnv()
+            env.get_test_tasks()
+
+    mock_logging.warning.assert_called_once_with(
+        "Block out of bounds in initial state!")

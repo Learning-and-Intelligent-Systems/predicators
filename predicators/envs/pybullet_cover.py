@@ -5,7 +5,6 @@ from typing import ClassVar, Dict, List, Sequence, Tuple
 import numpy as np
 import pybullet as p
 from gym.spaces import Box
-from pybullet_utils.transformations import quaternion_from_euler
 
 from predicators import utils
 from predicators.envs.cover import CoverEnv
@@ -17,7 +16,7 @@ from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
     create_single_arm_pybullet_robot
 from predicators.settings import CFG
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
-    State, Type
+    State, Task, Type
 
 
 class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
@@ -29,9 +28,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     _table_orientation: ClassVar[Quaternion] = (0., 0., 0., 1.)
 
     # Robot parameters.
-    _ee_orn: ClassVar[Quaternion] = quaternion_from_euler(
-        np.pi / 2, np.pi / 2, -np.pi)
-    _move_to_pose_tol: ClassVar[float] = 1e-7
+    _move_to_pose_tol: ClassVar[float] = 1e-4
 
     # Object parameters.
     _obj_len_hgt: ClassVar[float] = 0.045
@@ -47,8 +44,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         float] = _table_height + _obj_len_hgt * 0.5 + _offset
     _target_height: ClassVar[float] = 0.0001
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
 
         # Override PickPlace option
         types = self._PickPlace.types
@@ -75,7 +72,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                         name="MoveEndEffectorToPose",
                         target_z=self._pickplace_z),
                     # Toggle fingers.
-                    create_change_fingers_option(self._pybullet_robot,
+                    create_change_fingers_option(self._pybullet_robot_sim,
                         "ToggleFingers", types, params_space,
                         toggle_fingers_func,
                         self._max_vel_norm, self._grasp_tol),
@@ -86,6 +83,12 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 ])
         self._block_id_to_block: Dict[int, Object] = {}
         self._target_id_to_target: Dict[int, Object] = {}
+
+    def simulate(self, state: State, action: Action) -> State:
+        # To implement this, need to handle resetting to states where the
+        # block is held, and need to take into account the offset between
+        # the hand and the held block, which reset_state() doesn't yet.
+        raise NotImplementedError("Simulate not implemented for PyBulletCover")
 
     def _initialize_pybullet(self) -> None:
         """Run super(), then handle cover-specific initialization."""
@@ -138,9 +141,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def _create_pybullet_robot(
             self, physics_client_id: int) -> SingleArmPyBulletRobot:
         ee_home = (self._workspace_x, self._robot_init_y, self._workspace_z)
-        return create_single_arm_pybullet_robot(CFG.pybullet_robot, ee_home,
-                                                self._ee_orn,
-                                                physics_client_id)
+        return create_single_arm_pybullet_robot(CFG.pybullet_robot,
+                                                physics_client_id, ee_home)
 
     def _extract_robot_state(self, state: State) -> Array:
         if self._HandEmpty_holds(state, []):
@@ -189,6 +191,17 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
                 assert self._held_obj_id == block_id
                 self._create_grasp_constraint()
 
+        # For any blocks not involved, put them out of view.
+        h = self._obj_len_hgt
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(block_objs), len(self._block_ids)):
+            block_id = self._block_ids[i]
+            assert block_id not in self._block_id_to_block
+            p.resetBasePositionAndOrientation(
+                block_id, [oov_x, oov_y, i * h],
+                self._default_orn,
+                physicsClientId=self._physics_client_id)
+
         # Reset targets based on the state.
         target_objs = state.get_objects(self._target_type)
         self._target_id_to_target = {}
@@ -213,8 +226,8 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
-            assert CFG.pybullet_use_gui, \
-                "pybullet_use_gui must be True to use pybullet_draw_debug."
+            assert self.using_gui, \
+                "use_gui must be True to use pybullet_draw_debug."
             p.removeAllUserDebugItems(physicsClientId=self._physics_client_id)
             for hand_lb, hand_rb in self._get_hand_regions(state):
                 # De-normalize hand bounds to actual coordinates.
@@ -230,10 +243,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
     def step(self, action: Action) -> State:
         # In the cover environment, we need to first check the hand region
         # constraint before we can call PyBullet.
-        # Use self._pybullet_robot2 to run forward kinematics, since that
+        # Use self._pybullet_robot_sim to run forward kinematics, since that
         # method shouldn't be run on the client that is doing simulation.
         joint_positions = action.arr.tolist()
-        _, ry, rz = self._pybullet_robot2.forward_kinematics(joint_positions)
+        _, ry, rz = self._pybullet_robot_sim.forward_kinematics(
+            joint_positions)
         hand = (ry - self._y_lb) / (self._y_ub - self._y_lb)
         hand_regions = self._get_hand_regions(self._current_state)
         # If we're going down to grasp, we need to be in a hand region.
@@ -301,6 +315,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
         return sorted(self._block_id_to_block)
 
     def _get_expected_finger_normals(self) -> Dict[int, Array]:
+        # Both fetch and panda have grippers parallel to x-axis
         return {
             self._pybullet_robot.left_finger_id: np.array([1., 0., 0.]),
             self._pybullet_robot.right_finger_id: np.array([-1., 0., 0.]),
@@ -336,7 +351,11 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             return current_pose, target_pose, finger_status
 
         return create_move_end_effector_to_pose_option(
-            self._pybullet_robot, name, types, params_space,
+            self._pybullet_robot_sim, name, types, params_space,
             _get_current_and_target_pose_and_finger_status,
             self._move_to_pose_tol, self._max_vel_norm,
             self._finger_action_nudge_magnitude)
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = super()._get_tasks(num, rng)
+        return self._add_pybullet_state_to_tasks(tasks)

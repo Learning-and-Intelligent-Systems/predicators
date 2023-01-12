@@ -197,10 +197,10 @@ class GNNOptionPolicyApproach(GNNApproach):
 
     def _solve_with_shooting(self, task: Task,
                              timeout: int) -> Callable[[State], Action]:
-        start_time = time.time()
+        start_time = time.perf_counter()
         memory: Dict = {}  # optionally updated by predict()
         # Keep trying until the timeout.
-        while time.time() - start_time < timeout:
+        while time.perf_counter() - start_time < timeout:
             total_num_act = 0
             state = task.init
             plan: List[_Option] = []
@@ -248,6 +248,6 @@ class GNNOptionPolicyApproach(GNNApproach):
                     break
                 total_num_act += num_act
                 # Break early if we have timed out.
-                if time.time() - start_time < timeout:
+                if time.perf_counter() - start_time < timeout:
                     break
         raise ApproachTimeout("Shooting timed out!")

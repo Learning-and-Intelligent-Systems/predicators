@@ -63,30 +63,30 @@ Y_KEY_AND_LABEL = [
 PLOT_GROUPS = {
     "Main Approaches in CoverEnv Excluding Covers,Holding": [
         ("Main (Ensemble)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
         ("Main (MLP)", "orange",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main_mlp")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main-mlp" in v)),
     ],
     "Query Baselines in CoverEnv Excluding Covers,Holding": [
         ("Main (Entropy)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
         ("Ask All", "green",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "section_kid" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-all" in v)),
         ("Ask None", "red",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "silent_kid" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-none" in v)),
         ("Ask Randomly", "purple",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random_kid" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "ask-random" in v)),
     ],
     "Action Baselines in CoverEnv Excluding Covers,Holding": [
         ("Main (Greedy Lookahead)", "blue",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "main")),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: v == "cover-main")),
         ("GLIB", "turquoise",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "glib" in v)),
-        ("Random Actions", "blueviolet",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random_actions" in v)
+        ("Random Actions", "brown",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "random-actions" in v)
          ),
         ("No Actions", "gold",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no_actions" in v)),
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "no-actions" in v)),
     ],
 }
 
@@ -161,7 +161,16 @@ def _create_single_line_plot(ax: plt.Axes, df: pd.DataFrame,
         std_ys = np.std(all_interp_ys, axis=0)
         assert len(mean_ys) == len(std_ys) == len(new_xs)
         # Create the line.
-        ax.plot(new_xs, mean_ys, label=label, color=color)
+        if label == "No Actions":
+            # Draw a large star so the line is visible
+            ax.plot(new_xs,
+                    mean_ys,
+                    label=label,
+                    color=color,
+                    marker="*",
+                    markersize=16)
+        else:
+            ax.plot(new_xs, mean_ys, label=label, color=color)
         ax.fill_between(new_xs,
                         mean_ys - std_ys,
                         mean_ys + std_ys,
@@ -187,7 +196,6 @@ def _main() -> None:
                     _create_single_line_plot(ax, df, d, x_key, y_key)
                 else:
                     raise ValueError(f"Unknown PLOT_TYPE: {PLOT_TYPE}.")
-                ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 if y_key.startswith("PERC"):

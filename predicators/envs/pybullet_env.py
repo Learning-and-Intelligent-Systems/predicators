@@ -25,7 +25,6 @@ class PyBulletEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # General robot parameters.
-    _max_vel_norm: ClassVar[float] = 0.05
     _grasp_tol: ClassVar[float] = 0.05
     _finger_action_tol: ClassVar[float] = 1e-4
     _finger_action_nudge_magnitude: ClassVar[float] = 1e-3
@@ -54,8 +53,11 @@ class PyBulletEnv(BaseEnv):
     _camera_target: ClassVar[Pose3D] = (1.65, 0.75, 0.42)
     _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Controls the maximum end effector change between time steps.
+        self._max_vel_norm = CFG.pybullet_max_vel_norm
 
         # When an object is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
@@ -69,7 +71,7 @@ class PyBulletEnv(BaseEnv):
         """One-time initialization of PyBullet assets."""
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
-        if CFG.pybullet_use_gui:  # pragma: no cover
+        if self.using_gui:  # pragma: no cover
             self._physics_client_id = p.connect(p.GUI)
             # Disable the preview windows for faster rendering.
             p.configureDebugVisualizer(p.COV_ENABLE_GUI,
@@ -109,7 +111,7 @@ class PyBulletEnv(BaseEnv):
         # Load robot.
         self._pybullet_robot = self._create_pybullet_robot(
             self._physics_client_id)
-        self._pybullet_robot2 = self._create_pybullet_robot(
+        self._pybullet_robot_sim = self._create_pybullet_robot(
             self._physics_client_id2)
 
         # Set gravity.
@@ -123,7 +125,7 @@ class PyBulletEnv(BaseEnv):
         physics_client_id.
 
         It will be saved as either self._pybullet_robot or
-        self._pybullet_robot2.
+        self._pybullet_robot_sim.
         """
         raise NotImplementedError("Override me!")
 
@@ -164,7 +166,11 @@ class PyBulletEnv(BaseEnv):
         return self._pybullet_robot.action_space
 
     def simulate(self, state: State, action: Action) -> State:
-        raise NotImplementedError("A PyBullet environment cannot simulate.")
+        # Optimization: check if we're already in the right state.
+        if not state.allclose(self._current_state):
+            self._current_state = state
+            self._reset_state(state)
+        return self.step(action)
 
     def render_state_plt(
             self,
@@ -198,8 +204,9 @@ class PyBulletEnv(BaseEnv):
             self._held_constraint_id = None
         self._held_obj_id = None
 
-        # Reset robot.
+        # Reset robots.
         self._pybullet_robot.reset_state(self._extract_robot_state(state))
+        self._pybullet_robot_sim.reset_state(self._extract_robot_state(state))
 
     def render(self,
                action: Optional[Action] = None,
@@ -208,7 +215,7 @@ class PyBulletEnv(BaseEnv):
         # and cannot be used in headless mode.
         del caption  # unused
 
-        if not CFG.pybullet_use_gui:
+        if not self.using_gui:
             raise Exception(
                 "Rendering only works with GUI on. See "
                 "https://github.com/bulletphysics/bullet3/issues/1157")
@@ -240,7 +247,7 @@ class PyBulletEnv(BaseEnv):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                physicsClientId=self._physics_client_id)
 
-        rgb_array = np.array(px)
+        rgb_array = np.array(px).reshape((height, width, 4))
         rgb_array = rgb_array[:, :, :3]
         return [rgb_array]
 
@@ -327,7 +334,10 @@ class PyBulletEnv(BaseEnv):
                     contact_normal = point[7]
                     score = expected_normal.dot(contact_normal)
                     assert -1.0 <= score <= 1.0
-                    if score < 0.9:
+
+                    # Take absolute as object/gripper could be rotated 180
+                    # degrees in the given axis.
+                    if np.abs(score) < 0.9:
                         continue
                     # Handle the case where multiple objects pass this check
                     # by taking the closest one. This should be rare, but it
@@ -383,6 +393,21 @@ class PyBulletEnv(BaseEnv):
         finger_position = self._get_finger_position(self._current_state)
         target = action.arr[-1]
         return target - finger_position
+
+    def _add_pybullet_state_to_tasks(self, tasks: List[Task]) -> List[Task]:
+        """Converts the task initial states into PyBulletStates."""
+        pybullet_tasks = []
+        for task in tasks:
+            # Reset the robot.
+            init = task.init
+            self._pybullet_robot.reset_state(self._extract_robot_state(init))
+            # Extract the joints.
+            joint_positions = self._pybullet_robot.get_joints()
+            pybullet_init = utils.PyBulletState(
+                init.data.copy(), simulator_state=joint_positions)
+            pybullet_task = Task(pybullet_init, task.goal)
+            pybullet_tasks.append(pybullet_task)
+        return pybullet_tasks
 
 
 def create_pybullet_block(color: Tuple[float, float, float, float],

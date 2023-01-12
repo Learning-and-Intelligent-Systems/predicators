@@ -103,12 +103,15 @@ def test_main():
     ]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
-    results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
+    parent_dir = os.path.dirname(__file__)
+    video_dir = os.path.join(parent_dir, "_fake_videos")
+    results_dir = os.path.join(parent_dir, "_fake_results")
+    eval_traj_dir = os.path.join(parent_dir, "_fake_trajs")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
         "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
-        video_dir, "--results_dir", results_dir
+        video_dir, "--results_dir", results_dir, "--eval_trajectories_dir",
+        eval_traj_dir
     ]
     main()
     # Test making videos of failures and local logging.
@@ -116,13 +119,14 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
-        results_dir, "--sesame_max_skeletons_optimized", "1",
-        "--painting_lid_open_prob", "0.0", "--make_failure_videos",
-        "--log_file", temp_log_file
+        results_dir, "--eval_trajectories_dir", eval_traj_dir,
+        "--sesame_max_skeletons_optimized", "1", "--painting_lid_open_prob",
+        "0.0", "--make_failure_videos", "--log_file", temp_log_file
     ]
     main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
+    shutil.rmtree(eval_traj_dir)
     # Run NSRT learning, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
@@ -174,6 +178,21 @@ def test_main():
         "--predicate_mlp_classifier_max_itr", "lambda n: n * 50"
     ]
     main()
+    # Tests for --crash_on_failure flag.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "3", "--timeout", "0", "--crash_on_failure"
+    ]
+    with pytest.raises(ApproachTimeout) as e:
+        main()  # should time out
+    assert "Planning timed out in grounding!" in str(e)
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_actions", "--seed",
+        "123", "--num_test_tasks", "3", "--crash_on_failure"
+    ]
+    with pytest.raises(RuntimeError) as e:
+        main()  # should fail to solve the task
+    assert "Policy failed to reach goal" in str(e)
 
 
 def test_bilevel_planning_approach_failure_and_timeout():

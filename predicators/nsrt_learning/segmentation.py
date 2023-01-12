@@ -46,8 +46,10 @@ def _segment_with_contact_changes(
 
     if CFG.env == "stick_button":
         keep_pred_names = {"Grasped", "Pressed"}
-    elif CFG.env in ("cover", "cover_multistep_options"):
+    elif CFG.env in ("cover", "cover_multistep_options", "pybullet_cover"):
         keep_pred_names = {"Covers", "HandEmpty", "Holding"}
+    elif CFG.env in ("blocks", "pybullet_blocks"):
+        keep_pred_names = {"Holding", "On", "OnTable"}
     elif CFG.env == "doors":
         keep_pred_names = {"TouchingDoor", "InRoom"}
     elif CFG.env == "touch_point":
@@ -108,7 +110,7 @@ def _segment_with_oracle(trajectory: GroundAtomTrajectory) -> List[Segment]:
     if CFG.option_learner == "no_learning":
         return _segment_with_option_changes(trajectory)
     env = get_or_create_env(CFG.env)
-    gt_nsrts = get_gt_nsrts(env.predicates, env.options)
+    gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     objects = list(traj.states[0])
     ground_nsrts = {
         ground_nsrt

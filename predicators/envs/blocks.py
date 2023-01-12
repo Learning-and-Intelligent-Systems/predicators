@@ -7,6 +7,9 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
+import json
+import logging
+from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
@@ -26,18 +29,17 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height: ClassVar[float] = 0.2
-    block_size: ClassVar[float] = 0.045
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     # Note that these boundaries are for the block positions, and that a
     # block's origin is its center, so the block itself may extend beyond
     # the boundaries while the origin remains in bounds.
-    x_lb: ClassVar[float] = 1.35 - block_size / 2
-    x_ub: ClassVar[float] = 1.35 + block_size / 2
+    x_lb: ClassVar[float] = 1.325
+    x_ub: ClassVar[float] = 1.375
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb: ClassVar[float] = 0.4
     y_ub: ClassVar[float] = 1.1
-    pick_z: ClassVar[float] = 0.75
+    pick_z: ClassVar[float] = 0.7
     robot_init_x: ClassVar[float] = (x_lb + x_ub) / 2
     robot_init_y: ClassVar[float] = (y_lb + y_ub) / 2
     robot_init_z: ClassVar[float] = pick_z
@@ -45,13 +47,15 @@ class BlocksEnv(BaseEnv):
     pick_tol: ClassVar[float] = 0.0001
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
-    assert pick_tol < block_size
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
-        self._block_type = Type("block",
-                                ["pose_x", "pose_y", "pose_z", "held"])
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "color_b"
+        ])
         self._robot_type = Type("robot",
                                 ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
@@ -88,6 +92,7 @@ class BlocksEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         # Hyperparameters from CFG.
+        self._block_size = CFG.blocks_block_size
         self._num_blocks_train = CFG.blocks_num_blocks_train
         self._num_blocks_test = CFG.blocks_num_blocks_test
 
@@ -101,7 +106,7 @@ class BlocksEnv(BaseEnv):
         # Infer which transition function to follow
         if fingers < 0.5:
             return self._transition_pick(state, x, y, z)
-        if z < self.table_height + self.block_size:
+        if z < self.table_height + self._block_size:
             return self._transition_putontable(state, x, y, z)
         return self._transition_stack(state, x, y, z)
 
@@ -174,7 +179,7 @@ class BlocksEnv(BaseEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z + self.block_size)
+        next_state.set(block, "pose_z", cur_z + self._block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
         return next_state
@@ -185,6 +190,11 @@ class BlocksEnv(BaseEnv):
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
+        if CFG.blocks_test_task_json_dir is not None:
+            files = list(Path(CFG.blocks_test_task_json_dir).glob("*.json"))
+            assert len(files) >= CFG.num_test_tasks
+            return [self._load_task_from_json(f) for f in files]
+
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self._num_blocks_test,
                                rng=self._test_rng)
@@ -198,6 +208,8 @@ class BlocksEnv(BaseEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
+        if CFG.blocks_holding_goals:
+            return {self._Holding}
         return {self._On, self._OnTable}
 
     @property
@@ -221,7 +233,7 @@ class BlocksEnv(BaseEnv):
             task: Task,
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
-        r = self.block_size * 0.5  # block radius
+        r = self._block_size * 0.5  # block radius
 
         width_ratio = max(
             1. / 5,
@@ -242,20 +254,20 @@ class BlocksEnv(BaseEnv):
         yz_ax.set_xlim((self.y_lb - 2 * r, self.y_ub + 2 * r))
         yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
 
-        colors = [
-            "red", "blue", "green", "orange", "purple", "yellow", "brown",
-            "cyan"
-        ]
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
-        for i, block in enumerate(sorted(blocks)):
+        for block in sorted(blocks):
             x = state.get(block, "pose_x")
             y = state.get(block, "pose_y")
             z = state.get(block, "pose_z")
-            c = colors[i % len(colors)]  # block color
+            # RGB values are between 0 and 1.
+            color_r = state.get(block, "color_r")
+            color_g = state.get(block, "color_g")
+            color_b = state.get(block, "color_b")
+            color = (color_r, color_g, color_b)
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
-                held = f"{block.name} ({c})"
+                held = f"{block.name}"
 
             # xz axis
             xz_rect = patches.Rectangle((x - r, z - r),
@@ -264,7 +276,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-y,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             xz_ax.add_patch(xz_rect)
 
             # yz axis
@@ -274,7 +286,7 @@ class BlocksEnv(BaseEnv):
                                         zorder=-x,
                                         linewidth=1,
                                         edgecolor='black',
-                                        facecolor=c)
+                                        facecolor=color)
             yz_ax.add_patch(yz_rect)
 
         title = f"Held: {held}"
@@ -328,9 +340,10 @@ class BlocksEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + self.block_size * (0.5 + pile_j)
-            # [pose_x, pose_y, pose_z, held]
-            data[block] = np.array([x, y, z, 0.0])
+            z = self.table_height + self._block_size * (0.5 + pile_j)
+            r, g, b = rng.uniform(size=3)
+            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+            data[block] = np.array([x, y, z, 0.0, r, g, b])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
@@ -342,6 +355,13 @@ class BlocksEnv(BaseEnv):
     def _sample_goal_from_piles(self, num_blocks: int,
                                 piles: List[List[Object]],
                                 rng: np.random.Generator) -> Set[GroundAtom]:
+        # Sample a goal that involves holding a block that's on the top of
+        # the pile. This is useful for isolating the learning of picking and
+        # unstacking. (For just picking, use num_blocks 1).
+        if CFG.blocks_holding_goals:
+            pile_idx = rng.choice(len(piles))
+            top_block = piles[pile_idx][-1]
+            return {GroundAtom(self._Holding, [top_block])}
         # Sample goal pile that is different from initial
         while True:
             goal_piles = self._sample_initial_piles(num_blocks, rng)
@@ -369,11 +389,11 @@ class BlocksEnv(BaseEnv):
     def _table_xy_is_clear(self, x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
         if all(
-                abs(x - other_x) > self.collision_padding * self.block_size
+                abs(x - other_x) > self.collision_padding * self._block_size
                 for other_x, _ in existing_xys):
             return True
         if all(
-                abs(y - other_y) > self.collision_padding * self.block_size
+                abs(y - other_y) > self.collision_padding * self._block_size
                 for _, other_y in existing_xys):
             return True
         return False
@@ -392,13 +412,13 @@ class BlocksEnv(BaseEnv):
         x2 = state.get(block2, "pose_x")
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2 + self.block_size],
+        return np.allclose([x1, y1, z1], [x2, y2, z2 + self._block_size],
                            atol=self.on_tol)
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
-        desired_z = self.table_height + self.block_size * 0.5
+        desired_z = self.table_height + self._block_size * 0.5
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
@@ -449,7 +469,7 @@ class BlocksEnv(BaseEnv):
         relative_grasp = np.array([
             0.,
             0.,
-            self.block_size,
+            self._block_size,
         ])
         arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -462,7 +482,7 @@ class BlocksEnv(BaseEnv):
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        z = self.table_height + 0.5 * self.block_size
+        z = self.table_height + 0.5 * self._block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
@@ -509,3 +529,58 @@ class BlocksEnv(BaseEnv):
         if not blocks_here:
             return None
         return max(blocks_here, key=lambda x: x[1])[0]  # highest z
+
+    def _load_task_from_json(self, json_file: Path) -> Task:
+        with open(json_file, "r", encoding="utf-8") as f:
+            task_spec = json.load(f)
+        # Create the initial state from the task spec.
+        # One day, we can make the block size a feature of the blocks, but
+        # for now, we'll just make sure that the block size in the real env
+        # matches what we expect in sim.
+        assert np.isclose(task_spec["block_size"], self._block_size)
+        state_dict: Dict[Object, Dict[str, float]] = {}
+        id_to_obj: Dict[str, Object] = {}  # used in the goal construction
+        for block_id, block_spec in task_spec["blocks"].items():
+            block = Object(block_id, self._block_type)
+            id_to_obj[block_id] = block
+            x, y, z = block_spec["position"]
+            # Make sure that the block is in bounds.
+            if not (self.x_lb <= x <= self.x_ub and \
+                    self.y_lb <= y <= self.y_ub and \
+                    self.table_height <= z):
+                logging.warning("Block out of bounds in initial state!")
+            r, g, b = block_spec["color"]
+            state_dict[block] = {
+                "pose_x": x,
+                "pose_y": y,
+                "pose_z": z,
+                "held": 0,
+                "color_r": r,
+                "color_b": b,
+                "color_g": g,
+            }
+        # Add the robot at a constant initial position.
+        rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
+        rf = 1.0  # fingers start out open
+        state_dict[self._robot] = {
+            "pose_x": rx,
+            "pose_y": ry,
+            "pose_z": rz,
+            "fingers": rf,
+        }
+        init_state = utils.create_state_from_dict(state_dict)
+        # Create the goal from the task spec.
+        goal_spec = task_spec["goal"]
+        assert set(goal_spec.keys()).issubset({"On", "OnTable"})
+        on_args = goal_spec.get("On", [])
+        on_table_args = goal_spec.get("OnTable", [])
+        pred_to_args = {self._On: on_args, self._OnTable: on_table_args}
+        goal: Set[GroundAtom] = set()
+        for pred, args in pred_to_args.items():
+            for id_args in args:
+                obj_args = [id_to_obj[a] for a in id_args]
+                goal_atom = GroundAtom(pred, obj_args)
+                goal.add(goal_atom)
+        task = Task(init_state, goal)
+        assert not task.goal_holds(init_state)
+        return task

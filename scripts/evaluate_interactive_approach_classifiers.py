@@ -76,24 +76,13 @@ def _evaluate_preds_cover(preds: Set[Predicate], env: CoverEnv,
     HoldingGT = [p for p in env.predicates if p.name == "Holding"][0]
     CoversGT = [p for p in env.predicates if p.name == "Covers"][0]
     states, _, _ = create_states_cover(env)
-    # Test 1: no blocks overlap any targets, none are held
-    state = states[0]
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
-    # Test 2: block0 does not completely cover target0
-    state = states[2]
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
-    # Test 3: block0 covers target0
-    state = states[4]
-    atoms = utils.abstract(state, (Holding, Covers))
-    atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
-    print(f"False positives: {atoms - atoms_gt}\n"
-          f"False negatives: {atoms_gt - atoms}")
+    for i, state in enumerate(states):
+        print(f"State {i}")
+        atoms = utils.abstract(state, (Holding, Covers))
+        print(f"Classification: {atoms}")
+        atoms_gt = utils.abstract(state, (HoldingGT, CoversGT))
+        print(f"False positives: {atoms - atoms_gt}\n"
+              f"False negatives: {atoms_gt - atoms}")
 
 
 def create_states_cover(
@@ -124,19 +113,15 @@ def create_states_cover(
         state.set(target, "pose", pose)
     state.set(robot, "hand", 0.0)
     states.append(state)
-    # State 1: block0 and target0 overlap a bit
+    # block0 and target0 overlap a bit
     next_state = state.copy()
     next_state.set(block0, "pose", 0.31)
     states.append(next_state)
-    # State 2: block and target overlap more
+    # block0 and target0 overlap more
     next_state = state.copy()
     next_state.set(block0, "pose", 0.33)
     states.append(next_state)
-    # State 3: block covers target, right edges align
-    next_state = state.copy()
-    next_state.set(block0, "pose", 0.35)
-    states.append(next_state)
-    # State 4: block0 covers target0, centered
+    # block0 covers target0, centered
     next_state = state.copy()
     next_state.set(block0, "pose", target_poses[0])
     states.append(next_state)

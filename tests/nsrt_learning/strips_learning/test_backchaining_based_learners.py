@@ -1,4 +1,5 @@
-"""Tests for general-to-specific STRIPS operator learning."""
+"""Tests for STRIPS operator learning approaches that use the backchaining
+operator."""
 
 import itertools
 
@@ -11,10 +12,11 @@ from predicators.nsrt_learning.nsrt_learning_main import learn_nsrts_from_data
 from predicators.nsrt_learning.segmentation import segment_trajectory
 from predicators.nsrt_learning.strips_learning.gen_to_spec_learner import \
     BackchainingSTRIPSLearner
+from predicators.nsrt_learning.strips_learning.pnad_search_learner import \
+    PNADSearchSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import Action, GroundAtom, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, State, STRIPSOperator, Task, \
-    Type
+from predicators.structs import PNAD, Action, GroundAtom, LowLevelTrajectory, \
+    Predicate, Segment, State, STRIPSOperator, Task, Type
 
 longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
@@ -22,10 +24,10 @@ longrun = pytest.mark.skipif("not config.getoption('longrun')")
 class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
     """Mock class that exposes private methods for testing."""
 
-    def spawn_new_pnad(self, necessary_add_effects, segment):
+    def spawn_new_pnad_with_nec_add(self, necessary_add_effects, segment):
         """Exposed for testing."""
         segment.necessary_add_effects = necessary_add_effects
-        return self._spawn_new_pnad(segment)
+        return self.spawn_new_pnad(segment)
 
     def recompute_datastores_from_segments(self, pnads):
         """Exposed for testing."""
@@ -51,11 +53,15 @@ class _MockBackchainingSTRIPSLearner(BackchainingSTRIPSLearner):
 
     def reset_all_segment_add_effs(self):
         """Exposed for testing."""
-        return self._reset_all_segment_add_effs()
+        return self._reset_all_segment_necessary_add_effs()
 
 
-def test_backchaining_strips_learner():
-    """Test the BackchainingSTRIPSLearner."""
+@pytest.mark.parametrize("approach_name, approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("pnad_search", PNADSearchSTRIPSLearner)])
+def test_backchaining_strips_learner(approach_name, approach_cls):
+    """Test the BackchainingSTRIPSLearner and PNADSearchSTRIPSLearner on a
+    simple problem."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the structs.
     human_type = Type("human_type", ["feat1", "feat2"])
@@ -91,10 +97,9 @@ def test_backchaining_strips_learner():
                                [act2], True, 1)
     task2 = Task(state_awake_and_sad, set())
     segment2 = Segment(traj2, set(), goal2, Eat)
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             {Asleep},
-                                             [[segment1], [segment2]],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2], {Asleep},
+                           [[segment1], [segment2]],
+                           verify_harmlessness=True)
     pnads = learner.learn()
     # Verify the results are as expected.
     expected_strs = [
@@ -129,10 +134,9 @@ def test_backchaining_strips_learner():
     segment3 = Segment(traj3, set(), {Asleep([bob]), Sad([bob])}, Cry)
     segment4 = Segment(traj4, set(), {Asleep([bob]), Sad([bob])}, Cry)
     # Create and run the sidelining approach.
-    learner = _MockBackchainingSTRIPSLearner([traj3, traj4], [task3, task4],
-                                             {Asleep, Sad},
-                                             [[segment3], [segment4]],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
+                           [[segment3], [segment4]],
+                           verify_harmlessness=True)
     pnads = learner.learn()
     assert len(pnads) == 1
     expected_str = """STRIPS-Cry0:
@@ -143,11 +147,24 @@ def test_backchaining_strips_learner():
     Ignore Effects: []
     Option Spec: Cry()"""
     assert str(pnads[0]) == repr(pnads[0]) == expected_str
+    if approach_name == "pnad_search":
+        # Learn using pnad_search_without_del
+        utils.reset_config({"pnad_search_without_del": True})
+        learner = approach_cls([traj3, traj4], [task3, task4], {Asleep, Sad},
+                               [[segment3], [segment4]],
+                               verify_harmlessness=True)
+        pnads = learner.learn()
+        assert len(pnads) == 1
+        assert str(pnads[0]) == repr(pnads[0]) == expected_str
 
 
-def test_backchaining_strips_learner_order_dependence():
-    """Test that the BackchainingSTRIPSLearner is invariant to order of
-    traversal through trajectories."""
+@pytest.mark.parametrize("approach_name,approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effects_search", PNADSearchSTRIPSLearner)])
+def test_backchaining_strips_learner_order_dependence(approach_name,
+                                                      approach_cls):
+    """Test that the BackchainingSTRIPSLearner and EffectSearchSTRIPSLearns are
+    invariant to order of traversal through trajectories."""
     utils.reset_config({"backchaining_check_intermediate_harmlessness": True})
     # Set up the types and predicates.
     light_type = Type("light_type", ["brightness", "color"])
@@ -230,20 +247,21 @@ def test_backchaining_strips_learner_order_dependence():
         MoveAndMessWithLights)
 
     # Create and run the learner with the 3 demos in the natural order.
-    learner = _MockBackchainingSTRIPSLearner(
+    learner = approach_cls(
         [traj1, traj2, traj3], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment1], [segment2], [segment3]],
         verify_harmlessness=True)
     natural_order_pnads = learner.learn()
     # Now, create and run the learner with the 3 demos in the reverse order.
-    learner = _MockBackchainingSTRIPSLearner(
+    learner = approach_cls(
         [traj3, traj2, traj1], [task1, task2, task3],
         {RobotAt, LightOn, NotLightOn, LightColorBlue, LightColorRed},
         [[segment3], [segment2], [segment1]],
         verify_harmlessness=True)
-    # Be sure to reset the segment add effects before doing this.
-    learner.reset_all_segment_add_effs()
+    if approach_name == "backchaining":
+        # Be sure to reset the segment add effects before doing this.
+        learner.reset_all_segment_add_effs()
     reverse_order_pnads = learner.learn()
 
     # First, check that the two sets of PNADs have the same number of PNADs.
@@ -288,13 +306,22 @@ def test_backchaining_strips_learner_order_dependence():
 
     # Weird Case: This case shows that our algorithm is not data order
     # invariant!
-    utils.reset_config({
-        "approach": "nsrt_learning",
-        "strips_learner": "backchaining",
-        # Following are necessary to solve this case.
-        "data_orderings_to_search": 10,
-        "enable_harmless_op_pruning": True
-    })
+    if approach_name == "backchaining":
+        utils.reset_config({
+            "approach": "nsrt_learning",
+            "strips_learner": "backchaining",
+            # Following are necessary to solve this case.
+            "data_orderings_to_search": 10,
+            "enable_harmless_op_pruning": True
+        })
+    else:
+        utils.reset_config({
+            "approach": "nsrt_learning",
+            "strips_learner": "pnad_search",
+            # Following are necessary to solve this case.
+            "data_orderings_to_search": 1,
+            "enable_harmless_op_pruning": False
+        })
     # Agent features are loc: 0, 1, 2, 3 [start, shelf1, shelf2, far away];
     # holding: True or False whether an object is in hand
     agent_type = Type("agent_type", ["loc", "holding"])
@@ -531,10 +558,10 @@ def test_backchaining_strips_learner_order_dependence():
     ground_atom_trajs = utils.create_ground_atom_dataset([traj1, traj2], preds)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             preds,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2],
+                           preds,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     natural_order_pnads = learner.learn()
     action_space = Box(0, 1, (1, ))
     dataset = [traj1, traj2]
@@ -564,12 +591,13 @@ def test_backchaining_strips_learner_order_dependence():
     ground_atom_trajs = utils.create_ground_atom_dataset([traj2, traj1], preds)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, create and run the learner with the 3 demos in the reverse order.
-    learner = _MockBackchainingSTRIPSLearner([traj2, traj1], [task2, task1],
-                                             preds,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
-    # Be sure to reset the segment add effects before doing this.
-    learner.reset_all_segment_add_effs()
+    learner = approach_cls([traj2, traj1], [task2, task1],
+                           preds,
+                           segmented_trajs,
+                           verify_harmlessness=True)
+    if approach_name == "backchaining":
+        # Be sure to reset the segment add effects before doing this.
+        learner.reset_all_segment_add_effs()
     reverse_order_pnads = learner.learn()
     action_space = Box(0, 1, (1, ))
     dataset = [traj2, traj1]
@@ -588,17 +616,29 @@ def test_backchaining_strips_learner_order_dependence():
                                                       sampler_learner="random")
 
     # First, check that the two sets of PNADs have the same number of PNADs.
-    # Uh oh, they don't
-    assert len(natural_order_pnads) != len(reverse_order_pnads)
-    # Second, check that the two sets of NSRTs have the same number of NSRTs.
+    # (in the case of EffectSearch).
+    if approach_name == "backchaining":
+        # Uh oh, they don't (in the case of Backchaining).
+        assert len(natural_order_pnads) != len(reverse_order_pnads)
+    else:
+        assert len(natural_order_pnads) == len(reverse_order_pnads)
+    # Second, check that the two sets of NSRTs have the same number of
+    # NSRTs.
     # They do! Because our NSRTs were learned with dataset reordering and
     # harmless operator pruning, as opposed to our PNADs which were learned
     # with our _MockBackchainingSTRIPSLearner that does not have these
     # additions.
     assert len(natural_order_nsrts) == len(reverse_order_nsrts)
+    # Lastly, check whether the natural order nsrts we generate are the
+    # same as the (correct) reverse_order_pnads.
+    for nsrt in natural_order_nsrts:
+        # Rename the output NSRT operators to standardize naming
+        # and make comparison easier.
+        op = nsrt.op.copy_with(name=nsrt.option.name + "0")
+        assert op in set(pnad.op for pnad in reverse_order_pnads)
 
 
-def test_spawn_new_pnad():
+def testspawn_new_pnad():
     """Test the spawn_new_pnad() method in the BackchainingSTRIPSLearner.
 
     Also, test the finding of a unification necessary for specializing,
@@ -615,7 +655,7 @@ def test_spawn_new_pnad():
     add_effects = {Asleep([human_var])}
     op = STRIPSOperator("MoveOp", params, set(), add_effects, set(),
                         set([Asleep, Happy]))
-    pnad = PartialNSRTAndDatastore(op, [], (opt, []))
+    pnad = PNAD(op, [], (opt, []))
     bob = human_type("bob")
     state = State({bob: [0.0]})
     task = Task(state, set())
@@ -652,18 +692,22 @@ def test_spawn_new_pnad():
     Add Effects: [Asleep(bob:human_type)]
     Delete Effects: []
     Ignore Effects: [Asleep, Happy]"""
-    new_pnad = learner.spawn_new_pnad({Asleep([bob])},
-                                      Segment(traj, {Happy([bob])},
-                                              {Asleep([bob])}, Move))
+    new_pnad = learner.spawn_new_pnad_with_nec_add({Asleep([bob])},
+                                                   Segment(
+                                                       traj, {Happy([bob])},
+                                                       {Asleep([bob])}, Move))
 
     learner.recompute_datastores_from_segments([new_pnad])
     assert len(new_pnad.datastore) == 1
 
 
-def test_keep_effect_data_partitioning():
-    """Test that the BackchainingSTRIPSLearner is able to correctly induce
-    operators with keep effects in a case where a naive procedure that does not
-    keep the original operators (without keep effects) would fail.
+@pytest.mark.parametrize(
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
+def test_keep_effect_data_partitioning(approach_cls):
+    """Test that the BackchainingSTRIPSLearner and PNADSearchSTRIPSLearner are
+    able to correctly induce operators with keep effects in a case where a
+    naive procedure that does not keep the original operators (without keep
+    effects) would fail.
 
     There are two demonstrations: [Configure, TurnOn, Run] and [TurnOn,
     Configure, Run]. TurnOn always just turns on a machine, while
@@ -777,10 +821,10 @@ def test_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the two demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2], [task1, task2],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2], [task1, task2],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
     # There should be exactly 4 output PNADs: 2 for Configure, and 1 for
     # each of TurnOn and Run. One of the Configure operators should have
@@ -805,7 +849,7 @@ def test_keep_effect_data_partitioning():
     Preconditions: [MachineConfigurableWhileOff(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
@@ -824,7 +868,11 @@ def test_keep_effect_data_partitioning():
         assert str(pnad) in correct_pnads
 
 
-def test_combinatorial_keep_effect_data_partitioning():
+@pytest.mark.parametrize("approach_name,approach_cls",
+                         [("backchaining", _MockBackchainingSTRIPSLearner),
+                          ("effects_search", PNADSearchSTRIPSLearner)])
+def test_combinatorial_keep_effect_data_partitioning(approach_name,
+                                                     approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators with keep effects in a case where a naive procedure that always
     induces potential keep effects would fail.
@@ -985,14 +1033,17 @@ def test_combinatorial_keep_effect_data_partitioning():
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the four demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3, traj4],
-                                             [task1, task2, task3, task4],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2, traj3, traj4],
+                           [task1, task2, task3, task4],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
-    # We need 7 PNADs: 4 for configure, and 1 each for turn on, run, and fix.
-    assert len(output_pnads) == 7
+    # We need 6 or 7 PNADs: 3 or 4 for configure, and 1 each for turn on,
+    # run, and fix.
+    # NOTE: Backchaining learns 7 different operators, but effect search
+    # learns only 6 (and both lead to harmlessness on the training data)!
+    assert len(output_pnads) in [6, 7]
     correct_pnads = set([
         """STRIPS-Run:
     Parameters: [?x0:machine_type]
@@ -1018,14 +1069,14 @@ def test_combinatorial_keep_effect_data_partitioning():
     Preconditions: []
     Add Effects: [MachineConfigured(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineWorking(?x0:machine_type)]
     Add Effects: [MachineConfigured(?x0:machine_type), """ +
         """MachineWorking(?x0:machine_type)]
     Delete Effects: []
-    Ignore Effects: [MachineOn]
+    Ignore Effects: []
     Option Spec: Configure()""", """STRIPS-Configure:
     Parameters: [?x0:machine_type]
     Preconditions: [MachineOn(?x0:machine_type)]
@@ -1053,14 +1104,16 @@ def test_combinatorial_keep_effect_data_partitioning():
 
     # Now, run the learner on 3/4 of the demos and verify that it produces only
     # 3 PNADs for the Configure action.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
-                                             [task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs[:-1],
-                                             verify_harmlessness=True)
-    learner.reset_all_segment_add_effs()
+    learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
+                           predicates,
+                           segmented_trajs[:-1],
+                           verify_harmlessness=True)
+    if approach_name == "backchaining":
+        learner.reset_all_segment_add_effs()
     output_pnads = learner.learn()
-    assert len(output_pnads) == 6
+    # NOTE: Backchaining learns 6 different operators, but effect search
+    # learns only 5 (and both lead to harmlessness on the training data)!
+    assert len(output_pnads) in [5, 6]
 
     correct_pnads = correct_pnads - set([
         """STRIPS-Configure:
@@ -1081,7 +1134,9 @@ def test_combinatorial_keep_effect_data_partitioning():
         assert str(pnad) in correct_pnads
 
 
-def test_keep_effect_adding_new_variables():
+@pytest.mark.parametrize(
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
+def test_keep_effect_adding_new_variables(approach_cls):
     """Test that the BackchainingSTRIPSLearner is able to correctly induce
     operators when the keep effects must create new variables to ensure
     harmlessness."""
@@ -1146,9 +1201,9 @@ def test_keep_effect_adding_new_variables():
     segmented_traj = segment_trajectory(ground_atom_traj)
 
     # Now, run the learner on the demo.
-    learner = _MockBackchainingSTRIPSLearner([traj], [task],
-                                             predicates, [segmented_traj],
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj], [task],
+                           predicates, [segmented_traj],
+                           verify_harmlessness=True)
     output_pnads = learner.learn()
 
     # Verify that all the output PNADs are correct. The PNAD for Press should
@@ -1194,8 +1249,10 @@ def test_keep_effect_adding_new_variables():
             assert sub == {potato_x0: potato3}
 
 
-@pytest.mark.parametrize("val", [0.0, 1.0])
-def test_multi_pass_backchaining(val):
+@pytest.mark.parametrize("approach_cls, val",
+                         [(_MockBackchainingSTRIPSLearner, 0.0),
+                          (PNADSearchSTRIPSLearner, 1.0)])
+def test_multi_pass_backchaining(approach_cls, val):
     """Test that the BackchainingSTRIPSLearner does multiple passes of
     backchaining, which is needed to ensure harmlessness."""
     utils.reset_config({
@@ -1248,14 +1305,12 @@ def test_multi_pass_backchaining(val):
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the three demos.
-    learner = _MockBackchainingSTRIPSLearner([traj1, traj2, traj3],
-                                             [task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls([traj1, traj2, traj3], [task1, task2, task3],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
-    assert len(learned_pnads) == 3
     if val == 0.0:
         correct_pnads = [
             """STRIPS-Pick:
@@ -1263,7 +1318,7 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A()]
     Add Effects: [B()]
     Delete Effects: []
-    Ignore Effects: [C]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
     Preconditions: [A(), B()]
@@ -1275,7 +1330,7 @@ def test_multi_pass_backchaining(val):
     Preconditions: [A(), B()]
     Add Effects: [C(), D()]
     Delete Effects: [B()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Place()"""
         ]
     else:
@@ -1283,19 +1338,13 @@ def test_multi_pass_backchaining(val):
             """STRIPS-Pick:
     Parameters: []
     Preconditions: [A()]
-    Add Effects: [B(), C()]
+    Add Effects: [B()]
     Delete Effects: []
     Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Place:
     Parameters: []
-    Preconditions: [A(), B(), C()]
+    Preconditions: [A(), B()]
     Add Effects: [D()]
-    Delete Effects: [B()]
-    Ignore Effects: [E]
-    Option Spec: Place()""", """STRIPS-Place:
-    Parameters: []
-    Preconditions: [A(), B(), E()]
-    Add Effects: [D(), E()]
     Delete Effects: [B()]
     Ignore Effects: []
     Option Spec: Place()"""
@@ -1308,14 +1357,23 @@ def test_multi_pass_backchaining(val):
         assert str(pnad) in correct_pnads
 
 
-def test_backchaining_segment_not_in_datastore():
-    """Test the BackchainingSTRIPSLearner on a case where it can cover a
-    particular segment using an operator that doesn't have that segment in its
-    datastore.
+@pytest.mark.parametrize(
+    "approach_cls", [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner])
+def test_segment_not_in_datastore(approach_cls):
+    """Test the BackchainingSTRIPSLearner and EffectSearchLearner on a case
+    where they can cover a particular segment using an operator that doesn't
+    have that segment in its datastore.
 
-    This will lead to the intermediate harmlessness check failing if not
-    handled correctly.
+    This will lead to the intermediate harmlessness check for
+    Backchaining failing, and the heuristic improvement assertion
+    failing for the EffectSearchLearner if not handled correctly.
     """
+    # Trajectories:
+    # 0. [A,B,D] -> [C,E] -> [A,B,C,D,E]; Goal = [B]
+    # 1. [A,D] -> [A,B,E]; Goal = [B]
+    # 2. [B,D,E] -> [A,B,C,D,E]; Goal = [A, C]
+    # 3. [B,C,D,E] -> [A,C,D] -> [A,B,D,E]; Goal = [A, D]
+
     utils.reset_config({
         "segmenter": "atom_changes",
         "backchaining_check_intermediate_harmlessness": True
@@ -1366,42 +1424,37 @@ def test_backchaining_segment_not_in_datastore():
     ground_atom_trajs = utils.create_ground_atom_dataset(trajs, predicates)
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
     # Now, run the learner on the demos.
-    learner = _MockBackchainingSTRIPSLearner(trajs,
-                                             [task0, task1, task2, task3],
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls(trajs, [task0, task1, task2, task3],
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learned_pnads = learner.learn()
+    assert len(learned_pnads) == 4
+
     correct_pnads = [
         """STRIPS-Pick:
     Parameters: []
-    Preconditions: [C(), E()]
+    Preconditions: []
     Add Effects: [B()]
-    Delete Effects: []
-    Ignore Effects: [A, D]
+    Delete Effects: [D()]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [B(), D(), E()]
     Add Effects: [A(), C()]
     Delete Effects: [B(), E()]
-    Ignore Effects: [B, E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), C(), D()]
-    Add Effects: [A(), B(), D()]
+    Add Effects: [B(), D()]
     Delete Effects: [C()]
-    Ignore Effects: [E]
-    Option Spec: Pick()""", """STRIPS-Pick:
-    Parameters: []
-    Preconditions: [A(), D()]
-    Add Effects: [A(), B()]
-    Delete Effects: [D()]
-    Ignore Effects: [E]
+    Ignore Effects: []
     Option Spec: Pick()""", """STRIPS-Pick:
     Parameters: []
     Preconditions: [A(), B(), D()]
-    Add Effects: [C(), E()]
+    Add Effects: []
     Delete Effects: [A(), B(), D()]
     Ignore Effects: []
     Option Spec: Pick()"""
@@ -1414,11 +1467,13 @@ def test_backchaining_segment_not_in_datastore():
 
 
 @longrun
-@pytest.mark.parametrize("use_single_option,num_demos,seed_offset",
-                         itertools.product([True, False], [1, 2, 3, 4],
-                                           range(250)))
-def test_backchaining_randomly_generated(use_single_option, num_demos,
-                                         seed_offset):
+@pytest.mark.parametrize(
+    "approach_cls,use_single_option,num_demos,seed_offset",
+    itertools.product(
+        [_MockBackchainingSTRIPSLearner, PNADSearchSTRIPSLearner],
+        [True, False], [1, 2, 3, 4], range(250)))
+def test_backchaining_randomly_generated(approach_cls, use_single_option,
+                                         num_demos, seed_offset):
     """Test the BackchainingSTRIPSLearner on randomly generated test cases."""
     utils.reset_config({
         "segmenter": "atom_changes",
@@ -1558,10 +1613,10 @@ def test_backchaining_randomly_generated(use_single_option, num_demos,
     segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_trajs]
 
     # Now, run the learner on the demos.
-    learner = _MockBackchainingSTRIPSLearner(trajs,
-                                             tasks,
-                                             predicates,
-                                             segmented_trajs,
-                                             verify_harmlessness=True)
+    learner = approach_cls(trajs,
+                           tasks,
+                           predicates,
+                           segmented_trajs,
+                           verify_harmlessness=True)
     # Running this automatically checks that harmlessness passes.
     learner.learn()

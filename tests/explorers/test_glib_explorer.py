@@ -18,7 +18,7 @@ def test_glib_explorer(target_predicate):
         "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     # For testing purposes, score everything except target predicate low.
@@ -51,6 +51,31 @@ def test_glib_explorer(target_predicate):
     assert target_predicate not in str(init_atoms)
     final_atoms = utils.abstract(final_state, env.predicates)
     assert target_predicate in str(final_atoms)
+    # Now test with a score function that scores everything -inf. Should
+    # cover the case where we fall back to random.
+    score_fn = lambda _: -float("inf")
+    explorer = create_explorer("glib",
+                               env.predicates,
+                               env.options,
+                               env.types,
+                               env.action_space,
+                               train_tasks,
+                               nsrts,
+                               option_model,
+                               babble_predicates=env.predicates,
+                               atom_score_fn=score_fn)
+    task_idx = 0
+    policy, termination_function = explorer.get_exploration_strategy(
+        task_idx, 500)
+    traj, _ = utils.run_policy(
+        policy,
+        env,
+        "train",
+        task_idx,
+        termination_function,
+        max_num_steps=5,
+    )
+    assert len(traj.actions) > 3  # should no longer quickly achieve targets
 
 
 def test_glib_explorer_failure_cases():
@@ -60,7 +85,7 @@ def test_glib_explorer_failure_cases():
         "explorer": "glib",
     })
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     option_model = _OracleOptionModel(env)
     train_tasks = env.get_train_tasks()
     score_fn = lambda _: 0.0

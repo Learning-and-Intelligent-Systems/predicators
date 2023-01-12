@@ -39,6 +39,7 @@ import os
 import sys
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
 import dill as pkl
@@ -59,7 +60,7 @@ assert os.environ.get("PYTHONHASHSEED") == "0", \
 
 def main() -> None:
     """Main entry point for running approaches in environments."""
-    script_start = time.time()
+    script_start = time.perf_counter()
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
@@ -79,8 +80,10 @@ def main() -> None:
     logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
     # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
+    # Create the eval trajectories directory.
+    os.makedirs(CFG.eval_trajectories_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
-    env = create_new_env(CFG.env, do_cache=True)
+    env = create_new_env(CFG.env, do_cache=True, use_gui=CFG.use_gui)
     # The action space and options need to be seeded externally, because
     # env.action_space and env.options are often created during env __init__().
     env.action_space.seed(CFG.seed)
@@ -114,7 +117,7 @@ def main() -> None:
         offline_dataset = None
     # Run the full pipeline.
     _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
-    script_time = time.time() - script_start
+    script_time = time.perf_counter() - script_start
     logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
@@ -135,9 +138,9 @@ def _run_pipeline(env: BaseEnv,
             approach.load(online_learning_cycle=None)
             learning_time = 0.0  # ignore loading time
         else:
-            learning_start = time.time()
+            learning_start = time.perf_counter()
             approach.learn_from_offline_dataset(offline_dataset)
-            learning_time = time.time() - learning_start
+            learning_time = time.perf_counter() - learning_start
         offline_learning_metrics = {
             f"offline_learning_{k}": v
             for k, v in approach.metrics.items()
@@ -177,10 +180,10 @@ def _run_pipeline(env: BaseEnv,
                 approach.load(online_learning_cycle=i)
                 learning_time += 0.0  # ignore loading time
             else:
-                learning_start = time.time()
+                learning_start = time.perf_counter()
                 logging.info("Learning from interaction results...")
                 approach.learn_from_interaction_results(interaction_results)
-                learning_time += time.time() - learning_start
+                learning_time += time.perf_counter() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_offline_transitions"] = num_offline_transitions
@@ -238,8 +241,8 @@ def _generate_interaction_results(
         if CFG.make_interaction_videos:
             video.extend(monitor.get_video())
     if CFG.make_interaction_videos:
-        video_prefix = utils.get_config_path_str()
-        outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+        save_prefix = utils.get_config_path_str()
+        outfile = f"{save_prefix}__cycle{cycle_num}.mp4"
         utils.save_video(outfile, video)
     return results, query_cost
 
@@ -255,11 +258,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_timeouts = 0
     total_num_execution_failures = 0
 
-    video_prefix = utils.get_config_path_str()
+    save_prefix = utils.get_config_path_str()
     metrics: Metrics = defaultdict(float)
+    curr_num_nodes_created = 0.0
+    curr_num_nodes_expanded = 0.0
     for test_task_idx, task in enumerate(test_tasks):
         # Run the approach's solve() method to get a policy for this task.
-        solve_start = time.time()
+        solve_start = time.perf_counter()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -273,11 +278,22 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
                     CFG.horizon)
-                outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
+                outfile = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
+            if CFG.crash_on_failure:
+                raise e
             continue
-        solve_time = time.time() - solve_start
+        solve_time = time.perf_counter() - solve_start
         metrics[f"PER_TASK_task{test_task_idx}_solve_time"] = solve_time
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_created"] = approach.metrics[
+                "total_num_nodes_created"] - curr_num_nodes_created
+        metrics[
+            f"PER_TASK_task{test_task_idx}_nodes_expanded"] = approach.metrics[
+                "total_num_nodes_expanded"] - curr_num_nodes_expanded
+        curr_num_nodes_created = approach.metrics["total_num_nodes_created"]
+        curr_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+
         num_found_policy += 1
         make_video = False
         solved = False
@@ -299,6 +315,17 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             solved = task.goal_holds(traj.states[-1])
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
+            # Save the successful trajectory, e.g., for playback on a robot.
+            traj_file = f"{save_prefix}__task{test_task_idx+1}.traj"
+            traj_file_path = Path(CFG.eval_trajectories_dir) / traj_file
+            # Include the original task too so we know the goal.
+            traj_data = {
+                "task": task,
+                "trajectory": traj,
+                "pybullet_robot": CFG.pybullet_robot
+            }
+            with open(traj_file_path, "wb") as f:
+                pkl.dump(traj_data, f)
         except utils.EnvironmentFailure as e:
             log_message = f"Environment failed with error: {e}"
             caught_exception = True
@@ -315,12 +342,14 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             num_solved += 1
             total_suc_time += (solve_time + exec_time)
             make_video = CFG.make_test_videos
-            video_file = f"{video_prefix}__task{test_task_idx+1}.mp4"
+            video_file = f"{save_prefix}__task{test_task_idx+1}.mp4"
         else:
             if not caught_exception:
                 log_message = "Policy failed to reach goal"
+            if CFG.crash_on_failure:
+                raise RuntimeError(log_message)
             make_video = CFG.make_failure_videos
-            video_file = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
+            video_file = f"{save_prefix}__task{test_task_idx+1}_failure.mp4"
         logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                      f"{log_message}")
         if make_video:
@@ -331,6 +360,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    metrics["min_num_samples"] = approach.metrics[
+        "min_num_samples"] if approach.metrics["min_num_samples"] < float(
+            "inf") else 0
+    metrics["max_num_samples"] = approach.metrics["max_num_samples"]
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"] if approach.metrics[
             "min_num_skeletons_optimized"] < float("inf") else 0
@@ -345,7 +378,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     # an average wrt the number of solved tasks, which might be more
     # appropriate for some metrics, e.g. avg_suc_time above.
     for metric_name in [
-            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_samples", "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
             "num_failures_discovered"
     ]:

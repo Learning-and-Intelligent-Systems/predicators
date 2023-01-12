@@ -7,16 +7,16 @@ from predicators.envs import get_or_create_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
 from predicators.nsrt_learning.strips_learning import BaseSTRIPSLearner
 from predicators.settings import CFG
-from predicators.structs import Datastore, DummyOption, PartialNSRTAndDatastore
+from predicators.structs import PNAD, Datastore, DummyOption
 
 
 class OracleSTRIPSLearner(BaseSTRIPSLearner):
     """Base class for an oracle STRIPS learner."""
 
-    def _learn(self) -> List[PartialNSRTAndDatastore]:
+    def _learn(self) -> List[PNAD]:
         env = get_or_create_env(CFG.env)
-        gt_nsrts = get_gt_nsrts(env.predicates, env.options)
-        pnads: List[PartialNSRTAndDatastore] = []
+        gt_nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+        pnads: List[PNAD] = []
         for nsrt in gt_nsrts:
             datastore: Datastore = []
             # If options are unknown, use a dummy option spec.
@@ -24,8 +24,7 @@ class OracleSTRIPSLearner(BaseSTRIPSLearner):
                 option_spec = (nsrt.option, list(nsrt.option_vars))
             else:
                 option_spec = (DummyOption.parent, [])
-            pnads.append(
-                PartialNSRTAndDatastore(nsrt.op, datastore, option_spec))
+            pnads.append(PNAD(nsrt.op, datastore, option_spec))
         self._recompute_datastores_from_segments(pnads)
         # Filter out any pnad that has an empty datastore. This can occur when
         # using non-standard settings with environments that cause certain

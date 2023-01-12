@@ -72,22 +72,25 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
         return super()._get_hand_regions(state)
 
 
-@pytest.fixture(scope="module", name="env")
-def _create_exposed_pybullet_cover_env():
+@pytest.fixture(scope="module", name="env", params=("fetch", "panda"))
+def _create_exposed_pybullet_cover_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
         "env": "pybullet_cover",
-        "pybullet_use_gui": _GUI_ON,
+        "use_gui": _GUI_ON,
         "cover_initial_holding_prob": 0.0,
         # We run this test using the POSITION control mode.
         "pybullet_control_mode": "position",
+        # Which robot we're using
+        "pybullet_robot": request.param,
     })
-    return _ExposedPyBulletCoverEnv()
+    return _ExposedPyBulletCoverEnv(use_gui=_GUI_ON)
 
 
 def test_pybullet_cover_reset(env):
     """Tests for PyBulletCoverEnv.reset()."""
     for idx, task in enumerate(env.get_train_tasks()):
+        assert isinstance(task.init, utils.PyBulletState)
         state = env.reset("train", idx)
         assert state.allclose(task.init)
     for idx, task in enumerate(env.get_test_tasks()):

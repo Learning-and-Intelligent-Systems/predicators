@@ -11,6 +11,8 @@ from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.settings import CFG
 
+longrun = pytest.mark.skipif("not config.getoption('longrun')")
+
 
 def _test_approach(env_name,
                    approach_name,
@@ -134,6 +136,21 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    strips_learner="cluster_and_search",
                    try_solving=False)
+    for strips_learner in [
+            "cluster_and_intersect_sideline_prederror",
+            "cluster_and_intersect_sideline_harmlessness",
+            "backchaining",
+    ]:
+        _test_approach(env_name="blocks",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       strips_learner=strips_learner)
+
+
+@longrun
+def test_nsrt_learning_approach_longrun():
+    """Tests for NSRTLearningApproach class."""
     for strips_learner in [
             "cluster_and_intersect_sideline_prederror",
             "cluster_and_intersect_sideline_harmlessness",
@@ -265,6 +282,11 @@ def test_oracle_samplers():
     # Oracle sampler learning should work (and be fast) in cover and blocks.
     # We can even check that the policy succeeds!
     _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True,
+                   num_train_tasks=3)
+    _test_approach(env_name="cover_handempty",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
                    check_solution=True,

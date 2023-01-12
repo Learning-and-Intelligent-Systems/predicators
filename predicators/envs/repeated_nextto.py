@@ -28,8 +28,9 @@ class RepeatedNextToEnv(BaseEnv):
     grasped_thresh: ClassVar[float] = 0.5
     nextto_thresh: ClassVar[float] = 0.5
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._robot_type = Type("robot", ["x"])
         self._dot_type = Type("dot", ["x", "grasped"])
@@ -208,8 +209,9 @@ class RepeatedNextToEnv(BaseEnv):
 class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
     """A variation on RepeatedNextToEnv with a single parameterized option."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Options
         del self._Move
         del self._Grasp
@@ -236,3 +238,56 @@ class RepeatedNextToSingleOptionEnv(RepeatedNextToEnv):
         if params[0] < 0:
             return self._Move_policy(state, memory, objects, params[1:])
         return self._Grasp_policy(state, memory, objects, params[1:])
+
+
+class RepeatedNextToAmbiguousEnv(RepeatedNextToEnv):
+    """A variation on RepeatedNextToEnv with ambiguous demonstrations that can
+    lead to the backchaining algorithm learning complex move operators."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto_ambiguous"
+
+    def _generate_train_tasks(self) -> List[Task]:
+        return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
+                                         rng=self._train_rng,
+                                         are_train_tasks=True)
+
+    def _generate_test_tasks(self) -> List[Task]:
+        return self._get_tasks_ambiguous(num=CFG.num_train_tasks,
+                                         rng=self._train_rng,
+                                         are_train_tasks=False)
+
+    def _get_tasks_ambiguous(self, num: int, rng: np.random.Generator,
+                             are_train_tasks: bool) -> List[Task]:
+        assert self.env_ub - self.env_lb > self.nextto_thresh
+        tasks = []
+        dots = []
+        assert CFG.repeated_nextto_num_dots >= 3
+        for i in range(CFG.repeated_nextto_num_dots):
+            dots.append(Object(f"dot{i}", self._dot_type))
+        goal1 = {GroundAtom(self._Grasped, [self._robot, dots[0]])}
+        goal2 = {
+            GroundAtom(self._Grasped, [self._robot, dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, dots[1]]),
+        }
+        goal3 = {
+            GroundAtom(self._Grasped, [self._robot, dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, dots[1]]),
+            GroundAtom(self._Grasped, [self._robot, dots[2]]),
+        }
+        goals = [goal3, goal2, goal1]
+        for i in range(num):
+            data: Dict[Object, Array] = {}
+            for dot in dots:
+                if are_train_tasks:
+                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh,
+                                        self.env_ub)
+                else:
+                    dot_x = rng.uniform(self.env_ub - self.nextto_thresh * 10,
+                                        self.env_ub)
+                data[dot] = np.array([dot_x, 0.0])
+            robot_x = self.env_lb
+            data[self._robot] = np.array([robot_x])
+            tasks.append(Task(State(data), goals[i % len(goals)]))
+        return tasks

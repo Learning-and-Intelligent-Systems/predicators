@@ -11,11 +11,13 @@ import io
 import itertools
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection, Dict, \
     FrozenSet, Generator, Generic, Hashable, Iterator, List, Optional, \
     Sequence, Set, Tuple
@@ -367,12 +369,13 @@ class Rectangle(_Geom2D):
         return Circle(x, y, radius)
 
     def contains_point(self, x: float, y: float) -> bool:
-        rotate_matrix = np.array([[np.cos(self.theta), -np.sin(self.theta)],
-                                  [np.sin(self.theta),
+        rotate_matrix = np.array([[np.cos(self.theta),
+                                   np.sin(self.theta)],
+                                  [-np.sin(self.theta),
                                    np.cos(self.theta)]])
-        rx, ry = np.array([x, y]) @ rotate_matrix.T
-        return self.x <= rx <= self.x + self.width and \
-               self.y <= ry <= self.y + self.height
+        rx, ry = np.array([x - self.x, y - self.y]) @ rotate_matrix.T
+        return 0 <= rx <= self.width and \
+               0 <= ry <= self.height
 
     def rotate_about_point(self, x: float, y: float, rot: float) -> Rectangle:
         """Create a new rectangle that is this rectangle, but rotated CCW by
@@ -881,9 +884,9 @@ def run_policy(
             monitor_observed = False
             exception_raised_in_step = False
             try:
-                start_time = time.time()
+                start_time = time.perf_counter()
                 act = policy(state)
-                metrics["policy_call_time"] += time.time() - start_time
+                metrics["policy_call_time"] += time.perf_counter() - start_time
                 # Note: it's important to call monitor.observe() before
                 # env.step(), because the monitor may use the environment's
                 # internal state.
@@ -1305,9 +1308,9 @@ def _run_heuristic_search(
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
     num_evals = 1
-    start_time = time.time()
+    start_time = time.perf_counter()
 
-    while len(queue) > 0 and time.time() - start_time < timeout and \
+    while len(queue) > 0 and time.perf_counter() - start_time < timeout and \
           num_expansions < max_expansions and num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
@@ -1319,7 +1322,7 @@ def _run_heuristic_search(
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
-            if time.time() - start_time >= timeout:
+            if time.perf_counter() - start_time >= timeout:
                 break
             child_path_cost = node.cumulative_cost + cost
             # If we already found a better path to this child, don't bother.
@@ -1571,13 +1574,17 @@ def run_policy_guided_astar(
     return state_seq, action_seq
 
 
-class BiRRT(Generic[_S]):
+_BiRRTState = TypeVar("_BiRRTState")
+
+
+class BiRRT(Generic[_BiRRTState]):
     """Bidirectional rapidly-exploring random tree."""
 
-    def __init__(self, sample_fn: Callable[[_S], _S],
-                 extend_fn: Callable[[_S, _S], Iterator[_S]],
-                 collision_fn: Callable[[_S], bool],
-                 distance_fn: Callable[[_S, _S],
+    def __init__(self, sample_fn: Callable[[_BiRRTState], _BiRRTState],
+                 extend_fn: Callable[[_BiRRTState, _BiRRTState],
+                                     Iterator[_BiRRTState]],
+                 collision_fn: Callable[[_BiRRTState], bool],
+                 distance_fn: Callable[[_BiRRTState, _BiRRTState],
                                        float], rng: np.random.Generator,
                  num_attempts: int, num_iters: int, smooth_amt: int):
         self._sample_fn = sample_fn
@@ -1589,7 +1596,8 @@ class BiRRT(Generic[_S]):
         self._num_iters = num_iters
         self._smooth_amt = smooth_amt
 
-    def query(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def query(self, pt1: _BiRRTState,
+              pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         """Query the BiRRT, to get a collision-free path from pt1 to pt2.
 
         If none is found, returns None.
@@ -1605,7 +1613,8 @@ class BiRRT(Generic[_S]):
                 return self._smooth_path(path)
         return None
 
-    def _try_direct_path(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def _try_direct_path(self, pt1: _BiRRTState,
+                         pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         path = [pt1]
         for newpt in self._extend_fn(pt1, pt2):
             if self._collision_fn(newpt):
@@ -1613,11 +1622,13 @@ class BiRRT(Generic[_S]):
             path.append(newpt)
         return path
 
-    def _rrt_connect(self, pt1: _S, pt2: _S) -> Optional[List[_S]]:
+    def _rrt_connect(self, pt1: _BiRRTState,
+                     pt2: _BiRRTState) -> Optional[List[_BiRRTState]]:
         root1, root2 = _BiRRTNode(pt1), _BiRRTNode(pt2)
         nodes1, nodes2 = [root1], [root2]
 
-        def _get_pt_dist_to_node(pt: _S, node: _BiRRTNode[_S]) -> float:
+        def _get_pt_dist_to_node(pt: _BiRRTState,
+                                 node: _BiRRTNode[_BiRRTState]) -> float:
             return self._distance_fn(pt, node.data)
 
         for _ in range(self._num_iters):
@@ -1649,7 +1660,7 @@ class BiRRT(Generic[_S]):
                 return [node.data for node in path]
         return None
 
-    def _smooth_path(self, path: List[_S]) -> List[_S]:
+    def _smooth_path(self, path: List[_BiRRTState]) -> List[_BiRRTState]:
         assert len(path) > 2
         for _ in range(self._smooth_amt):
             i = self._rng.integers(0, len(path) - 1)
@@ -1665,19 +1676,19 @@ class BiRRT(Generic[_S]):
         return path
 
 
-class _BiRRTNode(Generic[_S]):
+class _BiRRTNode(Generic[_BiRRTState]):
     """A node for BiRRT."""
 
     def __init__(self,
-                 data: _S,
-                 parent: Optional[_BiRRTNode[_S]] = None) -> None:
+                 data: _BiRRTState,
+                 parent: Optional[_BiRRTNode[_BiRRTState]] = None) -> None:
         self.data = data
         self.parent = parent
 
-    def path_from_root(self) -> List[_BiRRTNode[_S]]:
+    def path_from_root(self) -> List[_BiRRTNode[_BiRRTState]]:
         """Return the path from the root to this node."""
         sequence = []
-        node: Optional[_BiRRTNode[_S]] = self
+        node: Optional[_BiRRTNode[_BiRRTState]] = self
         while node is not None:
             sequence.append(node)
             node = node.parent
@@ -1818,6 +1829,126 @@ def _cached_all_ground_ldl_rules(
         ground_rule = rule.ground(tuple(choice))
         ground_rules.append(ground_rule)
     return ground_rules
+
+
+def parse_ldl_from_str(ldl_str: str, types: Collection[Type],
+                       predicates: Collection[Predicate],
+                       nsrts: Collection[NSRT]) -> LiftedDecisionList:
+    """Parse a lifted decision list from a string representation of it."""
+    parser = _LDLParser(types, predicates, nsrts)
+    return parser.parse(ldl_str)
+
+
+class _LDLParser:
+    """Parser for lifted decision lists from strings."""
+
+    def __init__(self, types: Collection[Type],
+                 predicates: Collection[Predicate],
+                 nsrts: Collection[NSRT]) -> None:
+        self._nsrt_name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
+        self._type_name_to_type = {t.name: t for t in types}
+        self._predicate_name_to_predicate = {p.name: p for p in predicates}
+
+    def parse(self, ldl_str: str) -> LiftedDecisionList:
+        """Run parsing."""
+        rules = []
+        rule_matches = re.finditer(r"\(:rule", ldl_str)
+        for start in rule_matches:
+            rule_str = find_balanced_expression(ldl_str, start.start())
+            rule = self._parse_rule(rule_str)
+            rules.append(rule)
+        return LiftedDecisionList(rules)
+
+    def _parse_rule(self, rule_str: str) -> LDLRule:
+        rule_pattern = r"\(:rule(.*):parameters(.*):preconditions(.*)" + \
+                       r":goals(.*):action(.*)\)"
+        match_result = re.match(rule_pattern, rule_str, re.DOTALL)
+        assert match_result is not None
+        # Remove white spaces.
+        matches = [m.strip().rstrip() for m in match_result.groups()]
+        # Unpack the matches.
+        rule_name, params_str, preconds_str, goals_str, nsrt_str = matches
+        # Handle the parameters.
+        assert "?" in params_str, "Assuming all rules have parameters."
+        variable_name_to_variable = {}
+        assert params_str.endswith(")")
+        for param_str in params_str[:-1].split("?")[1:]:
+            param_name, param_type_str = param_str.split("-")
+            param_name = param_name.strip()
+            param_type_str = param_type_str.strip()
+            variable_name = "?" + param_name
+            param_type = self._type_name_to_type[param_type_str]
+            variable = Variable(variable_name, param_type)
+            variable_name_to_variable[variable_name] = variable
+        # Handle the preconditions.
+        pos_preconds, neg_preconds = self._parse_lifted_atoms(
+            preconds_str, variable_name_to_variable)
+        # Handle the goals.
+        pos_goals, neg_goals = self._parse_lifted_atoms(
+            goals_str, variable_name_to_variable)
+        assert not neg_goals, "Negative LDL goals not currently supported"
+        # Handle the NSRT.
+        nsrt = self._parse_into_nsrt(nsrt_str, variable_name_to_variable)
+        # Finalize the rule.
+        params = sorted(variable_name_to_variable.values())
+        return LDLRule(rule_name, params, pos_preconds, neg_preconds,
+                       pos_goals, nsrt)
+
+    def _parse_lifted_atoms(
+        self, atoms_str: str, variable_name_to_variable: Dict[str, Variable]
+    ) -> Tuple[Set[LiftedAtom], Set[LiftedAtom]]:
+        """Parse the given string (representing either preconditions or
+        effects) into a set of positive lifted atoms and a set of negative
+        lifted atoms.
+
+        Check against params to make sure typing is correct.
+        """
+        assert atoms_str[0] == "("
+        assert atoms_str[-1] == ")"
+
+        # Handle conjunctions.
+        if atoms_str.startswith("(and") and atoms_str[4] in (" ", "\n", "("):
+            clauses = find_all_balanced_expressions(atoms_str[4:-1].strip())
+            pos_atoms, neg_atoms = set(), set()
+            for clause in clauses:
+                clause_pos_atoms, clause_neg_atoms = self._parse_lifted_atoms(
+                    clause, variable_name_to_variable)
+                pos_atoms |= clause_pos_atoms
+                neg_atoms |= clause_neg_atoms
+            return pos_atoms, neg_atoms
+
+        # Handle negations.
+        if atoms_str.startswith("(not") and atoms_str[4] in (" ", "\n", "("):
+            # Only contains a single literal inside not.
+            split_strs = atoms_str[4:-1].strip()[1:-1].strip().split()
+            pred = self._predicate_name_to_predicate[split_strs[0]]
+            args = [variable_name_to_variable[arg] for arg in split_strs[1:]]
+            lifted_atom = LiftedAtom(pred, args)
+            return set(), {lifted_atom}
+
+        # Handle single positive atoms.
+        split_strs = atoms_str[1:-1].split()
+        # Empty conjunction.
+        if not split_strs:
+            return set(), set()
+        pred = self._predicate_name_to_predicate[split_strs[0]]
+        args = [variable_name_to_variable[arg] for arg in split_strs[1:]]
+        lifted_atom = LiftedAtom(pred, args)
+        return {lifted_atom}, set()
+
+    def _parse_into_nsrt(
+            self, nsrt_str: str,
+            variable_name_to_variable: Dict[str, Variable]) -> NSRT:
+        """Parse the given string into an NSRT."""
+        assert nsrt_str[0] == "("
+        assert nsrt_str[-1] == ")"
+        nsrt_str = nsrt_str[1:-1].split()[0]
+        nsrt = self._nsrt_name_to_nsrt[nsrt_str]
+        # Validate parameters.
+        variables = variable_name_to_variable.values()
+        for v in nsrt.parameters:
+            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+        return nsrt
 
 
 _T = TypeVar("_T")  # element of a set
@@ -1982,6 +2113,22 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     for atom in op.add_effects:
         new_atoms.add(atom)
     return new_atoms
+
+
+def compute_necessary_atoms_seq(
+        skeleton: List[_GroundNSRT], atoms_seq: List[Set[GroundAtom]],
+        goal: Set[GroundAtom]) -> List[Set[GroundAtom]]:
+    """Given a skeleton and a corresponding atoms sequence, return a
+    'necessary' atoms sequence that includes only the necessary image at each
+    step."""
+    necessary_atoms_seq = [set(goal)]
+    necessary_image = set(goal)
+    for t in range(len(atoms_seq) - 2, -1, -1):
+        curr_nsrt = skeleton[t]
+        necessary_image -= set(curr_nsrt.add_effects)
+        necessary_image |= set(curr_nsrt.preconditions)
+        necessary_atoms_seq = [set(necessary_image)] + necessary_atoms_seq
+    return necessary_atoms_seq
 
 
 def get_successors_from_ground_ops(
@@ -2359,6 +2506,14 @@ def get_env_asset_path(asset_name: str, assert_exists: bool = True) -> str:
     return path
 
 
+def get_third_party_path() -> str:
+    """Return the absolute path to the third party directory."""
+    module_path = Path(__file__)
+    predicators_dir = module_path.parent
+    third_party_dir_path = os.path.join(predicators_dir, "third_party")
+    return third_party_dir_path
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
     arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
@@ -2623,3 +2778,49 @@ def generate_random_string(length: int, alphabet: Sequence[str],
     characters (alphabet)."""
     assert all(len(c) == 1 for c in alphabet)
     return "".join(rng.choice(alphabet, size=length))
+
+
+def find_balanced_expression(s: str, index: int) -> str:
+    """Find balanced expression in string starting from given index."""
+    assert s[index] == "("
+    start_index = index
+    balance = 1
+    while balance != 0:
+        index += 1
+        symbol = s[index]
+        if symbol == "(":
+            balance += 1
+        elif symbol == ")":
+            balance -= 1
+    return s[start_index:index + 1]
+
+
+def find_all_balanced_expressions(s: str) -> List[str]:
+    """Return a list of all balanced expressions in a string, starting from the
+    beginning."""
+    assert s[0] == "("
+    assert s[-1] == ")"
+    exprs = []
+    index = 0
+    start_index = index
+    balance = 1
+    while index < len(s) - 1:
+        index += 1
+        if balance == 0:
+            exprs.append(s[start_index:index])
+            # Jump to next "(".
+            while True:
+                if s[index] == "(":
+                    break
+                index += 1
+            start_index = index
+            balance = 1
+            continue
+        symbol = s[index]
+        if symbol == "(":
+            balance += 1
+        elif symbol == ")":
+            balance -= 1
+    assert balance == 0
+    exprs.append(s[start_index:index + 1])
+    return exprs

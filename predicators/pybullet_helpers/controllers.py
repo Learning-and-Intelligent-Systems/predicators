@@ -1,16 +1,19 @@
 """Generic controllers for the robots."""
-from __future__ import annotations
-
-from typing import Callable, Dict, Sequence, Tuple, cast
+from typing import Callable, Dict, Sequence, Set, Tuple, cast
 
 import numpy as np
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.pybullet_helpers.geometry import Pose3D
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot
+from predicators.pybullet_helpers.inverse_kinematics import \
+    InverseKinematicsError
+from predicators.pybullet_helpers.robots.single_arm import \
+    SingleArmPyBulletRobot
 from predicators.structs import Action, Array, Object, ParameterizedOption, \
     State, Type
+
+_SUPPORTED_ROBOTS: Set[str] = {"fetch", "panda"}
 
 
 def create_move_end_effector_to_pose_option(
@@ -29,8 +32,10 @@ def create_move_end_effector_to_pose_option(
     state, objects, and parameters, and returns the current pose and target
     pose of the end effector, and the finger status."""
 
-    assert robot.get_name() == "fetch", "Move end effector to pose option " + \
-        f"not implemented for robot {robot.get_name()}."
+    robot_name = robot.get_name()
+    assert robot_name in _SUPPORTED_ROBOTS, (
+        "Move end effector to pose option " +
+        f"not implemented for robot {robot_name}.")
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
@@ -38,7 +43,7 @@ def create_move_end_effector_to_pose_option(
         # First handle the main arm joints.
         current, target, finger_status = \
             get_current_and_target_pose_and_finger_status(
-                state, objects, params)
+            state, objects, params)
         # Run IK to determine the target joint positions.
         ee_delta = np.subtract(target, current)
         # Reduce the target to conform to the max velocity constraint.
@@ -48,8 +53,18 @@ def create_move_end_effector_to_pose_option(
         ee_action = np.add(current, ee_delta)
         # Keep validate as False because validate=True would update the
         # state of the robot during simulation, which overrides physics.
-        joint_positions = robot.inverse_kinematics(
-            (ee_action[0], ee_action[1], ee_action[2]), validate=False)
+        try:
+            # For the panda, always set the joints after running IK because
+            # IKFast is very sensitive to initialization, and it's easier to
+            # find good solutions on subsequent calls if we are already near
+            # a solution from the previous call. The fetch robot does not
+            # use IKFast, and in fact gets screwed up if we set joints here.
+            joint_positions = robot.inverse_kinematics(
+                (ee_action[0], ee_action[1], ee_action[2]),
+                validate=False,
+                set_joints=True)
+        except InverseKinematicsError:
+            raise utils.OptionExecutionFailure("Inverse kinematics failed.")
         # Handle the fingers. Fingers drift if left alone.
         # When the fingers are not explicitly being opened or closed, we
         # nudge the fingers toward being open or closed according to the
@@ -105,8 +120,9 @@ def create_change_fingers_option(
     robot fingers, given a function that takes in the current state, objects,
     and parameters, and returns the current and target finger joint values."""
 
-    assert robot.get_name() == "fetch", "Change fingers option not " + \
-        f"implemented for robot {robot.get_name()}."
+    assert robot.get_name() in _SUPPORTED_ROBOTS, (
+        "Change fingers option not " +
+        f"implemented for robot {robot.get_name()}.")
 
     def _policy(state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:

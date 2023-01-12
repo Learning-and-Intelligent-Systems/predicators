@@ -64,6 +64,9 @@ class GlobalSettings:
     # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
+    blocks_test_task_json_dir = None
+    blocks_holding_goals = False
+    blocks_block_size = 0.045  # use 0.0505 for real with panda
 
     # playroom env parameters
     playroom_num_blocks_train = [3]
@@ -99,7 +102,6 @@ class GlobalSettings:
     tools_num_contraptions_test = [3]
 
     # general pybullet parameters
-    pybullet_use_gui = False  # must be True to make videos
     pybullet_draw_debug = False  # useful for annotating in the GUI
     pybullet_camera_width = 335  # for high quality, use 1674
     pybullet_camera_height = 180  # for high quality, use 900
@@ -112,6 +114,29 @@ class GlobalSettings:
     pybullet_birrt_smooth_amt = 50
     pybullet_birrt_extend_num_interp = 10
     pybullet_control_mode = "position"
+    pybullet_max_vel_norm = 0.05
+    # env -> robot -> quaternion
+    pybullet_robot_ee_orns = defaultdict(
+        # Fetch and Panda gripper down and parallel to x-axis by default.
+        lambda: {
+            "fetch": (0.5, -0.5, -0.5, -0.5),
+            "panda": (0.7071, 0.7071, 0.0, 0.0),
+        },
+        # In Blocks, Fetch gripper down since it's thin we don't need to
+        # rotate 90 degrees.
+        {
+            "pybullet_blocks": {
+                "fetch": (0.7071, 0.0, -0.7071, 0.0),
+                "panda": (0.7071, 0.7071, 0.0, 0.0),
+            }
+        })
+
+    # IKFast parameters
+    ikfast_max_time = 0.05
+    ikfast_max_candidates = 100
+    ikfast_max_attempts = np.inf
+    ikfast_max_distance = np.inf
+    ikfast_norm = np.inf  # norm ord for np.linalg.norm
 
     # pddl blocks env parameters
     pddl_blocks_procedural_train_min_num_blocks = 3
@@ -172,6 +197,40 @@ class GlobalSettings:
     pddl_forest_procedural_test_min_size = 10
     pddl_forest_procedural_test_max_size = 12
 
+    # pddl gripper and prefixed gripper env parameters
+    pddl_gripper_procedural_train_min_num_rooms = 3
+    pddl_gripper_procedural_train_max_num_rooms = 5
+    pddl_gripper_procedural_train_min_num_balls = 1
+    pddl_gripper_procedural_train_max_num_balls = 2
+    pddl_gripper_procedural_test_min_num_rooms = 3
+    pddl_gripper_procedural_test_max_num_rooms = 5
+    pddl_gripper_procedural_test_min_num_balls = 1
+    pddl_gripper_procedural_test_max_num_balls = 2
+
+    # pddl ferry env parameters
+    pddl_ferry_procedural_train_min_num_locs = 3
+    pddl_ferry_procedural_train_max_num_locs = 5
+    pddl_ferry_procedural_train_min_num_cars = 1
+    pddl_ferry_procedural_train_max_num_cars = 2
+    pddl_ferry_procedural_test_min_num_locs = 3
+    pddl_ferry_procedural_test_max_num_locs = 5
+    pddl_ferry_procedural_test_min_num_cars = 1
+    pddl_ferry_procedural_test_max_num_cars = 2
+
+    # pddl miconic env parameters
+    pddl_miconic_procedural_train_min_buildings = 1
+    pddl_miconic_procedural_train_max_buildings = 2
+    pddl_miconic_procedural_train_min_floors = 3
+    pddl_miconic_procedural_train_max_floors = 5
+    pddl_miconic_procedural_train_min_passengers = 1
+    pddl_miconic_procedural_train_max_passengers = 2
+    pddl_miconic_procedural_test_min_buildings = 1
+    pddl_miconic_procedural_test_max_buildings = 2
+    pddl_miconic_procedural_test_min_floors = 3
+    pddl_miconic_procedural_test_max_floors = 5
+    pddl_miconic_procedural_test_min_passengers = 1
+    pddl_miconic_procedural_test_max_passengers = 2
+
     # stick button env parameters
     stick_button_num_buttons_train = [1, 2]
     stick_button_num_buttons_test = [3, 4]
@@ -193,6 +252,13 @@ class GlobalSettings:
     doors_birrt_smooth_amt = 50
     doors_draw_debug = False
 
+    # narrow_passage env parameters
+    narrow_passage_door_width_padding = 0.075
+    narrow_passage_passage_width_padding = 2e-4
+    narrow_passage_birrt_num_attempts = 10
+    narrow_passage_birrt_num_iters = 100
+    narrow_passage_birrt_smooth_amt = 50
+
     # coffee env parameters
     coffee_num_cups_train = [1, 2]
     coffee_num_cups_test = [2, 3]
@@ -206,6 +272,10 @@ class GlobalSettings:
 
     # parameters for random options approach
     random_options_max_tries = 100
+
+    # option model parameters
+    option_model_terminate_on_repeat = True
+    option_model_use_gui = False
 
     # parameters for abstract GNN approach
     gnn_num_message_passing = 3
@@ -232,6 +302,13 @@ class GlobalSettings:
     pg3_hc_enforced_depth = 0
     pg3_max_policy_guided_rollout = 50
     pg3_plan_compare_inapplicable_cost = 0.99
+    pg3_add_condition_allow_new_vars = True
+    pg3_max_analogies = 5
+
+    # parameters for PG3 init approach
+    # These need to be overridden via command line
+    pg3_init_policy = None
+    pg3_init_base_env = None
 
     # parameters for NSRT reinforcement learning approach
     nsrt_rl_reward_epsilon = 1e-2  # reward if in epsilon-ball from subgoal
@@ -264,10 +341,14 @@ class GlobalSettings:
     # OpenLid() operator in painting. So, we'll keep the former as the
     # default.
     sesame_grounder = "naive"
+    sesame_check_static_object_changes = False
+    # Warning: making this tolerance any lower breaks pybullet_blocks.
+    sesame_static_object_change_tol = 1e-3
 
     # evaluation parameters
     log_dir = "logs"
     results_dir = "results"
+    eval_trajectories_dir = "eval_trajectories"
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
     video_dir = "videos"
@@ -299,6 +380,7 @@ class GlobalSettings:
     disable_harmlessness_check = False  # some methods may want this to be True
     enable_harmless_op_pruning = False  # some methods may want this to be True
     backchaining_check_intermediate_harmlessness = False
+    pnad_search_without_del = False
     compute_sidelining_objective_value = False
     clustering_learner_true_pos_weight = 10
     clustering_learner_false_pos_weight = 1
@@ -334,10 +416,14 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_mlp_classifier_n_reinitialize_tries = 1
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
     sampler_learning_regressor_model = "neural_gaussian"
     sampler_learning_max_negative_data = 100000
+
+    # option learning parameters
+    option_learning_action_converter = "identity"
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
@@ -348,10 +434,17 @@ class GlobalSettings:
     interactive_num_requests_per_cycle = 10
     predicate_classifier_model = "mlp"  # "mlp" or "knn"
     predicate_mlp_classifier_max_itr = 100000
+    predicate_mlp_classifier_n_reinitialize_tries = 1
+    predicate_mlp_classifier_init = "default"  # or "normal"
     predicate_knn_classifier_n_neighbors = 1
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+    online_learning_max_novelty_count = 0
+
+    # refinement cost estimation parameters
+    refinement_estimator = "oracle"  # default refinement cost estimator
+    refinement_estimation_num_skeletons_generated = 3
 
     # glib explorer parameters
     glib_min_goal_size = 1
@@ -361,6 +454,7 @@ class GlobalSettings:
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
+    greedy_lookahead_max_num_resamples = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

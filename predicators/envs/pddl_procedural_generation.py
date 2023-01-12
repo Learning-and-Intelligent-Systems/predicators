@@ -1,7 +1,7 @@
 """Procedurally generates PDDL problem strings."""
 
 import functools
-from typing import Collection, Iterator, List, Optional, Set, Tuple
+from typing import Collection, Dict, Iterator, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -532,6 +532,315 @@ def _generate_forest_problem(height: int, width: int,
     (:domain forest)
     (:objects
         {locs_str} - loc
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
+
+
+################################### Gripper ####################################
+
+
+def create_gripper_pddl_generator(min_num_rooms: int,
+                                  max_num_rooms: int,
+                                  min_num_balls: int,
+                                  max_num_balls: int,
+                                  prefix: str = "") -> PDDLProblemGenerator:
+    """Create a generator for gripper problems."""
+    return functools.partial(_generate_gripper_problems, min_num_rooms,
+                             max_num_rooms, min_num_balls, max_num_balls,
+                             prefix)
+
+
+def _generate_gripper_problems(
+    min_num_rooms: int,
+    max_num_rooms: int,
+    min_num_balls: int,
+    max_num_balls: int,
+    prefix: str,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_rooms = rng.integers(min_num_rooms, max_num_rooms + 1)
+        num_balls = rng.integers(min_num_balls, max_num_balls + 1)
+        problem = _generate_gripper_problem(num_rooms, num_balls, prefix, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_gripper_problem(
+    num_rooms: int,
+    num_balls: int,
+    prefix: str,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    room_objects = set()
+    for r in range(num_rooms):
+        obj = f"room{r}"
+        room_objects.add(obj)
+        init_strs.add(f"({prefix}room {obj})")
+
+    ball_objects = set()
+    for ball_id in range(num_balls):
+        obj = f"ball{ball_id}"
+        ball_objects.add(obj)
+        init_strs.add(f"({prefix}ball {obj})")
+
+    gripper_objects = set()
+    num_grippers = 2
+    for gripper_id in range(num_grippers):
+        obj = f"gripper{gripper_id}"
+        gripper_objects.add(obj)
+        init_strs.add(f"({prefix}gripper {obj})")
+
+    # Add free and at ground literals
+    for gripper_object in gripper_objects:
+        init_strs.add(f"({prefix}free {gripper_object})")
+
+    initial_ball_rooms = {}
+    for ball_object in ball_objects:
+        initial_ball_rooms[ball_object] = rng.integers(num_rooms)
+        init_strs.add(
+            f"({prefix}at {ball_object} room{initial_ball_rooms[ball_object]})"
+        )
+
+    # Always start robby at room0
+    init_strs.add(f"({prefix}at-robby room0)")
+
+    # Create goal str.
+    num_goal_balls = rng.integers(1, num_balls + 1)
+    goal_balls = rng.choice(sorted(list(ball_objects)),
+                            size=num_goal_balls,
+                            replace=False)
+    possible_goal_rooms = list(range(num_rooms))
+    for goal_ball in goal_balls:
+        possible_goal_rooms.remove(initial_ball_rooms[goal_ball])
+        goal_room = rng.choice(possible_goal_rooms)
+        goal_strs.add(f"({prefix}at {goal_ball} room{goal_room})")
+        possible_goal_rooms.append(initial_ball_rooms[goal_ball])
+
+    # Finalize PDDL problem str.
+    all_objects = room_objects | ball_objects | gripper_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem gripper-procgen)
+    (:domain {prefix}gripper)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+    return problem_str
+
+
+################################### Ferry #####################################
+
+
+def create_ferry_pddl_generator(min_locs: int, max_locs: int, min_cars: int,
+                                max_cars: int) -> PDDLProblemGenerator:
+    """Create a generator for ferry problems."""
+    return functools.partial(_generate_ferry_problems, min_locs, max_locs,
+                             min_cars, max_cars)
+
+
+def _generate_ferry_problems(
+    min_locs: int,
+    max_locs: int,
+    min_cars: int,
+    max_cars: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_locs = rng.integers(min_locs, max_locs + 1)
+        num_cars = rng.integers(min_cars, max_cars + 1)
+        problem = _generate_ferry_problem(num_locs, num_cars, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_ferry_problem(
+    num_locs: int,
+    num_cars: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create objects and add typing predicates.
+    loc_objects = []
+    for i in range(num_locs):
+        obj = f"l{i}"
+        loc_objects.append(obj)
+        init_strs.add(f"(location {obj})")
+    car_objects = []
+    for i in range(num_cars):
+        obj = f"c{i}"
+        car_objects.append(obj)
+        init_strs.add(f"(car {obj})")
+
+    # Add not-eq predicates for locations.
+    for loc1 in loc_objects:
+        for loc2 in loc_objects:
+            if loc1 != loc2:
+                init_strs.add(f"(not-eq {loc1} {loc2})")
+
+    # Add empty-ferry predicate.
+    init_strs.add("(empty-ferry)")
+
+    # Create car origins and destinations.
+    for i, car in enumerate(car_objects):
+        car_origin = rng.choice(loc_objects)
+        init_strs.add(f"(at {car} {car_origin})")
+        # Prevent trivial problems by forcing the first origin and dest to
+        # differ.
+        if i == 0:
+            remaining_locs = [l for l in loc_objects if l != car_origin]
+        else:
+            remaining_locs = loc_objects
+        car_dest = rng.choice(remaining_locs)
+        goal_strs.add(f"(at {car} {car_dest})")
+
+    # Create the ferry origin.
+    ferry_origin = rng.choice(loc_objects)
+    init_strs.add(f"(at-ferry {ferry_origin})")
+
+    # Finalize PDDL problem str.
+    all_objects = car_objects + loc_objects
+    objects_str = "\n        ".join(all_objects)
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem ferry-procgen)
+    (:domain ferry)
+    (:objects
+        {objects_str} - object
+    )
+    (:init {init_str})
+    (:goal (and {goal_str}))
+)"""
+
+    return problem_str
+
+
+################################## Miconic ####################################
+
+
+def create_miconic_pddl_generator(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+) -> PDDLProblemGenerator:
+    """Create a generator for miconic problems."""
+    return functools.partial(_generate_miconic_problems, min_num_buildings,
+                             max_num_buildings, min_num_floors, max_num_floors,
+                             min_num_passengers, max_num_passengers)
+
+
+def _generate_miconic_problems(
+    min_num_buildings: int,
+    max_num_buildings: int,
+    min_num_floors: int,
+    max_num_floors: int,
+    min_num_passengers: int,
+    max_num_passengers: int,
+    num_problems: int,
+    rng: np.random.Generator,
+) -> List[str]:
+    problems = []
+    for _ in range(num_problems):
+        num_buildings = rng.integers(min_num_buildings, max_num_buildings + 1)
+        num_floors = rng.integers(min_num_floors, max_num_floors + 1)
+        num_passengers = rng.integers(min_num_passengers,
+                                      max_num_passengers + 1)
+        problem = _generate_miconic_problem(num_buildings, num_floors,
+                                            num_passengers, rng)
+        problems.append(problem)
+    return problems
+
+
+def _generate_miconic_problem(
+    num_buildings: int,
+    num_floors: int,
+    num_passengers: int,
+    rng: np.random.Generator,
+) -> str:
+
+    init_strs = set()
+    goal_strs = set()
+
+    # Create floors and passengers per building.
+    buildings = list(range(num_buildings))
+    building_to_floors: Dict[int, List[str]] = {b: [] for b in buildings}
+    building_to_passengers: Dict[int, List[str]] = {b: [] for b in buildings}
+    for b in buildings:
+        # Create floors.
+        for i in range(num_floors):
+            floor = f"f{i}_b{b}"
+            building_to_floors[b].append(floor)
+        # Create passengers.
+        for i in range(num_passengers):
+            passenger = f"p{i}_b{b}"
+            building_to_passengers[b].append(passenger)
+
+    # Create above atoms.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        for i, below_floor in enumerate(building_floors[:-1]):
+            for above_floor in building_floors[i + 1:]:
+                init_strs.add(f"(above {below_floor} {above_floor})")
+
+    # Create origin and destination atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        free_floors = list(building_to_floors[b])
+        for passenger in building_passengers:
+            # Only allow one passenger origin or destination per floor.
+            origin = rng.choice(free_floors)
+            free_floors.remove(origin)
+            destination = rng.choice(free_floors)
+            init_strs.add(f"(origin {passenger} {origin})")
+            init_strs.add(f"(destin {passenger} {destination})")
+
+    # Create lift origins.
+    for b in buildings:
+        building_floors = building_to_floors[b]
+        lift_origin = rng.choice(building_floors)
+        init_strs.add(f"(lift-at {lift_origin})")
+
+    # Create goal atoms.
+    for b in buildings:
+        building_passengers = building_to_passengers[b]
+        for passenger in building_passengers:
+            goal_strs.add(f"(served {passenger})")
+
+    # Finalize PDDL problem str.
+    all_floors = [f for fs in building_to_floors.values() for f in fs]
+    all_passengers = [p for ps in building_to_passengers.values() for p in ps]
+    floors_str = " ".join(sorted(all_floors))
+    passengers_str = " ".join(sorted(all_passengers))
+    init_str = " ".join(sorted(init_strs))
+    goal_str = " ".join(sorted(goal_strs))
+    problem_str = f"""(define (problem miconic-procgen)
+    (:domain miconic)
+    (:objects
+        {floors_str} - floor
+        {passengers_str} - passenger
     )
     (:init {init_str})
     (:goal (and {goal_str}))

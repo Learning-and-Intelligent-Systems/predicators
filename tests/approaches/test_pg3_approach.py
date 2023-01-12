@@ -8,13 +8,25 @@ from predicators import utils
 from predicators.approaches import ApproachFailure
 from predicators.approaches.pg3_approach import PG3Approach, \
     _AddConditionPG3SearchOperator, _AddRulePG3SearchOperator, \
+    _DeleteConditionPG3SearchOperator, _DeleteRulePG3SearchOperator, \
     _DemoPlanComparisonPG3Heuristic, _PolicyEvaluationPG3Heuristic, \
     _PolicyGuidedPG3Heuristic
 from predicators.approaches.pg4_approach import PG4Approach
 from predicators.datasets import create_dataset
 from predicators.envs import create_new_env
 from predicators.ground_truth_nsrts import get_gt_nsrts
-from predicators.structs import LDLRule, LiftedDecisionList
+from predicators.option_model import _OptionModelBase
+from predicators.structs import LDLRule, LiftedAtom, LiftedDecisionList, \
+    Predicate, Type, Variable
+
+
+class _MockOptionModel(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        return state.copy(), 0
 
 
 @pytest.mark.parametrize("approach_name,approach_cls", [("pg3", PG3Approach),
@@ -37,7 +49,7 @@ def test_pg3_approach(approach_name, approach_cls):
     approach = approach_cls(env.predicates, env.options, env.types,
                             env.action_space, train_tasks)
     assert approach.get_name() == approach_name
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     approach._nsrts = nsrts  # pylint: disable=protected-access
 
@@ -90,6 +102,12 @@ def test_pg3_approach(approach_name, approach_cls):
     act = policy(task.init)
     option = act.get_option()
     assert option.name == "pick-up"
+    # Test case where low-level search fails in PG3.
+    if approach_name == "pg3":
+        approach._option_model = _MockOptionModel(env.simulate)  # pylint: disable=protected-access
+        with pytest.raises(ApproachFailure) as e:
+            approach.solve(task, timeout=500)
+        assert "Low-level search failed" in str(e)
     ldl = LiftedDecisionList([])
     approach._current_ldl = ldl  # pylint: disable=protected-access
     # PG3 alone fails.
@@ -97,6 +115,10 @@ def test_pg3_approach(approach_name, approach_cls):
         with pytest.raises(ApproachFailure) as e:
             approach.solve(task, timeout=500)
         assert "PG3 policy was not applicable!" in str(e)
+        # Test case where PG3 times out during planning.
+        with pytest.raises(ApproachFailure) as e:
+            approach.solve(task, timeout=-1)
+        assert "Timeout exceeded" in str(e)
     # PG4 falls back to sesame, so succeeds.
     else:
         assert approach_name == "pg4"
@@ -162,7 +184,7 @@ def test_pg3_search_operators():
     env_name = "pddl_easy_delivery_procedural_tasks"
     utils.reset_config({"env": env_name})
     env = create_new_env(env_name)
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     pick_up_nsrt = name_to_nsrt["pick-up"]
     preds = env.predicates
@@ -247,6 +269,99 @@ LDLRule-MyPickUp:
     NSRT: pick-up(?paper:paper, ?loc:loc)
 ]"""
 
+    # Test without new vars allowed.
+    utils.reset_config({"pg3_add_condition_allow_new_vars": False})
+    op = _AddConditionPG3SearchOperator(preds, nsrts)
+    succ2_no_fresh = list(op.get_successors(ldl2))
+    assert len(succ2_no_fresh) == 15
+    for ldl in succ2_no_fresh:
+        for rule in ldl.rules:
+            assert set(rule.parameters).issubset(rule.nsrt.parameters)
+
+    # _DeleteConditionPG3SearchOperator
+    op = _DeleteConditionPG3SearchOperator(preds, nsrts)
+
+    # Empty rule should have no successors
+    succ1 = list(op.get_successors(ldl1))
+    assert len(succ1) == 0
+
+    # Should return zero because we don't remove preconditions
+    #   that are also preconditions of nsrt
+    succ2 = list(op.get_successors(ldl2))
+    assert len(succ2) == 0
+
+    # Removing only one condition that is not in nsrt
+    succ3 = list(op.get_successors(ldl2_1))
+    assert len(succ3) == 1
+
+    assert str(succ3[0]) == """LiftedDecisionList[
+LDLRule-MyPickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: []
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    dummy_1 = Predicate("Dummy", [], lambda s, o: True)  # zero arity
+    atom_1 = LiftedAtom(dummy_1, [])
+
+    dummy_2 = Predicate("OtherDummy", [], lambda s, o: True)
+    atom_2 = LiftedAtom(dummy_2, [])
+
+    dummy_type = Type("dummytype", ["a", "b"])
+    dummy_var = Variable("?dv", dummy_type)
+    other_dummy_var = list(pick_up_nsrt.preconditions)[0].variables[0]
+
+    dummy_3 = Predicate("OneMoreDummy", \
+        [dummy_type, other_dummy_var.type], lambda s, o: True)
+    atom_3 = LiftedAtom(dummy_3, [dummy_var, other_dummy_var])
+
+    another_pick_up_rule = LDLRule(
+        name="MyOtherPickUp",
+        parameters=pick_up_nsrt.parameters + [dummy_var],
+        pos_state_preconditions=set(pick_up_nsrt.preconditions).union([atom_1
+                                                                       ]),
+        neg_state_preconditions=set([atom_3]),
+        goal_preconditions=set([atom_2]),
+        nsrt=pick_up_nsrt)
+
+    ldl3 = LiftedDecisionList([another_pick_up_rule])
+
+    succ4 = list(op.get_successors(ldl3))
+    assert len(succ4) == 3
+
+    assert str(succ4[0]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?dv:dummytype, ?loc:loc, ?paper:paper]
+    Pos State Pre: [at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: [OneMoreDummy(?dv:dummytype, ?loc:loc)]
+    Goal Pre: [OtherDummy()]
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    assert str(succ4[1]) == """LiftedDecisionList[
+LDLRule-MyOtherPickUp:
+    Parameters: [?loc:loc, ?paper:paper]
+    Pos State Pre: [Dummy(), at(?loc:loc), ishomebase(?loc:loc), unpacked(?paper:paper)]
+    Neg State Pre: []
+    Goal Pre: [OtherDummy()]
+    NSRT: pick-up(?paper:paper, ?loc:loc)
+]"""
+
+    # _DeleteRulePG3SearchOperator
+    op = _DeleteRulePG3SearchOperator(preds, nsrts)
+
+    # Empty list should have no successors
+    succ1 = list(op.get_successors(ldl1))
+    assert len(succ1) == 0
+
+    # Removing from list with one rule should have 1 empty successor
+    succ2 = list(op.get_successors(ldl2))
+    assert len(succ2) == 1
+    ldl2_succ = next(iter(succ2))
+    assert len(ldl2_succ.rules) == 0
+
 
 def test_pg3_heuristics():
     """Tests for PG3 heuristic classes."""
@@ -264,7 +379,7 @@ def test_pg3_heuristics():
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     name_to_nsrt = {nsrt.name: nsrt for nsrt in nsrts}
     deliver_nsrt = name_to_nsrt["deliver"]
     pick_up_nsrt = name_to_nsrt["pick-up"]

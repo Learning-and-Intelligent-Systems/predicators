@@ -14,13 +14,15 @@ from predicators.envs.coffee import CoffeeEnv
 from predicators.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
     CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions
 from predicators.envs.doors import DoorsEnv
+from predicators.envs.narrow_passage import NarrowPassageEnv
 from predicators.envs.painting import PaintingEnv
 from predicators.envs.pddl_env import FixedTasksBlocksPDDLEnv, \
     ProceduralTasksBlocksPDDLEnv, ProceduralTasksDeliveryPDDLEnv, \
     ProceduralTasksEasyDeliveryPDDLEnv
-from predicators.envs.playroom import PlayroomEnv
-from predicators.envs.repeated_nextto import RepeatedNextToEnv, \
-    RepeatedNextToSingleOptionEnv
+from predicators.envs.playroom import PlayroomEnv, PlayroomSimpleEnv
+from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.envs.repeated_nextto import RepeatedNextToAmbiguousEnv, \
+    RepeatedNextToEnv, RepeatedNextToSingleOptionEnv
 from predicators.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 from predicators.envs.satellites import SatellitesEnv, SatellitesSimpleEnv
 from predicators.envs.screws import ScrewsEnv
@@ -39,9 +41,11 @@ ENV_NAME_AND_CLS = [
     ("cover_multistep_options", CoverMultistepOptions),
     ("cluttered_table", ClutteredTableEnv),
     ("cluttered_table_place", ClutteredTablePlaceEnv), ("blocks", BlocksEnv),
-    ("painting", PaintingEnv), ("tools", ToolsEnv), ("playroom", PlayroomEnv),
+    ("narrow_passage", NarrowPassageEnv), ("painting", PaintingEnv),
+    ("tools", ToolsEnv), ("playroom", PlayroomEnv),
     ("repeated_nextto", RepeatedNextToEnv),
     ("repeated_nextto_single_option", RepeatedNextToSingleOptionEnv),
+    ("repeated_nextto_ambiguous", RepeatedNextToAmbiguousEnv),
     ("satellites", SatellitesEnv), ("satellites_simple", SatellitesSimpleEnv),
     ("screws", ScrewsEnv),
     ("repeated_nextto_painting", RepeatedNextToPaintingEnv),
@@ -51,7 +55,7 @@ ENV_NAME_AND_CLS = [
     ("pddl_easy_delivery_procedural_tasks",
      ProceduralTasksEasyDeliveryPDDLEnv), ("touch_point", TouchPointEnv),
     ("stick_button", StickButtonEnv), ("doors", DoorsEnv),
-    ("coffee", CoffeeEnv)
+    ("coffee", CoffeeEnv), ("pybullet_blocks", PyBulletBlocksEnv)
 ]
 
 # For each environment name in ENV_NAME_AND_CLS, a list of additional
@@ -142,6 +146,10 @@ EXTRA_ARGS_ORACLE_APPROACH["doors"] = [{
     "doors_min_obstacles_per_room": 1,
     "doors_max_obstacles_per_room": 1,
 }]
+EXTRA_ARGS_ORACLE_APPROACH["narrow_passage"] = [{
+    "narrow_passage_passage_width_padding":
+    0.075,
+}]
 EXTRA_ARGS_ORACLE_APPROACH["pddl_delivery_procedural_tasks"] = [
     {
         "pddl_delivery_procedural_train_min_num_locs": 2,
@@ -176,6 +184,32 @@ EXTRA_ARGS_ORACLE_APPROACH["pddl_easy_delivery_procedural_tasks"] = [
         "sesame_use_visited_state_set": True,
     },
 ]
+EXTRA_ARGS_ORACLE_APPROACH["pybullet_blocks"] = [
+    {
+        "pybullet_robot": "panda",
+        "option_model_name": "oracle",
+        "option_model_terminate_on_repeat": False,
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [3],
+    },
+]
+EXTRA_ARGS_ORACLE_APPROACH["blocks"] = [
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [3],
+    },
+    {
+        "num_train_tasks": 1,
+        "num_test_tasks": 1,
+        "blocks_num_blocks_train": [1],
+        "blocks_num_blocks_test": [1],
+        "blocks_holding_goals": True,
+    },
+]
 
 
 def _policy_solves_task(policy, task, simulator):
@@ -203,7 +237,7 @@ def test_oracle_approach(env_name, env_cls):
         if "num_test_tasks" not in args:
             args["num_test_tasks"] = 2
         utils.reset_config(args)
-        env = env_cls()
+        env = env_cls(use_gui=False)
         train_tasks = env.get_train_tasks()
         approach = OracleApproach(env.predicates, env.options, env.types,
                                   env.action_space, train_tasks)
@@ -220,9 +254,8 @@ def test_oracle_approach(env_name, env_cls):
 
 def test_get_gt_nsrts():
     """Test get_gt_nsrts alone."""
-    utils.reset_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
-        get_gt_nsrts(set(), set())
+        get_gt_nsrts("not a real environment", set(), set())
 
 
 @pytest.mark.parametrize("env_name,env_cls", ENV_NAME_AND_CLS)
@@ -233,8 +266,8 @@ def test_nsrt_parameters(env_name, env_cls):
         "num_train_tasks": 2,
         "num_test_tasks": 2
     })
-    env = env_cls()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    env = env_cls(use_gui=False)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     for nsrt in nsrts:
         effects_vars: Set[Variable] = set()
         precond_vars: Set[Variable] = set()
@@ -264,7 +297,7 @@ def test_cover_get_gt_nsrts():
     })
     # All predicates and options
     env = CoverEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
@@ -285,10 +318,10 @@ def test_cover_get_gt_nsrts():
     place_action = place_option.policy(state)
     assert env.action_space.contains(place_action.arr)
     # Excluded option
-    assert get_gt_nsrts(env.predicates, set()) == set()
+    assert get_gt_nsrts(env.get_name(), env.predicates, set()) == set()
     # Excluded predicate
     predicates = {p for p in env.predicates if p.name != "Holding"}
-    nsrts = get_gt_nsrts(predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     for atom in pick_nsrt.preconditions:
@@ -319,7 +352,7 @@ def test_cluttered_table_get_gt_nsrts(place_version):
             "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     assert len(nsrts) == 2
     if not place_version:
         dump_nsrt, grasp_nsrt = sorted(nsrts, key=lambda o: o.name)
@@ -404,7 +437,7 @@ def test_repeated_nextto_painting_get_gt_nsrts():
     robby = [obj for obj in list(init) if obj.name == "robby"][0]
     rng = np.random.default_rng(123)
     # Test PlaceOnTable
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
     assert len(ptables) == 1
     ptable = ptables[0]
@@ -422,6 +455,35 @@ def test_repeated_nextto_painting_get_gt_nsrts():
         RepeatedNextToPaintingEnv.shelf_ub
 
 
+def test_playroom_simple_get_gt_nsrts():
+    """Tests for the ground truth NSRTs in PlayroomSimpleEnv."""
+    utils.reset_config({
+        "env": "playroom_simple",
+        "num_train_tasks": 1,
+        "num_test_tasks": 1
+    })
+    env = PlayroomSimpleEnv()
+    # Test MoveTableToDial for coverage.
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
+    movetabletodial = [nsrt for nsrt in nsrts \
+                       if nsrt.name == "MoveTableToDial"][0]
+    train_tasks = env.get_train_tasks()
+    train_task = train_tasks[0]
+    state = train_task.init
+    objs = list(state)
+    robot, dial = objs[-1], objs[-2]
+    assert robot.name == "robby"
+    assert dial.name == "dial"
+    movetabletodial_nsrt = movetabletodial.ground([robot, dial])
+    rng = np.random.default_rng(123)
+    movetodial_option = movetabletodial_nsrt.sample_option(
+        state, train_task.goal, rng)
+    movetodial_action = movetodial_option.policy(state)
+    assert env.action_space.contains(movetodial_action.arr)
+    assert np.all(movetodial_action.arr == np.array([125, 15, 1, 0, 1],
+                                                    dtype=np.float32))
+
+
 def test_playroom_get_gt_nsrts():
     """Tests for the ground truth NSRTs in PlayroomEnv."""
     utils.reset_config({
@@ -431,7 +493,7 @@ def test_playroom_get_gt_nsrts():
     })
     env = PlayroomEnv()
     # Test MoveDialToDoor for coverage.
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.get_name(), env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
     train_tasks = env.get_train_tasks()

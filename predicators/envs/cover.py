@@ -25,10 +25,11 @@ class CoverEnv(BaseEnv):
     _initial_pick_offsets: ClassVar[List[float]] = []  # see CoverEnvRegrasp
 
     _workspace_x: ClassVar[float] = 1.35
-    _workspace_z: ClassVar[float] = 0.75
+    _workspace_z: ClassVar[float] = 0.65
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Types
         self._block_type = Type(
             "block", ["is_block", "is_target", "width", "pose", "grasp"])
@@ -85,6 +86,9 @@ class CoverEnv(BaseEnv):
         if held_block is None and above_block is not None:
             grasp = pose - state.get(above_block, "pose")
             next_state.set(self._robot, "hand", pose)
+            if "hand_empty" in self._robot_type.feature_names:
+                # See CoverEnvHandEmpty
+                next_state.set(self._robot, "hand_empty", 0)
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block.
@@ -106,6 +110,9 @@ class CoverEnv(BaseEnv):
                     state.get(targ, "pose")+state.get(targ, "width")/2
                     for targ in targets):
                 next_state.set(self._robot, "hand", pose)
+                if "hand_empty" in self._robot_type.feature_names:
+                    # See CoverEnvHandEmpty
+                    next_state.set(self._robot, "hand_empty", 1)
                 next_state.set(held_block, "pose", new_pose)
                 next_state.set(held_block, "grasp", -1)
         return next_state
@@ -283,10 +290,15 @@ class CoverEnv(BaseEnv):
                     break
             # [is_block, is_target, width, pose]
             data[target] = np.array([0.0, 1.0, width, pose])
-        # [hand, pose_x, pose_z]
         # For the non-PyBullet environments, pose_x and pose_z are constant.
-        data[self._robot] = np.array(
-            [0.5, self._workspace_x, self._workspace_z])
+        if "hand_empty" in self._robot_type.feature_names:
+            # [hand, pose_x, pose_z, hand_empty]
+            data[self._robot] = np.array(
+                [0.5, self._workspace_x, self._workspace_z, 1])
+        else:
+            # [hand, pose_x, pose_z]
+            data[self._robot] = np.array(
+                [0.5, self._workspace_x, self._workspace_z])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
@@ -299,6 +311,9 @@ class CoverEnv(BaseEnv):
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
             state.set(self._robot, "hand", pick_pose)
+            if "hand_empty" in self._robot_type.feature_names:
+                # See CoverEnvHandEmpty
+                state.set(self._robot, "hand_empty", 0)
             state.set(block, "grasp", pick_pose - block_pose)
         return state
 
@@ -363,14 +378,46 @@ class CoverEnv(BaseEnv):
         return False
 
 
+class CoverEnvHandEmpty(CoverEnv):
+    """Toy cover domain where the robot has a feature indicating whether its
+    hand is empty or not.
+
+    This allows us to learn all the predicates (Cover, Holding,
+    HandEmpty) with the assumption that the predicates are a function of
+    only their argument's states.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Add attribute.
+        self._robot_type = Type("robot",
+                                ["hand", "pose_x", "pose_z", "hand_empty"])
+        # Override HandEmpty predicate.
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
+        # Create new robot because of new robot type
+        self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_handempty"
+
+    def _HandEmpty_holds(self, state: State,
+                         objects: Sequence[Object]) -> bool:
+        robot, = objects
+        return state.get(robot, "hand_empty") == 1
+
+
 class CoverEnvTypedOptions(CoverEnv):
     """Toy cover domain with options that have object arguments.
 
     This means we need two options (one for block, one for target).
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         del self._PickPlace
         self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
             "Pick",
@@ -405,8 +452,9 @@ class CoverEnvTypedOptions(CoverEnv):
 class CoverEnvHierarchicalTypes(CoverEnv):
     """Toy cover domain with hierarchical types, just for testing."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Change blocks to be of a derived type
         self._parent_block_type = self._block_type
         self._block_type = Type(
@@ -444,8 +492,9 @@ class CoverEnvRegrasp(CoverEnv):
     _allow_free_space_placing: ClassVar[bool] = True
     _initial_pick_offsets: ClassVar[List[float]] = [-0.95, 0.0, 0.95]
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Add a Clear predicate to prevent attempts at placing on already
         # covered targets.
         self._Clear = Predicate("Clear", [self._target_type],
@@ -508,8 +557,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     grip_ub: ClassVar[float] = 1.0
     snap_tol: ClassVar[float] = 1e-2
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
         # Need to now include y and gripper info in state.
         # Removing "pose" because that's ambiguous.
         # Also adding height to blocks.

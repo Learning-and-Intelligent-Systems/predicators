@@ -16,6 +16,7 @@ from predicators.pybullet_helpers.motion_planning import run_motion_planning
 from predicators.pybullet_helpers.robots import \
     create_single_arm_pybullet_robot
 from predicators.pybullet_helpers.robots.fetch import FetchPyBulletRobot
+from predicators.pybullet_helpers.robots.panda import PandaPyBulletRobot
 from predicators.settings import CFG
 
 
@@ -32,9 +33,10 @@ def _setup_pybullet_test_scene():
 
     p.resetSimulation(physicsClientId=physics_client_id)
 
-    fetch_id = p.loadURDF(utils.get_env_asset_path("urdf/robots/fetch.urdf"),
-                          useFixedBase=True,
-                          physicsClientId=physics_client_id)
+    fetch_id = p.loadURDF(
+        utils.get_env_asset_path("urdf/fetch_description/robots/fetch.urdf"),
+        useFixedBase=True,
+        physicsClientId=physics_client_id)
     scene["fetch_id"] = fetch_id
 
     base_pose = [0.75, 0.7441, 0.0]
@@ -167,6 +169,12 @@ def test_fetch_pybullet_robot(physics_client_id):
     base_pose = Pose((0.75, 0.7441, 0.0))
     robot = FetchPyBulletRobot(ee_home_pose, ee_orn, physics_client_id,
                                base_pose)
+    assert robot.get_name() == "fetch"
+    assert robot.arm_joint_names == [
+        'shoulder_pan_joint', 'shoulder_lift_joint', 'upperarm_roll_joint',
+        'elbow_flex_joint', 'forearm_roll_joint', 'wrist_flex_joint',
+        'wrist_roll_joint', 'l_gripper_finger_joint', 'r_gripper_finger_joint'
+    ]
     assert np.allclose(robot.action_space.low, robot.joint_lower_limits)
     assert np.allclose(robot.action_space.high, robot.joint_upper_limits)
     # The robot arm is 7 DOF and the left and right fingers are appended last.
@@ -214,33 +222,37 @@ def test_fetch_pybullet_robot(physics_client_id):
     fk_result = robot.forward_kinematics(action_arr)
     assert np.allclose(fk_result, ee_target, atol=1e-2)
 
+    # Check link_from_name
+    assert robot.link_from_name("gripper_link")
+    with pytest.raises(ValueError):
+        robot.link_from_name("non_existent_link")
+
 
 def test_create_single_arm_pybullet_robot(physics_client_id):
     """Tests for create_single_arm_pybullet_robot()."""
     physics_client_id = p.connect(p.DIRECT)
-    ee_home_pose = (1.35, 0.75, 0.75)
-    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
 
     # Fetch
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             physics_client_id)
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id)
     assert isinstance(robot, FetchPyBulletRobot)
     assert robot.tool_link_name == "gripper_link"
 
+    # Panda
+    robot = create_single_arm_pybullet_robot("panda", physics_client_id)
+    assert isinstance(robot, PandaPyBulletRobot)
+
     # Unknown robot
     with pytest.raises(NotImplementedError) as e:
-        create_single_arm_pybullet_robot("not a real robot", ee_home_pose,
-                                         ee_orn, physics_client_id)
+        create_single_arm_pybullet_robot("not a real robot", physics_client_id)
     assert "Unrecognized robot name" in str(e)
 
 
 def test_run_motion_planning(physics_client_id):
     """Tests for run_motion_planning()."""
     ee_home_pose = (1.35, 0.75, 0.75)
-    ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
     seed = 123
-    robot = create_single_arm_pybullet_robot("fetch", ee_home_pose, ee_orn,
-                                             physics_client_id)
+    robot = create_single_arm_pybullet_robot("fetch", physics_client_id,
+                                             ee_home_pose)
     robot_init_state = tuple(ee_home_pose) + (robot.open_fingers, )
     robot.reset_state(robot_init_state)
     joint_initial = robot.get_joints()

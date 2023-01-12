@@ -4,7 +4,9 @@ import numpy as np
 
 from predicators.envs.pddl_procedural_generation import \
     create_blocks_pddl_generator, create_delivery_pddl_generator, \
-    create_forest_pddl_generator, create_spanner_pddl_generator
+    create_ferry_pddl_generator, create_forest_pddl_generator, \
+    create_gripper_pddl_generator, create_miconic_pddl_generator, \
+    create_spanner_pddl_generator
 
 
 def _split_pddl_problem_str(problem_str):
@@ -153,3 +155,91 @@ def test_create_forest_pddl_generator():
         assert init_str.count("at ") == 1
         # The goal should have exactly one at.
         assert goal_str.count("at ") == 1
+
+
+def test_create_gripper_pddl_generator():
+    """Tests for create_gripper_pddl_generator()."""
+    prefix = "pre"
+    gen = create_gripper_pddl_generator(min_num_rooms=5,
+                                        max_num_rooms=5,
+                                        min_num_balls=3,
+                                        max_num_balls=3,
+                                        prefix=prefix)
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+
+        # There should be exactly 5 rooms.
+        for room_id in range(5):
+            assert f"room{room_id}" in obj_str
+        # There should be exactly 3 rooms.
+        for ball_id in range(3):
+            assert f"ball{ball_id}" in obj_str
+        # There should be exactly 2 grippers.
+        for gripper_id in range(2):
+            assert f"ball{gripper_id}" in obj_str
+
+        assert "- ball" not in obj_str
+        assert " - object" in obj_str
+        # One at in init.
+        assert init_str.count(f"{prefix}at-robby") == 1
+        # The goal should have at least one at.
+        assert goal_str.count(f"{prefix}at") >= 1
+
+
+def test_create_ferry_pddl_generator():
+    """Tests for create_ferry_pddl_generator()."""
+    gen = create_ferry_pddl_generator(min_locs=5,
+                                      max_locs=5,
+                                      min_cars=3,
+                                      max_cars=3)
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+
+        # There should be exactly 5 locations.
+        for loc_id in range(5):
+            assert f"l{loc_id}" in obj_str
+        # There should be exactly 3 cars.
+        for car_id in range(3):
+            assert f"c{car_id}" in obj_str
+
+        assert " - object" in obj_str
+        # One at in init.
+        assert init_str.count("at-ferry") == 1
+        # The goal should have at least one at.
+        assert goal_str.count("at") >= 1
+
+
+def test_create_miconic_pddl_generator():
+    """Tests for create_miconic_pddl_generator()."""
+    gen = create_miconic_pddl_generator(
+        min_num_buildings=2,
+        max_num_buildings=2,
+        min_num_floors=4,
+        max_num_floors=4,
+        min_num_passengers=2,
+        max_num_passengers=2,
+    )
+    rng = np.random.default_rng(123)
+    problem_strs = gen(2, rng)
+    for problem_str in problem_strs:
+        obj_str, init_str, goal_str = _split_pddl_problem_str(problem_str)
+
+        # There should be exactly 4 floors per building.
+        for b in range(2):
+            for f in range(4):
+                assert f"f{f}_b{b}" in obj_str
+        # There should be exactly 2 passengers per building.
+        for b in range(2):
+            for p in range(2):
+                assert f"p{p}_b{b}" in obj_str
+
+        assert " - passenger" in obj_str
+        assert " - floor" in obj_str
+        # One lift location per building in init.
+        assert init_str.count("lift-at") == 2
+        # The goal should have all passengers served.
+        assert goal_str.count("served") == 4

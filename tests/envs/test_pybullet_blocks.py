@@ -1,12 +1,17 @@
 """Test cases for PyBulletBlocksEnv."""
 
+import json
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import pytest
+from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.settings import CFG
-from predicators.structs import Object, State
+from predicators.structs import Object, ParameterizedOption, State
 
 _GUI_ON = False  # toggle for debugging
 
@@ -17,6 +22,11 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
     def block_type(self):
         """Expose the block type."""
         return self._block_type
+
+    @property
+    def block_size(self):
+        """Expose the block size."""
+        return self._block_size
 
     @property
     def robot(self):
@@ -74,16 +84,18 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._current_state.copy()
 
 
-@pytest.fixture(scope="module", name="env")
-def _create_exposed_pybullet_blocks_env():
+@pytest.fixture(scope="module", name="env", params=("fetch", "panda"))
+def _create_exposed_pybullet_blocks_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
         "env": "pybullet_blocks",
-        "pybullet_use_gui": _GUI_ON,
+        "use_gui": _GUI_ON,
         # We run this test using the RESET control mode.
         "pybullet_control_mode": "reset",
+        # Which robot we're using
+        "pybullet_robot": request.param,
     })
-    return _ExposedPyBulletBlocksEnv()
+    return _ExposedPyBulletBlocksEnv(use_gui=_GUI_ON)
 
 
 def _get_predicates_by_names(env, names):
@@ -99,6 +111,7 @@ def _get_predicates_by_names(env, names):
 def test_pybullet_blocks_reset(env):
     """Tests for PyBulletBlocksEnv.reset()."""
     for idx, task in enumerate(env.get_train_tasks()):
+        assert isinstance(task.init, utils.PyBulletState)
         state = env.reset("train", idx)
         assert state.allclose(task.init)
     for idx, task in enumerate(env.get_test_tasks()):
@@ -112,16 +125,23 @@ def test_pybullet_blocks_reset(env):
     with pytest.raises(ValueError) as e:
         env.set_state(state)
     assert "Could not reconstruct state." in str(e)
-    # Simulate and render state should be not implemented.
+    # Render state should not work.
     action = env.action_space.sample()
-    with pytest.raises(NotImplementedError):
-        env.simulate(state, action)
     task = env.get_train_tasks()[0]
     with pytest.raises(NotImplementedError):
         env.render_state(state, task, action)
     with pytest.raises(NotImplementedError) as e:
         env.render_state_plt(state, task, action)
     assert "This env does not use Matplotlib" in str(e)
+    # Test reset_state in the case where a block is held.
+    state = env.get_state()
+    assert state.get(block, "held") < 0.5
+    option = env.Pick.ground([env.robot, block], [])
+    held_state = env.execute_option(option)
+    env.set_state(state)
+    env.set_state(held_state)
+    recovered_state = env.get_state()
+    assert recovered_state.get(block, "held") > 0.5
 
 
 def test_pybullet_blocks_picking(env):
@@ -136,7 +156,7 @@ def test_pybullet_blocks_picking(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     env.set_state(init_state)
     recovered_state = env.get_state()
@@ -162,7 +182,7 @@ def test_pybullet_blocks_picking_corners(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     corners = [
         (env.x_lb, env.y_lb),
@@ -200,8 +220,8 @@ def test_pybullet_blocks_stacking(env):
     # Create a state with two blocks.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block0: np.array([bx0, by0, bz0, 0.0]),
-        block1: np.array([bx0, by1, bz0, 0.0]),
+        block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0, 0.0, 1.0, 0.0]),
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
@@ -247,9 +267,11 @@ def test_pybullet_blocks_stacking_corners(env):
     for (bx, by) in corners:
         state = State({
             robot: np.array([rx, ry, rz, rf]),
-            block0: np.array([bx0, by0, bz0, 0.0]),
-            **{b: np.array([bx, by, bz, 0.0])
-               for b, bz in block_to_z.items()}
+            block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+            **{
+                b: np.array([bx, by, bz, 0.0, 0.0, 1.0, 0.0])
+                for b, bz in block_to_z.items()
+            }
         })
         env.set_state(state)
         assert env.get_state().allclose(state)
@@ -279,7 +301,7 @@ def test_pybullet_blocks_putontable(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
@@ -299,6 +321,27 @@ def test_pybullet_blocks_putontable(env):
     # Specifically, it should be at the center of the workspace.
     assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
+    # Test that when we attempt to put the block outside the workspace, an
+    # OptionExecutionFailure is raised. This is for the panda only because
+    # the fetch uses pybullet IK, which is not even smart enough to realize its
+    # own ineptitude.
+    if CFG.pybullet_robot == "panda":
+        env.set_state(init_state)
+        option = env.Pick.ground([robot, block], [])
+        state = env.execute_option(option)
+        # Make a copy of the PutOnTable option with larger params space because
+        # the other option's param space doesn't allow out-of-bounds puts.
+        PutOnTable_unrestricted = ParameterizedOption(
+            "PutOnTable_unrestricted",
+            types=env.PutOnTable.types,
+            params_space=Box(-np.inf, np.inf, (2, ), dtype=np.float32),
+            policy=env.PutOnTable.policy,
+            initiable=env.PutOnTable.initiable,
+            terminal=env.PutOnTable.terminal)
+        option = PutOnTable_unrestricted.ground([robot], [25.0, 25.0])
+        with pytest.raises(utils.OptionExecutionFailure) as e:
+            state = env.execute_option(option)
+        assert "Inverse kinematics failed" in str(e)
 
 
 def test_pybullet_blocks_putontable_corners(env):
@@ -314,7 +357,7 @@ def test_pybullet_blocks_putontable_corners(env):
     # Create a simple custom state with one block for testing.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by, bz, 0.0]),
+        block: np.array([bx, by, bz, 0.0, 1.0, 0.0, 0.0]),
     })
     corners = [
         (env.x_lb, env.y_lb),
@@ -370,9 +413,11 @@ def test_pybullet_blocks_close_pick_place(env):
     }
     state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block: np.array([bx, by0, bz0, 0.0]),
-        **{b: np.array([bx, by, bz, 0.0])
-           for b, bz in block_to_z.items()}
+        block: np.array([bx, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        **{
+            b: np.array([bx, by, bz, 0.0, 0.0, 1.0, 0.0])
+            for b, bz in block_to_z.items()
+        }
     })
     env.set_state(state)
     assert env.get_state().allclose(state)
@@ -420,8 +465,8 @@ def test_pybullet_blocks_abstract_states(env):
     # Create a state with two blocks on the table.
     state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block0: np.array([bx0, by0, bz0, 0.0]),
-        block1: np.array([bx0, by1, bz0, 0.0]),
+        block0: np.array([bx0, by0, bz0, 0.0, 1.0, 0.0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0, 0.0, 1.0, 0.0]),
     })
     env.set_state(state)
     assert env.get_state().allclose(state)
@@ -472,3 +517,51 @@ def test_pybullet_blocks_abstract_states(env):
         Clear([block1]),
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
+
+
+def test_pybullet_blocks_load_task_from_json():
+    """Tests for loading blocks test tasks from a JSON file."""
+    # Set up the JSON file.
+    task_spec = {
+        "problem_name": "blocks_test_problem1",
+        "blocks": {
+            "red_block": {
+                "position": [1.36409716, 1.0389289, 0.2225],
+                "color": [1, 0, 0]
+            },
+            "green_block": {
+                "position": [1.36409716, 1.0389289, 0.2675],
+                "color": [0, 1, 0]
+            },
+            "blue_block": {
+                "position": [1.35479861, 0.91064759, 0.2225],
+                "color": [0, 0, 1]
+            }
+        },
+        "block_size": 0.045,
+        "goal": {
+            "On": [["red_block", "green_block"], ["green_block",
+                                                  "blue_block"]],
+            "OnTable": [["blue_block"]]
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as json_dir:
+        json_file = Path(json_dir) / "example_task1.json"
+        with open(json_file, "w", encoding="utf-8") as f:
+            json.dump(task_spec, f)
+
+        utils.reset_config({
+            "env": "blocks",
+            "num_test_tasks": 1,
+            "blocks_test_task_json_dir": json_dir
+        })
+
+        env = PyBulletBlocksEnv(use_gui=False)
+        test_tasks = env.get_test_tasks()
+
+    assert len(test_tasks) == 1
+    task = test_tasks[0]
+
+    # Other tests are in the parent class.
+    assert len(task.init.simulator_state) > 0
