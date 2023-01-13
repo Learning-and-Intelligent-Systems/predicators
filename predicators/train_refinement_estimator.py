@@ -59,7 +59,12 @@ def train_refinement_estimation_approach() -> None:
     script_start = time.perf_counter()
 
     # Parse & validate args
-    args = utils.parse_args()
+    parser = utils.create_arg_parser()
+    # Add script-specific flags to the parser
+    parser.add_argument("--refinement_data_file_name", default="", type=str)
+    parser.add_argument("--skip_refinement_estimator_training",
+                        action="store_true")
+    args = utils.parse_args_with_parser(parser)
     utils.update_config(args)
     str_args = " ".join(sys.argv)
 

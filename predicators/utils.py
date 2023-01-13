@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 import time
+from argparse import ArgumentParser
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -2673,6 +2674,11 @@ def parse_args(env_required: bool = True,
     parser = create_arg_parser(env_required=env_required,
                                approach_required=approach_required,
                                seed_required=seed_required)
+    return parse_args_with_parser(parser)
+
+
+def parse_args_with_parser(parser: ArgumentParser) -> Dict[str, Any]:
+    """Helper function for parse_args that accepts a parser argument."""
     args, overrides = parser.parse_known_args()
     arg_dict = vars(args)
     if len(overrides) == 0:
