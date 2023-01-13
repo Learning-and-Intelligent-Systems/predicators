@@ -650,7 +650,7 @@ def create_ground_atom_dataset_behavior(
             if not use_last_state or first_state:
                 next_atoms = utils.abstract(s,
                                             predicates,
-                                            skip_allclose_check=False)
+                                            skip_allclose_check=True)
                 first_state = False
             else:
                 # Get atoms from last abstract state and state change
