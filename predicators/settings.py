@@ -128,6 +128,8 @@ class GlobalSettings:
     behavior_option_model_eval = False
     behavior_option_model_rrt = False
     behavior_override_learned_samplers = False
+    # if this is True, then we will not use discovered failures in behavior.
+    behavior_ignore_discover_failures = True
     create_training_dataset = False
     simulate_nav = False
 

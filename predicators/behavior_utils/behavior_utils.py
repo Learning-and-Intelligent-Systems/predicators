@@ -1,5 +1,6 @@
 """Utility functions for using iGibson and BEHAVIOR."""
 
+import logging
 import os
 from typing import List, Optional, Sequence, Tuple, Union
 
@@ -540,6 +541,60 @@ def sample_place_inside_params(obj_to_place_inside: "URDFObject",
                         objB_sampling_bounds[2] + 0.15)
         ])
         return sample_params
+    # If there's no object specific sampler, just return a
+    # random sample.
+    return np.array([
+        rng.uniform(-0.5, 0.5),
+        rng.uniform(-0.5, 0.5),
+        rng.uniform(0.3, 1.0)
+    ])
+
+
+MAX_PLACEONTOP_SAMPLES = 25
+
+
+def sample_place_ontop_params(igibson_behavior_env: "BehaviorEnv",
+                              obj_to_place_ontop: "URDFObject",
+                              rng: np.random.Generator) -> Array:
+    """Main logic for place ontop param sampler.
+
+    Implemented in a separate method to enable code reuse in
+    option_model_fns.
+    """
+    # If sampling fails, fall back onto custom-defined object-specific
+    # samplers
+    if obj_to_place_ontop.category == "shelf":
+        # Get the current env for collision checking.
+        obj_to_place_ontop_sampling_bounds = obj_to_place_ontop.bounding_box / 2
+        sample_params = np.array([
+            rng.uniform(-obj_to_place_ontop_sampling_bounds[0],
+                        obj_to_place_ontop_sampling_bounds[0]),
+            rng.uniform(-obj_to_place_ontop_sampling_bounds[1],
+                        obj_to_place_ontop_sampling_bounds[1]),
+            rng.uniform(-obj_to_place_ontop_sampling_bounds[2] + 0.3,
+                        obj_to_place_ontop_sampling_bounds[2]) + 0.3
+        ])
+        logging.info("Sampling params for placeOnTop shelf...")
+        num_samples_tried = 0
+        while not check_hand_end_pose(igibson_behavior_env, obj_to_place_ontop,
+                                      sample_params):
+            sample_params = np.array([
+                rng.uniform(-obj_to_place_ontop_sampling_bounds[0],
+                            obj_to_place_ontop_sampling_bounds[0]),
+                rng.uniform(-obj_to_place_ontop_sampling_bounds[1],
+                            obj_to_place_ontop_sampling_bounds[1]),
+                rng.uniform(-obj_to_place_ontop_sampling_bounds[2] + 0.3,
+                            obj_to_place_ontop_sampling_bounds[2]) + 0.3
+            ])
+            # NOTE: In many situations, it is impossible to find a
+            # good sample no matter how many times we try. Thus, we
+            # break this loop after a certain number of tries so the
+            # planner will backtrack.
+            if num_samples_tried > MAX_PLACEONTOP_SAMPLES:
+                break
+            num_samples_tried += 1
+        return sample_params
+
     # If there's no object specific sampler, just return a
     # random sample.
     return np.array([

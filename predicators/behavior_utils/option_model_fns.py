@@ -11,7 +11,7 @@ from numpy.random import RandomState
 from predicators import utils
 from predicators.behavior_utils.behavior_utils import \
     ALL_RELEVANT_OBJECT_TYPES, sample_navigation_params, \
-    sample_place_inside_params
+    sample_place_inside_params, sample_place_ontop_params
 from predicators.settings import CFG
 from predicators.structs import Object, State, Type
 
@@ -159,7 +159,8 @@ def create_grasp_option_model(
 
 def create_place_option_model(
         plan: List[List[float]], _original_orientation: List[List[float]],
-        obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
+        obj_to_place_onto: "URDFObject"
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given a plan,
     which is a list of 6-element lists containing a series of (x, y, z, roll,
     pitch, yaw) waypoints for the hand to pass through."""
@@ -174,14 +175,30 @@ def create_place_option_model(
         rh_orig_grasp_position = env.robots[0].parts[
             "right_hand"].get_position()
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
-        target_pos = plan[-1][0:3]
-        target_orn = plan[-1][3:6]
+        # If we're not overriding the learned samplers, then we will directly
+        # use the elements of `plan`, which in turn use the outputs of the
+        # learned samplers. Otherwise, we will ignore these and use our
+        # oracle sampler to give us values to use.
+        if not CFG.behavior_override_learned_samplers:
+            target_pos = plan[-1][0:3]
+            target_orn = plan[-1][3:6]
+        else:
+            rng = np.random.default_rng(prng.randint(10000))
+            sample_arr = sample_place_ontop_params(env, obj_to_place_onto, rng)
+            target_pos = np.add(sample_arr, \
+                obj_to_place_onto.get_position()).tolist()
+            target_orn = [0, np.pi * 7 / 6, 0]
+            logging.info(f"PRIMITIVE: Overriding sample ({plan[-1][0:3]}" +
+                         "and attempting to " +
+                         f"place ontop {obj_to_place_onto.name} with "
+                         f"params {target_pos}")
+
         env.robots[0].parts["right_hand"].set_position_orientation(
             target_pos, p.getQuaternionFromEuler(target_orn))
         env.robots[0].parts["right_hand"].force_release_obj()
         obj_in_hand.set_position_orientation(
             target_pos, p.getQuaternionFromEuler(target_orn))
-        obj_to_place.force_wakeup()
+        obj_to_place_onto.force_wakeup()
         # this is running a zero action to step simulator
         env.step(np.zeros(env.action_space.shape))
         # reset the released object to zero velocity so it doesn't
@@ -205,7 +222,7 @@ def create_place_option_model(
             adjacency = obj.states[VerticalAdjacency].get_value()
             if obj_in_hand.get_body_id() in adjacency.positive_neighbors:
                 if "floor" not in obj.category:
-                    if obj != obj_to_place:
+                    if obj != obj_to_place_onto:
                         type_name = obj.category
                         _type_name_to_type: Dict[str, Type] = {}
                         for type_name in ALL_RELEVANT_OBJECT_TYPES:
@@ -245,8 +262,9 @@ def create_place_option_model(
                         else:
                             continue
         if len(objs_under) != 0:
-            raise utils.EnvironmentFailure("collision",
-                                           {"offending_objects": objs_under})
+            if not CFG.behavior_ignore_discover_failures:
+                raise utils.EnvironmentFailure(
+                    "collision", {"offending_objects": objs_under})
 
     return placeOntopObjectOptionModel
 
