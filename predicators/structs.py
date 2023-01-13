@@ -237,7 +237,10 @@ class Predicate:
         """The arity of this predicate (number of arguments)."""
         return len(self.types)
 
-    def holds(self, state: State, objects: Sequence[Object]) -> bool:
+    def holds(self,
+              state: State,
+              objects: Sequence[Object],
+              skip_allclose_check: bool = False) -> bool:
         """Public method for calling the classifier.
 
         Performs type checking first.
@@ -246,7 +249,15 @@ class Predicate:
         for obj, pred_type in zip(objects, self.types):
             assert isinstance(obj, Object)
             assert obj.is_instance(pred_type)
-        return self._classifier(state, objects)
+        if CFG.env != "behavior":
+            return self._classifier(state, objects)
+        # Note: This line skips the allclose check for Behavior when
+        # grounding inserts. We need to ignore typing here because
+        # the classfiers have an extra parameter for skipping allclose.
+        return self._classifier(  # pragma: no cover
+            state,
+            objects,
+            skip_allclose_check=skip_allclose_check)  # type:ignore
 
     def __str__(self) -> str:
         return self.name
