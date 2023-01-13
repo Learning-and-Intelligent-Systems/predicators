@@ -233,10 +233,15 @@ def create_place_option_model(
                             obj_name = "agent"
                         # This checks if our obj type is in _type_name_to_type
                         # which has all relevant objects. If not, it continues
-                        # and does not add the obj as an offedning_object.
+                        # and does not add the obj as an offending_object.
                         if type_name in _type_name_to_type:
                             obj_type = _type_name_to_type[type_name]
-                            objs_under.add(Object(obj_name, obj_type))
+                            try:
+                                objs_under.add(Object(obj_name, obj_type))
+                            except:  # pylint: disable=bare-except
+                                print("INVALID OBJECT TYPE:", obj_name,
+                                      obj_type)
+                                continue
                         else:
                             continue
         if len(objs_under) != 0:

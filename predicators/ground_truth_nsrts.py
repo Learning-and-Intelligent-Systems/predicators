@@ -3004,7 +3004,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     rng.uniform(-objB_sampling_bounds[1],
                                 objB_sampling_bounds[1]),
                     rng.uniform(-objB_sampling_bounds[2] + 0.3,
-                                objB_sampling_bounds[1]) + 0.3
+                                objB_sampling_bounds[2]) + 0.3
                 ])
                 logging.info("Sampling params for placeOnTop shelf...")
                 num_samples_tried = 0
@@ -3016,7 +3016,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                         rng.uniform(-objB_sampling_bounds[1],
                                     objB_sampling_bounds[1]),
                         rng.uniform(-objB_sampling_bounds[2] + 0.3,
-                                    objB_sampling_bounds[1]) + 0.3
+                                    objB_sampling_bounds[2]) + 0.3
                     ])
                     # NOTE: In many situations, it is impossible to find a
                     # good sample no matter how many times we try. Thus, we
