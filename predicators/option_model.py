@@ -146,9 +146,16 @@ class _BehaviorOptionModel(_OptionModelBase):
                     env.current_ig_state_to_state(
                         save_state=False,
                         use_test_scene=env.task_instance_id >= 10)):
-                load_checkpoint_state(state, env, reset=True)
+                # Since GNN approaches call the option model a large
+                # number of times during eval, setting reset to True
+                # actually causes the pybullet physics sim inside
+                # iGibson to freak out and crash with an error.
+                if CFG.approach == "gnn_option_policy":
+                    reset = False
+                else:
+                    reset = True
+                load_checkpoint_state(state, env, reset=reset)
         option.memory["model_controller"](state, env.igibson_behavior_env)
-        # next_state = env.current_ig_state_to_state()
         next_state = env.current_ig_state_to_state(
             use_test_scene=env.task_instance_id >= 10)
         plan, _ = option.memory["planner_result"]
