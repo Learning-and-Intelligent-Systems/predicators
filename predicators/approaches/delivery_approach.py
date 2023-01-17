@@ -7,6 +7,8 @@ Example command line:
 
 from typing import Callable, cast
 
+import ipdb
+
 import numpy as np
 
 from predicators.approaches import BaseApproach
@@ -28,11 +30,14 @@ class DeliverySpecificApproach(BaseApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
         def _policy(state: State) -> Action:
-            # Extract the predicators and options from the state.
             options = {o.name: o for o in self._initial_options}
+
             predicates = {p.name: p for p in self._initial_predicates}
+
             types = {t.name: t for t in self._types}
+
             state = cast(_PDDLEnvState, state)
+
             ground_atoms = state.get_ground_atoms()
             locations = state.get_objects(types["loc"])
             papers = state.get_objects(types["paper"])
@@ -41,6 +46,9 @@ class DeliverySpecificApproach(BaseApproach):
             is_home_base = predicates["ishomebase"]
             unpacked = predicates["unpacked"]
             carrying = predicates["carrying"]
+            safe = predicates["safe"]
+            satisfied = predicates["satisfied"]
+
             for loc in locations:
                 if GroundAtom(at, [loc]) in ground_atoms:
                     if GroundAtom(is_home_base, [loc]) in ground_atoms:
@@ -54,6 +62,32 @@ class DeliverySpecificApproach(BaseApproach):
                                     object_args, params)
                                 assert ground_option.initiable(state)
                                 return ground_option.policy(state)
-            raise NotImplementedError("Finish me!")
+            
+            for loc in locations:
+                if GroundAtom(at, [loc]) in ground_atoms and GroundAtom(wants_paper, [loc]) in ground_atoms:
+                    for paper in papers:
+                        if GroundAtom(carrying, [paper]) in ground_atoms:
+                            deliver = options["deliver"]
+                            selected_option = deliver
+                            object_args = [paper, loc]
+                            params = np.zeros(0, dtype=np.float32)
+                            ground_option = selected_option.ground(
+                                    object_args, params)
+                            assert ground_option.initiable(state)
+                            return ground_option.policy(state)
+
+            for loc in locations:
+                if GroundAtom(at, [loc]) in ground_atoms:          
+                    if GroundAtom(safe, [loc]) in ground_atoms:
+                        for new_loc in locations:
+                            if GroundAtom(wants_paper, [new_loc]) in ground_atoms:
+                                move = options["move"]
+                                selected_option = move
+                                object_args = [loc, new_loc]
+                                params = np.zeros(0, dtype=np.float32)
+                                ground_option = selected_option.ground(
+                                            object_args, params)
+                                assert ground_option.initiable(state)
+                                return ground_option.policy(state)
 
         return _policy

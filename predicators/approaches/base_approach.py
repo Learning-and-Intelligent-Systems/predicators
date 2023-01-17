@@ -62,6 +62,7 @@ class BaseApproach(abc.ABC):
         def _policy(state: State) -> Action:
             assert isinstance(state, State)
             act = pi(state)
+
             assert self._action_space.contains(act.arr)
             return act
 
