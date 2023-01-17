@@ -12,14 +12,14 @@ ALL_ENVS=(
     # "repeated_nextto_painting"
     # "screws"
     # "painting"
-    "satellites"
-    # "satellites_simple"
+    # "satellites"
+    "satellites_simple"
 )
 NUM_DEMOS=(
     # 5
-    10
-    # 25
-    # 50
+    # 10
+    25
+    50
 )
 
 for ENV in ${ALL_ENVS[@]}; do
