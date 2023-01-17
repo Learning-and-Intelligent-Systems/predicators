@@ -7,8 +7,6 @@ Example command line:
 
 from typing import Callable, cast
 
-import ipdb
-
 import numpy as np
 
 from predicators.approaches import BaseApproach
@@ -62,9 +60,10 @@ class DeliverySpecificApproach(BaseApproach):
                                     object_args, params)
                                 assert ground_option.initiable(state)
                                 return ground_option.policy(state)
-            
+
             for loc in locations:
-                if GroundAtom(at, [loc]) in ground_atoms and GroundAtom(wants_paper, [loc]) in ground_atoms:
+                if GroundAtom(at, [loc]) in ground_atoms and GroundAtom(
+                        wants_paper, [loc]) in ground_atoms:
                     for paper in papers:
                         if GroundAtom(carrying, [paper]) in ground_atoms:
                             deliver = options["deliver"]
@@ -72,22 +71,25 @@ class DeliverySpecificApproach(BaseApproach):
                             object_args = [paper, loc]
                             params = np.zeros(0, dtype=np.float32)
                             ground_option = selected_option.ground(
-                                    object_args, params)
+                                object_args, params)
                             assert ground_option.initiable(state)
                             return ground_option.policy(state)
 
             for loc in locations:
-                if GroundAtom(at, [loc]) in ground_atoms:          
+                if GroundAtom(at, [loc]) in ground_atoms:
                     if GroundAtom(safe, [loc]) in ground_atoms:
                         for new_loc in locations:
-                            if GroundAtom(wants_paper, [new_loc]) in ground_atoms:
+                            if GroundAtom(wants_paper,
+                                          [new_loc]) in ground_atoms:
                                 move = options["move"]
                                 selected_option = move
                                 object_args = [loc, new_loc]
                                 params = np.zeros(0, dtype=np.float32)
                                 ground_option = selected_option.ground(
-                                            object_args, params)
+                                    object_args, params)
                                 assert ground_option.initiable(state)
                                 return ground_option.policy(state)
+
+            raise NotImplementedError("No action possible")
 
         return _policy
