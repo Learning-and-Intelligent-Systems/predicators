@@ -62,16 +62,15 @@ APPROACHES:
       predicate_mlp_classifier_n_reinitialize_tries: 5
       predicate_mlp_classifier_init: "normal"
 ENVS:
-  # cover:
-  #   NAME: "cover_handempty"
-  #   FLAGS:
-  #     excluded_predicates: "Covers,Holding,HandEmpty"
-  #     max_num_steps_interaction_request: 3
-  blocks:
-    NAME: "blocks"
+  cover:
+    NAME: "cover_handempty"
     FLAGS:
-      # exclude all but Clear
-      excluded_predicates: "On,OnTable,GripperOpen,Holding"
+      excluded_predicates: "Covers,Holding,HandEmpty"
+      max_num_steps_interaction_request: 3
+  blocks:
+    NAME: "blocks_clear"
+    FLAGS:
+      excluded_predicates: "On,OnTable,GripperOpen,Holding,Clear"
       max_num_steps_interaction_request: 20
 ARGS: {}
 FLAGS:  # common args
