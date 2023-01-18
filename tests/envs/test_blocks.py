@@ -9,7 +9,7 @@ import numpy as np
 
 import predicators.envs.blocks
 from predicators import utils
-from predicators.envs.blocks import BlocksEnv
+from predicators.envs.blocks import BlocksEnv, BlocksEnvClear
 
 _MODULE_PATH = predicators.envs.blocks.__name__
 
@@ -129,6 +129,24 @@ def test_blocks_failure_cases():
     act = Stack.ground([robot, block0], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
+
+
+def test_blocks_clear():
+    """Tests for BlocksEnvClear class."""
+    utils.reset_config({"env": "blocks_clear"})
+    env = BlocksEnvClear()
+    block_type = [t for t in env.types if t.name == "block"][0]
+    assert "clear" in block_type.feature_names
+    task = env.get_train_tasks()[0]
+    state = task.init
+    print("state:", state)
+    robot = None
+    for item in state:
+        if item.type != block_type:
+            robot = item
+            continue
+        assert not (state.get(item, "held") and env._Clear_holds(item, state))  # pylint: disable=protected-access
+    assert robot is not None
 
 
 def test_blocks_load_task_from_json():

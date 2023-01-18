@@ -356,8 +356,15 @@ class BlocksEnv(BaseEnv):
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self._block_size * (0.5 + pile_j)
             r, g, b = rng.uniform(size=3)
-            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
-            data[block] = np.array([x, y, z, 0.0, r, g, b])
+            if "clear" in self._block_type.feature_names:
+                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
+                # clear]
+                # Block is clear iff it is at the top of a pile
+                clear = pile_j == len(piles[pile_i]) - 1
+                data[block] = np.array([x, y, z, 0.0, r, g, b, clear])
+            else:
+                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+                data[block] = np.array([x, y, z, 0.0, r, g, b])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
@@ -601,11 +608,12 @@ class BlocksEnv(BaseEnv):
 
 
 class BlocksEnvClear(BlocksEnv):
-    """Blocks domain where each block has a feature indicating whether it
-    is clear or not.
+    """Blocks domain where each block has a feature indicating whether it is
+    clear or not.
 
-    This allows us to learn all the predicates in BlocksEnv with the assumption
-    that the predicates are a function of only their argument's states.
+    This allows us to learn all the predicates in BlocksEnv with the
+    assumption that the predicates are a function of only their
+    argument's states.
     """
 
     def __init__(self, use_gui: bool = True) -> None:
@@ -639,43 +647,10 @@ class BlocksEnvClear(BlocksEnv):
             "Stack",
             self._Stack_policy,
             types=[self._robot_type, self._block_type])
-    
+
     @classmethod
     def get_name(cls) -> str:
         return "blocks_clear"
-    
-    def _sample_state_from_piles(self, piles: List[List[Object]],
-                                 rng: np.random.Generator) -> State:
-        """Creates block states with the additional `clear` attribute."""
-        data: Dict[Object, Array] = {}
-        # Create objects
-        block_to_pile_idx = {}
-        for i, pile in enumerate(piles):
-            for j, block in enumerate(pile):
-                assert block not in block_to_pile_idx
-                block_to_pile_idx[block] = (i, j)
-        # Sample pile (x, y)s
-        pile_to_xy: Dict[int, Tuple[float, float]] = {}
-        for i in range(len(piles)):
-            pile_to_xy[i] = self._sample_initial_pile_xy(
-                rng, set(pile_to_xy.values()))
-        # Create block states
-        for block, pile_idx in block_to_pile_idx.items():
-            pile_i, pile_j = pile_idx
-            x, y = pile_to_xy[pile_i]
-            z = self.table_height + self._block_size * (0.5 + pile_j)
-            r, g, b = rng.uniform(size=3)
-            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b, clear]
-            # Block is clear iff it is at the top of a pile
-            clear = pile_j == len(piles[pile_i]) - 1
-            data[block] = np.array([x, y, z, 0.0, r, g, b, clear])
-        # [pose_x, pose_y, pose_z, fingers]
-        # Note: the robot poses are not used in this environment (they are
-        # constant), but they change and get used in the PyBullet subclass.
-        rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
-        rf = 1.0  # fingers start out open
-        data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
-        return State(data)
 
     def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
