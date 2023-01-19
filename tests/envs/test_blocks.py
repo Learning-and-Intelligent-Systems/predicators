@@ -135,18 +135,15 @@ def test_blocks_clear():
     """Tests for BlocksEnvClear class."""
     utils.reset_config({"env": "blocks_clear"})
     env = BlocksEnvClear()
+    clear = env._block_is_clear  # pylint: disable=protected-access
     block_type = [t for t in env.types if t.name == "block"][0]
     assert "clear" in block_type.feature_names
     task = env.get_train_tasks()[0]
     state = task.init
-    print("state:", state)
-    robot = None
-    for item in state:
-        if item.type != block_type:
-            robot = item
-            continue
-        assert not (state.get(item, "held") and env._Clear_holds(item, state))  # pylint: disable=protected-access
-    assert robot is not None
+    block0 = list(state)[0]
+    block1 = list(state)[1]
+    assert clear(block0, state)
+    assert not clear(block1, state)
 
 
 def test_blocks_load_task_from_json():
