@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
+from scipy.special import logsumexp
+import torch
 from gym.spaces import Box
 
 from predicators.approaches.bilevel_planning_approach import \
@@ -37,6 +39,8 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                                    self._initial_options)
         self._online_learning_cycle = 0
         self._horizon = CFG.sampler_horizon
+        self._gamma = 0.999
+        self._reward_scale = CFG.sql_reward_scale
 
     @classmethod
     def get_name(cls) -> str:
@@ -56,8 +60,7 @@ class SamplerLearningApproach(BilevelPlanningApproach):
         else:
             self._gaussians = []
             self._classifiers = []
-        self._X_replay = []
-        self._Y_replay = []
+        self._replay = []
         for nsrt in self._nsrts:
             if CFG.use_ebm:
                 if CFG.use_full_state:
@@ -104,8 +107,7 @@ class SamplerLearningApproach(BilevelPlanningApproach):
                                   nsrt.ignore_effects, nsrt.option, 
                                   nsrt.option_vars, new_sampler))
 
-            self._X_replay.append([])
-            self._Y_replay.append([])
+            self._replay.append(([], [], [], [], [], []))   # states_replay, actions_replay, rewards_replay, next_states_replay, next_ground_nsrts_replay, terminals_replay
 
         self._nsrts = new_nsrts
 
@@ -200,132 +202,121 @@ class SamplerLearningApproach(BilevelPlanningApproach):
         return self._rng.choice(len(self._train_tasks),
                                 size=CFG.interactive_num_requests_per_cycle)
 
+    def _featurize_state(self, state, ground_nsrt, skeleton):
+        x = state.vec(ground_nsrt.objects)
+        if CFG.use_full_state:
+            # The full state is represented as the image observation of the env
+            img = env.render_state(state, None)[0][:,:,:3].mean(axis=2).reshape(-1)
+            x = np.r_[img, x]
+        if CFG.use_skeleton_state:
+            # The skeleton representation is a series of self._horizon one-hot vectors
+            # indicating which action is executed, plus a series of self._horizon * num_actions
+            # vectors, where the chosen action per step contains the object features of the 
+            # operator objects, while the other actions contain all-zeros
+            nsrt_names = [nsrt.name for nsrt in self._nsrts]
+            num_nsrts = len(self._nsrts)
+            skeleton_rep = np.zeros(0)
+            for t in range(self._horizon):
+                one_hot = np.zeros(num_nsrts)
+                if t < len(skeleton):
+                    one_hot[nsrt_names.index(skeleton[t].name)] = 1
+                nsrt_object_rep = np.zeros(0)
+                for nsrt_tmp in self._nsrts:
+                    if t < len(skeleton) and nsrt_tmp.name == skeleton[t].name:
+                        rep = state.vec(skeleton[t].objects)
+                        assert state.vec(skeleton[t].objects).shape[0] == sum(obj.type.dim for obj in nsrt_tmp.parameters), f'{state.vec(skeleton[t_prime].objects).shape[0]}, {sum(obj.type.dim for obj in nsrt_tmp.parameters)}, {nsrt_tmp.name}, {skeleton[t_prime].objects}, {nsrt_tmp.parameters}'
+                    else:
+                        rep = np.zeros(sum(obj.type.dim for obj in nsrt_tmp.parameters))
+                    nsrt_object_rep = np.r_[nsrt_object_rep, rep]
+                skeleton_rep = np.r_[skeleton_rep, one_hot, nsrt_object_rep]
+            x = np.r_[x, skeleton_rep]
+        return x
+
+    # TD-learning (SQL)
     def _update_samplers(self, trajectories: List[LowLevelTrajectory], annotations_list: List[Any], skeletons: List[Any]) -> None:
         """Learns the sampler in a self-supervised fashion."""
         logging.info("\nUpdating the samplers...")
         if self._online_learning_cycle == 0:
             self._initialize_ebm_samplers()
 
-
         env = get_or_create_env(CFG.env)
-        nsrt_names = [nsrt.name for nsrt in self._nsrts]
-        num_nsrts = len(self._nsrts)
 
-        if CFG.use_ebm:
-            loop_generator = zip(self._ebms, self._nsrts, self._X_replay, self._Y_replay)
-        else:
-            loop_generator = zip(self._gaussians, self._classifiers, self._nsrts, self._X_replay, self._Y_replay)
+        for ebm, nsrt, replay in zip(self._ebms, self._nsrts, self._replay):
+            states = []
+            actions = []
+            rewards = []
+            next_states = []
+            next_ground_nsrts = []
+            terminals = []
 
-        for loop_variables in loop_generator:
-            if CFG.use_ebm:
-                ebm, nsrt, X_replay, Y_replay = loop_variables
-            else:
-                gaussian, classifier, nsrt, X_replay, Y_replay = loop_variables
-
-            X = []
-            Y = []
-            X_replay_new = []
-            Y_replay_new = []
             for traj, annotations, skeleton in zip(trajectories, annotations_list, skeletons):
-                for t, (state, action, annotation, ground_nsrt) in enumerate(zip(traj.states, traj.actions, annotations, skeleton)):
+                for t, (state, action, annotation, ground_nsrt, next_state, next_ground_nsrt) in enumerate(zip(traj.states[:-1], traj.actions, annotations, skeleton, traj.states[1:], (skeleton[1:] + [None]))):
                     # Assume there's a single sampler per option
                     option = action.get_option()
                     if nsrt.option.name == option.name:
-                        x = state.vec(ground_nsrt.objects)
+                        x = self._featurize_state(state, ground_nsrt, skeleton[t + 1:])
                         a = option.params
-                        if CFG.use_full_state:
-                            # The full state is represented as the image observation of the env
-                            img = env.render_state(state, None)[0][:,:,:3].mean(axis=2).reshape(-1)
-                            x = np.r_[img, x]
-                        if CFG.use_skeleton_state:
-                            # The skeleton representation is a series of self._horizon one-hot vectors
-                            # indicating which action is executed, plus a series of self._horizon * num_actions
-                            # vectors, where the chosen action per step contains the object features of the 
-                            # operator objects, while the other actions contain all-zeros
-                            skeleton_rep = np.zeros(0)
-                            for t_prime in range(t+1, t+self._horizon):
-                                one_hot = np.zeros(num_nsrts)
-                                if t_prime < len(skeleton):
-                                    one_hot[nsrt_names.index(skeleton[t_prime].name)] = 1
-                                nsrt_object_rep = np.zeros(0)
-                                for nsrt_tmp in self._nsrts:
-                                    if t_prime < len(skeleton) and nsrt_tmp.name == skeleton[t_prime].name:
-                                        rep = state.vec(skeleton[t_prime].objects)
-                                        assert state.vec(skeleton[t_prime].objects).shape[0] == sum(obj.type.dim for obj in nsrt_tmp.parameters), f'{state.vec(skeleton[t_prime].objects).shape[0]}, {sum(obj.type.dim for obj in nsrt_tmp.parameters)}, {nsrt_tmp.name}, {skeleton[t_prime].objects}, {nsrt_tmp.parameters}'
-                                    else:
-                                        rep = np.zeros(sum(obj.type.dim for obj in nsrt_tmp.parameters))
-                                    nsrt_object_rep = np.r_[nsrt_object_rep, rep]
-                                skeleton_rep = np.r_[skeleton_rep, one_hot, nsrt_object_rep]
-                            x = np.r_[x, skeleton_rep]
+                        if next_ground_nsrt is not None:
+                            next_x = self._featurize_state(next_state, next_ground_nsrt, skeleton[t + 2:])
+                        else:
+                            next_x = np.empty(0)
                         
-                        assert len(X) == 0 or np.r_[x, a].shape == X[-1].shape, f'{np.r_[x,a].shape}, {X[-1].shape}'
-                        X.append(np.r_[x, a])
-                        r = annotations[t + min(len(traj.actions) - t - 1, self._horizon - 1)]
-                        Y.append(r)
+                        states.append(x)
+                        actions.append(a)
+                        rewards.append(annotations[t] * self._reward_scale)
+                        next_states.append(next_x)
+                        next_ground_nsrts.append(next_ground_nsrt)
+                        terminals.append(next_ground_nsrt is None or not annotations[t])
 
-                        if not annotation:
-                            # Store only single-step failed actions, because those are always on-policy
-                            X_replay_new.append(np.r_[x, a])
-                            Y_replay_new.append(annotation)
-            if len(X) > 0 and 0 < sum(Y + Y_replay) < len(Y + Y_replay):
-                X_arr = np.array(X + X_replay)
-                Y_arr = np.array(Y + Y_replay)
-                print(X_arr.shape, Y_arr.shape)
-                print('Training data success for', nsrt.name, ':', Y_arr.mean())
-                if CFG.use_ebm:
-                    ebm.fit(X_arr, Y_arr)
-                else:
-                    gaussian.fit(X_arr[Y_arr == 1, :x.shape[0]], X_arr[Y_arr == 1, x.shape[0]:])
-                    classifier.fit(X_arr, Y_arr)
+            states_replay, actions_replay, rewards_replay, next_states_replay, next_ground_nsrts_replay, terminals_replay = replay
+            states_replay += states
+            actions_replay += actions
+            rewards_replay += rewards
+            next_states_replay += next_states
+            next_ground_nsrts_replay += next_ground_nsrts
+            terminals_replay += terminals
 
-                # norm_X = (X_arr - ebm._input_shift) / ebm._input_scale
+            if len(states_replay) > 0:
+                ebm_target = ebm    # TODO: this should be a copy and done iteratively, but for now it'll do
+                states_arr = np.array(states_replay)
+                actions_arr = np.array(actions_replay)
+                rewards_arr = np.array(rewards_replay, dtype=np.float32)
+                next_states_arr = np.array(next_states_replay)
+                terminals_arr = np.array(terminals_replay)
 
-                # import torch
-                # Y_hat = ebm(torch.tensor(norm_X.astype(np.float32)).to(ebm._device)).detach().cpu().numpy()
-                # print('accuracy: ', (Y_arr == (Y_hat >= 0)).mean())
-                # import matplotlib
-                # matplotlib.use('TkAgg')
-                # import matplotlib.pyplot as plt
-                # plt.scatter(X_arr[Y_arr == 0, -2], X_arr[Y_arr == 0, -1], c='r')
-                # plt.scatter(X_arr[Y_arr == 1, -2], X_arr[Y_arr == 1, -1], c='b')
-                # plt.figure()
-                # plt.scatter(X_arr[Y_hat < 0, -2], X_arr[Y_hat < 0, -1], c='r')
-                # plt.scatter(X_arr[Y_hat >= 0, -2], X_arr[Y_hat >= 0, -1], c='b')
+                if len(rewards) > 0:
+                    print(nsrt.name, 'success rate:', sum(rewards)/len(rewards)/self._reward_scale)
+                assert terminals_arr[rewards_arr == 0].all(), 'all r=0 should be terminal {}'.format(terminals_arr[rewards_arr == 0])
 
-                # samples = []
-                # cnt = 0
-                # for x in X_arr[::10]:
-                #     samples.append(ebm.predict_sample(x[:-2], self._rng))
-                #     cnt += 1
-                #     # if cnt == 100:
-                #     #     break
-                # samples = np.array(samples)
-                # plt.scatter(samples[:, 0], samples[:, 1], c='green', alpha=0.3)
+                next_v = np.zeros(states_arr.shape[0])
+                for nsrt_tmp, ebm_tmp in zip(self._nsrts, self._ebms):
+                    nsrt_mask = np.zeros(states_arr.shape[0], dtype=np.bool)
+                    for i, gt_nsrt in enumerate(next_ground_nsrts_replay):
+                        if gt_nsrt is not None and gt_nsrt.name == nsrt_tmp.name:
+                            nsrt_mask[i] = True
+                    if nsrt_mask.sum() > 0:
+                        next_states_rep = np.stack(next_states_arr[nsrt_mask], axis=0).repeat(10, axis=0)
+                        next_actions_arr = np.stack([nsrt_tmp.option.params_space.sample() for _ in range(10 * nsrt_mask.sum())], axis=0)
+                        next_x = np.c_[next_states_rep, next_actions_arr]
+                        if ebm_tmp._x_dim == -1:
+                            next_q = np.zeros(next_x.shape[0])
+                        else:
+                            with torch.no_grad():
+                                next_q = ebm_tmp.predict_probas(next_x)
 
-                # norm_samples = (samples - ebm._input_shift[-2:]) / ebm._input_scale[-2:]
-                # new_X = np.c_[norm_X[::10, :-2], norm_samples]
-                # new_Yhat = ebm(torch.tensor(new_X.astype(np.float32)).to(ebm._device)).detach().cpu().numpy()
-                # print('sample positive %:', (new_Yhat >= 0).mean())
+                        # log ( mean ( exp (q) ) ) = log ( sum ( exp (q) ) / len (q) ) =
+                        # = log ( sum ( exp (q) ) ) - log ( len (q) )
+                        next_v[nsrt_mask] = logsumexp(next_q.reshape(10, -1), axis=0) - np.log(10)
 
-                # plt.show()
-                # exit()
-            else:
-                print('No data or success for', nsrt.name, ':', len(X), sum(Y))
-            replay_capacity = 1000
-            if len(X_replay) + len(X_replay_new) < replay_capacity:
-                X_replay += X_replay_new
-                Y_replay += Y_replay_new
-            elif len(X_replay_new) < replay_capacity:
-                num_keep_old = replay_capacity - len(X_replay_new)
-                X_replay += X_replay_new
-                Y_replay += Y_replay_new
-                del X_replay[:-num_keep_old]
-                del Y_replay[:-num_keep_old]
-            else:
-                X_replay += X_replay_new
-                Y_replay += Y_replay_new
-                del X_replay[:-len(X_replay_new)]
-                del Y_replay[:-len(Y_replay_new)]
+                target = rewards_arr + self._gamma * next_v * (1 - terminals_arr)
+                target = np.clip(target, None, 1.0)
+                x = np.c_[states_arr, actions_arr]
+                print('max r:', rewards_arr.max())
+                print('max v:', next_v.max())
+                print('max target:', target.max())
+                if (target > 0).any():
+                    with torch.autograd.set_detect_anomaly(True):
+                        ebm.fit(x, target)
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:

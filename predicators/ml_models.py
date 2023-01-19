@@ -919,6 +919,7 @@ class BinaryClassifierEnsemble(BinaryClassifier):
         return np.array([m.predict_proba(x) for m in self._members])
 
 ############################# Energy-based models #############################
+'''
 class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
     """A wrapper around a binary classifier that uses Langevin dynamics
     to generate samples using the classifier as an energy function."""
@@ -960,8 +961,9 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         samples = samples.squeeze().detach().to('cpu').numpy()
         samples = samples * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
         return samples
-
 '''
+
+# '''
 class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
     """A wrapper around a binary classifier that uses Langevin dynamics
     to generate samples using the classifier as an energy function."""
@@ -988,6 +990,21 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
             tensor_X = F.relu(linear(tensor_X))
         tensor_X = self._linears[-1](tensor_X)
         return tensor_X.squeeze(dim=-1)
+    
+    def predict_probas(self, X: Array) -> float:
+        """Get the predicted probability that the input classifies to 1.
+
+        The input is NOT normalized.
+        """
+        norm_X = (X - self._input_shift) / self._input_scale
+
+        assert X.shape[-1] == self._x_dim
+        tensor_X = torch.from_numpy(np.array(X, dtype=np.float32)).to(self._device)
+        tensor_Y = torch.sigmoid(self(tensor_X))
+        Y = tensor_Y.detach().to('cpu').numpy()
+        assert (0 <= Y).all() and  (Y <= 1).all()
+        return Y
+
 
     def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
         """Assume that x contains the conditioning variables and that these
@@ -1023,8 +1040,7 @@ class BinaryEBM(MLPBinaryClassifier, DistributionRegressor):
         self._cached_sample_idx += 1
         sample = sample * self._input_scale[cond_dim:] + self._input_shift[cond_dim:]
         return sample
-
-'''
+# '''
 
 class BinaryCNNEBM(BinaryEBM):
 
