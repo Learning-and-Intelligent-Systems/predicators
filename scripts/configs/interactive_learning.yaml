@@ -63,13 +63,19 @@ APPROACHES:
       predicate_mlp_classifier_init: "normal"
 ENVS:
   cover:
-    NAME: "cover"
+    NAME: "cover_handempty"
+    FLAGS:
+      excluded_predicates: "Covers,Holding,HandEmpty"
+      max_num_steps_interaction_request: 3
+  blocks:
+    NAME: "blocks_clear"
+    FLAGS:
+      excluded_predicates: "On,OnTable,GripperOpen,Holding,Clear"
+      max_num_steps_interaction_request: 20
 ARGS: {}
 FLAGS:  # common args
-  excluded_predicates: "Covers,Holding"
   num_online_learning_cycles: 100  # way too many cycles
   online_learning_max_transitions: 1000  # want this to be stop signal
-  max_num_steps_interaction_request: 3
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
