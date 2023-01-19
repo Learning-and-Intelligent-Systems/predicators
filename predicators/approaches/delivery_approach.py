@@ -27,7 +27,7 @@ class DeliverySpecificApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
-        def _policy(state: State) -> Action: # pragma: no cover
+        def _policy(state: State) -> Action:  # pragma: no cover
             options = {o.name: o for o in self._initial_options}
 
             predicates = {p.name: p for p in self._initial_predicates}
