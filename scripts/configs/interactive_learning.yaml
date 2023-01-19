@@ -79,5 +79,7 @@ FLAGS:  # common args
   min_data_for_nsrt: 10
   sampler_disable_classifier: True
   mlp_classifier_balance_data: False
+  # glib explorer may babble the same goal over and over again
+  online_learning_max_novelty_count: inf
 START_SEED: 123
 NUM_SEEDS: 10
