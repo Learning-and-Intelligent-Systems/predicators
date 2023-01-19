@@ -960,6 +960,8 @@ def _sesame_plan_with_fast_downward(
     # default name, which will cause issues if you run multiple
     # processes simultaneously.
     sas_file = tempfile.NamedTemporaryFile(delete=False).name
+    # Similarly for the plan file
+    plan_file = tempfile.NamedTemporaryFile(delete=False).name
     # Run Fast Downward followed by cleanup. Capture the output.
     timeout_cmd = "gtimeout" if sys.platform == "darwin" else "timeout"
     if optimal:
@@ -972,12 +974,12 @@ def _sesame_plan_with_fast_downward(
     exec_str = os.path.join(fd_exec_path, "fast-downward.py")
     # Run to generate sas
     cmd_str = (f"{timeout_cmd} {timeout} {exec_str} {alias_flag} "
-               f"--sas-file {sas_file} {dom_file} {prob_file}")
+               f"--sas-file {sas_file} --plan-file {plan_file} {dom_file} {prob_file}")
     output = subprocess.getoutput(cmd_str)
     partial_refinements = []
     while True:
         cmd_str = (
-            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} {sas_file}")
+            f"{timeout_cmd} {timeout} {exec_str} {alias_flag} --plan-file {plan_file} {sas_file}")
         output = subprocess.getoutput(cmd_str)
         cleanup_cmd_str = f"{exec_str} --cleanup"
         subprocess.getoutput(cleanup_cmd_str)
@@ -987,8 +989,8 @@ def _sesame_plan_with_fast_downward(
         metrics: Metrics = defaultdict(float)
         num_nodes_expanded = re.findall(r"Expanded (\d+) state", output)
         num_nodes_created = re.findall(r"Evaluated (\d+) state", output)
-        assert len(num_nodes_expanded) == 1
-        assert len(num_nodes_created) == 1
+        assert len(num_nodes_expanded) == 1, output
+        assert len(num_nodes_created) == 1, output
         metrics["num_nodes_expanded"] = float(num_nodes_expanded[0])
         metrics["num_nodes_created"] = float(num_nodes_created[0])
         # Extract the skeleton from the output and compute the atoms_sequence.
