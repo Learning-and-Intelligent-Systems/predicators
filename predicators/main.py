@@ -313,7 +313,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 max_num_steps=CFG.horizon,
                 monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-
             exec_time = execution_metrics["policy_call_time"]
             metrics[f"PER_TASK_task{test_task_idx}_exec_time"] = exec_time
             # Save the successful trajectory, e.g., for playback on a robot.
