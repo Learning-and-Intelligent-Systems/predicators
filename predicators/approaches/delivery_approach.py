@@ -22,10 +22,11 @@ class DeliverySpecificApproach(BaseApproach):
         return "delivery_policy"
 
     @property
-    def is_learning_based(self) -> bool:
+    def is_learning_based(self) -> bool:  # pragma: no cover
         return False
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+    def _solve(self, task: Task,
+               timeout: int) -> Callable[[State], Action]:  # pragma: no cover
 
         def _policy(state: State) -> Action:  # pragma: no cover
             options = {o.name: o for o in self._initial_options}
