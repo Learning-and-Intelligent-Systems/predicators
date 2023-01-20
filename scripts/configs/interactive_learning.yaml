@@ -62,11 +62,11 @@ APPROACHES:
       predicate_mlp_classifier_n_reinitialize_tries: 5
       predicate_mlp_classifier_init: "normal"
 ENVS:
-  cover:
-    NAME: "cover_handempty"
-    FLAGS:
-      excluded_predicates: "Covers,Holding,HandEmpty"
-      max_num_steps_interaction_request: 3
+  # cover:
+  #   NAME: "cover_handempty"
+  #   FLAGS:
+  #     excluded_predicates: "Covers,Holding,HandEmpty"
+  #     max_num_steps_interaction_request: 3
   blocks:
     NAME: "blocks_clear"
     FLAGS:
