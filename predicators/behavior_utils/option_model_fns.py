@@ -116,12 +116,16 @@ def create_grasp_option_model(
             "right_hand"].get_position()
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
 
-        # 1 Teleport Hand to Grasp offset location
+        # 1 Teleport Hand to Grasp offset location.
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_final_grasp_postion,
             p.getQuaternionFromEuler(rh_final_grasp_orn))
 
-        # 3. Close hand and simulate grasp
+        # 1.1 step the environment a few timesteps to update location.
+        for _ in range(3):
+            env.step(np.zeros(env.action_space.shape))
+
+        # 2. Close hand and simulate grasp.
         a = np.zeros(env.action_space.shape, dtype=float)
         a[16] = 1.0
         assisted_grasp_action = np.zeros(28, dtype=float)
@@ -130,21 +134,22 @@ def create_grasp_option_model(
             grasp_obj_body_id = obj_to_grasp.body_id[0]
         else:
             grasp_obj_body_id = obj_to_grasp.body_id
-        # 3.1 Call code that does assisted grasping
+        # 2.1 Call code that does assisted grasping
         # bypass_force_check is basically a hack we should
         # turn it off for the final system and use a real grasp
-        # sampler
+        # sampler.
         if env.robots[0].parts["right_hand"].object_in_hand is None:
             env.robots[0].parts["right_hand"].trigger_fraction = 0
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
             assisted_grasp_action,
             override_ag_data=(grasp_obj_body_id, -1),
-            bypass_force_check=True)
-        # 3.2 step the environment a few timesteps to complete grasp
+            bypass_force_check=False #True
+            )
+        # 2.2 step the environment a few timesteps to complete grasp
         for _ in range(5):
             env.step(a)
 
-        # 4 Move Hand to Original Location
+        # 3 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_position, rh_orig_grasp_orn)
         if env.robots[0].parts["right_hand"].object_in_hand is not None:
