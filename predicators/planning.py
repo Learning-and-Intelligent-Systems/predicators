@@ -1003,7 +1003,7 @@ def _sesame_plan_with_fast_downward(
     potentially add effects to null operators, but this ability is not
     implemented here.
     """
-    init_atoms = utils.abstract(task.init, predicates)
+    init_atoms = utils.abstract(task.init, predicates, skip_allclose_check=True)
     objects = list(task.init)
     start_time = time.perf_counter()
     # Create the domain and problem strings, then write them to tempfiles.
