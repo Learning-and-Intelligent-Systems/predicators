@@ -48,8 +48,16 @@ COLUMN_NAMES_AND_KEYS = [
     # ("QUERY_COST", "query_cost"),
 ]
 
-DERIVED_KEYS = [("percentage_solved", lambda d:
-                 (d["num_solved"] / d["num_test_tasks"]) * 100)]
+
+def _compute_percentage_tasks_solved(d: pd.DataFrame) -> pd.DataFrame:
+    try:
+        ret_df = (d["num_solved"] / d["num_test_tasks"]) * 100
+    except ZeroDivisionError:
+        ret_df = d["num_solved"] * float('inf')
+    return ret_df
+
+
+DERIVED_KEYS = [("percentage_solved", _compute_percentage_tasks_solved)]
 
 
 def pd_create_equal_selector(

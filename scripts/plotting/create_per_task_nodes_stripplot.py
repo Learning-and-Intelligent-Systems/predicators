@@ -25,28 +25,38 @@ approaches = [
 # Mapping from approach names to names we actually want to use
 # in the plot.
 approach_rename = {
-    "cluster_and_intersect_sideline_prederror": "Prediction Error",
+    "cluster_and_intersect_sideline_prederror": "CI + QE",
     "pnad_search": "Ours",
-    "cluster_and_intersect": "Cluster and Intersect",
+    "cluster_and_intersect": "CI",
     "cluster_and_search": "LOFT"
 }
 # Names of envs we want to plot.
+behavior_envs = [
+    "collecting_aluminum_cans", "sorting_books", "locking_every_window",
+    "opening_presents"
+]
 envs = [
     "repeated_nextto_single_option", "repeated_nextto_painting", "painting",
     "satellites", "satellites_simple", "screws"
-]
+] + behavior_envs
 env_rename = {
-    "repeated_nextto_single_option": "Repeated NextTo",
-    "repeated_nextto_painting": "RNT Painting",
+    "repeated_nextto_single_option": "Cluttered 1D",
+    "repeated_nextto_painting": "Cluttered Painting",
     "painting": "Painting",
     "satellites": "Satellites",
     "satellites_simple": "Satellites Simple",
-    "screws": "Screws"
+    "screws": "Screws",
+    "collecting_aluminum_cans": "Collecting Cans",
+    "sorting_books": "Sorting Books",
+    "locking_every_window": "Locking Windows",
+    "opening_presents": "Opening Presents"
 }
 # This script only analyzes nodes created/expanded for a fixed amount of
 # training data. This below variable controls this amount.
 num_demos_to_consider = 50
+num_demos_to_consider_behavior = 10
 DPI = 500
+sns.set(font_scale=1.5)
 
 
 def _main() -> None:
@@ -66,7 +76,8 @@ def _main() -> None:
         # Make sure that this results file corresponds to one
         # of the approaches that we're hoping to plot.
         for approach_name in approaches:
-            if approach_name == outdata["config"].strips_learner:
+            if approach_name == outdata["config"].strips_learner and outdata[
+                    "config"].approach == "nsrt_learning":
                 break
         else:
             continue
@@ -75,14 +86,25 @@ def _main() -> None:
         # Make sure that this results file corresponds to
         # one of the envs that we're hoping to include in the
         # plot.
+        correct_env_name = None
         for env_name in envs:
-            if env_name == outdata["config"].env:
+            if outdata["config"].env == "behavior":
+                assert len(outdata["config"].behavior_task_list) == 1
+                if outdata["config"].behavior_task_list[0] in behavior_envs:
+                    correct_env_name = outdata["config"].behavior_task_list[0]
+                    break
+            elif env_name == outdata["config"].env:
+                correct_env_name = env_name
                 break
         else:
             continue
         # Skip this result file if it didn't use the correct amount
-        # of training data.
-        if outdata["config"].num_train_tasks != num_demos_to_consider:
+        # of training data, but only for non-BEHAVIOR domains.
+        if outdata["config"].env != "behavior" and \
+            outdata["config"].num_train_tasks != num_demos_to_consider or \
+            outdata["config"].env == "behavior" and \
+            outdata["config"].num_train_tasks != \
+                num_demos_to_consider_behavior:
             continue
 
         run_data_defaultdict = outdata["results"]
@@ -92,7 +114,7 @@ def _main() -> None:
             if not key.startswith("PER_TASK_"):
                 continue
             match = re.match(r"PER_TASK_task\d+_nodes_(created|expanded)", key)
-            if match is None:
+            if match is None or val == 0.0:
                 continue
             created_or_expanded = match.groups()[0]
             if created_or_expanded == "created":
@@ -101,22 +123,28 @@ def _main() -> None:
                 # probs_solved variable only here.
                 probs_solved_in_this_file += 1
                 created_data[approach_name]["values"].append(val)
-                created_data[approach_name]["env_names"].append(env_name)
+                created_data[approach_name]["env_names"].append(
+                    correct_env_name)
             else:
                 expanded_data[approach_name]["values"].append(val)
-                expanded_data[approach_name]["env_names"].append(env_name)
+                expanded_data[approach_name]["env_names"].append(
+                    correct_env_name)
         # Failed tasks do not have a nodes created/expanded, so we need to
         # automatically populate this with a random high value (with some
         # jitter to make it appear distinct in the plot).
         num_test_tasks = outdata["config"].num_test_tasks
         if probs_solved_in_this_file < num_test_tasks:
             for _ in range(num_test_tasks - probs_solved_in_this_file):
-                value = 1e06  # + np.random.randint(-int(6e05), int(6e05))
+                if correct_env_name not in behavior_envs:
+                    value = 1e06
+                else:
+                    value = 1e03
                 created_data[approach_name]["values"].append(value)
-                created_data[approach_name]["env_names"].append(env_name)
-                value = 1e06  # + np.random.randint(-int(6e05), int(6e05))
+                created_data[approach_name]["env_names"].append(
+                    correct_env_name)
                 expanded_data[approach_name]["values"].append(value)
-                expanded_data[approach_name]["env_names"].append(env_name)
+                expanded_data[approach_name]["env_names"].append(
+                    correct_env_name)
     if not created_data and not expanded_data:
         raise ValueError(f"No per-task node data found in {CFG.results_dir}/")
 
@@ -142,10 +170,15 @@ def _main() -> None:
     all_methods_expanded_dfs = all_methods_expanded_dfs.reset_index()
 
     for env_name in envs:
+        if env_name in behavior_envs:
+            correct_num_demos = num_demos_to_consider_behavior
+        else:
+            correct_num_demos = num_demos_to_consider
         curr_created_df = all_methods_created_dfs.loc[
             all_methods_created_dfs["env_names"] == env_name]
-        curr_created_df = all_methods_expanded_dfs.loc[
+        curr_expanded_df = all_methods_expanded_dfs.loc[
             all_methods_expanded_dfs["env_names"] == env_name]
+
         # Initialize the figure with a logarithmic x axis
         f0, ax0 = plt.subplots()
         f1, ax1 = plt.subplots()
@@ -166,26 +199,21 @@ def _main() -> None:
             palette=sns.color_palette("hls", 6),
             # NOTE: This below line might need to get
             # changed if different approaches are used.
-            order=[
-                "Ours", "Cluster and Intersect", "LOFT", "Prediction Error"
-            ],
+            order=["Ours", "CI", "LOFT", "CI + QE"],
             jitter=True)
-        sns.violinplot(data=all_methods_created_dfs,
+        sns.violinplot(data=curr_created_df,
                        x="values",
                        y="level_0",
                        orient="h",
-                       order=[
-                           "Ours", "Cluster and Intersect", "LOFT",
-                           "Prediction Error"
-                       ],
+                       order=["Ours", "CI", "LOFT", "CI + QE"],
                        ax=ax0)
         ax0.set(xlabel="Nodes Created",
                 ylabel="Learning Approach",
                 title=f"Nodes Created for {env_rename[env_name]} with " +
-                f"{num_demos_to_consider} Demos")
-        # Create the plot for nodes_expande.
+                f"{correct_num_demos} Demos")
+        # Create the plot for nodes_expanded.
         sns.stripplot(
-            data=all_methods_expanded_dfs,
+            data=curr_expanded_df,
             x="values",
             y="level_0",
             # hue="env_names",
@@ -197,23 +225,18 @@ def _main() -> None:
             palette=sns.color_palette("hls", 6),
             # NOTE: This below line might need to get
             # changed if different approaches are used.
-            order=[
-                "Ours", "Cluster and Intersect", "LOFT", "Prediction Error"
-            ],
+            order=["Ours", "CI", "LOFT", "CI + QE"],
             jitter=True)
-        sns.violinplot(data=all_methods_expanded_dfs,
+        sns.violinplot(data=curr_expanded_df,
                        x="values",
                        y="level_0",
                        orient="h",
-                       order=[
-                           "Ours", "Cluster and Intersect", "LOFT",
-                           "Prediction Error"
-                       ],
+                       order=["Ours", "CI", "LOFT", "CI + QE"],
                        ax=ax1)
         ax1.set(xlabel="Nodes Expanded",
                 ylabel="Learning Approach",
                 title=f"Nodes Expanded for {env_rename[env_name]} with " +
-                f"{num_demos_to_consider} Demos")
+                f"{correct_num_demos} Demos")
 
         # Save figures
         outfile = os.path.join(outdir, f"nodes_created_{env_name}.png")
