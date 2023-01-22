@@ -86,12 +86,12 @@ PLOT_GROUPS = {
          partial(_select_data, "painting", approach)),
         ("Satellites Simple", "darkgreen", "o",
          partial(_select_data, "satellites_simple", approach)),
-        ("Repeated NextTo", "blue", "^",
+        ("Cluttered 1D", "blue", "^",
          partial(_select_data, "repeated_nextto_single_option", approach)),
         ("Screws", "red", "*", partial(_select_data, "screws", approach)),
         ("Satellites", "brown", "p",
          partial(_select_data, "satellites", approach)),
-        ("RNT Painting", "purple", "s",
+        ("Cluttered Painting", "purple", "s",
          partial(_select_data, "repeated_nextto_painting", approach)),
     ]
     for (title, approach) in TITLE_ENVS
@@ -140,7 +140,7 @@ def _main() -> None:
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 ax.set_ylim(Y_LIM)
-                plt.legend(loc='lower right', prop={'size': 12})
+                plt.legend(loc='lower right', prop={'size': 14})
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
