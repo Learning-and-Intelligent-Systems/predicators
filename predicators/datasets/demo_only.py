@@ -141,6 +141,20 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
     fname = fnames_with_less_data[train_tasks_start_idx]
     with open(os.path.join(CFG.data_dir, fname), "rb") as f:
         dataset = pkl.load(f)
+    # NOTE: This is necessary because we replace BEHAVIOR
+    # options with dummy options in order to pickle them, so
+    # when we load them, we need to make sure they have the
+    # correct options from the environment.
+    if CFG.env == "behavior":  # pragma: no cover
+        assert isinstance(env, BehaviorEnv)
+        option_name_to_option = env.option_name_to_option
+        for traj in dataset.trajectories:
+            for act in traj.actions:
+                dummy_opt = act.get_option()
+                gt_param_opt = option_name_to_option[dummy_opt.name]
+                gt_opt = gt_param_opt.ground(dummy_opt.objects,
+                                             dummy_opt.params)
+                act.set_option(gt_opt)
     loaded_trajectories = dataset.trajectories
     generated_trajectories = _generate_demonstrations(
         env,
@@ -151,6 +165,15 @@ def _create_demo_data_with_loading(env: BaseEnv, train_tasks: List[Task],
                  "DEMONSTRATIONS")
     logging.info(f"CREATED {len(generated_trajectories)} DEMONSTRATIONS")
     dataset = Dataset(loaded_trajectories + generated_trajectories)
+
+    # NOTE: This is necessary because BEHAVIOR options save
+    # the BEHAVIOR environment object in their memory, and this
+    # can't be pickled.
+    if CFG.env == "behavior":  # pragma: no cover
+        for traj in dataset.trajectories:
+            for act in traj.actions:
+                act.get_option().memory = {}
+
     with open(dataset_fname, "wb") as f:
         pkl.dump(dataset, f)
     return dataset
