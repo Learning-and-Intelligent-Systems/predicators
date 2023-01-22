@@ -68,21 +68,23 @@ def create_navigate_option_model(
                          f"params {sample_arr}")
 
         if CFG.simulate_nav:
+            # Run a closed-loop controller for navigation.
+            curr_plan = plan[:]
             done_bit = False
             while not done_bit:
                 # Get expected position and orientation from plan.
-                expected_pos = np.array([plan[0][0], plan[0][1], robot_z])
+                expected_pos = np.array([curr_plan[0][0], curr_plan[0][1], robot_z])
                 expected_orn = p.getQuaternionFromEuler(
-                    np.array([robot_orn[0], robot_orn[1], plan[0][2]]))
+                    np.array([robot_orn[0], robot_orn[1], curr_plan[0][2]]))
                 # In this case, we're at the final position we wanted to reach.
-                if len(plan) == 1:
+                if len(curr_plan) == 1:
                     done_bit = True
                     logging.info(
                         "PRIMITIVE: navigation policy completed execution!")
                 env.robots[0].set_position_orientation(expected_pos,
                                                        expected_orn)
                 env.step(np.zeros(env.action_space.shape))
-                plan.pop(0)
+                curr_plan.pop(0)
         target_pos = np.array([desired_xpos, desired_ypos, robot_z])
         target_orn = p.getQuaternionFromEuler(
             np.array([robot_orn[0], robot_orn[1], desired_zrot]))
