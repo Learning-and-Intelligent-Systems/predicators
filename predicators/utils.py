@@ -1115,7 +1115,8 @@ def get_object_combinations(objects: Collection[Object],
 def get_variable_combinations(
         variables: Collection[Variable],
         types: Sequence[Type]) -> Iterator[List[Variable]]:
-    """Get all combinations of objects satisfying the given types sequence."""
+    """Get all combinations of variables satisfying the given types
+    sequence."""
     return _get_entity_combinations(variables, types)
 
 

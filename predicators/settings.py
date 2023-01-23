@@ -472,6 +472,7 @@ class GlobalSettings:
 
     # online NSRT learning parameters
     online_nsrt_learning_requests_per_cycle = 10
+    online_learning_max_novelty_count = 0
 
     # refinement cost estimation parameters
     refinement_estimator = "oracle"  # default refinement cost estimator
@@ -485,6 +486,7 @@ class GlobalSettings:
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
+    greedy_lookahead_max_num_resamples = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

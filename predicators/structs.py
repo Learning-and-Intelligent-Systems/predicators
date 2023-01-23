@@ -1483,7 +1483,7 @@ class _GroundLDLRule:
 
     @property
     def name(self) -> str:
-        """Name of this ground LRL rule."""
+        """Name of this ground LDL rule."""
         return self.parent.name
 
     def __str__(self) -> str:
