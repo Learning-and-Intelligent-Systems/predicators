@@ -29,7 +29,7 @@ def get_gt_nsrts(env_name: str, predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts(env_name)
     elif env_name == "cluttered_table_place":
         nsrts = _get_cluttered_table_gt_nsrts(env_name, with_place=True)
-    elif env_name in ("blocks", "pybullet_blocks"):
+    elif env_name in ("blocks", "pybullet_blocks", "blocks_clear"):
         nsrts = _get_blocks_gt_nsrts(env_name)
     elif env_name in ("painting", "repeated_nextto_painting"):
         nsrts = _get_painting_gt_nsrts(env_name)
