@@ -82,7 +82,7 @@ def sesame_plan(
         env = get_or_create_env('behavior')
         assert isinstance(env, BehaviorEnv)
         start_time = time.time()
-        while time.time() - start_time < 10.0:#30.0:
+        while time.time() - start_time < 50.0:
             env.igibson_behavior_env.step(np.zeros(env.action_space.shape))
         logging.info("VIDEO CREATION MODE: Starting planning.")
 

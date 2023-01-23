@@ -219,7 +219,7 @@ def create_place_option_model(
             rh_orig_grasp_position, rh_orig_grasp_orn)
         # this is running a series of zero action to step simulator
         # to let the object fall into its place
-        for _ in range(15):
+        for _ in range(25):#range(15):
             env.step(np.zeros(env.action_space.shape))
         # Check whether object is ontop of not a target object
         objs_under = set()
