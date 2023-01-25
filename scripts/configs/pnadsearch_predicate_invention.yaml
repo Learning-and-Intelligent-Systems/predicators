@@ -1,11 +1,17 @@
 # Predicate invention with pnad_search operator learning
 ---
 APPROACHES:
-  invent_allexclude_backchaining:
+  # invent_allexclude_backchaining:
+  #   NAME: "grammar_search_invention"
+  #   FLAGS:
+  #     strips_learner: "pnad_search"
+  #     excluded_predicates: "all"
+  invent_allexclude_ci:
     NAME: "grammar_search_invention"
     FLAGS:
-      strips_learner: "pnad_search"
+      strips_learner: "cluster_and_intersect"
       excluded_predicates: "all"
+
 ENVS:
   # cover:
   #   NAME: "cover"
