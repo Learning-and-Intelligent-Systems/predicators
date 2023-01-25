@@ -1408,7 +1408,8 @@ def run_hill_climbing(
         heuristic: Callable[[_S], float],
         early_termination_heuristic_thresh: Optional[float] = None,
         enforced_depth: int = 0,
-        parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
+        parallelize: bool = False,
+        log_search_info: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -1426,8 +1427,9 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
-    logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
-                 f"with heuristic {last_heuristic}")
+    if log_search_info:
+        logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
+                    f"with heuristic {last_heuristic}")
     while True:
 
         # Stops when heuristic reaches specified value.
@@ -1436,14 +1438,16 @@ def run_hill_climbing(
             break
 
         if check_goal(cur_node.state):
-            logging.info("\nTerminating hill climbing, achieved goal")
+            if log_search_info:
+                logging.info("\nTerminating hill climbing, achieved goal")
             break
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
-            logging.info(f"Searching for an improvement at depth {depth}")
+            if log_search_info:
+                logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
@@ -1479,23 +1483,28 @@ def run_hill_climbing(
             all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
                 # Some improvement found.
-                logging.info(f"Found an improvement at depth {depth}")
+                if log_search_info:
+                    logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
-            logging.info(f"No improvement found at depth {depth}")
+            if log_search_info:
+                logging.info(f"No improvement found at depth {depth}")
         if best_child_node is None:
-            logging.info("\nTerminating hill climbing, no more successors")
+            if log_search_info:
+                logging.info("\nTerminating hill climbing, no more successors")
             break
         if last_heuristic <= best_heuristic:
-            logging.info(
-                "\nTerminating hill climbing, could not improve score")
+            if log_search_info:
+                logging.info(
+                    "\nTerminating hill climbing, could not improve score")
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
-        logging.info(f"\nHill climbing reached new state {cur_node.state} "
-                     f"with heuristic {last_heuristic}")
+        if log_search_info:
+            logging.info(f"\nHill climbing reached new state {cur_node.state} "
+                        f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics

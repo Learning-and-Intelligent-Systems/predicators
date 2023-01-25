@@ -1,10 +1,10 @@
-# Predicate invention with backchaining operator learning
+# Predicate invention with pnad_search operator learning
 ---
 APPROACHES:
   invent_allexclude_backchaining:
     NAME: "grammar_search_invention"
     FLAGS:
-      strips_learner: "backchaining"
+      strips_learner: "pnad_search"
       excluded_predicates: "all"
 ENVS:
   cover:
