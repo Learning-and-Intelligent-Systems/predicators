@@ -31,10 +31,11 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
 
 def _create_grammar(dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
-    # We start with considering various ways to split single feature values
+    # We start with considering various ways to split single and double feature values
     # across our dataset.
-    grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
+    grammar: _PredicateGrammar = _DoubleFeatureInequalitiesPredicateGrammar(
         dataset)
+
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
@@ -119,6 +120,7 @@ class _UnaryClassifier(_ProgrammaticClassifier):
     def _classify_object(self, s: State, obj: Object) -> bool:
         raise NotImplementedError("Override me!")
 
+
 class _BinaryClassifier(_ProgrammaticClassifier):
     """A classifier on two object."""
 
@@ -178,24 +180,27 @@ class _DoubleAttributeCompareClassifier(_BinaryClassifier):
     def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
         assert obj1.type == self.object1_type
         assert obj2.type == self.object2_type
-        return self.compare(abs(s.get(obj1, self.attribute1_name) - s.get(obj2, self.attribute2_name)), self.constant)
+        return self.compare(
+            abs(
+                s.get(obj1, self.attribute1_name) -
+                s.get(obj2, self.attribute2_name)), self.constant)
 
     def __str__(self) -> str:
-        return (
-            f"(|({self.object1_index}:{self.object1_type.name})."
-            f"{self.attribute1_name} - {self.object1_index}:"
-            f"{self.object1_type.name}.{self.attribute2_name}|"
-            f"{self.compare_str}[idx {self.constant_idx}]"
-            f"{self.constant:.3})")
+        return (f"(|({self.object1_index}:{self.object1_type.name})."
+                f"{self.attribute1_name} - {self.object1_index}:"
+                f"{self.object1_type.name}.{self.attribute2_name}|"
+                f"{self.compare_str}[idx {self.constant_idx}]"
+                f"{self.constant:.3})")
 
-    # TODO: implement
-    # def pretty_str(self) -> Tuple[str, str]:
-    #     name = CFG.grammar_search_classifier_pretty_str_names[
-    #         self.object_index]
-    #     vars_str = f"{name}:{self.object1_type.name}"
-    #     body_str = (f"({name}.{self.attribute1_name} "
-    #                 f"{self.compare_str} {self.constant:.3})")
-    #     return vars_str, body_str
+    def pretty_str(self) -> Tuple[str, str]:
+        name1 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object1_index]
+        name2 = CFG.grammar_search_classifier_pretty_str_names[
+            self.object2_index]
+        vars_str = f"{name1}:{self.object1_type.name}, {name2}:{self.object2_type.name}"
+        body_str = (f"(|{name1}.{self.attribute1_name} - {name2}.{self.attribute2_name}| "
+                    f"{self.compare_str} {self.constant:.3})")
+        return vars_str, body_str
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -491,7 +496,8 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _DoubleFeatureInequalitiesPredicateGrammar(_SingleFeatureInequalitiesPredicateGrammar):
+class _DoubleFeatureInequalitiesPredicateGrammar(
+        _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| >= c" or 
     "|0.feature - 1.feature| <= c"."""
 
@@ -509,7 +515,29 @@ class _DoubleFeatureInequalitiesPredicateGrammar(_SingleFeatureInequalitiesPredi
                     for f1 in t1.feature_names:
                         for f2 in t2.feature_names:
                             if t1 == t2 and f1 == f2:
-                                continue
+                                # Return a single-arity predicate.
+                                lb, ub = feature_ranges[t1][f1]
+                                # Optimization: if lb == ub, there is no variation
+                                # among this feature, so there's no point in trying to
+                                # learn a classifier with it. So, skip the feature.
+                                if abs(lb - ub) < 1e-6:
+                                    continue
+                                # Scale the constant by the feature range.
+                                k = constant * (ub - lb) + lb
+                                # Only need one of (ge, le) because we can use negations
+                                # to get the other (modulo equality, which we shouldn't
+                                # rely on anyway because of precision issues).
+                                comp, comp_str = le, "<="
+                                classifier = _SingleAttributeCompareClassifier(
+                                    0, t1, f1, k, constant_idx, comp, comp_str)
+                                name = str(classifier)
+                                types = [t1]
+                                pred = Predicate(name, types, classifier)
+                                assert pred.arity == 1
+                                yield (pred, 1 + cost)  # cost = arity + cost from constant
+
+                            # In this case, we actually need a binary attribute
+                            # comparison classifier.
                             lb1, ub1 = feature_ranges[t1][f1]
                             if abs(lb1 - ub1) < 1e-6:
                                 continue
@@ -521,21 +549,22 @@ class _DoubleFeatureInequalitiesPredicateGrammar(_SingleFeatureInequalitiesPredi
                             else:
                                 lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
                             ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
-
                             # Scale the constant by the correct range.
                             k = constant * (ub - lb) + lb
-
                             # Create classifier.
                             comp, comp_str = le, "<="
                             classifier = _DoubleAttributeCompareClassifier(
-                                0, t1, f1, 1, t2, f2, k, constant_idx, comp, comp_str)
+                                0, t1, f1, 1, t2, f2, k, constant_idx, comp,
+                                comp_str)
                             name = str(classifier)
                             types = [t1, t2]
                             pred = Predicate(name, types, classifier)
                             assert pred.arity == 2
-                            yield (pred, 2 + cost)  # cost = arity + cost from constant
+                            yield (pred, 2 + cost
+                                   )  # cost = arity + cost from constant
 
-    def f_range_intersection(self, lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+    def f_range_intersection(self, lb1: float, ub1: float, lb2: float,
+                             ub2: float) -> bool:
         """Given upper and lower bounds for two feature ranges, returns True
         iff the ranges intersect."""
         return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
