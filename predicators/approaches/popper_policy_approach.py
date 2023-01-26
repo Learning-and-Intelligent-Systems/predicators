@@ -155,9 +155,11 @@ class PopperPolicyApproach(NSRTLearningApproach):
                 old: new.name
                 for (old, _), new in zip(rule_op.signature, nsrt.parameters)
             }
+            idx = 0
             for (v, _) in rule.parameters:
                 if v not in sub:
-                    sub[v] = v
+                    sub[v] = f"?x{idx}"
+                    idx += 1
             new_rule = popper_apply_sub(rule, sub)
             new_rules.append(new_rule)
         popper_policy = PopperLDL(new_rules)
