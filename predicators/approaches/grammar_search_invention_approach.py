@@ -119,6 +119,17 @@ class _UnaryClassifier(_ProgrammaticClassifier):
     def _classify_object(self, s: State, obj: Object) -> bool:
         raise NotImplementedError("Override me!")
 
+class _BinaryClassifier(_ProgrammaticClassifier):
+    """A classifier on two object."""
+
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        assert len(o) == 2
+        return self._classify_object(s, o[0], o[1])
+
+    @abc.abstractmethod
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        raise NotImplementedError("Override me!")
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _SingleAttributeCompareClassifier(_UnaryClassifier):
@@ -148,6 +159,43 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         body_str = (f"({name}.{self.attribute_name} "
                     f"{self.compare_str} {self.constant:.3})")
         return vars_str, body_str
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DoubleAttributeCompareClassifier(_BinaryClassifier):
+    """Compare a single feature value with a constant value."""
+    object1_index: int
+    object1_type: Type
+    attribute1_name: str
+    object2_index: int
+    object2_type: Type
+    attribute2_name: str
+    constant: float
+    constant_idx: int
+    compare: Callable[[float, float], bool]
+    compare_str: str
+
+    def _classify_object(self, s: State, obj1: Object, obj2: Object) -> bool:
+        assert obj1.type == self.object1_type
+        assert obj2.type == self.object2_type
+        return self.compare(abs(s.get(obj1, self.attribute1_name) - s.get(obj2, self.attribute2_name)), self.constant)
+
+    def __str__(self) -> str:
+        return (
+            f"(|({self.object1_index}:{self.object1_type.name})."
+            f"{self.attribute1_name} - {self.object1_index}:"
+            f"{self.object1_type.name}.{self.attribute2_name}|"
+            f"{self.compare_str}[idx {self.constant_idx}]"
+            f"{self.constant:.3})")
+
+    # TODO: implement
+    # def pretty_str(self) -> Tuple[str, str]:
+    #     name = CFG.grammar_search_classifier_pretty_str_names[
+    #         self.object_index]
+    #     vars_str = f"{name}:{self.object1_type.name}"
+    #     body_str = (f"({name}.{self.attribute1_name} "
+    #                 f"{self.compare_str} {self.constant:.3})")
+    #     return vars_str, body_str
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -440,6 +488,57 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                             feature_ranges[obj.type][f] = (min(mn,
                                                                v), max(mx, v))
         return feature_ranges
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DoubleFeatureInequalitiesPredicateGrammar(_SingleFeatureInequalitiesPredicateGrammar):
+    """Generates features of the form "|0.feature - 1.feature| >= c" or 
+    "|0.feature - 1.feature| <= c"."""
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # Edge case: if there are no features at all, return immediately.
+        if not any(r for r in feature_ranges.values()):
+            return
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = _halving_constant_generator(0.0, 1.0)
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
+            for t1 in sorted(self.types):
+                for t2 in sorted(self.types):
+                    for f1 in t1.feature_names:
+                        for f2 in t2.feature_names:
+                            if t1 == t2 and f1 == f2:
+                                continue
+                            lb1, ub1 = feature_ranges[t1][f1]
+                            if abs(lb1 - ub1) < 1e-6:
+                                continue
+                            lb2, ub2 = feature_ranges[t2][f2]
+                            if abs(lb2 - ub2) < 1e-6:
+                                continue
+                            if self.f_range_intersection(lb1, ub1, lb2, ub2):
+                                lb = 0.0
+                            else:
+                                lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+                            ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+
+                            # Scale the constant by the correct range.
+                            k = constant * (ub - lb) + lb
+
+                            # Create classifier.
+                            comp, comp_str = le, "<="
+                            classifier = _DoubleAttributeCompareClassifier(
+                                0, t1, f1, 1, t2, f2, k, constant_idx, comp, comp_str)
+                            name = str(classifier)
+                            types = [t1, t2]
+                            pred = Predicate(name, types, classifier)
+                            assert pred.arity == 2
+                            yield (pred, 2 + cost)  # cost = arity + cost from constant
+
+    def f_range_intersection(self, lb1: float, ub1: float, lb2: float, ub2: float) -> bool:
+        """Given upper and lower bounds for two feature ranges, returns True
+        iff the ranges intersect."""
+        return (lb1 <= lb2 <= ub1) or (lb2 <= lb1 <= ub2)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
