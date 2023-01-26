@@ -1947,7 +1947,7 @@ class _LDLParser:
         # Validate parameters.
         variables = variable_name_to_variable.values()
         for v in nsrt.parameters:
-            assert v in variables, "NSRT parameter {v} missing from LDL rule"
+            assert v in variables, f"NSRT parameter {v} missing from LDL rule"
         return nsrt
 
 
