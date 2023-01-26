@@ -2433,16 +2433,16 @@ def _get_narrow_passage_gt_nsrts(env_name: str) -> Set[NSRT]:
 def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     """Create ground truth NSRTs for CoffeeEnv."""
     robot_type, jug_type, cup_type, machine_type = _get_types_by_names(
-        env_name, ["robot", "jug", "cup", "machine"])
+        CFG.env, ["robot", "jug", "cup", "machine"])
     CupFilled, Holding, JugInMachine, MachineOn, OnTable, HandEmpty, \
         JugFilled, RobotAboveCup, JugAboveCup, NotAboveCup, PressingButton, \
-        Twisting, NotSameCup = \
-        _get_predicates_by_names(env_name, ["CupFilled",
+        Twisting = \
+        _get_predicates_by_names(CFG.env, ["CupFilled",
             "Holding", "JugInMachine", "MachineOn", "OnTable", "HandEmpty",
             "JugFilled", "RobotAboveCup", "JugAboveCup", "NotAboveCup",
-            "PressingButton", "Twisting", "NotSameCup"])
+            "PressingButton", "Twisting"])
     MoveToTwistJug, TwistJug, PickJug, PlaceJugInMachine, TurnMachineOn, \
-        Pour = _get_options_by_names(env_name, ["MoveToTwistJug", "TwistJug",
+        Pour = _get_options_by_names(CFG.env, ["MoveToTwistJug", "TwistJug",
             "PickJug", "PlaceJugInMachine", "TurnMachineOn", "Pour"])
 
     nsrts = set()
@@ -2463,9 +2463,9 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(HandEmpty, [robot]),
     }
-    ignore_effects: Set[Predicate] = set()
+    side_predicates: Set[Predicate] = set()
     move_to_twist_jug_nsrt = NSRT("MoveToTwistJug", parameters, preconditions,
-                                  add_effects, delete_effects, ignore_effects,
+                                  add_effects, delete_effects, side_predicates,
                                   option, option_vars, null_sampler)
     nsrts.add(move_to_twist_jug_nsrt)
 
@@ -2485,7 +2485,7 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(Twisting, [robot, jug]),
     }
-    ignore_effects = set()
+    side_predicates = set()
 
     def twist_jug_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
@@ -2494,7 +2494,7 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         return np.array(rng.uniform(-1, 1, size=(1, )), dtype=np.float32)
 
     twist_jug_nsrt = NSRT("TwistJug", parameters, preconditions, add_effects,
-                          delete_effects, ignore_effects, option, option_vars,
+                          delete_effects, side_predicates, option, option_vars,
                           twist_jug_sampler)
     nsrts.add(twist_jug_nsrt)
 
@@ -2515,10 +2515,10 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         LiftedAtom(OnTable, [jug]),
         LiftedAtom(HandEmpty, [robot])
     }
-    ignore_effects = set()
+    side_predicates = set()
     pick_jug_from_table_nsrt = NSRT("PickJugFromTable", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    ignore_effects, option, option_vars,
+                                    side_predicates, option, option_vars,
                                     null_sampler)
     nsrts.add(pick_jug_from_table_nsrt)
 
@@ -2539,10 +2539,10 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(Holding, [robot, jug]),
     }
-    ignore_effects = set()
+    side_predicates = set()
     place_jug_in_machine_nsrt = NSRT("PlaceJugInMachine", parameters,
                                      preconditions, add_effects,
-                                     delete_effects, ignore_effects, option,
+                                     delete_effects, side_predicates, option,
                                      option_vars, null_sampler)
     nsrts.add(place_jug_in_machine_nsrt)
 
@@ -2563,9 +2563,9 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         LiftedAtom(PressingButton, [robot, machine]),
     }
     delete_effects = set()
-    ignore_effects = set()
+    side_predicates = set()
     turn_machine_on_nsrt = NSRT("TurnMachineOn", parameters, preconditions,
-                                add_effects, delete_effects, ignore_effects,
+                                add_effects, delete_effects, side_predicates,
                                 option, option_vars, null_sampler)
     nsrts.add(turn_machine_on_nsrt)
 
@@ -2589,10 +2589,10 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         LiftedAtom(JugInMachine, [jug, machine]),
         LiftedAtom(PressingButton, [robot, machine]),
     }
-    ignore_effects = set()
+    side_predicates = set()
     pick_jug_from_machine_nsrt = NSRT("PickJugFromMachine", parameters,
                                       preconditions, add_effects,
-                                      delete_effects, ignore_effects, option,
+                                      delete_effects, side_predicates, option,
                                       option_vars, null_sampler)
     nsrts.add(pick_jug_from_machine_nsrt)
 
@@ -2616,9 +2616,9 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
     delete_effects = {
         LiftedAtom(NotAboveCup, [robot, jug]),
     }
-    ignore_effects = set()
+    side_predicates = set()
     pour_from_nowhere_nsrt = NSRT("PourFromNowhere", parameters, preconditions,
-                                  add_effects, delete_effects, ignore_effects,
+                                  add_effects, delete_effects, side_predicates,
                                   option, option_vars, null_sampler)
     nsrts.add(pour_from_nowhere_nsrt)
 
@@ -2635,7 +2635,6 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         LiftedAtom(JugFilled, [jug]),
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
-        LiftedAtom(NotSameCup, [cup, other_cup]),
     }
     add_effects = {
         LiftedAtom(JugAboveCup, [jug, cup]),
@@ -2646,10 +2645,10 @@ def _get_coffee_gt_nsrts(env_name: str) -> Set[NSRT]:
         LiftedAtom(JugAboveCup, [jug, other_cup]),
         LiftedAtom(RobotAboveCup, [robot, other_cup]),
     }
-    ignore_effects = set()
+    side_predicates = set()
     pour_from_other_cup_nsrt = NSRT("PourFromOtherCup", parameters,
                                     preconditions, add_effects, delete_effects,
-                                    ignore_effects, option, option_vars,
+                                    side_predicates, option, option_vars,
                                     null_sampler)
     nsrts.add(pour_from_other_cup_nsrt)
 

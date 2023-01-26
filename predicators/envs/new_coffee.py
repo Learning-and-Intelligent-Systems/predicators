@@ -1,22 +1,17 @@
 """An environment where a robot must brew and pour coffee."""
 
-import time
 from typing import ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pybullet as p
 from gym.spaces import Box
 
 from predicators import utils
 from predicators.envs import BaseEnv
-from predicators.pybullet_helpers.geometry import Pose3D, Quaternion
-from predicators.pybullet_helpers.robots import SingleArmPyBulletRobot, \
-    create_single_arm_pybullet_robot
 from predicators.settings import CFG
-from predicators.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type, Video
+from predicators.structs import Action, Array, GroundAtom, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class CoffeeEnv(BaseEnv):
@@ -24,98 +19,82 @@ class CoffeeEnv(BaseEnv):
 
     # Tolerances.
     grasp_finger_tol: ClassVar[float] = 1e-2
-    grasp_position_tol: ClassVar[float] = 1e-2
-    dispense_tol: ClassVar[float] = 1e-2
+    grasp_position_tol: ClassVar[float] = 0.5
+    dispense_tol: ClassVar[float] = 1.0
     pour_angle_tol: ClassVar[float] = 1e-1
-    pour_pos_tol: ClassVar[float] = 1e-2
-    init_padding: ClassVar[float] = 0.05
-    pick_jug_x_padding: ClassVar[float] = 0.05
+    pour_pos_tol: ClassVar[float] = 1.0
+    init_padding: ClassVar[float] = 0.5  # used to space objects in init states
+    pick_jug_y_padding: ClassVar[float] = 1.5
     pick_jug_rot_tol: ClassVar[float] = np.pi / 3
-    safe_z_tol: ClassVar[float] = 1e-2
-    twist_policy_tol: ClassVar[float] = 1e-3
-    pick_policy_tol: ClassVar[float] = 1e-3
-    place_jug_in_machine_tol: ClassVar[float] = 1e-3
-    pour_policy_tol: ClassVar[float] = 1e-3
-    jug_twist_offset: ClassVar[float] = 0.025
+    safe_z_tol: ClassVar[float] = 1e-1
+    twist_policy_tol: ClassVar[float] = 1e-1
+    pick_policy_tol: ClassVar[float] = 1e-1
+    place_jug_in_machine_tol: ClassVar[float] = 1e-1
+    pour_policy_tol: ClassVar[float] = 1e-1
     # Robot settings.
-    x_lb: ClassVar[float] = 1.1
-    x_ub: ClassVar[float] = 1.6
-    y_lb: ClassVar[float] = 0.4
-    y_ub: ClassVar[float] = 1.1
-    z_lb: ClassVar[float] = 0.2
-    z_ub: ClassVar[float] = 0.75
-    tilt_lb: ClassVar[float] = -np.pi / 4
+    x_lb: ClassVar[float] = 0.0
+    x_ub: ClassVar[float] = 10.0
+    y_lb: ClassVar[float] = 0.0
+    y_ub: ClassVar[float] = 10.0
+    z_lb: ClassVar[float] = 0.0
+    z_ub: ClassVar[float] = 10.0
+    tilt_lb: ClassVar[float] = 0.0
     tilt_ub: ClassVar[float] = np.pi / 4
-    pour_tilt: ClassVar[float] = -np.pi / 4
     wrist_lb: ClassVar[float] = -np.pi
     wrist_ub: ClassVar[float] = np.pi
     robot_init_x: ClassVar[float] = (x_ub + x_lb) / 2.0
     robot_init_y: ClassVar[float] = (y_ub + y_lb) / 2.0
-    robot_init_z: ClassVar[float] = z_ub - 0.1
+    robot_init_z: ClassVar[float] = z_ub
     robot_init_tilt: ClassVar[float] = 0.0
     robot_init_wrist: ClassVar[float] = 0.0
     open_fingers: ClassVar[float] = 0.4
     closed_fingers: ClassVar[float] = 0.1
     # Machine settings.
-    machine_x_len: ClassVar[float] = 0.2 * (x_ub - x_lb)
-    machine_y_len: ClassVar[float] = 0.1 * (y_ub - y_lb)
-    machine_z_len: ClassVar[float] = 0.5 * (z_ub - z_lb)
-    machine_x: ClassVar[float] = x_ub - machine_x_len - 0.01
-    machine_y: ClassVar[float] = y_lb + machine_y_len + init_padding
-    button_x: ClassVar[float] = machine_x
-    button_y: ClassVar[float] = machine_y + machine_y_len / 2
-    button_z: ClassVar[float] = z_lb + 3 * machine_z_len / 4
-    button_radius: ClassVar[float] = 0.2 * machine_y_len
+    machine_x_len: ClassVar[float] = 0.1 * (x_ub - x_lb)
+    machine_y_len: ClassVar[float] = 0.2 * (y_ub - y_lb)
+    machine_z_len: ClassVar[float] = 0.4 * (z_ub - z_lb)
+    machine_x: ClassVar[float] = x_ub - machine_x_len - init_padding
+    machine_y: ClassVar[float] = y_ub - machine_y_len - init_padding
+    button_x: ClassVar[float] = machine_x + machine_x_len / 2
+    button_y: ClassVar[float] = machine_y
+    button_z: ClassVar[float] = 3 * machine_z_len / 4
+    button_radius: ClassVar[float] = 0.2 * machine_x_len
     # Jug settings.
-    jug_radius: ClassVar[float] = (0.8 * machine_y_len) / 2.0
+    jug_radius: ClassVar[float] = (0.8 * machine_x_len) / 2.0
     jug_height: ClassVar[float] = 0.15 * (z_ub - z_lb)
-    jug_init_y_lb: ClassVar[float] = machine_y - machine_y_len + init_padding
-    jug_init_y_ub: ClassVar[float] = machine_y + machine_y_len - init_padding
-    jug_init_x_lb: ClassVar[float] = x_lb + jug_radius + pick_jug_x_padding + \
+    jug_init_x_lb: ClassVar[float] = machine_x - machine_x_len + init_padding
+    jug_init_x_ub: ClassVar[float] = machine_x + machine_x_len - init_padding
+    jug_init_y_lb: ClassVar[float] = y_lb + jug_radius + pick_jug_y_padding + \
                                      init_padding
-    jug_init_x_ub: ClassVar[
-        float] = machine_x - machine_x_len - jug_radius - init_padding
-    jug_handle_offset: ClassVar[float] = 1.75 * jug_radius
-    jug_handle_height: ClassVar[float] = jug_height / 2
-    jug_handle_radius: ClassVar[float] = jug_handle_height / 3  # for rendering
+    jug_init_y_ub: ClassVar[
+        float] = machine_y - machine_y_len - jug_radius - init_padding
+    jug_handle_offset: ClassVar[float] = 1.05 * jug_radius
+    jug_handle_height: ClassVar[float] = 3 * jug_height / 4
+    jug_handle_radius: ClassVar[float] = 1e-1  # just for rendering
     # Dispense area settings.
-    dispense_area_x: ClassVar[float] = machine_x - 2.4 * jug_radius
-    dispense_area_y: ClassVar[float] = machine_y + machine_y_len / 2
+    dispense_area_x: ClassVar[float] = machine_x + machine_x_len / 2
+    dispense_area_y: ClassVar[float] = machine_y - 1.1 * jug_radius
     # Cup settings.
     cup_radius: ClassVar[float] = 0.6 * jug_radius
-    cup_init_x_lb: ClassVar[float] = jug_init_x_lb
-    cup_init_x_ub: ClassVar[float] = jug_init_x_ub
-    cup_init_y_lb: ClassVar[float] = machine_y + cup_radius + init_padding + jug_radius
-    cup_init_y_ub: ClassVar[float] = y_ub - cup_radius - init_padding
+    cup_init_x_lb: ClassVar[float] = x_lb + cup_radius + init_padding
+    cup_init_x_ub: ClassVar[
+        float] = machine_x - machine_x_len - cup_radius - init_padding
+    cup_init_y_lb: ClassVar[float] = jug_init_y_lb
+    cup_init_y_ub: ClassVar[float] = jug_init_y_ub
     cup_capacity_lb: ClassVar[float] = 0.075 * (z_ub - z_lb)
     cup_capacity_ub: ClassVar[float] = 0.15 * (z_ub - z_lb)
     cup_target_frac: ClassVar[float] = 0.75  # fraction of the capacity
     # Simulation settings.
-    pour_x_offset: ClassVar[float] = cup_radius
-    pour_y_offset: ClassVar[float] = -3 * (cup_radius + jug_radius)
+    pour_x_offset: ClassVar[float] = 1.5 * (cup_radius + jug_radius)
+    pour_y_offset: ClassVar[float] = cup_radius
     pour_z_offset: ClassVar[float] = 1.1 * (cup_capacity_ub + jug_height - \
                                             jug_handle_height)
     pour_velocity: ClassVar[float] = cup_capacity_ub / 10.0
     max_position_vel: ClassVar[float] = 2.5
     max_angular_vel: ClassVar[float] = tilt_ub
     max_finger_vel: ClassVar[float] = 1.0
-    # PyBullet rendering settings.
-    _camera_distance: ClassVar[float] = 0.8
-    _camera_yaw: ClassVar[float] = -24  # 124
-    _camera_pitch: ClassVar[float] = -24  # 48
-    _camera_distance2: ClassVar[float] = 0.5 #0.8
-    _camera_yaw2: ClassVar[float] = 124.0  # -24  # 124
-    _camera_pitch2: ClassVar[float] = -48.0  # -24  # 48
-    _camera_target: ClassVar[Pose3D] = (1.35, 0.75, 0.42)
-    _debug_text_position: ClassVar[Pose3D] = (1.65, 0.25, 0.75)
-    _table_pose: ClassVar[Pose3D] = (1.35, 0.75, 0.0)
-    _table_orientation: ClassVar[Sequence[float]] = [0., 0., 0., 1.]
-    _default_obj_orn: ClassVar[Sequence[float]] = [0.0, 0.0, 0.0, 1.0]
-    _pybullet_move_to_pose_tol: ClassVar[float] = 1e-4
-    _pybullet_max_vel_norm: ClassVar[float] = 0.05
-    _pybullet_max_angular_norm: ClassVar[float] = np.pi / 10
 
-    def __init__(self, use_gui) -> None:
+    def __init__(self, use_gui: bool = True) -> None:
         super().__init__(use_gui)
 
         # Types
@@ -159,6 +138,9 @@ class CoffeeEnv(BaseEnv):
         self._PressingButton = Predicate(
             "PressingButton", [self._robot_type, self._machine_type],
             self._PressingButton_holds)
+        self._NotSameCup = Predicate("NotSameCup",
+                                     [self._cup_type, self._cup_type],
+                                     self._NotSameCup_holds)
 
         # Options
         self._MoveToTwistJug = ParameterizedOption(
@@ -215,20 +197,13 @@ class CoffeeEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
         self._jug = Object("juggy", self._jug_type)
         self._machine = Object("coffee_machine", self._machine_type)
-
         # Settings from CFG.
         self.jug_init_rot_lb = -CFG.coffee_jug_init_rot_amt
         self.jug_init_rot_ub = CFG.coffee_jug_init_rot_amt
 
-        # For PyBullet rendering.
-        self._physics_client_id: Optional[int] = None
-        self._in_pouring_phase = False
-        
-        self._initialize_pybullet()
-
     @classmethod
     def get_name(cls) -> str:
-        return "coffee"
+        return "new-coffee"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -284,7 +259,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "x", self.button_x)
             next_state.set(self._robot, "y", self.button_y)
             next_state.set(self._robot, "z", self.button_z)
-            next_state.set(self._robot, "tilt", self.robot_init_tilt)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
             next_state.set(self._robot, "wrist", self.robot_init_wrist)
         # If the jug is already held, move its position, and process drops.
         elif jug_held:
@@ -294,18 +269,18 @@ class CoffeeEnv(BaseEnv):
             # Otherwise, move it, and process pouring.
             else:
                 # Check for pouring.
-                if abs(tilt - self.pour_tilt) < self.pour_angle_tol:
+                if abs(tilt - self.tilt_ub) < self.pour_angle_tol:
                     # Find the cup to pour into, if any.
                     cup = self._get_cup_to_pour(next_state)
-                    # If pouring into nothing, raise an error (spilling).
+                    # If pouring into nothing, noop.
                     if cup is None:
-                        raise utils.EnvironmentFailure("Spilled.")
+                        return state.copy()
                     # Increase the liquid in the cup.
                     current_liquid = state.get(cup, "current_liquid")
                     new_liquid = current_liquid + self.pour_velocity
-                    # If we have exceeded the capacity of the cup, raise error.
+                    # If we have exceeded the capacity of the cup, noop.
                     if new_liquid > state.get(cup, "capacity_liquid"):
-                        raise utils.EnvironmentFailure("Overfilled cup.")
+                        return state.copy()
                     next_state.set(cup, "current_liquid", new_liquid)
                     # If successfully poured, prevent movement and dropping.
                     next_state.set(self._robot, "x", robot_x)
@@ -318,7 +293,8 @@ class CoffeeEnv(BaseEnv):
                     new_jug_y = state.get(self._jug, "y") + dy
                     next_state.set(self._jug, "x", new_jug_x)
                     next_state.set(self._jug, "y", new_jug_y)
-                    next_state.set(self._robot, "tilt", self.robot_init_tilt)
+                    next_state.set(self._robot, "tilt", self.tilt_lb)
+                    next_state.set(self._robot, "wrist", self.robot_init_wrist)
                     next_state.set(self._robot, "fingers", self.closed_fingers)
         # Check if the jug should be grasped for the first time.
         elif abs(fingers - self.closed_fingers) < self.grasp_finger_tol and \
@@ -329,7 +305,7 @@ class CoffeeEnv(BaseEnv):
             next_state.set(self._robot, "x", handle_x)
             next_state.set(self._robot, "y", handle_y)
             next_state.set(self._robot, "z", handle_z)
-            next_state.set(self._robot, "tilt", self.robot_init_tilt)
+            next_state.set(self._robot, "tilt", self.tilt_lb)
             next_state.set(self._robot, "wrist", self.robot_init_wrist)
             # Grasp the jug.
             next_state.set(self._jug, "is_held", 1.0)
@@ -363,7 +339,7 @@ class CoffeeEnv(BaseEnv):
             self._CupFilled, self._JugInMachine, self._Holding,
             self._MachineOn, self._OnTable, self._HandEmpty, self._JugFilled,
             self._RobotAboveCup, self._JugAboveCup, self._NotAboveCup,
-            self._PressingButton, self._Twisting
+            self._PressingButton, self._Twisting, self._NotSameCup
         }
 
     @property
@@ -393,13 +369,6 @@ class CoffeeEnv(BaseEnv):
         # Normalized dx, dy, dz, dtilt, dwrist, dfingers.
         return Box(low=-1., high=1., shape=(6, ), dtype=np.float32)
 
-    def render_state(self,
-                     state: State,
-                     task: Task,
-                     action: Optional[Action] = None,
-                     caption: Optional[str] = None) -> Video:
-        return self._render_state_pybullet(state, task, action, caption)
-
     def render_state_plt(
             self,
             state: State,
@@ -407,11 +376,11 @@ class CoffeeEnv(BaseEnv):
             action: Optional[Action] = None,
             caption: Optional[str] = None) -> matplotlib.figure.Figure:
         del caption  # unused
-        fig_width = 10 * (2 * (self.x_ub - self.x_lb))
-        fig_height = 10 * max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
+        fig_width = (2 * (self.x_ub - self.x_lb))
+        fig_height = max((self.y_ub - self.y_lb), (self.z_ub - self.z_lb))
         fig_size = (fig_width, fig_height)
         fig, axes = plt.subplots(1, 2, figsize=fig_size)
-        yx_ax, yz_ax = axes
+        xy_ax, xz_ax = axes
         # Draw the cups.
         color = "none"  # transparent cups
         for cup in state.get_objects(self._cup_type):
@@ -419,45 +388,45 @@ class CoffeeEnv(BaseEnv):
             y = state.get(cup, "y")
             capacity = state.get(cup, "capacity_liquid")
             current = state.get(cup, "current_liquid")
-            z = self.z_lb
-            circ = utils.Circle(y, x, self.cup_radius)
-            circ.plot(yx_ax, facecolor=color, edgecolor="black")
+            z = self.z_lb + self.cup_radius
+            circ = utils.Circle(x, y, self.cup_radius)
+            circ.plot(xy_ax, facecolor=color, edgecolor="black")
             # Cups are cylinders, so in the xz plane, they look like rects.
-            rect = utils.Rectangle(x=y,
+            rect = utils.Rectangle(x=x,
                                    y=z,
                                    width=(self.cup_radius * 2),
                                    height=capacity,
                                    theta=0)
-            rect.plot(yz_ax, facecolor=color, edgecolor="black")
+            rect.plot(xz_ax, facecolor=color, edgecolor="black")
             # Draw an inner rect to represent the filled level.
             if current > 0:
-                rect = utils.Rectangle(x=y,
+                rect = utils.Rectangle(x=x,
                                        y=z,
                                        width=(self.cup_radius * 2),
                                        height=current,
                                        theta=0)
-                rect.plot(yz_ax, facecolor="lightblue", edgecolor="black")
+                rect.plot(xz_ax, facecolor="lightblue", edgecolor="black")
         # Draw the machine.
         color = "gray"
-        rect = utils.Rectangle(x=self.machine_y,
-                               y=self.machine_x,
-                               width=self.machine_y_len,
-                               height=self.machine_x_len,
+        rect = utils.Rectangle(x=self.machine_x,
+                               y=self.machine_y,
+                               width=self.machine_x_len,
+                               height=self.machine_y_len,
                                theta=0.0)
-        rect.plot(yx_ax, facecolor=color, edgecolor="black")
-        rect = utils.Rectangle(x=self.machine_y,
+        rect.plot(xy_ax, facecolor=color, edgecolor="black")
+        rect = utils.Rectangle(x=self.machine_x,
                                y=self.z_lb,
-                               width=self.machine_y_len,
+                               width=self.machine_x_len,
                                height=self.machine_z_len,
                                theta=0.0)
-        rect.plot(yz_ax, facecolor=color, edgecolor="black")
-        # Draw a button on the machine (yz plane only).
+        rect.plot(xz_ax, facecolor=color, edgecolor="black")
+        # Draw a button on the machine (xz plane only).
         machine_on = self._MachineOn_holds(state, [self._machine])
         color = "red" if machine_on else "brown"
-        circ = utils.Circle(x=self.button_y,
+        circ = utils.Circle(x=self.button_x,
                             y=self.button_z,
                             radius=self.button_radius)
-        circ.plot(yz_ax, facecolor=color, edgecolor="black")
+        circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the jug.
         jug_full = self._JugFilled_holds(state, [self._jug])
         jug_held = self._Holding_holds(state, [self._robot, self._jug])
@@ -471,10 +440,10 @@ class CoffeeEnv(BaseEnv):
         x = state.get(self._jug, "x")
         y = state.get(self._jug, "y")
         z = self._get_jug_z(state, self._jug)
-        circ = utils.Circle(x=y, y=x, radius=self.jug_radius)
-        circ.plot(yx_ax, facecolor=color, edgecolor="black")
-        # The jug is a cylinder, so in the yz plane it looks like a rect.
-        rect = utils.Rectangle(x=(y - self.jug_radius),
+        circ = utils.Circle(x=x, y=y, radius=self.jug_radius)
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
+        # The jug is a cylinder, so in the xz plane it looks like a rect.
+        rect = utils.Rectangle(x=(x - self.jug_radius),
                                y=z,
                                width=(2 * self.jug_radius),
                                height=self.jug_height,
@@ -482,10 +451,10 @@ class CoffeeEnv(BaseEnv):
         # Rotate if held.
         if jug_held:
             tilt = state.get(self._robot, "tilt")
-            robot_y = state.get(self._robot, "y")
+            robot_x = state.get(self._robot, "x")
             robot_z = state.get(self._robot, "z")
-            rect = rect.rotate_about_point(robot_y, robot_z, tilt)
-        rect.plot(yz_ax, facecolor=color, edgecolor="black")
+            rect = rect.rotate_about_point(robot_x, robot_z, tilt)
+        rect.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the jug handle.
         if jug_held:
             # Offset to account for handle.
@@ -496,41 +465,40 @@ class CoffeeEnv(BaseEnv):
             handle_x, handle_y, handle_z = self._get_jug_handle_grasp(
                 state, self._jug)
         color = "darkgray"
-        circ = utils.Circle(x=handle_y,
-                            y=handle_x,
+        circ = utils.Circle(x=handle_x,
+                            y=handle_y,
                             radius=self.jug_handle_radius)
-        circ.plot(yx_ax, facecolor=color, edgecolor="black")
-        circ = utils.Circle(x=handle_y,
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
+        circ = utils.Circle(x=handle_x,
                             y=handle_z,
                             radius=self.jug_handle_radius)
-        circ.plot(yz_ax, facecolor=color, edgecolor="black")
+        circ.plot(xz_ax, facecolor=color, edgecolor="black")
         # Draw the robot.
         color = "gold"
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         z = state.get(self._robot, "z")
         circ = utils.Circle(
-            x=y,
-            y=x,
+            x=x,
+            y=y,
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
-        circ.plot(yx_ax, facecolor=color, edgecolor="black")
+        circ.plot(xy_ax, facecolor=color, edgecolor="black")
         circ = utils.Circle(
-            x=y,
+            x=x,
             y=z,
             radius=self.cup_radius  # robot in reality has no 'radius'
         )
-        circ.plot(yz_ax, facecolor=color, edgecolor="black")
-        ax_pad = 0.1
-        # y axis goes right to left
-        yx_ax.set_xlim((self.y_ub + ax_pad), (self.y_lb - ax_pad))
-        yx_ax.set_ylim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
-        yx_ax.set_xlabel("y")
-        yx_ax.set_ylabel("x")
-        yz_ax.set_xlim((self.y_ub + ax_pad), (self.y_lb - ax_pad))
-        yz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
-        yz_ax.set_xlabel("y")
-        yz_ax.set_ylabel("z")
+        circ.plot(xz_ax, facecolor=color, edgecolor="black")
+        ax_pad = 0.5
+        xy_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
+        xy_ax.set_ylim((self.y_lb - ax_pad), (self.y_ub + ax_pad))
+        xy_ax.set_xlabel("x")
+        xy_ax.set_ylabel("y")
+        xz_ax.set_xlim((self.x_lb - ax_pad), (self.x_ub + ax_pad))
+        xz_ax.set_ylim((self.z_lb - ax_pad), (self.z_ub + ax_pad))
+        xz_ax.set_xlabel("x")
+        xz_ax.set_ylabel("z")
         plt.tight_layout()
         return fig
 
@@ -663,7 +631,7 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_top = (jug_x, jug_y, self.jug_height + self.z_lb + self.jug_twist_offset)
+        jug_top = (jug_x, jug_y, self.jug_height)
         # To prevent false positives, if the distance to the handle is less
         # than the distance to the jug top, we are not twisting.
         handle_pos = self._get_jug_handle_grasp(state, jug)
@@ -717,11 +685,16 @@ class CoffeeEnv(BaseEnv):
         sq_dist_to_button = np.sum(np.subtract(button_pos, (x, y, z))**2)
         return sq_dist_to_button < self.button_radius
 
+    @staticmethod
+    def _NotSameCup_holds(state: State, objects: Sequence[Object]) -> bool:
+        del state  # unused
+        cup1, cup2 = objects
+        return cup1 != cup2
+
     def _MoveToTwistJug_policy(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> Action:
         # This policy moves the robot to above the jug, then moves down.
-        self._in_pouring_phase = False
         del memory, params  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -730,7 +703,7 @@ class CoffeeEnv(BaseEnv):
         robot_pos = (x, y, z)
         jug_x = state.get(jug, "x")
         jug_y = state.get(jug, "y")
-        jug_z = self.z_lb + self.jug_height + self.jug_twist_offset
+        jug_z = self.jug_height
         jug_top = (jug_x, jug_y, jug_z)
         xy_sq_dist = (jug_x - x)**2 + (jug_y - y)**2
         # If at the correct x and y position, move directly toward the target.
@@ -780,7 +753,6 @@ class CoffeeEnv(BaseEnv):
         # This policy moves the robot to a safe height, then moves to behind
         # the handle in the y direction, then moves down in the z direction,
         # then moves forward in the y direction before finally grasping.
-        self._in_pouring_phase = False
         del memory, params  # unused
         robot, jug = objects
         x = state.get(robot, "x")
@@ -794,39 +766,29 @@ class CoffeeEnv(BaseEnv):
             return Action(
                 np.array([0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32))
         target_x, target_y, target_z = handle_pos
-        # Distance to the handle in the yz plane.
-        yz_handle_sq_dist = (target_y - y)**2 + (target_z - z)**2
-        # Distance to the penultimate waypoint in the yx plane.
-        waypoint_x = target_x - self.pick_jug_x_padding
+        # Distance to the handle in the x/z plane.
+        xz_handle_sq_dist = (target_x - x)**2 + (target_z - z)**2
+        # Distance to the penultimate waypoint in the x/y plane.
+        waypoint_y = target_y - self.pick_jug_y_padding
         # Distance in the z direction to a safe move distance.
         safe_z_sq_dist = (self.robot_init_z - z)**2
-        yx_waypoint_sq_dist = (waypoint_x - x)**2 + (target_y - y)**2
-        # Move the wrist back to the initial position, in case we just finished
-        # twisting.
-        dwrist = self.robot_init_wrist - state.get(robot, "wrist")
-        # Open the fingers, in case we just pressed the button.
-        dfingers = self.open_fingers - state.get(robot, "fingers")
-        # If at the correct y and z position and behind in the x direction,
+        xy_waypoint_sq_dist = (target_x - x)**2 + (waypoint_y - y)**2
+        # If at the correct x and z position and behind in the y direction,
         # move directly toward the target.
-        if x < target_x and yz_handle_sq_dist < self.pick_policy_tol:
-            return self._get_move_action(handle_pos, robot_pos, dwrist=dwrist, dfingers=dfingers)
+        if target_y > y and xz_handle_sq_dist < self.pick_policy_tol:
+            return self._get_move_action(handle_pos, robot_pos)
         # If close enough to the penultimate waypoint in the x/y plane,
         # move to the waypoint (in the z direction).
-        if yx_waypoint_sq_dist < self.pick_policy_tol:
-            return self._get_move_action((waypoint_x, target_y, target_z),
-                                         robot_pos,
-                                         dwrist=dwrist, dfingers=dfingers)
+        if xy_waypoint_sq_dist < self.pick_policy_tol:
+            return self._get_move_action((target_x, waypoint_y, target_z),
+                                         robot_pos)
         # If at a safe height, move to the position above the penultimate
         # waypoint, still at a safe height.
         if safe_z_sq_dist < self.safe_z_tol:
             return self._get_move_action(
-                (waypoint_x, target_y, self.robot_init_z),
-                robot_pos,
-                dwrist=dwrist, dfingers=dfingers)
+                (target_x, waypoint_y, self.robot_init_z), robot_pos)
         # Move up to a safe height.
-        return self._get_move_action((x, y, self.robot_init_z),
-                                     robot_pos,
-                                     dwrist=dwrist, dfingers=dfingers)
+        return self._get_move_action((x, y, self.robot_init_z), robot_pos)
 
     def _PickJug_terminal(self, state: State, memory: Dict,
                           objects: Sequence[Object], params: Array) -> bool:
@@ -880,15 +842,11 @@ class CoffeeEnv(BaseEnv):
         z = state.get(robot, "z")
         robot_pos = (x, y, z)
         button_pos = (self.button_x, self.button_y, self.button_z)
-        # Close the fingers.
-        dfingers = self.closed_fingers - state.get(robot, "fingers")
         if (self.button_z - z)**2 < self.button_radius**2:
             # Move directly toward the button.
-            return self._get_move_action(button_pos, robot_pos,
-                                         dfingers=dfingers)
+            return self._get_move_action(button_pos, robot_pos)
         # Move only in the z direction.
-        return self._get_move_action((x, y, self.button_z), robot_pos,
-                                     dfingers=dfingers)
+        return self._get_move_action((x, y, self.button_z), robot_pos)
 
     def _TurnMachineOn_terminal(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
@@ -903,10 +861,9 @@ class CoffeeEnv(BaseEnv):
         # the cup is filled. Note that if starting out at the end of another
         # pour, we need to start by rotating the cup to prevent any further
         # pouring until we've moved over the next cup.
-        self._in_pouring_phase = True
         del memory, params  # unused
-        move_tilt = self.robot_init_tilt
-        pour_tilt = self.pour_tilt
+        move_tilt = self.tilt_lb
+        pour_tilt = self.tilt_ub
         robot, jug, cup = objects
         robot_x = state.get(robot, "x")
         robot_y = state.get(robot, "y")
@@ -918,35 +875,25 @@ class CoffeeEnv(BaseEnv):
         jug_z = self._get_jug_z(state, jug)
         jug_pos = (jug_x, jug_y, jug_z)
         pour_x, pour_y, _ = pour_pos = self._get_pour_position(state, cup)
-        # The wrist should be sideways for pouring.
-        dwrist = (np.pi / 2 - state.get(robot, "wrist"))
         # If we're close enough to the pour position, pour.
         sq_dist_to_pour = np.sum(np.subtract(jug_pos, pour_pos)**2)
         if sq_dist_to_pour < self.pour_policy_tol:
             dtilt = pour_tilt - tilt
-            return self._get_move_action(jug_pos,
-                                         jug_pos,
-                                         dtilt=dtilt,
-                                         dwrist=dwrist)
+            return self._get_move_action(jug_pos, jug_pos, dtilt=dtilt)
         dtilt = move_tilt - tilt
         # If we're above the pour position, move down to pour.
         xy_pour_sq_dist = (jug_x - pour_x)**2 + (jug_y - pour_y)**2
         if xy_pour_sq_dist < self.safe_z_tol:
-            return self._get_move_action(pour_pos,
-                                         jug_pos,
-                                         dtilt=dtilt,
-                                         dwrist=dwrist)
+            return self._get_move_action(pour_pos, jug_pos, dtilt=dtilt)
         # If we're at a safe height, move toward above the pour position.
         if (robot_z - self.robot_init_z)**2 < self.safe_z_tol:
             return self._get_move_action((pour_x, pour_y, jug_z),
                                          jug_pos,
-                                         dtilt=dtilt,
-                                         dwrist=dwrist)
+                                         dtilt=dtilt)
         # Move to a safe moving height.
         return self._get_move_action((robot_x, robot_y, self.robot_init_z),
                                      robot_pos,
-                                     dtilt=dtilt,
-                                     dwrist=dwrist)
+                                     dtilt=dtilt)
 
     def _Pour_terminal(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> bool:
@@ -968,10 +915,10 @@ class CoffeeEnv(BaseEnv):
     def _get_jug_handle_grasp(self, state: State,
                               jug: Object) -> Tuple[float, float, float]:
         # Orient pointing down.
-        rot = state.get(jug, "rot") - np.pi
+        rot = state.get(jug, "rot") - np.pi / 2
         target_x = state.get(jug, "x") + np.cos(rot) * self.jug_handle_offset
         target_y = state.get(jug, "y") + np.sin(rot) * self.jug_handle_offset
-        target_z = self.z_lb + self.jug_handle_height
+        target_z = self.jug_handle_height
         return (target_x, target_y, target_z)
 
     def _get_jug_z(self, state: State, jug: Object) -> float:
@@ -985,7 +932,7 @@ class CoffeeEnv(BaseEnv):
                            cup: Object) -> Tuple[float, float, float]:
         target_x = state.get(cup, "x") + self.pour_x_offset
         target_y = state.get(cup, "y") + self.pour_y_offset
-        target_z = self.z_lb + self.pour_z_offset
+        target_z = self.pour_z_offset
         return (target_x, target_y, target_z)
 
     def _get_cup_to_pour(self, state: State) -> Optional[Object]:
@@ -1007,8 +954,7 @@ class CoffeeEnv(BaseEnv):
                          target_pos: Tuple[float, float, float],
                          robot_pos: Tuple[float, float, float],
                          dtilt: float = 0.0,
-                         dwrist: float = 0.0,
-                         dfingers: float = 0.0) -> Action:
+                         dwrist: float = 0.0) -> Action:
         # We want to move in this direction.
         delta = np.subtract(target_pos, robot_pos)
         # But we can only move at most max_position_vel in one step.
@@ -1026,631 +972,5 @@ class CoffeeEnv(BaseEnv):
         dx, dy, dz = delta
         dtilt = np.clip(dtilt, -self.max_angular_vel, self.max_angular_vel)
         dtilt = dtilt / self.max_angular_vel
-        dwrist = np.clip(dwrist, -self.max_angular_vel, self.max_angular_vel)
-        dwrist = dwrist / self.max_angular_vel
         return Action(
-            np.array([dx, dy, dz, dtilt, dwrist, dfingers], dtype=np.float32))
-
-    def _render_state_pybullet(self,
-                               state: State,
-                               task: Task,
-                               action: Optional[Action] = None,
-                               caption: Optional[str] = None) -> Video:
-        assert CFG.pybullet_control_mode == "reset"
-
-        if self._physics_client_id is None:
-            self._initialize_pybullet()
-
-        # Update based on the input state.
-        self._update_pybullet_from_state(state)
-
-        # Take the first image.
-        imgs = [self._capture_pybullet_image()]
-
-        if action is None:
-            return imgs
-
-        current = (state.get(self._robot,
-                             "x"), state.get(self._robot,
-                                             "y"), state.get(self._robot, "z"))
-        current_grip_orn = self._state_to_gripper_orn(state)
-        original_grip_orn = current_grip_orn
-        original_jug_rot = state.get(self._jug, "rot")
-
-        # Get the next state expected after this action is taken.
-        next_state = self.simulate(state, action)
-        target = (
-            next_state.get(self._robot, "x"),
-            next_state.get(self._robot, "y"),
-            next_state.get(self._robot, "z"),
-        )
-        finger_state = next_state.get(self._robot, "fingers")
-        finger_joint = self._fingers_state_to_joint(finger_state)
-        target_grip_orn = self._state_to_gripper_orn(next_state)
-        grip_orn_delta = np.subtract(target_grip_orn, current_grip_orn)
-        target_jug_rot = next_state.get(self._jug, "rot")
-
-        # If we are currently holding the jug, create a constraint.
-        if self._Holding_holds(state, [self._robot, self._jug]):
-            if self._held_obj_to_base_link is None:
-                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2])]
-                world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                    self._jug_id, physicsClientId=self._physics_client_id)]
-                self._held_obj_to_base_link = p.invertTransform(
-                    *p.multiplyTransforms(base_link_to_world[:3],
-                                          base_link_to_world[3:],
-                                          world_to_obj[:3], world_to_obj[3:]))
-        else:
-            self._held_obj_to_base_link = None
-
-        # Take actions to move toward the target pose.
-        # TODO: refactor logic with pybullet robot code.
-        while np.sum(np.square(np.subtract(current, target))) > self._pybullet_move_to_pose_tol or \
-              np.sum(np.square(np.subtract(current_grip_orn, target_grip_orn))) > self._pybullet_move_to_pose_tol:
-            # Run IK to determine the target joint positions.
-            ee_delta = np.subtract(target, current)
-            # Reduce the target to conform to the max velocity constraint.
-            ee_norm = np.linalg.norm(ee_delta)
-            if ee_norm > self._pybullet_max_vel_norm:
-                ee_delta = ee_delta * self._pybullet_max_vel_norm / ee_norm
-            ee_action = np.add(current, ee_delta)
-            # Keep validate as False because validate=True would update the
-            # state of the robot during simulation, which overrides physics.
-            orn_delta = np.subtract(target_grip_orn, current_grip_orn)
-            orn_norm = np.linalg.norm(orn_delta)
-            if orn_norm > self._pybullet_max_angular_norm:
-                orn_delta = orn_delta * self._pybullet_max_angular_norm / orn_norm
-            orn_action = np.add(current_grip_orn, orn_delta)
-            current_grip_orn = orn_action
-            joints_state = self._pybullet_robot.inverse_kinematics(
-                (ee_action[0], ee_action[1], ee_action[2]),
-                validate=True,
-                orientation=orn_action)
-            # Override the meaningless finger values in joint_action.
-            joints_state[
-                self._pybullet_robot.left_finger_joint_idx] = finger_joint
-            joints_state[
-                self._pybullet_robot.right_finger_joint_idx] = finger_joint
-            action_arr = np.array(joints_state, dtype=np.float32)
-            # This clipping is needed sometimes for the joint limits.
-            action_arr = np.clip(action_arr,
-                                 self._pybullet_robot.action_space.low,
-                                 self._pybullet_robot.action_space.high)
-            assert self._pybullet_robot.action_space.contains(action_arr)
-            pybullet_action = Action(action_arr)
-            # Take action in PyBullet.
-            self._pybullet_robot.set_motors(pybullet_action.arr.tolist())
-            # Update the robot state. TODO, make this a separate function?
-            rx, ry, rz, _ = self._pybullet_robot.get_state()
-            current = (rx, ry, rz)
-            state = state.copy()
-            state.set(self._robot, "x", rx)
-            state.set(self._robot, "y", ry)
-            state.set(self._robot, "z", rz)
-
-            # Update the held jug.
-            if self._held_obj_to_base_link:
-                world_to_base_link = p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2]
-                base_link_to_held_obj = p.invertTransform(
-                    *self._held_obj_to_base_link)
-                world_to_held_obj = p.multiplyTransforms(
-                    world_to_base_link[0], world_to_base_link[1],
-                    base_link_to_held_obj[0], base_link_to_held_obj[1])
-                p.resetBasePositionAndOrientation(
-                    self._jug_id,
-                    world_to_held_obj[0],
-                    world_to_held_obj[1],
-                    physicsClientId=self._physics_client_id)
-            # Handle twisting.
-            elif self._Twisting_holds(state, [self._robot, self._jug]):
-                total_norm = np.linalg.norm(np.subtract(target_grip_orn, original_grip_orn))
-                if total_norm > 0:
-                    progress_norm = np.linalg.norm(np.subtract(current_grip_orn, original_grip_orn))
-                    progress = progress_norm / total_norm
-                    current_rot = original_jug_rot + progress * (target_jug_rot - original_jug_rot)
-                    (jx, jy, jz), _ = p.getBasePositionAndOrientation(self._jug_id, physicsClientId=self._physics_client_id)
-                    jug_orientation = p.getQuaternionFromEuler(
-                        [0.0, 0.0, current_rot + np.pi])
-                    p.resetBasePositionAndOrientation(
-                        self._jug_id, [jx, jy, jz],
-                        jug_orientation,
-                        physicsClientId=self._physics_client_id)
-
-            # Take an image.
-            imgs.append(self._capture_pybullet_image())
-
-        return imgs
-
-    def _initialize_pybullet(self) -> None:
-        self._physics_client_id = p.connect(p.GUI)
-        # Disable the preview windows for faster rendering.
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI,
-                                   False,
-                                   physicsClientId=self._physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-                                   False,
-                                   physicsClientId=self._physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-                                   False,
-                                   physicsClientId=self._physics_client_id)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-                                   False,
-                                   physicsClientId=self._physics_client_id)
-        p.resetDebugVisualizerCamera(self._camera_distance2,
-                                     self._camera_yaw2,
-                                     self._camera_pitch2,
-                                     self._camera_target,
-                                     physicsClientId=self._physics_client_id)
-        p.resetSimulation(physicsClientId=self._physics_client_id)
-
-        # Load plane.
-        p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
-                   useFixedBase=True,
-                   physicsClientId=self._physics_client_id)
-
-        # Load robot.
-        ee_home = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
-        # ee_orn = p.getQuaternionFromEuler([0.0, np.pi / 2, -np.pi])
-        self._pybullet_robot = create_single_arm_pybullet_robot(
-            CFG.pybullet_robot, self._physics_client_id, ee_home)
-
-        # Load table.
-        self._table_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/table.urdf"),
-            useFixedBase=True,
-            physicsClientId=self._physics_client_id)
-        p.resetBasePositionAndOrientation(
-            self._table_id,
-            self._table_pose,
-            self._table_orientation,
-            physicsClientId=self._physics_client_id)
-
-        ## Load coffee jug.
-
-        # # TODO make realistic.
-        # # Create the collision shape.
-        # jug_collision_id = p.createCollisionShape(
-        #     p.GEOM_CYLINDER,
-        #     radius=self.jug_radius,
-        #     height=self.jug_height,
-        #     physicsClientId=self._physics_client_id)
-
-        # # Create the visual_shape.
-        # jug_visual_id = p.createVisualShape(
-        #     p.GEOM_CYLINDER,
-        #     radius=self.jug_radius,
-        #     length=self.jug_height,
-        #     rgbaColor=(0.4, 0.6, 0.6, 1.0),
-        #     physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        # This pose doesn't matter because it gets overwritten in reset.
-        jug_pose = ((self.jug_init_x_lb + self.jug_init_x_ub) / 2,
-                    (self.jug_init_y_lb + self.jug_init_y_ub) / 2,
-                    self.z_lb + self.jug_height / 2)
-        # The jug orientation updates based on the rotation of the state.
-        rot = (self.jug_init_rot_lb + self.jug_init_rot_ub) / 2
-        jug_orientation = p.getQuaternionFromEuler([0.0, 0.0, rot + np.pi])
-
-        self._jug_id = p.loadURDF(
-            utils.get_env_asset_path("urdf/kettle.urdf"),
-            useFixedBase=True,
-            globalScaling=0.075,
-            physicsClientId=self._physics_client_id)
-        p.resetBasePositionAndOrientation(self._jug_id,
-            jug_pose,
-            jug_orientation,
-            physicsClientId=self._physics_client_id)
-
-        # # Create the jug handle.
-        # handle_pose = (0, -self.jug_handle_offset, self.jug_handle_height / 2)
-        # handle_orientation = self._default_obj_orn
-        # handle_collision_id = p.createCollisionShape(
-        #     p.GEOM_CYLINDER,
-        #     radius=self.jug_handle_radius,
-        #     height=self.jug_handle_height,
-        #     physicsClientId=self._physics_client_id)
-
-        # # Create the visual_shape.
-        # handle_visual_id = p.createVisualShape(
-        #     p.GEOM_CYLINDER,
-        #     radius=self.jug_handle_radius,
-        #     length=self.jug_handle_radius,
-        #     rgbaColor=(0.4, 0.5, 0.6, 1.0),
-        #     physicsClientId=self._physics_client_id)
-
-        # self._jug_id = p.createMultiBody(
-        #     baseMass=0,
-        #     baseCollisionShapeIndex=jug_collision_id,
-        #     baseVisualShapeIndex=jug_visual_id,
-        #     basePosition=jug_pose,
-        #     baseOrientation=jug_orientation,
-        #     linkMasses=[0],
-        #     linkCollisionShapeIndices=[handle_collision_id],
-        #     linkVisualShapeIndices=[handle_visual_id],
-        #     linkPositions=[handle_pose],
-        #     linkOrientations=[handle_orientation],
-        #     linkParentIndices=[0],
-        #     linkInertialFramePositions=[(0, 0, 0)],
-        #     linkInertialFrameOrientations=[(0, 0, 0, 1)],
-        #     linkJointAxis=[(0, 0, 0)],
-        #     linkJointTypes=[p.JOINT_FIXED],
-        #     physicsClientId=self._physics_client_id)
-
-        ## Load coffee machine.
-
-        # TODO make realistic.
-        # Create the collision shape.
-        machine_y_pad = 0.05
-        half_extents = (
-            self.machine_x_len / 2,
-            (self.machine_y_len + machine_y_pad) / 2,
-            self.machine_z_len / 2,
-        )
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=self._physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            rgbaColor=(0.7, 0.7, 0.7, 1.0),
-            physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        pose = (
-            self.machine_x + self.machine_x_len / 2,
-            self.machine_y + self.machine_y_len / 2,
-            self.z_lb + self.machine_z_len / 2,
-        )
-        orientation = self._default_obj_orn
-        self._machine_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
-            physicsClientId=self._physics_client_id)
-
-
-        ## Create the dispense area.
-        dispense_radius = 2 * self.jug_radius
-        dispense_height = 0.005
-        pose = (
-            self.dispense_area_x,
-            self.dispense_area_y,
-            self.z_lb + dispense_height
-        )
-        orientation = self._default_obj_orn
-        half_extents = [1.1*dispense_radius, 1.1*dispense_radius, dispense_height]
-        
-        # Create a square beneath the dispense area for visual niceness.
-        collision_id = p.createCollisionShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            physicsClientId=self._physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_BOX,
-            halfExtents=half_extents,
-            rgbaColor=(0.3, 0.3, 0.3, 1.0),
-            physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        dispense_square_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=np.add(pose, (0, 0, -dispense_height)),
-            baseOrientation=orientation,
-            physicsClientId=self._physics_client_id)
-        
-        # Create the collision shape.
-        collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=dispense_radius,
-            height=dispense_height,
-            physicsClientId=self._physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=dispense_radius,
-            length=dispense_height,
-            rgbaColor=(0.6, 0.6, 0.6, 0.8),
-            physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        self._dispense_area_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
-            physicsClientId=self._physics_client_id)
-
-        # Add a button. Could do this as a link on the machine, but since
-        # both never move, it doesn't matter.
-        button_height = self.button_radius / 2
-        collision_id = p.createCollisionShape(
-            p.GEOM_CYLINDER,
-            radius=self.button_radius,
-            height=button_height,
-            physicsClientId=self._physics_client_id)
-
-        # Create the visual_shape.
-        visual_id = p.createVisualShape(
-            p.GEOM_CYLINDER,
-            radius=self.button_radius,
-            length=button_height,
-            rgbaColor=(0.5, 0.2, 0.2, 1.0),
-            physicsClientId=self._physics_client_id)
-
-        # Create the body.
-        pose = (
-            self.button_x,
-            self.button_y,
-            self.button_z,
-        )
-        # Facing outward.
-        orientation = p.getQuaternionFromEuler([0.0, np.pi / 2, 0.0])
-        self._button_id = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=visual_id,
-            basePosition=pose,
-            baseOrientation=orientation,
-            physicsClientId=self._physics_client_id)
-
-        ## Create cups lazily.
-        self._cup_capacities: List[float] = []
-        self._cup_id_to_cup: Dict[int, Object] = {}
-        self._liquid_ids: Set[int] = set()
-
-        # For randomizing colors.
-        self._pybullet_rng = np.random.default_rng(CFG.seed)
-        
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-
-    def _update_pybullet_from_state(self, state: State) -> None:
-
-        # Reset cups based on the state.
-        cup_objs = state.get_objects(self._cup_type)
-        cup_caps = sorted(state.get(c, "capacity_liquid") for c in cup_objs)
-
-        # Remake the cups.
-        if sorted(self._cup_capacities) != cup_caps:
-            # Remove the old cups.
-            for old_cup_id in self._cup_id_to_cup:
-                p.removeBody(old_cup_id, physicsClientId=self._physics_client_id)
-            # Make new cups.
-            self._cup_id_to_cup = {}
-            self._cup_capacities = []
-            for cup_obj in cup_objs:
-                cup_height = state.get(cup_obj, "capacity_liquid")
-                cx = state.get(cup_obj, "x")
-                cy = state.get(cup_obj, "y")
-                cz = self.z_lb + cup_height / 2
-
-                cup_id = p.loadURDF(
-                    utils.get_env_asset_path("urdf/cup.urdf"),
-                    useFixedBase=True,
-                    globalScaling=0.5 * (cup_height / self.cup_capacity_ub),
-                    physicsClientId=self._physics_client_id)
-                # Rotate so handles face robot.
-                cup_orn = p.getQuaternionFromEuler([np.pi, np.pi, 0.0])
-                p.resetBasePositionAndOrientation(cup_id,
-                    (cx, cy, cz),
-                    cup_orn,
-                    physicsClientId=self._physics_client_id)
-
-                # collision_id = p.createCollisionShape(
-                #     p.GEOM_CYLINDER,
-                #     radius=self.cup_radius,
-                #     height=cup_height,
-                #     physicsClientId=self._physics_client_id)
-
-                # Create the visual_shape.
-                # Randomize cup colors.
-                cmap = matplotlib.cm.get_cmap('tab20b')
-                color = cmap(self._pybullet_rng.uniform())
-                p.changeVisualShape(cup_id, -1, rgbaColor=color,
-                    physicsClientId=self._physics_client_id)
-
-                # visual_id = p.createVisualShape(
-                #     p.GEOM_CYLINDER,
-                #     radius=self.cup_radius,
-                #     length=cup_height,
-                #     rgbaColor=color,
-                #     physicsClientId=self._physics_client_id)
-
-                # Create the body.
-                # pose = (cx, cy, cz)
-                # orientation = self._default_obj_orn
-                # cup_id = p.createMultiBody(baseMass=0,
-                #                            baseCollisionShapeIndex=collision_id,
-                #                            baseVisualShapeIndex=visual_id,
-                #                            basePosition=pose,
-                #                            baseOrientation=orientation,
-                #                            physicsClientId=self._physics_client_id)
-
-                self._cup_id_to_cup[cup_id] = cup_obj
-                self._cup_capacities.append(cup_height)
-
-        # Create liquid in cups.
-        for liquid_id in self._liquid_ids:
-            p.removeBody(liquid_id, physicsClientId=self._physics_client_id)
-        self._liquid_ids.clear()
-        
-        for cup in state.get_objects(self._cup_type):
-            current_liquid = state.get(cup, "current_liquid")
-            scale = 1.5 * np.sqrt(state.get(cup, "capacity_liquid") / self.cup_capacity_ub)
-            liquid_height = current_liquid * scale
-            liquid_radius = self.cup_radius * scale
-            if current_liquid == 0:
-                continue
-            cx = state.get(cup, "x")
-            cy = state.get(cup, "y")
-            cz = self.z_lb + current_liquid / 2 + 0.025
-
-            collision_id = p.createCollisionShape(
-                p.GEOM_CYLINDER,
-                radius=liquid_radius,
-                height=liquid_height,
-                physicsClientId=self._physics_client_id)
-
-            visual_id = p.createVisualShape(
-                p.GEOM_CYLINDER,
-                radius=liquid_radius,
-                length=liquid_height,
-                rgbaColor=(0.35, 0.1, 0.0, 1.0),
-                physicsClientId=self._physics_client_id)
-
-            pose = (cx, cy, cz)
-            orientation = self._default_obj_orn
-            liquid_id = p.createMultiBody(baseMass=0,
-                                       baseCollisionShapeIndex=collision_id,
-                                       baseVisualShapeIndex=visual_id,
-                                       basePosition=pose,
-                                       baseOrientation=orientation,
-                                       physicsClientId=self._physics_client_id)
-            self._liquid_ids.add(liquid_id)
-
-
-        # Update the robot.
-        grip_orn = self._state_to_gripper_orn(state)
-        self._pybullet_robot.reset_state(self._extract_robot_state(state),
-                                         orientation=grip_orn)
-
-        # Reset the jug based on the state.
-        if self._Holding_holds(state, [self._robot, self._jug]):
-            if self._held_obj_to_base_link is None:
-                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
-                    self._pybullet_robot.robot_id,
-                    self._pybullet_robot.end_effector_id,
-                    physicsClientId=self._physics_client_id)[:2])]
-                world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                    self._jug_id, physicsClientId=self._physics_client_id)]
-                self._held_obj_to_base_link = p.invertTransform(
-                    *p.multiplyTransforms(base_link_to_world[:3],
-                                          base_link_to_world[3:],
-                                          world_to_obj[:3], world_to_obj[3:]))
-
-            world_to_base_link = p.getLinkState(
-                self._pybullet_robot.robot_id,
-                self._pybullet_robot.end_effector_id,
-                physicsClientId=self._physics_client_id)[:2]
-            base_link_to_held_obj = p.invertTransform(
-                *self._held_obj_to_base_link)
-            world_to_held_obj = p.multiplyTransforms(world_to_base_link[0],
-                                                     world_to_base_link[1],
-                                                     base_link_to_held_obj[0],
-                                                     base_link_to_held_obj[1])
-            p.resetBasePositionAndOrientation(
-                self._jug_id,
-                world_to_held_obj[0],
-                world_to_held_obj[1],
-                physicsClientId=self._physics_client_id)
-        else:
-            self._held_obj_to_base_link = None
-            jx = state.get(self._jug, "x")
-            jy = state.get(self._jug, "y")
-            jz = self._get_jug_z(state, self._jug) + self.jug_height / 2
-            rot = state.get(self._jug, "rot")
-            jug_orientation = p.getQuaternionFromEuler(
-                [0.0, 0.0, rot + np.pi])
-            p.resetBasePositionAndOrientation(
-                self._jug_id, [jx, jy, jz],
-                jug_orientation,
-                physicsClientId=self._physics_client_id)
-
-        # Update the button color.
-        if self._MachineOn_holds(state, [self._machine]) and \
-            self._JugInMachine_holds(state, [self._jug, self._machine]):
-            button_color = (0.2, 0.5, 0.2, 1.0)
-            plate_color = (0.9, 0.3, 0.0, 0.7)
-        else:
-            button_color = (0.5, 0.2, 0.2, 1.0)
-            plate_color = (0.6, 0.6, 0.6, 0.5)
-        p.changeVisualShape(self._button_id, -1, rgbaColor=button_color,
-            physicsClientId=self._physics_client_id)
-        p.changeVisualShape(self._dispense_area_id, -1, rgbaColor=plate_color,
-            physicsClientId=self._physics_client_id)
-
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-
-    def _capture_pybullet_image(self) -> Image:
-
-        if self._in_pouring_phase:
-            camera_distance = self._camera_distance2
-            camera_yaw = self._camera_yaw2
-            camera_pitch = self._camera_pitch2
-        else:
-            camera_distance = self._camera_distance
-            camera_yaw = self._camera_yaw
-            camera_pitch = self._camera_pitch            
-
-        view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=self._camera_target,
-            distance=camera_distance,
-            yaw=camera_yaw,
-            pitch=camera_pitch,
-            roll=0,
-            upAxisIndex=2,
-            physicsClientId=self._physics_client_id)
-
-        width = CFG.pybullet_camera_width
-        height = CFG.pybullet_camera_height
-
-        proj_matrix = p.computeProjectionMatrixFOV(
-            fov=60,
-            aspect=float(width / height),
-            nearVal=0.1,
-            farVal=100.0,
-            physicsClientId=self._physics_client_id)
-
-        (_, _, px, _,
-         _) = p.getCameraImage(width=width,
-                               height=height,
-                               viewMatrix=view_matrix,
-                               projectionMatrix=proj_matrix,
-                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                               physicsClientId=self._physics_client_id)
-
-        rgb_array = np.array(px)
-        rgb_array = rgb_array[:, :, :3]
-        return rgb_array
-
-    def _extract_robot_state(self, state: State) -> Array:
-        return np.array([
-            state.get(self._robot, "x"),
-            state.get(self._robot, "y"),
-            state.get(self._robot, "z"),
-            self._fingers_state_to_joint(state.get(self._robot, "fingers")),
-        ],
-                        dtype=np.float32)
-
-    def _fingers_state_to_joint(self, fingers_state: float) -> float:
-        assert fingers_state in (self.open_fingers, self.closed_fingers)
-        open_f = self._pybullet_robot.open_fingers - 0.01
-        closed_f = self._pybullet_robot.closed_fingers
-        return closed_f if fingers_state == self.closed_fingers else open_f
-
-    def _state_to_gripper_orn(self, state: State) -> Array:
-        wrist = state.get(self._robot, "wrist")
-        tilt = state.get(self._robot, "tilt")
-        if abs(tilt - self.robot_init_tilt) > self.pour_angle_tol:
-            return p.getQuaternionFromEuler(
-                [0.0, np.pi / 2 + tilt, 3 * np.pi / 2])
-        return p.getQuaternionFromEuler([0.0, np.pi / 2, wrist + np.pi])
+            np.array([dx, dy, dz, dtilt, dwrist, 0.0], dtype=np.float32))
