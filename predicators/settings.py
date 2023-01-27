@@ -454,6 +454,7 @@ class GlobalSettings:
     # greedy lookahead explorer parameters
     greedy_lookahead_max_num_trajectories = 100
     greedy_lookahead_max_traj_length = 2
+    greedy_lookahead_max_num_resamples = 10
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

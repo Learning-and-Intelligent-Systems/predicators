@@ -128,6 +128,13 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_z", self.pick_z)
         next_state.set(block, "held", 1.0)
         next_state.set(self._robot, "fingers", 0.0)  # close fingers
+        if "clear" in self._block_type.feature_names:
+            # See BlocksEnvClear
+            next_state.set(block, "clear", 0)
+            # If block was on top of other block, set other block to clear
+            other_block = self._get_highest_block_below(state, x, y, z)
+            if other_block is not None and other_block != block:
+                next_state.set(other_block, "clear", 1)
         return next_state
 
     def _transition_putontable(self, state: State, x: float, y: float,
@@ -153,6 +160,9 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_z", z)
         next_state.set(block, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        if "clear" in self._block_type.feature_names:
+            # See BlocksEnvClear
+            next_state.set(block, "clear", 1)
         return next_state
 
     def _transition_stack(self, state: State, x: float, y: float,
@@ -182,6 +192,10 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_z", cur_z + self._block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(self._robot, "fingers", 1.0)  # open fingers
+        if "clear" in self._block_type.feature_names:
+            # See BlocksEnvClear
+            next_state.set(block, "clear", 1)
+            next_state.set(other_block, "clear", 0)
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
@@ -342,8 +356,15 @@ class BlocksEnv(BaseEnv):
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self._block_size * (0.5 + pile_j)
             r, g, b = rng.uniform(size=3)
-            # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
-            data[block] = np.array([x, y, z, 0.0, r, g, b])
+            if "clear" in self._block_type.feature_names:
+                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b,
+                # clear]
+                # Block is clear iff it is at the top of a pile
+                clear = pile_j == len(piles[pile_i]) - 1
+                data[block] = np.array([x, y, z, 0.0, r, g, b, clear])
+            else:
+                # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
+                data[block] = np.array([x, y, z, 0.0, r, g, b])
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment (they are
         # constant), but they change and get used in the PyBullet subclass.
@@ -584,3 +605,53 @@ class BlocksEnv(BaseEnv):
         task = Task(init_state, goal)
         assert not task.goal_holds(init_state)
         return task
+
+
+class BlocksEnvClear(BlocksEnv):
+    """Blocks domain where each block has a feature indicating whether it is
+    clear or not.
+
+    This allows us to learn all the predicates in BlocksEnv with the
+    assumption that the predicates are a function of only their
+    argument's states.
+    """
+
+    def __init__(self, use_gui: bool = True) -> None:
+        super().__init__(use_gui)
+
+        # Add attribute.
+        self._block_type = Type("block", [
+            "pose_x", "pose_y", "pose_z", "held", "color_r", "color_g",
+            "color_b", "clear"
+        ])
+        # Override predicates and options that use the block type
+        self._On = Predicate("On", [self._block_type, self._block_type],
+                             self._On_holds)
+        self._OnTable = Predicate("OnTable", [self._block_type],
+                                  self._OnTable_holds)
+        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+                                      self._GripperOpen_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        # Options
+        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
+            # variables: [robot, object to pick]
+            # params: []
+            "Pick",
+            self._Pick_policy,
+            types=[self._robot_type, self._block_type])
+        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
+            # variables: [robot, object on which to stack currently-held-object]
+            # params: []
+            "Stack",
+            self._Stack_policy,
+            types=[self._robot_type, self._block_type])
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "blocks_clear"
+
+    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        return state.get(block, "clear") == 1
