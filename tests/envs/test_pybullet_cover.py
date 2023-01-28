@@ -8,7 +8,7 @@ from predicators.envs.pybullet_cover import PyBulletCoverEnv
 from predicators.settings import CFG
 from predicators.structs import Object, State
 
-_GUI_ON = False  # toggle for debugging
+_GUI_ON = True  # toggle for debugging
 
 
 class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
@@ -72,7 +72,7 @@ class _ExposedPyBulletCoverEnv(PyBulletCoverEnv):
         return super()._get_hand_regions(state)
 
 
-@pytest.fixture(scope="module", name="env", params=("fetch", "panda"))
+@pytest.fixture(scope="module", name="env", params=("fetch",))
 def _create_exposed_pybullet_cover_env(request):
     """Only create once and share among all tests, for efficiency."""
     utils.reset_config({
@@ -83,6 +83,9 @@ def _create_exposed_pybullet_cover_env(request):
         "pybullet_control_mode": "position",
         # Which robot we're using
         "pybullet_robot": request.param,
+        # DO NOT MERGE
+        "pybullet_camera_width": 1674,
+        "pybullet_camera_height": 900,
     })
     return _ExposedPyBulletCoverEnv(use_gui=_GUI_ON)
 
@@ -183,3 +186,35 @@ def test_pybullet_cover_pick_workspace_bounds(env):
         state = env.execute_option(option)
         # The block should now be held.
         assert state.get(block, "grasp") != -1
+
+
+def test_image_gen(env):
+    """DO NOT MERGE. Temporary code for rendering manual scenes.
+    
+    Command:
+        pytest -s tests/envs/test_pybullet_cover.py -k test_image_gen
+
+    Saves image to /tmp.
+    """
+    # TODO(amber): find a good camera perspective, zoomed in on the block
+    env._camera_distance = 0.1
+    env._camera_yaw = 135.0
+    env._camera_pitch = -24
+    env._camera_target = (1.65, 0.9, 0.42)
+    # TODO(amber): add another block and target
+    block = Object("block0", env.block_type)
+    target = Object("target0", env.target_type)
+    robot = env.robot
+    workspace_x, workspace_z = env.workspace_dimensions
+    # Create a simple custom state with one block for testing.
+    init_state = State({
+        robot:
+        np.array([0.5, workspace_x, workspace_z]),
+        block:
+        np.array([1.0, 0.0, CFG.cover_block_widths[0], 0.7, -1]),
+        target:
+        np.array([0.0, 1.0, CFG.cover_target_widths[0], 0.75]),
+    })
+    env.set_state(init_state)
+    img = env.render()[0]
+    import imageio; imageio.imsave("/tmp/custom_pybullet_cover.png", img)

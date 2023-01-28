@@ -212,7 +212,7 @@ class PyBulletCoverEnv(PyBulletEnv, CoverEnv):
             width = width_unnorm / self._max_obj_width * max_width
             assert width == state.get(target_obj, "width")
             self._target_id_to_target[target_id] = target_obj
-            tx = self._workspace_x
+            tx = self._workspace_x + self._obj_len_hgt / 2
             # De-normalize target y to actual coordinates.
             y_norm = state.get(target_obj, "pose")
             ty = self._y_lb + (self._y_ub - self._y_lb) * y_norm
