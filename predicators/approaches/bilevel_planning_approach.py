@@ -61,7 +61,7 @@ class BilevelPlanningApproach(BaseApproach):
                     env.current_ig_state_to_state(
                         save_state=False,
                         use_test_scene=env.task_instance_id >= 10)):
-                load_checkpoint_state(task.init, env)
+                load_checkpoint_state(task.init, env, reset=True)
 
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()

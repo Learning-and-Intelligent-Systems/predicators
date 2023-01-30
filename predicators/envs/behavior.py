@@ -47,7 +47,8 @@ from predicators.behavior_utils.option_fns import create_dummy_policy, \
 from predicators.behavior_utils.option_model_fns import \
     create_close_option_model, create_grasp_option_model, \
     create_navigate_option_model, create_open_option_model, \
-    create_place_inside_option_model, create_place_option_model
+    create_place_inside_option_model, create_place_option_model, \
+    create_toggle_on_option_model
 from predicators.envs import BaseEnv
 from predicators.settings import CFG
 from predicators.structs import Action, Array, GroundAtom, Object, \
@@ -139,30 +140,34 @@ class BehaviorEnv(BaseEnv):
                                   create_navigate_policy, create_grasp_policy,
                                   create_place_policy, create_dummy_policy
                               ]
-        option_model_fns: List[Callable[
-            [List[List[float]], List[List[float]], "URDFObject"],
-            Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
-                create_navigate_option_model, create_grasp_option_model,
-                create_place_option_model, create_open_option_model,
-                create_close_option_model, create_place_inside_option_model
-            ]
+        option_model_fns: List[
+            Callable[[List[List[float]], List[List[float]], "URDFObject"],
+                     Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
+                         create_navigate_option_model,
+                         create_grasp_option_model,
+                         create_place_option_model,
+                         create_open_option_model,
+                         create_close_option_model,
+                         create_place_inside_option_model,
+                         create_toggle_on_option_model,
+                     ]
 
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
-        option_elems = [
-            ("NavigateTo", planner_fns[0], option_policy_fns[0],
-             option_model_fns[0], 2, 1, (-5.0, 5.0)),
-            ("Grasp", planner_fns[1], option_policy_fns[1],
-             option_model_fns[1], 3, 1, (-np.pi, np.pi)),
-            ("PlaceOnTop", planner_fns[2], option_policy_fns[2],
-             option_model_fns[2], 3, 1, (-1.0, 1.0)),
-            ("Open", planner_fns[3], option_policy_fns[3], option_model_fns[3],
-             3, 1, (-1.0, 1.0)),
-            ("Close", planner_fns[3], option_policy_fns[3],
-             option_model_fns[4], 3, 1, (-1.0, 1.0)),
-            ("PlaceInside", planner_fns[2], option_policy_fns[3],
-             option_model_fns[5], 3, 1, (-1.0, 1.0)),
-        ]
+        option_elems = [("NavigateTo", planner_fns[0], option_policy_fns[0],
+                         option_model_fns[0], 2, 1, (-5.0, 5.0)),
+                        ("Grasp", planner_fns[1], option_policy_fns[1],
+                         option_model_fns[1], 3, 1, (-np.pi, np.pi)),
+                        ("PlaceOnTop", planner_fns[2], option_policy_fns[2],
+                         option_model_fns[2], 3, 1, (-1.0, 1.0)),
+                        ("Open", planner_fns[3], option_policy_fns[3],
+                         option_model_fns[3], 3, 1, (-1.0, 1.0)),
+                        ("Close", planner_fns[3], option_policy_fns[3],
+                         option_model_fns[4], 3, 1, (-1.0, 1.0)),
+                        ("PlaceInside", planner_fns[2], option_policy_fns[3],
+                         option_model_fns[5], 3, 1, (-1.0, 1.0)),
+                        ("ToggleOn", planner_fns[3], option_policy_fns[3],
+                         option_model_fns[6], 3, 1, (-1.0, 1.0))]
         self._options: Set[ParameterizedOption] = set()
         for (name, planner_fn, policy_fn, option_model_fn, param_dim, num_args,
              parameter_limits) in option_elems:
@@ -394,7 +399,7 @@ class BehaviorEnv(BaseEnv):
                 # even though it's in the initial BDDL state, because
                 # it uses geometry, and the behaviorbot actually floats
                 # and doesn't touch the floor. But it doesn't matter.
-                # "onfloor",
+                "onfloor",
                 # "cooked",
                 # "burnt",
                 # "frozen",
@@ -403,7 +408,7 @@ class BehaviorEnv(BaseEnv):
                 # "dusty",
                 # "stained",
                 # "sliced",
-                # "toggled_on",
+                # "toggled_on", # This pred is broken, changes num of objs
         ]:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
@@ -418,6 +423,9 @@ class BehaviorEnv(BaseEnv):
                 # these predicates.
                 if 'agent' in [t.name for t in type_combo]:
                     continue
+                # For onfloor we will just use ontop of floor.
+                if bddl_name == 'onfloor':
+                    bddl_name = 'ontop'
                 pred_name = self._create_type_combo_name(bddl_name, type_combo)
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
@@ -432,6 +440,9 @@ class BehaviorEnv(BaseEnv):
             ("openable", self._openable_classifier, 1),
             ("not-openable", self._not_openable_classifier, 1),
             ("closed", self._closed_classifier, 1),
+            ("toggled_on", self._toggled_on_classifier, 1),
+            ("toggled-off", self._toggled_off_classifier, 1),
+            ("toggleable", self._toggleable_classifier, 1),
         ]
 
         for name, classifier, arity in custom_predicate_specs:
@@ -820,6 +831,38 @@ class BehaviorEnv(BaseEnv):
         if obj_openable:
             return not ig_obj.states[object_states.Open].get_value()
         return False
+
+    def _toggled_on_classifier(self,
+                               state: State,
+                               objs: Sequence[Object],
+                               skip_allclose_check: bool = False) -> bool:
+        self.check_state_closeness_and_load(state, skip_allclose_check)
+        assert len(objs) == 1
+        ig_obj = self.object_to_ig_object(objs[0])
+        obj_toggleable = self._toggleable_classifier(state, objs)
+        if obj_toggleable:
+            if ig_obj.states[object_states.ToggledOn].get_value():
+                return True
+        return False
+
+    def _toggled_off_classifier(self,
+                                state: State,
+                                objs: Sequence[Object],
+                                skip_allclose_check: bool = False) -> bool:
+        self.check_state_closeness_and_load(state, skip_allclose_check)
+        assert len(objs) == 1
+        return not self._toggled_on_classifier(state, objs)
+
+    def _toggleable_classifier(self,
+                               state: State,
+                               objs: Sequence[Object],
+                               skip_allclose_check: bool = False) -> bool:
+        self.check_state_closeness_and_load(state, skip_allclose_check)
+        assert len(objs) == 1
+        ig_obj = self.object_to_ig_object(objs[0])
+        obj_toggleable = hasattr(
+            ig_obj, "states") and object_states.ToggledOn in ig_obj.states
+        return obj_toggleable
 
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
