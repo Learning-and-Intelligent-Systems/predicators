@@ -8,6 +8,7 @@ from typing import Dict, List, Set, Tuple
 import numpy as np
 from gym.spaces import Box
 
+from predicators import utils
 from predicators.nsrt_learning.option_learning import \
     KnownOptionsOptionLearner, _OptionLearnerBase, create_option_learner
 from predicators.nsrt_learning.sampler_learning import learn_samplers

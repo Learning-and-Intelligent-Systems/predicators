@@ -234,6 +234,7 @@ def task_plan_grounding(
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
     allow_noops: bool = False,
+    timeout: float = float('inf')
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
     filtering out ones that are unreachable or have empty effects.
@@ -243,6 +244,7 @@ def task_plan_grounding(
 
     See the task_plan docstring for usage instructions.
     """
+    start_time = time.perf_counter()
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
     for nsrt in sorted(nsrts):
@@ -250,6 +252,9 @@ def task_plan_grounding(
             if allow_noops or (ground_nsrt.add_effects
                                | ground_nsrt.delete_effects):
                 ground_nsrts.append(ground_nsrt)
+            if time.perf_counter() - start_time > timeout:
+                raise PlanningTimeout("Planning timed out in grounding " +
+                "operators.")
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
     reachable_nsrts = [
         nsrt for nsrt in ground_nsrts

@@ -1523,7 +1523,6 @@ class LiftedDecisionList:
         rule_str = "\n".join(str(r) for r in self.rules)
         return f"LiftedDecisionList[\n{rule_str}\n]"
 
-
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]

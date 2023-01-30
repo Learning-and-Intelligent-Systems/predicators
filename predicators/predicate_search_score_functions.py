@@ -141,13 +141,18 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         # low-level ground atoms sequence after segmentation.
         low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
         del pruned_atom_data
-        pnads = learn_strips_operators(low_level_trajs,
-                                       self._train_tasks,
-                                       set(candidate_predicates
-                                           | self._initial_predicates),
-                                       segmented_trajs,
-                                       verify_harmlessness=False,
-                                       verbose=False)
+        try:
+            pnads = learn_strips_operators(low_level_trajs,
+                                        self._train_tasks,
+                                        set(candidate_predicates
+                                            | self._initial_predicates),
+                                        segmented_trajs,
+                                        verify_harmlessness=False,
+                                        verbose=False,
+                                        timeout=CFG.grammar_search_task_planning_timeout)
+        except utils.LearningTimeout:
+            print("Learning timed out on these predicates.")
+            pnads = []
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
@@ -309,16 +314,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             goal = self._train_tasks[ll_traj.train_task_idx].goal
             # Ground everything once per demo.
             objects = set(ll_traj.states[0])
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms,
-                objects,
-                strips_ops,
-                option_specs,
-                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
-            heuristic = utils.create_task_planning_heuristic(
-                CFG.sesame_task_planning_heuristic, init_atoms, goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
-                objects)
+
             # The expected time needed before a low-level plan is found. We
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
@@ -327,22 +323,33 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
-            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
-                max_skeletons = CFG.sesame_max_skeletons_optimized
-            else:
-                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
-            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
-            assert not CFG.sesame_use_visited_state_set
-            generator = task_plan(init_atoms,
-                                  goal,
-                                  ground_nsrts,
-                                  reachable_atoms,
-                                  heuristic,
-                                  CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout,
-                                  max_skeletons,
-                                  use_visited_state_set=False)
             try:
+                ground_nsrts, reachable_atoms = task_plan_grounding(
+                    init_atoms,
+                    objects,
+                    strips_ops,
+                    option_specs,
+                    allow_noops=CFG.grammar_search_expected_nodes_allow_noops,
+                    timeout=CFG.grammar_search_task_planning_timeout)            
+                heuristic = utils.create_task_planning_heuristic(
+                    CFG.sesame_task_planning_heuristic, init_atoms, goal,
+                    ground_nsrts, candidate_predicates | self._initial_predicates,
+                    objects)
+                if CFG.grammar_search_expected_nodes_max_skeletons == -1:
+                    max_skeletons = CFG.sesame_max_skeletons_optimized
+                else:
+                    max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+                assert max_skeletons <= CFG.sesame_max_skeletons_optimized
+                assert not CFG.sesame_use_visited_state_set
+                generator = task_plan(init_atoms,
+                                    goal,
+                                    ground_nsrts,
+                                    reachable_atoms,
+                                    heuristic,
+                                    CFG.seed,
+                                    CFG.grammar_search_task_planning_timeout,
+                                    max_skeletons,
+                                    use_visited_state_set=False)            
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])

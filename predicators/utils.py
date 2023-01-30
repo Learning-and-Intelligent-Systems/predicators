@@ -1014,6 +1014,9 @@ class EnvironmentFailure(ExceptionWithInfo):
     def __str__(self) -> str:
         return repr(self)
 
+class LearningTimeout(ExceptionWithInfo):
+    """Raised when the learner times out."""
+
 
 def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:

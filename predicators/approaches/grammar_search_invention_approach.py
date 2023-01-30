@@ -44,15 +44,15 @@ def _create_grammar(dataset: Dataset,
     if CFG.grammar_search_grammar_includes_givens:
         given_grammar = _GivenPredicateGrammar(given_predicates)
         grammar = _ChainPredicateGrammar([given_grammar, grammar])
-    # Now, the grammar will undergo a series of transformations.
-    # For each predicate enumerated by the grammar, we also
-    # enumerate the negation of that predicate.
-    grammar = _NegationPredicateGrammarWrapper(grammar)
-    # For each predicate enumerated, we also optionally enumerate foralls
-    # for that predicate, along with appropriate negations.
-    if CFG.grammar_search_grammar_includes_foralls:
-        grammar = _ForallPredicateGrammarWrapper(grammar)
-    # Prune proposed predicates by checking if they are equivalent to
+    # # Now, the grammar will undergo a series of transformations.
+    # # For each predicate enumerated by the grammar, we also
+    # # enumerate the negation of that predicate.
+    # grammar = _NegationPredicateGrammarWrapper(grammar)
+    # # For each predicate enumerated, we also optionally enumerate foralls
+    # # for that predicate, along with appropriate negations.
+    # if CFG.grammar_search_grammar_includes_foralls:
+    #     grammar = _ForallPredicateGrammarWrapper(grammar)
+    # Prune proposes predicates by checking if they are equivalent to
     # any already-generated predicates with respect to the dataset.
     # Note that we want to do this before the skip grammar below,
     # because if any predicates are equivalent to the given predicates,

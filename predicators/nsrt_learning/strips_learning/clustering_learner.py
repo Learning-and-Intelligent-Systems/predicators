@@ -3,6 +3,7 @@
 import abc
 import functools
 import logging
+import time
 from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, cast
 
 from predicators import utils
@@ -19,6 +20,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
         segments = [seg for segs in self._segmented_trajs for seg in segs]
         # Cluster the segments according to common option and effects.
         pnads: List[PNAD] = []
+        start_time = time.perf_counter()
         for segment in segments:
             if segment.has_option():
                 segment_option = segment.get_option()
@@ -28,6 +30,8 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                 segment_param_option = DummyOption.parent
                 segment_option_objs = tuple()
             for pnad in pnads:
+                if time.perf_counter() - start_time > self._timeout:
+                    raise utils.LearningTimeout("Learner ran out of time.")
                 # Try to unify this transition with existing effects.
                 # Note that both add and delete effects must unify,
                 # and also the objects that are arguments to the options.
@@ -52,6 +56,8 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                     pnad.add_to_datastore((segment, sub))
                     break
             else:
+                if time.perf_counter() - start_time > self._timeout:
+                    raise utils.LearningTimeout("Learner ran out of time.")
                 # Otherwise, create a new PNAD.
                 objects = {o for atom in segment.add_effects |
                            segment.delete_effects for o in atom.objects} | \
@@ -78,6 +84,7 @@ class ClusteringSTRIPSLearner(BaseSTRIPSLearner):
                 option_vars = [obj_to_var[o] for o in segment_option_objs]
                 option_spec = (segment_param_option, option_vars)
                 pnads.append(PNAD(op, datastore, option_spec))
+
 
         # Learn the preconditions of the operators in the PNADs. This part
         # is flexible; subclasses choose how to implement it.
@@ -114,7 +121,10 @@ class ClusterAndIntersectSTRIPSLearner(ClusteringSTRIPSLearner):
 
     def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
+        start_time = time.perf_counter()
         for pnad in pnads:
+            if time.perf_counter() - start_time > self._timeout:
+                raise utils.LearningTimeout("Learner ran out of time.")
             preconditions = self._induce_preconditions_via_intersection(pnad)
             # Since we are taking an intersection, we're guaranteed that the
             # datastore can't change, so we can safely use pnad.datastore here.
@@ -134,7 +144,10 @@ class ClusterAndSearchSTRIPSLearner(ClusteringSTRIPSLearner):
 
     def _learn_pnad_preconditions(self, pnads: List[PNAD]) -> List[PNAD]:
         new_pnads = []
+        start_time = time.perf_counter()
         for i, pnad in enumerate(pnads):
+            if time.perf_counter() - start_time > self._timeout:
+                raise utils.LearningTimeout("Learner ran out of time.")
             positive_data = pnad.datastore
             # Construct negative data by merging the datastores of all
             # other PNADs that have the same option.
