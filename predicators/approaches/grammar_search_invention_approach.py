@@ -187,8 +187,8 @@ class _DoubleAttributeCompareClassifier(_BinaryClassifier):
 
     def __str__(self) -> str:
         return (f"(|({self.object1_index}:{self.object1_type.name})."
-                f"{self.attribute1_name} - {self.object1_index}:"
-                f"{self.object1_type.name}.{self.attribute2_name}|"
+                f"{self.attribute1_name} - ({self.object2_index}:"
+                f"{self.object2_type.name}).{self.attribute2_name}|"
                 f"{self.compare_str}[idx {self.constant_idx}]"
                 f"{self.constant:.3})")
 
@@ -376,6 +376,9 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:robot).hand<=[idx 0]0.65)", "((0:block).grasp<=[idx 0]0.0)",
         "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
     ],
+    "repeated_nextto_single_option": [
+        "(|(0:dot).x - (1:robot).x|<=[idx 15]3.12)"
+    ]
 }
 
 
@@ -510,58 +513,58 @@ class _DoubleFeatureInequalitiesPredicateGrammar(
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
         for constant_idx, (constant, cost) in enumerate(constant_generator):
-            for t1 in sorted(self.types):
-                for t2 in sorted(self.types):
-                    for f1 in t1.feature_names:
-                        for f2 in t2.feature_names:
-                            if t1 == t2 and f1 == f2:
-                                # Return a single-arity predicate.
-                                lb, ub = feature_ranges[t1][f1]
-                                # Optimization: if lb == ub, there is no variation
-                                # among this feature, so there's no point in trying to
-                                # learn a classifier with it. So, skip the feature.
-                                if abs(lb - ub) < 1e-6:
-                                    continue
-                                # Scale the constant by the feature range.
-                                k = constant * (ub - lb) + lb
-                                # Only need one of (ge, le) because we can use negations
-                                # to get the other (modulo equality, which we shouldn't
-                                # rely on anyway because of precision issues).
-                                comp, comp_str = le, "<="
-                                classifier = _SingleAttributeCompareClassifier(
-                                    0, t1, f1, k, constant_idx, comp, comp_str)
-                                name = str(classifier)
-                                types = [t1]
-                                pred = Predicate(name, types, classifier)
-                                assert pred.arity == 1
-                                yield (pred, 1 + cost)  # cost = arity + cost from constant
-
-                            # In this case, we actually need a binary attribute
-                            # comparison classifier.
-                            lb1, ub1 = feature_ranges[t1][f1]
-                            if abs(lb1 - ub1) < 1e-6:
+            for (t1, t2) in itertools.combinations_with_replacement(sorted(self.types), 2):
+                for f1 in t1.feature_names:
+                    for f2 in t2.feature_names:
+                        if t1 == t2 and f1 == f2:
+                            # Return a single-arity predicate.
+                            lb, ub = feature_ranges[t1][f1]
+                            # Optimization: if lb == ub, there is no variation
+                            # among this feature, so there's no point in trying to
+                            # learn a classifier with it. So, skip the feature.
+                            if abs(lb - ub) < 1e-6:
                                 continue
-                            lb2, ub2 = feature_ranges[t2][f2]
-                            if abs(lb2 - ub2) < 1e-6:
-                                continue
-                            if self.f_range_intersection(lb1, ub1, lb2, ub2):
-                                lb = 0.0
-                            else:
-                                lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
-                            ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
-                            # Scale the constant by the correct range.
+                            # Scale the constant by the feature range.
                             k = constant * (ub - lb) + lb
-                            # Create classifier.
+                            # Only need one of (ge, le) because we can use negations
+                            # to get the other (modulo equality, which we shouldn't
+                            # rely on anyway because of precision issues).
                             comp, comp_str = le, "<="
-                            classifier = _DoubleAttributeCompareClassifier(
-                                0, t1, f1, 1, t2, f2, k, constant_idx, comp,
-                                comp_str)
+                            classifier = _SingleAttributeCompareClassifier(
+                                0, t1, f1, k, constant_idx, comp, comp_str)
                             name = str(classifier)
-                            types = [t1, t2]
+                            types = [t1]
                             pred = Predicate(name, types, classifier)
-                            assert pred.arity == 2
-                            yield (pred, 2 + cost
-                                   )  # cost = arity + cost from constant
+                            assert pred.arity == 1
+                            yield (pred, 1 + cost)  # cost = arity + cost from constant
+
+                        # In this case, we actually need a binary attribute
+                        # comparison classifier.
+                        lb1, ub1 = feature_ranges[t1][f1]
+                        if abs(lb1 - ub1) < 1e-6:
+                            continue
+                        lb2, ub2 = feature_ranges[t2][f2]
+                        if abs(lb2 - ub2) < 1e-6:
+                            continue
+                        if self.f_range_intersection(lb1, ub1, lb2, ub2):
+                            lb = 0.0
+                        else:
+                            lb = min(abs(lb2 - ub1), abs(lb1 - ub2))
+                        ub = max(abs(ub2 - lb1), abs(ub1 - lb2))
+
+                        # Scale the constant by the correct range.
+                        k = constant * (ub - lb) + lb
+                        # Create classifier.
+                        comp, comp_str = le, "<="
+                        classifier = _DoubleAttributeCompareClassifier(
+                            0, t1, f1, 1, t2, f2, k, constant_idx, comp,
+                            comp_str)
+                        name = str(classifier)
+                        types = [t1, t2]
+                        pred = Predicate(name, types, classifier)
+                        assert pred.arity == 2
+                        yield (pred, 2 + cost
+                                )  # cost = arity + cost from constant
 
     def f_range_intersection(self, lb1: float, ub1: float, lb2: float,
                              ub2: float) -> bool:
