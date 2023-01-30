@@ -282,7 +282,8 @@ class PNADSearchSTRIPSLearner(GeneralToSpecificSTRIPSLearner):
         path, _, _ = utils.run_hill_climbing(initial_state=initial_state,
                                              check_goal=lambda _: False,
                                              get_successors=get_successors,
-                                             heuristic=heuristic)
+                                             heuristic=heuristic,
+                                             enable_logging=self._verbose)
 
         # Extract the best PNADs set.
         final_pnads = path[-1]
