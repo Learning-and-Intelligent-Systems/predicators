@@ -502,7 +502,9 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 class _DoubleFeatureInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Generates features of the form "|0.feature - 1.feature| >= c" or 
-    "|0.feature - 1.feature| <= c"."""
+    "|0.feature - 1.feature| <= c". This is also capable of
+    generating single-feature inequalities if 0 and 1 are the
+    same type."""
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
