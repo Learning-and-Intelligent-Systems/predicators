@@ -199,7 +199,7 @@ class _DoubleAttributeCompareClassifier(_BinaryClassifier):
         name2 = CFG.grammar_search_classifier_pretty_str_names[
             self.object2_index]
         vars_str = (f"{name1}:{self.object1_type.name}, "
-                    "{name2}:{self.object2_type.name}")
+                    f"{name2}:{self.object2_type.name}")
         body_str = (f"(|{name1}.{self.attribute1_name} - "
                     f"{name2}.{self.attribute2_name}| "
                     f"{self.compare_str} {self.constant:.3})")

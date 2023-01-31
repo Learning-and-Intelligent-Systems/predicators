@@ -7,7 +7,9 @@ import pytest
 
 from predicators import utils
 from predicators.approaches.grammar_search_invention_approach import \
-    _create_grammar, _DataBasedPredicateGrammar, _ForallClassifier, \
+    _create_grammar, _DataBasedPredicateGrammar, \
+    _DoubleAttributeCompareClassifier, \
+    _DoubleFeatureInequalitiesPredicateGrammar, _ForallClassifier, \
     _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
     _SingleAttributeCompareClassifier, \
     _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
@@ -45,10 +47,14 @@ def test_predicate_grammar(segmenter):
         data_based_grammar.generate(max_num=1)
     env = CoverEnv()
     single_ineq_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+    double_ineq_grammar = _DoubleFeatureInequalitiesPredicateGrammar(dataset)
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
-    feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
-    assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
-    assert feature_ranges[block.type]["grasp"] == (-1, 1)
+    sing_feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
+    assert sing_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+    assert sing_feature_ranges[block.type]["grasp"] == (-1, 1)
+    doub_feature_ranges = double_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
+    assert doub_feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+    assert doub_feature_ranges[block.type]["grasp"] == (-1, 1)
     forall_grammar = _create_grammar(dataset, env.predicates)
     # Test edge case where there are no low-level features in the dataset.
     dummy_type = Type("dummy", [])
@@ -58,16 +64,31 @@ def test_predicate_grammar(segmenter):
         LowLevelTrajectory([dummy_state, dummy_state],
                            [np.zeros(1, dtype=np.float32)])
     ])
-    dummy_grammar = _SingleFeatureInequalitiesPredicateGrammar(dummy_dataset)
-    assert len(dummy_grammar.generate(max_num=1)) == 0
+    dummy_sing_grammar = _SingleFeatureInequalitiesPredicateGrammar(
+        dummy_dataset)
+    dummy_doub_grammar = _DoubleFeatureInequalitiesPredicateGrammar(
+        dummy_dataset)
+    assert len(dummy_sing_grammar.generate(max_num=1)) == 0
+    assert len(dummy_doub_grammar.generate(max_num=1)) == 0
     # There are only so many unique predicates possible under the grammar.
     # Non-unique predicates are pruned. Note that with a larger dataset,
     # more predicates would appear unique.
     assert len(forall_grammar.generate(max_num=100)) == 12
+    # Test the same thing, but using a forall grammar with
+    # on 2-arity predicates.
+    utils.reset_config({
+        "grammar_search_grammar_use_double_features": True,
+        "segmenter": segmenter,
+        "env": "cover"
+    })
+    forall_grammar = _create_grammar(dataset, env.predicates)
+    # utils.reset_config({"grammar_search_grammar_use_double_features": False})
+    assert len(forall_grammar.generate(max_num=100)) == 55
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.reset_config({"grammar_search_predicate_cost_upper_bound": 0})
     assert len(single_ineq_grammar.generate(max_num=10)) == 0
+    assert len(double_ineq_grammar.generate(max_num=10)) == 0
     # With an empty dataset, all predicates should look the same, so zero
     # predicates should be enumerated. The reason that it's zero and not one
     # is because the given predicates are considered too when determining
@@ -111,6 +132,24 @@ def test_single_attribute_compare_classifier():
     assert classifier(state0, [cup3])
     assert str(classifier) == "((2:cup_type).feat1>[idx 5]1.0)"
     assert classifier.pretty_str() == ("?z:cup_type", "(?z.feat1 > 1.0)")
+
+
+def test_double_attribute_compare_classifier():
+    """Tests for _DoubleAttributeCompareClassifier."""
+    cup_type = Type("cup_type", ["feat1"])
+    saucer_type = Type("saucer_type", ["feat1"])
+    cup1 = cup_type("cup1")
+    saucer1 = saucer_type("saucer1")
+
+    classifier = _DoubleAttributeCompareClassifier(2, cup_type, "feat1", 0,
+                                                   saucer_type, "feat1", 1.0,
+                                                   5, gt, ">")
+    state0 = State({cup1: [0.0], saucer1: [2.0]})
+    assert classifier(state0, [cup1, saucer1])
+    assert str(classifier
+               ) == "(|(2:cup_type).feat1 - (0:saucer_type).feat1|>[idx 5]1.0)"
+    assert classifier.pretty_str() == ('?z:cup_type, ?x:saucer_type',
+                                       '(|?z.feat1 - ?x.feat1| > 1.0)')
 
 
 def test_forall_classifier():
