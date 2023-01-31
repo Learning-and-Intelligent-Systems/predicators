@@ -1052,6 +1052,17 @@ LDLRule-MyPickRule:
     expected_nsrt = pick_nsrt.ground([cup1])
     assert utils.query_ldl(ldl, atoms, objects, goal) == expected_nsrt
 
+    # Test for missing positive static preconditions.
+    static_predicates = {hand_empty}  # pretend static for this test
+    init_atoms = set()
+    assert utils.query_ldl(ldl, atoms, objects, goal, static_predicates,
+                           init_atoms) is None
+    # Test for present negative static preconditions.
+    static_predicates = {holding}  # pretend static for this test
+    init_atoms = {holding([cup1])}
+    assert utils.query_ldl(ldl, atoms, objects, goal, static_predicates,
+                           init_atoms) is None
+
     atoms = {holding([cup1])}
 
     expected_nsrt = place_nsrt.ground([cup1, plate1])
