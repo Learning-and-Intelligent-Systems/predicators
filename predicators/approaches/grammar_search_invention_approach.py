@@ -31,10 +31,12 @@ from predicators.structs import Dataset, GroundAtom, GroundAtomTrajectory, \
 
 def _create_grammar(dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
-    # We start with considering various ways to split single feature values
-    # across our dataset.
+    # We start with considering various ways to split either single or
+    # double feature values across our dataset.
     grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
         dataset)
+    if CFG.grammar_search_grammar_use_double_features:
+        grammar = _DoubleFeatureInequalitiesPredicateGrammar(dataset)
     # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.

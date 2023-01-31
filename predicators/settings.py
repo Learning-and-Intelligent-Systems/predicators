@@ -459,6 +459,7 @@ class GlobalSettings:
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
+    grammar_search_grammar_use_double_features = True
     grammar_search_use_handcoded_debug_grammar = False
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
